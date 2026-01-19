@@ -15,5 +15,9 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     while True:
         data = await websocket.receive_text()
-        req_obj: UserRequests = json.load(data)
+        try:
+            req_obj: UserRequests = json.load(data)
+        except Error:
+            websocket.send_text(f"Invalid Request: {data}")
+            return
         await websocket.send_text(f"Message text was: {data}")

@@ -4,8 +4,8 @@ from typing import Literal, Union
 
 @dataclass
 class Error:
-    type: Literal["error"] = "error"
     message: str
+    type: Literal["error"] = "error"
 
 
 # Response to client

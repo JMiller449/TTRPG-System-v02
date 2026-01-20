@@ -4,8 +4,8 @@ from typing import Literal, Union
 
 @dataclass
 class Yap:
-    type: Literal["yap"] = "yap"
     message: str
+    type: Literal["yap"] = "yap"
 
 
 # Request from client

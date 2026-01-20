@@ -2,8 +2,8 @@ import json
 
 from fastapi import APIRouter, WebSocket
 
-from schemas.requests import Requests
-from schemas.responses import Error
+from backend.schemas.ipc_types.requests import Requests
+from backend.schemas.ipc_types.responses import Error
 
 router = APIRouter()
 

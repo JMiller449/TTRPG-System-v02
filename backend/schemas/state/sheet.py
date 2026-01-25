@@ -29,7 +29,7 @@ class Sheet:
 
 # an instanced persistant sheet, contains current values and augmented stat values (i.e. current health/mana)
 @dataclass
-class PersistantSheet:
+class PersistentSheet:
     parent_id: str # points to parent Sheet
     health: float
     mana: int
@@ -39,7 +39,7 @@ class PersistantSheet:
 # Holds combat specific information that does not need to be stored outside of combat or initiative
 @dataclass
 class CombatSheet:
-    parent_id: str # points to parent PersistantSheet
+    parent_id: str # points to parent PersistentSheet
     active: bool  # toggle for dm to hide goblins in the bush or character off screen
     action_count: int # remaining actions
     initiative: int # the initiative value rolled to determine initiative order

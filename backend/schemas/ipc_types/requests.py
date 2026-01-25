@@ -1,56 +1,81 @@
 from dataclasses import dataclass
-from typing import Literal, Union
+from typing import Dict, Literal, Optional, Union
 
-from backend.schemas.state.enemy import EnemyBridge
-from backend.schemas.state.item import ItemBridge
-from backend.schemas.state.proficiency import ProficiencyBridge
-from backend.schemas.state.shared import Bridge
+from backend.schemas.state.action import Action
+from backend.schemas.state.item import Item
 
-
-@dataclass
-class Yap:
-    message: str
-    type: Literal["yap"] = "yap"
+CrudEntityUnion = Union[Item, Action]
 
 
 @dataclass
-class CreatePlayer:
-    type: Literal["create_player"] = "create_player"
-    request_id: str | None = None
-    player_id: str = ""
-    name: str = ""
-    health: str | None = None
-    ac: str | None = None
-    xp_cap: str | None = None
-    proficiencies: dict[str, ProficiencyBridge] | None = None
-    items: dict[str, ItemBridge] | None = None
-    stats: dict[str, Bridge] | None = None
-    enemy_slained: dict[str, EnemyBridge] | None = None
-    actions: dict[str, Bridge] | None = None
+class RequestParent:
+    request_id: Optional[str]
+
+
+# turn order handling
+@dataclass
+class BuildTurnOrder(RequestParent):
+    type: Literal["build_turn_order"] = "buld_turn_order"
 
 
 @dataclass
-class UpdatePlayer:
-    type: Literal["update_player"] = "update_player"
-    request_id: str | None = None
-    player_id: str = ""
-    name: str | None = None
-    health: str | None = None
-    ac: str | None = None
-    xp_cap: str | None = None
-    proficiencies: dict[str, ProficiencyBridge] | None = None
-    items: dict[str, ItemBridge] | None = None
-    stats: dict[str, Bridge] | None = None
-    enemy_slained: dict[str, EnemyBridge] | None = None
-    actions: dict[str, Bridge] | None = None
+class EndTurn(RequestParent):
+    type: Literal["end_turn"] = "end_turn"
 
 
 @dataclass
-class DeletePlayer:
-    type: Literal["delete_player"] = "delete_player"
-    request_id: str | None = None
-    player_id: str = ""
+class DestoryTurnOrder(RequestParent):
+    type: Literal["destory_turn_order"] = "destory_turn_order"
+
+
+# actions
+@dataclass
+class PerformReaction(RequestParent):
+    victim_id: Optional[str]
+    action_id: str
+    type: Literal["perform_action"] = "perform_action"
+
+
+@dataclass
+class RespondToAttack(RequestParent):
+    response_type: Literal["parry", "block", "dodge", "action"]
+    action_id: Optional[str]
+    type: Literal["respond"] = "respond"
+
+
+@dataclass
+class CreateEntity(RequestParent):
+    entitry: CrudEntityUnion
+    type: Literal["create_entity"] = "create_entity"
+
+
+@dataclass
+class UpdateEntity(RequestParent):
+    # this is a dict instead of entity because having duplicate shape for optional is a pain
+    entity_id: str
+    entity_partiala: Dict[str, any]
+    type: Literal["update_entity"] = "update_entity"
+
+
+@dataclass
+class DeleteEntity(RequestParent):
+    entity_id: str
+    type: Literal["delete_entity"] = "delete_entity"
+    request_id: Optional[str] = None
 
 
 # Request from client
-Requests = Union[Yap, CreatePlayer, UpdatePlayer, DeletePlayer]
+Requests = Union[
+    # basic crud
+    CreateEntity,
+    UpdateEntity,
+    DeleteEntity,
+    # reaction
+    RespondToAttack,
+    # action
+    PerformReaction,
+    # turn order
+    DestoryTurnOrder,
+    EndTurn,
+    BuildTurnOrder,
+]

@@ -3,7 +3,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, WebSocket
 
-from backend.schemas.ipc_types.requests import CreatePlayer, Requests
+from backend.schemas.ipc_types.requests import CreateEntity, Requests
 from backend.schemas.ipc_types.responses import Error, StateSnapshot
 from backend.state.game_logic import GameLogic
 
@@ -23,7 +23,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 case "yap":
                     print(f"Yapper said {payload.get('message')}")
                 case "create_player":
-                    req_obj: Requests = CreatePlayer(**payload)
+                    req_obj: Requests = CreateEntity(**payload)
                     GameLogic.create_player(req_obj)
                     players = GameLogic.state_snapshot_players()
                     response = StateSnapshot(

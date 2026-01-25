@@ -1,19 +1,17 @@
 from dataclasses import dataclass
-from typing import Dict
 
-from backend.schemas.state.shared import Bridge
+from backend.schemas.state.damage import DamageTotal
+from backend.schemas.state.formula import Formula
 
 
 @dataclass
 class Action:
     id: str
     name: str
+    action_point_cost: int
     rank: str
-    hit_mod: str
-    damage: str
-    per_turn_count: str
-    range: str
-    damage_type: str
+    hit_mod: Formula
+    damage: DamageTotal
+    healing: DamageTotal
+    range: Formula
     notes: str
-    trion: str
-    proficiencies: Dict[str, Bridge]

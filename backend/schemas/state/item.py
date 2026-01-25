@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import List
 
-from backend.schemas.state.augmentation import StatAugmentationBridge
-from backend.schemas.state.shared import Bridge
+from backend.schemas.state.formula import Formula
+from backend.schemas.state.stat import StatName
 
 
 @dataclass
@@ -14,10 +14,16 @@ class ItemBridge:
 
 
 @dataclass
+class StatAugmentation:
+    stat_name: StatName
+    augmentation: Formula
+
+
+@dataclass
 class Item:
     id: str
     name: str
     description: str
     price: str
     weight: str
-    stat_augmentations: Dict[str, StatAugmentationBridge]
+    stat_augmentations: List[StatAugmentation]

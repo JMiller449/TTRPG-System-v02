@@ -1,29 +1,24 @@
 from backend.schemas.ipc_types.requests import (
-    CreatePlayer,
-    DeletePlayer,
+    CreateEntity,
     Requests,
-    UpdatePlayer,
-    Yap,
+    UpdateEntity,
 )
 from backend.schemas.ipc_types.responses import (
     Error,
     PatchOp,
-    PlayerState,
     Responses,
     StatePatch,
     StateSnapshot,
 )
 
 __all__ = [
-    "CreatePlayer",
+    "CreateEntity",
     "DeletePlayer",
     "Error",
     "PatchOp",
-    "PlayerState",
     "Responses",
     "Requests",
     "StatePatch",
     "StateSnapshot",
-    "UpdatePlayer",
-    "Yap",
+    "UpdateEntity",
 ]

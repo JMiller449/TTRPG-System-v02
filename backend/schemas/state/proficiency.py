@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 
 
+
+@dataclass
+class ProficiencyBridge:
+    relationship_id: str
+    prof_id: str
+
+
 @dataclass
 class Proficiency:
     id: str

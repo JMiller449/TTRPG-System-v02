@@ -20,7 +20,7 @@ class Sheet:
     dm_only: bool  # toogle to hide from other users
     xp_given_when_slayed: int
     xp_cap: str
-    proficiencies: Dict[str, Proficiency]
+    proficiencies: Dict[str, ProficiencyBridge]
     items: Dict[str, ItemBridge]
     stats: Stats
     slayed_record: Dict[str, SheetSlayedBridge]

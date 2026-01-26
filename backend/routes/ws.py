@@ -22,15 +22,6 @@ async def websocket_endpoint(websocket: WebSocket):
             match msg_type:
                 case "yap":
                     print(f"Yapper said {payload.get('message')}")
-                case "create_player":
-                    req_obj: Requests = CreateEntity(**payload)
-                    GameLogic.create_player(req_obj)
-                    players = GameLogic.state_snapshot_players()
-                    response = StateSnapshot(
-                        request_id=req_obj.request_id,
-                        players=players,
-                    )
-                    await websocket.send_json(asdict(response))
                 case _:
                     await websocket.send_json(
                         asdict(

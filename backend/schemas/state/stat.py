@@ -41,6 +41,7 @@ class Stats:
     perception: int
     arcane: int
     will: int
+    
     # sub stats
     lifting: Formula
     carry_weight: Formula

@@ -30,7 +30,7 @@ class DestoryTurnOrder(RequestParent):
 
 # actions
 @dataclass
-class PerformReaction(RequestParent):
+class PerformAction(RequestParent):
     victim_id: Optional[str]
     action_id: str
     type: Literal["perform_action"] = "perform_action"
@@ -45,7 +45,7 @@ class RespondToAttack(RequestParent):
 
 @dataclass
 class CreateEntity(RequestParent):
-    entitry: CrudEntityUnion
+    entity: CrudEntityUnion
     type: Literal["create_entity"] = "create_entity"
 
 

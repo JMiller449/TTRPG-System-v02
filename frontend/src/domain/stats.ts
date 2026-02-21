@@ -1,0 +1,53 @@
+import type { StatKey } from "@/domain/models";
+
+export const ALL_STATS: readonly StatKey[] = [
+  "strength",
+  "dexterity",
+  "constitution",
+  "perception",
+  "arcane",
+  "will",
+  "lifting",
+  "carry_weight",
+  "acrobatics",
+  "stamina",
+  "reaction_time",
+  "health",
+  "endurance",
+  "pain_tolerance",
+  "sight_distance",
+  "intuition",
+  "registration",
+  "mana",
+  "control",
+  "sensitivity",
+  "charisma",
+  "mental_fortitude",
+  "courage"
+];
+
+export const STAT_LABELS: Record<StatKey, string> = {
+  strength: "Strength",
+  dexterity: "Dexterity",
+  constitution: "Constitution",
+  perception: "Perception",
+  arcane: "Arcane",
+  will: "Will",
+  lifting: "Lifting",
+  carry_weight: "Carry Weight",
+  acrobatics: "Acrobatics",
+  stamina: "Stamina",
+  reaction_time: "Reaction Time",
+  health: "Health",
+  endurance: "Endurance",
+  pain_tolerance: "Pain Tolerance",
+  sight_distance: "Sight Distance",
+  intuition: "Intuition",
+  registration: "Registration",
+  mana: "Mana",
+  control: "Control",
+  sensitivity: "Sensitivity",
+  charisma: "Charisma",
+  mental_fortitude: "Mental Fortitude",
+  courage: "Courage"
+};

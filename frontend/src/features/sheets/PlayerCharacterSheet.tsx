@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { GameClient } from "@/hooks/useGameClient";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
-import { makeId } from "@/shared/utils/id";
 
 const CORE_SUBSTAT_GROUPS = [
   { core: "strength", subs: ["lifting", "carry_weight"] },
@@ -68,11 +66,9 @@ function isResourceKey(value: string): value is ResourceKey {
 }
 
 export function PlayerCharacterSheet({
-  client,
   mode = "player",
   panelTitle
 }: {
-  client: GameClient;
   mode?: "player" | "gm";
   panelTitle?: string;
 }): JSX.Element {
@@ -250,25 +246,7 @@ export function PlayerCharacterSheet({
   const activeWeaponLabel = activeWeapon ?? "None";
 
   return (
-    <Panel
-      title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}
-      actions={
-        mode === "player" ? (
-          <button
-            className="button button--secondary"
-            onClick={() =>
-              client.sendIntent({
-                intentId: makeId("intent"),
-                type: "set_active_sheet",
-                payload: { sheetId: null }
-              })
-            }
-          >
-            Change Player
-          </button>
-        ) : null
-      }
-    >
+    <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
       <p className="character-sheet__panel-subtext muted">
         Sheet ID: {detail.instance.id} · Updated: {new Date(detail.instance.updatedAt).toLocaleDateString()}
       </p>

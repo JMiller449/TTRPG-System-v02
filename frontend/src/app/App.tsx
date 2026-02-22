@@ -66,10 +66,14 @@ export function App(): JSX.Element {
       {role === "gm" ? <GMPageNavPanel /> : null}
 
       {role === "player" ? (
-        <main className="app-grid-player">
-          <PlayerCharacterSheet client={client} mode="player" panelTitle="Character Sheet" />
-          <LevelUpPanel />
-          <RollLog sheetId={activeSheetId} client={client} />
+        <main className="app-grid-player-shell">
+          <section className="player-console-main">
+            <PlayerCharacterSheet mode="player" panelTitle="Character Sheet" />
+          </section>
+          <section className="player-console-side">
+            <RollPanel client={client} mode="player" />
+            <RollLog sheetId={activeSheetId} />
+          </section>
         </main>
       ) : gmView === "template_library" ? (
         <main className="app-grid-player">
@@ -92,7 +96,7 @@ export function App(): JSX.Element {
 
           <section className="app-column app-column--wide">
             <SheetTabs client={client} />
-            <PlayerCharacterSheet client={client} mode="gm" panelTitle="Sheet Detail" />
+            <PlayerCharacterSheet mode="gm" panelTitle="Sheet Detail" />
             <LevelUpPanel />
             <RollPanel client={client} />
             <RollLog />

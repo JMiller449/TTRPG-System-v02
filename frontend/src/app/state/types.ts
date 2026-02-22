@@ -26,6 +26,7 @@ export interface IntentFeedbackItem {
 
 export interface AppState {
   role: Role | null;
+  playerConsoleEnteredSheetId: string | null;
   gmPassword: string;
   gmAuthenticated: boolean;
   connection: {
@@ -53,6 +54,7 @@ export interface AppState {
 
 export type AppAction =
   | { type: "set_role"; role: Role | null }
+  | { type: "set_player_console_entered_sheet"; sheetId: string | null }
   | { type: "set_gm_password"; password: string }
   | { type: "set_gm_authenticated"; value: boolean }
   | { type: "set_gm_view"; view: GMView }

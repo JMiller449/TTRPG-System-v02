@@ -103,8 +103,11 @@ export function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         role: action.role,
+        playerConsoleEnteredSheetId: null,
         gmView: action.role === "gm" ? state.gmView : "console"
       };
+    case "set_player_console_entered_sheet":
+      return { ...state, playerConsoleEnteredSheetId: action.sheetId };
     case "set_gm_password":
       return { ...state, gmPassword: action.password };
     case "set_gm_authenticated":

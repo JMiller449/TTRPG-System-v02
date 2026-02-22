@@ -74,9 +74,9 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
       actions={
         <button
           className="button button--secondary"
-          onClick={() => dispatch({ type: "set_gm_view", view: "console" })}
+          onClick={() => dispatch({ type: "set_gm_view", view: "template_library" })}
         >
-          Back to Console
+          Back to Template Library
         </button>
       }
     >

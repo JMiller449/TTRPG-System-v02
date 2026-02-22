@@ -10,7 +10,11 @@ import type {
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 export type IntentFeedbackStatus = "pending" | "success" | "error";
-export type GMView = "console" | "create_template";
+export type GMView =
+  | "console"
+  | "template_library"
+  | "create_template"
+  | "encounter_presets";
 
 export interface IntentFeedbackItem {
   id: string;

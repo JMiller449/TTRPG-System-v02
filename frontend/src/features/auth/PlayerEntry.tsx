@@ -117,6 +117,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
           <button
             className="button button--secondary"
             onClick={() => {
+              dispatch({ type: "set_gm_view", view: "console" });
               dispatch({ type: "set_role", role: null });
             }}
           >

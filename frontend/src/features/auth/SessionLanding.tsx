@@ -30,6 +30,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
     await ensureConnected();
     dispatch({ type: "set_gm_authenticated", value: false });
     dispatch({ type: "set_gm_password", password: "" });
+    dispatch({ type: "set_gm_view", view: "console" });
     dispatch({ type: "set_role", role: "player" });
   };
 
@@ -43,6 +44,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
     setLocalError(null);
     await ensureConnected();
     dispatch({ type: "set_gm_password", password });
+    dispatch({ type: "set_gm_view", view: "console" });
     client.sendIntent({
       intentId: makeId("intent"),
       type: "authenticate_gm",

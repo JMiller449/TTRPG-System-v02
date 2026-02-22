@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/app/state/store";
 import { AuthPanel } from "@/features/auth/AuthPanel";
+import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
+import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { RollLog } from "@/features/rolls/RollLog";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
@@ -61,6 +63,7 @@ export function App(): JSX.Element {
         </div>
       </header>
       <IntentFeedbackBanners />
+      {role === "gm" ? <GMPageNavPanel /> : null}
 
       {role === "player" ? (
         <main className="app-grid-player">
@@ -68,16 +71,23 @@ export function App(): JSX.Element {
           <LevelUpPanel />
           <RollLog sheetId={activeSheetId} client={client} />
         </main>
+      ) : gmView === "template_library" ? (
+        <main className="app-grid-player">
+          <TemplateLibrary client={client} />
+        </main>
       ) : gmView === "create_template" ? (
         <main className="app-grid-player">
           <TemplateCreatePage client={client} />
+        </main>
+      ) : gmView === "encounter_presets" ? (
+        <main className="app-grid-player">
+          <EncounterPanel client={client} />
         </main>
       ) : (
         <main className="app-grid">
           <aside className="app-column">
             <AuthPanel client={client} />
-            <TemplateLibrary client={client} />
-            <EncounterPanel client={client} />
+            <EncounterQuickSelectPanel client={client} />
           </aside>
 
           <section className="app-column app-column--wide">

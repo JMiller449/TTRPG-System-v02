@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import { useAppStore } from "@/app/state/store";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
+import { makeId } from "@/shared/utils/id";
 
 const CORE_SUBSTAT_GROUPS = [
   { core: "strength", subs: ["lifting", "carry_weight"] },
@@ -17,6 +18,7 @@ type CoreStatKey = (typeof CORE_SUBSTAT_GROUPS)[number]["core"];
 type SubStatKey = (typeof CORE_SUBSTAT_GROUPS)[number]["subs"][number];
 type SheetStatKey = CoreStatKey | SubStatKey;
 type ResourceKey = "health" | "mana";
+type PlayerSheetTab = "stats" | "equipment" | "notes";
 
 const RESOURCE_KEYS: readonly ResourceKey[] = ["health", "mana"];
 
@@ -77,6 +79,8 @@ export function PlayerCharacterSheet({
       activeSheetId,
       instances,
       templates,
+      itemTemplates,
+      itemTemplateOrder,
       localSheetNotes,
       localSheetEquipment,
       localSheetActiveWeapon,
@@ -93,7 +97,8 @@ export function PlayerCharacterSheet({
   const [editingResource, setEditingResource] = useState<ResourceKey | null>(null);
   const [resourceDraftModifier, setResourceDraftModifier] = useState("");
   const [resourceEditorError, setResourceEditorError] = useState<string | null>(null);
-  const [equipmentDraft, setEquipmentDraft] = useState("");
+  const [selectedItemTemplateId, setSelectedItemTemplateId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
 
   const detail = useMemo(() => {
     if (!activeSheetId) {
@@ -128,7 +133,21 @@ export function PlayerCharacterSheet({
       health: detail?.stats.health ?? 0,
       mana: detail?.stats.mana ?? 0
     });
-  }, [detail?.instance.id, detail?.template?.updatedAt, detail?.stats.health, detail?.stats.mana]);
+    setSelectedItemTemplateId((prev) => {
+      if (prev && itemTemplates[prev]) {
+        return prev;
+      }
+      return itemTemplateOrder[0] || "";
+    });
+    setActiveTab("stats");
+  }, [
+    detail?.instance.id,
+    detail?.template?.updatedAt,
+    detail?.stats.health,
+    detail?.stats.mana,
+    itemTemplates,
+    itemTemplateOrder
+  ]);
 
   const getModifier = (key: SheetStatKey): number => modifiers[key] ?? 0;
 
@@ -242,8 +261,16 @@ export function PlayerCharacterSheet({
 
   const runtimeNote = localSheetNotes[detail.instance.id] ?? detail.instance.notes ?? "";
   const equipment = localSheetEquipment[detail.instance.id] ?? [];
-  const activeWeapon = localSheetActiveWeapon[detail.instance.id] ?? null;
-  const activeWeaponLabel = activeWeapon ?? "None";
+  const activeWeaponId = localSheetActiveWeapon[detail.instance.id] ?? null;
+  const activeWeaponEntry = equipment.find((entry) => entry.id === activeWeaponId) ?? null;
+  const activeWeaponTemplate = activeWeaponEntry
+    ? itemTemplates[activeWeaponEntry.itemTemplateId] ?? null
+    : null;
+  const activeWeaponLabel = activeWeaponTemplate?.name ?? "None";
+  const selectedTemplate = selectedItemTemplateId ? itemTemplates[selectedItemTemplateId] ?? null : null;
+  const showStatsSection = mode !== "player" || activeTab === "stats";
+  const showEquipmentSection = mode !== "player" || activeTab === "equipment";
+  const showNotesSection = mode !== "player" || activeTab === "notes";
 
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
@@ -321,7 +348,31 @@ export function PlayerCharacterSheet({
           </div>
         </header>
 
-        <section className="character-sheet__section">
+        {mode === "player" ? (
+          <nav className="character-sheet__tabs" aria-label="Character sheet sections">
+            <button
+              className={`character-sheet__tab ${activeTab === "stats" ? "character-sheet__tab--active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              Stats
+            </button>
+            <button
+              className={`character-sheet__tab ${activeTab === "equipment" ? "character-sheet__tab--active" : ""}`}
+              onClick={() => setActiveTab("equipment")}
+            >
+              Equipment
+            </button>
+            <button
+              className={`character-sheet__tab ${activeTab === "notes" ? "character-sheet__tab--active" : ""}`}
+              onClick={() => setActiveTab("notes")}
+            >
+              Notes
+            </button>
+          </nav>
+        ) : null}
+
+        {showStatsSection ? (
+          <section className="character-sheet__section">
           <h4>Core Stats and Related Substats</h4>
           <p className="muted character-sheet__hint">
             Click any editable value to apply a modifier. Press Enter to apply, or Esc to cancel.
@@ -487,90 +538,146 @@ export function PlayerCharacterSheet({
             })}
           </div>
           <p className="muted">Modified stats can be reset back to base.</p>
-        </section>
+          </section>
+        ) : null}
 
-        <section className="character-sheet__section">
-          <h4>Notes</h4>
-          <textarea
-            value={runtimeNote}
-            onChange={(event) =>
-              dispatch({
-                type: "set_sheet_note",
-                sheetId: detail.instance.id,
-                note: event.target.value
-              })
-            }
-            rows={5}
-            placeholder="Write quick player notes here..."
-          />
-          <p className="muted">Quick notes are local scaffold state until backend note persistence is finalized.</p>
-        </section>
-
-        <section className="character-sheet__section">
-          <h4>Equipment</h4>
-          <p className="muted">Inventory list only. No slot system is applied in frontend.</p>
-          <div className="equipment-add-row">
-            <input
-              value={equipmentDraft}
-              onChange={(event) => setEquipmentDraft(event.target.value)}
-              placeholder="e.g. Iron Sword"
+        {showNotesSection ? (
+          <section className="character-sheet__section">
+            <h4>Notes</h4>
+            <textarea
+              value={runtimeNote}
+              onChange={(event) =>
+                dispatch({
+                  type: "set_sheet_note",
+                  sheetId: detail.instance.id,
+                  note: event.target.value
+                })
+              }
+              rows={5}
+              placeholder="Write quick player notes here..."
             />
-            <button
-              className="button"
-              onClick={() => {
-                const value = equipmentDraft.trim();
-                if (!value) {
-                  return;
-                }
-                dispatch({ type: "add_sheet_equipment", sheetId: detail.instance.id, item: value });
-                if (!activeWeapon) {
-                  dispatch({ type: "set_sheet_active_weapon", sheetId: detail.instance.id, item: value });
-                }
-                setEquipmentDraft("");
-              }}
-            >
-              Add
-            </button>
-          </div>
-          <p className="muted">Active Weapon: {activeWeaponLabel}</p>
-          <div className="list">
-            {equipment.length === 0 ? <p className="empty-state">No equipment added yet.</p> : null}
-            {equipment.map((item, index) => (
-              <article key={`${item}_${index}`} className="list-item">
-                <div>
-                  <strong>{item}</strong>
-                  {activeWeapon === item ? <div className="muted">Active weapon</div> : null}
+            <p className="muted">Quick notes are local scaffold state until backend note persistence is finalized.</p>
+          </section>
+        ) : null}
+
+        {showEquipmentSection ? (
+          <section className="character-sheet__section">
+            <h4>Equipment</h4>
+            <p className="muted">
+              Inventory uses GM-defined item classes. Effects are display-only in frontend scaffolding.
+            </p>
+            <div className="equipment-add-row">
+              <select
+                value={selectedItemTemplateId}
+                onChange={(event) => setSelectedItemTemplateId(event.target.value)}
+              >
+                {itemTemplateOrder.length === 0 ? <option value="">No items created yet</option> : null}
+                {itemTemplateOrder.map((itemId) => {
+                  const item = itemTemplates[itemId];
+                  if (!item) {
+                    return null;
+                  }
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.type})
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                className="button"
+                onClick={() => {
+                  if (!selectedTemplate) {
+                    return;
+                  }
+                  const nextEntry = {
+                    id: makeId("inv"),
+                    itemTemplateId: selectedTemplate.id
+                  };
+                  dispatch({ type: "add_sheet_equipment", sheetId: detail.instance.id, entry: nextEntry });
+                  if (!activeWeaponId) {
+                    dispatch({
+                      type: "set_sheet_active_weapon",
+                      sheetId: detail.instance.id,
+                      inventoryItemId: nextEntry.id
+                    });
+                  }
+                }}
+                disabled={!selectedTemplate}
+              >
+                Add
+              </button>
+            </div>
+            <p className="muted">Active Weapon: {activeWeaponLabel}</p>
+            {selectedTemplate ? (
+              <article className="template-editor">
+                <p className="template-editor__title">Selected Item Preview</p>
+                <div className="muted">
+                  {selectedTemplate.type} · Rank {selectedTemplate.rank} · Weight {selectedTemplate.weight} · Value{" "}
+                  {selectedTemplate.value}
                 </div>
-                <div className="inline-actions">
-                  <button
-                    className="button button--secondary"
-                    onClick={() =>
-                      dispatch({
-                        type: "set_sheet_active_weapon",
-                        sheetId: detail.instance.id,
-                        item: activeWeapon === item ? null : item
-                      })
-                    }
-                  >
-                    {activeWeapon === item ? "Clear Active" : "Set Active"}
-                  </button>
-                  <button
-                    className="button button--secondary"
-                    onClick={() =>
-                      dispatch({
-                        type: "remove_sheet_equipment",
-                        sheetId: detail.instance.id,
-                        index
-                      })
-                    }
-                  >
-                    Remove
-                  </button>
-                </div>
+                <p className="muted">
+                  Immediate Effects: {selectedTemplate.immediateEffects || "(none)"}
+                </p>
+                <p className="muted">
+                  Non-Immediate Effects: {selectedTemplate.nonImmediateEffects || "(none)"}
+                </p>
               </article>
-            ))}
-          </div>
-        </section>
+            ) : null}
+            <div className="list">
+              {equipment.length === 0 ? <p className="empty-state">No equipment added yet.</p> : null}
+              {equipment.map((entry) => {
+                const item = itemTemplates[entry.itemTemplateId];
+                if (!item) {
+                  return null;
+                }
+                return (
+                  <article key={entry.id} className="list-item list-item--block">
+                    <div>
+                      <strong>{item.name}</strong>
+                      <div className="muted">
+                        {item.type} · Rank {item.rank} · Weight {item.weight} · Value {item.value}
+                      </div>
+                      <div className="muted">
+                        Immediate Effects: {item.immediateEffects || "(none)"}
+                      </div>
+                      <div className="muted">
+                        Non-Immediate Effects: {item.nonImmediateEffects || "(none)"}
+                      </div>
+                      {activeWeaponId === entry.id ? <div className="muted">Active weapon</div> : null}
+                    </div>
+                    <div className="inline-actions">
+                      <button
+                        className="button button--secondary"
+                        onClick={() =>
+                          dispatch({
+                            type: "set_sheet_active_weapon",
+                            sheetId: detail.instance.id,
+                            inventoryItemId: activeWeaponId === entry.id ? null : entry.id
+                          })
+                        }
+                      >
+                        {activeWeaponId === entry.id ? "Clear Active" : "Set Active"}
+                      </button>
+                      <button
+                        className="button button--secondary"
+                        onClick={() =>
+                          dispatch({
+                            type: "remove_sheet_equipment",
+                            sheetId: detail.instance.id,
+                            inventoryItemId: entry.id
+                          })
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
       </article>
     </Panel>
   );

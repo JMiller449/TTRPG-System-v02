@@ -61,6 +61,23 @@ export interface EncounterPreset {
   updatedAt: string;
 }
 
+export interface ItemTemplate {
+  id: string;
+  name: string;
+  type: string;
+  rank: string;
+  weight: string;
+  value: string;
+  immediateEffects: string;
+  nonImmediateEffects: string;
+  updatedAt: string;
+}
+
+export interface SheetInventoryItem {
+  id: string;
+  itemTemplateId: string;
+}
+
 export type RollVisibility = "visible" | "hidden";
 
 export interface RollRequest {

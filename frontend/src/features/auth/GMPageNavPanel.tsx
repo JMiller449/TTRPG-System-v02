@@ -6,7 +6,8 @@ const NAV_ITEMS: Array<{ view: GMView; label: string }> = [
   { view: "console", label: "GM Console" },
   { view: "template_library", label: "Template Library" },
   { view: "create_template", label: "Create Template" },
-  { view: "encounter_presets", label: "Encounter Presets" }
+  { view: "encounter_presets", label: "Encounter Presets" },
+  { view: "item_maker", label: "Item Maker" }
 ];
 
 export function GMPageNavPanel(): JSX.Element {

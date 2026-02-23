@@ -1,8 +1,10 @@
 import type { AppSnapshot, PatchOp } from "@/domain/ipc";
 import type {
   EncounterPreset,
+  ItemTemplate,
   Role,
   RollLogEntry,
+  SheetInventoryItem,
   StatKey,
   SheetInstance,
   SheetTemplate
@@ -14,7 +16,8 @@ export type GMView =
   | "console"
   | "template_library"
   | "create_template"
-  | "encounter_presets";
+  | "encounter_presets"
+  | "item_maker";
 
 export interface IntentFeedbackItem {
   id: string;
@@ -40,13 +43,15 @@ export interface AppState {
   instanceOrder: string[];
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
+  itemTemplates: Record<string, ItemTemplate>;
+  itemTemplateOrder: string[];
   rollLog: RollLogEntry[];
   activeSheetId: string | null;
   templateSearch: string;
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
   localSheetNotes: Record<string, string>;
-  localSheetEquipment: Record<string, string[]>;
+  localSheetEquipment: Record<string, SheetInventoryItem[]>;
   localSheetActiveWeapon: Record<string, string | null>;
   localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
@@ -64,9 +69,11 @@ export type AppAction =
   | { type: "push_intent_feedback"; item: IntentFeedbackItem }
   | { type: "dismiss_intent_feedback"; id: string }
   | { type: "set_sheet_note"; sheetId: string; note: string }
-  | { type: "add_sheet_equipment"; sheetId: string; item: string }
-  | { type: "remove_sheet_equipment"; sheetId: string; index: number }
-  | { type: "set_sheet_active_weapon"; sheetId: string; item: string | null }
+  | { type: "upsert_item_template"; item: ItemTemplate }
+  | { type: "remove_item_template"; itemId: string }
+  | { type: "add_sheet_equipment"; sheetId: string; entry: SheetInventoryItem }
+  | { type: "remove_sheet_equipment"; sheetId: string; inventoryItemId: string }
+  | { type: "set_sheet_active_weapon"; sheetId: string; inventoryItemId: string | null }
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }
   | { type: "apply_snapshot"; snapshot: AppSnapshot }

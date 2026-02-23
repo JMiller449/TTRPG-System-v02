@@ -32,6 +32,23 @@ textarea {
   padding: 1rem;
 }
 
+.app-shell--player {
+  height: 100vh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-shell--player .app-header {
+  flex: 0 0 auto;
+}
+
+.app-shell--player .app-grid-player-shell {
+  flex: 1;
+  min-height: 0;
+}
+
 .app-header {
   margin-bottom: 1rem;
 }
@@ -73,22 +90,39 @@ textarea {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(420px, 1.15fr) minmax(320px, 0.95fr);
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
+  height: 100%;
 }
 
 .player-console-main {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 
 .player-console-side {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   display: grid;
   gap: 1rem;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.player-console-main > .panel,
 .player-console-side > .panel {
-  min-height: 300px;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-console-main > .panel .panel__body,
+.player-console-side > .panel .panel__body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app-column {
@@ -425,6 +459,27 @@ textarea {
   margin: 0 0 0.45rem;
 }
 
+.character-sheet__tabs {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 0.55rem;
+}
+
+.character-sheet__tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.33rem 0.7rem;
+  cursor: pointer;
+}
+
+.character-sheet__tab--active {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
 .resource-grid {
   display: grid;
   gap: 0.6rem;
@@ -715,12 +770,38 @@ textarea {
 }
 
 @media (max-width: 960px) {
+  .app-shell--player {
+    height: auto;
+    overflow: auto;
+  }
+
+  .app-shell--player .app-grid-player-shell {
+    flex: initial;
+    height: auto;
+  }
+
   .app-grid {
     grid-template-columns: 1fr;
   }
 
   .app-grid-player-shell {
     grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .player-console-main,
+  .player-console-side {
+    height: auto;
+  }
+
+  .player-console-main > .panel,
+  .player-console-side > .panel {
+    height: auto;
+  }
+
+  .player-console-main > .panel .panel__body,
+  .player-console-side > .panel .panel__body {
+    overflow: visible;
   }
 
   .player-console-side {

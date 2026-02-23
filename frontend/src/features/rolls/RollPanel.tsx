@@ -23,7 +23,7 @@ export function RollPanel({
   mode?: RollPanelMode;
 }): JSX.Element {
   const {
-    state: { activeSheetId, instances, localSheetActiveWeapon }
+    state: { activeSheetId, instances, itemTemplates, localSheetEquipment, localSheetActiveWeapon }
   } = useAppStore();
 
   const [stat, setStat] = useState<StatKey>("strength");
@@ -37,7 +37,20 @@ export function RollPanel({
     }
     return instances[activeSheetId]?.name ?? activeSheetId;
   }, [activeSheetId, instances]);
-  const activeWeapon = activeSheetId ? localSheetActiveWeapon[activeSheetId] ?? null : null;
+  const activeWeapon = useMemo(() => {
+    if (!activeSheetId) {
+      return null;
+    }
+    const activeEntryId = localSheetActiveWeapon[activeSheetId] ?? null;
+    if (!activeEntryId) {
+      return null;
+    }
+    const entry = (localSheetEquipment[activeSheetId] ?? []).find((item) => item.id === activeEntryId);
+    if (!entry) {
+      return null;
+    }
+    return itemTemplates[entry.itemTemplateId]?.name ?? null;
+  }, [activeSheetId, itemTemplates, localSheetEquipment, localSheetActiveWeapon]);
 
   const submit = (): void => {
     if (!activeSheetId) {

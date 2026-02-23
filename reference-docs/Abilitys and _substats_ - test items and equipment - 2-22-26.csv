@@ -1,0 +1,6 @@
+Type,Light Armour,Sword,Shard of fire,helment,Armour,Sword
+Weight,15LBS,3LBS,.1 LBS,2LBS,1LBS,3LBS
+Value,"10,000CP",500CP,"1,000,000CP","5,000CP","100,000CP",NA
+Effects,"10% damage resistance, Gives the user advantage on stealth checks, ","does 15 damge, this sword is always sharp never dulls",Give the play fire attribute and +10 fire damage on all fire attribute attacks,This helment give the player +2 to perception,"25% resistance to fire , 10% resistance to magic","This sword conducts mana at 100% effecncy, give +50 to all effect added to the sword, this sword give 25% incressed mana regen"
+RANK,C+,D ,A,C,B,S
+Name,Light steps,Never dulls,Fire shard,Helm of sight,Pyromancy Robe,Sword of mana

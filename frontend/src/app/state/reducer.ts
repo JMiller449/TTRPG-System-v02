@@ -141,21 +141,57 @@ export function reducer(state: AppState, action: AppAction): AppState {
           [action.sheetId]: action.note
         }
       };
+    case "upsert_item_template": {
+      const exists = state.itemTemplateOrder.includes(action.item.id);
+      return {
+        ...state,
+        itemTemplates: {
+          ...state.itemTemplates,
+          [action.item.id]: action.item
+        },
+        itemTemplateOrder: exists ? state.itemTemplateOrder : [...state.itemTemplateOrder, action.item.id]
+      };
+    }
+    case "remove_item_template": {
+      const nextTemplates = { ...state.itemTemplates };
+      delete nextTemplates[action.itemId];
+      const nextEquipment = Object.fromEntries(
+        Object.entries(state.localSheetEquipment).map(([sheetId, entries]) => [
+          sheetId,
+          entries.filter((entry) => entry.itemTemplateId !== action.itemId)
+        ])
+      );
+      const nextActiveWeapon = Object.fromEntries(
+        Object.entries(state.localSheetActiveWeapon).map(([sheetId, activeInventoryId]) => {
+          if (!activeInventoryId) {
+            return [sheetId, null];
+          }
+          const stillExists = (nextEquipment[sheetId] ?? []).some((entry) => entry.id === activeInventoryId);
+          return [sheetId, stillExists ? activeInventoryId : null];
+        })
+      );
+      return {
+        ...state,
+        itemTemplates: nextTemplates,
+        itemTemplateOrder: state.itemTemplateOrder.filter((id) => id !== action.itemId),
+        localSheetEquipment: nextEquipment,
+        localSheetActiveWeapon: nextActiveWeapon
+      };
+    }
     case "add_sheet_equipment": {
       const current = state.localSheetEquipment[action.sheetId] ?? [];
       return {
         ...state,
         localSheetEquipment: {
           ...state.localSheetEquipment,
-          [action.sheetId]: [...current, action.item]
+          [action.sheetId]: [...current, action.entry]
         }
       };
     }
     case "remove_sheet_equipment": {
       const current = state.localSheetEquipment[action.sheetId] ?? [];
-      const nextItems = current.filter((_, index) => index !== action.index);
+      const nextItems = current.filter((entry) => entry.id !== action.inventoryItemId);
       const currentActive = state.localSheetActiveWeapon[action.sheetId] ?? null;
-      const removedItem = current[action.index];
       return {
         ...state,
         localSheetEquipment: {
@@ -164,7 +200,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
         },
         localSheetActiveWeapon: {
           ...state.localSheetActiveWeapon,
-          [action.sheetId]: currentActive === removedItem ? null : currentActive
+          [action.sheetId]: currentActive === action.inventoryItemId ? null : currentActive
         }
       };
     }
@@ -173,7 +209,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
         ...state,
         localSheetActiveWeapon: {
           ...state.localSheetActiveWeapon,
-          [action.sheetId]: action.item
+          [action.sheetId]: action.inventoryItemId
         }
       };
     case "set_sheet_stat_overrides": {

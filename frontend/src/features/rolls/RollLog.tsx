@@ -22,14 +22,27 @@ export function RollLog({
   client?: GameClient;
 } = {}): JSX.Element {
   const {
-    state: { rollLog, role, localSheetActiveWeapon }
+    state: { rollLog, role, itemTemplates, localSheetEquipment, localSheetActiveWeapon }
   } = useAppStore();
   const [stat, setStat] = useState<StatKey>("strength");
   const [context, setContext] = useState("");
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
   const entries = sheetId ? rollLog.filter((entry) => entry.request.sheetId === sheetId) : rollLog;
   const showPlayerComposer = role === "player" && Boolean(client) && Boolean(sheetId);
-  const activeWeapon = sheetId ? localSheetActiveWeapon[sheetId] ?? null : null;
+  const activeWeapon = (() => {
+    if (!sheetId) {
+      return null;
+    }
+    const activeEntryId = localSheetActiveWeapon[sheetId] ?? null;
+    if (!activeEntryId) {
+      return null;
+    }
+    const entry = (localSheetEquipment[sheetId] ?? []).find((item) => item.id === activeEntryId);
+    if (!entry) {
+      return null;
+    }
+    return itemTemplates[entry.itemTemplateId]?.name ?? null;
+  })();
 
   const submitPlayerRoll = (): void => {
     if (!client || !sheetId) {

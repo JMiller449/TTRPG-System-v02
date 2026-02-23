@@ -6,6 +6,7 @@ import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
+import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { RollLog } from "@/features/rolls/RollLog";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
@@ -40,7 +41,7 @@ export function App(): JSX.Element {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${role === "player" ? "app-shell--player" : ""}`}>
       <header className="app-header">
         <h1>TTRPG Sheet Console</h1>
         <div className="header-row">
@@ -86,6 +87,10 @@ export function App(): JSX.Element {
       ) : gmView === "encounter_presets" ? (
         <main className="app-grid-player">
           <EncounterPanel client={client} />
+        </main>
+      ) : gmView === "item_maker" ? (
+        <main className="app-grid-player">
+          <ItemMakerPage />
         </main>
       ) : (
         <main className="app-grid">

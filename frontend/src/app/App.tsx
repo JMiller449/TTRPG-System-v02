@@ -4,13 +4,11 @@ import { AuthPanel } from "@/features/auth/AuthPanel";
 import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
+import { ConsolePage } from "@/features/console/ConsolePage";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
-import { RollLog } from "@/features/rolls/RollLog";
-import { RollPanel } from "@/features/rolls/RollPanel";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
-import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
@@ -66,15 +64,7 @@ export function App(): JSX.Element {
       {role === "gm" ? <GMPageNavPanel /> : null}
 
       {role === "player" ? (
-        <main className="app-grid-player-shell">
-          <section className="player-console-main">
-            <PlayerCharacterSheet mode="player" panelTitle="Character Sheet" />
-          </section>
-          <section className="player-console-side">
-            <RollPanel client={client} mode="player" />
-            <RollLog sheetId={activeSheetId} />
-          </section>
-        </main>
+        <ConsolePage role="player" client={client} activeSheetId={activeSheetId} />
       ) : gmView === "template_library" ? (
         <main className="app-grid-player">
           <TemplateLibrary client={client} />
@@ -98,15 +88,7 @@ export function App(): JSX.Element {
             <SheetTabs client={client} />
             <EncounterQuickSelectPanel client={client} />
           </section>
-          <main className="app-grid-player-shell app-grid-player-shell--gm">
-            <section className="player-console-main">
-              <PlayerCharacterSheet mode="gm" panelTitle="Character Sheet" />
-            </section>
-            <section className="player-console-side">
-              <RollPanel client={client} mode="gm" />
-              <RollLog />
-            </section>
-          </main>
+          <ConsolePage role="gm" client={client} activeSheetId={activeSheetId} />
         </>
       )}
     </div>

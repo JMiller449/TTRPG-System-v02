@@ -1,59 +1,21 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { SheetKind, SheetTemplate, StatKey } from "@/domain/models";
-import { Field } from "@/shared/ui/Field";
-import { Panel } from "@/shared/ui/Panel";
-import { EmptyState } from "@/shared/ui/EmptyState";
-import { makeId } from "@/shared/utils/id";
+import type { SheetTemplate } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
+import { TemplateEditPanel } from "@/features/sheets/components/TemplateEditPanel";
+import { TemplateList } from "@/features/sheets/components/TemplateList";
+import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBar";
 import {
-  CORE_TEMPLATE_STATS,
-  TemplateEditorForm,
-  type TemplateEditorValues
-} from "@/features/sheets/TemplateEditorForm";
-
-function createEmptyValues(kind: SheetKind = "player"): TemplateEditorValues {
-  return {
-    kind,
-    name: "",
-    notes: "",
-    tags: kind,
-    coreStats: CORE_TEMPLATE_STATS.reduce(
-      (acc, key) => ({ ...acc, [key]: "" }),
-      {} as TemplateEditorValues["coreStats"]
-    )
-  };
-}
-
-function parseTags(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
-function parseCoreStats(values: TemplateEditorValues["coreStats"]): Partial<Record<StatKey, number>> {
-  return Object.fromEntries(
-    Object.entries(values)
-      .filter((entry) => entry[1].trim() !== "")
-      .map(([key, raw]) => [key, Number(raw)])
-      .filter((entry) => Number.isFinite(entry[1]))
-  ) as Partial<Record<StatKey, number>>;
-}
-
-function toEditorValues(template: SheetTemplate): TemplateEditorValues {
-  const base = createEmptyValues(template.kind);
-  CORE_TEMPLATE_STATS.forEach((key) => {
-    base.coreStats[key] = String(template.stats[key] ?? "");
-  });
-  return {
-    ...base,
-    kind: template.kind,
-    name: template.name,
-    notes: template.notes,
-    tags: template.tags.join(", ")
-  };
-}
+  buildInstantiateTemplateIntent,
+  buildUpdateTemplateIntent
+} from "@/features/sheets/intentBuilders";
+import type { TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
+import { Panel } from "@/shared/ui/Panel";
+import {
+  createEmptyTemplateEditorValues,
+  toTemplateChanges,
+  toTemplateEditorValues
+} from "@/features/sheets/templateEditorValues";
 
 export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -62,7 +24,9 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
   } = useAppStore();
 
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<TemplateEditorValues>(() => createEmptyValues("player"));
+  const [editValues, setEditValues] = useState<TemplateEditorValues>(() =>
+    createEmptyTemplateEditorValues("player")
+  );
   const [spawnCount, setSpawnCount] = useState<number>(1);
 
   const visibleTemplates = useMemo(() => {
@@ -74,6 +38,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
         if (!query) {
           return true;
         }
+
         return (
           entry.name.toLowerCase().includes(query) ||
           entry.tags.some((tag) => tag.toLowerCase().includes(query))
@@ -83,7 +48,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const beginEditTemplate = (template: SheetTemplate): void => {
     setEditingTemplateId(template.id);
-    setEditValues(toEditorValues(template));
+    setEditValues(toTemplateEditorValues(template));
   };
 
   const saveTemplateEdit = (): void => {
@@ -91,31 +56,9 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       return;
     }
 
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "update_template",
-      payload: {
-        templateId: editingTemplateId,
-        changes: {
-          kind: editValues.kind,
-          name: editValues.name.trim(),
-          notes: editValues.notes.trim(),
-          tags: parseTags(editValues.tags),
-          stats: parseCoreStats(editValues.coreStats)
-        }
-      }
-    });
-
+    client.sendIntent(buildUpdateTemplateIntent(editingTemplateId, toTemplateChanges(editValues)));
     setEditingTemplateId(null);
-    setEditValues(createEmptyValues("player"));
-  };
-
-  const instantiate = (templateId: string): void => {
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "instantiate_template",
-      payload: { templateId, count: Math.max(1, spawnCount) }
-    });
+    setEditValues(createEmptyTemplateEditorValues("player"));
   };
 
   return (
@@ -131,55 +74,27 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       }
     >
       <div className="stack">
-        <Field label="Search Templates">
-          <input
-            value={templateSearch}
-            onChange={(event) => dispatch({ type: "set_template_search", value: event.target.value })}
-            placeholder="Search by name or tag"
-          />
-        </Field>
+        <TemplateSearchBar
+          search={templateSearch}
+          spawnCount={spawnCount}
+          onSearchChange={(value) => dispatch({ type: "set_template_search", value })}
+          onSpawnCountChange={setSpawnCount}
+        />
 
-        <Field label="Spawn Count">
-          <input
-            type="number"
-            min={1}
-            value={spawnCount}
-            onChange={(event) => setSpawnCount(Number(event.target.value) || 1)}
-          />
-        </Field>
+        <TemplateList
+          templates={visibleTemplates}
+          onEdit={beginEditTemplate}
+          onSpawn={(template) => client.sendIntent(buildInstantiateTemplateIntent(template.id, spawnCount))}
+        />
 
-        <div className="list">
-          {visibleTemplates.length === 0 ? <EmptyState message="No templates found." /> : null}
-          {visibleTemplates.map((template) => (
-            <article key={template.id} className="list-item">
-              <div>
-                <strong>{template.name}</strong>
-                <div className="muted">
-                  {template.kind} template · tags: {template.tags.join(", ") || "none"}
-                </div>
-              </div>
-              <div className="inline-actions">
-                <button className="button button--secondary" onClick={() => beginEditTemplate(template)}>
-                  Edit
-                </button>
-                <button className="button button--secondary" onClick={() => instantiate(template.id)}>
-                  Spawn
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {editingTemplateId ? (
-          <TemplateEditorForm
-            title={`Edit Template (${templates[editingTemplateId]?.name ?? editingTemplateId})`}
-            submitLabel="Save Template"
-            values={editValues}
-            onChange={setEditValues}
-            onSubmit={saveTemplateEdit}
-            onCancel={() => setEditingTemplateId(null)}
-          />
-        ) : null}
+        <TemplateEditPanel
+          editingTemplateId={editingTemplateId}
+          editingTemplateName={editingTemplateId ? templates[editingTemplateId]?.name : undefined}
+          values={editValues}
+          onChange={setEditValues}
+          onSubmit={saveTemplateEdit}
+          onCancel={() => setEditingTemplateId(null)}
+        />
       </div>
     </Panel>
   );

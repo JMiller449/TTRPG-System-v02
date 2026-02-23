@@ -1,0 +1,38 @@
+.quick-roll-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.quick-roll-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+}
+
+.quick-roll-btn--active {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
+.equation-preview {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.45rem 0.55rem;
+}
+
+.equation-preview code {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #2f2a20;
+}
+
+.equation-preview p {
+  margin: 0.28rem 0 0;
+}

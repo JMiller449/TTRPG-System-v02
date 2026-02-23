@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
+import { selectActiveWeaponLabel } from "@/app/state/selectors";
 import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -35,8 +36,9 @@ export function RollPanel({
   mode?: RollPanelMode;
 }): JSX.Element {
   const {
-    state: { activeSheetId, instances, itemTemplates, localSheetEquipment, localSheetActiveWeapon }
+    state
   } = useAppStore();
+  const { activeSheetId, instances } = state;
 
   const [stat, setStat] = useState<StatKey>("strength");
   const [context, setContext] = useState("");
@@ -54,16 +56,9 @@ export function RollPanel({
     if (!activeSheetId) {
       return null;
     }
-    const activeEntryId = localSheetActiveWeapon[activeSheetId] ?? null;
-    if (!activeEntryId) {
-      return null;
-    }
-    const entry = (localSheetEquipment[activeSheetId] ?? []).find((item) => item.id === activeEntryId);
-    if (!entry) {
-      return null;
-    }
-    return itemTemplates[entry.itemTemplateId]?.name ?? null;
-  }, [activeSheetId, itemTemplates, localSheetEquipment, localSheetActiveWeapon]);
+    const label = selectActiveWeaponLabel(state, activeSheetId);
+    return label === "None" ? null : label;
+  }, [activeSheetId, state]);
 
   const submit = (): void => {
     if (!activeSheetId) {

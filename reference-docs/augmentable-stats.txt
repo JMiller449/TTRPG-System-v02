@@ -30,6 +30,7 @@ Physical Resistance
 Slashing Resistance
 Bludgeoning Resistance
 Piercing Resistance
+Arcane Resistance
 Fire Resistance
 Water Resistance
 Earth Resistance

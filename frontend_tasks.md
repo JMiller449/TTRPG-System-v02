@@ -24,6 +24,18 @@ Use this file for frontend-only and frontend-scaffold TODO work. Keep items shor
 - [x] Unify GM Console tab sheet view and player sheet view into one shared page/component with role-based visibility.
 - [ ] Separate GM creation flows for sheets, items, and abilities, then provide a dedicated sheet viewer mode.
 - [x] On the GM Console tab specifically, use the same sheet UI for GM view/edit and player view modes to avoid desync across duplicated views.
+- [x] Extract active sheet/template/stat merge logic from `PlayerCharacterSheet` into `useSheetDetailState`.
+- [x] Extract stat modifier editor state/handlers from `PlayerCharacterSheet` into `useStatModifierEditor`.
+- [x] Extract resource editor state/handlers from `PlayerCharacterSheet` into `useResourceEditor` (health/mana active value + damage type UI state).
+- [x] Add shared sheet selectors in `frontend/src/app/state/selectors/` for repeated derivations used across pages (active sheet detail, active weapon label, player-only sheet list).
+- [x] Split `frontend/src/app/state/reducer.ts` into domain reducer modules (`connection`, `templates`, `instances`, `encounters`, `items`, `sheetLocalState`, `rolls`, `ui`) and compose them in a root reducer.
+- [x] Remove stale duplicate sheet UI path by deleting or hard-deprecating `frontend/src/features/sheets/SheetDetail.tsx` and keeping `PlayerCharacterSheet` as the single rendered sheet component.
+- [x] Decompose `frontend/src/features/items/ItemMakerPage.tsx` into reusable components (`ItemEditorForm`, `ItemTemplateList`, `ItemTemplateCard`) plus pure mapper/validation helpers.
+- [x] Decompose `frontend/src/features/sheets/TemplateLibrary.tsx` into modules (`TemplateSearchBar`, `TemplateList`, `TemplateListItem`, `TemplateEditPanel`) and move template parse/serialize helpers into a dedicated utility.
+- [x] Decompose `frontend/src/features/encounters/EncounterPanel.tsx` into encounter-form components (`EncounterEntryRow`, `EncounterEntryList`, `EncounterPresetList`) with pure intent payload builders.
+- [x] Move intent payload construction (`create_template`, `instantiate_template`, `save_encounter`, `spawn_encounter`, `set_active_sheet`) out of view components into feature-level `intentBuilders.ts` modules.
+- [x] Consolidate duplicated stat metadata between `frontend/src/features/sheets/sheetDisplay.ts` and `frontend/src/domain/stats.ts` into one canonical source consumed by sheet + roll composer UIs.
+- [x] Split `frontend/src/styles.css` into feature-scoped style files (`app.css`, `sheet.css`, `rolls.css`, `items.css`, `encounters.css`) while keeping shared tokens/utilities centralized.
 
 ## Next (Frontend Quality + Test Scaffolding)
 - [ ] Add frontend test scaffolding: reducer tests, mock transport event handling tests, and core sheet interaction tests.

@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
 import type { EncounterPreset } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
+import { buildSpawnEncounterIntent } from "@/features/encounters/intentBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
-import { makeId } from "@/shared/utils/id";
 
 export function EncounterQuickSelectPanel({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -28,11 +28,7 @@ export function EncounterQuickSelectPanel({ client }: { client: GameClient }): J
     if (!selectedEncounterId) {
       return;
     }
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "spawn_encounter",
-      payload: { encounterId: selectedEncounterId }
-    });
+    client.sendIntent(buildSpawnEncounterIntent(selectedEncounterId));
   };
 
   return (

@@ -1,0 +1,8 @@
+.encounter-entry-row {
+  align-items: flex-end;
+}
+
+.encounter-entry-row__actions {
+  display: flex;
+  align-items: flex-end;
+}

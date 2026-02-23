@@ -1,38 +1,32 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { SheetInstance, SheetTemplate } from "@/domain/models";
+import { selectPlayerInstances } from "@/app/state/selectors";
+import type { SheetTemplate } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
+import {
+  buildCreateTemplateIntent,
+  buildInstantiateTemplateIntent,
+  buildSetActiveSheetIntent
+} from "@/features/sheets/intentBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
 export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
-  const {
-    state: { instances, instanceOrder },
-    dispatch
-  } = useAppStore();
+  const { state, dispatch } = useAppStore();
+  const { instances, instanceOrder } = state;
 
   const [selectedSheetId, setSelectedSheetId] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
 
-  const playerInstances = useMemo(
-    () =>
-      instanceOrder
-        .map((id) => instances[id])
-        .filter((entry): entry is SheetInstance => Boolean(entry) && entry.kind === "player"),
-    [instanceOrder, instances]
-  );
+  const playerInstances = selectPlayerInstances(state);
 
   const continueWithSelected = (): void => {
     if (!selectedSheetId) {
       return;
     }
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "set_active_sheet",
-      payload: { sheetId: selectedSheetId }
-    });
+    client.sendIntent(buildSetActiveSheetIntent(selectedSheetId));
   };
 
   const createNewPlayer = (): void => {
@@ -53,17 +47,8 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
       updatedAt: new Date().toISOString()
     };
 
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "create_template",
-      payload: { template }
-    });
-
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "instantiate_template",
-      payload: { templateId, count: 1 }
-    });
+    client.sendIntent(buildCreateTemplateIntent(template));
+    client.sendIntent(buildInstantiateTemplateIntent(templateId, 1));
 
     setNewPlayerName("");
   };

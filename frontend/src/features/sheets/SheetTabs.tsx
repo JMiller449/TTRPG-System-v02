@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useAppStore } from "@/app/state/store";
 import type { SheetInstance } from "@/domain/models";
+import { buildSetActiveSheetIntent } from "@/features/sheets/intentBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { makeId } from "@/shared/utils/id";
 import type { GameClient } from "@/hooks/useGameClient";
 
 export function SheetTabs({ client }: { client: GameClient }): JSX.Element {
@@ -27,13 +27,7 @@ export function SheetTabs({ client }: { client: GameClient }): JSX.Element {
           <button
             key={sheet.id}
             className={`tab ${sheet.id === activeSheetId ? "tab--active" : ""}`}
-            onClick={() =>
-              client.sendIntent({
-                intentId: makeId("intent"),
-                type: "set_active_sheet",
-                payload: { sheetId: sheet.id }
-              })
-            }
+            onClick={() => client.sendIntent(buildSetActiveSheetIntent(sheet.id))}
           >
             {sheet.name}
           </button>

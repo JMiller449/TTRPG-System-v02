@@ -5,19 +5,21 @@ from typing import List, Literal
 from backend.schemas.state.formula import Formula
 
 DamageType = Literal[
-    "acid",
-    "bludgeoning",
-    "cold",
-    "fire",
-    "force",
-    "lightning",
-    "necrotic",
-    "piercing",
-    "poison",
-    "psychic",
-    "radiant",
-    "slashing",
-    "thunder",
+    "Arcane",
+    "Slashing",
+    "Bludgeoning",
+    "Piercing",
+    "Fire",
+    "Water",
+    "Earth",
+    "Wind",
+    "Light",
+    "Dark",
+    "Lightning",
+    "Ice",
+    "Time",
+    "Gravity",
+    "Psychic",
 ]
 
 

@@ -1,0 +1,38 @@
+Strength
+Dexterity
+Constitution
+Perception
+Arcane
+Will
+Lifting
+Carry Weight
+Acrobatics
+Stamina
+Reaction Time
+Health
+Endurance
+Pain Tolerance
+Sight Distance
+Intuition
+Registration
+Mana
+Control
+sensitivity
+Charisma
+Mental Fortitude
+Courage
+Resistance (total damage resistance)
+Mana Regeneration
+Health Regeneration
+Action Points
+Fire Resistance
+Water Resistance
+Earth Resistance
+Wind Resistance
+Light Resistance
+Dark Resistance
+Lightning Resistance
+Ice Resistance
+Time Resistance
+Gravity Resistance
+Psychic Resistance

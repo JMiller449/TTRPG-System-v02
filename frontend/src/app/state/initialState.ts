@@ -2,7 +2,6 @@ import type { AppState } from "@/app/state/types";
 
 export const initialState: AppState = {
   role: null,
-  playerConsoleEnteredSheetId: null,
   gmPassword: "",
   gmAuthenticated: false,
   connection: {

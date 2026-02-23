@@ -16,6 +16,25 @@ type ItemEditorValues = {
   nonImmediateEffects: string;
 };
 
+const ITEM_RANK_OPTIONS = [
+  "F",
+  "F+",
+  "E",
+  "E+",
+  "D",
+  "D+",
+  "C",
+  "C+",
+  "B",
+  "B+",
+  "A",
+  "A+",
+  "S",
+  "S+",
+  "SS",
+  "SS+"
+] as const;
+
 function createEmptyValues(): ItemEditorValues {
   return {
     name: "",
@@ -111,11 +130,16 @@ export function ItemMakerPage(): JSX.Element {
                 />
               </Field>
               <Field label="Rank">
-                <input
+                <select
                   value={values.rank}
                   onChange={(event) => setValues((prev) => ({ ...prev, rank: event.target.value }))}
-                  placeholder="e.g. S"
-                />
+                >
+                  {ITEM_RANK_OPTIONS.map((rank) => (
+                    <option key={rank} value={rank}>
+                      {rank}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Weight">
                 <input

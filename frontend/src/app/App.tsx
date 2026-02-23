@@ -11,7 +11,6 @@ import { RollLog } from "@/features/rolls/RollLog";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
-import { LevelUpPanel } from "@/features/sheets/LevelUpPanel";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
@@ -93,20 +92,22 @@ export function App(): JSX.Element {
           <ItemMakerPage />
         </main>
       ) : (
-        <main className="app-grid">
-          <aside className="app-column">
+        <>
+          <section className="gm-console-tools">
             <AuthPanel client={client} />
-            <EncounterQuickSelectPanel client={client} />
-          </aside>
-
-          <section className="app-column app-column--wide">
             <SheetTabs client={client} />
-            <PlayerCharacterSheet mode="gm" panelTitle="Sheet Detail" />
-            <LevelUpPanel />
-            <RollPanel client={client} />
-            <RollLog />
+            <EncounterQuickSelectPanel client={client} />
           </section>
-        </main>
+          <main className="app-grid-player-shell app-grid-player-shell--gm">
+            <section className="player-console-main">
+              <PlayerCharacterSheet mode="gm" panelTitle="Character Sheet" />
+            </section>
+            <section className="player-console-side">
+              <RollPanel client={client} mode="gm" />
+              <RollLog />
+            </section>
+          </main>
+        </>
       )}
     </div>
   );

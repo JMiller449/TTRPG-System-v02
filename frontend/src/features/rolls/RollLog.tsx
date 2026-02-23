@@ -14,6 +14,19 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 
+type RollEdge = "normal" | "advantage" | "disadvantage";
+
+function getRollEdgePreview(edge: RollEdge): string {
+  switch (edge) {
+    case "advantage":
+      return "[ADVANTAGE_TODO]";
+    case "disadvantage":
+      return "[DISADVANTAGE_TODO]";
+    default:
+      return "[NORMAL]";
+  }
+}
+
 export function RollLog({
   sheetId,
   client
@@ -26,6 +39,7 @@ export function RollLog({
   } = useAppStore();
   const [stat, setStat] = useState<StatKey>("strength");
   const [context, setContext] = useState("");
+  const [rollEdge, setRollEdge] = useState<RollEdge>("normal");
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
   const entries = sheetId ? rollLog.filter((entry) => entry.request.sheetId === sheetId) : rollLog;
   const showPlayerComposer = role === "player" && Boolean(client) && Boolean(sheetId);
@@ -89,11 +103,25 @@ export function RollLog({
               </Field>
               <div className="equation-preview">
                 <span className="muted">Roll Equation</span>
-                <code>{getRollEquationPreview(stat, selectedQuickAction, activeWeapon)}</code>
+                <code>
+                  {getRollEquationPreview(stat, selectedQuickAction, activeWeapon)} +{" "}
+                  {getRollEdgePreview(rollEdge)}
+                </code>
                 <p className="muted">
                   TODO: replace placeholders with backend-authoritative dice and action formulas.
                 </p>
               </div>
+              <Field label="Roll Edge">
+                <select value={rollEdge} onChange={(event) => setRollEdge(event.target.value as RollEdge)}>
+                  <option value="normal">Normal</option>
+                  <option value="advantage">Advantage</option>
+                  <option value="disadvantage">Disadvantage</option>
+                </select>
+              </Field>
+              <p className="muted">
+                Roll edge is currently UI-only scaffolding until backend roll-intent schema adds an explicit edge
+                field.
+              </p>
               <Field label="Context">
                 <input
                   value={context}

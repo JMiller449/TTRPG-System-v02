@@ -14,6 +14,18 @@ import {
 } from "@/features/rolls/quickRolls";
 
 type RollPanelMode = "gm" | "player";
+type RollEdge = "normal" | "advantage" | "disadvantage";
+
+function getRollEdgePreview(edge: RollEdge): string {
+  switch (edge) {
+    case "advantage":
+      return "[ADVANTAGE_TODO]";
+    case "disadvantage":
+      return "[DISADVANTAGE_TODO]";
+    default:
+      return "[NORMAL]";
+  }
+}
 
 export function RollPanel({
   client,
@@ -29,6 +41,7 @@ export function RollPanel({
   const [stat, setStat] = useState<StatKey>("strength");
   const [context, setContext] = useState("");
   const [visibility, setVisibility] = useState<RollVisibility>("visible");
+  const [rollEdge, setRollEdge] = useState<RollEdge>("normal");
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
 
   const activeSheetName = useMemo(() => {
@@ -92,7 +105,9 @@ export function RollPanel({
         </p>
         <div className="equation-preview">
           <span className="muted">Roll Equation</span>
-          <code>{getRollEquationPreview(stat, selectedQuickAction, activeWeapon)}</code>
+          <code>
+            {getRollEquationPreview(stat, selectedQuickAction, activeWeapon)} + {getRollEdgePreview(rollEdge)}
+          </code>
           <p className="muted">
             TODO: replace placeholders with backend-authoritative dice and action formulas.
           </p>
@@ -114,6 +129,17 @@ export function RollPanel({
             placeholder={mode === "player" ? "e.g. Jumping the broken bridge" : "e.g. Acrobatics jump over ravine"}
           />
         </Field>
+
+        <Field label="Roll Edge">
+          <select value={rollEdge} onChange={(event) => setRollEdge(event.target.value as RollEdge)}>
+            <option value="normal">Normal</option>
+            <option value="advantage">Advantage</option>
+            <option value="disadvantage">Disadvantage</option>
+          </select>
+        </Field>
+        <p className="muted">
+          Roll edge is currently UI-only scaffolding until backend roll-intent schema adds an explicit edge field.
+        </p>
 
         {mode === "gm" ? (
           <Field label="Visibility">

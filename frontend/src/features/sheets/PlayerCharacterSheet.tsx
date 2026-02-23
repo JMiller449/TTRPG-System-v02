@@ -21,6 +21,12 @@ type ResourceKey = "health" | "mana";
 type PlayerSheetTab = "stats" | "equipment" | "notes";
 
 const RESOURCE_KEYS: readonly ResourceKey[] = ["health", "mana"];
+const PLAYER_HEALTH_DAMAGE_TYPES = [
+  { value: "untyped", label: "Untyped" },
+  { value: "physical", label: "Physical" },
+  { value: "fire", label: "Fire" },
+  { value: "magic", label: "Magic" }
+] as const;
 
 const DISPLAY_NAMES: Record<string, string> = {
   strength: "Strength",
@@ -97,6 +103,9 @@ export function PlayerCharacterSheet({
   const [editingResource, setEditingResource] = useState<ResourceKey | null>(null);
   const [resourceDraftModifier, setResourceDraftModifier] = useState("");
   const [resourceEditorError, setResourceEditorError] = useState<string | null>(null);
+  const [healthDamageType, setHealthDamageType] = useState<(typeof PLAYER_HEALTH_DAMAGE_TYPES)[number]["value"]>(
+    "untyped"
+  );
   const [selectedItemTemplateId, setSelectedItemTemplateId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
 
@@ -129,6 +138,7 @@ export function PlayerCharacterSheet({
     setEditingResource(null);
     setResourceDraftModifier("");
     setResourceEditorError(null);
+    setHealthDamageType("untyped");
     setResources({
       health: detail?.stats.health ?? 0,
       mana: detail?.stats.mana ?? 0
@@ -271,6 +281,7 @@ export function PlayerCharacterSheet({
   const showStatsSection = mode !== "player" || activeTab === "stats";
   const showEquipmentSection = mode !== "player" || activeTab === "equipment";
   const showNotesSection = mode !== "player" || activeTab === "notes";
+  const canEditStats = mode === "gm";
 
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
@@ -321,6 +332,23 @@ export function PlayerCharacterSheet({
                           aria-label={`${DISPLAY_NAMES[key]} resource modifier`}
                           autoFocus
                         />
+                        {mode === "player" && key === "health" ? (
+                          <select
+                            value={healthDamageType}
+                            onChange={(event) =>
+                              setHealthDamageType(
+                                event.target.value as (typeof PLAYER_HEALTH_DAMAGE_TYPES)[number]["value"]
+                              )
+                            }
+                            aria-label="Health adjustment damage type"
+                          >
+                            {PLAYER_HEALTH_DAMAGE_TYPES.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
                         <button className="button" onClick={() => applyResourceModifier(key)}>
                           Apply
                         </button>
@@ -336,6 +364,10 @@ export function PlayerCharacterSheet({
                         </button>
                         {resourceEditorError ? (
                           <p className="error-text stat-editor__error">{resourceEditorError}</p>
+                        ) : mode === "player" && key === "health" ? (
+                          <p className="muted stat-editor__hint">
+                            Damage type is UI-only scaffolding until backend health-update schema is finalized.
+                          </p>
                         ) : (
                           <p className="muted stat-editor__hint">Updates active value only.</p>
                         )}
@@ -373,171 +405,184 @@ export function PlayerCharacterSheet({
 
         {showStatsSection ? (
           <section className="character-sheet__section">
-          <h4>Core Stats and Related Substats</h4>
-          <p className="muted character-sheet__hint">
-            Click any editable value to apply a modifier. Press Enter to apply, or Esc to cancel.
-          </p>
-          <div className="character-sheet__core-blocks">
-            {CORE_SUBSTAT_GROUPS.map((group) => {
-              const key = group.core;
-              const baseValue = detail.stats[key] ?? 0;
-              const modifier = getModifier(key);
-              const currentValue = getCurrentValue(key, baseValue);
-              return (
-                <section key={key} className="core-block">
-                  <header className="core-block__header">
-                    <div>
-                      <span className="core-block__label">{DISPLAY_NAMES[key]}</span>
-                    </div>
-                    <div className="core-block__value-wrap">
-                      <button className="core-block__value-button" onClick={() => beginEditing(key)}>
-                        <strong
-                          className={`core-block__value ${
-                            modifier > 0 ? "stat-value--up" : modifier < 0 ? "stat-value--down" : ""
-                          }`}
-                        >
-                          {currentValue}
-                        </strong>
-                      </button>
-                      <div className="core-block__actions">
-                        {modifier !== 0 ? (
-                          <>
-                            <span
-                              className={`stat-modifier ${modifier > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
-                            >
-                              {formatModifier(modifier)}
-                            </span>
-                            <button className="link-button" onClick={() => resetModifier(key)}>
-                              Reset
-                            </button>
-                          </>
-                        ) : null}
+            <h4>Core Stats and Related Substats</h4>
+            <p className="muted character-sheet__hint">
+              {canEditStats
+                ? "GM can click values to apply modifiers. Press Enter to apply, or Esc to cancel."
+                : "Player view is read-only for stats and substats."}
+            </p>
+            <div className="character-sheet__core-blocks">
+              {CORE_SUBSTAT_GROUPS.map((group) => {
+                const key = group.core;
+                const baseValue = detail.stats[key] ?? 0;
+                const modifier = getModifier(key);
+                const currentValue = getCurrentValue(key, baseValue);
+                return (
+                  <section key={key} className="core-block">
+                    <header className="core-block__header">
+                      <div>
+                        <span className="core-block__label">{DISPLAY_NAMES[key]}</span>
                       </div>
-                    </div>
-                  </header>
-
-                  {editingKey === key ? (
-                    <div className="stat-editor">
-                      <input
-                        value={draftModifier}
-                        onChange={(event) => setDraftModifier(event.target.value)}
-                        onKeyDown={(event) => handleEditorKeyDown(event, key)}
-                        inputMode="numeric"
-                        placeholder="+10 or -10"
-                        aria-label={`${DISPLAY_NAMES[key]} modifier`}
-                        autoFocus
-                      />
-                      <button className="button" onClick={() => applyModifier(key)}>
-                        Apply
-                      </button>
-                      <button
-                        className="button button--secondary"
-                        onClick={() => {
-                          setEditingKey(null);
-                          setDraftModifier("");
-                          setEditorError(null);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
-                      {!editorError ? (
-                        <p className="muted stat-editor__hint">Modifier only; base value remains from template.</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  <div className="core-block__subs">
-                    {group.subs.map((subKey) => {
-                      const subBase = detail.stats[subKey] ?? 0;
-                      if (isResourceKey(subKey)) {
-                        return (
-                          <div key={subKey} className="core-sub-row core-sub-row--base-only">
-                            <div className="core-sub-row__top">
-                              <div className="core-sub-row__main core-sub-row__main--static">
-                                <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
-                                <span className="core-sub-row__value">{subBase}</span>
-                              </div>
-                              <div className="core-sub-row__actions core-sub-row__actions--placeholder" />
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      const subModifier = getModifier(subKey);
-                      const subCurrent = getCurrentValue(subKey, subBase);
-                      return (
-                        <div key={subKey} className="core-sub-row">
-                          <div className="core-sub-row__top">
-                            <button className="core-sub-row__main" onClick={() => beginEditing(subKey)}>
-                              <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
+                      <div className="core-block__value-wrap">
+                        {canEditStats ? (
+                          <button className="core-block__value-button" onClick={() => beginEditing(key)}>
+                            <strong
+                              className={`core-block__value ${
+                                modifier > 0 ? "stat-value--up" : modifier < 0 ? "stat-value--down" : ""
+                              }`}
+                            >
+                              {currentValue}
+                            </strong>
+                          </button>
+                        ) : (
+                          <strong className="core-block__value">{baseValue}</strong>
+                        )}
+                        <div className="core-block__actions">
+                          {canEditStats && modifier !== 0 ? (
+                            <>
                               <span
-                                className={`core-sub-row__value ${
-                                  subModifier > 0 ? "stat-value--up" : subModifier < 0 ? "stat-value--down" : ""
-                                }`}
+                                className={`stat-modifier ${modifier > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
                               >
-                                {subCurrent}
+                                {formatModifier(modifier)}
                               </span>
-                            </button>
-                            <div className="core-sub-row__actions">
-                              {subModifier !== 0 ? (
-                                <>
-                                  <span
-                                    className={`stat-modifier ${
-                                      subModifier > 0 ? "stat-modifier--up" : "stat-modifier--down"
-                                    }`}
-                                  >
-                                    {formatModifier(subModifier)}
-                                  </span>
-                                  <button className="link-button" onClick={() => resetModifier(subKey)}>
-                                    Reset
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {editingKey === subKey ? (
-                            <div className="stat-editor stat-editor--sub">
-                              <input
-                                value={draftModifier}
-                                onChange={(event) => setDraftModifier(event.target.value)}
-                                onKeyDown={(event) => handleEditorKeyDown(event, subKey)}
-                                inputMode="numeric"
-                                placeholder="+10 or -10"
-                                aria-label={`${DISPLAY_NAMES[subKey]} modifier`}
-                                autoFocus
-                              />
-                              <button className="button" onClick={() => applyModifier(subKey)}>
-                                Apply
+                              <button className="link-button" onClick={() => resetModifier(key)}>
+                                Reset
                               </button>
-                              <button
-                                className="button button--secondary"
-                                onClick={() => {
-                                  setEditingKey(null);
-                                  setDraftModifier("");
-                                  setEditorError(null);
-                                }}
-                              >
-                                Cancel
-                              </button>
-                              {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
-                              {!editorError ? (
-                                <p className="muted stat-editor__hint">
-                                  Modifier only; base value remains from template.
-                                </p>
-                              ) : null}
-                            </div>
+                            </>
                           ) : null}
                         </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-          <p className="muted">Modified stats can be reset back to base.</p>
+                      </div>
+                    </header>
+
+                    {canEditStats && editingKey === key ? (
+                      <div className="stat-editor">
+                        <input
+                          value={draftModifier}
+                          onChange={(event) => setDraftModifier(event.target.value)}
+                          onKeyDown={(event) => handleEditorKeyDown(event, key)}
+                          inputMode="numeric"
+                          placeholder="+10 or -10"
+                          aria-label={`${DISPLAY_NAMES[key]} modifier`}
+                          autoFocus
+                        />
+                        <button className="button" onClick={() => applyModifier(key)}>
+                          Apply
+                        </button>
+                        <button
+                          className="button button--secondary"
+                          onClick={() => {
+                            setEditingKey(null);
+                            setDraftModifier("");
+                            setEditorError(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
+                        {!editorError ? (
+                          <p className="muted stat-editor__hint">Modifier only; base value remains from template.</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="core-block__subs">
+                      {group.subs.map((subKey) => {
+                        const subBase = detail.stats[subKey] ?? 0;
+                        if (isResourceKey(subKey)) {
+                          return (
+                            <div key={subKey} className="core-sub-row core-sub-row--base-only">
+                              <div className="core-sub-row__top">
+                                <div className="core-sub-row__main core-sub-row__main--static">
+                                  <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
+                                  <span className="core-sub-row__value">{subBase}</span>
+                                </div>
+                                <div className="core-sub-row__actions core-sub-row__actions--placeholder" />
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const subModifier = getModifier(subKey);
+                        const subCurrent = getCurrentValue(subKey, subBase);
+                        return (
+                          <div key={subKey} className="core-sub-row">
+                            <div className="core-sub-row__top">
+                              {canEditStats ? (
+                                <button className="core-sub-row__main" onClick={() => beginEditing(subKey)}>
+                                  <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
+                                  <span
+                                    className={`core-sub-row__value ${
+                                      subModifier > 0 ? "stat-value--up" : subModifier < 0 ? "stat-value--down" : ""
+                                    }`}
+                                  >
+                                    {subCurrent}
+                                  </span>
+                                </button>
+                              ) : (
+                                <div className="core-sub-row__main core-sub-row__main--static">
+                                  <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
+                                  <span className="core-sub-row__value">{subBase}</span>
+                                </div>
+                              )}
+                              <div className="core-sub-row__actions">
+                                {canEditStats && subModifier !== 0 ? (
+                                  <>
+                                    <span
+                                      className={`stat-modifier ${
+                                        subModifier > 0 ? "stat-modifier--up" : "stat-modifier--down"
+                                      }`}
+                                    >
+                                      {formatModifier(subModifier)}
+                                    </span>
+                                    <button className="link-button" onClick={() => resetModifier(subKey)}>
+                                      Reset
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {canEditStats && editingKey === subKey ? (
+                              <div className="stat-editor stat-editor--sub">
+                                <input
+                                  value={draftModifier}
+                                  onChange={(event) => setDraftModifier(event.target.value)}
+                                  onKeyDown={(event) => handleEditorKeyDown(event, subKey)}
+                                  inputMode="numeric"
+                                  placeholder="+10 or -10"
+                                  aria-label={`${DISPLAY_NAMES[subKey]} modifier`}
+                                  autoFocus
+                                />
+                                <button className="button" onClick={() => applyModifier(subKey)}>
+                                  Apply
+                                </button>
+                                <button
+                                  className="button button--secondary"
+                                  onClick={() => {
+                                    setEditingKey(null);
+                                    setDraftModifier("");
+                                    setEditorError(null);
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
+                                {!editorError ? (
+                                  <p className="muted stat-editor__hint">
+                                    Modifier only; base value remains from template.
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+            {canEditStats ? <p className="muted">Modified stats can be reset back to base.</p> : null}
           </section>
         ) : null}
 

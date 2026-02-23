@@ -125,6 +125,30 @@ textarea {
   overflow-x: hidden;
 }
 
+.gm-console-tools {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 1rem;
+}
+
+.app-grid-player-shell--gm {
+  height: auto;
+  align-items: start;
+}
+
+.app-grid-player-shell--gm .player-console-main,
+.app-grid-player-shell--gm .player-console-side,
+.app-grid-player-shell--gm .player-console-main > .panel,
+.app-grid-player-shell--gm .player-console-side > .panel {
+  height: auto;
+}
+
+.app-grid-player-shell--gm .player-console-main > .panel .panel__body,
+.app-grid-player-shell--gm .player-console-side > .panel .panel__body {
+  overflow: visible;
+}
+
 .app-column {
   display: flex;
   flex-direction: column;
@@ -787,6 +811,10 @@ textarea {
   .app-grid-player-shell {
     grid-template-columns: 1fr;
     height: auto;
+  }
+
+  .gm-console-tools {
+    grid-template-columns: 1fr;
   }
 
   .player-console-main,

@@ -17,7 +17,7 @@ import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 export function App(): JSX.Element {
   const { state, dispatch } = useAppStore();
   const client = useGameClient();
-  const { role, connection, instances, activeSheetId, gmView } = state;
+  const { role, connection, instances, activeSheetId, gmView, playerSheetSelectionComplete } = state;
 
   useEffect(() => {
     if (!role || connection.status !== "disconnected") {
@@ -32,7 +32,7 @@ export function App(): JSX.Element {
 
   if (role === "player") {
     const active = activeSheetId ? instances[activeSheetId] : null;
-    if (!active || active.kind !== "player") {
+    if (!playerSheetSelectionComplete || !active || active.kind !== "player") {
       return <PlayerEntry client={client} />;
     }
   }

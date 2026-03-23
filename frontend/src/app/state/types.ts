@@ -29,6 +29,7 @@ export interface IntentFeedbackItem {
 
 export interface AppState {
   role: Role | null;
+  playerSheetSelectionComplete: boolean;
   gmPassword: string;
   gmAuthenticated: boolean;
   connection: {
@@ -58,6 +59,7 @@ export interface AppState {
 
 export type AppAction =
   | { type: "set_role"; role: Role | null }
+  | { type: "set_player_sheet_selection_complete"; value: boolean }
   | { type: "set_gm_password"; password: string }
   | { type: "set_gm_authenticated"; value: boolean }
   | { type: "set_gm_view"; view: GMView }

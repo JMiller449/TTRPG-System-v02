@@ -14,7 +14,9 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - `state_dumpy.json`: persisted local state snapshot.
 - `frontend_tasks.md`: active frontend TODO backlog.
 - `backend_tasks.md`: active backend TODO backlog.
-- `Completed.md`: completion log shared by both frontend/backend workstreams.
+- `frontend_completed.md`: completion log for finished frontend tasks.
+- `backend_completed.md`: completion log for finished backend tasks.
+- `Completed.md`: legacy shared completion log (do not add new entries).
 
 ## Build, Test, and Development Commands
 - `python -m venv backend/.venv`: create backend virtual environment.
@@ -32,8 +34,10 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 ## Task Tracking
 - `frontend_tasks.md` stores active frontend TODO items.
 - `backend_tasks.md` stores active backend TODO items.
-- `Completed.md` stores finished tasks as a dated log.
-- When a task is completed, move it from the relevant task file to `Completed.md` in the same PR.
+- `frontend_completed.md` stores finished frontend tasks as a dated log.
+- `backend_completed.md` stores finished backend tasks as a dated log.
+- When a frontend task is completed, remove it from `frontend_tasks.md` and add it to `frontend_completed.md` in the same PR.
+- When a backend task is completed, remove it from `backend_tasks.md` and add it to `backend_completed.md` in the same PR.
 - If behavior is unclear in the rules, add a `TODO` task in the relevant task file and reference the exact PDF section/page.
 
 ## Testing Guidelines

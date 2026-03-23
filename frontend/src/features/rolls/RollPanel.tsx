@@ -5,17 +5,20 @@ import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import type { GameClient } from "@/hooks/useGameClient";
-import type { RollVisibility, StatKey } from "@/domain/models";
+import type { CommonDieSides, RollVisibility, StatKey } from "@/domain/models";
 import {
-  getQuickRollContext,
   getRollEquationPreview,
   getQuickRollLabel,
+  formatDiceExpression,
   QUICK_ROLL_ACTIONS,
   type QuickRollAction
 } from "@/features/rolls/quickRolls";
 
 type RollPanelMode = "gm" | "player";
 type RollEdge = "normal" | "advantage" | "disadvantage";
+type ComposerMode = "stat" | "dice";
+
+const COMMON_DICE: readonly CommonDieSides[] = [4, 6, 8, 10, 12, 20, 100];
 
 function getRollEdgePreview(edge: RollEdge): string {
   switch (edge) {
@@ -40,11 +43,13 @@ export function RollPanel({
   } = useAppStore();
   const { activeSheetId, instances } = state;
 
+  const [composerMode, setComposerMode] = useState<ComposerMode>("stat");
   const [stat, setStat] = useState<StatKey>("strength");
-  const [context, setContext] = useState("");
   const [visibility, setVisibility] = useState<RollVisibility>("visible");
   const [rollEdge, setRollEdge] = useState<RollEdge>("normal");
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
+  const [diceCount, setDiceCount] = useState<number>(1);
+  const [diceSides, setDiceSides] = useState<CommonDieSides>(20);
 
   const activeSheetName = useMemo(() => {
     if (!activeSheetId) {
@@ -59,99 +64,137 @@ export function RollPanel({
     const label = selectActiveWeaponLabel(state, activeSheetId);
     return label === "None" ? null : label;
   }, [activeSheetId, state]);
+  const showVisibilityControls = mode === "gm";
 
   const submit = (): void => {
     if (!activeSheetId) {
       return;
     }
 
+    if (composerMode === "dice") {
+      client.submitRoll({
+        kind: "dice",
+        sheetId: activeSheetId,
+        count: Math.max(1, diceCount),
+        sides: diceSides,
+        visibility: showVisibilityControls ? visibility : "visible"
+      });
+      return;
+    }
+
     client.submitRoll({
+      kind: "stat",
       sheetId: activeSheetId,
       stat,
-      context: context.trim(),
-      visibility: mode === "player" ? "visible" : visibility
+      visibility: showVisibilityControls ? visibility : "visible"
     });
-    setContext("");
   };
 
   const title = mode === "player" ? "Roll Composer" : "Roll";
   const statLabel = mode === "player" ? "Stat" : "Governing Stat";
+  const selectedActionLabel = selectedQuickAction ? getQuickRollLabel(selectedQuickAction, activeWeapon) : null;
 
   return (
     <Panel title={title}>
       <div className="stack">
-        <p className="muted">Active Sheet: {activeSheetName}</p>
-        <div className="quick-roll-row">
-          {QUICK_ROLL_ACTIONS.map((action) => (
-            <button
-              key={action}
-              className={`quick-roll-btn ${selectedQuickAction === action ? "quick-roll-btn--active" : ""}`}
-              onClick={() => {
-                setSelectedQuickAction(action);
-                setContext(getQuickRollContext(action, activeWeapon));
-              }}
-            >
-              {getQuickRollLabel(action, activeWeapon)}
-            </button>
-          ))}
+        <div className="status-row roll-panel__meta">
+          <span className="pill">sheet: {activeSheetName}</span>
+          <span className="pill">mode: {composerMode === "stat" ? "stat check" : "dice roll"}</span>
+          {selectedActionLabel ? <span className="pill">action: {selectedActionLabel}</span> : null}
         </div>
-        <p className="muted">
-          Quick-roll buttons prefill context only. TODO: backend will apply authoritative roll modifiers.
-        </p>
-        <div className="equation-preview">
-          <span className="muted">Roll Equation</span>
-          <code>
-            {getRollEquationPreview(stat, selectedQuickAction, activeWeapon)} + {getRollEdgePreview(rollEdge)}
-          </code>
-          <p className="muted">
-            TODO: replace placeholders with backend-authoritative dice and action formulas.
-          </p>
-        </div>
-        <Field label={statLabel}>
-          <select value={stat} onChange={(event) => setStat(event.target.value as StatKey)}>
-            {ALL_STATS.map((entry) => (
-              <option key={entry} value={entry}>
-                {STAT_LABELS[entry]}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Context">
-          <input
-            value={context}
-            onChange={(event) => setContext(event.target.value)}
-            placeholder={mode === "player" ? "e.g. Jumping the broken bridge" : "e.g. Acrobatics jump over ravine"}
-          />
-        </Field>
-
-        <Field label="Roll Edge">
-          <select value={rollEdge} onChange={(event) => setRollEdge(event.target.value as RollEdge)}>
-            <option value="normal">Normal</option>
-            <option value="advantage">Advantage</option>
-            <option value="disadvantage">Disadvantage</option>
-          </select>
-        </Field>
-        <p className="muted">
-          Roll edge is currently UI-only scaffolding until backend roll-intent schema adds an explicit edge field.
-        </p>
-
-        {mode === "gm" ? (
-          <Field label="Visibility">
-            <select value={visibility} onChange={(event) => setVisibility(event.target.value as RollVisibility)}>
-              <option value="visible">Visible</option>
-              <option value="hidden">Hidden (GM)</option>
+        <div className="inline-group roll-panel__controls">
+          <Field label="Roll Type">
+            <select value={composerMode} onChange={(event) => setComposerMode(event.target.value as ComposerMode)}>
+              <option value="stat">Stat Check</option>
+              <option value="dice">Simple Dice Roll</option>
             </select>
           </Field>
-        ) : (
-          <p className="muted">Visibility: visible (player rolls)</p>
-        )}
+          {composerMode === "stat" ? (
+            <Field label={statLabel}>
+              <select value={stat} onChange={(event) => setStat(event.target.value as StatKey)}>
+                {ALL_STATS.map((entry) => (
+                  <option key={entry} value={entry}>
+                    {STAT_LABELS[entry]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <Field label="Dice">
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={diceCount}
+                onChange={(event) => setDiceCount(Math.max(1, Number(event.target.value) || 1))}
+              />
+            </Field>
+          )}
+          {composerMode === "stat" ? (
+            <Field label="Edge">
+              <select value={rollEdge} onChange={(event) => setRollEdge(event.target.value as RollEdge)}>
+                <option value="normal">Normal</option>
+                <option value="advantage">Advantage</option>
+                <option value="disadvantage">Disadvantage</option>
+              </select>
+            </Field>
+          ) : (
+            <Field label="Sides">
+              <select
+                value={diceSides}
+                onChange={(event) => setDiceSides(Number(event.target.value) as CommonDieSides)}
+              >
+                {COMMON_DICE.map((sides) => (
+                  <option key={sides} value={sides}>
+                    d{sides}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {showVisibilityControls ? (
+            <Field label="Visibility">
+              <select value={visibility} onChange={(event) => setVisibility(event.target.value as RollVisibility)}>
+                <option value="visible">Visible</option>
+                <option value="hidden">Hidden (GM)</option>
+              </select>
+            </Field>
+          ) : null}
+        </div>
+        {composerMode === "stat" ? (
+          <>
+            <div className="quick-roll-row">
+              {QUICK_ROLL_ACTIONS.map((action) => (
+                <button
+                  key={action}
+                  className={`quick-roll-btn ${selectedQuickAction === action ? "quick-roll-btn--active" : ""}`}
+                  onClick={() => {
+                    setSelectedQuickAction(action);
+                  }}
+                >
+                  {getQuickRollLabel(action, activeWeapon)}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+        <div className="roll-panel__footer">
+          <div className="equation-preview">
+            <span className="muted">{composerMode === "dice" ? "Dice Expression" : "Roll Equation"}</span>
+            {composerMode === "dice" ? (
+              <code>{formatDiceExpression(diceCount, diceSides)}</code>
+            ) : (
+              <code>
+                {getRollEquationPreview(stat, selectedQuickAction, activeWeapon)} + {getRollEdgePreview(rollEdge)}
+              </code>
+            )}
+          </div>
+          <button className="button" onClick={submit} disabled={!activeSheetId}>
+            {composerMode === "dice" ? "Roll Dice" : "Submit Roll"}
+          </button>
+        </div>
 
-        <button className="button" onClick={submit} disabled={!activeSheetId}>
-          Submit Roll Intent
-        </button>
-
-        {/* TODO: backend may require roll-type specific payload fields; align once request schema is finalized. */}
+        {/* TODO: backend may require dedicated dice-roll and edge fields; align once request schema is finalized. */}
       </div>
     </Panel>
   );

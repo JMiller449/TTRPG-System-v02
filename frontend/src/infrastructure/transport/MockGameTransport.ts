@@ -184,6 +184,10 @@ export class MockGameTransport implements GameTransport {
         return;
       }
       case "submit_roll": {
+        const resultText =
+          intent.payload.request.kind === "dice"
+            ? `Mock ${intent.payload.request.count}d${intent.payload.request.sides} roll only. Awaiting backend authoritative resolution.`
+            : "Mock stat-check result only. Awaiting backend authoritative resolution.";
         const pendingEntry: RollLogEntry = {
           id: makeId("roll"),
           status: "resolved",
@@ -191,7 +195,7 @@ export class MockGameTransport implements GameTransport {
           createdAt: new Date().toISOString(),
           requestedByRole: intent.payload.requestedByRole,
           // TODO: replace with backend-calculated result once rules engine API is available.
-          resultText: "Mock result only. Awaiting backend authoritative resolution."
+          resultText
         };
         this.snapshot.rollLog = [pendingEntry, ...this.snapshot.rollLog];
         this.emitPatch([{ op: "add_roll_log", value: pendingEntry }], intent.intentId);

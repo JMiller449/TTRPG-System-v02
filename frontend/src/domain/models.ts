@@ -80,12 +80,24 @@ export interface SheetInventoryItem {
 
 export type RollVisibility = "visible" | "hidden";
 
-export interface RollRequest {
+export type CommonDieSides = 4 | 6 | 8 | 10 | 12 | 20 | 100;
+
+export interface StatRollRequest {
+  kind: "stat";
   sheetId: string;
   stat: StatKey;
-  context: string;
   visibility: RollVisibility;
 }
+
+export interface DiceRollRequest {
+  kind: "dice";
+  sheetId: string;
+  count: number;
+  sides: CommonDieSides;
+  visibility: RollVisibility;
+}
+
+export type RollRequest = StatRollRequest | DiceRollRequest;
 
 export type RollStatus = "pending" | "resolved" | "failed";
 

@@ -6,8 +6,11 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
       return {
         ...state,
         role: action.role,
+        playerSheetSelectionComplete: false,
         gmView: action.role === "gm" ? state.gmView : "console"
       };
+    case "set_player_sheet_selection_complete":
+      return { ...state, playerSheetSelectionComplete: action.value };
     case "set_gm_password":
       return { ...state, gmPassword: action.password };
     case "set_gm_authenticated":

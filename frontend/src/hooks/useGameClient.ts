@@ -28,7 +28,9 @@ function getIntentLabel(intent: ClientIntent): string {
     case "spawn_encounter":
       return "Encounter spawn";
     case "submit_roll":
-      return `Roll: ${intent.payload.request.stat}`;
+      return intent.payload.request.kind === "dice"
+        ? `Roll: ${intent.payload.request.count}d${intent.payload.request.sides}`
+        : `Roll: ${intent.payload.request.stat}`;
     case "set_active_sheet":
       return "Active sheet change";
     default: {

@@ -7,6 +7,7 @@ const initialItemTemplates = Object.fromEntries(
 
 export const initialState: AppState = {
   role: null,
+  playerSheetSelectionComplete: false,
   gmPassword: "",
   gmAuthenticated: false,
   connection: {

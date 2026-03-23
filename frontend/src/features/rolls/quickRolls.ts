@@ -45,3 +45,7 @@ export function getRollEquationPreview(
 
   return `[ROLL_DICE_TODO] + ${statTerm} + [${action.toUpperCase()}_MOD_TODO]`;
 }
+
+export function formatDiceExpression(count: number, sides: number): string {
+  return `${Math.max(1, count)}d${sides}`;
+}

@@ -58,9 +58,9 @@ export function PlayerCharacterSheet({
     );
   }
 
-  const showStatsSection = mode !== "player" || activeTab === "stats";
-  const showEquipmentSection = mode !== "player" || activeTab === "equipment";
-  const showNotesSection = mode !== "player" || activeTab === "notes";
+  const showStatsSection = activeTab === "stats";
+  const showEquipmentSection = activeTab === "equipment";
+  const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
 
   return (
@@ -92,7 +92,7 @@ export function PlayerCharacterSheet({
           </div>
         </header>
 
-        {mode === "player" ? <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} /> : null}
+        <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {showStatsSection ? (
           <SheetStatsSection

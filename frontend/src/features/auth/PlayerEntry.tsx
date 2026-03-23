@@ -15,7 +15,6 @@ import { makeId } from "@/shared/utils/id";
 
 export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
-  const { instances, instanceOrder } = state;
 
   const [selectedSheetId, setSelectedSheetId] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -26,6 +25,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
     if (!selectedSheetId) {
       return;
     }
+    dispatch({ type: "set_player_sheet_selection_complete", value: true });
     client.sendIntent(buildSetActiveSheetIntent(selectedSheetId));
   };
 
@@ -47,6 +47,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
       updatedAt: new Date().toISOString()
     };
 
+    dispatch({ type: "set_player_sheet_selection_complete", value: true });
     client.sendIntent(buildCreateTemplateIntent(template));
     client.sendIntent(buildInstantiateTemplateIntent(templateId, 1));
 
@@ -56,17 +57,17 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
   return (
     <div className="landing-shell">
       <div className="landing-card">
-        <h1>Player Entry</h1>
-        <p className="muted">Select an existing player sheet or create a new player before entering the console.</p>
+        <h1>Select Character Sheet</h1>
+        <p className="muted">Choose a player character sheet before entering the player console.</p>
 
-        <Panel title="Select Existing Player">
+        <Panel title="Available Character Sheets">
           <div className="stack">
             {playerInstances.length === 0 ? (
               <EmptyState message="No player sheets found. Create one below." />
             ) : (
-              <Field label="Player Sheet">
+              <Field label="Character Sheet">
                 <select value={selectedSheetId} onChange={(event) => setSelectedSheetId(event.target.value)}>
-                  <option value="">Select player sheet...</option>
+                  <option value="">Select character sheet...</option>
                   {playerInstances.map((sheet) => (
                     <option key={sheet.id} value={sheet.id}>
                       {sheet.name}
@@ -77,12 +78,12 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
             )}
 
             <button className="button" onClick={continueWithSelected} disabled={!selectedSheetId}>
-              Enter Player Console
+              Open Character Sheet
             </button>
           </div>
         </Panel>
 
-        <Panel title="Create New Player">
+        <Panel title="Create New Character Sheet">
           <div className="stack">
             <Field label="Player Name">
               <input

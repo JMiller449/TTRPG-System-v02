@@ -1,18 +1,21 @@
 import type { AppAction, AppState } from "@/app/state/types";
 
-const MAX_INTENT_FEEDBACK_ITEMS = 6;
+const MAX_INTENT_FEEDBACK_ITEMS = 3;
 
 function pushIntentFeedback(state: AppState, action: Extract<AppAction, { type: "push_intent_feedback" }>): AppState {
-  const trimmed =
+  const withoutResolvedPending =
     action.item.status === "pending" || !action.item.intentId
       ? state.intentFeedback
       : state.intentFeedback.filter(
           (item) => !(item.intentId === action.item.intentId && item.status === "pending")
         );
+  const deduped = withoutResolvedPending.filter(
+    (item) => !(item.status === action.item.status && item.message === action.item.message)
+  );
 
   return {
     ...state,
-    intentFeedback: [action.item, ...trimmed].slice(0, MAX_INTENT_FEEDBACK_ITEMS)
+    intentFeedback: [action.item, ...deduped].slice(0, MAX_INTENT_FEEDBACK_ITEMS)
   };
 }
 

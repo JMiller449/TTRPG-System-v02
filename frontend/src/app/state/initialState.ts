@@ -12,7 +12,7 @@ export const initialState: AppState = {
   gmAuthenticated: false,
   connection: {
     status: "disconnected",
-    transport: (import.meta.env.VITE_TRANSPORT === "ws" ? "ws" : "mock") as
+    transport: (import.meta.env.VITE_TRANSPORT === "mock" ? "mock" : "ws") as
       | "mock"
       | "ws"
   },

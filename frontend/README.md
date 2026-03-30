@@ -15,8 +15,9 @@ This frontend is intentionally scaffolded for backend-authoritative integration.
 - `npm run format`
 
 ## Transport Modes
-- `VITE_TRANSPORT=mock` (default): local scaffold mode for UI development.
-- `VITE_TRANSPORT=ws`: real websocket mode using `VITE_WS_URL`.
+- `VITE_TRANSPORT=ws` (default): try the real websocket backend using `VITE_WS_URL`.
+- `VITE_TRANSPORT=mock`: force local scaffold mode for UI development.
+- If websocket connect fails while running in default `ws` mode, the frontend falls back to mock transport.
 
 ## Integration Boundary
 - Replace/align intent payloads and server event types in `src/domain/ipc.ts` once backend contract is finalized.

@@ -65,6 +65,7 @@ export type AppAction =
   | { type: "set_gm_view"; view: GMView }
   | { type: "set_template_search"; value: string }
   | { type: "connection_status"; status: ConnectionStatus }
+  | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
   | { type: "queue_intent"; intentId: string }
   | { type: "clear_intent"; intentId: string }

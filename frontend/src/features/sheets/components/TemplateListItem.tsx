@@ -1,11 +1,11 @@
-import type { SheetTemplate } from "@/domain/models";
+import type { SheetTemplateView } from "@/domain/models";
 
 export function TemplateListItem({
   template,
   onEdit,
   onSpawn
 }: {
-  template: SheetTemplate;
+  template: SheetTemplateView;
   onEdit: () => void;
   onSpawn: () => void;
 }): JSX.Element {

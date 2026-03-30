@@ -9,7 +9,7 @@ import { Panel } from "@/shared/ui/Panel";
 
 export function EncounterQuickSelectPanel({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { encounters, encounterOrder, templates }
+    state: { encounters, encounterOrder, sheets }
   } = useAppStore();
 
   const [selectedEncounterId, setSelectedEncounterId] = useState("");
@@ -52,7 +52,7 @@ export function EncounterQuickSelectPanel({ client }: { client: GameClient }): J
             {selectedEncounter ? (
               <p className="muted">
                 {selectedEncounter.entries
-                  .map((entry) => `${entry.count}x ${templates[entry.templateId]?.name ?? entry.templateId}`)
+                  .map((entry) => `${entry.count}x ${sheets[entry.templateId]?.name ?? entry.templateId}`)
                   .join(", ")}
               </p>
             ) : null}

@@ -2,33 +2,75 @@ import type { PatchOp } from "@/domain/ipc";
 import type { AppAction, AppState } from "@/app/state/types";
 import { removeById, upsert } from "@/app/state/reducer/shared";
 
+function upsertPersistentSheet(
+  map: AppState["persistentSheets"],
+  order: string[],
+  id: string,
+  value: AppState["persistentSheets"][string]
+): { map: AppState["persistentSheets"]; order: string[] } {
+  const nextMap = { ...map, [id]: value };
+  const exists = order.includes(id);
+  return {
+    map: nextMap,
+    order: exists ? order : [...order, id]
+  };
+}
+
 function applyPatch(state: AppState, op: PatchOp): AppState {
   switch (op.op) {
-    case "upsert_template": {
-      const next = upsert(state.templates, state.templateOrder, op.value);
-      return { ...state, templates: next.map, templateOrder: next.order };
+    case "upsert_sheet": {
+      const next = upsert(state.sheets, state.sheetOrder, op.value);
+      return { ...state, sheets: next.map, sheetOrder: next.order };
     }
 
-    case "remove_template": {
-      const next = removeById(state.templates, state.templateOrder, op.value.id);
-      return { ...state, templates: next.map, templateOrder: next.order };
+    case "remove_sheet": {
+      const next = removeById(state.sheets, state.sheetOrder, op.value.id);
+      const nextPresentation = { ...state.sheetPresentation };
+      delete nextPresentation[op.value.id];
+      return { ...state, sheets: next.map, sheetOrder: next.order, sheetPresentation: nextPresentation };
     }
 
-    case "upsert_instance": {
-      const next = upsert(state.instances, state.instanceOrder, op.value);
-      return { ...state, instances: next.map, instanceOrder: next.order };
+    case "upsert_persistent_sheet": {
+      const next = upsertPersistentSheet(
+        state.persistentSheets,
+        state.persistentSheetOrder,
+        op.value.id,
+        op.value.value
+      );
+      return { ...state, persistentSheets: next.map, persistentSheetOrder: next.order };
     }
 
-    case "remove_instance": {
-      const next = removeById(state.instances, state.instanceOrder, op.value.id);
+    case "remove_persistent_sheet": {
+      const next = removeById(state.persistentSheets, state.persistentSheetOrder, op.value.id);
+      const nextPresentation = { ...state.persistentSheetPresentation };
+      delete nextPresentation[op.value.id];
       const nextActive = state.activeSheetId === op.value.id ? next.order[0] ?? null : state.activeSheetId;
       return {
         ...state,
-        instances: next.map,
-        instanceOrder: next.order,
+        persistentSheets: next.map,
+        persistentSheetOrder: next.order,
+        persistentSheetPresentation: nextPresentation,
         activeSheetId: nextActive
       };
     }
+
+    case "upsert_sheet_presentation":
+      return {
+        ...state,
+        sheetPresentation: {
+          ...state.sheetPresentation,
+          [op.value.sheetId]: op.value.presentation
+        }
+      };
+
+    case "upsert_persistent_sheet_presentation":
+      return {
+        ...state,
+        persistentSheetPresentation: {
+          ...state.persistentSheetPresentation,
+          [op.value.persistentSheetId]: op.value.presentation
+        }
+      };
 
     case "upsert_encounter": {
       const next = upsert(state.encounters, state.encounterOrder, op.value);
@@ -60,15 +102,25 @@ function applyPatch(state: AppState, op: PatchOp): AppState {
 export function syncReducer(state: AppState, action: AppAction): AppState | undefined {
   switch (action.type) {
     case "apply_snapshot": {
-      const templates = Object.fromEntries(action.snapshot.templates.map((item) => [item.id, item]));
-      const instances = Object.fromEntries(action.snapshot.instances.map((item) => [item.id, item]));
+      const sheets = Object.fromEntries(action.snapshot.sheets.map((item) => [item.id, item]));
+      const persistentSheets = Object.fromEntries(
+        action.snapshot.persistentSheets.map((item) => [item.id, item.value])
+      );
+      const sheetPresentation = Object.fromEntries(
+        action.snapshot.sheetPresentation.map((item) => [item.sheetId, item.value])
+      );
+      const persistentSheetPresentation = Object.fromEntries(
+        action.snapshot.persistentSheetPresentation.map((item) => [item.persistentSheetId, item.value])
+      );
       const encounters = Object.fromEntries(action.snapshot.encounters.map((item) => [item.id, item]));
       return {
         ...state,
-        templates,
-        templateOrder: action.snapshot.templates.map((item) => item.id),
-        instances,
-        instanceOrder: action.snapshot.instances.map((item) => item.id),
+        sheets,
+        sheetOrder: action.snapshot.sheets.map((item) => item.id),
+        persistentSheets,
+        persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
+        sheetPresentation,
+        persistentSheetPresentation,
         encounters,
         encounterOrder: action.snapshot.encounters.map((item) => item.id),
         rollLog: action.snapshot.rollLog,

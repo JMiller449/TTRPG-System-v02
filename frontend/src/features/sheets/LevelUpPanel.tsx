@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
+import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import type { StatKey } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -13,24 +14,21 @@ function toDraftValues(values: Partial<Record<StatKey, number>>): Record<StatKey
 
 export function LevelUpPanel(): JSX.Element {
   const {
-    state: { activeSheetId, instances, templates, localSheetStatOverrides },
+    state,
     dispatch
   } = useAppStore();
+  const { localSheetStatOverrides } = state;
 
   const detail = useMemo(() => {
-    if (!activeSheetId) {
+    const activeDetail = selectActiveSheetDetail(state);
+    if (!activeDetail) {
       return null;
     }
-    const instance = instances[activeSheetId];
-    if (!instance) {
-      return null;
-    }
-    const template = templates[instance.templateId];
-    const baseStats = template?.stats ?? {};
-    const overrides = localSheetStatOverrides[instance.id] ?? {};
+    const baseStats = activeDetail.baseStats;
+    const overrides = localSheetStatOverrides[activeDetail.instance.id] ?? {};
     const effective = { ...baseStats, ...overrides };
-    return { instance, template, baseStats, effective };
-  }, [activeSheetId, instances, templates, localSheetStatOverrides]);
+    return { instance: activeDetail.instance, baseStats, effective };
+  }, [localSheetStatOverrides, state]);
 
   const [draftValues, setDraftValues] = useState<Record<StatKey, string>>(() => toDraftValues({}));
   const [localError, setLocalError] = useState<string | null>(null);

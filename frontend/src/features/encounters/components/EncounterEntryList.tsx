@@ -1,4 +1,4 @@
-import type { SheetTemplate } from "@/domain/models";
+import type { SheetTemplateView } from "@/domain/models";
 import type { DraftEncounterEntry } from "@/features/encounters/encounterDraft";
 import { EncounterEntryRow } from "@/features/encounters/components/EncounterEntryRow";
 
@@ -10,7 +10,7 @@ export function EncounterEntryList({
   onAdd
 }: {
   entries: DraftEncounterEntry[];
-  templateOptions: SheetTemplate[];
+  templateOptions: SheetTemplateView[];
   onChange: (entryId: string, changes: Partial<DraftEncounterEntry>) => void;
   onRemove: (entryId: string) => void;
   onAdd: () => void;

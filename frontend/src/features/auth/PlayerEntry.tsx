@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useAppStore } from "@/app/state/store";
 import { selectPlayerInstances } from "@/app/state/selectors";
-import type { SheetTemplate } from "@/domain/models";
+import type { Sheet } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
-  buildCreateTemplateIntent,
-  buildInstantiateTemplateIntent,
+  buildCreateSheetIntent,
+  buildInstantiateSheetIntent,
   buildSetActiveSheetIntent
 } from "@/features/sheets/intentBuilders";
+import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -36,20 +37,29 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
     }
 
     const templateId = makeId("template_player");
-    const template: SheetTemplate = {
+    const sheet: Sheet = {
       id: templateId,
-      kind: "player",
-      mode: "template",
       name,
-      notes: "",
-      stats: {},
-      tags: ["player", "custom"],
-      updatedAt: new Date().toISOString()
+      dm_only: false,
+      xp_given_when_slayed: 0,
+      xp_cap: "",
+      proficiencies: {},
+      items: {},
+      stats: createDefaultStats(),
+      slayed_record: {},
+      actions: {}
     };
 
     dispatch({ type: "set_player_sheet_selection_complete", value: true });
-    client.sendIntent(buildCreateTemplateIntent(template));
-    client.sendIntent(buildInstantiateTemplateIntent(templateId, 1));
+    client.sendIntent(
+      buildCreateSheetIntent(sheet, {
+        kind: "player",
+        notes: "",
+        tags: ["player", "custom"],
+        updatedAt: new Date().toISOString()
+      })
+    );
+    client.sendIntent(buildInstantiateSheetIntent(templateId, 1));
 
     setNewPlayerName("");
   };

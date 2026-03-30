@@ -1,4 +1,4 @@
-import type { EncounterPreset, SheetTemplate } from "@/domain/models";
+import type { EncounterPreset, Sheet } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 
 export function EncounterPresetList({
@@ -7,7 +7,7 @@ export function EncounterPresetList({
   onSpawn
 }: {
   encounters: EncounterPreset[];
-  templates: Record<string, SheetTemplate>;
+  templates: Record<string, Sheet>;
   onSpawn: (encounterId: string) => void;
 }): JSX.Element {
   return (

@@ -1,4 +1,4 @@
-import type { SheetTemplate } from "@/domain/models";
+import type { SheetTemplateView } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { TemplateListItem } from "@/features/sheets/components/TemplateListItem";
 
@@ -7,9 +7,9 @@ export function TemplateList({
   onEdit,
   onSpawn
 }: {
-  templates: SheetTemplate[];
-  onEdit: (template: SheetTemplate) => void;
-  onSpawn: (template: SheetTemplate) => void;
+  templates: SheetTemplateView[];
+  onEdit: (template: SheetTemplateView) => void;
+  onSpawn: (template: SheetTemplateView) => void;
 }): JSX.Element {
   return (
     <div className="list">

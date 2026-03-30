@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from sre_parse import State
 from typing import Any, Literal, Optional, Union
 
+from backend.schemas.ipc_types.requests import SocketGroup
 
-# for responses to inherit
+
 @dataclass
 class ResponseParent:
     response_id: Optional[str]
@@ -18,7 +19,7 @@ class PatchOp:
 
 @dataclass
 class StateSnapshot(ResponseParent):
-    state: State  # TODO: probably hide non player visable etc
+    state: State
     type: Literal["state_snapshot"] = "state_snapshot"
 
 
@@ -36,5 +37,36 @@ class Error(ResponseParent):
     request_id: str | None = None
 
 
-# Response to client
-Responses = Union[StateSnapshot, StatePatch, Error]
+@dataclass
+class SocketGroupAssigned(ResponseParent):
+    is_dm: bool
+    groups: dict[SocketGroup, int]
+    type: Literal["socket_group_assigned"] = "socket_group_assigned"
+    request_id: str | None = None
+
+
+@dataclass
+class ElevateToDMResponse(ResponseParent):
+    success: bool
+    is_dm: bool
+    reason: str | None = None
+    type: Literal["elevate_to_dm_response"] = "elevate_to_dm_response"
+    request_id: str | None = None
+
+
+@dataclass
+class ChatUpdateResponse(ResponseParent):
+    message: str
+    target_group: SocketGroup
+    type: Literal["chat_update"] = "chat_update"
+    request_id: str | None = None
+
+
+Responses = Union[
+    StateSnapshot,
+    StatePatch,
+    Error,
+    SocketGroupAssigned,
+    ElevateToDMResponse,
+    ChatUpdateResponse,
+]

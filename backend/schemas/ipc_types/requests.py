@@ -1,81 +1,62 @@
-from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Union
 
-from backend.schemas.state.action import Action
-from backend.schemas.state.item import Item
+from pydantic import BaseModel, Field, TypeAdapter
 
-CrudEntityUnion = Union[Item, Action]
-
-
-@dataclass
-class RequestParent:
-    request_id: Optional[str]
+CrudEntityUnion = dict[str, Any]
+SocketGroup = Literal["dms", "players"]
 
 
-# turn order handling
-@dataclass
-class BuildTurnOrder(RequestParent):
-    type: Literal["build_turn_order"] = "buld_turn_order"
+class RequestParent(BaseModel):
+    request_id: str | None = None
 
 
-@dataclass
-class EndTurn(RequestParent):
-    type: Literal["end_turn"] = "end_turn"
-
-
-@dataclass
-class DestoryTurnOrder(RequestParent):
-    type: Literal["destory_turn_order"] = "destory_turn_order"
-
-
-# actions
-@dataclass
 class PerformAction(RequestParent):
-    victim_id: Optional[str]
+    victim_id: str | None
     action_id: str
-    type: Literal["perform_action"] = "perform_action"
+    type: Literal["perform_action"]
 
 
-@dataclass
-class RespondToAttack(RequestParent):
-    response_type: Literal["parry", "block", "dodge", "action"]
-    action_id: Optional[str]
-    type: Literal["respond"] = "respond"
-
-
-@dataclass
 class CreateEntity(RequestParent):
     entity: CrudEntityUnion
-    type: Literal["create_entity"] = "create_entity"
+    type: Literal["create_entity"]
 
 
-@dataclass
 class UpdateEntity(RequestParent):
-    # this is a dict instead of entity because having duplicate shape for optional is a pain
     entity_id: str
-    entity_partiala: Dict[str, any]
-    type: Literal["update_entity"] = "update_entity"
+    entity_partial: dict[str, Any]
+    type: Literal["update_entity"]
 
 
-@dataclass
 class DeleteEntity(RequestParent):
     entity_id: str
-    type: Literal["delete_entity"] = "delete_entity"
-    request_id: Optional[str] = None
+    type: Literal["delete_entity"]
 
 
-# Request from client
-Requests = Union[
-    # basic crud
-    CreateEntity,
-    UpdateEntity,
-    DeleteEntity,
-    # reaction
-    RespondToAttack,
-    # action
-    PerformReaction,
-    # turn order
-    DestoryTurnOrder,
-    EndTurn,
-    BuildTurnOrder,
+class ElevateToDM(RequestParent):
+    admin_code: str
+    type: Literal["elevate_to_dm"]
+
+
+class ChatUpdate(RequestParent):
+    message: str
+    target_group: SocketGroup | None = None
+    type: Literal["chat_update"]
+
+
+Requests = Annotated[
+    Union[
+        CreateEntity,
+        UpdateEntity,
+        DeleteEntity,
+        PerformAction,
+        ElevateToDM,
+        ChatUpdate,
+    ],
+    Field(discriminator="type"),
 ]
+
+REQUEST_ADAPTER = TypeAdapter(Requests)
+
+
+def parse_request(payload: Any) -> Requests:
+    return REQUEST_ADAPTER.validate_python(payload)

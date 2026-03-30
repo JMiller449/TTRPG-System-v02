@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from typing import Dict
+
 from backend.schemas.state.item import ItemBridge
+from backend.schemas.state.proficiency import ProficiencyBridge
 from backend.schemas.state.shared import Bridge
-from backend.schemas.state.proficiency import Proficiency, ProficiencyBridge
 from backend.schemas.state.stat import Stats
 
 
@@ -29,17 +30,8 @@ class Sheet:
 
 # an instanced persistant sheet, contains current values and augmented stat values (i.e. current health/mana)
 @dataclass
-class PersistentSheet:
+class InstancedSheet:
     parent_id: str  # points to parent Sheet
     health: float
     mana: int
     augments: Dict[str, Bridge]  # TODO add augments dict
-
-
-# Holds combat specific information that does not need to be stored outside of combat or initiative
-@dataclass
-class CombatSheet:
-    parent_id: str  # points to parent PersistentSheet
-    active: bool  # toggle for dm to hide goblins in the bush or character off screen
-    action_count: int  # remaining actions
-    initiative: int  # the initiative value rolled to determine initiative order

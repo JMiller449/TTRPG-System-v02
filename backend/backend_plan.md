@@ -1,21 +1,18 @@
 # Backend Architecture Plan
 
-## Goal
-- Refactor backend transport and domain handling into feature-oriented modules.
-- Keep websocket ingress thin.
-- Keep session/auth state separate from IPC schemas.
-- Split admin editing work deeply enough that sheet editing, item editing, and formula authoring do not collapse into one oversized feature module.
+## Current Shape
 
-## Core Rule
-- Split by capability and use case, not by frontend screen and not purely by role.
-- Use auth/session state to decide who may perform an operation.
-- Use feature modules to define what the operation actually does.
+The backend is now split by feature and uses a thin transport layer.
 
-## High-Level Backend Shape
 ```text
 backend/
   core/
+    main.py
+    request_registry.py
+    transport.py
   routes/
+    http.py
+    ws.py
   features/
     auth/
     chat/
@@ -23,277 +20,245 @@ backend/
     state_sync/
     sheet_runtime/
     sheet_admin/
-  schemas/
-    ipc_types/
+      actions/
+      formulas/
+      items/
+      sheets/
+      shared/
+      stats/
   state/
+    models/
+    store.py
 ```
 
-## Feature Responsibilities
+## Implemented
 
-### `features/auth`
-- Elevate a session to DM.
-- Validate admin code.
-- Return auth-specific responses.
+### Transport
+- `routes/ws.py` owns websocket ingress for:
+  - app clients on `/ws`
+  - Roll20 bridge clients on `/ws/chat`
+- `routes/http.py` currently exposes a small DM-only chat test route.
+- `core/request_registry.py` is the live request registry and dispatch layer for app websocket requests.
+- Registered websocket routes now also own route-level authorization requirements such as DM-only access.
+- Feature transport models live with their feature code, not in a shared `schemas/ipc_types` tree.
 
-### `features/session`
-- Own websocket session state.
-- Map `WebSocket -> Session`.
-- Expose helpers for permission context.
-- Keep runtime-only state out of `schemas/ipc_types`.
+### Auth And Session
+- Websocket auth is now connect-time, not post-connect elevation.
+- There are three codes:
+  - player code
+  - DM code
+  - service code
+- App websocket clients must authenticate as `player` or `dm` as their first message.
+- The Roll20 bridge must authenticate as `service` as its first message.
+- Session state lives in `features/session` and stores a fixed role for the connection.
+- `elevate_to_dm` is no longer part of the protocol.
 
-### `features/chat`
-- Handle chat transport shapes.
-- Route player-visible vs DM-only chat.
-- Later support session-targeted or character-targeted messaging if needed.
+### Chat / Roll20 Bridge
+- `features/chat` now represents Roll20 chat delivery.
+- The Firefox extension connects to `/ws/chat`.
+- Backend chat delivery is fail-fast:
+  - if a bridge is connected, the message is sent immediately
+  - if not, the request fails
+- There is no deferred queue.
+- The backend now consumes bridge `hello` and `chat_delivery` events for logging.
 
-### `features/state_sync`
-- Own snapshot/patch contracts.
-- Own resync behavior.
-- Keep websocket connect/bootstrap sync logic out of unrelated features.
+### State Sync
+- `features/state_sync` owns:
+  - connect bootstrap
+  - state snapshot responses
+  - resync requests
+- `features/state_sync` is now also the serialized state mutation wrapper.
+- State-changing services route authoritative writes through `state_sync` instead of mutating persisted state directly.
+- `state_sync` now:
+  - queues mutations through a single async lock
+  - persists state after successful mutations
+  - assigns a monotonically increasing `state_version` to each committed mutation
+  - stores a bounded patch history for replay
+  - broadcasts ordered `state_patch` diffs to connected app clients
+  - exposes reusable mutation helpers:
+    - `add`
+    - `set`
+    - `remove`
+    - `increment`
+    - `decrement`
+- App websocket clients receive:
+  - auth success
+  - socket group assignment
+  - full state snapshot with `state_version`
+  - subsequent ordered `state_patch` diffs after mutations, each with `state_version`
+- `resync_state` now supports:
+  - patch replay when the client provides `last_seen_version` and the backend still has the missing diffs
+  - full snapshot fallback when the version is invalid or replay is unavailable
 
-### `features/sheet_runtime`
-- Player/runtime interactions against live sheet instances.
-- Damage, healing, resource spending, status changes.
-- Execute authored action pipelines against live sheet instances.
-- Perform action, roll resolution entrypoints, and other gameplay intents.
+### Sheet Runtime
+- `features/sheet_runtime` now owns the first runtime execution path.
+- Implemented runtime websocket requests:
+  - `focus_sheet`
+  - `roll_basic_check`
+  - `perform_action`
+- Session runtime context now includes a focused sheet ID.
+- `roll_basic_check` evaluates a formula against the focused sheet and returns a basic `1d20 + modifier` result.
+- `perform_action` now executes authored action steps against the focused sheet for the currently supported step kinds:
+  - `set_value`
+  - `send_message`
+- Runtime state mutations now flow through `state_sync`, so successful action execution emits:
+  - broadcast `state_patch` diffs for state changes
+  - `action_executed` as the operation summary response
 
-### `features/sheet_admin`
-- DM-side content authoring and editing flows.
-- Template and instance CRUD.
-- Formula authoring and validation.
-- Item/action/stat authoring and editing.
-- Author action macros/pipelines that runtime execution can consume.
+### Sheet Admin
+- `features/sheet_admin` is the DM-only authoring surface.
+- Admin requests still use:
+  - `create_entity`
+  - `update_entity`
+  - `delete_entity`
+- `entity_kind` routes them to the correct subfeature.
+- DM-only enforcement for those requests now lives on the registered websocket routes, so unauthorized requests are rejected during dispatch before feature handlers run.
+- Implemented authoring CRUD:
+  - `action`
+  - `formula`
+  - `item`
+  - `sheet`
+- `stats` authoring is still not implemented.
+- Successful admin mutations now:
+  - mutate through `state_sync`
+  - broadcast `state_patch` diffs
+  - use patch-only success responses
+  - use `error` responses for failures
 
-## `sheet_admin` Internal Split
-`sheet_admin` should be a parent feature with subfeatures instead of one flat module.
+### Action Authoring
+- Actions are now modeled as authored step pipelines, not static combat records.
+- Current action definition shape:
 
 ```text
-features/
-  sheet_admin/
-    shared/
-    sheets/
-    items/
-    actions/
-    formulas/
-    stats/
-```
-
-### `sheet_admin/shared`
-- shared admin request/response helpers
-- admin policy checks
-- common edit result types
-- common validation helpers
-
-### `sheet_admin/sheets`
-- create player sheet
-- create enemy sheet
-- update sheet metadata
-- delete sheet
-- template vs instance editing rules
-
-### `sheet_admin/items`
-- create/update/delete items
-- inventory-facing authoring
-- augmentation attachment/edit flows later
-
-### `sheet_admin/actions`
-- create/update/delete action definitions
-- action metadata and cost editing
-- author action step pipelines/macros
-- define ordered effects like:
-  - subtract mana
-  - increment proficiency/proficiency counts
-  - apply healing or damage
-  - emit specific formulas/results into chat
-
-## Action Model Direction
-Actions should move away from being a single static record and toward being an authored pipeline of ordered steps.
-
-Example mental model:
-```text
-ActionDefinition
-  metadata
-  costs
-  prerequisites
+Action
+  id
+  name
+  notes
   steps[]
 ```
 
-Example step kinds:
-- resource adjustment
-- proficiency counter increment
-- formula evaluation
-- chat emission
-- status application
-- sheet field mutation
+- Implemented action step kinds:
+  - `send_message`
+  - `set_value`
+- Formula-backed values are used inside steps rather than dedicated cost/rank fields.
+- Those step kinds are now consumable by the first `sheet_runtime.perform_action` implementation.
 
-Example spell flow:
-1. subtract mana
-2. increment relevant proficiency/proficiency-use counters
-3. evaluate the spell formula
-4. emit the formula/result to chat
-5. apply any resulting state mutation
+### Formula Model
+- `state/models/formula.py` remains a domain model, not a sheet-admin-local model.
+- Formula expansion is now:
+  - relative to one root object
+  - safe for dataclass attribute traversal
+  - safe for dict traversal
+  - guarded against formula cycles
+- Target/enemy assumptions were removed from the formula logic.
 
-This means the split should be:
-- `sheet_admin/actions` authors the action definition and its steps
-- `sheet_runtime` executes the action definition against a live sheet/session context
+## Current Feature Responsibilities
 
-Action architecture implication:
-- action authoring belongs under admin
-- action execution belongs under runtime
-- formulas should stay reusable and separate, then be referenced by action steps rather than embedded as ad hoc code
+### `features/auth`
+- Validate connect-time websocket authentication.
+- Build auth response payloads.
+- Own the player/DM/service role decision.
 
-### `sheet_admin/formulas`
-- formula authoring
-- formula validation/parsing
-- reusable formula builder payloads
+### `features/session`
+- Own websocket session registration and lookup.
+- Track session role.
+- Track focused runtime sheet selection.
+- Provide send/broadcast helpers and group counts.
 
-### `sheet_admin/stats`
-- stat/substat authoring
-- manual admin stat adjustments
-- rules around what players may not edit directly
+### `features/chat`
+- Build Roll20 chat transport payloads.
+- Manage authenticated Roll20 bridge connections.
+- Send direct chat messages to the Firefox bridge.
 
-## Suggested File Pattern Per Feature
-Not every feature needs every file on day one, but this is the default pattern.
+### `features/state_sync`
+- Send connection bootstrap state.
+- Return authoritative state snapshots.
+- Serialize state mutations through one backend-owned queue/lock.
+- Assign authoritative state versions.
+- Build, store, replay, and broadcast ordered state diffs.
+- Provide reusable low-level mutation primitives for other features.
+
+### `features/sheet_runtime`
+- Own focused-sheet runtime interactions.
+- Own basic formula-backed check rolling.
+- Execute authored action pipelines against a focused sheet.
+- Currently implemented requests:
+  - `focus_sheet`
+  - `roll_basic_check`
+  - `perform_action`
+- Currently implemented runtime step execution:
+  - `send_message`
+  - `set_value`
+
+### `features/sheet_admin`
+- Own DM-only authoring and mutation flows.
+- Keep authoring concerns separate from runtime action execution.
+- Rely on route-level DM authorization instead of handler-local permission shims.
+
+#### `sheet_admin/sheets`
+- create/update/delete sheet definitions
+
+#### `sheet_admin/items`
+- create/update/delete item definitions
+
+#### `sheet_admin/actions`
+- create/update/delete action definitions
+- author ordered action pipelines
+
+#### `sheet_admin/formulas`
+- create/update/delete reusable formula definitions
+
+#### `sheet_admin/stats`
+- reserved for stat authoring and adjustments
+- not implemented yet
+
+## State Shape Notes
+
+The persisted in-memory state currently includes at least:
 
 ```text
-feature/
-  schema.py
-  handler.py
-  service.py
-  policy.py
+state = {
+  sheets: {},
+  instanced_sheets: {},
+  formulas: {},
+  actions: {},
+  items: {},
+  ...
+}
 ```
 
-### `schema.py`
-- Wire-level request/response models for that feature.
-- Shared literals/enums that are only relevant to that feature.
+`sheet`, `item`, `action`, and `formula` authoring currently persist into this state store through `state_sync`.
 
-### `handler.py`
-- Thin transport adapter.
-- Convert validated transport messages into service calls.
-- Should stay small and orchestration-focused.
+## Remaining Work
 
-### `service.py`
-- Business/use-case logic.
-- State mutation orchestration.
-- Calls into shared state store and rules logic.
+### Near Term
+- Implement `sheet_admin/stats`
+- Decide whether proficiencies need dedicated admin CRUD next
+- Add stronger validation around cross-entity references:
+  - sheet action bridges pointing to real actions
+  - sheet item bridges pointing to real items
+  - formulas referenced by authored runtime flows
 
-### `policy.py`
-- Permission checks.
-- Example: session must be DM to perform sheet admin mutations.
+### Runtime
+- Expand runtime step execution beyond:
+  - `send_message`
+  - `set_value`
+- Add stronger runtime validation for focus ownership, targeting, and cross-entity references
+- Flesh out combat/rules execution beyond the current basic check and action pipeline baseline
 
-## IPC Schema Plan
-Move away from one global `requests.py` and one global `responses.py`.
+### Transport / Ops
+- Decide whether to keep the HTTP chat debug endpoint long-term
+- Consider surfacing bridge delivery status back to app clients if needed
+- Move auth codes to explicit environment/config management if deployment needs tighten
+- Continue trimming redundant websocket success payloads when the authoritative patch stream already proves success
+- Have frontend clients track `last_seen_version` and request replay or full resync on any detected version gap
 
-Target shape:
-```text
-schemas/ipc_types/
-  __init__.py
-  registry.py
-  shared.py
-  auth.py
-  chat.py
-  sheet_runtime.py
-  state_sync.py
-  sheet_admin/
-    shared.py
-    sheets.py
-    items.py
-    actions.py
-    formulas.py
-    stats.py
-```
-
-### Rules for IPC Schemas
-- A feature file may contain both inbound and outbound messages.
-- Keep one central `registry.py` that assembles:
-  - inbound request union
-  - outbound response union
-  - `parse_request(...)`
-- Do not place runtime objects like websocket sessions in `schemas/ipc_types`.
-
-## Session Plan
-Session should stay runtime/backend-side, not in IPC schema files.
-
-Target shape:
-```text
-features/
-  session/
-    service.py
-    models.py
-```
-
-Session should own:
-- websocket reference
-- DM flag
-- future connection metadata if needed
-
-Session should not own:
-- gameplay sheet state
-- formula state
-- persisted character data
-
-## Websocket Route Target
-`routes/ws.py` should eventually do only this:
-1. accept websocket
-2. resolve/create session
-3. parse inbound transport message
-4. dispatch to the correct feature handler
-5. send outbound feature response or state patch
-
-If route logic grows beyond orchestration, move it into a feature handler/service.
-
-## Dispatch Plan
-Introduce a central dispatcher layer once the feature split starts.
-
-Example target:
-```text
-features/
-  dispatch/
-    handler.py
-```
-
-Responsibilities:
-- map request type to feature handler
-- pass session + request to that handler
-- keep `routes/ws.py` from becoming a giant `match` statement
-
-## Refactor Phases
-
-### Phase 1: Stabilize Current Session/Auth/Chat Split
-- Move websocket session management into `features/session`.
-- Move DM elevation into `features/auth`.
-- Move chat routing into `features/chat`.
-- Keep current behavior unchanged while relocating code.
-
-### Phase 2: Extract State Sync
-- Move snapshot/patch contracts and sync helpers into `features/state_sync`.
-- Keep connect/bootstrap behavior centralized there.
-
-### Phase 3: Create `sheet_runtime`
-- Pull runtime gameplay actions out of generic IPC files.
-- Group damage/heal/resource/action operations together.
-- Add policy checks where player-vs-DM distinctions matter.
-- Introduce action execution pipeline logic for authored action steps.
-
-### Phase 4: Create `sheet_admin` Parent Feature
-- Start with `shared`, `sheets`, and `formulas`.
-- Then split items/actions/stats once admin edit flows expand.
-- Make `actions` explicitly responsible for authoring macro-style action definitions.
-
-### Phase 5: Introduce Central Dispatcher
-- Replace direct routing logic in `routes/ws.py` with feature dispatch.
-- Keep a single parse step and feature-specific handling after that.
-
-## Immediate Next Steps
-1. Create `features/session/` and move `WebSocketSession` plus manager there.
-2. Create `features/auth/` and move `ElevateToDM` handling there.
-3. Create `features/chat/` and move `ChatUpdate` handling there.
-4. Replace direct websocket route branching with a small dispatcher.
-5. After session/auth/chat are stable, split IPC schemas into feature files.
-
-## Current Architectural Decision
-- `sheet_admin` should be a parent feature with subfolders.
-- `sheet_runtime` should be separate from `sheet_admin`.
-- auth/session should be separate from both.
-- permissions should live in policy checks, not as the main folder structure.
-- actions should be modeled as authored step pipelines, with admin authoring separated from runtime execution.
+## Current Architectural Decisions
+- Keep domain models under `state/models`, not under admin features.
+- Keep websocket auth at connection start, not as a runtime privilege escalation.
+- Keep the Roll20 bridge as a service-authenticated websocket client.
+- Keep authored action definitions generic and formula-driven.
+- Keep action authoring in `sheet_admin` and action execution in `sheet_runtime`.
+- Route authoritative state mutations through `state_sync` so diff ordering and broadcast behavior stay centralized.
+- Treat `state_version` from `state_sync` as the primary frontend synchronization contract.
+- Keep websocket permission requirements declared on registered routes so authorization is visible at the transport boundary.

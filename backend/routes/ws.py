@@ -1,40 +1,49 @@
-import asyncio
 import json
-from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+import logging
+from dataclasses import asdict
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from backend.schemas.ipc_types.requests import (
-    ChatUpdate,
-    ElevateToDM,
-    Requests,
-    SocketGroup,
-    parse_request,
-)
-from backend.schemas.ipc_types.responses import (
-    ChatUpdateResponse,
-    ElevateToDMResponse,
-    Error,
-    SocketGroupAssigned,
+from backend.features.auth import service as auth_service, tokens as auth_tokens
+from backend.features.auth.schema import Authenticate
+from backend.features.chat import service as chat_service
+from backend.features.session.service import websocket_sessions
+from backend.features.state_sync import handler as state_sync_handler
+from backend.core.request_registry import (
+    MalformedRequestError,
+    UnknownRequestTypeError,
+    request_registry,
 )
 
 router = APIRouter()
-VALID_SOCKET_GROUPS: tuple[SocketGroup, ...] = ("dms", "players")
-DEFAULT_CHAT_TARGET: SocketGroup = "players"
-DM_ADMIN_CODE = "change-me-dm-code"
+logger = logging.getLogger(__name__)
+AUTH_CLOSE_CODE = 1008
 
 
-def _error_payload(message: str, request_id: str | None = None) -> dict[str, Any]:
-    return asdict(
-        Error(
-            response_id=None,
-            message=message,
-            request_id=request_id,
-        )
-    )
+def generate_request_id() -> str:
+    return str(uuid4())
+
+
+def _assign_request_id(payload: Any) -> tuple[Any, str | None]:
+    if not isinstance(payload, dict):
+        return payload, None
+
+    normalized_payload = dict(payload)
+    request_id = generate_request_id()
+    normalized_payload["request_id"] = request_id
+    return normalized_payload, request_id
+
+
+def _error_payload(reason: str, request_id: str | None = None) -> dict[str, Any]:
+    return {
+        "response_id": None,
+        "reason": reason,
+        "type": "error",
+        "request_id": request_id,
+    }
 
 
 def _validation_error_message(exc: ValidationError) -> str:
@@ -51,238 +60,158 @@ def _validation_error_message(exc: ValidationError) -> str:
             formatted_errors.append(str(error["msg"]))
     return "; ".join(formatted_errors)
 
-@dataclass
-class WebSocketSession:
-    websocket: WebSocket
-    is_dm: bool = False
-
-
-class WebSocketSessionManager:
-    def __init__(self) -> None:
-        self._lock = asyncio.Lock()
-        self._sessions: dict[WebSocket, WebSocketSession] = {}
-
-    async def connect(self, websocket: WebSocket) -> WebSocketSession:
-        await websocket.accept()
-        async with self._lock:
-            session = WebSocketSession(websocket=websocket)
-            self._sessions[websocket] = session
-        return session
-
-    async def disconnect(self, websocket: WebSocket) -> None:
-        async with self._lock:
-            self._sessions.pop(websocket, None)
-
-    async def reset(self) -> None:
-        async with self._lock:
-            self._sessions.clear()
-
-    async def get_session(self, websocket: WebSocket) -> WebSocketSession:
-        async with self._lock:
-            session = self._sessions.get(websocket)
-        if session is None:
-            raise ValueError("WebSocket is not connected.")
-        return session
-
-    async def elevate_to_dm(self, websocket: WebSocket) -> WebSocketSession:
-        session = await self.get_session(websocket)
-        async with self._lock:
-            session.is_dm = True
-        return session
-
-    async def is_dm(self, websocket: WebSocket) -> bool:
-        return (await self.get_session(websocket)).is_dm
-
-    async def group_counts(self) -> dict[SocketGroup, int]:
-        async with self._lock:
-            total_connections = len(self._sessions)
-            dm_connections = sum(1 for session in self._sessions.values() if session.is_dm)
-        return {
-            "dms": dm_connections,
-            "players": total_connections,
-        }
-
-    async def broadcast(
-        self,
-        payload: dict[str, Any],
-        *,
-        groups: Iterable[SocketGroup] | None = None,
-        exclude: Iterable[WebSocket] | None = None,
-    ) -> None:
-        target_groups = tuple(groups) if groups is not None else VALID_SOCKET_GROUPS
-        excluded_connections = set(exclude or [])
-
-        async with self._lock:
-            targets: set[WebSocket] = set()
-            if "players" in target_groups:
-                targets.update(self._sessions.keys())
-            if "dms" in target_groups:
-                targets.update(
-                    websocket
-                    for websocket, session in self._sessions.items()
-                    if session.is_dm
-                )
-
-        disconnected: list[WebSocket] = []
-        for websocket in targets:
-            if websocket in excluded_connections:
-                continue
-            try:
-                await websocket.send_json(payload)
-            except RuntimeError:
-                disconnected.append(websocket)
-
-        for websocket in disconnected:
-            await self.disconnect(websocket)
-
-websocket_sessions = WebSocketSessionManager()
-
-
-async def broadcast_to_group(group: SocketGroup, payload: dict[str, Any]) -> None:
-    await websocket_sessions.broadcast(payload, groups=(group,))
-
-
-async def broadcast_to_groups(
-    groups: Iterable[SocketGroup],
-    payload: dict[str, Any],
-) -> None:
-    await websocket_sessions.broadcast(payload, groups=groups)
-
-
-async def broadcast_to_all(payload: dict[str, Any]) -> None:
-    await websocket_sessions.broadcast(payload)
-
-
-async def _send_connection_state(
-    session: WebSocketSession,
-    request_id: str | None = None,
-) -> None:
-    await session.websocket.send_json(
-        asdict(
-            SocketGroupAssigned(
-                response_id=None,
-                is_dm=session.is_dm,
-                groups=await websocket_sessions.group_counts(),
-                request_id=request_id,
-            )
-        )
-    )
-
-
-async def _send_elevate_to_dm_response(
-    session: WebSocketSession,
-    *,
-    success: bool,
-    request_id: str | None = None,
-    reason: str | None = None,
-) -> None:
-    await session.websocket.send_json(
-        asdict(
-            ElevateToDMResponse(
-                response_id=None,
-                success=success,
-                is_dm=session.is_dm,
-                reason=reason,
-                request_id=request_id,
-            )
-        )
-    )
-
-
-async def handle_client_message(
-    session: WebSocketSession,
-    request: Requests,
-) -> None:
-    match request:
-        case ElevateToDM():
-            if request.admin_code != DM_ADMIN_CODE:
-                await _send_elevate_to_dm_response(
-                    session,
-                    success=False,
-                    request_id=request.request_id,
-                    reason="Invalid DM admin code.",
-                )
-                return
-
-            await websocket_sessions.elevate_to_dm(session.websocket)
-            await _send_elevate_to_dm_response(
-                session,
-                success=True,
-                request_id=request.request_id,
-            )
-        case ChatUpdate():
-            target_group = request.target_group or DEFAULT_CHAT_TARGET
-            await websocket_sessions.broadcast(
-                asdict(
-                    ChatUpdateResponse(
-                        response_id=None,
-                        message=request.message,
-                        target_group=target_group,
-                        request_id=request.request_id,
-                    )
-                ),
-                groups=(target_group,),
-            )
-        case _:
-            await session.websocket.send_json(
-                _error_payload(
-                    message=f"Unhandled request type: {request.type}",
-                    request_id=request.request_id,
-                )
-            )
-
 
 async def handle_client_payload(
     websocket: WebSocket,
     payload: Any,
 ) -> None:
-    request_id = payload.get("request_id") if isinstance(payload, dict) else None
-    if not isinstance(request_id, str):
-        request_id = None
+    normalized_payload, request_id = _assign_request_id(payload)
 
     try:
-        request = parse_request(payload)
+        session = await websocket_sessions.get_session(websocket)
+        request = await request_registry.dispatch(session, normalized_payload)
     except ValidationError as exc:
         await websocket.send_json(
             _error_payload(
-                message=_validation_error_message(exc),
+                reason=_validation_error_message(exc),
                 request_id=request_id,
             )
         )
         return
-
-    try:
-        session = await websocket_sessions.get_session(websocket)
-        await handle_client_message(session, request)
-    except ValueError as exc:
+    except (MalformedRequestError, UnknownRequestTypeError) as exc:
         await websocket.send_json(
             _error_payload(
-                message=str(exc),
-                request_id=request.request_id,
+                reason=str(exc),
+                request_id=request_id,
+            )
+        )
+        return
+    except (PermissionError, ValueError) as exc:
+        await websocket.send_json(
+            _error_payload(
+                reason=str(exc),
+                request_id=request_id,
             )
         )
 
 
+async def _receive_json_payload(websocket: WebSocket) -> dict[str, Any]:
+    data = await websocket.receive_text()
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid Request: {data}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("Invalid Request: payload must be an object")
+    return payload
+
+
+async def _reject_connection(
+    websocket: WebSocket,
+    *,
+    reason: str,
+    request_id: str | None = None,
+) -> None:
+    await websocket.send_json(_error_payload(reason=reason, request_id=request_id))
+    await websocket.close(code=AUTH_CLOSE_CODE)
+
+
+async def authenticate_application_websocket(
+    websocket: WebSocket,
+    payload: Any,
+):
+    normalized_payload, request_id = _assign_request_id(payload)
+
+    try:
+        request = Authenticate.model_validate(normalized_payload)
+    except ValidationError as exc:
+        await _reject_connection(
+            websocket,
+            reason=_validation_error_message(exc),
+            request_id=request_id,
+        )
+        return None
+
+    role = auth_tokens.authenticate_app_token(request.token)
+    if role is None:
+        await _reject_connection(
+            websocket,
+            reason="Invalid player or DM code.",
+            request_id=request.request_id,
+        )
+        return None
+
+    session = await websocket_sessions.connect(websocket, role=role, accept=False)
+    await websocket_sessions.send(
+        session,
+        auth_service.build_authenticate_response(
+            authenticated=True,
+            role=role,
+            request_id=request.request_id,
+        ),
+    )
+    return session
+
+
+async def authenticate_service_websocket(
+    websocket: WebSocket,
+    payload: Any,
+) -> bool:
+    normalized_payload, request_id = _assign_request_id(payload)
+
+    try:
+        request = Authenticate.model_validate(normalized_payload)
+    except ValidationError as exc:
+        await _reject_connection(
+            websocket,
+            reason=_validation_error_message(exc),
+            request_id=request_id,
+        )
+        return False
+
+    role = auth_tokens.authenticate_token(request.token)
+    if role != "service":
+        await _reject_connection(
+            websocket,
+            reason="Invalid service code.",
+            request_id=request.request_id,
+        )
+        return False
+
+    await websocket.send_json(
+        asdict(
+            auth_service.build_authenticate_response(
+                authenticated=True,
+                role=role,
+                request_id=request.request_id,
+            )
+        )
+    )
+    return True
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    session = await websocket_sessions.connect(websocket)
-    await _send_connection_state(session)
+    await websocket.accept()
+    try:
+        auth_payload = await _receive_json_payload(websocket)
+    except ValueError as exc:
+        await _reject_connection(websocket, reason=str(exc))
+        return
+
+    session = await authenticate_application_websocket(websocket, auth_payload)
+    if session is None:
+        return
+
+    await state_sync_handler.send_connection_bootstrap(session)
 
     try:
         while True:
-            data = await websocket.receive_text()
             try:
-                payload = json.loads(data)
-            except json.JSONDecodeError:
-                await websocket.send_json(
-                    _error_payload(message=f"Invalid Request: {data}")
-                )
-                continue
-
-            if not isinstance(payload, dict):
-                await websocket.send_json(
-                    _error_payload(message="Invalid Request: payload must be an object")
-                )
+                payload = await _receive_json_payload(websocket)
+            except ValueError as exc:
+                await websocket.send_json(_error_payload(reason=str(exc)))
                 continue
 
             await handle_client_payload(websocket, payload)
@@ -290,3 +219,44 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         pass
     finally:
         await websocket_sessions.disconnect(websocket)
+
+
+@router.websocket("/ws/chat")
+async def chat_bridge_endpoint(websocket: WebSocket) -> None:
+    await websocket.accept()
+    try:
+        auth_payload = await _receive_json_payload(websocket)
+    except ValueError as exc:
+        await _reject_connection(websocket, reason=str(exc))
+        return
+
+    is_authenticated = await authenticate_service_websocket(websocket, auth_payload)
+    if not is_authenticated:
+        return
+
+    await chat_service.roll20_chat_bridge.connect(websocket, accept=False)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                payload = json.loads(data)
+                event = chat_service.parse_bridge_event(payload)
+            except json.JSONDecodeError:
+                logger.warning("Ignoring non-JSON Roll20 bridge payload: %s", data)
+                continue
+            except ValidationError as exc:
+                logger.warning(
+                    "Ignoring invalid Roll20 bridge payload: %s",
+                    _validation_error_message(exc),
+                )
+                continue
+            except ValueError as exc:
+                logger.warning("Ignoring Roll20 bridge payload: %s", exc)
+                continue
+
+            chat_service.handle_bridge_event(event)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await chat_service.roll20_chat_bridge.disconnect(websocket)

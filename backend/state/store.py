@@ -1,25 +1,33 @@
-import json
-from dataclasses import asdict
-from typing import Optional
-from backend.schemas.state.state import State
+from __future__ import annotations
+
 import logging
+import json
+from pathlib import Path
+
+from backend.state.models.state import State
 
 logger = logging.getLogger(__name__)
-STATE_PATH = "state_dumpy.json"
+STATE_PATH = Path(__file__).resolve().parents[2] / "state_dumpy.json"
+DEFAULT_STATE = State()
 
 
 class StateSingleton:
-    _state: Optional[State] = None
+    _state: State | None = None
 
     @classmethod
     def initializeState(cls) -> State:
         try:
-            with open(STATE_PATH, "r") as file:
+            with STATE_PATH.open("r", encoding="utf-8") as file:
                 data = json.load(file)
-            cls._state = State(**data) if isinstance(data, dict) else State()
         except FileNotFoundError:
             logger.warning("Failed to load state: file not found")
-            cls._state = State()
+            data = {}
+
+        if not isinstance(data, dict):
+            logger.warning("Failed to load state: persisted state was not a JSON object")
+            data = {}
+
+        cls._state = State.from_dict(data)
         return cls._state
 
     @classmethod
@@ -33,8 +41,8 @@ class StateSingleton:
     def dumpState(cls) -> None:
         if cls._state is None:
             cls._state = State()
-        with open(STATE_PATH, "w") as file:
-            json.dump(asdict(cls._state), file)
+        with STATE_PATH.open("w", encoding="utf-8") as file:
+            json.dump(cls._state.to_dict(), file)
 
     @classmethod
     def restartState(cls) -> None:

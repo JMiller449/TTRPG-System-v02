@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { SheetInstance } from "@/domain/models";
+import { selectSheetInstanceView } from "@/app/state/selectors";
+import type { SheetInstanceView } from "@/domain/models";
 import { buildSetActiveSheetIntent } from "@/features/sheets/intentBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -8,15 +9,16 @@ import type { GameClient } from "@/hooks/useGameClient";
 
 export function SheetTabs({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { instances, instanceOrder, activeSheetId }
+    state
   } = useAppStore();
+  const { persistentSheetOrder, activeSheetId } = state;
 
   const items = useMemo(
     () =>
-      instanceOrder
-        .map((id) => instances[id])
-        .filter((sheet): sheet is SheetInstance => Boolean(sheet)),
-    [instanceOrder, instances]
+      persistentSheetOrder
+        .map((id) => selectSheetInstanceView(state, id))
+        .filter((sheet): sheet is SheetInstanceView => Boolean(sheet)),
+    [persistentSheetOrder, state]
   );
 
   return (

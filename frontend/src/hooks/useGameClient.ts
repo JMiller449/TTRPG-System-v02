@@ -31,12 +31,12 @@ function getIntentLabel(intent: ClientIntent): string {
   switch (intent.type) {
     case "authenticate_gm":
       return "GM authentication";
-    case "create_template":
-      return `Template create: ${intent.payload.template.name}`;
-    case "update_template":
-      return "Template update";
-    case "instantiate_template":
-      return "Template spawn";
+    case "create_sheet":
+      return `Sheet create: ${intent.payload.sheet.name}`;
+    case "update_sheet":
+      return "Sheet update";
+    case "instantiate_sheet":
+      return "Sheet spawn";
     case "save_encounter":
       return `Encounter save: ${intent.payload.encounter.name}`;
     case "spawn_encounter":

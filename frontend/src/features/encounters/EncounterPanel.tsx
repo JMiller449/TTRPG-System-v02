@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { SheetTemplate } from "@/domain/models";
+import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
 import { EncounterEntryList } from "@/features/encounters/components/EncounterEntryList";
 import { EncounterPresetList } from "@/features/encounters/components/EncounterPresetList";
@@ -16,19 +16,16 @@ import { makeId } from "@/shared/utils/id";
 
 export function EncounterPanel({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { templates, templateOrder, encounters, encounterOrder }
+    state
   } = useAppStore();
+  const { encounters, encounterOrder, sheets } = state;
 
   const [name, setName] = useState("");
   const [entries, setEntries] = useState<DraftEncounterEntry[]>([newRosterEntry()]);
 
   const templateOptions = useMemo(
-    () =>
-      templateOrder
-        .map((id) => templates[id])
-        .filter((template): template is SheetTemplate => Boolean(template))
-        .filter((template) => template.kind === "enemy"),
-    [templateOrder, templates]
+    () => selectSheetTemplateViews(state).filter((template) => template.kind === "enemy"),
+    [state]
   );
 
   const savedEncounters = useMemo(
@@ -97,7 +94,7 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
 
         <EncounterPresetList
           encounters={savedEncounters}
-          templates={templates}
+          templates={sheets}
           onSpawn={(encounterId) => client.sendIntent(buildSpawnEncounterIntent(encounterId))}
         />
       </div>

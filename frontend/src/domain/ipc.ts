@@ -1,25 +1,36 @@
 import type {
   EncounterPreset,
+  PersistentSheetPresentation,
+  PersistentSheetPresentationRecord,
+  PersistentSheetRecord,
   Role,
   RollLogEntry,
   RollRequest,
-  SheetInstance,
-  SheetTemplate
+  Sheet,
+  SheetPresentation,
+  SheetPresentationRecord
 } from "@/domain/models";
 
 export interface AppSnapshot {
-  templates: SheetTemplate[];
-  instances: SheetInstance[];
+  sheets: Sheet[];
+  persistentSheets: PersistentSheetRecord[];
+  sheetPresentation: SheetPresentationRecord[];
+  persistentSheetPresentation: PersistentSheetPresentationRecord[];
   encounters: EncounterPreset[];
   rollLog: RollLogEntry[];
   activeSheetId: string | null;
 }
 
 export type PatchOp =
-  | { op: "upsert_template"; value: SheetTemplate }
-  | { op: "remove_template"; value: { id: string } }
-  | { op: "upsert_instance"; value: SheetInstance }
-  | { op: "remove_instance"; value: { id: string } }
+  | { op: "upsert_sheet"; value: Sheet }
+  | { op: "remove_sheet"; value: { id: string } }
+  | { op: "upsert_persistent_sheet"; value: PersistentSheetRecord }
+  | { op: "remove_persistent_sheet"; value: { id: string } }
+  | { op: "upsert_sheet_presentation"; value: { sheetId: string; presentation: SheetPresentation } }
+  | {
+      op: "upsert_persistent_sheet_presentation";
+      value: { persistentSheetId: string; presentation: PersistentSheetPresentation };
+    }
   | { op: "upsert_encounter"; value: EncounterPreset }
   | { op: "remove_encounter"; value: { id: string } }
   | { op: "set_active_sheet"; value: { sheetId: string | null } }
@@ -34,18 +45,18 @@ export type ClientIntent =
     }
   | {
       intentId: string;
-      type: "create_template";
-      payload: { template: SheetTemplate };
+      type: "create_sheet";
+      payload: { sheet: Sheet; presentation?: SheetPresentation };
     }
   | {
       intentId: string;
-      type: "update_template";
-      payload: { templateId: string; changes: Partial<SheetTemplate> };
+      type: "update_sheet";
+      payload: { sheetId: string; changes: Partial<Sheet>; presentation?: Partial<SheetPresentation> };
     }
   | {
       intentId: string;
-      type: "instantiate_template";
-      payload: { templateId: string; count: number };
+      type: "instantiate_sheet";
+      payload: { sheetId: string; count: number };
     }
   | {
       intentId: string;

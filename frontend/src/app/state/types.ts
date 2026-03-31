@@ -2,12 +2,14 @@ import type { AppSnapshot, PatchOp } from "@/domain/ipc";
 import type {
   EncounterPreset,
   ItemTemplate,
+  PersistentSheet,
+  PersistentSheetPresentation,
   Role,
   RollLogEntry,
+  Sheet,
   SheetInventoryItem,
+  SheetPresentation,
   StatKey,
-  SheetInstance,
-  SheetTemplate
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -38,10 +40,12 @@ export interface AppState {
     error?: string;
   };
   gmView: GMView;
-  templates: Record<string, SheetTemplate>;
-  templateOrder: string[];
-  instances: Record<string, SheetInstance>;
-  instanceOrder: string[];
+  sheets: Record<string, Sheet>;
+  sheetOrder: string[];
+  persistentSheets: Record<string, PersistentSheet>;
+  persistentSheetOrder: string[];
+  sheetPresentation: Record<string, SheetPresentation>;
+  persistentSheetPresentation: Record<string, PersistentSheetPresentation>;
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
   itemTemplates: Record<string, ItemTemplate>;

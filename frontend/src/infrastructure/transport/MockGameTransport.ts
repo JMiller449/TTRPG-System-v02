@@ -1,12 +1,29 @@
 import type { AppSnapshot, ClientIntent, PatchOp, ServerEvent } from "@/domain/ipc";
 import type {
   EncounterPreset,
+  PersistentSheet,
+  PersistentSheetPresentation,
+  PersistentSheetRecord,
   RollLogEntry,
-  SheetInstance,
-  SheetTemplate
+  Sheet,
+  SheetPresentation
 } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
+import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 import { makeId } from "@/shared/utils/id";
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+function createPersistentSheet(parent_id: string, health: number, mana: number): PersistentSheet {
+  return {
+    parent_id,
+    health,
+    mana,
+    augments: {}
+  };
+}
 
 export class MockGameTransport implements GameTransport {
   public readonly mode = "mock" as const;
@@ -14,37 +31,81 @@ export class MockGameTransport implements GameTransport {
   private listeners = new Set<(event: ServerEvent) => void>();
 
   private snapshot: AppSnapshot = {
-    templates: [
+    sheets: [
       {
         id: "template_player_base",
-        kind: "player",
-        mode: "template",
         name: "Player Base",
-        notes: "Starter player sheet template",
-        stats: { strength: 50, dexterity: 50, constitution: 50, perception: 50, arcane: 30, will: 40 },
-        tags: ["starter"],
-        updatedAt: new Date().toISOString()
+        dm_only: false,
+        xp_given_when_slayed: 0,
+        xp_cap: "",
+        proficiencies: {},
+        items: {},
+        stats: {
+          ...createDefaultStats(),
+          strength: 50,
+          dexterity: 50,
+          constitution: 50,
+          perception: 50,
+          arcane: 30,
+          will: 40
+        },
+        slayed_record: {},
+        actions: {}
       },
       {
         id: "template_goblin",
-        kind: "enemy",
-        mode: "template",
         name: "Goblin",
-        notes: "Enemy template",
-        stats: { strength: 25, dexterity: 35, constitution: 20, perception: 25, will: 10 },
-        tags: ["enemy", "goblin"],
-        updatedAt: new Date().toISOString()
+        dm_only: true,
+        xp_given_when_slayed: 10,
+        xp_cap: "",
+        proficiencies: {},
+        items: {},
+        stats: {
+          ...createDefaultStats(),
+          strength: 25,
+          dexterity: 35,
+          constitution: 20,
+          perception: 25,
+          arcane: 0,
+          will: 10
+        },
+        slayed_record: {},
+        actions: {}
       }
     ],
-    instances: [
+    persistentSheets: [
       {
         id: "instance_player_1",
-        templateId: "template_player_base",
-        kind: "player",
-        mode: "instance",
-        name: "Player One",
-        notes: "Active character",
-        updatedAt: new Date().toISOString()
+        value: createPersistentSheet("template_player_base", 50, 30)
+      }
+    ],
+    sheetPresentation: [
+      {
+        sheetId: "template_player_base",
+        value: {
+          kind: "player",
+          notes: "Starter player sheet template",
+          tags: ["starter"],
+          updatedAt: now()
+        }
+      },
+      {
+        sheetId: "template_goblin",
+        value: {
+          kind: "enemy",
+          notes: "Enemy template",
+          tags: ["enemy", "goblin"],
+          updatedAt: now()
+        }
+      }
+    ],
+    persistentSheetPresentation: [
+      {
+        persistentSheetId: "instance_player_1",
+        value: {
+          name: "Player One",
+          updatedAt: now()
+        }
       }
     ],
     encounters: [],
@@ -77,44 +138,59 @@ export class MockGameTransport implements GameTransport {
         this.emit({ type: "ack", requestId: intent.intentId });
         return;
       }
-      case "create_template": {
-        const template = {
-          ...intent.payload.template,
-          updatedAt: new Date().toISOString()
-        };
-        this.snapshot.templates = [template, ...this.snapshot.templates.filter((t) => t.id !== template.id)];
-        this.emitPatch([{ op: "upsert_template", value: template }], intent.intentId);
+      case "create_sheet": {
+        const sheet = intent.payload.sheet;
+        const presentation = intent.payload.presentation ?? this.createDefaultSheetPresentation(sheet);
+        this.snapshot.sheets = [sheet, ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)];
+        this.upsertSheetPresentation(sheet.id, presentation);
+        this.emitPatch(
+          [
+            { op: "upsert_sheet", value: sheet },
+            { op: "upsert_sheet_presentation", value: { sheetId: sheet.id, presentation } }
+          ],
+          intent.intentId
+        );
         return;
       }
-      case "update_template": {
-        const existing = this.snapshot.templates.find((t) => t.id === intent.payload.templateId);
+      case "update_sheet": {
+        const existing = this.snapshot.sheets.find((entry) => entry.id === intent.payload.sheetId);
         if (!existing) {
           this.emit({
             type: "error",
             requestId: intent.intentId,
-            message: "Template not found"
+            message: "Sheet not found"
           });
           return;
         }
         const updated = {
           ...existing,
           ...intent.payload.changes,
-          mode: "template" as const,
-          updatedAt: new Date().toISOString()
-        } satisfies SheetTemplate;
-        this.snapshot.templates = this.snapshot.templates.map((template) =>
-          template.id === updated.id ? updated : template
-        );
-        this.emitPatch([{ op: "upsert_template", value: updated }], intent.intentId);
+          stats: {
+            ...existing.stats,
+            ...intent.payload.changes.stats
+          }
+        } satisfies Sheet;
+        this.snapshot.sheets = this.snapshot.sheets.map((entry) => (entry.id === updated.id ? updated : entry));
+        const ops: PatchOp[] = [{ op: "upsert_sheet", value: updated }];
+        if (intent.payload.presentation) {
+          const presentation = {
+            ...this.getSheetPresentation(updated.id),
+            ...intent.payload.presentation,
+            updatedAt: now()
+          } satisfies SheetPresentation;
+          this.upsertSheetPresentation(updated.id, presentation);
+          ops.push({ op: "upsert_sheet_presentation", value: { sheetId: updated.id, presentation } });
+        }
+        this.emitPatch(ops, intent.intentId);
         return;
       }
-      case "instantiate_template": {
-        const template = this.snapshot.templates.find((t) => t.id === intent.payload.templateId);
-        if (!template) {
+      case "instantiate_sheet": {
+        const sheet = this.snapshot.sheets.find((entry) => entry.id === intent.payload.sheetId);
+        if (!sheet) {
           this.emit({
             type: "error",
             requestId: intent.intentId,
-            message: "Template not found"
+            message: "Sheet not found"
           });
           return;
         }
@@ -122,19 +198,22 @@ export class MockGameTransport implements GameTransport {
         const ops: PatchOp[] = [];
         const amount = Math.max(1, intent.payload.count);
         for (let i = 0; i < amount; i += 1) {
-          const instance: SheetInstance = {
-            id: makeId("instance"),
-            templateId: template.id,
-            kind: template.kind,
-            mode: "instance",
-            name: amount > 1 ? `${template.name} ${i + 1}` : template.name,
-            notes: template.notes,
-            updatedAt: new Date().toISOString()
-          };
-          this.snapshot.instances = [instance, ...this.snapshot.instances];
-          this.snapshot.activeSheetId = instance.id;
-          ops.push({ op: "upsert_instance", value: instance });
-          ops.push({ op: "set_active_sheet", value: { sheetId: instance.id } });
+          const record = this.createPersistentSheetRecord(sheet.id, sheet.name, amount > 1 ? i + 1 : null);
+          this.snapshot.persistentSheets = [record, ...this.snapshot.persistentSheets];
+          this.upsertPersistentSheetPresentation(record.id, {
+            name: amount > 1 ? `${sheet.name} ${i + 1}` : sheet.name,
+            updatedAt: now()
+          });
+          this.snapshot.activeSheetId = record.id;
+          ops.push({ op: "upsert_persistent_sheet", value: record });
+          ops.push({
+            op: "upsert_persistent_sheet_presentation",
+            value: {
+              persistentSheetId: record.id,
+              presentation: this.getPersistentSheetPresentation(record.id)
+            }
+          });
+          ops.push({ op: "set_active_sheet", value: { sheetId: record.id } });
         }
         this.emitPatch(ops, intent.intentId);
         return;
@@ -142,7 +221,7 @@ export class MockGameTransport implements GameTransport {
       case "save_encounter": {
         const encounter = {
           ...intent.payload.encounter,
-          updatedAt: new Date().toISOString()
+          updatedAt: now()
         } satisfies EncounterPreset;
         this.snapshot.encounters = [encounter, ...this.snapshot.encounters.filter((e) => e.id !== encounter.id)];
         this.emitPatch([{ op: "upsert_encounter", value: encounter }], intent.intentId);
@@ -161,22 +240,25 @@ export class MockGameTransport implements GameTransport {
 
         const ops: PatchOp[] = [];
         encounter.entries.forEach((entry) => {
-          const template = this.snapshot.templates.find((templateItem) => templateItem.id === entry.templateId);
-          if (!template) {
+          const sheet = this.snapshot.sheets.find((sheetItem) => sheetItem.id === entry.templateId);
+          if (!sheet) {
             return;
           }
           for (let i = 0; i < Math.max(1, entry.count); i += 1) {
-            const instance: SheetInstance = {
-              id: makeId("instance"),
-              templateId: template.id,
-              kind: template.kind,
-              mode: "instance",
-              name: entry.count > 1 ? `${template.name} ${i + 1}` : template.name,
-              notes: template.notes,
-              updatedAt: new Date().toISOString()
-            };
-            this.snapshot.instances = [instance, ...this.snapshot.instances];
-            ops.push({ op: "upsert_instance", value: instance });
+            const record = this.createPersistentSheetRecord(sheet.id, sheet.name, entry.count > 1 ? i + 1 : null);
+            this.snapshot.persistentSheets = [record, ...this.snapshot.persistentSheets];
+            this.upsertPersistentSheetPresentation(record.id, {
+              name: entry.count > 1 ? `${sheet.name} ${i + 1}` : sheet.name,
+              updatedAt: now()
+            });
+            ops.push({ op: "upsert_persistent_sheet", value: record });
+            ops.push({
+              op: "upsert_persistent_sheet_presentation",
+              value: {
+                persistentSheetId: record.id,
+                presentation: this.getPersistentSheetPresentation(record.id)
+              }
+            });
           }
         });
 
@@ -192,9 +274,8 @@ export class MockGameTransport implements GameTransport {
           id: makeId("roll"),
           status: "resolved",
           request: intent.payload.request,
-          createdAt: new Date().toISOString(),
+          createdAt: now(),
           requestedByRole: intent.payload.requestedByRole,
-          // TODO: replace with backend-calculated result once rules engine API is available.
           resultText
         };
         this.snapshot.rollLog = [pendingEntry, ...this.snapshot.rollLog];
@@ -221,6 +302,68 @@ export class MockGameTransport implements GameTransport {
     return () => {
       this.listeners.delete(handler);
     };
+  }
+
+  private createDefaultSheetPresentation(sheet: Sheet): SheetPresentation {
+    return {
+      kind: sheet.dm_only ? "enemy" : "player",
+      notes: "",
+      tags: [],
+      updatedAt: now()
+    };
+  }
+
+  private createPersistentSheetRecord(sheetId: string, name: string, index: number | null): PersistentSheetRecord {
+    const id = makeId("instance");
+    const baseSheet = this.snapshot.sheets.find((entry) => entry.id === sheetId);
+    const health = baseSheet ? Number(baseSheet.stats.health.text) || baseSheet.stats.constitution : 0;
+    const mana = baseSheet ? Number(baseSheet.stats.mana.text) || baseSheet.stats.arcane : 0;
+    const record = {
+      id,
+      value: createPersistentSheet(sheetId, health, mana)
+    } satisfies PersistentSheetRecord;
+
+    this.upsertPersistentSheetPresentation(id, {
+      name: index ? `${name} ${index}` : name,
+      updatedAt: now()
+    });
+
+    return record;
+  }
+
+  private getSheetPresentation(sheetId: string): SheetPresentation {
+    return (
+      this.snapshot.sheetPresentation.find((entry) => entry.sheetId === sheetId)?.value ?? {
+        kind: "player",
+        notes: "",
+        tags: [],
+        updatedAt: now()
+      }
+    );
+  }
+
+  private upsertSheetPresentation(sheetId: string, presentation: SheetPresentation): void {
+    this.snapshot.sheetPresentation = [
+      { sheetId, value: presentation },
+      ...this.snapshot.sheetPresentation.filter((entry) => entry.sheetId !== sheetId)
+    ];
+  }
+
+  private getPersistentSheetPresentation(persistentSheetId: string): PersistentSheetPresentation {
+    return (
+      this.snapshot.persistentSheetPresentation.find((entry) => entry.persistentSheetId === persistentSheetId)
+        ?.value ?? { updatedAt: now() }
+    );
+  }
+
+  private upsertPersistentSheetPresentation(
+    persistentSheetId: string,
+    presentation: PersistentSheetPresentation
+  ): void {
+    this.snapshot.persistentSheetPresentation = [
+      { persistentSheetId, value: presentation },
+      ...this.snapshot.persistentSheetPresentation.filter((entry) => entry.persistentSheetId !== persistentSheetId)
+    ];
   }
 
   private emitPatch(ops: PatchOp[], requestId: string): void {

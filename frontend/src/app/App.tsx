@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/app/state/store";
+import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { AuthPanel } from "@/features/auth/AuthPanel";
 import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
@@ -17,7 +18,8 @@ import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 export function App(): JSX.Element {
   const { state, dispatch } = useAppStore();
   const client = useGameClient();
-  const { role, connection, instances, activeSheetId, gmView, playerSheetSelectionComplete } = state;
+  const { role, connection, activeSheetId, gmView, playerSheetSelectionComplete } = state;
+  const activeDetail = selectActiveSheetDetail(state);
 
   useEffect(() => {
     if (!role || connection.status !== "disconnected") {
@@ -31,8 +33,7 @@ export function App(): JSX.Element {
   }
 
   if (role === "player") {
-    const active = activeSheetId ? instances[activeSheetId] : null;
-    if (!playerSheetSelectionComplete || !active || active.kind !== "player") {
+    if (!playerSheetSelectionComplete || !activeDetail || activeDetail.instance.kind !== "player") {
       return <PlayerEntry client={client} />;
     }
   }

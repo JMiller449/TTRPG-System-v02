@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import { selectActiveWeaponLabel } from "@/app/state/selectors";
+import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
 import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -41,7 +41,7 @@ export function RollPanel({
   const {
     state
   } = useAppStore();
-  const { activeSheetId, instances } = state;
+  const { activeSheetId } = state;
 
   const [composerMode, setComposerMode] = useState<ComposerMode>("stat");
   const [stat, setStat] = useState<StatKey>("strength");
@@ -55,8 +55,8 @@ export function RollPanel({
     if (!activeSheetId) {
       return "None";
     }
-    return instances[activeSheetId]?.name ?? activeSheetId;
-  }, [activeSheetId, instances]);
+    return selectSheetInstanceView(state, activeSheetId)?.name ?? activeSheetId;
+  }, [activeSheetId, state]);
   const activeWeapon = useMemo(() => {
     if (!activeSheetId) {
       return null;

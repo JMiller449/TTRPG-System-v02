@@ -1,27 +1,30 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { SheetTemplate } from "@/domain/models";
+import { selectSheetTemplateViews } from "@/app/state/selectors";
+import type { SheetTemplateView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { TemplateEditPanel } from "@/features/sheets/components/TemplateEditPanel";
 import { TemplateList } from "@/features/sheets/components/TemplateList";
 import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBar";
 import {
-  buildInstantiateTemplateIntent,
-  buildUpdateTemplateIntent
+  buildInstantiateSheetIntent,
+  buildUpdateSheetIntent
 } from "@/features/sheets/intentBuilders";
 import type { TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
 import { Panel } from "@/shared/ui/Panel";
 import {
   createEmptyTemplateEditorValues,
-  toTemplateChanges,
+  toSheetChanges,
+  toSheetPresentation,
   toTemplateEditorValues
 } from "@/features/sheets/templateEditorValues";
 
 export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { templates, templateOrder, templateSearch },
+    state,
     dispatch
   } = useAppStore();
+  const { templateSearch } = state;
 
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<TemplateEditorValues>(() =>
@@ -31,9 +34,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const visibleTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
-    return templateOrder
-      .map((id) => templates[id])
-      .filter((entry): entry is SheetTemplate => Boolean(entry))
+    return selectSheetTemplateViews(state)
       .filter((entry) => {
         if (!query) {
           return true;
@@ -44,11 +45,11 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
           entry.tags.some((tag) => tag.toLowerCase().includes(query))
         );
       });
-  }, [templateOrder, templates, templateSearch]);
+  }, [state, templateSearch]);
 
-  const beginEditTemplate = (template: SheetTemplate): void => {
+  const beginEditTemplate = (template: SheetTemplateView): void => {
     setEditingTemplateId(template.id);
-    setEditValues(toTemplateEditorValues(template));
+    setEditValues(toTemplateEditorValues(template.sheet, state.sheetPresentation[template.id]));
   };
 
   const saveTemplateEdit = (): void => {
@@ -56,7 +57,9 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       return;
     }
 
-    client.sendIntent(buildUpdateTemplateIntent(editingTemplateId, toTemplateChanges(editValues)));
+    client.sendIntent(
+      buildUpdateSheetIntent(editingTemplateId, toSheetChanges(editValues), toSheetPresentation(editValues))
+    );
     setEditingTemplateId(null);
     setEditValues(createEmptyTemplateEditorValues("player"));
   };
@@ -84,12 +87,12 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
         <TemplateList
           templates={visibleTemplates}
           onEdit={beginEditTemplate}
-          onSpawn={(template) => client.sendIntent(buildInstantiateTemplateIntent(template.id, spawnCount))}
+          onSpawn={(template) => client.sendIntent(buildInstantiateSheetIntent(template.id, spawnCount))}
         />
 
         <TemplateEditPanel
           editingTemplateId={editingTemplateId}
-          editingTemplateName={editingTemplateId ? templates[editingTemplateId]?.name : undefined}
+          editingTemplateName={editingTemplateId ? state.sheets[editingTemplateId]?.name : undefined}
           values={editValues}
           onChange={setEditValues}
           onSubmit={saveTemplateEdit}

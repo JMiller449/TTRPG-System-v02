@@ -1,28 +1,32 @@
 import type { ClientIntent } from "@/domain/ipc";
-import type { SheetTemplate } from "@/domain/models";
+import type { Sheet, SheetPresentation } from "@/domain/models";
 import { makeId } from "@/shared/utils/id";
 
-export function buildCreateTemplateIntent(template: SheetTemplate): ClientIntent {
+export function buildCreateSheetIntent(sheet: Sheet, presentation?: SheetPresentation): ClientIntent {
   return {
     intentId: makeId("intent"),
-    type: "create_template",
-    payload: { template }
+    type: "create_sheet",
+    payload: { sheet, presentation }
   };
 }
 
-export function buildUpdateTemplateIntent(templateId: string, changes: Partial<SheetTemplate>): ClientIntent {
+export function buildUpdateSheetIntent(
+  sheetId: string,
+  changes: Partial<Sheet>,
+  presentation?: Partial<SheetPresentation>
+): ClientIntent {
   return {
     intentId: makeId("intent"),
-    type: "update_template",
-    payload: { templateId, changes }
+    type: "update_sheet",
+    payload: { sheetId, changes, presentation }
   };
 }
 
-export function buildInstantiateTemplateIntent(templateId: string, count: number): ClientIntent {
+export function buildInstantiateSheetIntent(sheetId: string, count: number): ClientIntent {
   return {
     intentId: makeId("intent"),
-    type: "instantiate_template",
-    payload: { templateId, count: Math.max(1, count) }
+    type: "instantiate_sheet",
+    payload: { sheetId, count: Math.max(1, count) }
   };
 }
 

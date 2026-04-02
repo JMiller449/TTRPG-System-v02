@@ -6,12 +6,10 @@ import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
 
 export function ConsolePage({
   role,
-  client,
-  activeSheetId
+  client
 }: {
   role: Role;
   client: GameClient;
-  activeSheetId: string | null;
 }): JSX.Element {
   return (
     <main className={`app-grid-player-shell ${role === "gm" ? "app-grid-player-shell--gm" : ""}`}>
@@ -20,7 +18,7 @@ export function ConsolePage({
       </section>
       <section className="player-console-side">
         <RollPanel client={client} mode={role} />
-        <RollLog sheetId={activeSheetId} />
+        <RollLog />
       </section>
     </main>
   );

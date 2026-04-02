@@ -20,10 +20,12 @@ This frontend is intentionally scaffolded for backend-authoritative integration.
 - If websocket connect fails while running in default `ws` mode, the frontend falls back to mock transport.
 
 ## Integration Boundary
-- Replace/align intent payloads and server event types in `src/domain/ipc.ts` once backend contract is finalized.
+- Align request helpers and transport types with generated route-backed contract output as backend typed routes land.
 - Keep transport implementations isolated in `src/infrastructure/transport/`.
+- Keep backend-authoritative data in the app server-state slice; keep active sheet selection, drafts, and view state local to the frontend.
+- Treat Roll20 chat as the play log rather than rebuilding an authoritative in-app roll history.
 
 ## Important TODOs
 - Confirm final roll request payload shape from backend.
-- Confirm final patch operation schema from backend.
-- Add role-based authorization handling once backend auth endpoint/message is finalized.
+- Finish direct frontend adoption of the backend-native patch dialect.
+- Replace handwritten feature websocket request builders with generated or centralized typed helpers.

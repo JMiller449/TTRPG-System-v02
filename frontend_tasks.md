@@ -5,10 +5,13 @@ Use this file for frontend-only and frontend-scaffold TODO work. Keep items shor
 ## Status Note
 - Backend is not finished; schema and IPC contracts are incomplete.
 - Do not invent behavior when rules/contracts are unclear. Add a TODO instead.
+- Use [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md) as the integration umbrella for multi-session frontend/backend migration work.
 - Decisions locked:
   - Notes: player notes are per sheet instance; GM may optionally store notes on templates too.
   - Equipment UI: inventory-list only, no slot-based layout.
   - Quick-roll actions (`attack`, `dodge`, `parry`, `block`) should prefill roll composer, not auto-submit.
+  - Active sheet selection is frontend-local UI state.
+  - Roll20 chat is the play log; do not rebuild in-app authoritative roll history.
 
 ## Now (Frontend Scaffolding)
 - [ ] Separate GM creation flows for sheets, items, and abilities, then provide a dedicated sheet viewer mode.
@@ -23,12 +26,13 @@ Use this file for frontend-only and frontend-scaffold TODO work. Keep items shor
 - [ ] Add TODO-gated UI options for super advantage/super disadvantage only if rules confirm they exist.
 
 ## Later (Frontend ↔ Backend Integration)
-- [ ] Finalize frontend IPC v1 contract map in `frontend/src/domain/ipc.ts` to match backend request/patch payloads.
-- [ ] Gate GM console access on backend auth acknowledgement (replace optimistic local enablement with server-verified flow).
+- [ ] Treat `backend_takeover.md` Phase 3 and Phase 6 as the active integration checklist for transport cleanup and direct backend patch adoption.
+- [ ] Replace handwritten feature-level websocket request builders with generated or centralized typed route helpers as backend route contracts stabilize.
+- [ ] Adapt the frontend patch applier to the backend-native patch dialect instead of maintaining app-shaped patch ops.
 - [ ] Scaffold stat/resource update intents so character sheet modifiers are represented in backend transport contracts.
-- [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/state patch handling.
+- [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
 - [ ] Add global sync conflict/recovery UX for backend snapshot resync and rejected intents.
-- [ ] Add GM roll-log moderation UI (clean/revoke entries) as explicit scope-creep backlog.
+- [ ] Add Roll20 chat bridge status / send-failure UX if player/GM visibility needs it.
 - [ ] Add Item Maker support for GM-provided World Anvil item links (entry field + sheet/equipment display link handling).
 
 ## Rules TODOs

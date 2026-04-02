@@ -17,7 +17,7 @@ export function LevelUpPanel(): JSX.Element {
     state,
     dispatch
   } = useAppStore();
-  const { localSheetStatOverrides } = state;
+  const { localSheetStatOverrides } = state.uiState;
 
   const detail = useMemo(() => {
     const activeDetail = selectActiveSheetDetail(state);

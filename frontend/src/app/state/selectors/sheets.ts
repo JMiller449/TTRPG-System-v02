@@ -18,10 +18,11 @@ export interface ActiveSheetDetail {
 }
 
 function getSheetKind(state: AppState, sheet: Sheet | null): SheetKind {
+  const { serverState } = state;
   if (!sheet) {
     return "player";
   }
-  return state.sheetPresentation[sheet.id]?.kind ?? (sheet.dm_only ? "enemy" : "player");
+  return serverState.sheetPresentation[sheet.id]?.kind ?? (sheet.dm_only ? "enemy" : "player");
 }
 
 function readFormulaNumber(text: string): number {
@@ -65,12 +66,13 @@ function buildBaseStatValues(
 }
 
 export function selectSheetTemplateView(state: AppState, sheetId: string): SheetTemplateView | null {
-  const sheet = state.sheets[sheetId];
+  const { serverState } = state;
+  const sheet = serverState.sheets[sheetId];
   if (!sheet) {
     return null;
   }
 
-  const presentation = state.sheetPresentation[sheet.id];
+  const presentation = serverState.sheetPresentation[sheet.id];
   return {
     id: sheet.id,
     sheet,
@@ -84,20 +86,21 @@ export function selectSheetTemplateView(state: AppState, sheetId: string): Sheet
 }
 
 export function selectSheetTemplateViews(state: AppState): SheetTemplateView[] {
-  return state.sheetOrder
+  return state.serverState.sheetOrder
     .map((id) => selectSheetTemplateView(state, id))
     .filter((entry): entry is SheetTemplateView => Boolean(entry));
 }
 
 export function selectSheetInstanceView(state: AppState, persistentSheetId: string): SheetInstanceView | null {
-  const persistentSheet = state.persistentSheets[persistentSheetId];
+  const { serverState } = state;
+  const persistentSheet = serverState.persistentSheets[persistentSheetId];
   if (!persistentSheet) {
     return null;
   }
 
-  const sheet = state.sheets[persistentSheet.parent_id] ?? null;
-  const sheetPresentation = sheet ? state.sheetPresentation[sheet.id] : undefined;
-  const persistentPresentation = state.persistentSheetPresentation[persistentSheetId];
+  const sheet = serverState.sheets[persistentSheet.parent_id] ?? null;
+  const sheetPresentation = sheet ? serverState.sheetPresentation[sheet.id] : undefined;
+  const persistentPresentation = serverState.persistentSheetPresentation[persistentSheetId];
 
   return {
     id: persistentSheetId,
@@ -111,17 +114,18 @@ export function selectSheetInstanceView(state: AppState, persistentSheetId: stri
 }
 
 export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | null {
-  if (!state.activeSheetId) {
+  const { serverState, uiState } = state;
+  if (!uiState.activeSheetId) {
     return null;
   }
 
-  const instance = selectSheetInstanceView(state, state.activeSheetId);
+  const instance = selectSheetInstanceView(state, uiState.activeSheetId);
   if (!instance) {
     return null;
   }
 
   const baseStats = buildBaseStatValues(instance.parentSheet, instance.persistentSheet);
-  const statOverrides = state.localSheetStatOverrides[instance.id] ?? {};
+  const statOverrides = uiState.localSheetStatOverrides[instance.id] ?? {};
 
   return {
     instance,
@@ -136,11 +140,11 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
 }
 
 export function selectSheetEquipment(state: AppState, sheetId: string): SheetInventoryItem[] {
-  return state.localSheetEquipment[sheetId] ?? [];
+  return state.uiState.localSheetEquipment[sheetId] ?? [];
 }
 
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {
-  return state.localSheetActiveWeapon[sheetId] ?? null;
+  return state.uiState.localSheetActiveWeapon[sheetId] ?? null;
 }
 
 export function selectActiveWeaponLabel(state: AppState, sheetId: string): string {
@@ -155,11 +159,11 @@ export function selectActiveWeaponLabel(state: AppState, sheetId: string): strin
     return "None";
   }
 
-  return state.itemTemplates[activeEntry.itemTemplateId]?.name ?? "None";
+  return state.uiState.itemTemplates[activeEntry.itemTemplateId]?.name ?? "None";
 }
 
 export function selectPlayerInstances(state: AppState): SheetInstanceView[] {
-  return state.persistentSheetOrder
+  return state.serverState.persistentSheetOrder
     .map((id) => selectSheetInstanceView(state, id))
     .filter((entry): entry is SheetInstanceView => Boolean(entry))
     .filter((entry) => entry.kind === "player");

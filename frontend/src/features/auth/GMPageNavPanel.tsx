@@ -12,7 +12,9 @@ const NAV_ITEMS: Array<{ view: GMView; label: string }> = [
 
 export function GMPageNavPanel(): JSX.Element {
   const {
-    state: { gmView },
+    state: {
+      uiState: { gmView }
+    },
     dispatch
   } = useAppStore();
 

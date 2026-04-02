@@ -309,13 +309,89 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
             },
             {
                 "response_id": None,
-                "is_dm": False,
-                "groups": {
-                    "dms": 0,
-                    "players": 1,
+                "state": {
+                    "actions": {},
+                    "formulas": {},
+                    "instanced_sheets": {},
+                    "items": {},
+                    "proficiencies": {},
+                    "sheets": {},
                 },
-                "type": "socket_group_assigned",
+                "state_version": 0,
+                "type": "state_snapshot",
                 "request_id": None,
+            },
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_handle_client_payload_bootstraps_player_session_after_authentication() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "authenticate",
+                "token": PLAYER_JOIN_CODE,
+                "request_id": "client-id-ignored",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "authenticated": True,
+                "role": "player",
+                "reason": None,
+                "type": "authenticate_response",
+                "request_id": "req-1",
+            },
+            {
+                "response_id": None,
+                "state": {
+                    "actions": {},
+                    "formulas": {},
+                    "instanced_sheets": {},
+                    "items": {},
+                    "proficiencies": {},
+                    "sheets": {},
+                },
+                "state_version": 0,
+                "type": "state_snapshot",
+                "request_id": None,
+            },
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "authenticate",
+                "token": DM_ADMIN_CODE,
+                "request_id": "client-id-ignored",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "authenticated": True,
+                "role": "dm",
+                "reason": None,
+                "type": "authenticate_response",
+                "request_id": "req-1",
             },
             {
                 "response_id": None,
@@ -418,7 +494,7 @@ def test_unknown_request_type_returns_error() -> None:
     asyncio.run(scenario())
 
 
-def test_state_sync_bootstrap_sends_connection_state_and_snapshot() -> None:
+def test_state_sync_bootstrap_sends_snapshot() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()
         websocket = FakeWebSocket()
@@ -427,16 +503,6 @@ def test_state_sync_bootstrap_sends_connection_state_and_snapshot() -> None:
         await state_sync_handler.send_connection_bootstrap(session)
 
         assert websocket.sent_messages == [
-            {
-                "response_id": None,
-                "is_dm": False,
-                "groups": {
-                    "dms": 0,
-                    "players": 1,
-                },
-                "type": "socket_group_assigned",
-                "request_id": None,
-            },
             {
                 "response_id": None,
                 "state": {

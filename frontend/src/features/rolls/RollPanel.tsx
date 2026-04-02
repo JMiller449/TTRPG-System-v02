@@ -41,7 +41,7 @@ export function RollPanel({
   const {
     state
   } = useAppStore();
-  const { activeSheetId } = state;
+  const { activeSheetId } = state.uiState;
 
   const [composerMode, setComposerMode] = useState<ComposerMode>("stat");
   const [stat, setStat] = useState<StatKey>("strength");

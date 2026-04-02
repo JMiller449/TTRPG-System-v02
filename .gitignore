@@ -234,3 +234,5 @@ pnpm-debug.log*
 *:Zone.Identifier
 state_dumpy.json
 .codex
+# auto generated
+frontend/src/generated/backendProtocol.ts

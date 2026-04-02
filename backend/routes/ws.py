@@ -1,12 +1,12 @@
 import json
 import logging
-from dataclasses import asdict
 from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from backend.protocol.socket import normalize_server_event
 from backend.core.request_registry import (
     MalformedRequestError,
     UnknownRequestTypeError,
@@ -99,9 +99,11 @@ async def handle_client_payload(
 
     if not isinstance(normalized_payload, dict):
         await websocket.send_json(
-            _error_payload(
-                reason="Invalid Request: payload must be an object",
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason="Invalid Request: payload must be an object",
+                    request_id=request_id,
+                )
             )
         )
         return
@@ -109,9 +111,11 @@ async def handle_client_payload(
     request_type = normalized_payload.get("type")
     if not isinstance(request_type, str) or not request_type:
         await websocket.send_json(
-            _error_payload(
-                reason="type: Field required",
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason="type: Field required",
+                    request_id=request_id,
+                )
             )
         )
         return
@@ -130,9 +134,11 @@ async def handle_client_payload(
             request = Authenticate.model_validate(normalized_payload)
         except ValidationError as exc:
             await websocket.send_json(
-                _error_payload(
-                    reason=_validation_error_message(exc),
-                    request_id=request_id,
+                normalize_server_event(
+                    _error_payload(
+                        reason=_validation_error_message(exc),
+                        request_id=request_id,
+                    )
                 )
             )
             return
@@ -146,34 +152,42 @@ async def handle_client_payload(
         session = await websocket_sessions.get_session(websocket)
         if not session.is_authenticated:
             await websocket.send_json(
-                _error_payload(
-                    reason="Authenticate first.",
-                    request_id=request_id,
+                normalize_server_event(
+                    _error_payload(
+                        reason="Authenticate first.",
+                        request_id=request_id,
+                    )
                 )
             )
             return
         await request_registry.dispatch(session, normalized_payload)
     except ValidationError as exc:
         await websocket.send_json(
-            _error_payload(
-                reason=_validation_error_message(exc),
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason=_validation_error_message(exc),
+                    request_id=request_id,
+                )
             )
         )
         return
     except (MalformedRequestError, UnknownRequestTypeError) as exc:
         await websocket.send_json(
-            _error_payload(
-                reason=str(exc),
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason=str(exc),
+                    request_id=request_id,
+                )
             )
         )
         return
     except (PermissionError, ValueError) as exc:
         await websocket.send_json(
-            _error_payload(
-                reason=str(exc),
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason=str(exc),
+                    request_id=request_id,
+                )
             )
         )
 
@@ -196,7 +210,11 @@ async def _reject_connection(
     reason: str,
     request_id: str | None = None,
 ) -> None:
-    await websocket.send_json(_error_payload(reason=reason, request_id=request_id))
+    await websocket.send_json(
+        normalize_server_event(
+            _error_payload(reason=reason, request_id=request_id)
+        )
+    )
     await websocket.close(code=AUTH_CLOSE_CODE)
 
 
@@ -219,9 +237,11 @@ async def authenticate_application_websocket(
         request = Authenticate.model_validate(normalized_payload)
     except ValidationError as exc:
         await websocket.send_json(
-            _error_payload(
-                reason=_validation_error_message(exc),
-                request_id=request_id,
+            normalize_server_event(
+                _error_payload(
+                    reason=_validation_error_message(exc),
+                    request_id=request_id,
+                )
             )
         )
         return None
@@ -255,7 +275,7 @@ async def authenticate_service_websocket(
         return False
 
     await websocket.send_json(
-        asdict(
+        normalize_server_event(
             auth_service.build_authenticate_response(
                 authenticated=True,
                 role=role,
@@ -276,7 +296,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             try:
                 payload = await _receive_json_payload(websocket)
             except ValueError as exc:
-                await websocket.send_json(_error_payload(reason=str(exc)))
+                await websocket.send_json(
+                    normalize_server_event(_error_payload(reason=str(exc)))
+                )
                 continue
 
             await handle_client_payload(websocket, payload)

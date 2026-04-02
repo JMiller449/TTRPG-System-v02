@@ -4,11 +4,12 @@ import type { Role } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
-import { makeId } from "@/shared/utils/id";
 
 export function SessionLanding({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { connection },
+    state: {
+      uiState: { connection }
+    },
     dispatch
   } = useAppStore();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -28,10 +29,8 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
   const enterPlayerConsole = async (): Promise<void> => {
     setLocalError(null);
     await ensureConnected();
-    dispatch({ type: "set_gm_authenticated", value: false });
-    dispatch({ type: "set_gm_password", password: "" });
     dispatch({ type: "set_gm_view", view: "console" });
-    dispatch({ type: "set_role", role: "player" });
+    client.authenticate("player");
   };
 
   const enterGMConsole = async (): Promise<void> => {
@@ -43,15 +42,8 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
 
     setLocalError(null);
     await ensureConnected();
-    dispatch({ type: "set_gm_password", password });
     dispatch({ type: "set_gm_view", view: "console" });
-    client.sendIntent({
-      intentId: makeId("intent"),
-      type: "authenticate_gm",
-      payload: { password }
-    });
-    dispatch({ type: "set_gm_authenticated", value: true });
-    dispatch({ type: "set_role", role: "gm" });
+    client.authenticate("gm", password);
   };
 
   return (

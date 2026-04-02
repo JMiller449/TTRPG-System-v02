@@ -5,17 +5,23 @@ Use this file for backend and rules-engine TODO work. Keep items short and actio
 ## Status Note
 - Current backend schemas/contracts are incomplete.
 - `reference-docs/Chip TTRPG System_2-20-26.pdf` is highest authority for behavior conflicts.
+- Use [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md) as the active migration plan for websocket contract, state ownership, and frontend/backend integration sequencing.
 - Decisions locked:
   - Notes: authoritative schema should support sheet-instance notes; GM template-level notes optional.
   - Equipment: inventory-list model only (no slot-equipping model for now).
   - Quick-roll actions should support prefill-driven composer flow on frontend.
+  - Active sheet selection is frontend-local, not backend-authoritative.
+  - Roll20 chat is the effective play log; do not build new backend-owned roll-log authority unless requirements change.
+  - `state_sync` raw path mutation helpers are internal primitives, not the public client API.
 
 ## Now (Backend Foundation)
 - [ ] Finalize sheet schema for notes and equipment data (instance notes required; GM template notes optional; inventory list only).
 - [ ] Define how baseline sheet checks should be represented as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
 - [ ] Finalize roll intent/request schema to support quick-roll actions: `attack`, `dodge`, `parry`, `block`.
 - [ ] Define role/permission rules for note edits, equipment edits, and stat/resource adjustments.
-- [ ] Finalize websocket request/response types for template edits, sheet updates, and roll actions.
+- [ ] Replace generic public `create_entity` / `update_entity` / `delete_entity` contracts with typed route contracts for sheet admin features.
+- [ ] Add registry metadata needed for generated frontend helper functions from route declarations.
+- [ ] Finalize websocket request/response types for typed template edits, sheet updates, bridge operations, and roll actions.
 - [ ] Finalize augmentation schema for gear/weapon augmentation data.
 - [ ] Finalize augmentation attachment/update intents for gear and weapon items.
 - [ ] Extend roll request schema for advantage/disadvantage flags.
@@ -32,13 +38,13 @@ Use this file for backend and rules-engine TODO work. Keep items short and actio
 - [ ] Implement backend handling for advantage/disadvantage roll resolution.
 - [ ] Implement damage-type-aware health adjustment handling.
 - [ ] Implement augmentation effect resolution hooks for gear/weapon contexts.
-- [ ] Implement GM-only roll-log moderation operations (clean/revoke entries), if approved.
+- [ ] Model non-CRUD bridge operations as semantic commands (`attach`, `detach`, `link`, `unlink`, `instantiate`) instead of forcing them through generic delete/update semantics.
 
 ## Later (Reliability + Integration)
 - [ ] Add websocket reliability features: reconnect/backoff handling strategy and snapshot resync path.
 - [ ] Add idempotency/ordering handling for intent replay or duplicate messages.
 - [ ] Add integration tests for snapshot + patch consistency across rapid intent sequences.
-- [ ] Add audit logging for GM moderation actions against roll-log entries.
+- [ ] Add backend coverage for generated-helper metadata and typed route/export consistency once generation expands beyond types.
 
 ## Rules TODOs
 - [ ] Confirm exact formulas and modifiers for attack and defensive roll types from rules PDF.

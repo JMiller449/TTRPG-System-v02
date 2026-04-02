@@ -1,3 +1,5 @@
+import type { AppState, ServerState, UIState } from "@/app/state/types";
+
 export function upsert<T extends { id: string }>(
   map: Record<string, T>,
   order: string[],
@@ -22,4 +24,20 @@ export function removeById<T>(
     map: nextMap,
     order: order.filter((entryId) => entryId !== id)
   };
+}
+
+export function updateServerState(
+  state: AppState,
+  updater: (serverState: ServerState) => ServerState
+): AppState {
+  const nextServerState = updater(state.serverState);
+  return nextServerState === state.serverState ? state : { ...state, serverState: nextServerState };
+}
+
+export function updateUiState(
+  state: AppState,
+  updater: (uiState: UIState) => UIState
+): AppState {
+  const nextUiState = updater(state.uiState);
+  return nextUiState === state.uiState ? state : { ...state, uiState: nextUiState };
 }

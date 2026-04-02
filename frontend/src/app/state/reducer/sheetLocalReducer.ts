@@ -1,73 +1,74 @@
 import type { AppAction, AppState } from "@/app/state/types";
+import { updateUiState } from "@/app/state/reducer/shared";
 
 export function sheetLocalReducer(state: AppState, action: AppAction): AppState | undefined {
   switch (action.type) {
     case "set_sheet_note":
-      return {
-        ...state,
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetNotes: {
-          ...state.localSheetNotes,
+          ...uiState.localSheetNotes,
           [action.sheetId]: action.note
         }
-      };
+      }));
 
     case "add_sheet_equipment": {
-      const current = state.localSheetEquipment[action.sheetId] ?? [];
-      return {
-        ...state,
+      const current = state.uiState.localSheetEquipment[action.sheetId] ?? [];
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetEquipment: {
-          ...state.localSheetEquipment,
+          ...uiState.localSheetEquipment,
           [action.sheetId]: [...current, action.entry]
         }
-      };
+      }));
     }
 
     case "remove_sheet_equipment": {
-      const current = state.localSheetEquipment[action.sheetId] ?? [];
+      const current = state.uiState.localSheetEquipment[action.sheetId] ?? [];
       const nextItems = current.filter((entry) => entry.id !== action.inventoryItemId);
-      const currentActive = state.localSheetActiveWeapon[action.sheetId] ?? null;
-      return {
-        ...state,
+      const currentActive = state.uiState.localSheetActiveWeapon[action.sheetId] ?? null;
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetEquipment: {
-          ...state.localSheetEquipment,
+          ...uiState.localSheetEquipment,
           [action.sheetId]: nextItems
         },
         localSheetActiveWeapon: {
-          ...state.localSheetActiveWeapon,
+          ...uiState.localSheetActiveWeapon,
           [action.sheetId]: currentActive === action.inventoryItemId ? null : currentActive
         }
-      };
+      }));
     }
 
     case "set_sheet_active_weapon":
-      return {
-        ...state,
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetActiveWeapon: {
-          ...state.localSheetActiveWeapon,
+          ...uiState.localSheetActiveWeapon,
           [action.sheetId]: action.inventoryItemId
         }
-      };
+      }));
 
     case "set_sheet_stat_overrides": {
       const sanitized = Object.fromEntries(
         Object.entries(action.overrides).filter((entry) => Number.isFinite(entry[1]))
       );
-      return {
-        ...state,
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetStatOverrides: {
-          ...state.localSheetStatOverrides,
+          ...uiState.localSheetStatOverrides,
           [action.sheetId]: sanitized
         }
-      };
+      }));
     }
 
     case "clear_sheet_stat_overrides": {
-      const next = { ...state.localSheetStatOverrides };
+      const next = { ...state.uiState.localSheetStatOverrides };
       delete next[action.sheetId];
-      return {
-        ...state,
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
         localSheetStatOverrides: next
-      };
+      }));
     }
 
     default:

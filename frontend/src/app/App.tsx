@@ -16,9 +16,10 @@ import { useGameClient } from "@/hooks/useGameClient";
 import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 
 export function App(): JSX.Element {
-  const { state, dispatch } = useAppStore();
+  const { state } = useAppStore();
   const client = useGameClient();
-  const { role, connection, activeSheetId, gmView, playerSheetSelectionComplete } = state;
+  const { role } = state.serverState;
+  const { connection, activeSheetId, gmView, playerSheetSelectionComplete } = state.uiState;
   const activeDetail = selectActiveSheetDetail(state);
 
   useEffect(() => {
@@ -46,15 +47,12 @@ export function App(): JSX.Element {
           <p>
             {role === "gm"
               ? "GM console: full template, encounter, sheet, and rolling controls."
-              : "Player console: view your sheet, submit rolls, and review your roll log."}
+              : "Player console: view your sheet and submit rolls into chat."}
           </p>
           <button
             className="button button--secondary"
             onClick={() => {
-              dispatch({ type: "set_role", role: null });
-              dispatch({ type: "set_gm_authenticated", value: false });
-              dispatch({ type: "set_gm_password", password: "" });
-              dispatch({ type: "set_gm_view", view: "console" });
+              client.endSession();
             }}
           >
             Exit to Session
@@ -65,7 +63,7 @@ export function App(): JSX.Element {
       {role === "gm" ? <GMPageNavPanel /> : null}
 
       {role === "player" ? (
-        <ConsolePage role="player" client={client} activeSheetId={activeSheetId} />
+        <ConsolePage role="player" client={client} />
       ) : gmView === "template_library" ? (
         <main className="app-grid-player">
           <TemplateLibrary client={client} />
@@ -86,10 +84,10 @@ export function App(): JSX.Element {
         <>
           <section className="gm-console-tools">
             <AuthPanel client={client} />
-            <SheetTabs client={client} />
+            <SheetTabs />
             <EncounterQuickSelectPanel client={client} />
           </section>
-          <ConsolePage role="gm" client={client} activeSheetId={activeSheetId} />
+          <ConsolePage role="gm" client={client} />
         </>
       )}
     </div>

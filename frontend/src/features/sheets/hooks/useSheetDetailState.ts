@@ -23,7 +23,7 @@ interface UseSheetDetailStateResult {
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
   const { state } = useAppStore();
-  const { itemTemplates, itemTemplateOrder, localSheetNotes } = state;
+  const { itemTemplates, itemTemplateOrder, localSheetNotes } = state.uiState;
 
   const detail = selectActiveSheetDetail(state);
 

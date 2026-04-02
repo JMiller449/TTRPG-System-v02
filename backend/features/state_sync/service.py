@@ -10,7 +10,6 @@ from backend.core.transport import PatchOp
 from backend.features.session.models import WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
-    SocketGroupAssigned,
     StatePatch,
     StateSnapshot,
 )
@@ -18,20 +17,6 @@ from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
-
-
-def build_connection_state(
-    session: WebSocketSession,
-    *,
-    groups: dict[str, int],
-    request_id: str | None = None,
-) -> SocketGroupAssigned:
-    return SocketGroupAssigned(
-        response_id=None,
-        is_dm=session.is_dm,
-        groups=groups,
-        request_id=request_id,
-    )
 
 
 def build_state_snapshot(
@@ -63,10 +48,6 @@ def build_state_patch(
 
 
 async def send_bootstrap(session: WebSocketSession) -> None:
-    groups = await websocket_sessions.group_counts()
-    await websocket_sessions.send(
-        session, build_connection_state(session, groups=groups)
-    )
     await websocket_sessions.send(session, await state_sync_service.snapshot())
 
 

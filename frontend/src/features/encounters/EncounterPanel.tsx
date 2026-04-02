@@ -18,7 +18,7 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
   const {
     state
   } = useAppStore();
-  const { encounters, encounterOrder, sheets } = state;
+  const { encounters, encounterOrder, sheets } = state.serverState;
 
   const [name, setName] = useState("");
   const [entries, setEntries] = useState<DraftEncounterEntry[]>([newRosterEntry()]);

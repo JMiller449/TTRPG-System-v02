@@ -8,7 +8,8 @@
 ## Scope
 - Player: view sheet and submit roll intents.
 - GM: same capabilities plus enemy/template management, quick tab switching, searchable template list, and encounter loading.
-- Include table roll log with GM visible/hidden roll option.
+- Use Roll20 chat as the table play log; do not add a second authoritative in-app roll-history system.
+- Active sheet selection is frontend-local UI state unless a future backend requirement explicitly changes that boundary.
 
 ## UX Rules
 - Optimistic UI is allowed for edits/roll submissions, but mark as pending until server ack.

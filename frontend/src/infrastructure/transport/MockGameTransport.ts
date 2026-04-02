@@ -9,6 +9,7 @@ import type {
   SheetPresentation
 } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
+import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 import { makeId } from "@/shared/utils/id";
 
@@ -29,6 +30,7 @@ export class MockGameTransport implements GameTransport {
   public readonly mode = "mock" as const;
 
   private listeners = new Set<(event: ServerEvent) => void>();
+  private stateVersion = 0;
 
   private snapshot: AppSnapshot = {
     sheets: [
@@ -115,7 +117,7 @@ export class MockGameTransport implements GameTransport {
 
   async connect(): Promise<void> {
     setTimeout(() => {
-      this.emit({ type: "snapshot", snapshot: this.snapshot });
+      this.emit({ type: "snapshot", snapshot: this.snapshot, stateVersion: this.stateVersion });
     }, 120);
   }
 
@@ -297,6 +299,41 @@ export class MockGameTransport implements GameTransport {
     }
   }
 
+  sendProtocolRequest(request: ProtocolApplicationRequest): void {
+    switch (request.type) {
+      case "authenticate": {
+        const role = request.token === "change-me-dm-code" ? "gm" : request.token === "change-me-player-code" ? "player" : null;
+        if (!role) {
+          this.emit({
+            type: "authenticated",
+            authenticated: false,
+            role: null,
+            requestId: request.request_id ?? undefined,
+            reason: "Invalid player or DM code."
+          });
+          return;
+        }
+        this.emit({
+          type: "authenticated",
+          authenticated: true,
+          role,
+          requestId: request.request_id ?? undefined
+        });
+        this.emit({ type: "snapshot", snapshot: this.snapshot, stateVersion: this.stateVersion });
+        return;
+      }
+      case "resync_state":
+        this.emit({ type: "snapshot", snapshot: this.snapshot, stateVersion: this.stateVersion });
+        return;
+      default:
+        this.emit({
+          type: "error",
+          requestId: request.request_id ?? undefined,
+          message: `${request.type} is not supported by mock transport`
+        });
+    }
+  }
+
   onEvent(handler: (event: ServerEvent) => void): TransportUnsubscribe {
     this.listeners.add(handler);
     return () => {
@@ -367,6 +404,7 @@ export class MockGameTransport implements GameTransport {
   }
 
   private emitPatch(ops: PatchOp[], requestId: string): void {
+    this.stateVersion += 1;
     this.emit({ type: "patch", requestId, ops });
     this.emit({ type: "ack", requestId });
   }

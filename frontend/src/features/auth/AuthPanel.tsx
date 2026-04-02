@@ -5,13 +5,16 @@ import type { GameClient } from "@/hooks/useGameClient";
 
 export function AuthPanel({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { gmAuthenticated, connection, pendingIntentIds }
+    state: {
+      serverState: { gmAuthenticated },
+      uiState: { connection, pendingIntentIds }
+    }
   } = useAppStore();
   const [isConnecting, setIsConnecting] = useState(false);
 
   const connectOrDisconnect = async (): Promise<void> => {
     if (connection.status === "connected") {
-      client.disconnect();
+      client.endSession();
       return;
     }
     setIsConnecting(true);

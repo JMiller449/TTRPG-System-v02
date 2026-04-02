@@ -24,7 +24,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
     state,
     dispatch
   } = useAppStore();
-  const { templateSearch } = state;
+  const { templateSearch } = state.uiState;
 
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<TemplateEditorValues>(() =>
@@ -49,7 +49,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const beginEditTemplate = (template: SheetTemplateView): void => {
     setEditingTemplateId(template.id);
-    setEditValues(toTemplateEditorValues(template.sheet, state.sheetPresentation[template.id]));
+    setEditValues(toTemplateEditorValues(template.sheet, state.serverState.sheetPresentation[template.id]));
   };
 
   const saveTemplateEdit = (): void => {
@@ -92,7 +92,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
         <TemplateEditPanel
           editingTemplateId={editingTemplateId}
-          editingTemplateName={editingTemplateId ? state.sheets[editingTemplateId]?.name : undefined}
+          editingTemplateName={editingTemplateId ? state.serverState.sheets[editingTemplateId]?.name : undefined}
           values={editValues}
           onChange={setEditValues}
           onSubmit={saveTemplateEdit}

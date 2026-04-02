@@ -80,7 +80,8 @@ export type ClientIntent =
     };
 
 export type ServerEvent =
-  | { type: "snapshot"; snapshot: AppSnapshot }
+  | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
+  | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean }
   | { type: "patch"; requestId?: string; ops: PatchOp[] }
   | { type: "ack"; requestId: string }
   | { type: "error"; requestId?: string; message: string };

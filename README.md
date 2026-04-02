@@ -10,21 +10,22 @@ Backend-first TTRPG system with authoritative state, websocket-driven gameplay, 
 
 ## What Exists Today
 
-- Connect-time websocket auth with three codes:
+- First-application-message websocket auth with three codes:
   - player
   - DM
   - service
 - Authoritative backend state with versioned snapshots and patches
-- DM CRUD over websocket for:
+- DM authoring over websocket for:
   - sheets
   - items
   - formulas
   - actions
+  - currently through generic admin routes, with typed feature routes as the target direction
 - Basic runtime support for:
-  - focusing a sheet
   - rolling basic checks
   - performing authored actions
 - Firefox extension that connects to the backend on Roll20 editor pages and sends chat messages into Roll20
+- Roll20 chat acts as the table play log; the app is not keeping a second authoritative roll log.
 
 ## Run The Backend
 
@@ -70,11 +71,15 @@ The extension only runs on `https://app.roll20.net/editor/*`.
 
 ## Development Notes
 
+- Active frontend/backend migration work is tracked in [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md).
 - Backend state sync is patch-first:
   - clients get a full snapshot on connect
   - later changes arrive as ordered `state_patch` diffs
   - snapshots and patches include `state_version`
   - clients should resync if they detect a version gap
+- Frontend state ownership is split:
+  - backend-authoritative server state comes from auth/snapshot/patch events
+  - active sheet selection, page/view state, drafts, and pending UX stay frontend-local
 - Roll20 chat delivery is fail-fast:
   - if the extension bridge is connected, chat sends immediately
   - if not, the backend returns an error instead of queueing messages
@@ -95,6 +100,7 @@ The backend is organized by feature. The thin transport layer lives at the top, 
   - central websocket request registry
   - maps request `type` to a feature route
   - enforces route-level authorization such as DM-only requests
+  - is the long-term home for generated frontend-helper metadata
 - `backend/features/<feature>/schema.py`
   - pydantic request models and dataclass response models for that feature
 - `backend/features/<feature>/route.py`
@@ -189,7 +195,7 @@ If a change bypasses `state_sync`, clients can drift out of sync.
 
 ### Auth Notes
 
-- App clients authenticate first on `/ws` with a player or DM code.
+- App clients authenticate as their first application message on `/ws` with a player or DM code.
 - The Firefox extension authenticates first on `/ws/chat` with the service code.
 - Route-level DM requirements should be declared on `RequestRoute`.
 - Do not trust role claims from client payloads.

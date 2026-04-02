@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable
-from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from fastapi import WebSocket
 
+from backend.protocol.socket import normalize_server_event
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.core.transport import SocketGroup
 
@@ -74,10 +74,7 @@ class WebSocketSessionService:
         }
 
     async def send(self, session: WebSocketSession, payload: Any) -> None:
-        if is_dataclass(payload):
-            await session.websocket.send_json(asdict(payload))
-            return
-        await session.websocket.send_json(payload)
+        await session.websocket.send_json(normalize_server_event(payload))
 
     async def broadcast(
         self,
@@ -109,10 +106,7 @@ class WebSocketSessionService:
             if websocket in excluded_connections:
                 continue
             try:
-                if is_dataclass(payload):
-                    await websocket.send_json(asdict(payload))
-                else:
-                    await websocket.send_json(payload)
+                await websocket.send_json(normalize_server_event(payload))
             except RuntimeError:
                 disconnected.append(websocket)
 

@@ -1,13 +1,13 @@
 import type { PatchOp } from "@/domain/ipc";
-import type { AppAction, AppState } from "@/app/state/types";
-import { removeById, upsert } from "@/app/state/reducer/shared";
+import type { AppAction, AppState, ServerState } from "@/app/state/types";
+import { removeById, updateServerState, updateUiState, upsert } from "@/app/state/reducer/shared";
 
 function upsertPersistentSheet(
-  map: AppState["persistentSheets"],
+  map: ServerState["persistentSheets"],
   order: string[],
   id: string,
-  value: AppState["persistentSheets"][string]
-): { map: AppState["persistentSheets"]; order: string[] } {
+  value: ServerState["persistentSheets"][string]
+): { map: ServerState["persistentSheets"]; order: string[] } {
   const nextMap = { ...map, [id]: value };
   const exists = order.includes(id);
   return {
@@ -16,7 +16,7 @@ function upsertPersistentSheet(
   };
 }
 
-function applyPatch(state: AppState, op: PatchOp): AppState {
+function applyPatch(state: ServerState, op: PatchOp): ServerState {
   switch (op.op) {
     case "upsert_sheet": {
       const next = upsert(state.sheets, state.sheetOrder, op.value);
@@ -44,13 +44,11 @@ function applyPatch(state: AppState, op: PatchOp): AppState {
       const next = removeById(state.persistentSheets, state.persistentSheetOrder, op.value.id);
       const nextPresentation = { ...state.persistentSheetPresentation };
       delete nextPresentation[op.value.id];
-      const nextActive = state.activeSheetId === op.value.id ? next.order[0] ?? null : state.activeSheetId;
       return {
         ...state,
         persistentSheets: next.map,
         persistentSheetOrder: next.order,
-        persistentSheetPresentation: nextPresentation,
-        activeSheetId: nextActive
+        persistentSheetPresentation: nextPresentation
       };
     }
 
@@ -83,20 +81,28 @@ function applyPatch(state: AppState, op: PatchOp): AppState {
     }
 
     case "set_active_sheet":
-      return { ...state, activeSheetId: op.value.sheetId };
-
     case "add_roll_log":
-      return { ...state, rollLog: [op.value, ...state.rollLog] };
-
     case "update_roll_log":
-      return {
-        ...state,
-        rollLog: state.rollLog.map((entry) => (entry.id === op.value.id ? { ...entry, ...op.value } : entry))
-      };
-
     default:
       return state;
   }
+}
+
+function normalizeUiSelections(state: AppState): AppState {
+  const { activeSheetId } = state.uiState;
+  if (!activeSheetId) {
+    return state;
+  }
+
+  if (state.serverState.persistentSheets[activeSheetId]) {
+    return state;
+  }
+
+  return updateUiState(state, (uiState) => ({
+    ...uiState,
+    activeSheetId: null,
+    playerSheetSelectionComplete: false
+  }));
 }
 
 export function syncReducer(state: AppState, action: AppAction): AppState | undefined {
@@ -113,26 +119,25 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
         action.snapshot.persistentSheetPresentation.map((item) => [item.persistentSheetId, item.value])
       );
       const encounters = Object.fromEntries(action.snapshot.encounters.map((item) => [item.id, item]));
-      return {
-        ...state,
-        sheets,
-        sheetOrder: action.snapshot.sheets.map((item) => item.id),
-        persistentSheets,
-        persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
-        sheetPresentation,
-        persistentSheetPresentation,
-        encounters,
-        encounterOrder: action.snapshot.encounters.map((item) => item.id),
-        rollLog: action.snapshot.rollLog,
-        activeSheetId: action.snapshot.activeSheetId
-      };
+      return normalizeUiSelections(
+        updateServerState(state, (serverState) => ({
+          ...serverState,
+          sheets,
+          sheetOrder: action.snapshot.sheets.map((item) => item.id),
+          persistentSheets,
+          persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
+          sheetPresentation,
+          persistentSheetPresentation,
+          encounters,
+          encounterOrder: action.snapshot.encounters.map((item) => item.id)
+        }))
+      );
     }
 
     case "apply_patch":
-      return action.ops.reduce(applyPatch, state);
-
-    case "optimistic_add_roll":
-      return { ...state, rollLog: [action.entry, ...state.rollLog] };
+      return normalizeUiSelections(
+        updateServerState(state, (serverState) => action.ops.reduce(applyPatch, serverState))
+      );
 
     default:
       return undefined;

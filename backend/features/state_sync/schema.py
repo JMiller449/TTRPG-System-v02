@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from backend.core.transport import PatchOp, RequestModel, ResponseModel, SocketGroup
+from backend.core.transport import PatchOp, RequestModel, ResponseModel
 
 
 class ResyncState(RequestModel):
@@ -24,12 +24,4 @@ class StatePatch(ResponseModel):
     ops: list[PatchOp] | None = None
     state_version: int = 0
     type: Literal["state_patch"] = "state_patch"
-    request_id: str | None = None
-
-
-@dataclass
-class SocketGroupAssigned(ResponseModel):
-    is_dm: bool
-    groups: dict[SocketGroup, int]
-    type: Literal["socket_group_assigned"] = "socket_group_assigned"
     request_id: str | None = None

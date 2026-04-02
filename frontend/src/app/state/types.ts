@@ -5,7 +5,6 @@ import type {
   PersistentSheet,
   PersistentSheetPresentation,
   Role,
-  RollLogEntry,
   Sheet,
   SheetInventoryItem,
   SheetPresentation,
@@ -29,17 +28,9 @@ export interface IntentFeedbackItem {
   createdAt: string;
 }
 
-export interface AppState {
+export interface ServerState {
   role: Role | null;
-  playerSheetSelectionComplete: boolean;
-  gmPassword: string;
   gmAuthenticated: boolean;
-  connection: {
-    status: ConnectionStatus;
-    transport: "mock" | "ws";
-    error?: string;
-  };
-  gmView: GMView;
   sheets: Record<string, Sheet>;
   sheetOrder: string[];
   persistentSheets: Record<string, PersistentSheet>;
@@ -48,9 +39,18 @@ export interface AppState {
   persistentSheetPresentation: Record<string, PersistentSheetPresentation>;
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
+}
+
+export interface UIState {
+  playerSheetSelectionComplete: boolean;
+  connection: {
+    status: ConnectionStatus;
+    transport: "mock" | "ws";
+    error?: string;
+  };
+  gmView: GMView;
   itemTemplates: Record<string, ItemTemplate>;
   itemTemplateOrder: string[];
-  rollLog: RollLogEntry[];
   activeSheetId: string | null;
   templateSearch: string;
   pendingIntentIds: string[];
@@ -61,13 +61,19 @@ export interface AppState {
   localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
 
+export interface AppState {
+  serverState: ServerState;
+  uiState: UIState;
+}
+
 export type AppAction =
   | { type: "set_role"; role: Role | null }
   | { type: "set_player_sheet_selection_complete"; value: boolean }
-  | { type: "set_gm_password"; password: string }
   | { type: "set_gm_authenticated"; value: boolean }
   | { type: "set_gm_view"; view: GMView }
+  | { type: "set_active_sheet_local"; sheetId: string | null }
   | { type: "set_template_search"; value: string }
+  | { type: "reset_session_ui" }
   | { type: "connection_status"; status: ConnectionStatus }
   | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
@@ -84,5 +90,4 @@ export type AppAction =
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }
   | { type: "apply_snapshot"; snapshot: AppSnapshot }
-  | { type: "apply_patch"; ops: PatchOp[] }
-  | { type: "optimistic_add_roll"; entry: RollLogEntry };
+  | { type: "apply_patch"; ops: PatchOp[] };

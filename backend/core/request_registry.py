@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from backend.features.session.models import WebSocketSession
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
+EventModelT = TypeVar("EventModelT")
 
 
 class RegistryError(Exception):
@@ -26,6 +27,7 @@ class MalformedRequestError(RegistryError):
 class RequestRoute(ABC, Generic[RequestT]):
     type_name: str
     request_model: type[RequestT]
+    emitted_event_models: tuple[type[Any], ...] = ()
     requires_dm: bool = False
     permission_denied_reason: str = "This request requires an authenticated DM session."
 
@@ -62,6 +64,20 @@ class RequestRegistry:
 
     def request_types(self) -> tuple[str, ...]:
         return tuple(sorted(self._routes))
+
+    def routes(self) -> tuple[RequestRoute[Any], ...]:
+        return tuple(self._routes[type_name] for type_name in sorted(self._routes))
+
+    def request_models(self) -> tuple[type[BaseModel], ...]:
+        return tuple(route.request_model for route in self.routes())
+
+    def emitted_event_models(self) -> tuple[type[Any], ...]:
+        ordered_models: list[type[Any]] = []
+        for route in self.routes():
+            for model in route.emitted_event_models:
+                if model not in ordered_models:
+                    ordered_models.append(model)
+        return tuple(ordered_models)
 
     def _resolve_route(self, payload: Any) -> RequestRoute[Any]:
         if not isinstance(payload, dict):

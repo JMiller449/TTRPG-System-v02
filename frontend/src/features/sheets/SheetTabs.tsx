@@ -2,16 +2,16 @@ import { useMemo } from "react";
 import { useAppStore } from "@/app/state/store";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
-import { buildSetActiveSheetIntent } from "@/features/sheets/intentBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import type { GameClient } from "@/hooks/useGameClient";
 
-export function SheetTabs({ client }: { client: GameClient }): JSX.Element {
+export function SheetTabs(): JSX.Element {
   const {
-    state
+    state,
+    dispatch
   } = useAppStore();
-  const { persistentSheetOrder, activeSheetId } = state;
+  const { persistentSheetOrder } = state.serverState;
+  const { activeSheetId } = state.uiState;
 
   const items = useMemo(
     () =>
@@ -29,7 +29,7 @@ export function SheetTabs({ client }: { client: GameClient }): JSX.Element {
           <button
             key={sheet.id}
             className={`tab ${sheet.id === activeSheetId ? "tab--active" : ""}`}
-            onClick={() => client.sendIntent(buildSetActiveSheetIntent(sheet.id))}
+            onClick={() => dispatch({ type: "set_active_sheet_local", sheetId: sheet.id })}
           >
             {sheet.name}
           </button>

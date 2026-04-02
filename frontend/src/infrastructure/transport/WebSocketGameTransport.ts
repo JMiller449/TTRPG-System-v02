@@ -1,5 +1,12 @@
 import type { ClientIntent, ServerEvent } from "@/domain/ipc";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
+import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
+import {
+  adaptProtocolServerEvent,
+  initialSocketProtocolState,
+  type SocketProtocolState
+} from "@/infrastructure/ws/eventAdapters";
+import { parseProtocolServerEvent } from "@/infrastructure/ws/protocol";
 
 export class WebSocketGameTransport implements GameTransport {
   public readonly mode = "ws" as const;
@@ -7,6 +14,7 @@ export class WebSocketGameTransport implements GameTransport {
   private socket: WebSocket | null = null;
 
   private listeners = new Set<(event: ServerEvent) => void>();
+  private protocolState: SocketProtocolState = initialSocketProtocolState;
 
   constructor(private readonly url: string) {}
 
@@ -30,8 +38,16 @@ export class WebSocketGameTransport implements GameTransport {
 
       socket.addEventListener("message", (messageEvent) => {
         try {
-          const event = JSON.parse(String(messageEvent.data)) as ServerEvent;
-          this.emit(event);
+          const payload = JSON.parse(String(messageEvent.data)) as unknown;
+          const protocolEvent = parseProtocolServerEvent(payload);
+          if (!protocolEvent) {
+            this.emit({ type: "error", message: "Invalid server payload" });
+            return;
+          }
+
+          const adapted = adaptProtocolServerEvent(this.protocolState, protocolEvent);
+          this.protocolState = adapted.nextProtocolState;
+          adapted.events.forEach((event) => this.emit(event));
         } catch {
           this.emit({ type: "error", message: "Invalid server payload" });
         }
@@ -46,6 +62,7 @@ export class WebSocketGameTransport implements GameTransport {
   disconnect(): void {
     this.socket?.close();
     this.socket = null;
+    this.protocolState = initialSocketProtocolState;
   }
 
   sendIntent(intent: ClientIntent): void {
@@ -59,6 +76,19 @@ export class WebSocketGameTransport implements GameTransport {
     }
 
     this.socket.send(JSON.stringify(intent));
+  }
+
+  sendProtocolRequest(request: ProtocolApplicationRequest): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      this.emit({
+        type: "error",
+        requestId: request.request_id ?? undefined,
+        message: "Cannot send request while disconnected"
+      });
+      return;
+    }
+
+    this.socket.send(JSON.stringify(request));
   }
 
   onEvent(handler: (event: ServerEvent) => void): TransportUnsubscribe {

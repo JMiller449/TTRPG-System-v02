@@ -24,8 +24,8 @@ describe("intentReducer", () => {
       item: makeFeedback({ id: "feedback_2" })
     });
 
-    expect(second?.intentFeedback).toHaveLength(1);
-    expect(second?.intentFeedback[0]?.id).toBe("feedback_2");
+    expect(second?.uiState.intentFeedback).toHaveLength(1);
+    expect(second?.uiState.intentFeedback[0]?.id).toBe("feedback_2");
   });
 
   it("keeps only the three most recent feedback banners", () => {
@@ -43,8 +43,8 @@ describe("intentReducer", () => {
       initialState
     );
 
-    expect(state.intentFeedback).toHaveLength(3);
-    expect(state.intentFeedback.map((item) => item.id)).toEqual([
+    expect(state.uiState.intentFeedback).toHaveLength(3);
+    expect(state.uiState.intentFeedback.map((item) => item.id)).toEqual([
       "feedback_4",
       "feedback_3",
       "feedback_2"

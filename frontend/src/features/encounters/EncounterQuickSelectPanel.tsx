@@ -9,7 +9,9 @@ import { Panel } from "@/shared/ui/Panel";
 
 export function EncounterQuickSelectPanel({ client }: { client: GameClient }): JSX.Element {
   const {
-    state: { encounters, encounterOrder, sheets }
+    state: {
+      serverState: { encounters, encounterOrder, sheets }
+    }
   } = useAppStore();
 
   const [selectedEncounterId, setSelectedEncounterId] = useState("");

@@ -1,5 +1,7 @@
 # Backend Architecture Plan
 
+For the ongoing frontend/backend migration sequence, also see [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md).
+
 ## Current Shape
 
 The backend is now split by feature and uses a thin transport layer.
@@ -41,7 +43,7 @@ backend/
 - Feature transport models live with their feature code, not in a shared `schemas/ipc_types` tree.
 
 ### Auth And Session
-- Websocket auth is now connect-time, not post-connect elevation.
+- Websocket auth is now the first application message, not post-connect elevation.
 - There are three codes:
   - player code
   - DM code
@@ -81,7 +83,6 @@ backend/
     - `decrement`
 - App websocket clients receive:
   - auth success
-  - socket group assignment
   - full state snapshot with `state_version`
   - subsequent ordered `state_patch` diffs after mutations, each with `state_version`
 - `resync_state` now supports:
@@ -101,11 +102,12 @@ backend/
 
 ### Sheet Admin
 - `features/sheet_admin` is the DM-only authoring surface.
-- Admin requests still use:
+- Admin requests currently use:
   - `create_entity`
   - `update_entity`
   - `delete_entity`
 - `entity_kind` routes them to the correct subfeature.
+- Those generic contracts are transitional. The target direction is typed route contracts and semantic bridge operations, with route declarations driving generated frontend helper functions.
 - DM-only enforcement for those requests now lives on the registered websocket routes, so unauthorized requests are rejected during dispatch before feature handlers run.
 - Implemented authoring CRUD:
   - `action`
@@ -149,7 +151,7 @@ Action
 ## Current Feature Responsibilities
 
 ### `features/auth`
-- Validate connect-time websocket authentication.
+- Validate first-message websocket authentication.
 - Build auth response payloads.
 - Own the player/DM/service role decision.
 
@@ -170,6 +172,7 @@ Action
 - Assign authoritative state versions.
 - Build, store, replay, and broadcast ordered state diffs.
 - Provide reusable low-level mutation primitives for other features.
+- Keep raw path/state mutation primitives internal; they are not intended to become public frontend APIs.
 
 ### `features/sheet_runtime`
 - Own runtime interactions against explicit sheet targets.

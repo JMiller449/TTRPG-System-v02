@@ -13,7 +13,9 @@ import { Panel } from "@/shared/ui/Panel";
 
 export function ItemMakerPage(): JSX.Element {
   const {
-    state: { itemTemplates, itemTemplateOrder },
+    state: {
+      uiState: { itemTemplates, itemTemplateOrder }
+    },
     dispatch
   } = useAppStore();
 

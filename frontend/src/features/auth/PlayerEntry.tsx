@@ -5,8 +5,7 @@ import type { Sheet } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildCreateSheetIntent,
-  buildInstantiateSheetIntent,
-  buildSetActiveSheetIntent
+  buildInstantiateSheetIntent
 } from "@/features/sheets/intentBuilders";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -26,8 +25,8 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
     if (!selectedSheetId) {
       return;
     }
+    dispatch({ type: "set_active_sheet_local", sheetId: selectedSheetId });
     dispatch({ type: "set_player_sheet_selection_complete", value: true });
-    client.sendIntent(buildSetActiveSheetIntent(selectedSheetId));
   };
 
   const createNewPlayer = (): void => {
@@ -113,8 +112,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
           <button
             className="button button--secondary"
             onClick={() => {
-              dispatch({ type: "set_gm_view", view: "console" });
-              dispatch({ type: "set_role", role: null });
+              client.endSession();
             }}
           >
             Back to Session Landing

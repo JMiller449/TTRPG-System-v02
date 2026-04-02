@@ -9,7 +9,9 @@ const INTENT_BANNER_TTL_MS = {
 
 export function IntentFeedbackBanners(): JSX.Element | null {
   const {
-    state: { intentFeedback },
+    state: {
+      uiState: { intentFeedback }
+    },
     dispatch
   } = useAppStore();
   const timeoutIdsRef = useRef<Record<string, number>>({});

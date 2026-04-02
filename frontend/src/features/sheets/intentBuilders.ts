@@ -29,11 +29,3 @@ export function buildInstantiateSheetIntent(sheetId: string, count: number): Cli
     payload: { sheetId, count: Math.max(1, count) }
   };
 }
-
-export function buildSetActiveSheetIntent(sheetId: string | null): ClientIntent {
-  return {
-    intentId: makeId("intent"),
-    type: "set_active_sheet",
-    payload: { sheetId }
-  };
-}

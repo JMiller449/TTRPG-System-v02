@@ -5,13 +5,17 @@ from typing import Literal
 
 from fastapi import WebSocket
 
-SessionRole = Literal["player", "dm"]
+SessionRole = Literal["unauthenticated", "player", "dm"]
 
 
 @dataclass
 class WebSocketSession:
     websocket: WebSocket
-    role: SessionRole = "player"
+    role: SessionRole = "unauthenticated"
+
+    @property
+    def is_authenticated(self) -> bool:
+        return self.role != "unauthenticated"
 
     @property
     def is_dm(self) -> bool:

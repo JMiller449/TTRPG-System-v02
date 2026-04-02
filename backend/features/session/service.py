@@ -22,7 +22,7 @@ class WebSocketSessionService:
         self,
         websocket: WebSocket,
         *,
-        role: SessionRole = "player",
+        role: SessionRole = "unauthenticated",
         accept: bool = True,
     ) -> WebSocketSession:
         if accept:
@@ -30,6 +30,16 @@ class WebSocketSessionService:
         async with self._lock:
             session = WebSocketSession(websocket=websocket, role=role)
             self._sessions[websocket] = session
+        return session
+
+    async def set_role(
+        self,
+        websocket: WebSocket,
+        role: SessionRole,
+    ) -> WebSocketSession:
+        session = await self.get_session(websocket)
+        async with self._lock:
+            session.role = role
         return session
 
     async def disconnect(self, websocket: WebSocket) -> None:
@@ -52,7 +62,9 @@ class WebSocketSessionService:
 
     async def group_counts(self) -> dict[SocketGroup, int]:
         async with self._lock:
-            total_connections = len(self._sessions)
+            total_connections = sum(
+                1 for session in self._sessions.values() if session.is_authenticated
+            )
             dm_connections = sum(
                 1 for session in self._sessions.values() if session.is_dm
             )
@@ -80,7 +92,11 @@ class WebSocketSessionService:
         async with self._lock:
             targets: set[WebSocket] = set()
             if "players" in target_groups:
-                targets.update(self._sessions.keys())
+                targets.update(
+                    websocket
+                    for websocket, session in self._sessions.items()
+                    if session.is_authenticated
+                )
             if "dms" in target_groups:
                 targets.update(
                     websocket

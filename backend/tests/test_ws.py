@@ -35,19 +35,20 @@ class FakeWebSocket:
         raise RuntimeError("receive_text not implemented for FakeWebSocket")
 
 
-def test_connections_start_as_players() -> None:
+def test_connections_start_unauthenticated() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()
         websocket = FakeWebSocket()
 
-        session = await websocket_sessions.connect(websocket, role="player")
+        session = await websocket_sessions.connect(websocket)
 
         assert websocket.accepted is True
         assert session.is_dm is False
+        assert session.is_authenticated is False
         assert await websocket_sessions.is_dm(websocket) is False
         assert await websocket_sessions.group_counts() == {
             "dms": 0,
-            "players": 1,
+            "players": 0,
         }
 
     asyncio.run(scenario())
@@ -58,6 +59,7 @@ def test_authenticate_application_websocket_accepts_player_code() -> None:
         await websocket_sessions.reset()
         websocket = FakeWebSocket()
         await websocket.accept()
+        await websocket_sessions.connect(websocket, accept=False)
 
         session = await authenticate_application_websocket(
             websocket,
@@ -70,6 +72,7 @@ def test_authenticate_application_websocket_accepts_player_code() -> None:
 
         assert session is not None
         assert session.is_dm is False
+        assert session.is_authenticated is True
         assert websocket.sent_messages == [
             {
                 "response_id": None,
@@ -89,6 +92,7 @@ def test_authenticate_application_websocket_accepts_dm_code() -> None:
         await websocket_sessions.reset()
         websocket = FakeWebSocket()
         await websocket.accept()
+        await websocket_sessions.connect(websocket, accept=False)
 
         session = await authenticate_application_websocket(
             websocket,
@@ -124,6 +128,7 @@ def test_authenticate_application_websocket_rejects_invalid_code() -> None:
         await websocket_sessions.reset()
         websocket = FakeWebSocket()
         await websocket.accept()
+        await websocket_sessions.connect(websocket, accept=False)
 
         session = await authenticate_application_websocket(
             websocket,
@@ -135,12 +140,14 @@ def test_authenticate_application_websocket_rejects_invalid_code() -> None:
         )
 
         assert session is None
-        assert websocket.closed_code == AUTH_CLOSE_CODE
+        assert websocket.closed_code is None
         assert websocket.sent_messages == [
             {
                 "response_id": None,
+                "authenticated": False,
+                "role": None,
                 "reason": "Invalid player or DM code.",
-                "type": "error",
+                "type": "authenticate_response",
                 "request_id": "req-1",
             }
         ]
@@ -228,6 +235,102 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
                 "type": "error",
                 "request_id": "req-1",
             }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_unauthenticated_socket_must_authenticate_before_other_requests() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "resync_state",
+                "request_id": "client-id-ignored",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Authenticate first.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "authenticate",
+                "token": "wrong-code",
+                "request_id": "client-id-ignored",
+            },
+        )
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "authenticate",
+                "token": PLAYER_JOIN_CODE,
+                "request_id": "another-client-id",
+            },
+        )
+
+        assert websocket.closed_code is None
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "authenticated": False,
+                "role": None,
+                "reason": "Invalid player or DM code.",
+                "type": "authenticate_response",
+                "request_id": "req-1",
+            },
+            {
+                "response_id": None,
+                "authenticated": True,
+                "role": "player",
+                "reason": None,
+                "type": "authenticate_response",
+                "request_id": "req-2",
+            },
+            {
+                "response_id": None,
+                "is_dm": False,
+                "groups": {
+                    "dms": 0,
+                    "players": 1,
+                },
+                "type": "socket_group_assigned",
+                "request_id": None,
+            },
+            {
+                "response_id": None,
+                "state": {
+                    "actions": {},
+                    "formulas": {},
+                    "instanced_sheets": {},
+                    "items": {},
+                    "proficiencies": {},
+                    "sheets": {},
+                },
+                "state_version": 0,
+                "type": "state_snapshot",
+                "request_id": None,
+            },
         ]
 
     asyncio.run(scenario())

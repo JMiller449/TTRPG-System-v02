@@ -89,9 +89,15 @@ class RequestRegistry:
 
 def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.chat.route import register_routes as register_chat_routes
-    from backend.features.sheet_admin.route import register_routes as register_sheet_admin_routes
-    from backend.features.sheet_runtime.route import register_routes as register_sheet_runtime_routes
-    from backend.features.state_sync.route import register_routes as register_state_sync_routes
+    from backend.features.sheet_admin.route import (
+        register_routes as register_sheet_admin_routes,
+    )
+    from backend.features.sheet_runtime.route import (
+        register_routes as register_sheet_runtime_routes,
+    )
+    from backend.features.state_sync.route import (
+        register_routes as register_state_sync_routes,
+    )
 
     register_chat_routes(registry)
     register_state_sync_routes(registry)

@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
-from typing import Literal
 
 from backend.features.sheet_admin.actions.schema import (
     ActionDefinitionPayload,
     SendMessageActionStepPayload,
     SetValueActionStepPayload,
 )
+from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
     UpdateEntity,
 )
-from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import Action, SendMessageStep, SetValueStep
 from backend.state.models.state import State
@@ -89,7 +88,10 @@ async def update_action(request: UpdateEntity) -> None:
         if current is None:
             raise ValueError(f"Action '{request.entity_id}' does not exist.")
 
-        merged = _merge_entity(asdict(current) if is_dataclass(current) else current, request.entity_partial)
+        merged = _merge_entity(
+            asdict(current) if is_dataclass(current) else current,
+            request.entity_partial,
+        )
         payload = ActionDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Action ID cannot be changed.")

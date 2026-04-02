@@ -53,7 +53,9 @@ class WebSocketSessionService:
     async def group_counts(self) -> dict[SocketGroup, int]:
         async with self._lock:
             total_connections = len(self._sessions)
-            dm_connections = sum(1 for session in self._sessions.values() if session.is_dm)
+            dm_connections = sum(
+                1 for session in self._sessions.values() if session.is_dm
+            )
         return {
             "dms": dm_connections,
             "players": total_connections,

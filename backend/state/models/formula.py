@@ -39,7 +39,9 @@ class Formula:
             text=raw["text"],
         )
 
-    def _resolve_path_value(self, root: Sheet, var_name: str, var_path: List[str]) -> Any:
+    def _resolve_path_value(
+        self, root: Sheet, var_name: str, var_path: List[str]
+    ) -> Any:
         current_var: Any = root
         for idx, branch in enumerate(var_path):
             if isinstance(current_var, dict):
@@ -97,12 +99,16 @@ class Formula:
 
         output_formula = self.text
         for alias in self.aliases or []:
-            value = "(" + self.expand_variable(
-                root,
-                alias.name,
-                alias.path,
-                seen_formula_ids=seen_formula_ids,
-            ) + ")"
+            value = (
+                "("
+                + self.expand_variable(
+                    root,
+                    alias.name,
+                    alias.path,
+                    seen_formula_ids=seen_formula_ids,
+                )
+                + ")"
+            )
             text_var = "@" + alias.name
             output_formula = output_formula.replace(text_var, value)
         return output_formula

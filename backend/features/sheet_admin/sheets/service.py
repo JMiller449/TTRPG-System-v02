@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
-from typing import Literal
 
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.shared.schema import (
@@ -10,14 +9,17 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
+from backend.features.sheet_admin.sheets.schema import (
+    SheetDefinitionPayload,
+    StatsPayload,
+)
 from backend.features.state_sync.service import state_sync_service
-from backend.features.sheet_admin.sheets.schema import SheetDefinitionPayload, StatsPayload
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
-from backend.state.models.sheet import Sheet, SheetSlayedBridge
-from backend.state.models.state import State
 from backend.state.models.shared import Bridge
+from backend.state.models.sheet import Sheet, SheetSlayedBridge
 from backend.state.models.stat import Stats
+from backend.state.models.state import State
 
 
 def _build_stats(payload: StatsPayload) -> Stats:
@@ -137,7 +139,10 @@ async def update_sheet(request: UpdateEntity) -> None:
         if current is None:
             raise ValueError(f"Sheet '{request.entity_id}' does not exist.")
 
-        merged = _merge_entity(asdict(current) if is_dataclass(current) else current, request.entity_partial)
+        merged = _merge_entity(
+            asdict(current) if is_dataclass(current) else current,
+            request.entity_partial,
+        )
         payload = SheetDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Sheet ID cannot be changed.")

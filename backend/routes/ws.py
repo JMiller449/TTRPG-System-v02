@@ -7,16 +7,17 @@ from uuid import uuid4
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from backend.features.auth import service as auth_service, tokens as auth_tokens
-from backend.features.auth.schema import Authenticate
-from backend.features.chat import service as chat_service
-from backend.features.session.service import websocket_sessions
-from backend.features.state_sync import handler as state_sync_handler
 from backend.core.request_registry import (
     MalformedRequestError,
     UnknownRequestTypeError,
     request_registry,
 )
+from backend.features.auth import service as auth_service
+from backend.features.auth import tokens as auth_tokens
+from backend.features.auth.schema import Authenticate
+from backend.features.chat import service as chat_service
+from backend.features.session.service import websocket_sessions
+from backend.features.state_sync import handler as state_sync_handler
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ async def handle_client_payload(
 
     try:
         session = await websocket_sessions.get_session(websocket)
-        request = await request_registry.dispatch(session, normalized_payload)
+        await request_registry.dispatch(session, normalized_payload)
     except ValidationError as exc:
         await websocket.send_json(
             _error_payload(

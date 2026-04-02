@@ -24,7 +24,9 @@ class StateSingleton:
             data = {}
 
         if not isinstance(data, dict):
-            logger.warning("Failed to load state: persisted state was not a JSON object")
+            logger.warning(
+                "Failed to load state: persisted state was not a JSON object"
+            )
             data = {}
 
         cls._state = State.from_dict(data)

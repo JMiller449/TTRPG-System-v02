@@ -9,7 +9,11 @@ from typing import Any, TypeVar
 from backend.core.transport import PatchOp
 from backend.features.session.models import WebSocketSession
 from backend.features.session.service import websocket_sessions
-from backend.features.state_sync.schema import SocketGroupAssigned, StatePatch, StateSnapshot
+from backend.features.state_sync.schema import (
+    SocketGroupAssigned,
+    StatePatch,
+    StateSnapshot,
+)
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
@@ -60,7 +64,9 @@ def build_state_patch(
 
 async def send_bootstrap(session: WebSocketSession) -> None:
     groups = await websocket_sessions.group_counts()
-    await websocket_sessions.send(session, build_connection_state(session, groups=groups))
+    await websocket_sessions.send(
+        session, build_connection_state(session, groups=groups)
+    )
     await websocket_sessions.send(session, await state_sync_service.snapshot())
 
 
@@ -249,7 +255,9 @@ class StateSyncService:
 
         raise ValueError(f"State path {path} does not support remove mutations.")
 
-    def increment_mutation(self, state: State, path: str, amount: int | float) -> PatchOp:
+    def increment_mutation(
+        self, state: State, path: str, amount: int | float
+    ) -> PatchOp:
         container, leaf = self._resolve_container(state, path)
 
         if isinstance(container, dict):
@@ -281,7 +289,9 @@ class StateSyncService:
 
         raise ValueError(f"State path {path} does not support increment mutations.")
 
-    def decrement_mutation(self, state: State, path: str, amount: int | float) -> PatchOp:
+    def decrement_mutation(
+        self, state: State, path: str, amount: int | float
+    ) -> PatchOp:
         return self.increment_mutation(state, path, -amount)
 
     async def apply_mutation(

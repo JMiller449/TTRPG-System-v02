@@ -45,5 +45,7 @@ class ActionDefinitionPayload(BaseModel):
 
         if duplicate_step_ids:
             duplicates = ", ".join(sorted(set(duplicate_step_ids)))
-            raise ValueError(f"Action step IDs must be unique. Duplicate step IDs: {duplicates}")
+            raise ValueError(
+                f"Action step IDs must be unique. Duplicate step IDs: {duplicates}"
+            )
         return self

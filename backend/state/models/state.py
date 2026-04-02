@@ -39,8 +39,7 @@ class State:
                 for key, action in raw.get("actions", {}).items()
             },
             items={
-                key: Item.from_dict(item)
-                for key, item in raw.get("items", {}).items()
+                key: Item.from_dict(item) for key, item in raw.get("items", {}).items()
             },
             proficiencies={
                 key: Proficiency.from_dict(proficiency)

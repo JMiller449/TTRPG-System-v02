@@ -159,7 +159,9 @@ async def perform_action(request: PerformAction) -> ActionExecuted:
                 expanded_formula = step.value.expand_formula(current_sheet)
                 parsed = ast.parse(expanded_formula, mode="eval")
                 result = _numeric_result(_evaluate_math_node(parsed))
-                path = state_sync_service.join_path("sheets", request.sheet_id, *step.path)
+                path = state_sync_service.join_path(
+                    "sheets", request.sheet_id, *step.path
+                )
                 op = state_sync_service.set_mutation(state, path, result)
                 ops.append(op)
                 applied_mutations.append(".".join(step.path) + f"={result}")

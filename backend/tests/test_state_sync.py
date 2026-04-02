@@ -42,23 +42,74 @@ def _build_sheet_state() -> Sheet:
                 "perception": 13,
                 "arcane": 14,
                 "will": 15,
-                "lifting": {"aliases": [{"name": "strength", "path": ["strength"]}], "text": "@strength * 2"},
-                "carry_weight": {"aliases": [{"name": "strength", "path": ["strength"]}], "text": "@strength * 3"},
-                "acrobatics": {"aliases": [{"name": "dexterity", "path": ["dexterity"]}], "text": "@dexterity"},
-                "stamina": {"aliases": [{"name": "constitution", "path": ["constitution"]}], "text": "@constitution"},
-                "reaction_time": {"aliases": [{"name": "dexterity", "path": ["dexterity"]}], "text": "@dexterity"},
-                "health": {"aliases": [{"name": "constitution", "path": ["constitution"]}], "text": "@constitution * 10"},
-                "endurance": {"aliases": [{"name": "constitution", "path": ["constitution"]}], "text": "@constitution * 2"},
-                "pain_tolerance": {"aliases": [{"name": "will", "path": ["will"]}], "text": "@will"},
-                "sight_distance": {"aliases": [{"name": "perception", "path": ["perception"]}], "text": "@perception * 4"},
-                "intuition": {"aliases": [{"name": "perception", "path": ["perception"]}], "text": "@perception"},
-                "registration": {"aliases": [{"name": "arcane", "path": ["arcane"]}], "text": "@arcane"},
-                "mana": {"aliases": [{"name": "arcane", "path": ["arcane"]}], "text": "@arcane * 8"},
-                "control": {"aliases": [{"name": "arcane", "path": ["arcane"]}], "text": "@arcane"},
-                "sensitivity": {"aliases": [{"name": "arcane", "path": ["arcane"]}], "text": "@arcane"},
-                "charisma": {"aliases": [{"name": "will", "path": ["will"]}], "text": "@will"},
-                "mental_fortitude": {"aliases": [{"name": "will", "path": ["will"]}], "text": "@will * 2"},
-                "courage": {"aliases": [{"name": "will", "path": ["will"]}], "text": "@will"},
+                "lifting": {
+                    "aliases": [{"name": "strength", "path": ["strength"]}],
+                    "text": "@strength * 2",
+                },
+                "carry_weight": {
+                    "aliases": [{"name": "strength", "path": ["strength"]}],
+                    "text": "@strength * 3",
+                },
+                "acrobatics": {
+                    "aliases": [{"name": "dexterity", "path": ["dexterity"]}],
+                    "text": "@dexterity",
+                },
+                "stamina": {
+                    "aliases": [{"name": "constitution", "path": ["constitution"]}],
+                    "text": "@constitution",
+                },
+                "reaction_time": {
+                    "aliases": [{"name": "dexterity", "path": ["dexterity"]}],
+                    "text": "@dexterity",
+                },
+                "health": {
+                    "aliases": [{"name": "constitution", "path": ["constitution"]}],
+                    "text": "@constitution * 10",
+                },
+                "endurance": {
+                    "aliases": [{"name": "constitution", "path": ["constitution"]}],
+                    "text": "@constitution * 2",
+                },
+                "pain_tolerance": {
+                    "aliases": [{"name": "will", "path": ["will"]}],
+                    "text": "@will",
+                },
+                "sight_distance": {
+                    "aliases": [{"name": "perception", "path": ["perception"]}],
+                    "text": "@perception * 4",
+                },
+                "intuition": {
+                    "aliases": [{"name": "perception", "path": ["perception"]}],
+                    "text": "@perception",
+                },
+                "registration": {
+                    "aliases": [{"name": "arcane", "path": ["arcane"]}],
+                    "text": "@arcane",
+                },
+                "mana": {
+                    "aliases": [{"name": "arcane", "path": ["arcane"]}],
+                    "text": "@arcane * 8",
+                },
+                "control": {
+                    "aliases": [{"name": "arcane", "path": ["arcane"]}],
+                    "text": "@arcane",
+                },
+                "sensitivity": {
+                    "aliases": [{"name": "arcane", "path": ["arcane"]}],
+                    "text": "@arcane",
+                },
+                "charisma": {
+                    "aliases": [{"name": "will", "path": ["will"]}],
+                    "text": "@will",
+                },
+                "mental_fortitude": {
+                    "aliases": [{"name": "will", "path": ["will"]}],
+                    "text": "@will * 2",
+                },
+                "courage": {
+                    "aliases": [{"name": "will", "path": ["will"]}],
+                    "text": "@will",
+                },
             },
             "slayed_record": {},
             "actions": {},
@@ -79,10 +130,16 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
             await websocket_sessions.connect(dm_socket, role="dm")
             await websocket_sessions.connect(player_socket, role="player")
 
-            await state_sync_service.increment("/sheets/mage_template/stats/strength", 2, request_id="req-1")
-            await state_sync_service.decrement("/sheets/mage_template/stats/strength", 1, request_id="req-2")
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/strength", 2, request_id="req-1"
+            )
+            await state_sync_service.decrement(
+                "/sheets/mage_template/stats/strength", 1, request_id="req-2"
+            )
 
-            assert StateSingleton.getState().sheets["mage_template"].stats.strength == 11
+            assert (
+                StateSingleton.getState().sheets["mage_template"].stats.strength == 11
+            )
             assert dm_socket.sent_messages == [
                 {
                     "response_id": None,
@@ -129,8 +186,12 @@ def test_resync_state_replays_missing_patches(monkeypatch) -> None:
             websocket = FakeWebSocket()
             session = await websocket_sessions.connect(websocket, role="player")
 
-            await state_sync_service.increment("/sheets/mage_template/stats/strength", 2, request_id="req-1")
-            await state_sync_service.decrement("/sheets/mage_template/stats/strength", 1, request_id="req-2")
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/strength", 2, request_id="req-1"
+            )
+            await state_sync_service.decrement(
+                "/sheets/mage_template/stats/strength", 1, request_id="req-2"
+            )
             websocket.sent_messages.clear()
 
             await state_sync_handler.handle_request(
@@ -187,7 +248,9 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
             websocket = FakeWebSocket()
             session = await websocket_sessions.connect(websocket, role="player")
 
-            await state_sync_service.increment("/sheets/mage_template/stats/strength", 2, request_id="req-1")
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/strength", 2, request_id="req-1"
+            )
             websocket.sent_messages.clear()
 
             await state_sync_handler.handle_request(

@@ -1,11 +1,12 @@
-from contextlib import asynccontextmanager
 import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from backend.routes.ws import router as ws_router
 from backend.state.store import StateSingleton
 
-DUMP_INTERVAL_SECONDS = 600
+DUMP_INTERVAL_SECONDS = 6000
 
 
 async def _periodic_dump(stop_event: asyncio.Event) -> None:

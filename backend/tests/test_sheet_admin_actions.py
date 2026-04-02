@@ -35,22 +35,52 @@ def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
 
 def _basic_stats_payload() -> dict:
     derived_stats = {
-        "lifting": _formula_payload("@strength * 2", [{"name": "strength", "path": ["strength"]}]),
-        "carry_weight": _formula_payload("@strength * 3", [{"name": "strength", "path": ["strength"]}]),
-        "acrobatics": _formula_payload("@dexterity", [{"name": "dexterity", "path": ["dexterity"]}]),
-        "stamina": _formula_payload("@constitution", [{"name": "constitution", "path": ["constitution"]}]),
-        "reaction_time": _formula_payload("@dexterity", [{"name": "dexterity", "path": ["dexterity"]}]),
-        "health": _formula_payload("@constitution * 10", [{"name": "constitution", "path": ["constitution"]}]),
-        "endurance": _formula_payload("@constitution * 2", [{"name": "constitution", "path": ["constitution"]}]),
-        "pain_tolerance": _formula_payload("@will", [{"name": "will", "path": ["will"]}]),
-        "sight_distance": _formula_payload("@perception * 4", [{"name": "perception", "path": ["perception"]}]),
-        "intuition": _formula_payload("@perception", [{"name": "perception", "path": ["perception"]}]),
-        "registration": _formula_payload("@arcane", [{"name": "arcane", "path": ["arcane"]}]),
-        "mana": _formula_payload("@arcane * 8", [{"name": "arcane", "path": ["arcane"]}]),
-        "control": _formula_payload("@arcane", [{"name": "arcane", "path": ["arcane"]}]),
-        "sensitivity": _formula_payload("@arcane", [{"name": "arcane", "path": ["arcane"]}]),
+        "lifting": _formula_payload(
+            "@strength * 2", [{"name": "strength", "path": ["strength"]}]
+        ),
+        "carry_weight": _formula_payload(
+            "@strength * 3", [{"name": "strength", "path": ["strength"]}]
+        ),
+        "acrobatics": _formula_payload(
+            "@dexterity", [{"name": "dexterity", "path": ["dexterity"]}]
+        ),
+        "stamina": _formula_payload(
+            "@constitution", [{"name": "constitution", "path": ["constitution"]}]
+        ),
+        "reaction_time": _formula_payload(
+            "@dexterity", [{"name": "dexterity", "path": ["dexterity"]}]
+        ),
+        "health": _formula_payload(
+            "@constitution * 10", [{"name": "constitution", "path": ["constitution"]}]
+        ),
+        "endurance": _formula_payload(
+            "@constitution * 2", [{"name": "constitution", "path": ["constitution"]}]
+        ),
+        "pain_tolerance": _formula_payload(
+            "@will", [{"name": "will", "path": ["will"]}]
+        ),
+        "sight_distance": _formula_payload(
+            "@perception * 4", [{"name": "perception", "path": ["perception"]}]
+        ),
+        "intuition": _formula_payload(
+            "@perception", [{"name": "perception", "path": ["perception"]}]
+        ),
+        "registration": _formula_payload(
+            "@arcane", [{"name": "arcane", "path": ["arcane"]}]
+        ),
+        "mana": _formula_payload(
+            "@arcane * 8", [{"name": "arcane", "path": ["arcane"]}]
+        ),
+        "control": _formula_payload(
+            "@arcane", [{"name": "arcane", "path": ["arcane"]}]
+        ),
+        "sensitivity": _formula_payload(
+            "@arcane", [{"name": "arcane", "path": ["arcane"]}]
+        ),
         "charisma": _formula_payload("@will", [{"name": "will", "path": ["will"]}]),
-        "mental_fortitude": _formula_payload("@will * 2", [{"name": "will", "path": ["will"]}]),
+        "mental_fortitude": _formula_payload(
+            "@will * 2", [{"name": "will", "path": ["will"]}]
+        ),
         "courage": _formula_payload("@will", [{"name": "will", "path": ["will"]}]),
     }
     return {
@@ -124,7 +154,9 @@ def test_dm_can_create_action_definition(monkeypatch) -> None:
                     {
                         "op": "add",
                         "path": "/actions/mana_burst",
-                        "value": asdict(StateSingleton.getState().actions["mana_burst"]),
+                        "value": asdict(
+                            StateSingleton.getState().actions["mana_burst"]
+                        ),
                     }
                 ],
                 "state_version": 1,
@@ -144,21 +176,23 @@ def test_dm_can_update_and_delete_action_definition(monkeypatch) -> None:
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         try:
             _reset_state()
-            StateSingleton.getState().actions["mana_burst"] = Action.from_dict({
-                "id": "mana_burst",
-                "name": "Mana Burst",
-                "notes": "Original notes",
-                "steps": [
-                    {
-                        "step_id": "step-1",
-                        "type": "send_message",
-                        "message": {
-                            "aliases": None,
-                            "text": "Original message",
-                        },
-                    }
-                ],
-            })
+            StateSingleton.getState().actions["mana_burst"] = Action.from_dict(
+                {
+                    "id": "mana_burst",
+                    "name": "Mana Burst",
+                    "notes": "Original notes",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "send_message",
+                            "message": {
+                                "aliases": None,
+                                "text": "Original message",
+                            },
+                        }
+                    ],
+                }
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -602,10 +636,15 @@ def test_dm_can_crud_sheet_definition(monkeypatch) -> None:
 
             assert websocket.sent_messages[0]["type"] == "state_patch"
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
-            assert websocket.sent_messages[0]["ops"][0]["path"] == "/sheets/mage_template"
+            assert (
+                websocket.sent_messages[0]["ops"][0]["path"] == "/sheets/mage_template"
+            )
             assert websocket.sent_messages[1]["type"] == "state_patch"
             assert websocket.sent_messages[1]["ops"][0]["op"] == "set"
-            assert websocket.sent_messages[1]["ops"][0]["value"]["name"] == "Archmage Template"
+            assert (
+                websocket.sent_messages[1]["ops"][0]["value"]["name"]
+                == "Archmage Template"
+            )
             assert websocket.sent_messages[2]["type"] == "state_patch"
             assert websocket.sent_messages[2]["ops"][0] == {
                 "op": "remove",

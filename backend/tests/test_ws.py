@@ -1,6 +1,10 @@
 import asyncio
 
-from backend.features.auth.tokens import DM_ADMIN_CODE, PLAYER_JOIN_CODE, SERVICE_AUTH_CODE
+from backend.features.auth.tokens import (
+    DM_ADMIN_CODE,
+    PLAYER_JOIN_CODE,
+    SERVICE_AUTH_CODE,
+)
 from backend.features.chat import service as chat_service
 from backend.features.state_sync import handler as state_sync_handler
 from backend.routes.ws import (

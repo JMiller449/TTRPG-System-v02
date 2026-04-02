@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
-from typing import Literal
 
-from backend.features.sheet_admin.formulas.schema import FormulaDefinitionPayload, FormulaPayload
+from backend.features.sheet_admin.formulas.schema import (
+    FormulaDefinitionPayload,
+    FormulaPayload,
+)
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -75,7 +77,10 @@ async def update_formula(request: UpdateEntity) -> None:
         if current is None:
             raise ValueError(f"Formula '{request.entity_id}' does not exist.")
 
-        merged = _merge_entity(asdict(current) if is_dataclass(current) else current, request.entity_partial)
+        merged = _merge_entity(
+            asdict(current) if is_dataclass(current) else current,
+            request.entity_partial,
+        )
         payload = FormulaDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Formula ID cannot be changed.")

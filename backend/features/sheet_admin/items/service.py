@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
-from typing import Literal
 
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.items.schema import ItemDefinitionPayload
@@ -79,7 +78,10 @@ async def update_item(request: UpdateEntity) -> None:
         if current is None:
             raise ValueError(f"Item '{request.entity_id}' does not exist.")
 
-        merged = _merge_entity(asdict(current) if is_dataclass(current) else current, request.entity_partial)
+        merged = _merge_entity(
+            asdict(current) if is_dataclass(current) else current,
+            request.entity_partial,
+        )
         payload = ItemDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Item ID cannot be changed.")

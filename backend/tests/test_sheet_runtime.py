@@ -35,47 +35,92 @@ def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
 
 
 def _build_sheet_state() -> Sheet:
-    return Sheet.from_dict({
-        "id": "mage_template",
-        "name": "Mage Template",
-        "dm_only": False,
-        "xp_given_when_slayed": 25,
-        "xp_cap": "A",
-        "proficiencies": {},
-        "items": {},
-        "stats": {
-            "strength": 10,
-            "dexterity": 11,
-            "constitution": 12,
-            "perception": 13,
-            "arcane": 14,
-            "will": 15,
-            "lifting": _formula_payload("@strength * 2", [{"name": "strength", "path": ["stats", "strength"]}]),
-            "carry_weight": _formula_payload("@strength * 3", [{"name": "strength", "path": ["stats", "strength"]}]),
-            "acrobatics": _formula_payload("@dexterity", [{"name": "dexterity", "path": ["stats", "dexterity"]}]),
-            "stamina": _formula_payload("@constitution", [{"name": "constitution", "path": ["stats", "constitution"]}]),
-            "reaction_time": _formula_payload("@dexterity", [{"name": "dexterity", "path": ["stats", "dexterity"]}]),
-            "health": _formula_payload("@constitution * 10", [{"name": "constitution", "path": ["stats", "constitution"]}]),
-            "endurance": _formula_payload("@constitution * 2", [{"name": "constitution", "path": ["stats", "constitution"]}]),
-            "pain_tolerance": _formula_payload("@will", [{"name": "will", "path": ["stats", "will"]}]),
-            "sight_distance": _formula_payload("@perception * 4", [{"name": "perception", "path": ["stats", "perception"]}]),
-            "intuition": _formula_payload("@perception", [{"name": "perception", "path": ["stats", "perception"]}]),
-            "registration": _formula_payload("@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]),
-            "mana": _formula_payload("@arcane * 8", [{"name": "arcane", "path": ["stats", "arcane"]}]),
-            "control": _formula_payload("@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]),
-            "sensitivity": _formula_payload("@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]),
-            "charisma": _formula_payload("@will", [{"name": "will", "path": ["stats", "will"]}]),
-            "mental_fortitude": _formula_payload("@will * 2", [{"name": "will", "path": ["stats", "will"]}]),
-            "courage": _formula_payload("@will", [{"name": "will", "path": ["stats", "will"]}]),
-        },
-        "slayed_record": {},
-        "actions": {
-            "primary": {
-                "relationship_id": "bridge-1",
-                "entry_id": "battle_cry",
-            }
-        },
-    })
+    return Sheet.from_dict(
+        {
+            "id": "mage_template",
+            "name": "Mage Template",
+            "dm_only": False,
+            "xp_given_when_slayed": 25,
+            "xp_cap": "A",
+            "proficiencies": {},
+            "items": {},
+            "stats": {
+                "strength": 10,
+                "dexterity": 11,
+                "constitution": 12,
+                "perception": 13,
+                "arcane": 14,
+                "will": 15,
+                "lifting": _formula_payload(
+                    "@strength * 2",
+                    [{"name": "strength", "path": ["stats", "strength"]}],
+                ),
+                "carry_weight": _formula_payload(
+                    "@strength * 3",
+                    [{"name": "strength", "path": ["stats", "strength"]}],
+                ),
+                "acrobatics": _formula_payload(
+                    "@dexterity",
+                    [{"name": "dexterity", "path": ["stats", "dexterity"]}],
+                ),
+                "stamina": _formula_payload(
+                    "@constitution",
+                    [{"name": "constitution", "path": ["stats", "constitution"]}],
+                ),
+                "reaction_time": _formula_payload(
+                    "@dexterity",
+                    [{"name": "dexterity", "path": ["stats", "dexterity"]}],
+                ),
+                "health": _formula_payload(
+                    "@constitution * 10",
+                    [{"name": "constitution", "path": ["stats", "constitution"]}],
+                ),
+                "endurance": _formula_payload(
+                    "@constitution * 2",
+                    [{"name": "constitution", "path": ["stats", "constitution"]}],
+                ),
+                "pain_tolerance": _formula_payload(
+                    "@will", [{"name": "will", "path": ["stats", "will"]}]
+                ),
+                "sight_distance": _formula_payload(
+                    "@perception * 4",
+                    [{"name": "perception", "path": ["stats", "perception"]}],
+                ),
+                "intuition": _formula_payload(
+                    "@perception",
+                    [{"name": "perception", "path": ["stats", "perception"]}],
+                ),
+                "registration": _formula_payload(
+                    "@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]
+                ),
+                "mana": _formula_payload(
+                    "@arcane * 8", [{"name": "arcane", "path": ["stats", "arcane"]}]
+                ),
+                "control": _formula_payload(
+                    "@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]
+                ),
+                "sensitivity": _formula_payload(
+                    "@arcane", [{"name": "arcane", "path": ["stats", "arcane"]}]
+                ),
+                "charisma": _formula_payload(
+                    "@will", [{"name": "will", "path": ["stats", "will"]}]
+                ),
+                "mental_fortitude": _formula_payload(
+                    "@will * 2", [{"name": "will", "path": ["stats", "will"]}]
+                ),
+                "courage": _formula_payload(
+                    "@will", [{"name": "will", "path": ["stats", "will"]}]
+                ),
+            },
+            "slayed_record": {},
+            "actions": {
+                "primary": {
+                    "relationship_id": "bridge-1",
+                    "entry_id": "battle_cry",
+                }
+            },
+        }
+    )
 
 
 def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None:
@@ -85,31 +130,33 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
         try:
             _reset_state()
             StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
-            StateSingleton.getState().actions["battle_cry"] = Action.from_dict({
-                "id": "battle_cry",
-                "name": "Battle Cry",
-                "notes": "Lower strength, then announce it.",
-                "steps": [
-                    {
-                        "step_id": "step-1",
-                        "type": "set_value",
-                        "target": "caster",
-                        "path": ["stats", "strength"],
-                        "value": _formula_payload(
-                            "@strength - 2",
-                            [{"name": "strength", "path": ["stats", "strength"]}],
-                        ),
-                    },
-                    {
-                        "step_id": "step-2",
-                        "type": "send_message",
-                        "message": _formula_payload(
-                            "Strength now @strength",
-                            [{"name": "strength", "path": ["stats", "strength"]}],
-                        ),
-                    },
-                ],
-            })
+            StateSingleton.getState().actions["battle_cry"] = Action.from_dict(
+                {
+                    "id": "battle_cry",
+                    "name": "Battle Cry",
+                    "notes": "Lower strength, then announce it.",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "set_value",
+                            "target": "caster",
+                            "path": ["stats", "strength"],
+                            "value": _formula_payload(
+                                "@strength - 2",
+                                [{"name": "strength", "path": ["stats", "strength"]}],
+                            ),
+                        },
+                        {
+                            "step_id": "step-2",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Strength now @strength",
+                                [{"name": "strength", "path": ["stats", "strength"]}],
+                            ),
+                        },
+                    ],
+                }
+            )
             await websocket_sessions.reset()
             await chat_service.roll20_chat_bridge.reset()
             websocket = FakeWebSocket()
@@ -164,4 +211,3 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
-

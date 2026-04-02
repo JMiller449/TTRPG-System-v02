@@ -50,16 +50,6 @@ class WebSocketSessionService:
     async def is_dm(self, websocket: WebSocket) -> bool:
         return (await self.get_session(websocket)).is_dm
 
-    async def set_focused_sheet(
-        self,
-        websocket: WebSocket,
-        sheet_id: str | None,
-    ) -> WebSocketSession:
-        session = await self.get_session(websocket)
-        async with self._lock:
-            session.focused_sheet_id = sheet_id
-        return session
-
     async def group_counts(self) -> dict[SocketGroup, int]:
         async with self._lock:
             total_connections = len(self._sessions)

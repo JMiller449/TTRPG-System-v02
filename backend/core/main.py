@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 import asyncio
 from fastapi import FastAPI
 
-from backend.routes.http import router as http_router
 from backend.routes.ws import router as ws_router
 from backend.state.store import StateSingleton
 
@@ -30,7 +29,6 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(lifespan=lifespan)
-    app.include_router(http_router)
     app.include_router(ws_router)
     return app
 

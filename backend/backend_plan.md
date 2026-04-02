@@ -11,7 +11,6 @@ backend/
     request_registry.py
     transport.py
   routes/
-    http.py
     ws.py
   features/
     auth/
@@ -37,7 +36,6 @@ backend/
 - `routes/ws.py` owns websocket ingress for:
   - app clients on `/ws`
   - Roll20 bridge clients on `/ws/chat`
-- `routes/http.py` currently exposes a small DM-only chat test route.
 - `core/request_registry.py` is the live request registry and dispatch layer for app websocket requests.
 - Registered websocket routes now also own route-level authorization requirements such as DM-only access.
 - Feature transport models live with their feature code, not in a shared `schemas/ipc_types` tree.
@@ -93,12 +91,8 @@ backend/
 ### Sheet Runtime
 - `features/sheet_runtime` now owns the first runtime execution path.
 - Implemented runtime websocket requests:
-  - `focus_sheet`
-  - `roll_basic_check`
   - `perform_action`
-- Session runtime context now includes a focused sheet ID.
-- `roll_basic_check` evaluates a formula against the focused sheet and returns a basic `1d20 + modifier` result.
-- `perform_action` now executes authored action steps against the focused sheet for the currently supported step kinds:
+- `perform_action` now executes authored action steps against the requested sheet for the currently supported step kinds:
   - `set_value`
   - `send_message`
 - Runtime state mutations now flow through `state_sync`, so successful action execution emits:
@@ -162,7 +156,6 @@ Action
 ### `features/session`
 - Own websocket session registration and lookup.
 - Track session role.
-- Track focused runtime sheet selection.
 - Provide send/broadcast helpers and group counts.
 
 ### `features/chat`
@@ -179,12 +172,9 @@ Action
 - Provide reusable low-level mutation primitives for other features.
 
 ### `features/sheet_runtime`
-- Own focused-sheet runtime interactions.
-- Own basic formula-backed check rolling.
-- Execute authored action pipelines against a focused sheet.
+- Own runtime interactions against explicit sheet targets.
+- Execute authored action pipelines against an explicit sheet target.
 - Currently implemented requests:
-  - `focus_sheet`
-  - `roll_basic_check`
   - `perform_action`
 - Currently implemented runtime step execution:
   - `send_message`

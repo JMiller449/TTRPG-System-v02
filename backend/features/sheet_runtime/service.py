@@ -1,24 +1,12 @@
 from __future__ import annotations
 
 import ast
-from random import randint
 from typing import Any
 from uuid import uuid4
 
 from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
-from backend.features.session.models import WebSocketSession
-from backend.features.session.service import websocket_sessions
-from backend.features.sheet_admin.actions.schema import FormulaPayload
-from backend.features.sheet_admin.formulas.service import build_formula
-from backend.features.sheet_runtime.schema import (
-    ActionExecuted,
-    BasicCheckRolled,
-    FocusSheet,
-    FocusSheetResponse,
-    PerformAction,
-    RollBasicCheck,
-)
+from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import Action, SendMessageStep, SetValueStep
 from backend.state.models.sheet import Sheet
@@ -69,14 +57,6 @@ def _evaluate_math_node(node: ast.AST) -> float | int:
     raise ValueError(f"Unsupported formula expression: {node.__class__.__name__}")
 
 
-def evaluate_numeric_formula(root: Sheet, payload: FormulaPayload) -> tuple[str, float | int]:
-    formula = build_formula(payload)
-    expanded_formula = formula.expand_formula(root)
-    parsed = ast.parse(expanded_formula, mode="eval")
-    result = _evaluate_math_node(parsed)
-    return expanded_formula, _numeric_result(result)
-
-
 def _state() -> State:
     return StateSingleton.getState()
 
@@ -87,46 +67,6 @@ def get_sheet(sheet_id: str, state: State | None = None) -> Sheet:
     if sheet is None:
         raise ValueError(f"Sheet '{sheet_id}' does not exist.")
     return sheet
-
-
-def require_focused_sheet(
-    session: WebSocketSession,
-    *,
-    state: State | None = None,
-) -> tuple[str, Sheet]:
-    if session.focused_sheet_id is None:
-        raise ValueError("No focused sheet is selected for this session.")
-    return session.focused_sheet_id, get_sheet(session.focused_sheet_id, state=state)
-
-
-async def focus_sheet(session: WebSocketSession, request: FocusSheet) -> FocusSheetResponse:
-    get_sheet(request.sheet_id)
-    await websocket_sessions.set_focused_sheet(session.websocket, request.sheet_id)
-    return FocusSheetResponse(
-        response_id=None,
-        sheet_id=request.sheet_id,
-        request_id=request.request_id,
-    )
-
-
-async def roll_basic_check(
-    session: WebSocketSession,
-    request: RollBasicCheck,
-) -> BasicCheckRolled:
-    sheet_id, sheet = require_focused_sheet(session)
-    expanded_formula, modifier = evaluate_numeric_formula(sheet, request.formula)
-    roll = randint(1, 20)
-    total = _numeric_result(roll + modifier)
-    return BasicCheckRolled(
-        response_id=None,
-        sheet_id=sheet_id,
-        label=request.label,
-        roll=roll,
-        modifier=modifier,
-        total=total,
-        expanded_formula=expanded_formula,
-        request_id=request.request_id,
-    )
 
 
 def _resolve_value_container(root: Any, path: list[str]) -> tuple[Any, str]:
@@ -182,16 +122,13 @@ def _resolve_action(
         for bridge in sheet_action_bridges.values():
             if bridge.entry_id == action_id:
                 return action
-        raise ValueError(f"Focused sheet does not reference action '{action_id}'.")
+        raise ValueError(f"Sheet '{sheet.id}' does not reference action '{action_id}'.")
 
     return action
 
 
-async def perform_action(
-    session: WebSocketSession,
-    request: PerformAction,
-) -> ActionExecuted:
-    sheet_id, sheet = require_focused_sheet(session)
+async def perform_action(request: PerformAction) -> ActionExecuted:
+    sheet = get_sheet(request.sheet_id)
     action = _resolve_action(sheet, request.action_id)
     steps = action.steps
 
@@ -200,7 +137,7 @@ async def perform_action(
             raise ValueError("Roll20 chat bridge is not connected.")
 
     def mutation(state: State) -> tuple[tuple[list[str], list[str]], list[Any]]:
-        current_sheet_id, current_sheet = require_focused_sheet(session, state=state)
+        current_sheet = get_sheet(request.sheet_id, state=state)
         current_action = _resolve_action(current_sheet, request.action_id, state=state)
         current_steps = current_action.steps
 
@@ -222,7 +159,7 @@ async def perform_action(
                 expanded_formula = step.value.expand_formula(current_sheet)
                 parsed = ast.parse(expanded_formula, mode="eval")
                 result = _numeric_result(_evaluate_math_node(parsed))
-                path = state_sync_service.join_path("sheets", current_sheet_id, *step.path)
+                path = state_sync_service.join_path("sheets", request.sheet_id, *step.path)
                 op = state_sync_service.set_mutation(state, path, result)
                 ops.append(op)
                 applied_mutations.append(".".join(step.path) + f"={result}")
@@ -250,7 +187,7 @@ async def perform_action(
 
     return ActionExecuted(
         response_id=None,
-        sheet_id=sheet_id,
+        sheet_id=request.sheet_id,
         action_id=request.action_id,
         applied_mutations=applied_mutations,
         emitted_messages=emitted_messages,

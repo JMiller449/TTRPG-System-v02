@@ -78,64 +78,6 @@ def _build_sheet_state() -> Sheet:
     })
 
 
-def test_focus_sheet_and_roll_basic_check(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        monkeypatch.setattr("backend.features.sheet_runtime.service.randint", lambda _a, _b: 12)
-        try:
-            _reset_state()
-            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "focus_sheet",
-                    "sheet_id": "mage_template",
-                    "request_id": "req-1",
-                },
-            )
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "roll_basic_check",
-                    "label": "Strength check",
-                    "formula": _formula_payload(
-                        "@strength",
-                        [{"name": "strength", "path": ["stats", "strength"]}],
-                    ),
-                    "request_id": "req-2",
-                },
-            )
-
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_template",
-                    "type": "focus_sheet_response",
-                    "request_id": "req-1",
-                },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_template",
-                    "label": "Strength check",
-                    "roll": 12,
-                    "modifier": 10,
-                    "total": 22,
-                    "expanded_formula": "(10)",
-                    "type": "basic_check_rolled",
-                    "request_id": "req-2",
-                },
-            ]
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
 def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -178,17 +120,8 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "focus_sheet",
-                    "sheet_id": "mage_template",
-                    "request_id": "req-3",
-                },
-            )
-            websocket.sent_messages.clear()
-
-            await handle_client_payload(
-                websocket,
-                {
                     "type": "perform_action",
+                    "sheet_id": "mage_template",
                     "action_id": "battle_cry",
                     "request_id": "req-4",
                 },
@@ -207,7 +140,7 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-2",
+                    "request_id": "req-1",
                 },
                 {
                     "response_id": None,
@@ -216,7 +149,7 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "applied_mutations": ["stats.strength=8"],
                     "emitted_messages": ["Strength now (8)"],
                     "type": "action_executed",
-                    "request_id": "req-2",
+                    "request_id": "req-1",
                 },
             ]
             assert bridge_socket.sent_messages == [
@@ -224,43 +157,6 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
                     "message": "Strength now (8)",
                     "type": "chat_message",
-                    "request_id": "req-2",
-                }
-            ]
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
-def test_roll_basic_check_requires_focused_sheet(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        try:
-            _reset_state()
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "roll_basic_check",
-                    "label": "Strength check",
-                    "formula": _formula_payload(
-                        "@strength",
-                        [{"name": "strength", "path": ["stats", "strength"]}],
-                    ),
-                    "request_id": "req-5",
-                },
-            )
-
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "reason": "No focused sheet is selected for this session.",
-                    "type": "error",
                     "request_id": "req-1",
                 }
             ]
@@ -268,3 +164,4 @@ def test_roll_basic_check_requires_focused_sheet(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+

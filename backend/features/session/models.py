@@ -12,7 +12,6 @@ SessionRole = Literal["player", "dm"]
 class WebSocketSession:
     websocket: WebSocket
     role: SessionRole = "player"
-    focused_sheet_id: str | None = None
 
     @property
     def is_dm(self) -> bool:

@@ -12,6 +12,7 @@ Use this file for backend and rules-engine TODO work. Keep items short and actio
 
 ## Now (Backend Foundation)
 - [ ] Finalize sheet schema for notes and equipment data (instance notes required; GM template notes optional; inventory list only).
+- [ ] Define how baseline sheet checks should be represented as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
 - [ ] Finalize roll intent/request schema to support quick-roll actions: `attack`, `dodge`, `parry`, `block`.
 - [ ] Define role/permission rules for note edits, equipment edits, and stat/resource adjustments.
 - [ ] Finalize websocket request/response types for template edits, sheet updates, and roll actions.

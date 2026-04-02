@@ -37,8 +37,3 @@ class Roll20ChatDelivery(BaseModel):
     success: bool
     error: str | None = None
     type: Literal["chat_delivery"]
-
-
-class SendRoll20ChatMessageRequest(BaseModel):
-    admin_code: str
-    message: str

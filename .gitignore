@@ -232,3 +232,5 @@ pnpm-debug.log*
 
 # Windows metadata artifacts
 *:Zone.Identifier
+state_dumpy.json
+.codex

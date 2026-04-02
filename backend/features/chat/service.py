@@ -12,7 +12,6 @@ from backend.features.chat.schema import (
     Roll20BridgeHello,
     Roll20ChatDelivery,
     Roll20ChatMessage,
-    Roll20ChatMessageSent,
     SendRoll20ChatMessage,
 )
 
@@ -72,14 +71,6 @@ def build_chat_message(request: SendRoll20ChatMessage) -> Roll20ChatMessage:
         message_id=str(uuid4()),
         message=request.message,
         request_id=request.request_id,
-    )
-
-
-def build_chat_sent_response(message: Roll20ChatMessage) -> Roll20ChatMessageSent:
-    return Roll20ChatMessageSent(
-        response_id=None,
-        message_id=message.message_id,
-        request_id=message.request_id,
     )
 
 

@@ -3,19 +3,12 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend.core.transport import RequestModel, ResponseModel
+from backend.core.transport import RequestModel
 
 
 class SendRoll20ChatMessage(RequestModel):
     message: str
     type: Literal["send_roll20_chat_message"]
-
-
-@dataclass
-class Roll20ChatMessageSent(ResponseModel):
-    message_id: str
-    type: Literal["roll20_chat_message_sent"] = "roll20_chat_message_sent"
-    request_id: str | None = None
 
 
 @dataclass

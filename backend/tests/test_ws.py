@@ -252,17 +252,10 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
             },
         )
 
-        assert sender_socket.sent_messages == [
-            {
-                "response_id": None,
-                "message_id": sender_socket.sent_messages[0]["message_id"],
-                "type": "roll20_chat_message_sent",
-                "request_id": "req-1",
-            }
-        ]
+        assert sender_socket.sent_messages == []
         assert bridge_socket.sent_messages == [
             {
-                "message_id": sender_socket.sent_messages[0]["message_id"],
+                "message_id": bridge_socket.sent_messages[0]["message_id"],
                 "message": "bridge update",
                 "type": "chat_message",
                 "request_id": "req-1",

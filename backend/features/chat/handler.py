@@ -24,8 +24,3 @@ async def handle_request(
             ),
         )
         return
-
-    await websocket_sessions.send(
-        session,
-        service.build_chat_sent_response(chat_message),
-    )

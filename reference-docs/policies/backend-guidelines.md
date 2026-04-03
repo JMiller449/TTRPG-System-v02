@@ -1,5 +1,8 @@
 # Backend Guidelines (FastAPI/WebSocket)
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Stack
 - API layer: FastAPI.
 - Transport: WebSocket endpoint for intent ingestion and state sync.

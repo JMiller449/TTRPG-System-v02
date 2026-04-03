@@ -1,5 +1,8 @@
 # Frontend Guidelines (React/Vite)
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Stack
 - Framework: React + TypeScript + Vite.
 - Communication: WebSocket client for snapshot/patch stream and intent messages.

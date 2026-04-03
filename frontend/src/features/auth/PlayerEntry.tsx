@@ -115,7 +115,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
               client.endSession();
             }}
           >
-            Back to Session Landing
+            Back to Code Entry
           </button>
         </div>
       </div>

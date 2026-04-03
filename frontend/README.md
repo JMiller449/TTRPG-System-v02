@@ -1,5 +1,8 @@
 # Frontend Scaffold
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 This frontend is intentionally scaffolded for backend-authoritative integration.
 
 ## Goals

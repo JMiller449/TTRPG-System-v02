@@ -37,6 +37,60 @@ export interface Formula {
   text: string;
 }
 
+export interface FormulaDefinition {
+  id: string;
+  formula: Formula;
+}
+
+export interface SendMessageActionStep {
+  step_id: string;
+  message: Formula;
+  type: "send_message";
+}
+
+export interface SetValueActionStep {
+  step_id: string;
+  path: string[];
+  value: Formula;
+  target?: "caster" | "target";
+  type: "set_value";
+}
+
+export type ActionStep = SendMessageActionStep | SetValueActionStep;
+
+export interface ActionDefinition {
+  id: string;
+  name: string;
+  notes?: string;
+  steps?: ActionStep[];
+}
+
+export interface StatAugmentation {
+  stat_name: string;
+  augmentation: Formula;
+}
+
+export interface ItemDefinition {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  weight: string;
+  stat_augmentations: StatAugmentation[];
+}
+
+export interface ItemTemplate {
+  id: string;
+  name: string;
+  type: string;
+  rank: string;
+  weight: string;
+  value: string;
+  immediateEffects: string;
+  nonImmediateEffects: string;
+  updatedAt: string;
+}
+
 export interface Bridge {
   relationship_id: string;
   entry_id: string;
@@ -176,18 +230,6 @@ export interface EncounterPreset {
   id: string;
   name: string;
   entries: EncounterEntry[];
-  updatedAt: string;
-}
-
-export interface ItemTemplate {
-  id: string;
-  name: string;
-  type: string;
-  rank: string;
-  weight: string;
-  value: string;
-  immediateEffects: string;
-  nonImmediateEffects: string;
   updatedAt: string;
 }
 

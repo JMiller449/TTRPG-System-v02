@@ -23,14 +23,14 @@ export function PlayerCharacterSheet({
   const { dispatch } = useAppStore();
   const {
     detail,
-    itemTemplates,
-    itemTemplateOrder,
+    items,
+    itemOrder,
     runtimeNote,
     equipment,
     activeWeaponId,
     activeWeaponLabel,
     selectedItemTemplateId,
-    selectedTemplate,
+    selectedItem,
     setSelectedItemTemplateId
   } = useSheetDetailState();
 
@@ -127,22 +127,22 @@ export function PlayerCharacterSheet({
 
         {showEquipmentSection ? (
           <SheetEquipmentSection
-            itemTemplates={itemTemplates}
-            itemTemplateOrder={itemTemplateOrder}
+            items={items}
+            itemOrder={itemOrder}
             selectedItemTemplateId={selectedItemTemplateId}
-            selectedTemplate={selectedTemplate}
+            selectedItem={selectedItem}
             activeWeaponLabel={activeWeaponLabel}
             equipment={equipment}
             activeWeaponId={activeWeaponId}
             onSelectedItemTemplateIdChange={setSelectedItemTemplateId}
             onAddSelectedTemplate={() => {
-              if (!selectedTemplate) {
+              if (!selectedItem) {
                 return;
               }
 
               const nextEntry = {
                 id: makeId("inv"),
-                itemTemplateId: selectedTemplate.id
+                itemTemplateId: selectedItem.id
               };
 
               dispatch({ type: "add_sheet_equipment", sheetId: detail.instance.id, entry: nextEntry });

@@ -1,10 +1,25 @@
 # WebSocket Protocol
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 This package defines the canonical websocket contract between the FastAPI backend and the React frontend.
 
 ## Type Generation
 
 Generated frontend transport types live at [backendProtocol.ts](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/frontend/src/generated/backendProtocol.ts).
+
+That generated file now also exports `protocolRouteContracts`, a registry-backed
+manifest of public websocket route metadata for future typed frontend helper
+generation.
+
+Each route contract currently includes:
+
+- request `type`
+- request model name
+- emitted event `type` list
+- `minimumRole` (`unauthenticated`, `player`, or `dm`)
+- generated client namespace/method metadata
 
 Refresh them with:
 
@@ -21,6 +36,8 @@ npm run generate:protocol
 - Legacy connection-count or socket-group events are not part of the application websocket contract.
 - Raw backend state/path mutation helpers are internal implementation details, not part of the public websocket request API.
 - Route declarations are the intended source for future generated frontend helper functions as well as transport types.
+- App-route auth availability is part of that registry-backed contract surface via
+  the generated `minimumRole` metadata.
 
 ## Canonical Application Requests
 
@@ -30,11 +47,10 @@ Application websocket requests are discriminated by `type`.
 - `resync_state`
 - `send_roll20_chat_message`
 - `perform_action`
-- `create_entity`
-- `update_entity`
-- `delete_entity`
 
-`create_entity`, `update_entity`, and `delete_entity` are current transitional admin contracts. The target direction is typed feature requests and semantic bridge commands rather than permanent generic entity CRUD.
+Typed sheet-admin requests are not public websocket contracts yet. The old generic
+entity CRUD requests were removed so future admin APIs can be added on a clean,
+typed route surface.
 
 ## Canonical Application Server Events
 

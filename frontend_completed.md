@@ -1,5 +1,8 @@
 # Frontend Completed
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 Use this file as the completion log for frontend tasks moved out of `frontend_tasks.md`.
 Record entries with a date and a short summary.
 
@@ -49,3 +52,8 @@ Record entries with a date and a short summary.
 - Move intent payload construction (`create_template`, `instantiate_template`, `save_encounter`, `spawn_encounter`, `set_active_sheet`) out of view components into feature-level `intentBuilders.ts` modules.
 - Consolidate duplicated stat metadata between `frontend/src/features/sheets/sheetDisplay.ts` and `frontend/src/domain/stats.ts` into one canonical source consumed by sheet + roll composer UIs.
 - Split `frontend/src/styles.css` into feature-scoped style files (`app.css`, `sheet.css`, `rolls.css`, `items.css`, `encounters.css`) while keeping shared tokens/utilities centralized.
+
+## 2026-04-02
+- Moved raw websocket JSON parsing and protocol event normalization into a dedicated ws-layer client wrapper and added wrapper-level tests for snapshot, patch, and invalid payload handling.
+- Finished Phase 4 server-state coverage for backend-authoritative items, actions, and formulas, and repointed the live equipment flow at backend-backed item data while leaving the old item-maker scaffold parked as non-authoritative code.
+- Finished Phase 6 by removing the frontend-only app patch dialect, keeping one canonical backend-native patch applier in the websocket wrapper, and adding sync tests for initial snapshot, incremental patch, and forced resync.

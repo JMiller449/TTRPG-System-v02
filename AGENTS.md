@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Project Structure & Module Organization
 This repo is backend-first, with frontend scaffolding planned in React/Vite.
 

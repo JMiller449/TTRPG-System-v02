@@ -17,7 +17,6 @@ from backend.features.auth import tokens as auth_tokens
 from backend.features.auth.schema import Authenticate
 from backend.features.chat import service as chat_service
 from backend.features.session.service import websocket_sessions
-from backend.features.state_sync import handler as state_sync_handler
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,35 +61,6 @@ def _validation_error_message(exc: ValidationError) -> str:
     return "; ".join(formatted_errors)
 
 
-async def _authenticate_application_request(
-    session,
-    request: Authenticate,
-):
-    role = auth_tokens.authenticate_app_token(request.token)
-    if role is None:
-        await websocket_sessions.send(
-            session,
-            auth_service.build_authenticate_response(
-                authenticated=False,
-                role=None,
-                reason="Invalid player or DM code.",
-                request_id=request.request_id,
-            ),
-        )
-        return None
-
-    updated_session = await websocket_sessions.set_role(session.websocket, role)
-    await websocket_sessions.send(
-        updated_session,
-        auth_service.build_authenticate_response(
-            authenticated=True,
-            role=role,
-            request_id=request.request_id,
-        ),
-    )
-    return updated_session
-
-
 async def handle_client_payload(
     websocket: WebSocket,
     payload: Any,
@@ -120,7 +90,7 @@ async def handle_client_payload(
         )
         return
 
-    if request_type == "authenticate":
+    try:
         try:
             session = await websocket_sessions.get_session(websocket)
         except ValueError:
@@ -129,37 +99,6 @@ async def handle_client_payload(
                 role="unauthenticated",
                 accept=False,
             )
-
-        try:
-            request = Authenticate.model_validate(normalized_payload)
-        except ValidationError as exc:
-            await websocket.send_json(
-                normalize_server_event(
-                    _error_payload(
-                        reason=_validation_error_message(exc),
-                        request_id=request_id,
-                    )
-                )
-            )
-            return
-
-        session = await _authenticate_application_request(session, request)
-        if session is not None:
-            await state_sync_handler.send_connection_bootstrap(session)
-        return
-
-    try:
-        session = await websocket_sessions.get_session(websocket)
-        if not session.is_authenticated:
-            await websocket.send_json(
-                normalize_server_event(
-                    _error_payload(
-                        reason="Authenticate first.",
-                        request_id=request_id,
-                    )
-                )
-            )
-            return
         await request_registry.dispatch(session, normalized_payload)
     except ValidationError as exc:
         await websocket.send_json(
@@ -246,7 +185,7 @@ async def authenticate_application_websocket(
         )
         return None
 
-    return await _authenticate_application_request(session, request)
+    return await auth_service.authenticate_application_session(session, request)
 
 
 async def authenticate_service_websocket(

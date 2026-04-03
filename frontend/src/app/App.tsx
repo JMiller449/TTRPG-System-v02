@@ -55,7 +55,7 @@ export function App(): JSX.Element {
               client.endSession();
             }}
           >
-            Exit to Session
+            Exit to Code Entry
           </button>
         </div>
       </header>

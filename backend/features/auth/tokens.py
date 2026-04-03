@@ -4,9 +4,9 @@ import os
 
 from backend.features.auth.schema import AuthRole
 
-PLAYER_JOIN_CODE = os.getenv("PLAYER_JOIN_CODE", "change-me-player-code")
-DM_ADMIN_CODE = os.getenv("DM_ADMIN_CODE", "change-me-dm-code")
-SERVICE_AUTH_CODE = os.getenv("SERVICE_AUTH_CODE", "change-me-service-code")
+PLAYER_JOIN_CODE = os.getenv("PLAYER_JOIN_CODE", "player")
+DM_ADMIN_CODE = os.getenv("DM_ADMIN_CODE", "dm")
+SERVICE_AUTH_CODE = os.getenv("SERVICE_AUTH_CODE", "service")
 
 
 def authenticate_token(token: str) -> AuthRole | None:

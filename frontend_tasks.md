@@ -1,5 +1,8 @@
 # Frontend Tasks
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 Use this file for frontend-only and frontend-scaffold TODO work. Keep items short and actionable.
 
 ## Status Note
@@ -26,9 +29,8 @@ Use this file for frontend-only and frontend-scaffold TODO work. Keep items shor
 - [ ] Add TODO-gated UI options for super advantage/super disadvantage only if rules confirm they exist.
 
 ## Later (Frontend ↔ Backend Integration)
-- [ ] Treat `backend_takeover.md` Phase 3 and Phase 6 as the active integration checklist for transport cleanup and direct backend patch adoption.
 - [ ] Replace handwritten feature-level websocket request builders with generated or centralized typed route helpers as backend route contracts stabilize.
-- [ ] Adapt the frontend patch applier to the backend-native patch dialect instead of maintaining app-shaped patch ops.
+- [ ] Migrate the next intent family onto generated or centralized typed route helpers with backend-authoritative reconciliation.
 - [ ] Scaffold stat/resource update intents so character sheet modifiers are represented in backend transport contracts.
 - [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
 - [ ] Add global sync conflict/recovery UX for backend snapshot resync and rejected intents.

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import sys
 import operator
+import sys
 from collections import OrderedDict
 from functools import reduce
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, get_args, get_origin
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIR = str(Path(__file__).resolve().parent)
@@ -16,12 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pydantic import Field, TypeAdapter  # noqa: E402
-from backend.protocol.socket import (  # noqa: E402
-    AuthenticateResponseEvent,
-    ErrorEvent,
-)
+from backend.protocol.socket import ErrorEvent  # noqa: E402
 from backend.core.request_registry import request_registry  # noqa: E402
-from backend.features.auth.schema import Authenticate  # noqa: E402
 
 OUTPUT_PATH = ROOT / "frontend" / "src" / "generated" / "backendProtocol.ts"
 REF_PREFIX = "#/$defs/"
@@ -131,13 +127,49 @@ def _render_export(name: str, schema: dict[str, Any], defs: OrderedDict[str, Any
     return f"export type {name} = {_render_schema(schema, defs)};\n"
 
 
+def _resolve_type_discriminant(model: type[Any]) -> str:
+    type_field = getattr(model, "model_fields", {}).get("type")
+    if type_field is None:
+        raise ValueError(f"Model {model.__name__} does not declare a type field.")
+
+    if isinstance(type_field.default, str):
+        return type_field.default
+
+    annotation = type_field.annotation
+    if get_origin(annotation) is Literal:
+        literal_args = get_args(annotation)
+        if len(literal_args) == 1 and isinstance(literal_args[0], str):
+            return literal_args[0]
+
+    raise ValueError(f"Model {model.__name__} does not declare a literal type value.")
+
+
+def _build_route_contract_manifest() -> list[dict[str, Any]]:
+    contracts: list[dict[str, Any]] = []
+    for contract in request_registry.route_contracts():
+        if contract.client_generation is None:
+            continue
+
+        contracts.append(
+            {
+                "type": contract.type_name,
+                "requestModel": contract.request_model.__name__,
+                "emittedEventTypes": [
+                    _resolve_type_discriminant(model)
+                    for model in contract.emitted_event_models
+                ],
+                "minimumRole": contract.minimum_role,
+                "clientNamespace": contract.client_generation.namespace,
+                "clientMethodName": contract.client_generation.method_name,
+            }
+        )
+
+    return contracts
+
+
 def _build_output() -> str:
-    request_models: tuple[type[Any], ...] = (Authenticate, *request_registry.request_models())
-    event_models: tuple[type[Any], ...] = (
-        AuthenticateResponseEvent,
-        ErrorEvent,
-        *request_registry.emitted_event_models(),
-    )
+    request_models = request_registry.request_models()
+    event_models: tuple[type[Any], ...] = (ErrorEvent, *request_registry.emitted_event_models())
 
     request_union = Annotated[
         reduce(operator.or_, request_models[1:], request_models[0]),
@@ -165,6 +197,25 @@ def _build_output() -> str:
 
     lines.append(_render_export("ProtocolApplicationRequest", request_schema, defs))
     lines.append(_render_export("ProtocolServerEvent", event_schema, defs))
+    lines.append(
+        "\n".join(
+            [
+                "export type ProtocolRouteContract = {",
+                '  "type": ProtocolApplicationRequest["type"];',
+                '  "requestModel": string;',
+                '  "emittedEventTypes": ProtocolServerEvent["type"][];',
+                '  "minimumRole": "unauthenticated" | "player" | "dm";',
+                '  "clientNamespace": string;',
+                '  "clientMethodName": string;',
+                "};\n",
+            ]
+        )
+    )
+    route_contract_manifest = json.dumps(_build_route_contract_manifest(), indent=2)
+    lines.append(
+        "export const protocolRouteContracts = "
+        f"{route_contract_manifest} as const satisfies readonly ProtocolRouteContract[];\n"
+    )
 
     return "\n".join(lines)
 

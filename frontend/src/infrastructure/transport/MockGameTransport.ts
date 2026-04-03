@@ -1,4 +1,4 @@
-import type { AppSnapshot, ClientIntent, PatchOp, ServerEvent } from "@/domain/ipc";
+import type { AppSnapshot, ClientIntent, ServerEvent } from "@/domain/ipc";
 import type {
   EncounterPreset,
   PersistentSheet,
@@ -81,6 +81,9 @@ export class MockGameTransport implements GameTransport {
         value: createPersistentSheet("template_player_base", 50, 30)
       }
     ],
+    items: [],
+    actions: [],
+    formulas: [],
     sheetPresentation: [
       {
         sheetId: "template_player_base",
@@ -145,13 +148,7 @@ export class MockGameTransport implements GameTransport {
         const presentation = intent.payload.presentation ?? this.createDefaultSheetPresentation(sheet);
         this.snapshot.sheets = [sheet, ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)];
         this.upsertSheetPresentation(sheet.id, presentation);
-        this.emitPatch(
-          [
-            { op: "upsert_sheet", value: sheet },
-            { op: "upsert_sheet_presentation", value: { sheetId: sheet.id, presentation } }
-          ],
-          intent.intentId
-        );
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "update_sheet": {
@@ -173,7 +170,6 @@ export class MockGameTransport implements GameTransport {
           }
         } satisfies Sheet;
         this.snapshot.sheets = this.snapshot.sheets.map((entry) => (entry.id === updated.id ? updated : entry));
-        const ops: PatchOp[] = [{ op: "upsert_sheet", value: updated }];
         if (intent.payload.presentation) {
           const presentation = {
             ...this.getSheetPresentation(updated.id),
@@ -181,9 +177,8 @@ export class MockGameTransport implements GameTransport {
             updatedAt: now()
           } satisfies SheetPresentation;
           this.upsertSheetPresentation(updated.id, presentation);
-          ops.push({ op: "upsert_sheet_presentation", value: { sheetId: updated.id, presentation } });
         }
-        this.emitPatch(ops, intent.intentId);
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "instantiate_sheet": {
@@ -197,7 +192,6 @@ export class MockGameTransport implements GameTransport {
           return;
         }
 
-        const ops: PatchOp[] = [];
         const amount = Math.max(1, intent.payload.count);
         for (let i = 0; i < amount; i += 1) {
           const record = this.createPersistentSheetRecord(sheet.id, sheet.name, amount > 1 ? i + 1 : null);
@@ -207,17 +201,8 @@ export class MockGameTransport implements GameTransport {
             updatedAt: now()
           });
           this.snapshot.activeSheetId = record.id;
-          ops.push({ op: "upsert_persistent_sheet", value: record });
-          ops.push({
-            op: "upsert_persistent_sheet_presentation",
-            value: {
-              persistentSheetId: record.id,
-              presentation: this.getPersistentSheetPresentation(record.id)
-            }
-          });
-          ops.push({ op: "set_active_sheet", value: { sheetId: record.id } });
         }
-        this.emitPatch(ops, intent.intentId);
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "save_encounter": {
@@ -226,7 +211,7 @@ export class MockGameTransport implements GameTransport {
           updatedAt: now()
         } satisfies EncounterPreset;
         this.snapshot.encounters = [encounter, ...this.snapshot.encounters.filter((e) => e.id !== encounter.id)];
-        this.emitPatch([{ op: "upsert_encounter", value: encounter }], intent.intentId);
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "spawn_encounter": {
@@ -240,7 +225,6 @@ export class MockGameTransport implements GameTransport {
           return;
         }
 
-        const ops: PatchOp[] = [];
         encounter.entries.forEach((entry) => {
           const sheet = this.snapshot.sheets.find((sheetItem) => sheetItem.id === entry.templateId);
           if (!sheet) {
@@ -253,18 +237,10 @@ export class MockGameTransport implements GameTransport {
               name: entry.count > 1 ? `${sheet.name} ${i + 1}` : sheet.name,
               updatedAt: now()
             });
-            ops.push({ op: "upsert_persistent_sheet", value: record });
-            ops.push({
-              op: "upsert_persistent_sheet_presentation",
-              value: {
-                persistentSheetId: record.id,
-                presentation: this.getPersistentSheetPresentation(record.id)
-              }
-            });
           }
         });
 
-        this.emitPatch(ops, intent.intentId);
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "submit_roll": {
@@ -281,15 +257,12 @@ export class MockGameTransport implements GameTransport {
           resultText
         };
         this.snapshot.rollLog = [pendingEntry, ...this.snapshot.rollLog];
-        this.emitPatch([{ op: "add_roll_log", value: pendingEntry }], intent.intentId);
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "set_active_sheet": {
         this.snapshot.activeSheetId = intent.payload.sheetId;
-        this.emitPatch(
-          [{ op: "set_active_sheet", value: { sheetId: intent.payload.sheetId } }],
-          intent.intentId
-        );
+        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       default: {
@@ -403,9 +376,14 @@ export class MockGameTransport implements GameTransport {
     ];
   }
 
-  private emitPatch(ops: PatchOp[], requestId: string): void {
+  private emitIncrementalSnapshot(requestId: string): void {
     this.stateVersion += 1;
-    this.emit({ type: "patch", requestId, ops });
+    this.emit({
+      type: "snapshot",
+      snapshot: this.snapshot,
+      stateVersion: this.stateVersion,
+      incremental: true
+    });
     this.emit({ type: "ack", requestId });
   }
 

@@ -14,6 +14,7 @@ export interface GameClient {
   endSession: () => void;
   sendIntent: (intent: ClientIntent) => void;
   authenticate: (role: Role, token?: string) => void;
+  authenticateWithCode: (code: string) => void;
   submitRoll: (request: RollRequest) => void;
 }
 
@@ -84,10 +85,6 @@ export function useGameClient(): GameClient {
       }
       if (event.type === "snapshot") {
         dispatch({ type: "apply_snapshot", snapshot: event.snapshot });
-        return;
-      }
-      if (event.type === "patch") {
-        dispatch({ type: "apply_patch", ops: event.ops });
         return;
       }
       if (event.type === "ack") {
@@ -163,6 +160,10 @@ export function useGameClient(): GameClient {
     client.authenticate(role, token);
   };
 
+  const authenticateWithCode = (code: string): void => {
+    client.authenticateWithCode(code);
+  };
+
   const submitRoll = (request: RollRequest): void => {
     const rollIntentId = makeId("intent");
     sendIntent({
@@ -181,6 +182,7 @@ export function useGameClient(): GameClient {
     endSession,
     sendIntent,
     authenticate,
+    authenticateWithCode,
     submitRoll
   };
 }

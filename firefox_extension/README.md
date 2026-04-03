@@ -1,5 +1,8 @@
 ## TTRPG Roll20 Chat Bridge
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 Temporary Firefox extension that runs on `https://app.roll20.net/editor/*`, opens a
 WebSocket to the local backend, and forwards incoming chat jobs into the Roll20 chat UI.
 

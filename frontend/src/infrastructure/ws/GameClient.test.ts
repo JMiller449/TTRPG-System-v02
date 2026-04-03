@@ -74,6 +74,9 @@ describe("ManagedGameClient", () => {
       snapshot: {
         sheets: [],
         persistentSheets: [],
+        items: [],
+        actions: [],
+        formulas: [],
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
@@ -88,6 +91,9 @@ describe("ManagedGameClient", () => {
       snapshot: {
         sheets: [],
         persistentSheets: [],
+        items: [],
+        actions: [],
+        formulas: [],
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],

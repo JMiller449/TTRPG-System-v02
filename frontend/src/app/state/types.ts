@@ -1,6 +1,9 @@
-import type { AppSnapshot, PatchOp } from "@/domain/ipc";
+import type { AppSnapshot } from "@/domain/ipc";
 import type {
+  ActionDefinition,
   EncounterPreset,
+  FormulaDefinition,
+  ItemDefinition,
   ItemTemplate,
   PersistentSheet,
   PersistentSheetPresentation,
@@ -35,6 +38,12 @@ export interface ServerState {
   sheetOrder: string[];
   persistentSheets: Record<string, PersistentSheet>;
   persistentSheetOrder: string[];
+  items: Record<string, ItemDefinition>;
+  itemOrder: string[];
+  actions: Record<string, ActionDefinition>;
+  actionOrder: string[];
+  formulas: Record<string, FormulaDefinition>;
+  formulaOrder: string[];
   sheetPresentation: Record<string, SheetPresentation>;
   persistentSheetPresentation: Record<string, PersistentSheetPresentation>;
   encounters: Record<string, EncounterPreset>;
@@ -89,5 +98,4 @@ export type AppAction =
   | { type: "set_sheet_active_weapon"; sheetId: string; inventoryItemId: string | null }
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }
-  | { type: "apply_snapshot"; snapshot: AppSnapshot }
-  | { type: "apply_patch"; ops: PatchOp[] };
+  | { type: "apply_snapshot"; snapshot: AppSnapshot };

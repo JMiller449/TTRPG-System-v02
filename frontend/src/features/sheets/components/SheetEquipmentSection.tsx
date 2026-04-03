@@ -1,12 +1,21 @@
-import type { ItemTemplate, SheetInventoryItem } from "@/domain/models";
+import type { ItemDefinition, SheetInventoryItem } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 
+function describeAugmentations(item: ItemDefinition): string {
+  if (item.stat_augmentations.length === 0) {
+    return "(none)";
+  }
+  return item.stat_augmentations
+    .map((augmentation) => `${augmentation.stat_name}: ${augmentation.augmentation.text}`)
+    .join("; ");
+}
+
 export function SheetEquipmentSection({
-  itemTemplates,
-  itemTemplateOrder,
+  items,
+  itemOrder,
   selectedItemTemplateId,
-  selectedTemplate,
+  selectedItem,
   activeWeaponLabel,
   equipment,
   activeWeaponId,
@@ -15,10 +24,10 @@ export function SheetEquipmentSection({
   onToggleActiveWeapon,
   onRemoveInventoryItem
 }: {
-  itemTemplates: Record<string, ItemTemplate>;
-  itemTemplateOrder: string[];
+  items: Record<string, ItemDefinition>;
+  itemOrder: string[];
   selectedItemTemplateId: string;
-  selectedTemplate: ItemTemplate | null;
+  selectedItem: ItemDefinition | null;
   activeWeaponLabel: string;
   equipment: SheetInventoryItem[];
   activeWeaponId: string | null;
@@ -39,40 +48,37 @@ export function SheetEquipmentSection({
             value={selectedItemTemplateId}
             onChange={(event) => onSelectedItemTemplateIdChange(event.target.value)}
           >
-            {itemTemplateOrder.length === 0 ? <option value="">No items created yet</option> : null}
-            {itemTemplateOrder.map((itemId) => {
-              const item = itemTemplates[itemId];
+            {itemOrder.length === 0 ? <option value="">No items loaded yet</option> : null}
+            {itemOrder.map((itemId) => {
+              const item = items[itemId];
               if (!item) {
                 return null;
               }
               return (
                 <option key={item.id} value={item.id}>
-                  {item.name} ({item.type})
+                  {item.name}
                 </option>
               );
             })}
           </select>
         </Field>
-        <button className="button" onClick={onAddSelectedTemplate} disabled={!selectedTemplate}>
+        <button className="button" onClick={onAddSelectedTemplate} disabled={!selectedItem}>
           Add
         </button>
       </div>
       <p className="muted">Active Weapon: {activeWeaponLabel}</p>
-      {selectedTemplate ? (
+      {selectedItem ? (
         <article className="template-editor">
           <p className="template-editor__title">Selected Item Preview</p>
-          <div className="muted">
-            {selectedTemplate.type} · Rank {selectedTemplate.rank} · Weight {selectedTemplate.weight} · Value{" "}
-            {selectedTemplate.value}
-          </div>
-          <p className="muted">Immediate Effects: {selectedTemplate.immediateEffects || "(none)"}</p>
-          <p className="muted">Non-Immediate Effects: {selectedTemplate.nonImmediateEffects || "(none)"}</p>
+          <div className="muted">Weight {selectedItem.weight} · Price {selectedItem.price}</div>
+          <p className="muted">{selectedItem.description || "(no description)"}</p>
+          <p className="muted">Stat Augmentations: {describeAugmentations(selectedItem)}</p>
         </article>
       ) : null}
       <div className="list">
         {equipment.length === 0 ? <EmptyState message="No equipment added yet." /> : null}
         {equipment.map((entry) => {
-          const item = itemTemplates[entry.itemTemplateId];
+          const item = items[entry.itemTemplateId];
           if (!item) {
             return null;
           }
@@ -80,11 +86,9 @@ export function SheetEquipmentSection({
             <article key={entry.id} className="list-item list-item--block">
               <div>
                 <strong>{item.name}</strong>
-                <div className="muted">
-                  {item.type} · Rank {item.rank} · Weight {item.weight} · Value {item.value}
-                </div>
-                <div className="muted">Immediate Effects: {item.immediateEffects || "(none)"}</div>
-                <div className="muted">Non-Immediate Effects: {item.nonImmediateEffects || "(none)"}</div>
+                <div className="muted">Weight {item.weight} · Price {item.price}</div>
+                <div className="muted">{item.description || "(no description)"}</div>
+                <div className="muted">Stat Augmentations: {describeAugmentations(item)}</div>
                 {activeWeaponId === entry.id ? <div className="muted">Active weapon</div> : null}
               </div>
               <div className="inline-actions">

@@ -1,5 +1,8 @@
 # Architecture Guidelines
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Core Principles
 - Server-authoritative state: backend is the source of truth for sheet values, rolls, and outcomes.
 - Patch-first synchronization: send one full snapshot at connect, then incremental patches for updates.

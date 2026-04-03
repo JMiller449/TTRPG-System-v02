@@ -1,5 +1,8 @@
 # Backend Takeover Plan
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Goal
 
 Make the backend authoritative for game state, auth/session truth, and gameplay mutations while keeping React responsible for UI state, rendering, and intent submission.
@@ -40,14 +43,60 @@ This is not a move to backend-generated UI. It is a move to backend-authoritativ
 - Raw state/path mutation helpers are internal backend implementation details and should not become public frontend APIs.
 - Mock transport may remain for UI work, but it must match the real protocol instead of inventing its own.
 
+## Augmentation Direction
+
+Target direction:
+
+- Replace item-owned `stat_augmentations` as the long-term effect model with a
+  general backend-owned augmentation system.
+- Treat an augmentation as an applied, reversible effect rather than as a
+  special item-only stat bonus field.
+- Augmentations should be able to represent item-granted buffs, poison and
+  other status effects, ally-granted buffs, and similar future applied effects.
+- The backend should remain authoritative for augmentation application,
+  removal, stacking, and recomputation.
+- Frontend should render augmentation state and submit intents, but should not
+  invent augmentation math or lifecycle rules.
+
+Likely model direction:
+
+- Each augmentation should have stable identity so it can be removed or updated
+  cleanly.
+- Each augmentation should carry source metadata such as item, action, status,
+  ally effect, or other future origin.
+- Each augmentation should target validated backend-owned paths or references,
+  not just hardcoded stat-name fields.
+- Each augmentation should carry a formula/effect payload that the backend can
+  evaluate or apply authoritatively.
+- Duration, expiry, and other removal conditions should be part of augmentation
+  semantics rather than being implied by the source type alone.
+
+Future scope:
+
+- Support conditional augmentations once the base augmentation model is stable.
+- Conditional effects should stay backend-authored and backend-validated, for
+  example logic such as "if weapon is fire type, double this formula result."
+- Do not expose unrestricted raw path mutation to the frontend in the name of
+  augmentation flexibility; keep augmentation authoring constrained by backend
+  contracts and validation.
+
 ## Registry Direction
 
 Target direction:
 
 - `RequestRegistry` stays the source of truth for what websocket requests exist.
-- Each registered route should declare its request model and emitted output models.
+- Each registered route should declare its request model, emitted output models,
+  and route-level auth requirement.
 - Protocol/codegen should read from that registration surface the same way HTTP tooling reads route registrations and schemas.
 - App-level shared envelopes and reusable payload models can still live in `backend/protocol/`, but request availability should come from the registry-backed routes.
+- Public app-route auth should use a simple role hierarchy:
+  - `unauthenticated`
+  - `player`
+  - `dm`
+- `authenticate` should live inside that same registry-backed app-route contract
+  surface rather than remaining a permanent special case.
+- The Roll20 bridge `service` auth flow can stay separate from the app-route
+  hierarchy because it is a one-off transport case.
 
 Why this direction:
 
@@ -64,7 +113,8 @@ Output shape concern:
 
 Likely end state:
 
-- request registry declares request model, auth requirement, and emitted models
+- request registry declares request model, role requirement, emitted models, and
+  client-generation metadata
 - backend protocol module provides shared event/payload model definitions
 - frontend generated transport types come from those declared models
 - frontend generated request helper functions come from the same declared route contracts
@@ -92,7 +142,8 @@ Rule for public operations:
 
 Likely end state:
 
-- registry routes declare request model, emitted models, auth requirement, and optional client-generation metadata
+- registry routes declare request model, emitted models, role requirement, and
+  optional client-generation metadata
 - generator emits TS request/event types plus frontend helper namespaces/functions
 - frontend calls generated helper methods instead of handwritten feature-level websocket request builders
 - backend `state_sync_service` remains the internal patch/mutation primitive rather than a public client API
@@ -137,7 +188,9 @@ Done when:
 - [x] Keep distinct named event models when shapes overlap structurally but have different meaning.
 - [x] Reduce manual protocol curation where the registry can provide the same truth directly.
 - [x] Update generation so request unions and emitted event unions can be derived from registry-backed declarations.
-- [ ] Extend route declarations with client-generation metadata for future frontend helper generation.
+- [x] Extend route declarations with client-generation metadata for future frontend helper generation.
+- [x] Replace the narrow DM-only route auth flag with a registry-declared app-role hierarchy (`unauthenticated`, `player`, `dm`).
+- [x] Move `authenticate` into the same registry-backed generated app-route contract surface as the other public websocket requests.
 
 Done when:
 
@@ -145,11 +198,12 @@ Done when:
 - Output/event generation no longer depends on scattered handler knowledge.
 - Adding a websocket route requires touching one clear registration surface instead of multiple disconnected files.
 - Frontend helper generation has a clear metadata home on route declarations when that work starts.
+- App-route auth and auth-bootstrap request availability come from the same registry-backed contract surface instead of handwritten websocket exceptions.
 
 ## Phase 3: Add a Dedicated WebSocket Wrapper
 
 - [x] Add a narrow websocket client wrapper responsible for connect, disconnect, send, and event subscription.
-- [ ] Move raw JSON parsing and event normalization into that wrapper.
+- [x] Move raw JSON parsing and event normalization into that wrapper.
 - [x] Track connection status and last seen state version in the wrapper or closely related transport state.
 - [x] Handle auth bootstrap through the wrapper.
 - [x] Handle reconnect and `resync_state` flow through the wrapper.
@@ -178,10 +232,23 @@ Done when:
 
 - [x] Sheets
 - [x] Instanced sheets
-- [ ] Items
-- [ ] Actions
-- [ ] Formulas
+- [x] Items
+- [x] Actions
+- [x] Formulas
 - [x] Auth/session info derived from server
+
+Scope note:
+
+- Phase 4 is only about authoritative state coverage and reconciliation.
+- For `items`, `actions`, and `formulas`, done means snapshot/patch data lands in
+  `serverState` cleanly and the frontend stops treating those domains as local
+  source-of-truth state.
+- Phase 4 does not require solving full GM authoring ergonomics for actions and
+  formulas.
+- Action/formula authoring is more complex because it depends on backend-owned
+  variables, targets, aliases, and valid path metadata.
+- That authoring metadata should come from backend contracts, not handwritten
+  frontend path knowledge.
 
 `uiState` should retain:
 
@@ -215,11 +282,11 @@ Done when:
 
 ## Phase 6: Move the App to a Backend-Native Patch Model
 
-- [ ] Choose whether the backend JSON-pointer-like patch model is the canonical one.
-- [ ] Remove or adapt frontend-only patch ops like `upsert_sheet` if backend generic ops are the target.
-- [ ] Build one frontend patch applier for authoritative `serverState`.
-- [ ] Validate snapshot and incremental patch application against the same state shape.
-- [ ] Add reducer tests covering initial snapshot, incremental patch, and forced resync.
+- [x] Choose whether the backend JSON-pointer-like patch model is the canonical one.
+- [x] Remove or adapt frontend-only patch ops like `upsert_sheet` if backend generic ops are the target.
+- [x] Build one frontend patch applier for authoritative `serverState`.
+- [x] Validate snapshot and incremental patch application against the same state shape.
+- [x] Add reducer tests covering initial snapshot, incremental patch, and forced resync.
 
 Done when:
 
@@ -230,12 +297,15 @@ Done when:
 
 Migration order:
 
-- [ ] Auth/session
+- [x] Auth/session
 - [ ] Roll submission flow only, with no in-app roll-log authority
 - [ ] Sheet create and update
 - [ ] Sheet instancing and spawn flows
 - [ ] Encounter save and spawn
-- [ ] Item, action, and formula management
+- [ ] Item management
+- [ ] Action and formula state adoption
+- [ ] Action and formula authoring metadata (`targets`, variables, aliases, valid paths)
+- [ ] Typed action and formula authoring routes
 
 For each family:
 
@@ -252,7 +322,49 @@ Done when:
 - The frontend is no longer inventing or finalizing domain outcomes for that intent family.
 - The frontend does not need handwritten feature-by-feature websocket request builders for migrated flows.
 
-## Phase 8: Remove Frontend Fake Authority
+Authoring note:
+
+- Generic CRUD can remain as a temporary internal bridge for GM authoring while
+  typed action/formula authoring contracts are being defined.
+- Public action/formula authoring should not depend on frontend-invented path or
+  variable catalogs.
+- Backend should eventually provide the metadata the frontend needs to author
+  formulas and action steps safely.
+
+## Phase 8: Introduce General Augmentations
+
+- [ ] Replace item-owned `stat_augmentations` as the long-term effect model with
+  a general backend-owned augmentation system.
+- [ ] Model augmentations as applied, reversible effects rather than as
+  item-only stat bonus fields.
+- [ ] Give augmentations stable identity plus source metadata so item buffs,
+  poison, ally buffs, and future applied effects can share one backend concept.
+- [ ] Move augmentation targeting toward validated backend-owned paths or
+  references instead of stat-name-only fields.
+- [ ] Keep augmentation application, removal, stacking, and recomputation
+  backend-authoritative.
+- [ ] Add augmentation state to the authoritative frontend/server sync boundary
+  once the backend shape is ready.
+- [ ] Reserve room for future conditional augmentations without exposing
+  unrestricted raw mutation to the frontend.
+
+Examples this phase should support or prepare for:
+
+- [ ] Item-given buffs
+- [ ] Poison and other status effects
+- [ ] Ally-given buffs
+- [ ] Future conditional effects such as "if weapon is fire type, double this
+  formula result"
+
+Done when:
+
+- `stat_augmentations` is no longer the conceptual center of effect modeling.
+- Backend has one general augmentation concept that can be applied and removed
+  across multiple domains.
+- Frontend renders augmentation-backed state without inventing its own effect
+  rules.
+
+## Phase 9: Remove Frontend Fake Authority
 
 High-risk cleanup targets:
 
@@ -266,7 +378,7 @@ Done when:
 
 - Frontend local state cannot silently diverge into its own gameplay authority layer.
 
-## Phase 9: Verification and Hardening
+## Phase 10: Verification and Hardening
 
 - [ ] Backend websocket contract tests cover auth, snapshot, patch, error, and resync.
 - [ ] Backend role-based access tests cover DM-only mutations.
@@ -283,15 +395,17 @@ Done when:
 
 - [x] Session 1: Phase 1 protocol contract
 - [x] Session 2: Phase 2 generated TS types
-- [ ] Session 3: Phase 3 websocket wrapper
-- [ ] Session 4: Phase 4 state split
-- [ ] Session 5: Phase 5 auth migration
-- [ ] Session 6+: Phase 6 and Phase 7 intent families
-- [ ] Final cleanup: Phase 8 and Phase 9
+- [x] Session 3: Phase 3 websocket wrapper
+- [x] Session 4: Phase 4 state split
+- [x] Session 5: Phase 5 auth migration
+- [x] Session 6: Phase 6 backend-native patch adoption
+- [ ] Session 7+: Phase 7 intent families
+- [ ] Session ?: Phase 8 augmentations
+- [ ] Final cleanup: Phase 9 and Phase 10
 
 ## Immediate Next Step
 
-- [ ] Start Phase 3 by tightening the dedicated websocket wrapper around connect, disconnect, send, auth bootstrap, and resync flow.
+- [ ] Start Phase 7 by migrating the next intent family onto generated or centralized typed helper calls with backend-authoritative reconciliation.
 
 ## Decision
 

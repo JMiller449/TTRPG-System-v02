@@ -7,11 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
 from backend.features.chat.schema import SendRoll20ChatMessage
-from backend.features.sheet_admin.shared.schema import (
-    CreateEntity,
-    DeleteEntity,
-    UpdateEntity,
-)
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_sync.schema import ResyncState
 from backend.protocol.state_schema import BackendStateSnapshotPayload
@@ -73,10 +68,7 @@ ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
     | SendRoll20ChatMessage
-    | PerformAction
-    | CreateEntity
-    | UpdateEntity
-    | DeleteEntity,
+    | PerformAction,
     Field(discriminator="type"),
 ]
 

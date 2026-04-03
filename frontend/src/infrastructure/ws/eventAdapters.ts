@@ -136,6 +136,9 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}),
     persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({ id, value })),
+    items: Object.values(state.items ?? {}),
+    actions: Object.values(state.actions ?? {}),
+    formulas: Object.values(state.formulas ?? {}),
     sheetPresentation: [],
     persistentSheetPresentation: [],
     encounters: [],

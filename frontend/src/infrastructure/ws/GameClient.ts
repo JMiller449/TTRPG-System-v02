@@ -193,6 +193,27 @@ export class ManagedGameClient {
     return requestId;
   }
 
+  authenticateWithCode(token: string): string | null {
+    const requestId = makeId("auth");
+    const resolvedToken = token.trim();
+    this.authToken = resolvedToken;
+    if (!this.transport) {
+      this.emit({
+        type: "error",
+        requestId,
+        message: "Cannot authenticate while disconnected"
+      });
+      return requestId;
+    }
+
+    this.transport.sendProtocolRequest({
+      type: "authenticate",
+      token: resolvedToken,
+      request_id: requestId
+    });
+    return requestId;
+  }
+
   requestResync(): string | null {
     if (!this.transport) {
       this.emit({

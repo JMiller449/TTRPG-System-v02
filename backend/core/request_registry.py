@@ -6,7 +6,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
-from backend.features.session.models import WebSocketSession
+from backend.features.session.models import SessionRole, WebSocketSession
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
 EventModelT = TypeVar("EventModelT")
@@ -24,19 +24,45 @@ class MalformedRequestError(RegistryError):
     """Raised when the request payload is missing routing information."""
 
 
+@dataclass(frozen=True)
+class ClientGenerationMetadata:
+    namespace: str
+    method_name: str
+
+
+@dataclass(frozen=True)
+class RouteContract:
+    type_name: str
+    request_model: type[BaseModel]
+    emitted_event_models: tuple[type[Any], ...]
+    minimum_role: SessionRole
+    client_generation: ClientGenerationMetadata | None
+
+
 class RequestRoute(ABC, Generic[RequestT]):
     type_name: str
     request_model: type[RequestT]
     emitted_event_models: tuple[type[Any], ...] = ()
-    requires_dm: bool = False
-    permission_denied_reason: str = "This request requires an authenticated DM session."
+    minimum_role: SessionRole = "player"
+    permission_denied_reason: str | None = None
+    client_generation: ClientGenerationMetadata | None = None
 
     def parse(self, payload: dict[str, Any]) -> RequestT:
         return self.request_model.model_validate(payload)
 
+    def _permission_denied_reason(self) -> str:
+        if self.permission_denied_reason is not None:
+            return self.permission_denied_reason
+        if self.minimum_role == "dm":
+            return "This request requires an authenticated DM session."
+        if self.minimum_role == "player":
+            return "Authenticate first."
+        return "This request is not available for the current session role."
+
     def authorize(self, session: WebSocketSession) -> None:
-        if self.requires_dm and not session.is_dm:
-            raise PermissionError(self.permission_denied_reason)
+        role_rank = {"unauthenticated": 0, "player": 1, "dm": 2}
+        if role_rank[session.role] < role_rank[self.minimum_role]:
+            raise PermissionError(self._permission_denied_reason())
 
     async def run(self, session: WebSocketSession, request: RequestT) -> None:
         self.authorize(session)
@@ -56,10 +82,30 @@ class RouteMatch(Generic[RequestT]):
 class RequestRegistry:
     def __init__(self) -> None:
         self._routes: dict[str, RequestRoute[Any]] = {}
+        self._client_generation_keys: set[tuple[str, str]] = set()
 
     def register(self, route: RequestRoute[Any]) -> None:
         if route.type_name in self._routes:
             raise ValueError(f"Request type '{route.type_name}' is already registered.")
+        metadata = route.client_generation
+        if metadata is not None:
+            if not metadata.namespace.isidentifier():
+                raise ValueError(
+                    "Client generation namespace must be a valid identifier: "
+                    f"{metadata.namespace!r}"
+                )
+            if not metadata.method_name.isidentifier():
+                raise ValueError(
+                    "Client generation method_name must be a valid identifier: "
+                    f"{metadata.method_name!r}"
+                )
+            key = (metadata.namespace, metadata.method_name)
+            if key in self._client_generation_keys:
+                raise ValueError(
+                    "Client generation metadata already registered for "
+                    f"{metadata.namespace}.{metadata.method_name}."
+                )
+            self._client_generation_keys.add(key)
         self._routes[route.type_name] = route
 
     def request_types(self) -> tuple[str, ...]:
@@ -78,6 +124,18 @@ class RequestRegistry:
                 if model not in ordered_models:
                     ordered_models.append(model)
         return tuple(ordered_models)
+
+    def route_contracts(self) -> tuple[RouteContract, ...]:
+        return tuple(
+            RouteContract(
+                type_name=route.type_name,
+                request_model=route.request_model,
+                emitted_event_models=route.emitted_event_models,
+                minimum_role=route.minimum_role,
+                client_generation=route.client_generation,
+            )
+            for route in self.routes()
+        )
 
     def _resolve_route(self, payload: Any) -> RequestRoute[Any]:
         if not isinstance(payload, dict):
@@ -104,10 +162,8 @@ class RequestRegistry:
 
 
 def _register_feature_routes(registry: RequestRegistry) -> None:
+    from backend.features.auth.route import register_routes as register_auth_routes
     from backend.features.chat.route import register_routes as register_chat_routes
-    from backend.features.sheet_admin.route import (
-        register_routes as register_sheet_admin_routes,
-    )
     from backend.features.sheet_runtime.route import (
         register_routes as register_sheet_runtime_routes,
     )
@@ -115,10 +171,10 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
         register_routes as register_state_sync_routes,
     )
 
+    register_auth_routes(registry)
     register_chat_routes(registry)
     register_state_sync_routes(registry)
     register_sheet_runtime_routes(registry)
-    register_sheet_admin_routes(registry)
 
 
 request_registry = RequestRegistry()

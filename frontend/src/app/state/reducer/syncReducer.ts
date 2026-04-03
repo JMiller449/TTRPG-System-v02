@@ -1,92 +1,5 @@
-import type { PatchOp } from "@/domain/ipc";
 import type { AppAction, AppState, ServerState } from "@/app/state/types";
-import { removeById, updateServerState, updateUiState, upsert } from "@/app/state/reducer/shared";
-
-function upsertPersistentSheet(
-  map: ServerState["persistentSheets"],
-  order: string[],
-  id: string,
-  value: ServerState["persistentSheets"][string]
-): { map: ServerState["persistentSheets"]; order: string[] } {
-  const nextMap = { ...map, [id]: value };
-  const exists = order.includes(id);
-  return {
-    map: nextMap,
-    order: exists ? order : [...order, id]
-  };
-}
-
-function applyPatch(state: ServerState, op: PatchOp): ServerState {
-  switch (op.op) {
-    case "upsert_sheet": {
-      const next = upsert(state.sheets, state.sheetOrder, op.value);
-      return { ...state, sheets: next.map, sheetOrder: next.order };
-    }
-
-    case "remove_sheet": {
-      const next = removeById(state.sheets, state.sheetOrder, op.value.id);
-      const nextPresentation = { ...state.sheetPresentation };
-      delete nextPresentation[op.value.id];
-      return { ...state, sheets: next.map, sheetOrder: next.order, sheetPresentation: nextPresentation };
-    }
-
-    case "upsert_persistent_sheet": {
-      const next = upsertPersistentSheet(
-        state.persistentSheets,
-        state.persistentSheetOrder,
-        op.value.id,
-        op.value.value
-      );
-      return { ...state, persistentSheets: next.map, persistentSheetOrder: next.order };
-    }
-
-    case "remove_persistent_sheet": {
-      const next = removeById(state.persistentSheets, state.persistentSheetOrder, op.value.id);
-      const nextPresentation = { ...state.persistentSheetPresentation };
-      delete nextPresentation[op.value.id];
-      return {
-        ...state,
-        persistentSheets: next.map,
-        persistentSheetOrder: next.order,
-        persistentSheetPresentation: nextPresentation
-      };
-    }
-
-    case "upsert_sheet_presentation":
-      return {
-        ...state,
-        sheetPresentation: {
-          ...state.sheetPresentation,
-          [op.value.sheetId]: op.value.presentation
-        }
-      };
-
-    case "upsert_persistent_sheet_presentation":
-      return {
-        ...state,
-        persistentSheetPresentation: {
-          ...state.persistentSheetPresentation,
-          [op.value.persistentSheetId]: op.value.presentation
-        }
-      };
-
-    case "upsert_encounter": {
-      const next = upsert(state.encounters, state.encounterOrder, op.value);
-      return { ...state, encounters: next.map, encounterOrder: next.order };
-    }
-
-    case "remove_encounter": {
-      const next = removeById(state.encounters, state.encounterOrder, op.value.id);
-      return { ...state, encounters: next.map, encounterOrder: next.order };
-    }
-
-    case "set_active_sheet":
-    case "add_roll_log":
-    case "update_roll_log":
-    default:
-      return state;
-  }
-}
+import { updateServerState, updateUiState } from "@/app/state/reducer/shared";
 
 function normalizeUiSelections(state: AppState): AppState {
   const { activeSheetId } = state.uiState;
@@ -112,6 +25,9 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       const persistentSheets = Object.fromEntries(
         action.snapshot.persistentSheets.map((item) => [item.id, item.value])
       );
+      const items = Object.fromEntries(action.snapshot.items.map((item) => [item.id, item]));
+      const actions = Object.fromEntries(action.snapshot.actions.map((item) => [item.id, item]));
+      const formulas = Object.fromEntries(action.snapshot.formulas.map((item) => [item.id, item]));
       const sheetPresentation = Object.fromEntries(
         action.snapshot.sheetPresentation.map((item) => [item.sheetId, item.value])
       );
@@ -126,6 +42,12 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
           sheetOrder: action.snapshot.sheets.map((item) => item.id),
           persistentSheets,
           persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
+          items,
+          itemOrder: action.snapshot.items.map((item) => item.id),
+          actions,
+          actionOrder: action.snapshot.actions.map((item) => item.id),
+          formulas,
+          formulaOrder: action.snapshot.formulas.map((item) => item.id),
           sheetPresentation,
           persistentSheetPresentation,
           encounters,
@@ -133,11 +55,6 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
         }))
       );
     }
-
-    case "apply_patch":
-      return normalizeUiSelections(
-        updateServerState(state, (serverState) => action.ops.reduce(applyPatch, serverState))
-      );
 
     default:
       return undefined;

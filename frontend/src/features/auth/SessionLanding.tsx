@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { Role } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -13,8 +12,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
     dispatch
   } = useAppStore();
   const [isConnecting, setIsConnecting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role>("player");
-  const [gmPasswordInput, setGmPasswordInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
   const ensureConnected = async (): Promise<void> => {
@@ -26,24 +24,17 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
     setIsConnecting(false);
   };
 
-  const enterPlayerConsole = async (): Promise<void> => {
-    setLocalError(null);
-    await ensureConnected();
-    dispatch({ type: "set_gm_view", view: "console" });
-    client.authenticate("player");
-  };
-
-  const enterGMConsole = async (): Promise<void> => {
-    const password = gmPasswordInput.trim();
-    if (!password) {
-      setLocalError("GM password is required.");
+  const submitCode = async (): Promise<void> => {
+    const code = codeInput.trim();
+    if (!code) {
+      setLocalError("A player or GM code is required.");
       return;
     }
 
     setLocalError(null);
     await ensureConnected();
     dispatch({ type: "set_gm_view", view: "console" });
-    client.authenticate("gm", password);
+    client.authenticateWithCode(code);
   };
 
   return (
@@ -51,41 +42,28 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
       <div className="landing-card">
         <h1>TTRPG Sheet Console</h1>
         <p className="muted">
-          Select a role to enter the console. Backend integration is transport-driven and may return placeholder data
-          until API wiring is complete.
+          Enter your player or GM code. The backend decides which console access that code grants.
         </p>
 
-        <Panel title="Session">
+        <Panel title="Enter Code">
           <div className="stack">
-            <Field label="Role">
-              <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as Role)}>
-                <option value="player">Player</option>
-                <option value="gm">GM</option>
-              </select>
+            <Field label="Access Code">
+              <input
+                type="password"
+                value={codeInput}
+                onChange={(event) => setCodeInput(event.target.value)}
+                placeholder="Enter player or GM code"
+              />
             </Field>
-
-            {selectedRole === "gm" ? (
-              <Field label="GM Password">
-                <input
-                  type="password"
-                  value={gmPasswordInput}
-                  onChange={(event) => setGmPasswordInput(event.target.value)}
-                  placeholder="Required to enter GM console"
-                />
-              </Field>
-            ) : null}
 
             <button
               className="button"
               onClick={() => {
-                if (selectedRole === "gm") {
-                  void enterGMConsole();
-                  return;
-                }
-                void enterPlayerConsole();
+                void submitCode();
               }}
+              disabled={!codeInput.trim()}
             >
-              {selectedRole === "gm" ? "Enter GM Console" : "Continue as Player"}
+              Enter Console
             </button>
 
             <div className="status-row">

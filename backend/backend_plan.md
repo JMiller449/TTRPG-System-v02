@@ -1,5 +1,8 @@
 # Backend Architecture Plan
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 For the ongoing frontend/backend migration sequence, also see [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md).
 
 ## Current Shape
@@ -39,7 +42,16 @@ backend/
   - app clients on `/ws`
   - Roll20 bridge clients on `/ws/chat`
 - `core/request_registry.py` is the live request registry and dispatch layer for app websocket requests.
-- Registered websocket routes now also own route-level authorization requirements such as DM-only access.
+- Registered websocket routes are the intended source of truth for request model,
+  emitted event model, generated frontend helper metadata, and app-route
+  authorization requirements.
+- The target app-route authorization model is a role hierarchy:
+  - `unauthenticated`
+  - `player`
+  - `dm`
+- That hierarchy should replace the narrower `requires_dm` shape so
+  `authenticate` can be treated as a normal generated route contract instead of
+  a special one-off frontend concern.
 - Feature transport models live with their feature code, not in a shared `schemas/ipc_types` tree.
 
 ### Auth And Session
@@ -52,6 +64,13 @@ backend/
 - The Roll20 bridge must authenticate as `service` as its first message.
 - Session state lives in `features/session` and stores a fixed role for the connection.
 - `elevate_to_dm` is no longer part of the protocol.
+- `authenticate` should be part of the same generated app-route contract surface as
+  other public websocket requests.
+- Frontend session state should decide what the UI offers, but backend route
+  metadata remains the authority for what role level is allowed to call a given
+  request.
+- `service` remains a separate one-off auth flow for the Roll20 bridge rather
+  than part of the normal app-route role hierarchy.
 
 ### Chat / Roll20 Bridge
 - `features/chat` now represents Roll20 chat delivery.
@@ -102,13 +121,10 @@ backend/
 
 ### Sheet Admin
 - `features/sheet_admin` is the DM-only authoring surface.
-- Admin requests currently use:
-  - `create_entity`
-  - `update_entity`
-  - `delete_entity`
-- `entity_kind` routes them to the correct subfeature.
-- Those generic contracts are transitional. The target direction is typed route contracts and semantic bridge operations, with route declarations driving generated frontend helper functions.
-- DM-only enforcement for those requests now lives on the registered websocket routes, so unauthorized requests are rejected during dispatch before feature handlers run.
+- The previous generic websocket admin contracts were removed from the public
+  protocol surface.
+- The target direction is typed route contracts and semantic bridge operations,
+  with route declarations driving generated frontend helper functions.
 - Implemented authoring CRUD:
   - `action`
   - `formula`
@@ -154,11 +170,15 @@ Action
 - Validate first-message websocket authentication.
 - Build auth response payloads.
 - Own the player/DM/service role decision.
+- Move toward a registry-backed `authenticate` app route contract instead of
+  keeping auth bootstrap outside the normal generated route surface.
 
 ### `features/session`
 - Own websocket session registration and lookup.
 - Track session role.
 - Provide send/broadcast helpers and group counts.
+- Support app-route authorization against the route-declared role hierarchy
+  rather than relying on one-off auth checks.
 
 ### `features/chat`
 - Build Roll20 chat transport payloads.
@@ -186,7 +206,8 @@ Action
 ### `features/sheet_admin`
 - Own DM-only authoring and mutation flows.
 - Keep authoring concerns separate from runtime action execution.
-- Rely on route-level DM authorization instead of handler-local permission shims.
+- Future typed admin routes should declare `dm` role requirements directly on the
+  route contract rather than relying on handler-local permission shims.
 
 #### `sheet_admin/sheets`
 - create/update/delete sheet definitions

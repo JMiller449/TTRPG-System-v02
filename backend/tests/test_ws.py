@@ -266,6 +266,38 @@ def test_unauthenticated_socket_must_authenticate_before_other_requests() -> Non
     asyncio.run(scenario())
 
 
+def test_authenticated_dm_can_still_call_player_routes() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        sender_socket = FakeWebSocket()
+        bridge_socket = FakeWebSocket()
+
+        await websocket_sessions.connect(sender_socket, role="dm")
+        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+        await handle_client_payload(
+            sender_socket,
+            {
+                "type": "send_roll20_chat_message",
+                "message": "bridge update",
+                "request_id": "req-1",
+            },
+        )
+
+        assert sender_socket.sent_messages == []
+        assert bridge_socket.sent_messages == [
+            {
+                "message_id": bridge_socket.sent_messages[0]["message_id"],
+                "message": "bridge update",
+                "type": "chat_message",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
 def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()

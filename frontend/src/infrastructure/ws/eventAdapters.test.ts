@@ -138,6 +138,9 @@ describe("adaptProtocolServerEvent", () => {
               value: protocolEvent.state.instanced_sheets?.instance_1
             }
           ],
+          items: [],
+          actions: [],
+          formulas: [],
           sheetPresentation: [],
           persistentSheetPresentation: [],
           encounters: [],

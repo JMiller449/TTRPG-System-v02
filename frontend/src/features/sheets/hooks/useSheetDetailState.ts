@@ -4,65 +4,69 @@ import {
   selectActiveSheetDetail,
   selectActiveWeaponEntryId,
   selectActiveWeaponLabel,
+  selectAvailableItems,
   selectSheetEquipment
 } from "@/app/state/selectors";
-import type { ItemTemplate, SheetInventoryItem } from "@/domain/models";
+import type { ItemDefinition, SheetInventoryItem } from "@/domain/models";
 
 interface UseSheetDetailStateResult {
   detail: ReturnType<typeof selectActiveSheetDetail>;
-  itemTemplates: Record<string, ItemTemplate>;
-  itemTemplateOrder: string[];
+  items: Record<string, ItemDefinition>;
+  itemOrder: string[];
   runtimeNote: string;
   equipment: SheetInventoryItem[];
   activeWeaponId: string | null;
   activeWeaponLabel: string;
   selectedItemTemplateId: string;
-  selectedTemplate: ItemTemplate | null;
+  selectedItem: ItemDefinition | null;
   setSelectedItemTemplateId: (itemTemplateId: string) => void;
 }
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
   const { state } = useAppStore();
-  const { itemTemplates, itemTemplateOrder, localSheetNotes } = state.uiState;
+  const { localSheetNotes } = state.uiState;
+  const { items, itemOrder } = state.serverState;
 
   const detail = selectActiveSheetDetail(state);
+  const availableItems = selectAvailableItems(state);
 
-  const [selectedItemTemplateId, setSelectedItemTemplateId] = useState<string>(itemTemplateOrder[0] || "");
+  const [selectedItemTemplateId, setSelectedItemTemplateId] = useState<string>(itemOrder[0] || "");
 
   useEffect(() => {
     setSelectedItemTemplateId((prev) => {
-      if (prev && itemTemplates[prev]) {
+      if (prev && items[prev]) {
         return prev;
       }
-      return itemTemplateOrder[0] || "";
+      return itemOrder[0] || "";
     });
-  }, [detail?.instance.id, itemTemplates, itemTemplateOrder]);
+  }, [detail?.instance.id, items, itemOrder]);
 
   if (!detail) {
     return {
       detail: null,
-      itemTemplates,
-      itemTemplateOrder,
+      items,
+      itemOrder,
       runtimeNote: "",
       equipment: [],
       activeWeaponId: null,
       activeWeaponLabel: "None",
       selectedItemTemplateId,
-      selectedTemplate: null,
+      selectedItem: null,
       setSelectedItemTemplateId
     };
   }
 
   return {
     detail,
-    itemTemplates,
-    itemTemplateOrder,
+    items,
+    itemOrder,
     runtimeNote: localSheetNotes[detail.instance.id] ?? detail.instance.notes ?? "",
     equipment: selectSheetEquipment(state, detail.instance.id),
     activeWeaponId: selectActiveWeaponEntryId(state, detail.instance.id),
     activeWeaponLabel: selectActiveWeaponLabel(state, detail.instance.id),
     selectedItemTemplateId,
-    selectedTemplate: selectedItemTemplateId ? itemTemplates[selectedItemTemplateId] ?? null : null,
+    selectedItem:
+      selectedItemTemplateId ? availableItems.find((item) => item.id === selectedItemTemplateId) ?? null : null,
     setSelectedItemTemplateId
   };
 }

@@ -1,5 +1,6 @@
 import type { AppState } from "@/app/state/types";
 import type {
+  ItemDefinition,
   PersistentSheet,
   Sheet,
   SheetInstanceView,
@@ -143,6 +144,12 @@ export function selectSheetEquipment(state: AppState, sheetId: string): SheetInv
   return state.uiState.localSheetEquipment[sheetId] ?? [];
 }
 
+export function selectAvailableItems(state: AppState): ItemDefinition[] {
+  return state.serverState.itemOrder
+    .map((id) => state.serverState.items[id])
+    .filter((entry): entry is ItemDefinition => Boolean(entry));
+}
+
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {
   return state.uiState.localSheetActiveWeapon[sheetId] ?? null;
 }
@@ -159,7 +166,7 @@ export function selectActiveWeaponLabel(state: AppState, sheetId: string): strin
     return "None";
   }
 
-  return state.uiState.itemTemplates[activeEntry.itemTemplateId]?.name ?? "None";
+  return state.serverState.items[activeEntry.itemTemplateId]?.name ?? "None";
 }
 
 export function selectPlayerInstances(state: AppState): SheetInstanceView[] {

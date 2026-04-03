@@ -1,5 +1,8 @@
 # Calculation Scope Policy (Frontend vs Backend)
 
+> LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
+
+
 ## Backend-Only Calculation Scope
 - All gameplay math and resolution must run on backend:
   - skill checks and roll outcomes

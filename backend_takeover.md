@@ -293,7 +293,40 @@ Done when:
 - There is one patch application path for authoritative state.
 - Backend patch output can be applied directly by the frontend without feature-specific ad hoc conversions.
 
-## Phase 7: Migrate Intent Families One by One
+## Phase 7: Introduce General Augmentations
+
+- [ ] Replace item-owned `stat_augmentations` as the long-term effect model with
+  a general backend-owned augmentation system.
+- [ ] Model augmentations as applied, reversible effects rather than as
+  item-only stat bonus fields.
+- [ ] Give augmentations stable identity plus source metadata so item buffs,
+  poison, ally buffs, and future applied effects can share one backend concept.
+- [ ] Move augmentation targeting toward validated backend-owned paths or
+  references instead of stat-name-only fields.
+- [ ] Keep augmentation application, removal, stacking, and recomputation
+  backend-authoritative.
+- [ ] Add augmentation state to the authoritative frontend/server sync boundary
+  once the backend shape is ready.
+- [ ] Reserve room for future conditional augmentations without exposing
+  unrestricted raw mutation to the frontend.
+
+Examples this phase should support or prepare for:
+
+- [ ] Item-given buffs
+- [ ] Poison and other status effects
+- [ ] Ally-given buffs
+- [ ] Future conditional effects such as "if weapon is fire type, double this
+  formula result"
+
+Done when:
+
+- `stat_augmentations` is no longer the conceptual center of effect modeling.
+- Backend has one general augmentation concept that can be applied and removed
+  across multiple domains.
+- Frontend renders augmentation-backed state without inventing its own effect
+  rules.
+
+## Phase 8: Migrate Intent Families One by One
 
 Migration order:
 
@@ -331,39 +364,6 @@ Authoring note:
 - Backend should eventually provide the metadata the frontend needs to author
   formulas and action steps safely.
 
-## Phase 8: Introduce General Augmentations
-
-- [ ] Replace item-owned `stat_augmentations` as the long-term effect model with
-  a general backend-owned augmentation system.
-- [ ] Model augmentations as applied, reversible effects rather than as
-  item-only stat bonus fields.
-- [ ] Give augmentations stable identity plus source metadata so item buffs,
-  poison, ally buffs, and future applied effects can share one backend concept.
-- [ ] Move augmentation targeting toward validated backend-owned paths or
-  references instead of stat-name-only fields.
-- [ ] Keep augmentation application, removal, stacking, and recomputation
-  backend-authoritative.
-- [ ] Add augmentation state to the authoritative frontend/server sync boundary
-  once the backend shape is ready.
-- [ ] Reserve room for future conditional augmentations without exposing
-  unrestricted raw mutation to the frontend.
-
-Examples this phase should support or prepare for:
-
-- [ ] Item-given buffs
-- [ ] Poison and other status effects
-- [ ] Ally-given buffs
-- [ ] Future conditional effects such as "if weapon is fire type, double this
-  formula result"
-
-Done when:
-
-- `stat_augmentations` is no longer the conceptual center of effect modeling.
-- Backend has one general augmentation concept that can be applied and removed
-  across multiple domains.
-- Frontend renders augmentation-backed state without inventing its own effect
-  rules.
-
 ## Phase 9: Remove Frontend Fake Authority
 
 High-risk cleanup targets:
@@ -399,13 +399,13 @@ Done when:
 - [x] Session 4: Phase 4 state split
 - [x] Session 5: Phase 5 auth migration
 - [x] Session 6: Phase 6 backend-native patch adoption
-- [ ] Session 7+: Phase 7 intent families
-- [ ] Session ?: Phase 8 augmentations
+- [ ] Session 7: Phase 7 augmentations
+- [ ] Session 8+: Phase 8 intent families
 - [ ] Final cleanup: Phase 9 and Phase 10
 
 ## Immediate Next Step
 
-- [ ] Start Phase 7 by migrating the next intent family onto generated or centralized typed helper calls with backend-authoritative reconciliation.
+- [ ] Start Phase 7 by introducing the general augmentation model before deeper item/action feature migration.
 
 ## Decision
 

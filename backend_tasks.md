@@ -17,7 +17,18 @@ Use this file for backend and rules-engine TODO work. Keep items short and actio
   - Roll20 chat is the effective play log; do not build new backend-owned roll-log authority unless requirements change.
   - `state_sync` raw path mutation helpers are internal primitives, not the public client API.
 
-## Now (Phase 7 Intent Migration)
+## Now (Phase 7 Augmentations)
+- [ ] Replace item-owned `stat_augmentations` as the long-term effect model with a general backend-owned augmentation system.
+- [ ] Model augmentations as applied, reversible effects rather than as item-only stat bonus fields.
+- [ ] Give augmentations stable identity plus source metadata so item buffs, poison, ally buffs, and future applied effects can share one backend concept.
+- [ ] Move augmentation targeting toward validated backend-owned paths or references instead of stat-name-only fields.
+- [ ] Keep augmentation application, removal, stacking, and recomputation backend-authoritative.
+- [ ] Add augmentation state to the authoritative sync boundary once the backend shape is ready.
+- [ ] Prepare conditional augmentation support without exposing unrestricted raw mutation to clients.
+- [ ] Implement augmentation effect hooks for gear, weapon, poison, and allied-buff contexts.
+- [ ] Finalize augmentation attachment/update intents for gear and weapon items.
+
+## Next (Phase 8 Intent Migration)
 - [ ] Migrate roll submission onto a typed backend route/helper path with backend-authoritative reconciliation only.
 - [ ] Define how baseline sheet checks should be represented as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
 - [ ] Finalize roll request schema to support quick-roll actions: `attack`, `dodge`, `parry`, `block`.
@@ -35,17 +46,6 @@ Use this file for backend and rules-engine TODO work. Keep items short and actio
 - [ ] Define permission enforcement so players cannot directly edit stats/substats.
 - [ ] Ensure backend role/permission model supports shared sheet rendering on the GM Console tab with restricted player-visible controls.
 - [ ] Model non-CRUD bridge operations as semantic commands (`attach`, `detach`, `link`, `unlink`, `instantiate`) instead of forcing them through generic delete/update semantics.
-
-## Next (Phase 8 Augmentations)
-- [ ] Replace item-owned `stat_augmentations` as the long-term effect model with a general backend-owned augmentation system.
-- [ ] Model augmentations as applied, reversible effects rather than as item-only stat bonus fields.
-- [ ] Give augmentations stable identity plus source metadata so item buffs, poison, ally buffs, and future applied effects can share one backend concept.
-- [ ] Move augmentation targeting toward validated backend-owned paths or references instead of stat-name-only fields.
-- [ ] Keep augmentation application, removal, stacking, and recomputation backend-authoritative.
-- [ ] Add augmentation state to the authoritative sync boundary once the backend shape is ready.
-- [ ] Prepare conditional augmentation support without exposing unrestricted raw mutation to clients.
-- [ ] Implement augmentation effect hooks for gear, weapon, poison, and allied-buff contexts.
-- [ ] Finalize augmentation attachment/update intents for gear and weapon items.
 
 ## Later (Phase 10 Hardening)
 - [ ] Add websocket reliability features: reconnect/backoff handling strategy and snapshot resync path.

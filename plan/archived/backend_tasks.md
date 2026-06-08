@@ -2,13 +2,15 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
+> Consolidation note: Active planning has moved to [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md). This file is retained as source/history.
+
 
 Use this file for backend and rules-engine TODO work. Keep items short and actionable.
 
 ## Status Note
 - Current backend schemas/contracts are incomplete.
 - `reference-docs/Chip TTRPG System_2-20-26.pdf` is highest authority for behavior conflicts.
-- Use [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md) as the active migration plan for websocket contract, state ownership, and frontend/backend integration sequencing.
+- See [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md) for the active migration plan for websocket contract, state ownership, and frontend/backend integration sequencing.
 - Decisions locked:
   - Notes: authoritative schema should support sheet-instance notes; GM template-level notes optional.
   - Equipment: inventory-list model only (no slot-equipping model for now).

@@ -2,6 +2,8 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
+> Consolidation note: Active planning has moved to [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md). This file is retained as source/history.
+
 
 ## Goal
 

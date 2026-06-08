@@ -14,12 +14,9 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - `frontend/`: React/Vite frontend application and UI scaffolding.
 - `reference-docs/`: TTRPG rules and formulas. `Chip TTRPG System_2-20-26.pdf` is the highest authority.
 - `reference-docs/policies/`: architecture and scope guardrails.
+- `plan/active/PLAN.md`: active consolidated project plan and task list.
+- `plan/archived/`: archived planning/task/completion source files retained for history.
 - `state_dumpy.json`: persisted local state snapshot.
-- `frontend_tasks.md`: active frontend TODO backlog.
-- `backend_tasks.md`: active backend TODO backlog.
-- `frontend_completed.md`: completion log for finished frontend tasks.
-- `backend_completed.md`: completion log for finished backend tasks.
-- `Completed.md`: legacy shared completion log (do not add new entries).
 
 ## Build, Test, and Development Commands
 - `python -m venv backend/.venv`: create backend virtual environment.
@@ -35,13 +32,10 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - Prefer small, composable schema changes with matching IPC updates in the same PR.
 
 ## Task Tracking
-- `frontend_tasks.md` stores active frontend TODO items.
-- `backend_tasks.md` stores active backend TODO items.
-- `frontend_completed.md` stores finished frontend tasks as a dated log.
-- `backend_completed.md` stores finished backend tasks as a dated log.
-- When a frontend task is completed, remove it from `frontend_tasks.md` and add it to `frontend_completed.md` in the same PR.
-- When a backend task is completed, remove it from `backend_tasks.md` and add it to `backend_completed.md` in the same PR.
-- If behavior is unclear in the rules, add a `TODO` task in the relevant task file and reference the exact PDF section/page.
+- `plan/active/PLAN.md` stores the active consolidated roadmap, MVP acceptance criteria, and task list.
+- `plan/archived/` stores superseded task, plan, questionnaire, and completion logs for history.
+- When work is completed, update `plan/active/PLAN.md` in the same PR.
+- If behavior is unclear in the rules, add a TODO or deferred rule decision in `plan/active/PLAN.md` and reference the exact PDF section/page.
 
 ## Testing Guidelines
 - Use `pytest` for backend tests under `backend/tests/`.

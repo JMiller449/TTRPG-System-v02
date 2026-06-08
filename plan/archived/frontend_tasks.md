@@ -2,13 +2,15 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
+> Consolidation note: Active planning has moved to [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md). This file is retained as source/history.
+
 
 Use this file for frontend-only and frontend-scaffold TODO work. Keep items short and actionable.
 
 ## Status Note
 - Backend is not finished; schema and IPC contracts are incomplete.
 - Do not invent behavior when rules/contracts are unclear. Add a TODO instead.
-- Use [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md) as the integration umbrella for multi-session frontend/backend migration work.
+- See [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md) for multi-session frontend/backend migration work.
 - Decisions locked:
   - Notes: player notes are per sheet instance; GM may optionally store notes on templates too.
   - Equipment UI: inventory-list only, no slot-based layout.

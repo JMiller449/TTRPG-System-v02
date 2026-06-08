@@ -70,7 +70,7 @@ The extension only runs on `https://app.roll20.net/editor/*`.
 
 ## Development Notes
 
-- Active frontend/backend migration work is tracked in [backend_takeover.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend_takeover.md).
+- Active frontend/backend migration work is tracked in [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md).
 - Backend state sync is patch-first:
   - clients get a full snapshot on connect
   - later changes arrive as ordered `state_patch` diffs

@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from backend.state.models.action import Action
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
@@ -22,6 +23,7 @@ class State:
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
     augmentations: dict[str, Augmentation] = field(default_factory=dict)
     condition_presets: dict[str, ConditionPreset] = field(default_factory=dict)
+    sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
@@ -57,7 +59,14 @@ class State:
                 key: ConditionPreset.from_dict(condition)
                 for key, condition in raw.get("condition_presets", {}).items()
             },
+            sheet_access_codes={
+                key: SheetAccessCode.from_dict(access_code)
+                for key, access_code in raw.get("sheet_access_codes", {}).items()
+            },
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_dict(self, *, include_private: bool = False) -> dict[str, Any]:
+        state = asdict(self)
+        if not include_private:
+            state.pop("sheet_access_codes", None)
+        return state

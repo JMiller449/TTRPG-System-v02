@@ -4,8 +4,11 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.formulas.schema import (
+    CreateFormula,
+    DeleteFormula,
     FormulaDefinitionPayload,
     FormulaPayload,
+    UpdateFormula,
 )
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
@@ -55,8 +58,11 @@ async def handle_request(request: CreateEntity | UpdateEntity | DeleteEntity) ->
     await delete_formula(request)
 
 
-async def create_formula(request: CreateEntity) -> None:
-    payload = FormulaDefinitionPayload.model_validate(request.entity)
+async def _create_formula(
+    payload: FormulaDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
     formula = _build_formula_definition(payload)
 
     def mutation(state: State) -> tuple[None, list]:
@@ -67,11 +73,56 @@ async def create_formula(request: CreateEntity) -> None:
         op = state_sync_service.add_mutation(state, path, formula)
         return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _update_formula(
+    formula_id: str,
+    payload: FormulaDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
+    if payload.id != formula_id:
+        raise ValueError("Formula ID cannot be changed.")
+
+    formula = _build_formula_definition(payload)
+
+    def mutation(state: State) -> tuple[None, list]:
+        formulas = _formulas_state(state)
+        if formula_id not in formulas:
+            raise ValueError(f"Formula '{formula_id}' does not exist.")
+
+        path = state_sync_service.join_path("formulas", formula_id)
+        op = state_sync_service.set_mutation(state, path, formula)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _delete_formula(
+    formula_id: str,
+    *,
+    request_id: str | None = None,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        formulas = _formulas_state(state)
+        if formula_id not in formulas:
+            raise ValueError(f"Formula '{formula_id}' does not exist.")
+
+        path = state_sync_service.join_path("formulas", formula_id)
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def create_formula(request: CreateEntity) -> None:
+    payload = FormulaDefinitionPayload.model_validate(request.entity)
+    await _create_formula(payload, request_id=request.request_id)
 
 
 async def update_formula(request: UpdateEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
+    def mutation(state: State) -> tuple[FormulaDefinitionPayload, list]:
         formulas = _formulas_state(state)
         current = formulas.get(request.entity_id)
         if current is None:
@@ -84,23 +135,34 @@ async def update_formula(request: UpdateEntity) -> None:
         payload = FormulaDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Formula ID cannot be changed.")
+        return payload, []
 
-        formula = _build_formula_definition(payload)
-        path = state_sync_service.join_path("formulas", request.entity_id)
-        op = state_sync_service.set_mutation(state, path, formula)
-        return None, [op]
-
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+    payload = await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
+    await _update_formula(
+        request.entity_id,
+        payload,
+        request_id=request.request_id,
+    )
 
 
 async def delete_formula(request: DeleteEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
-        formulas = _formulas_state(state)
-        if request.entity_id not in formulas:
-            raise ValueError(f"Formula '{request.entity_id}' does not exist.")
+    await _delete_formula(request.entity_id, request_id=request.request_id)
 
-        path = state_sync_service.join_path("formulas", request.entity_id)
-        _, op = state_sync_service.remove_mutation(state, path)
-        return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+async def create_typed_formula(request: CreateFormula) -> None:
+    await _create_formula(request.formula, request_id=request.request_id)
+
+
+async def update_typed_formula(request: UpdateFormula) -> None:
+    await _update_formula(
+        request.formula_id,
+        request.formula,
+        request_id=request.request_id,
+    )
+
+
+async def delete_typed_formula(request: DeleteFormula) -> None:
+    await _delete_formula(request.formula_id, request_id=request.request_id)

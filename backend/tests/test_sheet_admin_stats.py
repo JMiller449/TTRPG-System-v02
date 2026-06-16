@@ -250,7 +250,7 @@ def test_player_cannot_set_sheet_base_stat(monkeypatch) -> None:
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
-                    "reason": "This request requires an authenticated DM session.",
+                    "reason": "Only a DM can edit sheet stats.",
                     "type": "error",
                     "request_id": "req-1",
                 }

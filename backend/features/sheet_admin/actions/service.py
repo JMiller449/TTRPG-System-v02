@@ -5,12 +5,15 @@ from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.actions.schema import (
     ActionDefinitionPayload,
+    CreateAction,
+    DeleteAction,
     DecrementValueActionStepPayload,
     GainProficiencyUseActionStepPayload,
     IncrementValueActionStepPayload,
     NumericBoundsPayload,
     SendMessageActionStepPayload,
     SetValueActionStepPayload,
+    UpdateAction,
 )
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.shared.schema import (
@@ -122,8 +125,11 @@ async def handle_request(request: CreateEntity | UpdateEntity | DeleteEntity) ->
     await delete_action(request)
 
 
-async def create_action(request: CreateEntity) -> None:
-    payload = ActionDefinitionPayload.model_validate(request.entity)
+async def _create_action(
+    payload: ActionDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
     action = _build_action(payload)
 
     def mutation(state: State) -> tuple[None, list]:
@@ -134,11 +140,56 @@ async def create_action(request: CreateEntity) -> None:
         op = state_sync_service.add_mutation(state, path, action)
         return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _update_action(
+    action_id: str,
+    payload: ActionDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
+    if payload.id != action_id:
+        raise ValueError("Action ID cannot be changed.")
+
+    action = _build_action(payload)
+
+    def mutation(state: State) -> tuple[None, list]:
+        actions = _actions_state(state)
+        if action_id not in actions:
+            raise ValueError(f"Action '{action_id}' does not exist.")
+
+        path = state_sync_service.join_path("actions", action_id)
+        op = state_sync_service.set_mutation(state, path, action)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _delete_action(
+    action_id: str,
+    *,
+    request_id: str | None = None,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        actions = _actions_state(state)
+        if action_id not in actions:
+            raise ValueError(f"Action '{action_id}' does not exist.")
+
+        path = state_sync_service.join_path("actions", action_id)
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def create_action(request: CreateEntity) -> None:
+    payload = ActionDefinitionPayload.model_validate(request.entity)
+    await _create_action(payload, request_id=request.request_id)
 
 
 async def update_action(request: UpdateEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
+    def mutation(state: State) -> tuple[ActionDefinitionPayload, list]:
         actions = _actions_state(state)
         current = actions.get(request.entity_id)
         if current is None:
@@ -151,23 +202,34 @@ async def update_action(request: UpdateEntity) -> None:
         payload = ActionDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Action ID cannot be changed.")
+        return payload, []
 
-        action = _build_action(payload)
-        path = state_sync_service.join_path("actions", request.entity_id)
-        op = state_sync_service.set_mutation(state, path, action)
-        return None, [op]
-
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+    payload = await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
+    await _update_action(
+        request.entity_id,
+        payload,
+        request_id=request.request_id,
+    )
 
 
 async def delete_action(request: DeleteEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
-        actions = _actions_state(state)
-        if request.entity_id not in actions:
-            raise ValueError(f"Action '{request.entity_id}' does not exist.")
+    await _delete_action(request.entity_id, request_id=request.request_id)
 
-        path = state_sync_service.join_path("actions", request.entity_id)
-        _, op = state_sync_service.remove_mutation(state, path)
-        return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+async def create_typed_action(request: CreateAction) -> None:
+    await _create_action(request.action, request_id=request.request_id)
+
+
+async def update_typed_action(request: UpdateAction) -> None:
+    await _update_action(
+        request.action_id,
+        request.action,
+        request_id=request.request_id,
+    )
+
+
+async def delete_typed_action(request: DeleteAction) -> None:
+    await _delete_action(request.action_id, request_id=request.request_id)

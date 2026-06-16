@@ -290,6 +290,16 @@ class StateSyncService:
                 await websocket_sessions.broadcast(patch)
             return result
 
+    async def apply_private_mutation(
+        self,
+        mutation: Callable[[State], MutationResultT],
+    ) -> MutationResultT:
+        async with self._lock:
+            state = StateSingleton.getState()
+            result = mutation(state)
+            StateSingleton.dumpState()
+            return result
+
     async def add(
         self,
         path: str,

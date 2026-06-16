@@ -25,6 +25,22 @@ class ItemDefinitionPayload(BaseModel):
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 
+class CreateItem(RequestModel):
+    item: ItemDefinitionPayload
+    type: Literal["create_item"]
+
+
+class UpdateItem(RequestModel):
+    item_id: str = Field(min_length=1)
+    item: ItemDefinitionPayload
+    type: Literal["update_item"]
+
+
+class DeleteItem(RequestModel):
+    item_id: str = Field(min_length=1)
+    type: Literal["delete_item"]
+
+
 class UpsertItemAugmentationTemplate(RequestModel):
     item_id: str = Field(min_length=1)
     augmentation: AugmentationPayload

@@ -44,7 +44,7 @@ class StateSingleton:
         if cls._state is None:
             cls._state = State()
         with STATE_PATH.open("w", encoding="utf-8") as file:
-            json.dump(cls._state.to_dict(), file)
+            json.dump(cls._state.to_dict(include_private=True), file)
 
     @classmethod
     def restartState(cls) -> None:

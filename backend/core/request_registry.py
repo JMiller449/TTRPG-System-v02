@@ -167,11 +167,23 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.sheet_runtime.route import (
         register_routes as register_sheet_runtime_routes,
     )
+    from backend.features.sheet_access.route import (
+        register_routes as register_sheet_access_routes,
+    )
     from backend.features.sheet_admin.conditions.route import (
         register_routes as register_sheet_admin_conditions_routes,
     )
+    from backend.features.sheet_admin.actions.route import (
+        register_routes as register_sheet_admin_actions_routes,
+    )
+    from backend.features.sheet_admin.formulas.route import (
+        register_routes as register_sheet_admin_formulas_routes,
+    )
     from backend.features.sheet_admin.items.route import (
         register_routes as register_sheet_admin_items_routes,
+    )
+    from backend.features.sheet_admin.sheets.route import (
+        register_routes as register_sheet_admin_sheets_routes,
     )
     from backend.features.sheet_admin.stats.route import (
         register_routes as register_sheet_admin_stats_routes,
@@ -185,9 +197,13 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
 
     register_auth_routes(registry)
     register_chat_routes(registry)
+    register_sheet_admin_actions_routes(registry)
     register_sheet_admin_conditions_routes(registry)
+    register_sheet_admin_formulas_routes(registry)
     register_sheet_admin_items_routes(registry)
+    register_sheet_admin_sheets_routes(registry)
     register_sheet_admin_stats_routes(registry)
+    register_sheet_access_routes(registry)
     register_state_sync_routes(registry)
     register_sheet_runtime_routes(registry)
     register_variable_registry_routes(registry)

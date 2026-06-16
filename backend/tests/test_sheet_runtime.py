@@ -174,7 +174,7 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
             await chat_service.roll20_chat_bridge.reset()
             websocket = FakeWebSocket()
             bridge_socket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.connect(websocket, role="dm")
             await chat_service.roll20_chat_bridge.connect(bridge_socket)
 
             await handle_client_payload(
@@ -217,6 +217,56 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
                     "message": "Strength now (8)",
                     "type": "chat_message",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_perform_action_against_base_sheet(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            StateSingleton.getState().actions["battle_cry"] = Action.from_dict(
+                {
+                    "id": "battle_cry",
+                    "name": "Battle Cry",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "set_value",
+                            "target": "caster",
+                            "path": ["stats", "strength"],
+                            "value": _formula_payload("8"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "battle_cry",
+                },
+            )
+
+            assert StateSingleton.getState().sheets["mage_template"].stats.strength == 10
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Players can only execute actions against an instanced sheet.",
+                    "type": "error",
                     "request_id": "req-1",
                 }
             ]
@@ -271,7 +321,7 @@ def test_perform_action_can_increment_and_decrement_instance_values(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.connect(websocket, role="dm")
 
             await handle_client_payload(
                 websocket,
@@ -776,7 +826,7 @@ def test_perform_action_can_apply_bounded_decrement_against_base_sheet(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.connect(websocket, role="dm")
 
             await handle_client_payload(
                 websocket,

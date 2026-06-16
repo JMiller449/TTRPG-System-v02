@@ -74,7 +74,7 @@ Backend:
 - State sync keeps bounded patch history and exposes reusable internal mutation primitives: `add`, `set`, `remove`, `increment`, and `decrement`.
 - State mutations route through `state_sync` and persist into `state_dumpy.json`.
 - Current persisted state roots include `sheets`, `instanced_sheets`, `formulas`, `actions`, `items`, and `proficiencies`.
-- Internal sheet-admin CRUD service code exists for actions, formulas, items, and sheets, but those admin flows are not currently registered as public typed websocket routes.
+- Sheet, action, formula, and item admin CRUD flows are registered as public typed websocket routes.
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
 - Current action step kinds include `send_message` and `set_value`.
@@ -123,11 +123,13 @@ Frontend:
 - Base stats, proficiencies, equipment, formulas, and permanent values live on base/template state or computed state.
 - A sheet should be handled by the DM and one assigned player, not multiple players for MVP.
 - GM can roll/use actions from any sheet.
-- Sheet generation should create an access code that can be used to access/control that sheet.
-- DM views should be able to see and manage all generated sheet access codes.
-- Player notes are per sheet instance; GM template-level notes are optional.
-- Players cannot edit notes, equipment, base stats, substats, max HP, max mana, or actions.
-- Players may edit current HP and current mana directly or through approved actions/damage-healing flows.
+- Sheet generation/assignment should create an access code that can be used to access/control that sheet once the player claim flow exists.
+- DM views should be able to see and manage all generated sheet access codes through DM-only routes; access codes must not be part of public snapshots or broadcasts.
+- Backend notes edits are DM-only for MVP; player-authored notes remain frontend-local or deferred until a dedicated player-notes route defines ownership rules.
+- Equipment, base stats, substats, max HP, max mana, action authoring, and backend note edits are DM-only.
+- Current instance resources such as HP and mana may be edited by the assigned player or DM once the direct resource edit intent exists.
+- Players may execute assigned actions against their current sheet instance; DMs may execute/admin-test actions from any sheet or instance.
+- Player ownership/access-code enforcement is a later slice because assignment state does not exist yet.
 
 ### Variables
 
@@ -265,6 +267,7 @@ Proficiency:
 - Downtime training exists in the rules but can stay manual/Roll20 for MVP.
 - Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
+- MVP proficiency admin uses sheet proficiency bridge CRUD for GM correction; global proficiency definition CRUD is deferred until the registry shape is needed.
 
 Equipment and items:
 
@@ -346,11 +349,18 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [ ] Migrate roll submission onto a typed backend route/helper path with backend-authoritative reconciliation only.
 - [ ] Replace handwritten frontend websocket builders with generated or centralized typed route helpers.
 - [ ] Add generated frontend request helpers for registered backend route contracts.
-- [ ] Add typed/semantic sheet admin routes for sheets, formulas, actions, items, variables, and bridges.
+- [x] Add typed sheet create/update/delete route contracts.
+- [x] Add typed action/formula create/update/delete route contracts.
+- [x] Add typed item create/update/delete route contracts.
+- [x] Add typed sheet action bridge create/update/delete route contracts.
+- [x] Add typed sheet item bridge create/update/delete route contracts.
+- [x] Add typed sheet proficiency bridge create/update/delete route contracts.
+- [ ] Add typed/semantic sheet admin routes for variables and remaining bridges.
 - [x] Add typed condition/status record routes or define conditions as augmentation presets before exposing condition authoring.
 - [ ] Migrate sheet create/update, sheet instancing/spawn, item management, and action/formula state adoption onto typed backend-authoritative intent families.
 - [x] Implement `sheet_admin/stats`.
-- [ ] Decide whether proficiencies need dedicated admin CRUD or are managed only through actions plus GM correction.
+- [x] Decide whether proficiencies need dedicated admin CRUD or are managed only through actions plus GM correction.
+- [ ] Add global proficiency definition CRUD if/when the proficiency registry needs first-class authoring.
 - [x] Add variable registry/path metadata for formula authoring.
 - [ ] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.
 - [ ] Add common variable shortcuts.
@@ -445,9 +455,15 @@ MVP is done when:
 - [x] Expand action step execution.
 - [x] Implement proficiency gain as a backend-authoritative step.
 - [x] Replace hardcoded resource/damage/healing action steps with bounded generic mutation options and presets.
-- [ ] Define role/permission rules for notes, equipment, stat edits, resource edits, and action execution.
-- [ ] Add generated sheet access codes and DM code visibility to sheet creation/assignment flows.
-- [ ] Add typed route contracts for sheet admin features and semantic bridge operations.
+- [x] Define role/permission rules for notes, equipment, stat edits, resource edits, and action execution.
+- [x] Add generated sheet access codes and DM code visibility to sheet creation/assignment flows.
+- [x] Add typed sheet create/update/delete route contracts.
+- [x] Add typed action/formula create/update/delete route contracts.
+- [x] Add typed item create/update/delete route contracts.
+- [x] Add typed sheet action bridge create/update/delete route contracts.
+- [x] Add typed sheet item bridge create/update/delete route contracts.
+- [x] Add typed sheet proficiency bridge create/update/delete route contracts.
+- [ ] Add typed route contracts for remaining sheet admin features and semantic bridge operations.
 - [ ] Add World Anvil item link field.
 - [ ] Add GM-only item notes/special properties.
 

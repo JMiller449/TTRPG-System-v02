@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
+from backend.features.session.models import SessionRole
 from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
@@ -274,8 +275,14 @@ def _has_bounds(step: SetValueStep | IncrementValueStep | DecrementValueStep) ->
     return step.min_value is not None or step.max_value is not None
 
 
-async def perform_action(request: PerformAction) -> ActionExecuted:
+async def perform_action(
+    request: PerformAction,
+    *,
+    actor_role: SessionRole = "player",
+) -> ActionExecuted:
     actor = resolve_runtime_actor(request.sheet_id)
+    if actor.instance is None and actor_role != "dm":
+        raise ValueError("Players can only execute actions against an instanced sheet.")
     action = _resolve_action(actor.sheet, request.action_id)
     steps = action.steps
 

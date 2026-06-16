@@ -206,7 +206,7 @@ def test_player_cannot_upsert_item_augmentation_template(monkeypatch) -> None:
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
-                    "reason": "This request requires an authenticated DM session.",
+                    "reason": "Only a DM can edit equipment.",
                     "type": "error",
                     "request_id": "req-1",
                 }

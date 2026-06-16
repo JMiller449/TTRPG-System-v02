@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.core.permissions import permission_allowed_roles
 from backend.features.variable_registry.schema import (
     VariableEditableRole,
     VariablePathMetadata,
@@ -35,8 +36,10 @@ _FORMULA_STATS: tuple[tuple[str, str], ...] = (
     ("courage", "Courage"),
 )
 
-_DM_ONLY: list[VariableEditableRole] = ["dm"]
-_PLAYER_AND_DM: list[VariableEditableRole] = ["player", "dm"]
+_DM_ONLY: list[VariableEditableRole] = list(permission_allowed_roles("stat_edit"))
+_PLAYER_AND_DM: list[VariableEditableRole] = list(
+    permission_allowed_roles("resource_edit")
+)
 
 
 def _sheet_base_stat(name: str, label: str) -> VariablePathMetadata:

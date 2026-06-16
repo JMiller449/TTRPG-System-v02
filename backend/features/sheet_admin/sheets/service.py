@@ -10,8 +10,23 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.sheet_admin.sheets.schema import (
+    CreateSheetActionBridge,
+    CreateSheetItemBridge,
+    CreateSheetProficiencyBridge,
+    CreateSheet,
+    DeleteSheetActionBridge,
+    DeleteSheetItemBridge,
+    DeleteSheetProficiencyBridge,
+    DeleteSheet,
+    ItemBridgePayload,
+    ProficiencyBridgePayload,
     SheetDefinitionPayload,
+    SheetActionBridgePayload,
     StatsPayload,
+    UpdateSheetActionBridge,
+    UpdateSheetItemBridge,
+    UpdateSheetProficiencyBridge,
+    UpdateSheet,
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.item import ItemBridge
@@ -93,6 +108,33 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
     )
 
 
+def _build_sheet_action_bridge(payload: SheetActionBridgePayload) -> Bridge:
+    return Bridge(
+        relationship_id=payload.relationship_id,
+        entry_id=payload.action_id,
+    )
+
+
+def _build_sheet_item_bridge(payload: ItemBridgePayload) -> ItemBridge:
+    return ItemBridge(
+        relationship_id=payload.relationship_id,
+        count=payload.count,
+        active=payload.active,
+        item_id=payload.item_id,
+    )
+
+
+def _build_sheet_proficiency_bridge(
+    payload: ProficiencyBridgePayload,
+) -> ProficiencyBridge:
+    return ProficiencyBridge(
+        relationship_id=payload.relationship_id,
+        prof_id=payload.prof_id,
+        use_count=payload.use_count,
+        growth_rate=payload.growth_rate,
+    )
+
+
 def _sheets_state(state: State) -> dict[str, dict]:
     return state.sheets
 
@@ -117,8 +159,11 @@ async def handle_request(request: CreateEntity | UpdateEntity | DeleteEntity) ->
     await delete_sheet(request)
 
 
-async def create_sheet(request: CreateEntity) -> None:
-    payload = SheetDefinitionPayload.model_validate(request.entity)
+async def _create_sheet(
+    payload: SheetDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
     sheet = _build_sheet(payload)
 
     def mutation(state: State) -> tuple[None, list]:
@@ -129,11 +174,55 @@ async def create_sheet(request: CreateEntity) -> None:
         op = state_sync_service.add_mutation(state, path, sheet)
         return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _update_sheet(
+    sheet_id: str,
+    payload: SheetDefinitionPayload,
+    *,
+    request_id: str | None = None,
+) -> None:
+    if payload.id != sheet_id:
+        raise ValueError("Sheet ID cannot be changed.")
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheets = _sheets_state(state)
+        if sheet_id not in sheets:
+            raise ValueError(f"Sheet '{sheet_id}' does not exist.")
+
+        sheet = _build_sheet(payload)
+        path = state_sync_service.join_path("sheets", sheet_id)
+        op = state_sync_service.set_mutation(state, path, sheet)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def _delete_sheet(
+    sheet_id: str,
+    *,
+    request_id: str | None = None,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        sheets = _sheets_state(state)
+        if sheet_id not in sheets:
+            raise ValueError(f"Sheet '{sheet_id}' does not exist.")
+
+        path = state_sync_service.join_path("sheets", sheet_id)
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def create_sheet(request: CreateEntity) -> None:
+    payload = SheetDefinitionPayload.model_validate(request.entity)
+    await _create_sheet(payload, request_id=request.request_id)
 
 
 async def update_sheet(request: UpdateEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
+    def mutation(state: State) -> tuple[SheetDefinitionPayload, list]:
         sheets = _sheets_state(state)
         current = sheets.get(request.entity_id)
         if current is None:
@@ -146,22 +235,267 @@ async def update_sheet(request: UpdateEntity) -> None:
         payload = SheetDefinitionPayload.model_validate(merged)
         if payload.id != request.entity_id:
             raise ValueError("Sheet ID cannot be changed.")
+        return payload, []
 
-        sheet = _build_sheet(payload)
-        path = state_sync_service.join_path("sheets", request.entity_id)
-        op = state_sync_service.set_mutation(state, path, sheet)
+    payload = await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
+    await _update_sheet(
+        request.entity_id,
+        payload,
+        request_id=request.request_id,
+    )
+
+
+async def delete_sheet(request: DeleteEntity) -> None:
+    await _delete_sheet(request.entity_id, request_id=request.request_id)
+
+
+async def create_typed_sheet(request: CreateSheet) -> None:
+    await _create_sheet(request.sheet, request_id=request.request_id)
+
+
+async def update_typed_sheet(request: UpdateSheet) -> None:
+    await _update_sheet(
+        request.sheet_id,
+        request.sheet,
+        request_id=request.request_id,
+    )
+
+
+async def delete_typed_sheet(request: DeleteSheet) -> None:
+    await _delete_sheet(request.sheet_id, request_id=request.request_id)
+
+
+async def create_sheet_action_bridge(request: CreateSheetActionBridge) -> None:
+    bridge = _build_sheet_action_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.bridge.action_id not in state.actions:
+            raise ValueError(f"Action '{request.bridge.action_id}' does not exist.")
+        if request.bridge.relationship_id in sheet.actions:
+            raise ValueError(
+                f"Sheet action bridge '{request.bridge.relationship_id}' already exists."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "actions",
+            request.bridge.relationship_id,
+        )
+        op = state_sync_service.add_mutation(state, path, bridge)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
-async def delete_sheet(request: DeleteEntity) -> None:
-    def mutation(state: State) -> tuple[None, list]:
-        sheets = _sheets_state(state)
-        if request.entity_id not in sheets:
-            raise ValueError(f"Sheet '{request.entity_id}' does not exist.")
+async def update_sheet_action_bridge(request: UpdateSheetActionBridge) -> None:
+    if request.bridge.relationship_id != request.relationship_id:
+        raise ValueError("Sheet action bridge ID cannot be changed.")
 
-        path = state_sync_service.join_path("sheets", request.entity_id)
+    bridge = _build_sheet_action_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.bridge.action_id not in state.actions:
+            raise ValueError(f"Action '{request.bridge.action_id}' does not exist.")
+        if request.relationship_id not in sheet.actions:
+            raise ValueError(
+                f"Sheet action bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "actions",
+            request.relationship_id,
+        )
+        op = state_sync_service.set_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def delete_sheet_action_bridge(request: DeleteSheetActionBridge) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.relationship_id not in sheet.actions:
+            raise ValueError(
+                f"Sheet action bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "actions",
+            request.relationship_id,
+        )
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def create_sheet_item_bridge(request: CreateSheetItemBridge) -> None:
+    bridge = _build_sheet_item_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.bridge.item_id not in state.items:
+            raise ValueError(f"Item '{request.bridge.item_id}' does not exist.")
+        if request.bridge.relationship_id in sheet.items:
+            raise ValueError(
+                f"Sheet item bridge '{request.bridge.relationship_id}' already exists."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "items",
+            request.bridge.relationship_id,
+        )
+        op = state_sync_service.add_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def update_sheet_item_bridge(request: UpdateSheetItemBridge) -> None:
+    if request.bridge.relationship_id != request.relationship_id:
+        raise ValueError("Sheet item bridge ID cannot be changed.")
+
+    bridge = _build_sheet_item_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.bridge.item_id not in state.items:
+            raise ValueError(f"Item '{request.bridge.item_id}' does not exist.")
+        if request.relationship_id not in sheet.items:
+            raise ValueError(
+                f"Sheet item bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "items",
+            request.relationship_id,
+        )
+        op = state_sync_service.set_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def delete_sheet_item_bridge(request: DeleteSheetItemBridge) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.relationship_id not in sheet.items:
+            raise ValueError(
+                f"Sheet item bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "items",
+            request.relationship_id,
+        )
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def create_sheet_proficiency_bridge(
+    request: CreateSheetProficiencyBridge,
+) -> None:
+    bridge = _build_sheet_proficiency_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.bridge.relationship_id in sheet.proficiencies:
+            raise ValueError(
+                "Sheet proficiency bridge "
+                f"'{request.bridge.relationship_id}' already exists."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "proficiencies",
+            request.bridge.relationship_id,
+        )
+        op = state_sync_service.add_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def update_sheet_proficiency_bridge(
+    request: UpdateSheetProficiencyBridge,
+) -> None:
+    if request.bridge.relationship_id != request.relationship_id:
+        raise ValueError("Sheet proficiency bridge ID cannot be changed.")
+
+    bridge = _build_sheet_proficiency_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.relationship_id not in sheet.proficiencies:
+            raise ValueError(
+                f"Sheet proficiency bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "proficiencies",
+            request.relationship_id,
+        )
+        op = state_sync_service.set_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def delete_sheet_proficiency_bridge(
+    request: DeleteSheetProficiencyBridge,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.relationship_id not in sheet.proficiencies:
+            raise ValueError(
+                f"Sheet proficiency bridge '{request.relationship_id}' does not exist."
+            )
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "proficiencies",
+            request.relationship_id,
+        )
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]
 

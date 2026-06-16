@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
+from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
 
 
 class ActionBridgePayload(BaseModel):
     relationship_id: str = Field(min_length=1)
     entry_id: str = Field(min_length=1)
+
+
+class SheetActionBridgePayload(BaseModel):
+    relationship_id: str = Field(min_length=1)
+    action_id: str = Field(min_length=1)
 
 
 class ItemBridgePayload(BaseModel):
@@ -66,3 +74,76 @@ class SheetDefinitionPayload(BaseModel):
     stats: StatsPayload
     slayed_record: dict[str, SheetSlayedBridgePayload] = Field(default_factory=dict)
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
+
+
+class CreateSheet(RequestModel):
+    sheet: SheetDefinitionPayload
+    type: Literal["create_sheet"]
+
+
+class UpdateSheet(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    sheet: SheetDefinitionPayload
+    type: Literal["update_sheet"]
+
+
+class DeleteSheet(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    type: Literal["delete_sheet"]
+
+
+class CreateSheetActionBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    bridge: SheetActionBridgePayload
+    type: Literal["create_sheet_action_bridge"]
+
+
+class UpdateSheetActionBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: SheetActionBridgePayload
+    type: Literal["update_sheet_action_bridge"]
+
+
+class DeleteSheetActionBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_sheet_action_bridge"]
+
+
+class CreateSheetItemBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    bridge: ItemBridgePayload
+    type: Literal["create_sheet_item_bridge"]
+
+
+class UpdateSheetItemBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: ItemBridgePayload
+    type: Literal["update_sheet_item_bridge"]
+
+
+class DeleteSheetItemBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_sheet_item_bridge"]
+
+
+class CreateSheetProficiencyBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    bridge: ProficiencyBridgePayload
+    type: Literal["create_sheet_proficiency_bridge"]
+
+
+class UpdateSheetProficiencyBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: ProficiencyBridgePayload
+    type: Literal["update_sheet_proficiency_bridge"]
+
+
+class DeleteSheetProficiencyBridge(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_sheet_proficiency_bridge"]

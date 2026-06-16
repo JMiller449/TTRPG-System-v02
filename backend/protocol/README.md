@@ -46,7 +46,30 @@ Application websocket requests are discriminated by `type`.
 - `authenticate`
 - `resync_state`
 - `get_variable_registry`
+- `generate_sheet_access_code`
+- `get_sheet_access_codes`
 - `send_roll20_chat_message`
+- `create_action`
+- `update_action`
+- `delete_action`
+- `create_formula`
+- `update_formula`
+- `delete_formula`
+- `create_item`
+- `update_item`
+- `delete_item`
+- `create_sheet`
+- `update_sheet`
+- `delete_sheet`
+- `create_sheet_action_bridge`
+- `update_sheet_action_bridge`
+- `delete_sheet_action_bridge`
+- `create_sheet_item_bridge`
+- `update_sheet_item_bridge`
+- `delete_sheet_item_bridge`
+- `create_sheet_proficiency_bridge`
+- `update_sheet_proficiency_bridge`
+- `delete_sheet_proficiency_bridge`
 - `create_condition_preset`
 - `update_condition_preset`
 - `delete_condition_preset`
@@ -69,6 +92,7 @@ Application websocket responses/events are discriminated by `type`.
 - `state_patch`
 - `action_executed`
 - `variable_registry`
+- `sheet_access_codes`
 - `error`
 
 ## Bootstrap Flow
@@ -98,6 +122,11 @@ Top-level keys:
 - `condition_presets`
 
 The typed snapshot schema lives in [state_schema.py](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend/protocol/state_schema.py).
+
+Sheet access codes are persisted in backend state but are not part of public
+state snapshots or state patches. DMs retrieve them through the DM-only
+`sheet_access_codes` response from `generate_sheet_access_code` and
+`get_sheet_access_codes`.
 
 ## Patch Shape
 

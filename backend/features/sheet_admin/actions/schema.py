@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
 
 
@@ -84,3 +85,19 @@ class ActionDefinitionPayload(BaseModel):
                 f"Action step IDs must be unique. Duplicate step IDs: {duplicates}"
             )
         return self
+
+
+class CreateAction(RequestModel):
+    action: ActionDefinitionPayload
+    type: Literal["create_action"]
+
+
+class UpdateAction(RequestModel):
+    action_id: str = Field(min_length=1)
+    action: ActionDefinitionPayload
+    type: Literal["update_action"]
+
+
+class DeleteAction(RequestModel):
+    action_id: str = Field(min_length=1)
+    type: Literal["delete_action"]

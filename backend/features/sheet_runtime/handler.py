@@ -7,7 +7,7 @@ from backend.features.sheet_runtime.schema import PerformAction
 
 async def handle_request(session: WebSocketSession, request: PerformAction) -> None:
     try:
-        response = await service.perform_action(request)
+        response = await service.perform_action(request, actor_role=session.role)
     except ValueError as exc:
         await websocket_sessions.send(
             session,

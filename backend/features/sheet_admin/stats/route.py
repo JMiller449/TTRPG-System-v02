@@ -3,6 +3,10 @@ from backend.core.request_registry import (
     RequestRegistry,
     RequestRoute,
 )
+from backend.core.permissions import (
+    permission_denied_reason,
+    permission_minimum_role,
+)
 from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.stats import service
 from backend.features.sheet_admin.stats.schema import (
@@ -16,7 +20,8 @@ class SetSheetBaseStatRoute(RequestRoute[SetSheetBaseStat]):
     type_name = "set_sheet_base_stat"
     request_model = SetSheetBaseStat
     emitted_event_models = (StatePatchEvent,)
-    minimum_role = "dm"
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetAdminStats",
         method_name="setSheetBaseStat",
@@ -34,7 +39,8 @@ class SetSheetFormulaStatRoute(RequestRoute[SetSheetFormulaStat]):
     type_name = "set_sheet_formula_stat"
     request_model = SetSheetFormulaStat
     emitted_event_models = (StatePatchEvent,)
-    minimum_role = "dm"
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetAdminStats",
         method_name="setSheetFormulaStat",

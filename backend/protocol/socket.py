@@ -7,18 +7,49 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
 from backend.features.chat.schema import SendRoll20ChatMessage
+from backend.features.sheet_admin.actions.schema import (
+    CreateAction,
+    DeleteAction,
+    UpdateAction,
+)
 from backend.features.sheet_admin.conditions.schema import (
     CreateConditionPreset,
     DeleteConditionPreset,
     UpdateConditionPreset,
 )
+from backend.features.sheet_admin.formulas.schema import (
+    CreateFormula,
+    DeleteFormula,
+    UpdateFormula,
+)
 from backend.features.sheet_admin.items.schema import (
+    CreateItem,
+    DeleteItem,
     RemoveItemAugmentationTemplate,
+    UpdateItem,
     UpsertItemAugmentationTemplate,
+)
+from backend.features.sheet_admin.sheets.schema import (
+    CreateSheetActionBridge,
+    CreateSheetItemBridge,
+    CreateSheetProficiencyBridge,
+    CreateSheet,
+    DeleteSheetActionBridge,
+    DeleteSheetItemBridge,
+    DeleteSheetProficiencyBridge,
+    DeleteSheet,
+    UpdateSheetActionBridge,
+    UpdateSheetItemBridge,
+    UpdateSheetProficiencyBridge,
+    UpdateSheet,
 )
 from backend.features.sheet_admin.stats.schema import (
     SetSheetBaseStat,
     SetSheetFormulaStat,
+)
+from backend.features.sheet_access.schema import (
+    GenerateSheetAccessCode,
+    GetSheetAccessCodes,
 )
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_sync.schema import ResyncState
@@ -96,13 +127,50 @@ class VariableRegistryEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class SheetAccessCodeEventPayload(ProtocolModel):
+    code: str
+    sheet_id: str
+    instance_id: str | None = None
+    active: bool = True
+
+
+class SheetAccessCodesEvent(ProtocolModel):
+    response_id: str | None = None
+    codes: list[SheetAccessCodeEventPayload]
+    type: Literal["sheet_access_codes"] = "sheet_access_codes"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
     | SendRoll20ChatMessage
+    | GenerateSheetAccessCode
+    | GetSheetAccessCodes
+    | CreateAction
+    | UpdateAction
+    | DeleteAction
     | CreateConditionPreset
     | UpdateConditionPreset
     | DeleteConditionPreset
+    | CreateFormula
+    | UpdateFormula
+    | DeleteFormula
+    | CreateItem
+    | UpdateItem
+    | DeleteItem
+    | CreateSheet
+    | UpdateSheet
+    | DeleteSheet
+    | CreateSheetActionBridge
+    | UpdateSheetActionBridge
+    | DeleteSheetActionBridge
+    | CreateSheetItemBridge
+    | UpdateSheetItemBridge
+    | DeleteSheetItemBridge
+    | CreateSheetProficiencyBridge
+    | UpdateSheetProficiencyBridge
+    | DeleteSheetProficiencyBridge
     | UpsertItemAugmentationTemplate
     | RemoveItemAugmentationTemplate
     | SetSheetBaseStat
@@ -118,7 +186,8 @@ ServerEvent = Annotated[
     | StateSnapshotEvent
     | StatePatchEvent
     | ActionExecutedEvent
-    | VariableRegistryEvent,
+    | VariableRegistryEvent
+    | SheetAccessCodesEvent,
     Field(discriminator="type"),
 ]
 

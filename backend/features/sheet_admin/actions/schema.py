@@ -53,12 +53,30 @@ class GainProficiencyUseActionStepPayload(BaseModel):
     amount: FormulaPayload
 
 
+class ApplyAugmentationActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["apply_augmentation"]
+    target: Literal["caster", "target"] = "caster"
+    augmentation_id: str = Field(min_length=1)
+    operation: Literal["apply", "remove"] = "apply"
+
+
+class ApplyConditionPresetActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["apply_condition_preset"]
+    target: Literal["caster", "target"] = "caster"
+    condition_id: str = Field(min_length=1)
+    operation: Literal["apply", "remove"] = "apply"
+
+
 ActionStepPayload = Annotated[
     SendMessageActionStepPayload
     | SetValueActionStepPayload
     | IncrementValueActionStepPayload
     | DecrementValueActionStepPayload
-    | GainProficiencyUseActionStepPayload,
+    | GainProficiencyUseActionStepPayload
+    | ApplyAugmentationActionStepPayload
+    | ApplyConditionPresetActionStepPayload,
     Field(discriminator="type"),
 ]
 

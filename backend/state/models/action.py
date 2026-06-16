@@ -124,12 +124,50 @@ class GainProficiencyUseStep:
         )
 
 
+@dataclass
+class ApplyAugmentationStep:
+    step_id: str
+    augmentation_id: str
+    operation: Literal["apply", "remove"] = "apply"
+    target: ActionStepTarget = "caster"
+    type: Literal["apply_augmentation"] = "apply_augmentation"
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ApplyAugmentationStep":
+        return cls(
+            step_id=raw["step_id"],
+            augmentation_id=raw["augmentation_id"],
+            operation=raw.get("operation", "apply"),
+            target=raw.get("target", "caster"),
+        )
+
+
+@dataclass
+class ApplyConditionPresetStep:
+    step_id: str
+    condition_id: str
+    operation: Literal["apply", "remove"] = "apply"
+    target: ActionStepTarget = "caster"
+    type: Literal["apply_condition_preset"] = "apply_condition_preset"
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ApplyConditionPresetStep":
+        return cls(
+            step_id=raw["step_id"],
+            condition_id=raw["condition_id"],
+            operation=raw.get("operation", "apply"),
+            target=raw.get("target", "caster"),
+        )
+
+
 ActionStep = (
     SendMessageStep
     | SetValueStep
     | IncrementValueStep
     | DecrementValueStep
     | GainProficiencyUseStep
+    | ApplyAugmentationStep
+    | ApplyConditionPresetStep
 )
 
 
@@ -159,6 +197,12 @@ class Action:
                 continue
             if step_type == "gain_proficiency_use":
                 steps.append(GainProficiencyUseStep.from_dict(raw_step))
+                continue
+            if step_type == "apply_augmentation":
+                steps.append(ApplyAugmentationStep.from_dict(raw_step))
+                continue
+            if step_type == "apply_condition_preset":
+                steps.append(ApplyConditionPresetStep.from_dict(raw_step))
                 continue
             raise ValueError(f"Unsupported action step type '{step_type}'.")
 

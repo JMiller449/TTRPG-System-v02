@@ -2,6 +2,10 @@ from dataclasses import dataclass
 
 import pytest
 
+from backend.features.formula_runtime.service import (
+    evaluate_numeric_expression,
+    evaluate_numeric_formula,
+)
 from backend.state.models.formula import Formula, FormulaAliases
 from backend.state.models.proficiency import ProficiencyBridge
 
@@ -123,3 +127,40 @@ def test_expand_formula_expands_proficiency_bridge_values() -> None:
     )
 
     assert formula.expand_formula(root) == "(0.5)"
+
+
+def test_formula_runtime_evaluates_supported_numeric_expression() -> None:
+    assert evaluate_numeric_expression("(12 + 8) / 2") == 10
+    assert evaluate_numeric_expression("2 ** 3 + 5 % 2") == 9
+    assert evaluate_numeric_expression("-4 + +6") == 2
+
+
+def test_formula_runtime_evaluates_formula_against_root() -> None:
+    root = DummySheet(
+        stats=DummyStats(
+            strength=12,
+            mana=20,
+            derived=Formula(aliases=None, text="1"),
+        ),
+        proficiencies={},
+        variables={},
+    )
+    formula = Formula(
+        aliases=[
+            FormulaAliases(name="strength", path=["stats", "strength"]),
+            FormulaAliases(name="mana", path=["stats", "mana"]),
+        ],
+        text="(@strength + @mana) / 4",
+    )
+
+    assert evaluate_numeric_formula(root, formula) == 8
+
+
+def test_formula_runtime_rejects_unsupported_expression() -> None:
+    with pytest.raises(ValueError, match="Unsupported formula expression: Call"):
+        evaluate_numeric_expression("round(1.2)")
+
+
+def test_formula_runtime_rejects_unsupported_operator() -> None:
+    with pytest.raises(ValueError, match="Unsupported formula operator: BitAnd"):
+        evaluate_numeric_expression("1 & 1")

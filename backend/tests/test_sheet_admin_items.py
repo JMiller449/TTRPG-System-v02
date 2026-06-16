@@ -1,6 +1,7 @@
 import asyncio
 from copy import deepcopy
 
+from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.item import Item
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -30,6 +31,9 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
         "id": item_id,
         "name": name,
         "description": "A test item.",
+        "world_anvil_url": "https://www.worldanvil.com/w/test/sword",
+        "gm_notes": "Hidden lore.",
+        "gm_special_properties": "Cursed under moonlight.",
         "price": "10g",
         "weight": "3",
         "stat_augmentations": [],
@@ -59,6 +63,88 @@ def test_dm_can_create_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][0]["path"] == "/items/sword"
             assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "sword"
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "world_anvil_url"
+            ] == "https://www.worldanvil.com/w/test/sword"
+            assert websocket.sent_messages[0]["ops"][0]["value"]["gm_notes"] == (
+                "Hidden lore."
+            )
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "gm_special_properties"
+            ] == "Cursed under moonlight."
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_from_dict_defaults_missing_optional_item_fields() -> None:
+    raw = _item_payload()
+    raw.pop("world_anvil_url")
+    raw.pop("gm_notes")
+    raw.pop("gm_special_properties")
+
+    item = Item.from_dict(raw)
+
+    assert item.world_anvil_url == ""
+    assert item.gm_notes == ""
+    assert item.gm_special_properties == ""
+
+
+def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+
+            await handle_client_payload(
+                dm_socket,
+                {
+                    "type": "create_item",
+                    "item": _item_payload(),
+                },
+            )
+
+            dm_value = dm_socket.sent_messages[0]["ops"][0]["value"]
+            player_value = player_socket.sent_messages[0]["ops"][0]["value"]
+            assert dm_value["gm_notes"] == "Hidden lore."
+            assert dm_value["gm_special_properties"] == "Cursed under moonlight."
+            assert "gm_notes" not in player_value
+            assert "gm_special_properties" not in player_value
+            assert player_socket.sent_messages[0]["state_version"] == (
+                dm_socket.sent_messages[0]["state_version"]
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_snapshot_redacts_gm_only_item_values(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().items["sword"] = Item.from_dict(_item_payload())
+
+            dm_snapshot = await state_sync_service.snapshot(role="dm")
+            player_snapshot = await state_sync_service.snapshot(role="player")
+
+            assert dm_snapshot.state["items"]["sword"]["gm_notes"] == "Hidden lore."
+            assert dm_snapshot.state["items"]["sword"]["gm_special_properties"] == (
+                "Cursed under moonlight."
+            )
+            assert "gm_notes" not in player_snapshot.state["items"]["sword"]
+            assert "gm_special_properties" not in player_snapshot.state["items"][
+                "sword"
+            ]
         finally:
             StateSingleton._state = original_state
 
@@ -92,6 +178,15 @@ def test_dm_can_update_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
                 "Renamed Sword"
             )
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "world_anvil_url"
+            ] == "https://www.worldanvil.com/w/test/sword"
+            assert websocket.sent_messages[0]["ops"][0]["value"]["gm_notes"] == (
+                "Hidden lore."
+            )
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "gm_special_properties"
+            ] == "Cursed under moonlight."
         finally:
             StateSingleton._state = original_state
 

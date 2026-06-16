@@ -16,11 +16,38 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.formula import Formula, FormulaAliases, FormulaDefinition
 from backend.state.models.state import State
 
 
+def _format_path(path: list[str]) -> str:
+    return ".".join(path)
+
+
+def _valid_formula_paths() -> set[tuple[str, ...]]:
+    registry = variable_registry_service.build_action_formula_authoring_metadata()
+    return {
+        tuple(variable.path)
+        for variable in registry.variables
+        if variable.formula_reference_allowed
+    }
+
+
+def validate_formula_payload_paths(formula: FormulaPayload) -> None:
+    valid_paths = _valid_formula_paths()
+    for alias in formula.aliases or []:
+        alias_path = tuple(alias.path)
+        if alias_path not in valid_paths:
+            raise ValueError(
+                "Formula alias "
+                f"'{alias.name}' references unsupported path "
+                f"'{_format_path(alias.path)}'."
+            )
+
+
 def build_formula(payload: FormulaPayload) -> Formula:
+    validate_formula_payload_paths(payload)
     aliases = None
     if payload.aliases is not None:
         aliases = [
@@ -31,6 +58,7 @@ def build_formula(payload: FormulaPayload) -> Formula:
 
 
 def _build_formula_definition(payload: FormulaDefinitionPayload) -> FormulaDefinition:
+    validate_formula_payload_paths(payload.formula)
     return FormulaDefinition(id=payload.id, formula=build_formula(payload.formula))
 
 

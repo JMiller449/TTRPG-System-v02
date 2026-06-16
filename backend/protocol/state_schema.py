@@ -69,6 +69,27 @@ class StatsPayload(ProtocolModel):
     courage: FormulaPayload
 
 
+class ResistancesPayload(ProtocolModel):
+    resistance: float = 0.0
+    physical: float = 0.0
+    magical: float = 0.0
+    slashing: float = 0.0
+    bludgeoning: float = 0.0
+    piercing: float = 0.0
+    arcane: float = 0.0
+    fire: float = 0.0
+    water: float = 0.0
+    earth: float = 0.0
+    wind: float = 0.0
+    light: float = 0.0
+    dark: float = 0.0
+    lightning: float = 0.0
+    ice: float = 0.0
+    time: float = 0.0
+    gravity: float = 0.0
+    psychic: float = 0.0
+
+
 class SheetPayload(ProtocolModel):
     id: str
     name: str
@@ -78,6 +99,7 @@ class SheetPayload(ProtocolModel):
     proficiencies: dict[str, ProficiencyBridgePayload]
     items: dict[str, ItemBridgePayload]
     stats: StatsPayload
+    resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     slayed_record: dict[str, SheetSlayedBridgePayload]
     actions: dict[str, BridgePayload]
 
@@ -86,6 +108,7 @@ class InstancedSheetPayload(ProtocolModel):
     parent_id: str
     health: float
     mana: int
+    resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     augments: dict[str, BridgePayload]
 
 
@@ -139,12 +162,30 @@ class GainProficiencyUseStepPayload(ProtocolModel):
     type: Literal["gain_proficiency_use"]
 
 
+class ApplyAugmentationStepPayload(ProtocolModel):
+    step_id: str
+    augmentation_id: str
+    operation: Literal["apply", "remove"] = "apply"
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["apply_augmentation"]
+
+
+class ApplyConditionPresetStepPayload(ProtocolModel):
+    step_id: str
+    condition_id: str
+    operation: Literal["apply", "remove"] = "apply"
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["apply_condition_preset"]
+
+
 ActionStepPayload = Annotated[
     SendMessageStepPayload
     | SetValueStepPayload
     | IncrementValueStepPayload
     | DecrementValueStepPayload
-    | GainProficiencyUseStepPayload,
+    | GainProficiencyUseStepPayload
+    | ApplyAugmentationStepPayload
+    | ApplyConditionPresetStepPayload,
     Field(discriminator="type"),
 ]
 
@@ -224,6 +265,9 @@ class ItemPayload(ProtocolModel):
     id: str
     name: str
     description: str
+    world_anvil_url: str = ""
+    gm_notes: str = ""
+    gm_special_properties: str = ""
     price: str
     weight: str
     stat_augmentations: list[StatAugmentationPayload]

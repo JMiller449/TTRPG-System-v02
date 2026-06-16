@@ -8,6 +8,7 @@ from backend.core.request_registry import (
 )
 from backend.protocol.socket import (
     ActionExecutedEvent,
+    ActionFormulaAuthoringMetadataEvent,
     AuthenticateResponseEvent,
     SheetAccessCodesEvent,
     StatePatchEvent,
@@ -36,6 +37,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "CreateSheet",
         "UpdateSheet",
         "DeleteSheet",
+        "CreateInstancedSheet",
         "CreateSheetActionBridge",
         "UpdateSheetActionBridge",
         "DeleteSheetActionBridge",
@@ -47,6 +49,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "DeleteSheetProficiencyBridge",
         "SetSheetBaseStat",
         "SetSheetFormulaStat",
+        "GetActionFormulaAuthoringMetadata",
         "GetVariableRegistry",
         "GenerateSheetAccessCode",
         "GetSheetAccessCodes",
@@ -64,6 +67,7 @@ def test_request_registry_exposes_deduplicated_emitted_event_models() -> None:
     assert StateSnapshotEvent in emitted_models
     assert StatePatchEvent in emitted_models
     assert ActionExecutedEvent in emitted_models
+    assert ActionFormulaAuthoringMetadataEvent in emitted_models
     assert AuthenticateResponseEvent in emitted_models
     assert VariableRegistryEvent in emitted_models
     assert SheetAccessCodesEvent in emitted_models
@@ -205,6 +209,17 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["delete_sheet"].minimum_role == "dm"
     assert contracts["delete_sheet"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["create_instanced_sheet"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminSheets",
+            method_name="createInstancedSheet",
+        )
+    )
+    assert contracts["create_instanced_sheet"].minimum_role == "dm"
+    assert contracts["create_instanced_sheet"].emitted_event_models == (
+        StatePatchEvent,
+        SheetAccessCodesEvent,
+    )
     assert contracts["create_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
@@ -287,6 +302,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["get_variable_registry"].emitted_event_models == (
         VariableRegistryEvent,
     )
+    assert contracts["get_action_formula_authoring_metadata"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="authoringMetadata",
+            method_name="getActionFormulaAuthoringMetadata",
+        )
+    )
+    assert contracts["get_action_formula_authoring_metadata"].minimum_role == "player"
+    assert contracts[
+        "get_action_formula_authoring_metadata"
+    ].emitted_event_models == (ActionFormulaAuthoringMetadataEvent,)
     assert contracts["generate_sheet_access_code"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAccess",

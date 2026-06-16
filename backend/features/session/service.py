@@ -113,5 +113,27 @@ class WebSocketSessionService:
         for websocket in disconnected:
             await self.disconnect(websocket)
 
+    async def broadcast_by_role(
+        self,
+        *,
+        player_payload: Any,
+        dm_payload: Any,
+    ) -> None:
+        async with self._lock:
+            targets = tuple(self._sessions.items())
+
+        disconnected: list[WebSocket] = []
+        for websocket, session in targets:
+            if not session.is_authenticated:
+                continue
+            payload = dm_payload if session.is_dm else player_payload
+            try:
+                await websocket.send_json(normalize_server_event(payload))
+            except RuntimeError:
+                disconnected.append(websocket)
+
+        for websocket in disconnected:
+            await self.disconnect(websocket)
+
 
 websocket_sessions = WebSocketSessionService()

@@ -4,10 +4,11 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import asdict, is_dataclass
 from typing import Any, TypeVar
 
 from backend.core.transport import PatchOp
-from backend.features.session.models import WebSocketSession
+from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
     StatePatch,
@@ -17,6 +18,7 @@ from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
+PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 
 
 def build_state_snapshot(
@@ -48,7 +50,10 @@ def build_state_patch(
 
 
 async def send_bootstrap(session: WebSocketSession) -> None:
-    await websocket_sessions.send(session, await state_sync_service.snapshot())
+    await websocket_sessions.send(
+        session,
+        await state_sync_service.snapshot(role=session.role),
+    )
 
 
 class StateSyncService:
@@ -61,13 +66,85 @@ class StateSyncService:
     def current_version(self) -> int:
         return self._state_version
 
-    async def snapshot(self, *, request_id: str | None = None) -> StateSnapshot:
+    def _redact_item_payload(self, value: Any) -> Any:
+        if is_dataclass(value):
+            value = asdict(value)
+        elif isinstance(value, dict):
+            value = deepcopy(value)
+        else:
+            return value
+
+        for field_name in PRIVATE_ITEM_FIELDS:
+            value.pop(field_name, None)
+        return value
+
+    def _redact_state_for_role(
+        self,
+        state: dict[str, Any],
+        *,
+        role: SessionRole,
+    ) -> dict[str, Any]:
+        if role == "dm":
+            return state
+
+        for item in state.get("items", {}).values():
+            if not isinstance(item, dict):
+                continue
+            for field_name in PRIVATE_ITEM_FIELDS:
+                item.pop(field_name, None)
+        return state
+
+    def _redact_patch_for_role(
+        self,
+        patch: StatePatch,
+        *,
+        role: SessionRole,
+    ) -> StatePatch:
+        redacted_patch = deepcopy(patch)
+        if role == "dm" or not redacted_patch.ops:
+            return redacted_patch
+
+        redacted_ops: list[PatchOp] = []
+        for op in redacted_patch.ops:
+            segments = self._parse_path(op.path)
+            if (
+                len(segments) >= 3
+                and segments[0] == "items"
+                and segments[2] in PRIVATE_ITEM_FIELDS
+            ):
+                continue
+
+            if len(segments) >= 2 and segments[0] == "items":
+                op.value = self._redact_item_payload(op.value)
+            redacted_ops.append(op)
+
+        redacted_patch.ops = redacted_ops
+        return redacted_patch
+
+    def _build_snapshot_locked(
+        self,
+        *,
+        role: SessionRole,
+        request_id: str | None = None,
+    ) -> StateSnapshot:
+        state = self._redact_state_for_role(
+            StateSingleton.getState().to_dict(),
+            role=role,
+        )
+        return build_state_snapshot(
+            state,
+            state_version=self._state_version,
+            request_id=request_id,
+        )
+
+    async def snapshot(
+        self,
+        *,
+        request_id: str | None = None,
+        role: SessionRole = "player",
+    ) -> StateSnapshot:
         async with self._lock:
-            return build_state_snapshot(
-                StateSingleton.getState().to_dict(),
-                state_version=self._state_version,
-                request_id=request_id,
-            )
+            return self._build_snapshot_locked(role=role, request_id=request_id)
 
     async def reset(self) -> None:
         async with self._lock:
@@ -89,7 +166,12 @@ class StateSyncService:
         self._patch_history.append(patch)
         return patch
 
-    async def replay_since(self, last_seen_version: int) -> list[StatePatch] | None:
+    async def replay_since(
+        self,
+        last_seen_version: int,
+        *,
+        role: SessionRole = "player",
+    ) -> list[StatePatch] | None:
         async with self._lock:
             if last_seen_version < 0:
                 return None
@@ -108,7 +190,7 @@ class StateSyncService:
                 return None
 
             return [
-                deepcopy(patch)
+                self._redact_patch_for_role(patch, role=role)
                 for patch in self._patch_history
                 if patch.state_version > last_seen_version
             ]
@@ -287,7 +369,10 @@ class StateSyncService:
             if ops:
                 StateSingleton.dumpState()
                 patch = self._next_patch(ops, request_id=request_id)
-                await websocket_sessions.broadcast(patch)
+                await websocket_sessions.broadcast_by_role(
+                    player_payload=self._redact_patch_for_role(patch, role="player"),
+                    dm_payload=self._redact_patch_for_role(patch, role="dm"),
+                )
             return result
 
     async def apply_private_mutation(

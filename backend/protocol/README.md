@@ -61,6 +61,7 @@ Application websocket requests are discriminated by `type`.
 - `create_sheet`
 - `update_sheet`
 - `delete_sheet`
+- `create_instanced_sheet`
 - `create_sheet_action_bridge`
 - `update_sheet_action_bridge`
 - `delete_sheet_action_bridge`

@@ -37,6 +37,9 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         id=payload.id,
         name=payload.name,
         description=payload.description,
+        world_anvil_url=payload.world_anvil_url,
+        gm_notes=payload.gm_notes,
+        gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
         stat_augmentations=[

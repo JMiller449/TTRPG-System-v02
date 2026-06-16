@@ -5,6 +5,9 @@ from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.actions.schema import (
     ActionDefinitionPayload,
+    ActionStepPayload,
+    ApplyAugmentationActionStepPayload,
+    ApplyConditionPresetActionStepPayload,
     CreateAction,
     DeleteAction,
     DecrementValueActionStepPayload,
@@ -15,15 +18,21 @@ from backend.features.sheet_admin.actions.schema import (
     SetValueActionStepPayload,
     UpdateAction,
 )
-from backend.features.sheet_admin.formulas.service import build_formula
+from backend.features.sheet_admin.formulas.service import (
+    build_formula,
+    validate_formula_payload_paths,
+)
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
     UpdateEntity,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.action import (
     Action,
+    ApplyAugmentationStep,
+    ApplyConditionPresetStep,
     DecrementValueStep,
     GainProficiencyUseStep,
     IncrementValueStep,
@@ -31,6 +40,62 @@ from backend.state.models.action import (
     SetValueStep,
 )
 from backend.state.models.state import State
+
+
+def _format_path(path: list[str]) -> str:
+    return ".".join(path)
+
+
+def _valid_action_mutation_paths() -> set[tuple[str, ...]]:
+    registry = variable_registry_service.build_action_formula_authoring_metadata()
+    return {
+        tuple(variable.path)
+        for variable in registry.variables
+        if variable.action_mutation_allowed
+    }
+
+
+def _validate_action_step_target(step: ActionStepPayload) -> None:
+    target = getattr(step, "target", "caster")
+    if target != "caster":
+        raise ValueError(
+            "Action step target 'target' is not supported for MVP; use 'caster'."
+        )
+
+
+def _validate_action_mutation_path(path: list[str]) -> None:
+    if tuple(path) not in _valid_action_mutation_paths():
+        raise ValueError(
+            f"Action mutation path '{_format_path(path)}' is not supported."
+        )
+
+
+def _validate_action_step(step: ActionStepPayload) -> None:
+    _validate_action_step_target(step)
+    if isinstance(step, SendMessageActionStepPayload):
+        validate_formula_payload_paths(step.message)
+        return
+    if isinstance(step, SetValueActionStepPayload):
+        _validate_action_mutation_path(step.path)
+        validate_formula_payload_paths(step.value)
+    if isinstance(
+        step,
+        (IncrementValueActionStepPayload, DecrementValueActionStepPayload),
+    ):
+        _validate_action_mutation_path(step.path)
+        validate_formula_payload_paths(step.amount)
+    if isinstance(step, GainProficiencyUseActionStepPayload):
+        validate_formula_payload_paths(step.amount)
+    if isinstance(step, NumericBoundsPayload):
+        if step.min_value is not None:
+            validate_formula_payload_paths(step.min_value)
+        if step.max_value is not None:
+            validate_formula_payload_paths(step.max_value)
+
+
+def _validate_action_payload(payload: ActionDefinitionPayload) -> None:
+    for step in payload.steps:
+        _validate_action_step(step)
 
 
 def _bounds_kwargs(step: NumericBoundsPayload) -> dict:
@@ -53,6 +118,8 @@ def _build_step(
         | IncrementValueActionStepPayload
         | DecrementValueActionStepPayload
         | GainProficiencyUseActionStepPayload
+        | ApplyAugmentationActionStepPayload
+        | ApplyConditionPresetActionStepPayload
     ),
 ):
     if isinstance(step, SendMessageActionStepPayload):
@@ -84,6 +151,20 @@ def _build_step(
             amount=build_formula(step.amount),
             **_bounds_kwargs(step),
         )
+    if isinstance(step, ApplyAugmentationActionStepPayload):
+        return ApplyAugmentationStep(
+            step_id=step.step_id,
+            target=step.target,
+            augmentation_id=step.augmentation_id,
+            operation=step.operation,
+        )
+    if isinstance(step, ApplyConditionPresetActionStepPayload):
+        return ApplyConditionPresetStep(
+            step_id=step.step_id,
+            target=step.target,
+            condition_id=step.condition_id,
+            operation=step.operation,
+        )
     return GainProficiencyUseStep(
         step_id=step.step_id,
         target=step.target,
@@ -93,6 +174,7 @@ def _build_step(
 
 
 def _build_action(payload: ActionDefinitionPayload) -> Action:
+    _validate_action_payload(payload)
     return Action(
         id=payload.id,
         name=payload.name,

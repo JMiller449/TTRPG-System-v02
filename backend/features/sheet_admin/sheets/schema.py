@@ -63,6 +63,27 @@ class StatsPayload(BaseModel):
     courage: FormulaPayload
 
 
+class ResistancesPayload(BaseModel):
+    resistance: float = 0.0
+    physical: float = 0.0
+    magical: float = 0.0
+    slashing: float = 0.0
+    bludgeoning: float = 0.0
+    piercing: float = 0.0
+    arcane: float = 0.0
+    fire: float = 0.0
+    water: float = 0.0
+    earth: float = 0.0
+    wind: float = 0.0
+    light: float = 0.0
+    dark: float = 0.0
+    lightning: float = 0.0
+    ice: float = 0.0
+    time: float = 0.0
+    gravity: float = 0.0
+    psychic: float = 0.0
+
+
 class SheetDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -72,6 +93,7 @@ class SheetDefinitionPayload(BaseModel):
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     stats: StatsPayload
+    resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     slayed_record: dict[str, SheetSlayedBridgePayload] = Field(default_factory=dict)
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
 
@@ -90,6 +112,16 @@ class UpdateSheet(RequestModel):
 class DeleteSheet(RequestModel):
     sheet_id: str = Field(min_length=1)
     type: Literal["delete_sheet"]
+
+
+class CreateInstancedSheet(RequestModel):
+    instance_id: str = Field(min_length=1)
+    parent_sheet_id: str = Field(min_length=1)
+    health: float
+    mana: int
+    resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
+    generate_access_code: bool = False
+    type: Literal["create_instanced_sheet"]
 
 
 class CreateSheetActionBridge(RequestModel):

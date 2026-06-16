@@ -77,7 +77,7 @@ Backend:
 - Sheet, action, formula, and item admin CRUD flows are registered as public typed websocket routes.
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
-- Current action step kinds include `send_message` and `set_value`.
+- Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
 - Formula expansion is relative to one root object, supports dataclass/dict traversal, and guards against cycles.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
@@ -104,7 +104,7 @@ Frontend:
 - Frontend-local state still owns player notes, sheet equipment, active weapon selection, stat overrides, and resource adjustment drafts.
 - Item maker currently edits local UI item templates, not backend `ItemDefinition` records.
 - Formula/action authoring UI and assigned-action execution UI are not implemented yet.
-- Roll composer quick actions are preview/prefill scaffolding; it does not submit selected quick action, advantage/disadvantage, or Roll20 visibility through a backend-authored action flow yet.
+- Roll composer quick actions are preview/prefill scaffolding; they do not yet select or submit default editable action presets through the normal backend-authored action flow.
 - Player entry still lists/selects player instances and can locally request player creation; it is not yet the planned generated sheet access-code flow.
 - The existing Roll Log panel is intentionally an empty Roll20 handoff surface; it must not grow into an authoritative in-app player-facing roll history for MVP.
 - Encounter preset UI exists but still uses legacy handwritten intents and should be migrated only if encounter convenience remains in scope; otherwise gate it as later/mock-only.
@@ -205,7 +205,10 @@ Actions:
 - Actions execute against an explicit owning/current sheet instance; cross-sheet targets are not an app workflow.
 - Runtime parameters are allowed for predefined GM-configured options, currently just advantage/disadvantage.
 - Selected mode and overload alternatives are later work.
-- Current-value changes such as resource costs, resource restores, damage, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
+- Current-value changes such as resource costs, resource restores, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
+- Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
+- Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
+- Full attack-specific damage composition, armor derivation, critical rules, and combat modifiers remain later resolver work.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
 - Roll/check variants should be modeled as action steps or sheet presets, not as separate roll-type records.
 - Freeform situational modifiers are not MVP; common modifiers should become GM-authored actions/conditions, and one-off adjustments can be manual in Roll20.
@@ -218,7 +221,8 @@ MVP action step types:
 - increment/decrement variable with optional backend-enforced bounds
 - roll dice or emit Roll20 dice expression
 - compare against DC when needed
-- reusable presets for damage, healing, resource spend, and resource restore composed from generic bounded mutation steps
+- reusable presets for healing, resource spend, and resource restore composed from generic bounded mutation steps
+- semantic damage resolution step that reuses action formula evaluation for amount, then applies damage type and resistance rules before mutating health
 - gain proficiency
 - apply augmentation/status
 
@@ -285,6 +289,8 @@ Damage and resistance:
 - Physical damage types: Piercing, Slashing, Bludgeoning.
 - Magical damage types: Arcane, Fire, Water, Earth, Wind, Light, Dark, Lightning, Ice, Time, Gravity, Psychic.
 - Resistance is additive and capped at 100 percent.
+- Resistance should use a consistent internal numeric convention; prefer fractions where `0.25` means 25 percent.
+- Effective resistance should combine total resistance, physical/magical category resistance, and specific damage-type resistance, then cap at 100 percent.
 - Damage taken: `Damage Inflicted - (Damage Inflicted * Resistance)`.
 - Stacking rules beyond additive resistance are unresolved and deferred.
 
@@ -307,6 +313,7 @@ Combat automation:
 
 - Turn order, action point reset, reactions, contested reactions, opportunity attacks, flanking, grappling, AOE positioning, and cross-sheet damage application are Roll20/manual.
 - The app should not automate cross-sheet combat workflows.
+- `slayed_record` remains part of full sheet state for history/bookkeeping, but dedicated semantic slay-record routes are deferred until combat/history automation becomes MVP-relevant.
 
 ## 9. Augmentation Direction
 
@@ -346,7 +353,7 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 
 ### Phase 8: Intent And Runtime Migration
 
-- [ ] Migrate roll submission onto a typed backend route/helper path with backend-authoritative reconciliation only.
+- [ ] Migrate roll/action submission onto typed backend route/helper paths with backend-authoritative reconciliation only.
 - [ ] Replace handwritten frontend websocket builders with generated or centralized typed route helpers.
 - [ ] Add generated frontend request helpers for registered backend route contracts.
 - [x] Add typed sheet create/update/delete route contracts.
@@ -355,36 +362,45 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [x] Add typed sheet action bridge create/update/delete route contracts.
 - [x] Add typed sheet item bridge create/update/delete route contracts.
 - [x] Add typed sheet proficiency bridge create/update/delete route contracts.
-- [ ] Add typed/semantic sheet admin routes for variables and remaining bridges.
+- [x] Audit remaining sheet-admin variable/bridge route contracts and defer non-MVP slay-record routes.
 - [x] Add typed condition/status record routes or define conditions as augmentation presets before exposing condition authoring.
-- [ ] Migrate sheet create/update, sheet instancing/spawn, item management, and action/formula state adoption onto typed backend-authoritative intent families.
+- [x] Add typed sheet instancing/spawn route contract.
+- [x] Complete backend typed intent families for sheet create/update, sheet instancing/spawn, item management, and action/formula state adoption.
 - [x] Implement `sheet_admin/stats`.
 - [x] Decide whether proficiencies need dedicated admin CRUD or are managed only through actions plus GM correction.
 - [ ] Add global proficiency definition CRUD if/when the proficiency registry needs first-class authoring.
 - [x] Add variable registry/path metadata for formula authoring.
-- [ ] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.
-- [ ] Add common variable shortcuts.
-- [ ] Define baseline sheet checks as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
-- [ ] Finalize roll request schema for preset quick actions: `attack`, `dodge`, `parry`, and `block`.
-- [ ] Add stronger cross-entity validation for sheet/action/item/formula references.
-- [ ] Add runtime validation for sheet access/ownership and allowed sheet/instance focus.
-- [ ] Expand runtime steps beyond `send_message` and `set_value`.
-- [ ] Implement bounded generic mutation options for increment/decrement/set steps, plus gain proficiency and augmentation/status steps.
-- [ ] Model damage, healing, resource spend, and resource restore as presets composed from generic bounded mutation steps.
-- [ ] Implement action execution against explicit sheet/instance IDs.
-- [ ] Implement backend roll resolution pipeline for preset quick actions where those actions become backend-resolved.
+- [x] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.
+- [x] Add common variable shortcuts.
+- [x] Define baseline sheet checks as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
+- [x] Define `attack`, `dodge`, `parry`, and `block` as default editable action presets executed through the normal `perform_action` runtime.
+- [x] Add stronger cross-entity validation for sheet/action/item/formula references.
+- [x] Add runtime validation for allowed sheet/instance focus and reject `target_sheet_id` intersheet execution.
+- [ ] Add runtime validation for player ownership/access-code claim enforcement once assignment state exists.
+- [x] Expand runtime steps beyond `send_message` and `set_value`.
+- [x] Implement bounded generic mutation options for increment/decrement/set steps, plus gain proficiency.
+- [x] Implement augmentation/status action steps.
+- [x] Model healing, resource spend, and resource restore as authored generic bounded mutation step patterns.
+- [x] Add named reusable action preset templates for healing, resource spend, and resource restore if the authoring UI needs presets beyond raw step composition.
+- [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
+- [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
+- [ ] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
+- [ ] Extend damage resolution later for armor derivation, critical rules, weapon/spell-specific damage composition, and other combat modifiers.
+- [x] Implement action execution against explicit sheet/instance IDs.
+- [ ] Implement backend roll resolution through generic authored action steps for default `attack`, `dodge`, `parry`, and `block` presets once those actions become backend-resolved.
 - [ ] Implement weapon/equipment-driven attack modifiers on the backend when attack support is added.
 - [ ] Implement advantage/disadvantage as predefined runtime action parameters.
 - [ ] Add Roll20 chat prefix wrapping for advantage/disadvantage and visibility/GM-only output.
-- [ ] Add validation/error responses for invalid quick-roll/action payloads and unauthorized actions.
-- [ ] Finalize websocket request/response types for typed template edits, sheet updates, bridge operations, and roll/action requests.
+- [ ] Add validation/error responses for invalid action execution payloads and unauthorized actions.
+- [ ] Finalize websocket request/response types for typed template edits, sheet updates, bridge operations, and action execution requests.
 - [ ] Finalize sheet schema and permissions for instance notes, optional GM template notes, inventory-list equipment, and stat/resource adjustments.
 - [ ] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls.
-- [ ] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
+- [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
+- [ ] Implement player sheet access-code claim/assignment flow and enforce ownership once assignment state exists.
 - [ ] Model relationship/bridge operations as semantic commands such as `attach`, `detach`, `link`, `unlink`, and `instantiate`.
 - [ ] Add Roll20 bridge status/send-failure UX.
-- [ ] Add optional World Anvil link field to item schema, IPC/update payloads, and item UI.
-- [ ] Add GM-only item notes/special properties to item schema, sync payloads, and item UI.
+- [x] Add optional World Anvil link field to item schema and backend protocol/update payloads.
+- [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
 - [ ] Scaffold stat/resource update intents so sheet modifiers flow through backend transport contracts.
 - [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
 - [ ] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
@@ -454,7 +470,7 @@ MVP is done when:
 - [x] Finalize augmentation attach/update intents for gear and weapon items.
 - [x] Expand action step execution.
 - [x] Implement proficiency gain as a backend-authoritative step.
-- [x] Replace hardcoded resource/damage/healing action steps with bounded generic mutation options and presets.
+- [x] Replace hardcoded resource/healing action steps with bounded generic mutation options.
 - [x] Define role/permission rules for notes, equipment, stat edits, resource edits, and action execution.
 - [x] Add generated sheet access codes and DM code visibility to sheet creation/assignment flows.
 - [x] Add typed sheet create/update/delete route contracts.
@@ -463,9 +479,9 @@ MVP is done when:
 - [x] Add typed sheet action bridge create/update/delete route contracts.
 - [x] Add typed sheet item bridge create/update/delete route contracts.
 - [x] Add typed sheet proficiency bridge create/update/delete route contracts.
-- [ ] Add typed route contracts for remaining sheet admin features and semantic bridge operations.
-- [ ] Add World Anvil item link field.
-- [ ] Add GM-only item notes/special properties.
+- [x] Add typed route contracts for remaining sheet admin features and semantic bridge operations.
+- [x] Add World Anvil item link field.
+- [x] Add GM-only item notes/special properties.
 
 ### Frontend Now
 
@@ -479,16 +495,18 @@ MVP is done when:
 - [ ] Replace player self-create/list-all flow with generated sheet access-code entry/assignment flow.
 - [ ] Wire sheet create/edit/spawn flows to backend typed route contracts once available.
 - [ ] Wire item maker to backend item records instead of local UI templates.
+- [ ] Wire action/formula authoring flows to backend typed route contracts.
 - [ ] Add augmentation builder scaffold.
 - [ ] Add UI for gear/weapon augmentation attachment.
 - [ ] Define frontend augmentation UX boundaries for what is editable versus display-only on weapon/gear augments.
 - [ ] Add stat/resource update intent UI wired to backend-authoritative requests.
-- [ ] Submit roll composer quick action, advantage/disadvantage, and visibility through backend-authored action/Roll20 flow.
+- [ ] Use roll composer quick controls to prefill or select default editable actions, then submit through the normal backend-authored action/Roll20 flow.
 - [ ] Align health/resource adjustment controls with canonical damage types and backend health adjustment schema.
 - [ ] Keep the Roll Log panel as Roll20 handoff/status only, or remove it; do not store a player-facing authoritative roll history.
 - [ ] Add bridge status and send-failure UX.
 - [ ] Add sync conflict/recovery UX for resyncs and rejected intents.
 - [ ] Add World Anvil item link entry/display.
+- [ ] Add GM-only item notes/special properties entry/display.
 - [ ] Fix frontend lint errors and warnings so `npm run lint` passes with `--max-warnings 0`.
 - [ ] Add tests for reducer, transport event handling, and core sheet interactions.
 

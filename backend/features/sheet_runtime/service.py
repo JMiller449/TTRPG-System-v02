@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-import ast
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from backend.features.augmentations import service as augmentation_service
 from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
+from backend.features.formula_runtime.service import (
+    evaluate_numeric_formula,
+    normalize_numeric_result,
+)
 from backend.features.session.models import SessionRole
 from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
     Action,
+    ApplyAugmentationStep,
+    ApplyConditionPresetStep,
     DecrementValueStep,
     GainProficiencyUseStep,
     IncrementValueStep,
@@ -22,49 +28,6 @@ from backend.state.models.formula import Formula
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
-
-_ALLOWED_BINARY_OPERATORS = {
-    ast.Add: lambda left, right: left + right,
-    ast.Sub: lambda left, right: left - right,
-    ast.Mult: lambda left, right: left * right,
-    ast.Div: lambda left, right: left / right,
-    ast.FloorDiv: lambda left, right: left // right,
-    ast.Mod: lambda left, right: left % right,
-    ast.Pow: lambda left, right: left**right,
-}
-_ALLOWED_UNARY_OPERATORS = {
-    ast.UAdd: lambda value: value,
-    ast.USub: lambda value: -value,
-}
-
-
-def _numeric_result(value: float | int) -> float | int:
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    return value
-
-
-def _evaluate_math_node(node: ast.AST) -> float | int:
-    if isinstance(node, ast.Expression):
-        return _evaluate_math_node(node.body)
-    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
-        return node.value
-    if isinstance(node, ast.BinOp):
-        operator_type = type(node.op)
-        operator = _ALLOWED_BINARY_OPERATORS.get(operator_type)
-        if operator is None:
-            raise ValueError(f"Unsupported formula operator: {operator_type.__name__}")
-        return operator(
-            _evaluate_math_node(node.left),
-            _evaluate_math_node(node.right),
-        )
-    if isinstance(node, ast.UnaryOp):
-        operator_type = type(node.op)
-        operator = _ALLOWED_UNARY_OPERATORS.get(operator_type)
-        if operator is None:
-            raise ValueError(f"Unsupported formula operator: {operator_type.__name__}")
-        return operator(_evaluate_math_node(node.operand))
-    raise ValueError(f"Unsupported formula expression: {node.__class__.__name__}")
 
 
 def _state() -> State:
@@ -185,12 +148,6 @@ def _resolve_action(
     return action
 
 
-def _evaluate_numeric_formula(formula_root: Any, formula: Formula) -> float | int:
-    expanded_formula = formula.expand_formula(formula_root)
-    parsed = ast.parse(expanded_formula, mode="eval")
-    return _numeric_result(_evaluate_math_node(parsed))
-
-
 def _validate_caster_target(target: str) -> None:
     if target != "caster":
         raise ValueError(f"Unsupported runtime action target '{target}'.")
@@ -215,6 +172,36 @@ def _proficiency_bridge_key(actor: RuntimeActor, proficiency_id: str) -> str:
     raise ValueError(
         f"Sheet '{actor.sheet.id}' does not reference proficiency '{proficiency_id}'."
     )
+
+
+def _required_instance_id(actor: RuntimeActor, step_type: str) -> str:
+    if actor.instance is None:
+        raise ValueError(f"{step_type} steps require an instanced sheet.")
+    return actor.actor_id
+
+
+def _augmentation_mutation_summary(
+    augmentation_id: str,
+    operation: str,
+    result_operation: str,
+    reason: str | None,
+) -> str:
+    summary = f"augmentations.{augmentation_id} {operation}:{result_operation}"
+    if reason is not None:
+        summary += f":{reason}"
+    return summary
+
+
+def _condition_mutation_summary(
+    condition_id: str,
+    operation: str,
+    result_operation: str,
+    reason: str | None,
+) -> str:
+    summary = f"conditions.{condition_id} {operation}:{result_operation}"
+    if reason is not None:
+        summary += f":{reason}"
+    return summary
 
 
 def _numeric_path_value(root: Any, path: list[str], state_path: str) -> float | int:
@@ -251,7 +238,7 @@ def _bounded_numeric_result(
 ) -> float | int:
     result = value
     if min_value is not None:
-        minimum = _evaluate_numeric_formula(formula_root, min_value)
+        minimum = evaluate_numeric_formula(formula_root, min_value)
         if result < minimum:
             if on_min_violation == "reject":
                 raise ValueError(
@@ -260,7 +247,7 @@ def _bounded_numeric_result(
             result = minimum
 
     if max_value is not None:
-        maximum = _evaluate_numeric_formula(formula_root, max_value)
+        maximum = evaluate_numeric_formula(formula_root, max_value)
         if result > maximum:
             if on_max_violation == "reject":
                 raise ValueError(
@@ -268,11 +255,28 @@ def _bounded_numeric_result(
                 )
             result = maximum
 
-    return _numeric_result(result)
+    return normalize_numeric_result(result)
 
 
 def _has_bounds(step: SetValueStep | IncrementValueStep | DecrementValueStep) -> bool:
     return step.min_value is not None or step.max_value is not None
+
+
+def _resolve_allowed_runtime_actor(
+    request: PerformAction,
+    *,
+    actor_role: SessionRole,
+) -> RuntimeActor:
+    if request.target_sheet_id is not None:
+        raise ValueError(
+            "Target sheet execution is not supported for MVP; "
+            "actions can only affect the acting sheet or instance."
+        )
+
+    actor = resolve_runtime_actor(request.sheet_id)
+    if actor.instance is None and actor_role != "dm":
+        raise ValueError("Players can only execute actions against an instanced sheet.")
+    return actor
 
 
 async def perform_action(
@@ -280,9 +284,7 @@ async def perform_action(
     *,
     actor_role: SessionRole = "player",
 ) -> ActionExecuted:
-    actor = resolve_runtime_actor(request.sheet_id)
-    if actor.instance is None and actor_role != "dm":
-        raise ValueError("Players can only execute actions against an instanced sheet.")
+    actor = _resolve_allowed_runtime_actor(request, actor_role=actor_role)
     action = _resolve_action(actor.sheet, request.action_id)
     steps = action.steps
 
@@ -312,7 +314,7 @@ async def perform_action(
 
             if isinstance(step, SetValueStep):
                 _validate_caster_target(step.target)
-                result = _evaluate_numeric_formula(formula_root, step.value)
+                result = evaluate_numeric_formula(formula_root, step.value)
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
@@ -332,7 +334,7 @@ async def perform_action(
 
             if isinstance(step, IncrementValueStep):
                 _validate_caster_target(step.target)
-                amount = _evaluate_numeric_formula(formula_root, step.amount)
+                amount = evaluate_numeric_formula(formula_root, step.amount)
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
@@ -363,7 +365,7 @@ async def perform_action(
 
             if isinstance(step, DecrementValueStep):
                 _validate_caster_target(step.target)
-                amount = _evaluate_numeric_formula(formula_root, step.amount)
+                amount = evaluate_numeric_formula(formula_root, step.amount)
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
@@ -395,7 +397,7 @@ async def perform_action(
             if isinstance(step, GainProficiencyUseStep):
                 _validate_caster_target(step.target)
                 amount = _positive_int_amount(
-                    _evaluate_numeric_formula(formula_root, step.amount),
+                    evaluate_numeric_formula(formula_root, step.amount),
                     label="Proficiency use gain amount",
                 )
                 bridge_key = _proficiency_bridge_key(
@@ -412,6 +414,81 @@ async def perform_action(
                 ops.append(op)
                 applied_mutations.append(
                     f"proficiencies.{bridge_key}.use_count+={amount}"
+                )
+                continue
+
+            if isinstance(step, ApplyAugmentationStep):
+                _validate_caster_target(step.target)
+                instance_id = _required_instance_id(
+                    current_actor,
+                    "Apply augmentation",
+                )
+                augmentation = state.augmentations.get(step.augmentation_id)
+                if augmentation is None:
+                    raise ValueError(
+                        f"Augmentation '{step.augmentation_id}' does not exist."
+                    )
+                if augmentation.target.root != "instance":
+                    raise ValueError(
+                        "Action augmentation steps can only target the acting instance."
+                    )
+                if step.operation == "apply":
+                    result, result_ops = (
+                        augmentation_service.apply_augmentation_mutation(
+                            state,
+                            step.augmentation_id,
+                            instance_id=instance_id,
+                        )
+                    )
+                else:
+                    result, result_ops = (
+                        augmentation_service.remove_augmentation_mutation(
+                            state,
+                            step.augmentation_id,
+                            instance_id=instance_id,
+                        )
+                    )
+                ops.extend(result_ops)
+                applied_mutations.append(
+                    _augmentation_mutation_summary(
+                        step.augmentation_id,
+                        step.operation,
+                        result.operation,
+                        result.reason,
+                    )
+                )
+                continue
+
+            if isinstance(step, ApplyConditionPresetStep):
+                _validate_caster_target(step.target)
+                instance_id = _required_instance_id(
+                    current_actor,
+                    "Apply condition preset",
+                )
+                if step.operation == "apply":
+                    result, result_ops = (
+                        augmentation_service.apply_condition_preset_mutation(
+                            state,
+                            instance_id=instance_id,
+                            condition_id=step.condition_id,
+                        )
+                    )
+                else:
+                    result, result_ops = (
+                        augmentation_service.remove_condition_preset_mutation(
+                            state,
+                            instance_id=instance_id,
+                            condition_id=step.condition_id,
+                        )
+                    )
+                ops.extend(result_ops)
+                applied_mutations.append(
+                    _condition_mutation_summary(
+                        step.condition_id,
+                        step.operation,
+                        result.operation,
+                        result.reason,
+                    )
                 )
                 continue
 

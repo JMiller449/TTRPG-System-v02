@@ -10,6 +10,7 @@ from backend.core.permissions import (
 from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.sheets import service
 from backend.features.sheet_admin.sheets.schema import (
+    CreateInstancedSheet,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
@@ -23,7 +24,8 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheetProficiencyBridge,
     UpdateSheet,
 )
-from backend.protocol.socket import StatePatchEvent
+from backend.features.session.service import websocket_sessions
+from backend.protocol.socket import SheetAccessCodesEvent, StatePatchEvent
 
 
 class CreateSheetRoute(RequestRoute[CreateSheet]):
@@ -66,6 +68,26 @@ class DeleteSheetRoute(RequestRoute[DeleteSheet]):
 
     async def handle(self, session: WebSocketSession, request: DeleteSheet) -> None:
         await service.delete_typed_sheet(request)
+
+
+class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
+    type_name = "create_instanced_sheet"
+    request_model = CreateInstancedSheet
+    emitted_event_models = (StatePatchEvent, SheetAccessCodesEvent)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminSheets",
+        method_name="createInstancedSheet",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateInstancedSheet,
+    ) -> None:
+        response = await service.create_instanced_sheet(request)
+        if response is not None:
+            await websocket_sessions.send(session, response)
 
 
 class CreateSheetActionBridgeRoute(RequestRoute[CreateSheetActionBridge]):
@@ -240,6 +262,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateSheetRoute())
     registry.register(UpdateSheetRoute())
     registry.register(DeleteSheetRoute())
+    registry.register(CreateInstancedSheetRoute())
     registry.register(CreateSheetActionBridgeRoute())
     registry.register(UpdateSheetActionBridgeRoute())
     registry.register(DeleteSheetActionBridgeRoute())

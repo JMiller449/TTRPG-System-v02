@@ -3,6 +3,7 @@ from typing import Dict
 
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
+from backend.state.models.resistance import Resistances
 from backend.state.models.shared import Bridge
 from backend.state.models.stat import Stats
 
@@ -31,6 +32,7 @@ class Sheet:
     proficiencies: Dict[str, ProficiencyBridge]
     items: Dict[str, ItemBridge]
     stats: Stats
+    resistances: Resistances
     slayed_record: Dict[str, SheetSlayedBridge]
     actions: Dict[str, Bridge]
 
@@ -51,6 +53,7 @@ class Sheet:
                 for key, bridge in raw.get("items", {}).items()
             },
             stats=Stats.from_dict(raw["stats"]),
+            resistances=Resistances.from_dict(raw.get("resistances")),
             slayed_record={
                 key: SheetSlayedBridge.from_dict(bridge)
                 for key, bridge in raw.get("slayed_record", {}).items()
@@ -62,12 +65,14 @@ class Sheet:
         )
 
 
-# an instanced persistant sheet, contains current values and augmented stat values (i.e. current health/mana)
+# an instanced persistant sheet, contains current values and augmented stat values
+# (i.e. current health/mana)
 @dataclass
 class InstancedSheet:
     parent_id: str  # points to parent Sheet
     health: float
     mana: int
+    resistances: Resistances
     augments: Dict[str, Bridge]  # TODO add augments dict
 
     @classmethod
@@ -76,6 +81,7 @@ class InstancedSheet:
             parent_id=raw["parent_id"],
             health=raw["health"],
             mana=raw["mana"],
+            resistances=Resistances.from_dict(raw.get("resistances")),
             augments={
                 key: Bridge.from_dict(bridge)
                 for key, bridge in raw.get("augments", {}).items()

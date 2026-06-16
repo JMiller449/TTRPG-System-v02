@@ -77,6 +77,56 @@ def test_dm_can_create_action(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_dm_can_create_action_with_augmentation_and_condition_steps(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "apply-augment",
+                    "type": "apply_augmentation",
+                    "target": "caster",
+                    "augmentation_id": "shielded",
+                    "operation": "apply",
+                },
+                {
+                    "step_id": "remove-condition",
+                    "type": "apply_condition_preset",
+                    "target": "caster",
+                    "condition_id": "poisoned",
+                    "operation": "remove",
+                },
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": action,
+                },
+            )
+
+            steps = StateSingleton.getState().actions["battle_cry"].steps
+            assert steps[0].type == "apply_augmentation"
+            assert steps[0].augmentation_id == "shielded"
+            assert steps[1].type == "apply_condition_preset"
+            assert steps[1].condition_id == "poisoned"
+            assert steps[1].operation == "remove"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_update_action(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -213,6 +263,97 @@ def test_update_action_rejects_id_change(monkeypatch) -> None:
                 {
                     "response_id": None,
                     "reason": "Action ID cannot be changed.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_action_rejects_unknown_mutation_path(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "bad-step",
+                    "type": "increment_value",
+                    "target": "caster",
+                    "path": ["parent_id"],
+                    "amount": _formula_payload("1"),
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": action,
+                },
+            )
+
+            assert StateSingleton.getState().actions == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Action mutation path 'parent_id' is not supported.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_action_rejects_target_step_authoring(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "bad-target",
+                    "type": "decrement_value",
+                    "target": "target",
+                    "path": ["health"],
+                    "amount": _formula_payload("1"),
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": action,
+                },
+            )
+
+            assert StateSingleton.getState().actions == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Action step target 'target' is not supported for MVP; "
+                        "use 'caster'."
+                    ),
                     "type": "error",
                     "request_id": "req-1",
                 }

@@ -1,29 +1,18 @@
 from __future__ import annotations
 
-import ast
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from backend.core.transport import PatchOp
+from backend.features.formula_runtime.service import (
+    evaluate_numeric_formula,
+    normalize_numeric_result,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
-
-_ALLOWED_BINARY_OPERATORS = {
-    ast.Add: lambda left, right: left + right,
-    ast.Sub: lambda left, right: left - right,
-    ast.Mult: lambda left, right: left * right,
-    ast.Div: lambda left, right: left / right,
-    ast.FloorDiv: lambda left, right: left // right,
-    ast.Mod: lambda left, right: left % right,
-    ast.Pow: lambda left, right: left**right,
-}
-_ALLOWED_UNARY_OPERATORS = {
-    ast.UAdd: lambda value: value,
-    ast.USub: lambda value: -value,
-}
 
 
 @dataclass
@@ -51,39 +40,8 @@ class _ResolvedTarget:
     target_id: str | None
 
 
-def _numeric_result(value: float | int) -> float | int:
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    return value
-
-
-def _evaluate_math_node(node: ast.AST) -> float | int:
-    if isinstance(node, ast.Expression):
-        return _evaluate_math_node(node.body)
-    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
-        return node.value
-    if isinstance(node, ast.BinOp):
-        operator_type = type(node.op)
-        operator = _ALLOWED_BINARY_OPERATORS.get(operator_type)
-        if operator is None:
-            raise ValueError(f"Unsupported formula operator: {operator_type.__name__}")
-        return operator(
-            _evaluate_math_node(node.left),
-            _evaluate_math_node(node.right),
-        )
-    if isinstance(node, ast.UnaryOp):
-        operator_type = type(node.op)
-        operator = _ALLOWED_UNARY_OPERATORS.get(operator_type)
-        if operator is None:
-            raise ValueError(f"Unsupported formula operator: {operator_type.__name__}")
-        return operator(_evaluate_math_node(node.operand))
-    raise ValueError(f"Unsupported formula expression: {node.__class__.__name__}")
-
-
 def _evaluate_formula(root: Any, augmentation: Augmentation) -> float | int:
-    expanded_formula = augmentation.effect.value.expand_formula(root)
-    parsed = ast.parse(expanded_formula, mode="eval")
-    return _numeric_result(_evaluate_math_node(parsed))
+    return evaluate_numeric_formula(root, augmentation.effect.value)
 
 
 def _resolve_target(
@@ -165,15 +123,15 @@ def _apply_operation(
     operation: str,
 ) -> int | float:
     if operation == "add":
-        return _numeric_result(current_value + modifier)
+        return normalize_numeric_result(current_value + modifier)
     if operation == "subtract":
-        return _numeric_result(current_value - modifier)
+        return normalize_numeric_result(current_value - modifier)
     if operation == "multiply":
-        return _numeric_result(current_value * modifier)
+        return normalize_numeric_result(current_value * modifier)
     if operation == "divide":
         if modifier == 0:
             raise ValueError("Augmentation divide operation cannot use zero.")
-        return _numeric_result(current_value / modifier)
+        return normalize_numeric_result(current_value / modifier)
     if operation == "set":
         return modifier
     raise ValueError(f"Unsupported augmentation operation '{operation}'.")
@@ -185,15 +143,15 @@ def _remove_operation(
     operation: str,
 ) -> int | float:
     if operation == "add":
-        return _numeric_result(current_value - modifier)
+        return normalize_numeric_result(current_value - modifier)
     if operation == "subtract":
-        return _numeric_result(current_value + modifier)
+        return normalize_numeric_result(current_value + modifier)
     if operation == "multiply":
         if modifier == 0:
             raise ValueError("Cannot remove a multiply-by-zero augmentation.")
-        return _numeric_result(current_value / modifier)
+        return normalize_numeric_result(current_value / modifier)
     if operation == "divide":
-        return _numeric_result(current_value * modifier)
+        return normalize_numeric_result(current_value * modifier)
     if operation == "set":
         raise ValueError("Set augmentations cannot be removed without stored base state.")
     raise ValueError(f"Unsupported augmentation operation '{operation}'.")
@@ -287,6 +245,21 @@ def _apply_augmentation_mutation(
     )
 
 
+def apply_augmentation_mutation(
+    state: State,
+    augmentation_id: str,
+    *,
+    sheet_id: str | None = None,
+    instance_id: str | None = None,
+) -> tuple[AugmentationMutationResult, list[PatchOp]]:
+    return _apply_augmentation_mutation(
+        state,
+        augmentation_id,
+        sheet_id=sheet_id,
+        instance_id=instance_id,
+    )
+
+
 def _remove_augmentation_mutation(
     state: State,
     augmentation_id: str,
@@ -345,6 +318,21 @@ def _remove_augmentation_mutation(
             value=next_value,
         ),
         ops,
+    )
+
+
+def remove_augmentation_mutation(
+    state: State,
+    augmentation_id: str,
+    *,
+    sheet_id: str | None = None,
+    instance_id: str | None = None,
+) -> tuple[AugmentationMutationResult, list[PatchOp]]:
+    return _remove_augmentation_mutation(
+        state,
+        augmentation_id,
+        sheet_id=sheet_id,
+        instance_id=instance_id,
     )
 
 
@@ -516,6 +504,19 @@ def _apply_condition_preset_mutation(
     )
 
 
+def apply_condition_preset_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    condition_id: str,
+) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
+    return _apply_condition_preset_mutation(
+        state,
+        instance_id=instance_id,
+        condition_id=condition_id,
+    )
+
+
 def _condition_augmentation_ids_for_instance(
     state: State,
     *,
@@ -596,6 +597,19 @@ def _remove_condition_preset_mutation(
             augmentation_results=results,
         ),
         ops,
+    )
+
+
+def remove_condition_preset_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    condition_id: str,
+) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
+    return _remove_condition_preset_mutation(
+        state,
+        instance_id=instance_id,
+        condition_id=condition_id,
     )
 
 

@@ -231,3 +231,45 @@ def test_update_formula_rejects_id_change(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_create_formula_rejects_unknown_alias_path(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_formula",
+                    "formula": {
+                        "id": "bad_formula",
+                        "formula": _formula_payload(
+                            "@bad",
+                            [{"name": "bad", "path": ["stats", "missing"]}],
+                        ),
+                    },
+                },
+            )
+
+            assert StateSingleton.getState().formulas == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Formula alias 'bad' references unsupported path "
+                        "'stats.missing'."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())

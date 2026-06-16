@@ -30,6 +30,7 @@ from backend.features.sheet_admin.items.schema import (
     UpsertItemAugmentationTemplate,
 )
 from backend.features.sheet_admin.sheets.schema import (
+    CreateInstancedSheet,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
@@ -53,8 +54,11 @@ from backend.features.sheet_access.schema import (
 )
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_sync.schema import ResyncState
-from backend.features.variable_registry.schema import GetVariableRegistry
-from backend.protocol.state_schema import BackendStateSnapshotPayload
+from backend.features.variable_registry.schema import (
+    GetActionFormulaAuthoringMetadata,
+    GetVariableRegistry,
+)
+from backend.protocol.state_schema import ActionStepPayload, BackendStateSnapshotPayload
 
 
 class ProtocolModel(BaseModel):
@@ -114,16 +118,76 @@ class VariablePathMetadataEvent(ProtocolModel):
     label: str
     root: Literal["state", "sheet", "instance"]
     path: list[str]
-    value_type: Literal["number", "formula", "resource"]
+    value_type: Literal["number", "percent", "formula", "resource"]
     editable_roles: list[Literal["unauthenticated", "player", "dm"]]
     formula_backed: bool = False
     description: str = ""
+    shortcuts: list[str] | None = None
 
 
 class VariableRegistryEvent(ProtocolModel):
     response_id: str | None = None
     variables: list[VariablePathMetadataEvent]
     type: Literal["variable_registry"] = "variable_registry"
+    request_id: str | None = None
+
+
+class AuthoringVariablePathMetadataEvent(ProtocolModel):
+    key: str
+    label: str
+    root: Literal["state", "sheet", "instance"]
+    path: list[str]
+    value_type: Literal["number", "percent", "formula", "resource"]
+    editable_roles: list[Literal["unauthenticated", "player", "dm"]]
+    formula_backed: bool = False
+    description: str = ""
+    shortcuts: list[str] | None = None
+    formula_reference_allowed: bool = True
+    action_mutation_allowed: bool = False
+
+
+class FormulaAliasMetadataEvent(ProtocolModel):
+    name: str
+    key: str
+    root: Literal["state", "sheet", "instance"]
+    path: list[str]
+
+
+class ActionStepAuthoringMetadataEvent(ProtocolModel):
+    type: str
+    label: str
+    category: Literal["roll20_output", "bounded_mutation", "semantic_mutation"]
+    allowed_targets: list[Literal["caster", "target"]]
+    formula_fields: list[str]
+    path_catalog: Literal[
+        "none",
+        "variable_mutation_paths",
+        "proficiency_bridges",
+        "augmentation_records",
+        "condition_presets",
+    ]
+
+
+class ActionPresetTemplateEvent(ProtocolModel):
+    id: str
+    label: str
+    category: Literal["healing", "resource"]
+    description: str
+    steps: list[ActionStepPayload]
+    editable_formula_fields: list[str]
+
+
+class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
+    response_id: str | None = None
+    variables: list[AuthoringVariablePathMetadataEvent]
+    formula_roots: list[Literal["state", "sheet", "instance"]]
+    action_mutation_roots: list[Literal["state", "sheet", "instance"]]
+    formula_aliases: list[FormulaAliasMetadataEvent]
+    action_steps: list[ActionStepAuthoringMetadataEvent]
+    action_preset_templates: list[ActionPresetTemplateEvent]
+    type: Literal[
+        "action_formula_authoring_metadata"
+    ] = "action_formula_authoring_metadata"
     request_id: str | None = None
 
 
@@ -162,6 +226,7 @@ ApplicationRequest = Annotated[
     | CreateSheet
     | UpdateSheet
     | DeleteSheet
+    | CreateInstancedSheet
     | CreateSheetActionBridge
     | UpdateSheetActionBridge
     | DeleteSheetActionBridge
@@ -175,6 +240,7 @@ ApplicationRequest = Annotated[
     | RemoveItemAugmentationTemplate
     | SetSheetBaseStat
     | SetSheetFormulaStat
+    | GetActionFormulaAuthoringMetadata
     | GetVariableRegistry
     | PerformAction,
     Field(discriminator="type"),
@@ -186,6 +252,7 @@ ServerEvent = Annotated[
     | StateSnapshotEvent
     | StatePatchEvent
     | ActionExecutedEvent
+    | ActionFormulaAuthoringMetadataEvent
     | VariableRegistryEvent
     | SheetAccessCodesEvent,
     Field(discriminator="type"),

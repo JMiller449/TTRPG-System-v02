@@ -19,6 +19,9 @@ class ItemDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     description: str = ""
+    world_anvil_url: str = ""
+    gm_notes: str = ""
+    gm_special_properties: str = ""
     price: str = ""
     weight: str = ""
     stat_augmentations: list[StatAugmentationPayload] = Field(default_factory=list)

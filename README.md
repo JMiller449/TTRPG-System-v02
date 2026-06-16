@@ -21,7 +21,7 @@ Backend-first TTRPG system with authoritative state, websocket-driven gameplay, 
 - Registry-backed public app websocket routes for auth, runtime actions, chat, and resync
 - Generated frontend protocol types and route-contract metadata sourced from backend route registration
 - Basic runtime support for:
-  - rolling basic checks
+  - baseline checks represented as authored actions
   - performing authored actions
 - Firefox extension that connects to the backend on Roll20 editor pages and sends chat messages into Roll20
 - Roll20 chat acts as the table play log; the app is not keeping a second authoritative roll log.

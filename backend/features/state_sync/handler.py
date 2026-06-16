@@ -12,15 +12,24 @@ async def handle_request(session: WebSocketSession, request: ResyncState) -> Non
     if request.last_seen_version is None:
         await websocket_sessions.send(
             session,
-            await service.state_sync_service.snapshot(request_id=request.request_id),
+            await service.state_sync_service.snapshot(
+                request_id=request.request_id,
+                role=session.role,
+            ),
         )
         return
 
-    replay = await service.state_sync_service.replay_since(request.last_seen_version)
+    replay = await service.state_sync_service.replay_since(
+        request.last_seen_version,
+        role=session.role,
+    )
     if replay is None or not replay:
         await websocket_sessions.send(
             session,
-            await service.state_sync_service.snapshot(request_id=request.request_id),
+            await service.state_sync_service.snapshot(
+                request_id=request.request_id,
+                role=session.role,
+            ),
         )
         return
 

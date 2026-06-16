@@ -25,6 +25,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "deleteItem"' in output
     assert '"type": "create_sheet"' in output
     assert '"clientNamespace": "sheetAdminSheets"' in output
+    assert '"type": "create_instanced_sheet"' in output
+    assert '"clientMethodName": "createInstancedSheet"' in output
     assert '"clientMethodName": "deleteSheet"' in output
     assert '"type": "create_sheet_action_bridge"' in output
     assert '"clientNamespace": "sheetActionBridges"' in output
@@ -42,6 +44,10 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientNamespace": "variableRegistry"' in output
     assert '"clientMethodName": "getVariableRegistry"' in output
     assert "export type VariableRegistryEvent" in output
+    assert '"type": "get_action_formula_authoring_metadata"' in output
+    assert '"clientNamespace": "authoringMetadata"' in output
+    assert '"clientMethodName": "getActionFormulaAuthoringMetadata"' in output
+    assert "export type ActionFormulaAuthoringMetadataEvent" in output
     assert '"type": "generate_sheet_access_code"' in output
     assert '"clientNamespace": "sheetAccess"' in output
     assert '"clientMethodName": "getSheetAccessCodes"' in output
@@ -52,3 +58,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "upsert_item_augmentation_template"' in output
     assert '"clientNamespace": "itemAugmentations"' in output
     assert '"clientMethodName": "removeItemAugmentationTemplate"' in output
+    assert "export type ApplyAugmentationActionStepPayload" in output
+    assert "export type ApplyConditionPresetActionStepPayload" in output
+    assert '"augmentation_records" | "condition_presets"' in output
+    assert "export type ActionPresetTemplateEvent" in output
+    assert '"action_preset_templates": ActionPresetTemplateEvent[]' in output
+    assert "export type ResistancesPayload" in output
+    assert '"resistances"?: ResistancesPayload' in output
+    assert '"value_type": "number" | "percent" | "formula" | "resource"' in output

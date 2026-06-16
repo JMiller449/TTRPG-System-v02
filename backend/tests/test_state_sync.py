@@ -1,5 +1,6 @@
 import asyncio
 from copy import deepcopy
+from dataclasses import asdict
 
 from backend.features.state_sync import handler as state_sync_handler
 from backend.features.state_sync.schema import ResyncState
@@ -13,6 +14,7 @@ from backend.state.models.augmentation import (
 )
 from backend.state.models.formula import Formula
 from backend.state.models.sheet import Sheet
+from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -147,6 +149,49 @@ def _build_augmentation() -> Augmentation:
             ),
         ),
     )
+
+
+def test_state_round_trips_sheet_and_instance_resistances() -> None:
+    sheet = asdict(_build_sheet_state())
+    sheet["resistances"] = {
+        "resistance": 0.1,
+        "physical": 0.2,
+        "fire": 0.3,
+    }
+    state = State.from_dict(
+        {
+            "sheets": {
+                "mage_template": sheet,
+            },
+            "instanced_sheets": {
+                "mage_instance": {
+                    "parent_id": "mage_template",
+                    "health": 100,
+                    "mana": 20,
+                    "resistances": {
+                        "resistance": 0.05,
+                        "magical": 0.25,
+                        "fire": 0.4,
+                    },
+                    "augments": {},
+                },
+                "legacy_instance": {
+                    "parent_id": "mage_template",
+                    "health": 90,
+                    "mana": 10,
+                    "augments": {},
+                },
+            },
+        }
+    )
+
+    assert state.sheets["mage_template"].resistances.resistance == 0.1
+    assert state.sheets["mage_template"].resistances.physical == 0.2
+    assert state.sheets["mage_template"].resistances.fire == 0.3
+    assert state.instanced_sheets["mage_instance"].resistances.resistance == 0.05
+    assert state.instanced_sheets["mage_instance"].resistances.magical == 0.25
+    assert state.instanced_sheets["mage_instance"].resistances.fire == 0.4
+    assert state.instanced_sheets["legacy_instance"].resistances.fire == 0.0
 
 
 def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:

@@ -41,6 +41,9 @@ class Item:
     id: str
     name: str
     description: str
+    world_anvil_url: str
+    gm_notes: str
+    gm_special_properties: str
     price: str
     weight: str
     stat_augmentations: List[StatAugmentation]
@@ -52,6 +55,9 @@ class Item:
             id=raw["id"],
             name=raw["name"],
             description=raw["description"],
+            world_anvil_url=raw.get("world_anvil_url", ""),
+            gm_notes=raw.get("gm_notes", ""),
+            gm_special_properties=raw.get("gm_special_properties", ""),
             price=raw["price"],
             weight=raw["weight"],
             stat_augmentations=[

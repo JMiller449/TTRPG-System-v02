@@ -5,6 +5,10 @@ from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.actions.schema import (
     ActionDefinitionPayload,
+    DecrementValueActionStepPayload,
+    GainProficiencyUseActionStepPayload,
+    IncrementValueActionStepPayload,
+    NumericBoundsPayload,
     SendMessageActionStepPayload,
     SetValueActionStepPayload,
 )
@@ -15,21 +19,73 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.state_sync.service import state_sync_service
-from backend.state.models.action import Action, SendMessageStep, SetValueStep
+from backend.state.models.action import (
+    Action,
+    DecrementValueStep,
+    GainProficiencyUseStep,
+    IncrementValueStep,
+    SendMessageStep,
+    SetValueStep,
+)
 from backend.state.models.state import State
 
 
-def _build_step(step: SendMessageActionStepPayload | SetValueActionStepPayload):
+def _bounds_kwargs(step: NumericBoundsPayload) -> dict:
+    return {
+        "min_value": build_formula(step.min_value)
+        if step.min_value is not None
+        else None,
+        "max_value": build_formula(step.max_value)
+        if step.max_value is not None
+        else None,
+        "on_min_violation": step.on_min_violation,
+        "on_max_violation": step.on_max_violation,
+    }
+
+
+def _build_step(
+    step: (
+        SendMessageActionStepPayload
+        | SetValueActionStepPayload
+        | IncrementValueActionStepPayload
+        | DecrementValueActionStepPayload
+        | GainProficiencyUseActionStepPayload
+    ),
+):
     if isinstance(step, SendMessageActionStepPayload):
         return SendMessageStep(
             step_id=step.step_id,
             message=build_formula(step.message),
         )
-    return SetValueStep(
+    if isinstance(step, SetValueActionStepPayload):
+        return SetValueStep(
+            step_id=step.step_id,
+            target=step.target,
+            path=list(step.path),
+            value=build_formula(step.value),
+            **_bounds_kwargs(step),
+        )
+    if isinstance(step, IncrementValueActionStepPayload):
+        return IncrementValueStep(
+            step_id=step.step_id,
+            target=step.target,
+            path=list(step.path),
+            amount=build_formula(step.amount),
+            **_bounds_kwargs(step),
+        )
+    if isinstance(step, DecrementValueActionStepPayload):
+        return DecrementValueStep(
+            step_id=step.step_id,
+            target=step.target,
+            path=list(step.path),
+            amount=build_formula(step.amount),
+            **_bounds_kwargs(step),
+        )
+    return GainProficiencyUseStep(
         step_id=step.step_id,
         target=step.target,
-        path=list(step.path),
-        value=build_formula(step.value),
+        proficiency_id=step.proficiency_id,
+        amount=build_formula(step.amount),
     )
 
 

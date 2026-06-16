@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -8,8 +9,16 @@ from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
 from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
 from backend.features.state_sync.service import state_sync_service
-from backend.state.models.action import Action, SendMessageStep, SetValueStep
-from backend.state.models.sheet import Sheet
+from backend.state.models.action import (
+    Action,
+    DecrementValueStep,
+    GainProficiencyUseStep,
+    IncrementValueStep,
+    SendMessageStep,
+    SetValueStep,
+)
+from backend.state.models.formula import Formula
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
@@ -67,6 +76,54 @@ def get_sheet(sheet_id: str, state: State | None = None) -> Sheet:
     if sheet is None:
         raise ValueError(f"Sheet '{sheet_id}' does not exist.")
     return sheet
+
+
+@dataclass(frozen=True)
+class RuntimeActor:
+    actor_id: str
+    sheet_id: str
+    sheet: Sheet
+    instance: InstancedSheet | None = None
+
+    @property
+    def mutation_root(self) -> str:
+        if self.instance is None:
+            return "sheets"
+        return "instanced_sheets"
+
+
+class RuntimeFormulaContext:
+    def __init__(self, sheet: Sheet, instance: InstancedSheet | None) -> None:
+        self._sheet = sheet
+        self._instance = instance
+
+    def __getattr__(self, name: str) -> Any:
+        if self._instance is not None and hasattr(self._instance, name):
+            return getattr(self._instance, name)
+        return getattr(self._sheet, name)
+
+
+def resolve_runtime_actor(sheet_id: str, state: State | None = None) -> RuntimeActor:
+    current_state = _state() if state is None else state
+    sheet = current_state.sheets.get(sheet_id)
+    if sheet is not None:
+        return RuntimeActor(actor_id=sheet_id, sheet_id=sheet_id, sheet=sheet)
+
+    instance = current_state.instanced_sheets.get(sheet_id)
+    if instance is None:
+        raise ValueError(f"Sheet or instance '{sheet_id}' does not exist.")
+
+    parent_sheet = current_state.sheets.get(instance.parent_id)
+    if parent_sheet is None:
+        raise ValueError(
+            f"Instance '{sheet_id}' references missing parent sheet '{instance.parent_id}'."
+        )
+    return RuntimeActor(
+        actor_id=sheet_id,
+        sheet_id=instance.parent_id,
+        sheet=parent_sheet,
+        instance=instance,
+    )
 
 
 def _resolve_value_container(root: Any, path: list[str]) -> tuple[Any, str]:
@@ -127,9 +184,99 @@ def _resolve_action(
     return action
 
 
+def _evaluate_numeric_formula(formula_root: Any, formula: Formula) -> float | int:
+    expanded_formula = formula.expand_formula(formula_root)
+    parsed = ast.parse(expanded_formula, mode="eval")
+    return _numeric_result(_evaluate_math_node(parsed))
+
+
+def _validate_caster_target(target: str) -> None:
+    if target != "caster":
+        raise ValueError(f"Unsupported runtime action target '{target}'.")
+
+
+def _positive_int_amount(amount: float | int, *, label: str) -> int:
+    if amount <= 0:
+        raise ValueError(f"{label} must be greater than 0.")
+    if not isinstance(amount, int):
+        raise ValueError(f"{label} must be a whole number.")
+    return amount
+
+
+def _proficiency_bridge_key(actor: RuntimeActor, proficiency_id: str) -> str:
+    for bridge_key, bridge in actor.sheet.proficiencies.items():
+        if (
+            bridge_key == proficiency_id
+            or bridge.prof_id == proficiency_id
+            or bridge.relationship_id == proficiency_id
+        ):
+            return bridge_key
+    raise ValueError(
+        f"Sheet '{actor.sheet.id}' does not reference proficiency '{proficiency_id}'."
+    )
+
+
+def _numeric_path_value(root: Any, path: list[str], state_path: str) -> float | int:
+    container, leaf = _resolve_value_container(root, path)
+    if isinstance(container, dict):
+        if leaf not in container:
+            raise ValueError(f"State path {state_path} does not exist.")
+        current_value = container[leaf]
+    elif hasattr(container, leaf):
+        current_value = getattr(container, leaf)
+    else:
+        raise ValueError(f"State path {state_path} does not exist.")
+
+    if not isinstance(current_value, int | float):
+        raise ValueError(f"State path {state_path} is not numeric.")
+    return current_value
+
+
+def _target_root(actor: RuntimeActor) -> Sheet | InstancedSheet:
+    if actor.instance is None:
+        return actor.sheet
+    return actor.instance
+
+
+def _bounded_numeric_result(
+    value: float | int,
+    *,
+    formula_root: Any,
+    min_value: Formula | None,
+    max_value: Formula | None,
+    on_min_violation: str,
+    on_max_violation: str,
+    state_path: str,
+) -> float | int:
+    result = value
+    if min_value is not None:
+        minimum = _evaluate_numeric_formula(formula_root, min_value)
+        if result < minimum:
+            if on_min_violation == "reject":
+                raise ValueError(
+                    f"State path {state_path} would be below minimum {minimum}."
+                )
+            result = minimum
+
+    if max_value is not None:
+        maximum = _evaluate_numeric_formula(formula_root, max_value)
+        if result > maximum:
+            if on_max_violation == "reject":
+                raise ValueError(
+                    f"State path {state_path} would be above maximum {maximum}."
+                )
+            result = maximum
+
+    return _numeric_result(result)
+
+
+def _has_bounds(step: SetValueStep | IncrementValueStep | DecrementValueStep) -> bool:
+    return step.min_value is not None or step.max_value is not None
+
+
 async def perform_action(request: PerformAction) -> ActionExecuted:
-    sheet = get_sheet(request.sheet_id)
-    action = _resolve_action(sheet, request.action_id)
+    actor = resolve_runtime_actor(request.sheet_id)
+    action = _resolve_action(actor.sheet, request.action_id)
     steps = action.steps
 
     if any(isinstance(step, SendMessageStep) for step in steps):
@@ -137,9 +284,14 @@ async def perform_action(request: PerformAction) -> ActionExecuted:
             raise ValueError("Roll20 chat bridge is not connected.")
 
     def mutation(state: State) -> tuple[tuple[list[str], list[str]], list[Any]]:
-        current_sheet = get_sheet(request.sheet_id, state=state)
-        current_action = _resolve_action(current_sheet, request.action_id, state=state)
+        current_actor = resolve_runtime_actor(request.sheet_id, state=state)
+        current_action = _resolve_action(
+            current_actor.sheet, request.action_id, state=state
+        )
         current_steps = current_action.steps
+        formula_root = RuntimeFormulaContext(
+            current_actor.sheet, current_actor.instance
+        )
 
         applied_mutations: list[str] = []
         emitted_messages: list[str] = []
@@ -147,24 +299,113 @@ async def perform_action(request: PerformAction) -> ActionExecuted:
 
         for step in current_steps:
             if isinstance(step, SendMessageStep):
-                message = step.message.expand_formula(current_sheet)
+                message = step.message.expand_formula(formula_root)
                 emitted_messages.append(message)
                 continue
 
             if isinstance(step, SetValueStep):
-                if step.target != "caster":
-                    raise ValueError(
-                        f"Unsupported runtime action target '{step.target}'."
-                    )
-                expanded_formula = step.value.expand_formula(current_sheet)
-                parsed = ast.parse(expanded_formula, mode="eval")
-                result = _numeric_result(_evaluate_math_node(parsed))
+                _validate_caster_target(step.target)
+                result = _evaluate_numeric_formula(formula_root, step.value)
                 path = state_sync_service.join_path(
-                    "sheets", request.sheet_id, *step.path
+                    current_actor.mutation_root, current_actor.actor_id, *step.path
+                )
+                result = _bounded_numeric_result(
+                    result,
+                    formula_root=formula_root,
+                    min_value=step.min_value,
+                    max_value=step.max_value,
+                    on_min_violation=step.on_min_violation,
+                    on_max_violation=step.on_max_violation,
+                    state_path=path,
                 )
                 op = state_sync_service.set_mutation(state, path, result)
                 ops.append(op)
                 applied_mutations.append(".".join(step.path) + f"={result}")
+                continue
+
+            if isinstance(step, IncrementValueStep):
+                _validate_caster_target(step.target)
+                amount = _evaluate_numeric_formula(formula_root, step.amount)
+                path = state_sync_service.join_path(
+                    current_actor.mutation_root, current_actor.actor_id, *step.path
+                )
+                if _has_bounds(step):
+                    current_value = _numeric_path_value(
+                        _target_root(current_actor),
+                        step.path,
+                        path,
+                    )
+                    result = _bounded_numeric_result(
+                        current_value + amount,
+                        formula_root=formula_root,
+                        min_value=step.min_value,
+                        max_value=step.max_value,
+                        on_min_violation=step.on_min_violation,
+                        on_max_violation=step.on_max_violation,
+                        state_path=path,
+                    )
+                    op = state_sync_service.set_mutation(state, path, result)
+                    applied_mutations.append(".".join(step.path) + f"={result}")
+                    ops.append(op)
+                    continue
+
+                op = state_sync_service.increment_mutation(state, path, amount)
+                ops.append(op)
+                applied_mutations.append(".".join(step.path) + f"+={amount}")
+                continue
+
+            if isinstance(step, DecrementValueStep):
+                _validate_caster_target(step.target)
+                amount = _evaluate_numeric_formula(formula_root, step.amount)
+                path = state_sync_service.join_path(
+                    current_actor.mutation_root, current_actor.actor_id, *step.path
+                )
+                if _has_bounds(step):
+                    current_value = _numeric_path_value(
+                        _target_root(current_actor),
+                        step.path,
+                        path,
+                    )
+                    result = _bounded_numeric_result(
+                        current_value - amount,
+                        formula_root=formula_root,
+                        min_value=step.min_value,
+                        max_value=step.max_value,
+                        on_min_violation=step.on_min_violation,
+                        on_max_violation=step.on_max_violation,
+                        state_path=path,
+                    )
+                    op = state_sync_service.set_mutation(state, path, result)
+                    applied_mutations.append(".".join(step.path) + f"={result}")
+                    ops.append(op)
+                    continue
+
+                op = state_sync_service.decrement_mutation(state, path, amount)
+                ops.append(op)
+                applied_mutations.append(".".join(step.path) + f"-={amount}")
+                continue
+
+            if isinstance(step, GainProficiencyUseStep):
+                _validate_caster_target(step.target)
+                amount = _positive_int_amount(
+                    _evaluate_numeric_formula(formula_root, step.amount),
+                    label="Proficiency use gain amount",
+                )
+                bridge_key = _proficiency_bridge_key(
+                    current_actor, step.proficiency_id
+                )
+                path = state_sync_service.join_path(
+                    "sheets",
+                    current_actor.sheet_id,
+                    "proficiencies",
+                    bridge_key,
+                    "use_count",
+                )
+                op = state_sync_service.increment_mutation(state, path, amount)
+                ops.append(op)
+                applied_mutations.append(
+                    f"proficiencies.{bridge_key}.use_count+={amount}"
+                )
                 continue
 
             raise ValueError(

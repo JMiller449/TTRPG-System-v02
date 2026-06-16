@@ -11,6 +11,7 @@ from backend.protocol.socket import (
     AuthenticateResponseEvent,
     StatePatchEvent,
     StateSnapshotEvent,
+    VariableRegistryEvent,
 )
 
 
@@ -22,6 +23,14 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "SendRoll20ChatMessage",
         "ResyncState",
         "PerformAction",
+        "SetSheetBaseStat",
+        "SetSheetFormulaStat",
+        "GetVariableRegistry",
+        "CreateConditionPreset",
+        "UpdateConditionPreset",
+        "DeleteConditionPreset",
+        "UpsertItemAugmentationTemplate",
+        "RemoveItemAugmentationTemplate",
     }.issubset(model_names)
 
 
@@ -32,6 +41,7 @@ def test_request_registry_exposes_deduplicated_emitted_event_models() -> None:
     assert StatePatchEvent in emitted_models
     assert ActionExecutedEvent in emitted_models
     assert AuthenticateResponseEvent in emitted_models
+    assert VariableRegistryEvent in emitted_models
     assert emitted_models.count(StatePatchEvent) == 1
 
 
@@ -64,6 +74,73 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         ActionExecutedEvent,
         StatePatchEvent,
     )
+    assert contracts["set_sheet_base_stat"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminStats",
+            method_name="setSheetBaseStat",
+        )
+    )
+    assert contracts["set_sheet_base_stat"].minimum_role == "dm"
+    assert contracts["set_sheet_base_stat"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["set_sheet_formula_stat"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminStats",
+            method_name="setSheetFormulaStat",
+        )
+    )
+    assert contracts["set_sheet_formula_stat"].minimum_role == "dm"
+    assert contracts["set_sheet_formula_stat"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["get_variable_registry"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="variableRegistry",
+            method_name="getVariableRegistry",
+        )
+    )
+    assert contracts["get_variable_registry"].minimum_role == "player"
+    assert contracts["get_variable_registry"].emitted_event_models == (
+        VariableRegistryEvent,
+    )
+    assert contracts["create_condition_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="conditionPresets",
+            method_name="createConditionPreset",
+        )
+    )
+    assert contracts["create_condition_preset"].minimum_role == "dm"
+    assert contracts["create_condition_preset"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["update_condition_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="conditionPresets",
+            method_name="updateConditionPreset",
+        )
+    )
+    assert contracts["update_condition_preset"].minimum_role == "dm"
+    assert contracts["delete_condition_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="conditionPresets",
+            method_name="deleteConditionPreset",
+        )
+    )
+    assert contracts["delete_condition_preset"].minimum_role == "dm"
+    assert contracts["upsert_item_augmentation_template"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="itemAugmentations",
+            method_name="upsertItemAugmentationTemplate",
+        )
+    )
+    assert contracts["upsert_item_augmentation_template"].minimum_role == "dm"
+    assert contracts["upsert_item_augmentation_template"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["remove_item_augmentation_template"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="itemAugmentations",
+            method_name="removeItemAugmentationTemplate",
+        )
+    )
+    assert contracts["remove_item_augmentation_template"].minimum_role == "dm"
 
 
 def test_request_registry_rejects_duplicate_client_generation_metadata() -> None:

@@ -5,6 +5,13 @@ from backend.features.state_sync import handler as state_sync_handler
 from backend.features.state_sync.schema import ResyncState
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.service import state_sync_service
+from backend.state.models.augmentation import (
+    Augmentation,
+    AugmentationSource,
+    AugmentationTarget,
+    FormulaModifierEffect,
+)
+from backend.state.models.formula import Formula
 from backend.state.models.sheet import Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -115,6 +122,99 @@ def _build_sheet_state() -> Sheet:
             "actions": {},
         }
     )
+
+
+def _build_augmentation() -> Augmentation:
+    return Augmentation(
+        id="aug-1",
+        name="Flame Brand",
+        description="Adds fire damage to weapon attacks.",
+        source=AugmentationSource(
+            type="item",
+            id="flame_brand",
+            label="Flame Brand",
+        ),
+        scope="instance",
+        target=AugmentationTarget(
+            root="instance",
+            path=["weapon_damage_bonus"],
+        ),
+        effect=FormulaModifierEffect(
+            operation="add",
+            value=Formula(
+                aliases=None,
+                text="5",
+            ),
+        ),
+    )
+
+
+def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await state_sync_service.add(
+                "/augmentations/aug-1",
+                _build_augmentation(),
+                request_id="req-1",
+            )
+
+            assert "aug-1" in StateSingleton.getState().augmentations
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "add",
+                            "path": "/augmentations/aug-1",
+                            "value": {
+                                "id": "aug-1",
+                                "name": "Flame Brand",
+                                "source": {
+                                    "type": "item",
+                                    "id": "flame_brand",
+                                    "label": "Flame Brand",
+                                },
+                                "scope": "instance",
+                                "target": {
+                                    "root": "instance",
+                                    "path": ["weapon_damage_bonus"],
+                                },
+                                "effect": {
+                                    "operation": "add",
+                                    "value": {
+                                        "aliases": None,
+                                        "text": "5",
+                                    },
+                                    "type": "formula_modifier",
+                                },
+                                "description": "Adds fire damage to weapon attacks.",
+                                "active": True,
+                                "applied": False,
+                                "applied_target_id": None,
+                                "lifecycle": {
+                                    "duration": None,
+                                    "expires_at": None,
+                                    "removal_condition": None,
+                                },
+                            },
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:

@@ -100,7 +100,14 @@ class SendMessageStepPayload(ProtocolModel):
     type: Literal["send_message"]
 
 
-class SetValueStepPayload(ProtocolModel):
+class NumericBoundsPayload(ProtocolModel):
+    min_value: FormulaPayload | None = None
+    max_value: FormulaPayload | None = None
+    on_min_violation: Literal["clamp", "reject"] = "clamp"
+    on_max_violation: Literal["clamp", "reject"] = "clamp"
+
+
+class SetValueStepPayload(NumericBoundsPayload):
     step_id: str
     path: list[str]
     value: FormulaPayload
@@ -108,8 +115,36 @@ class SetValueStepPayload(ProtocolModel):
     type: Literal["set_value"]
 
 
+class IncrementValueStepPayload(NumericBoundsPayload):
+    step_id: str
+    path: list[str]
+    amount: FormulaPayload
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["increment_value"]
+
+
+class DecrementValueStepPayload(NumericBoundsPayload):
+    step_id: str
+    path: list[str]
+    amount: FormulaPayload
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["decrement_value"]
+
+
+class GainProficiencyUseStepPayload(ProtocolModel):
+    step_id: str
+    proficiency_id: str
+    amount: FormulaPayload
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["gain_proficiency_use"]
+
+
 ActionStepPayload = Annotated[
-    SendMessageStepPayload | SetValueStepPayload,
+    SendMessageStepPayload
+    | SetValueStepPayload
+    | IncrementValueStepPayload
+    | DecrementValueStepPayload
+    | GainProficiencyUseStepPayload,
     Field(discriminator="type"),
 ]
 
@@ -126,6 +161,65 @@ class StatAugmentationPayload(ProtocolModel):
     augmentation: FormulaPayload
 
 
+class ProficiencyPayload(ProtocolModel):
+    id: str
+    name: str
+    description: str
+
+
+class AugmentationSourcePayload(ProtocolModel):
+    type: Literal[
+        "item",
+        "action",
+        "spell",
+        "condition",
+        "ally_effect",
+        "manual",
+        "other",
+    ]
+    id: str | None = None
+    label: str | None = None
+
+
+class AugmentationTargetPayload(ProtocolModel):
+    root: Literal["state", "sheet", "instance"]
+    path: list[str]
+
+
+class FormulaModifierEffectPayload(ProtocolModel):
+    operation: Literal["add", "subtract", "multiply", "divide", "set"]
+    value: FormulaPayload
+    type: Literal["formula_modifier"] = "formula_modifier"
+
+
+AugmentationEffectPayload = Annotated[
+    FormulaModifierEffectPayload,
+    Field(discriminator="type"),
+]
+
+
+class AugmentationLifecyclePayload(ProtocolModel):
+    duration: str | None = None
+    expires_at: str | None = None
+    removal_condition: str | None = None
+
+
+class AugmentationPayload(ProtocolModel):
+    id: str
+    name: str
+    description: str = ""
+    source: AugmentationSourcePayload
+    scope: Literal["sheet", "instance"]
+    target: AugmentationTargetPayload
+    effect: AugmentationEffectPayload
+    active: bool = True
+    applied: bool = False
+    applied_target_id: str | None = None
+    lifecycle: AugmentationLifecyclePayload = Field(
+        default_factory=AugmentationLifecyclePayload
+    )
+
+
 class ItemPayload(ProtocolModel):
     id: str
     name: str
@@ -133,12 +227,16 @@ class ItemPayload(ProtocolModel):
     price: str
     weight: str
     stat_augmentations: list[StatAugmentationPayload]
+    augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 
-class ProficiencyPayload(ProtocolModel):
+class ConditionPresetPayload(ProtocolModel):
     id: str
     name: str
-    description: str
+    description: str = ""
+    visibility: Literal["public", "gm_only"] = "public"
+    augmentation_ids: list[str] = Field(default_factory=list)
+    augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 
 class BackendStateSnapshotPayload(ProtocolModel):
@@ -148,3 +246,5 @@ class BackendStateSnapshotPayload(ProtocolModel):
     actions: dict[str, ActionPayload] = Field(default_factory=dict)
     items: dict[str, ItemPayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)
+    augmentations: dict[str, AugmentationPayload] = Field(default_factory=dict)
+    condition_presets: dict[str, ConditionPresetPayload] = Field(default_factory=dict)

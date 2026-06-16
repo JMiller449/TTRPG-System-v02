@@ -45,12 +45,20 @@ Application websocket requests are discriminated by `type`.
 
 - `authenticate`
 - `resync_state`
+- `get_variable_registry`
 - `send_roll20_chat_message`
+- `create_condition_preset`
+- `update_condition_preset`
+- `delete_condition_preset`
+- `upsert_item_augmentation_template`
+- `remove_item_augmentation_template`
+- `set_sheet_base_stat`
+- `set_sheet_formula_stat`
 - `perform_action`
 
-Typed sheet-admin requests are not public websocket contracts yet. The old generic
-entity CRUD requests were removed so future admin APIs can be added on a clean,
-typed route surface.
+Only the typed sheet-admin routes listed above are public websocket contracts.
+The old generic entity CRUD requests were removed so future admin APIs can be
+added on a clean, typed route surface.
 
 ## Canonical Application Server Events
 
@@ -60,6 +68,7 @@ Application websocket responses/events are discriminated by `type`.
 - `state_snapshot`
 - `state_patch`
 - `action_executed`
+- `variable_registry`
 - `error`
 
 ## Bootstrap Flow
@@ -85,6 +94,8 @@ Top-level keys:
 - `actions`
 - `items`
 - `proficiencies`
+- `augmentations`
+- `condition_presets`
 
 The typed snapshot schema lives in [state_schema.py](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/backend/protocol/state_schema.py).
 

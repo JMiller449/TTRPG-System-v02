@@ -4,15 +4,29 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.formulas.service import build_formula
-from backend.features.sheet_admin.items.schema import ItemDefinitionPayload
+from backend.features.sheet_admin.items.schema import (
+    ItemDefinitionPayload,
+    RemoveItemAugmentationTemplate,
+    UpsertItemAugmentationTemplate,
+)
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
     UpdateEntity,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.state.models.augmentation import Augmentation
 from backend.state.models.item import Item, StatAugmentation
 from backend.state.models.state import State
+
+
+def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
+    if augmentation.target.root == "state":
+        raise ValueError("Item augmentation templates cannot target global state.")
+    if augmentation.scope != augmentation.target.root:
+        raise ValueError(
+            "Item augmentation template scope must match its relative target root."
+        )
 
 
 def _build_item(payload: ItemDefinitionPayload) -> Item:
@@ -28,6 +42,10 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
                 augmentation=build_formula(augmentation.augmentation),
             )
             for augmentation in payload.stat_augmentations
+        ],
+        augmentation_templates=[
+            Augmentation.from_dict(augmentation.model_dump(mode="json"))
+            for augmentation in payload.augmentation_templates
         ],
     )
 
@@ -103,5 +121,65 @@ async def delete_item(request: DeleteEntity) -> None:
         path = state_sync_service.join_path("items", request.entity_id)
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def upsert_item_augmentation_template(
+    request: UpsertItemAugmentationTemplate,
+) -> None:
+    augmentation = Augmentation.from_dict(request.augmentation.model_dump(mode="json"))
+    _validate_item_augmentation_template(augmentation)
+
+    def mutation(state: State) -> tuple[None, list]:
+        item = state.items.get(request.item_id)
+        if item is None:
+            raise ValueError(f"Item '{request.item_id}' does not exist.")
+
+        for index, current in enumerate(item.augmentation_templates):
+            if current.id == augmentation.id:
+                path = state_sync_service.join_path(
+                    "items",
+                    request.item_id,
+                    "augmentation_templates",
+                    str(index),
+                )
+                op = state_sync_service.set_mutation(state, path, augmentation)
+                return None, [op]
+
+        path = state_sync_service.join_path(
+            "items",
+            request.item_id,
+            "augmentation_templates",
+            "-",
+        )
+        op = state_sync_service.add_mutation(state, path, augmentation)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def remove_item_augmentation_template(
+    request: RemoveItemAugmentationTemplate,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        item = state.items.get(request.item_id)
+        if item is None:
+            raise ValueError(f"Item '{request.item_id}' does not exist.")
+
+        for index, current in enumerate(item.augmentation_templates):
+            if current.id == request.augmentation_id:
+                path = state_sync_service.join_path(
+                    "items",
+                    request.item_id,
+                    "augmentation_templates",
+                    str(index),
+                )
+                _, op = state_sync_service.remove_mutation(state, path)
+                return None, [op]
+
+        raise ValueError(
+            f"Item augmentation template '{request.augmentation_id}' does not exist."
+        )
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

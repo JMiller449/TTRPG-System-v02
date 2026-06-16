@@ -7,8 +7,22 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
 from backend.features.chat.schema import SendRoll20ChatMessage
+from backend.features.sheet_admin.conditions.schema import (
+    CreateConditionPreset,
+    DeleteConditionPreset,
+    UpdateConditionPreset,
+)
+from backend.features.sheet_admin.items.schema import (
+    RemoveItemAugmentationTemplate,
+    UpsertItemAugmentationTemplate,
+)
+from backend.features.sheet_admin.stats.schema import (
+    SetSheetBaseStat,
+    SetSheetFormulaStat,
+)
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_sync.schema import ResyncState
+from backend.features.variable_registry.schema import GetVariableRegistry
 from backend.protocol.state_schema import BackendStateSnapshotPayload
 
 
@@ -64,10 +78,36 @@ class ActionExecutedEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class VariablePathMetadataEvent(ProtocolModel):
+    key: str
+    label: str
+    root: Literal["state", "sheet", "instance"]
+    path: list[str]
+    value_type: Literal["number", "formula", "resource"]
+    editable_roles: list[Literal["unauthenticated", "player", "dm"]]
+    formula_backed: bool = False
+    description: str = ""
+
+
+class VariableRegistryEvent(ProtocolModel):
+    response_id: str | None = None
+    variables: list[VariablePathMetadataEvent]
+    type: Literal["variable_registry"] = "variable_registry"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
     | SendRoll20ChatMessage
+    | CreateConditionPreset
+    | UpdateConditionPreset
+    | DeleteConditionPreset
+    | UpsertItemAugmentationTemplate
+    | RemoveItemAugmentationTemplate
+    | SetSheetBaseStat
+    | SetSheetFormulaStat
+    | GetVariableRegistry
     | PerformAction,
     Field(discriminator="type"),
 ]
@@ -77,7 +117,8 @@ ServerEvent = Annotated[
     | AuthenticateResponseEvent
     | StateSnapshotEvent
     | StatePatchEvent
-    | ActionExecutedEvent,
+    | ActionExecutedEvent
+    | VariableRegistryEvent,
     Field(discriminator="type"),
 ]
 

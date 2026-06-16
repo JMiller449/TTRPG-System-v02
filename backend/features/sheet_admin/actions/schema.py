@@ -7,13 +7,20 @@ from pydantic import BaseModel, Field, model_validator
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
 
 
+class NumericBoundsPayload(BaseModel):
+    min_value: FormulaPayload | None = None
+    max_value: FormulaPayload | None = None
+    on_min_violation: Literal["clamp", "reject"] = "clamp"
+    on_max_violation: Literal["clamp", "reject"] = "clamp"
+
+
 class SendMessageActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["send_message"]
     message: FormulaPayload
 
 
-class SetValueActionStepPayload(BaseModel):
+class SetValueActionStepPayload(NumericBoundsPayload):
     step_id: str = Field(min_length=1)
     type: Literal["set_value"]
     target: Literal["caster", "target"] = "caster"
@@ -21,8 +28,36 @@ class SetValueActionStepPayload(BaseModel):
     value: FormulaPayload
 
 
+class IncrementValueActionStepPayload(NumericBoundsPayload):
+    step_id: str = Field(min_length=1)
+    type: Literal["increment_value"]
+    target: Literal["caster", "target"] = "caster"
+    path: list[str] = Field(min_length=1)
+    amount: FormulaPayload
+
+
+class DecrementValueActionStepPayload(NumericBoundsPayload):
+    step_id: str = Field(min_length=1)
+    type: Literal["decrement_value"]
+    target: Literal["caster", "target"] = "caster"
+    path: list[str] = Field(min_length=1)
+    amount: FormulaPayload
+
+
+class GainProficiencyUseActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["gain_proficiency_use"]
+    target: Literal["caster", "target"] = "caster"
+    proficiency_id: str = Field(min_length=1)
+    amount: FormulaPayload
+
+
 ActionStepPayload = Annotated[
-    SendMessageActionStepPayload | SetValueActionStepPayload,
+    SendMessageActionStepPayload
+    | SetValueActionStepPayload
+    | IncrementValueActionStepPayload
+    | DecrementValueActionStepPayload
+    | GainProficiencyUseActionStepPayload,
     Field(discriminator="type"),
 ]
 

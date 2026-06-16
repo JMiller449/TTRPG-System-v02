@@ -1,0 +1,242 @@
+import asyncio
+from copy import deepcopy
+
+from backend.protocol.socket import normalize_server_event
+from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.state import State
+from backend.state.store import DEFAULT_STATE, StateSingleton
+
+
+class FakeWebSocket:
+    def __init__(self) -> None:
+        self.accepted = False
+        self.sent_messages: list[dict] = []
+
+    async def accept(self) -> None:
+        self.accepted = True
+
+    async def send_json(self, payload: dict) -> None:
+        self.sent_messages.append(payload)
+
+    async def receive_text(self) -> str:
+        raise RuntimeError("receive_text not implemented for FakeWebSocket")
+
+
+def _reset_state() -> None:
+    StateSingleton._state = deepcopy(DEFAULT_STATE)
+
+
+def _augmentation_template() -> dict:
+    return {
+        "id": "poisoned-health-drain",
+        "name": "Poisoned Health Drain",
+        "description": "Manual health penalty while poisoned.",
+        "source": {
+            "type": "condition",
+            "id": "poisoned",
+            "label": "Poisoned",
+        },
+        "scope": "instance",
+        "target": {
+            "root": "instance",
+            "path": ["health"],
+        },
+        "effect": {
+            "type": "formula_modifier",
+            "operation": "subtract",
+            "value": {
+                "aliases": None,
+                "text": "2",
+            },
+        },
+        "active": True,
+        "applied": False,
+        "applied_target_id": None,
+        "lifecycle": {
+            "duration": None,
+            "expires_at": None,
+            "removal_condition": "Remove when poison is cured.",
+        },
+    }
+
+
+def _condition_payload() -> dict:
+    return {
+        "id": "poisoned",
+        "name": "Poisoned",
+        "description": "Ongoing poison effect.",
+        "visibility": "public",
+        "augmentation_ids": ["poisoned-penalty"],
+        "augmentation_templates": [_augmentation_template()],
+    }
+
+
+def test_state_round_trips_condition_presets() -> None:
+    state = State.from_dict(
+        {
+            "condition_presets": {
+                "poisoned": _condition_payload(),
+            }
+        }
+    )
+
+    condition = state.condition_presets["poisoned"]
+    assert condition.name == "Poisoned"
+    assert condition.visibility == "public"
+    assert condition.augmentation_ids == ["poisoned-penalty"]
+    assert condition.augmentation_templates[0].source.type == "condition"
+
+    assert state.to_dict()["condition_presets"]["poisoned"] == _condition_payload()
+
+
+def test_state_snapshot_protocol_accepts_condition_presets() -> None:
+    normalized = normalize_server_event(
+        {
+            "response_id": None,
+            "state": {
+                "sheets": {},
+                "instanced_sheets": {},
+                "formulas": {},
+                "actions": {},
+                "items": {},
+                "proficiencies": {},
+                "augmentations": {},
+                "condition_presets": {
+                    "poisoned": _condition_payload(),
+                },
+            },
+            "state_version": 4,
+            "type": "state_snapshot",
+            "request_id": "req-1",
+        }
+    )
+
+    assert normalized["state"]["condition_presets"]["poisoned"]["visibility"] == (
+        "public"
+    )
+    assert normalized["state"]["condition_presets"]["poisoned"][
+        "augmentation_templates"
+    ][0]["source"]["type"] == "condition"
+
+
+def test_dm_can_create_update_and_delete_condition_preset(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_condition_preset",
+                    "condition": _condition_payload(),
+                    "request_id": "client-id-ignored",
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_condition_preset",
+                    "condition_id": "poisoned",
+                    "condition_partial": {
+                        "description": "Updated poison description.",
+                        "visibility": "gm_only",
+                    },
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "delete_condition_preset",
+                    "condition_id": "poisoned",
+                },
+            )
+
+            assert "poisoned" not in StateSingleton.getState().condition_presets
+            assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
+            assert websocket.sent_messages[0]["ops"][0]["path"] == (
+                "/condition_presets/poisoned"
+            )
+            assert websocket.sent_messages[1]["ops"][0]["op"] == "set"
+            assert websocket.sent_messages[1]["ops"][0]["value"]["visibility"] == (
+                "gm_only"
+            )
+            assert websocket.sent_messages[2]["ops"][0] == {
+                "op": "remove",
+                "path": "/condition_presets/poisoned",
+                "value": None,
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_create_condition_preset(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_condition_preset",
+                    "condition": _condition_payload(),
+                },
+            )
+
+            assert StateSingleton.getState().condition_presets == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "This request requires an authenticated DM session.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_missing_condition_update_is_rejected(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_condition_preset",
+                    "condition_id": "missing",
+                    "condition_partial": {"name": "Missing"},
+                },
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Condition preset 'missing' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())

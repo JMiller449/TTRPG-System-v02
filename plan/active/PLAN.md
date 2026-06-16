@@ -203,7 +203,8 @@ Actions:
 - Actions execute against an explicit owning/current sheet instance; cross-sheet targets are not an app workflow.
 - Runtime parameters are allowed for predefined GM-configured options, currently just advantage/disadvantage.
 - Selected mode and overload alternatives are later work.
-- Resource costs, proficiency gain, damage/healing, and status/augmentation application are action steps.
+- Current-value changes such as resource costs, resource restores, damage, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
+- Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
 - Roll/check variants should be modeled as action steps or sheet presets, not as separate roll-type records.
 - Freeform situational modifiers are not MVP; common modifiers should become GM-authored actions/conditions, and one-off adjustments can be manual in Roll20.
 - Cooldowns and once-per-turn limits are not MVP because turn tracking is out of scope.
@@ -212,11 +213,10 @@ MVP action step types:
 
 - send Roll20 message
 - set variable
-- increment/decrement variable
+- increment/decrement variable with optional backend-enforced bounds
 - roll dice or emit Roll20 dice expression
 - compare against DC when needed
-- apply damage/healing to own/current instance
-- spend resource
+- reusable presets for damage, healing, resource spend, and resource restore composed from generic bounded mutation steps
 - gain proficiency
 - apply augmentation/status
 
@@ -313,30 +313,30 @@ Augmentations should:
 
 - be applied, reversible effects
 - have stable IDs
-- carry source metadata such as item, action, spell, condition, ally effect, or other origin
+- carry source metadata such as item, action, spell, condition, or other origin
 - indicate base-sheet or instance scope
 - target validated backend-owned paths or references
 - carry formula/effect payloads that the backend can evaluate or apply authoritatively
-- support item buffs, poison/status effects, ally buffs, gear/weapon effects, and future conditional effects
+- support item buffs, poison/status effects, gear/weapon effects, and future conditional effects
 - keep application, removal, stacking, and recomputation backend-authoritative
 - be directly applied/removed by GM, while players can only apply or adjust them through backend-approved actions for their allowed sheet/instance
 
-MVP can leave duration/expiry manual because turn counting is out of scope, but duration, expiry, and removal conditions should be explicit augmentation semantics later rather than implied by source type. Conditional augmentation logic is not MVP.
+MVP can leave duration/expiry manual because turn counting is out of scope, but duration, expiry, and removal conditions should be explicit augmentation semantics later rather than implied by source type. Conditional augmentation logic is not MVP. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
 
 ## 10. Roadmap
 
 ### Phase 7: General Augmentations
 
 - [ ] Replace item-owned `stat_augmentations` with a general augmentation model.
-- [ ] Model augmentations as applied, reversible effects.
-- [ ] Add stable identity and source metadata.
+- [x] Model augmentations as applied, reversible effects.
+- [x] Add stable identity and source metadata.
 - [ ] Move augmentation targeting to validated backend paths/references.
-- [ ] Add backend-evaluable formula/effect payload shape.
-- [ ] Keep application, removal, stacking, and recomputation backend-authoritative.
-- [ ] Implement augmentation effect hooks for gear, weapon, poison/status, and allied-buff contexts.
-- [ ] Finalize augmentation attach/update intents for gear and weapon items.
-- [ ] Reserve explicit duration/expiry/removal-condition fields for later lifecycle support.
-- [ ] Add augmentation state to authoritative sync once shape is ready.
+- [x] Add backend-evaluable formula/effect payload shape.
+- [x] Keep application, removal, stacking, and recomputation backend-authoritative.
+- [x] Implement current-instance condition/status augmentation hooks.
+- [x] Finalize augmentation attach/update intents for gear and weapon items.
+- [x] Reserve explicit duration/expiry/removal-condition fields for later lifecycle support.
+- [x] Add augmentation state to authoritative sync once shape is ready.
 - [ ] Prepare conditional augmentation support without exposing raw mutation.
 - [ ] Add frontend augmentation builder scaffold.
 - [ ] Add UI flow to attach augmentations to gear and weapons.
@@ -347,11 +347,11 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [ ] Replace handwritten frontend websocket builders with generated or centralized typed route helpers.
 - [ ] Add generated frontend request helpers for registered backend route contracts.
 - [ ] Add typed/semantic sheet admin routes for sheets, formulas, actions, items, variables, and bridges.
-- [ ] Add typed condition/status record routes or define conditions as augmentation presets before exposing condition authoring.
+- [x] Add typed condition/status record routes or define conditions as augmentation presets before exposing condition authoring.
 - [ ] Migrate sheet create/update, sheet instancing/spawn, item management, and action/formula state adoption onto typed backend-authoritative intent families.
-- [ ] Implement `sheet_admin/stats`.
+- [x] Implement `sheet_admin/stats`.
 - [ ] Decide whether proficiencies need dedicated admin CRUD or are managed only through actions plus GM correction.
-- [ ] Add variable registry/path metadata for formula authoring.
+- [x] Add variable registry/path metadata for formula authoring.
 - [ ] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.
 - [ ] Add common variable shortcuts.
 - [ ] Define baseline sheet checks as default action bridges instead of a dedicated `roll_basic_check` runtime intent.
@@ -359,7 +359,8 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [ ] Add stronger cross-entity validation for sheet/action/item/formula references.
 - [ ] Add runtime validation for sheet access/ownership and allowed sheet/instance focus.
 - [ ] Expand runtime steps beyond `send_message` and `set_value`.
-- [ ] Implement increment/decrement, spend resource, gain proficiency, apply damage/healing, and apply augmentation/status steps.
+- [ ] Implement bounded generic mutation options for increment/decrement/set steps, plus gain proficiency and augmentation/status steps.
+- [ ] Model damage, healing, resource spend, and resource restore as presets composed from generic bounded mutation steps.
 - [ ] Implement action execution against explicit sheet/instance IDs.
 - [ ] Implement backend roll resolution pipeline for preset quick actions where those actions become backend-resolved.
 - [ ] Implement weapon/equipment-driven attack modifiers on the backend when attack support is added.
@@ -431,19 +432,19 @@ MVP is done when:
 
 ### Backend Now
 
-- [ ] Introduce general augmentation model.
-- [ ] Define backend-evaluable augmentation formula/effect payload shape.
-- [ ] Reserve duration/expiry/removal-condition fields for later augmentation lifecycle support.
-- [ ] Implement augmentation application/removal/recomputation.
-- [ ] Add augmentation sync shape.
-- [ ] Implement stats/variable authoring route surface.
-- [ ] Add variable registry and valid path metadata.
-- [ ] Define condition/status backend shape as records or augmentation presets.
-- [ ] Implement augmentation effect hooks for gear, weapon, poison/status, and allied-buff contexts.
-- [ ] Finalize augmentation attach/update intents for gear and weapon items.
-- [ ] Expand action step execution.
-- [ ] Implement resource spend and proficiency gain as backend-authoritative steps.
-- [ ] Implement damage/healing calculator actions for own/current instance.
+- [x] Introduce general augmentation model.
+- [x] Define backend-evaluable augmentation formula/effect payload shape.
+- [x] Reserve duration/expiry/removal-condition fields for later augmentation lifecycle support.
+- [x] Implement augmentation application/removal/recomputation.
+- [x] Add augmentation sync shape.
+- [x] Implement stats/variable authoring route surface.
+- [x] Add variable registry and valid path metadata.
+- [x] Define condition/status backend shape as records or augmentation presets.
+- [x] Implement current-instance condition/status augmentation hooks.
+- [x] Finalize augmentation attach/update intents for gear and weapon items.
+- [x] Expand action step execution.
+- [x] Implement proficiency gain as a backend-authoritative step.
+- [x] Replace hardcoded resource/damage/healing action steps with bounded generic mutation options and presets.
 - [ ] Define role/permission rules for notes, equipment, stat edits, resource edits, and action execution.
 - [ ] Add generated sheet access codes and DM code visibility to sheet creation/assignment flows.
 - [ ] Add typed route contracts for sheet admin features and semantic bridge operations.

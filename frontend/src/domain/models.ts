@@ -53,10 +53,90 @@ export interface SetValueActionStep {
   path: string[];
   value: Formula;
   target?: "caster" | "target";
+  min_value?: Formula | null;
+  max_value?: Formula | null;
+  on_min_violation?: "clamp" | "reject";
+  on_max_violation?: "clamp" | "reject";
   type: "set_value";
 }
 
-export type ActionStep = SendMessageActionStep | SetValueActionStep;
+interface BoundedActionStep {
+  step_id: string;
+  path: string[];
+  amount: Formula;
+  target?: "caster" | "target";
+  min_value?: Formula | null;
+  max_value?: Formula | null;
+  on_min_violation?: "clamp" | "reject";
+  on_max_violation?: "clamp" | "reject";
+}
+
+export interface IncrementValueActionStep extends BoundedActionStep {
+  type: "increment_value";
+}
+
+export interface DecrementValueActionStep extends BoundedActionStep {
+  type: "decrement_value";
+}
+
+export type DamageType =
+  | "Arcane"
+  | "Slashing"
+  | "Bludgeoning"
+  | "Piercing"
+  | "Fire"
+  | "Water"
+  | "Earth"
+  | "Wind"
+  | "Light"
+  | "Dark"
+  | "Lightning"
+  | "Ice"
+  | "Time"
+  | "Gravity"
+  | "Psychic";
+
+export interface ResolveDamageActionStep {
+  step_id: string;
+  damage_type: DamageType;
+  amount: Formula;
+  target?: "caster" | "target";
+  type: "resolve_damage";
+}
+
+export interface GainProficiencyUseActionStep {
+  step_id: string;
+  proficiency_id: string;
+  amount: Formula;
+  target?: "caster" | "target";
+  type: "gain_proficiency_use";
+}
+
+export interface ApplyAugmentationActionStep {
+  step_id: string;
+  augmentation_id: string;
+  operation?: "apply" | "remove";
+  target?: "caster" | "target";
+  type: "apply_augmentation";
+}
+
+export interface ApplyConditionPresetActionStep {
+  step_id: string;
+  condition_id: string;
+  operation?: "apply" | "remove";
+  target?: "caster" | "target";
+  type: "apply_condition_preset";
+}
+
+export type ActionStep =
+  | SendMessageActionStep
+  | SetValueActionStep
+  | IncrementValueActionStep
+  | DecrementValueActionStep
+  | ResolveDamageActionStep
+  | GainProficiencyUseActionStep
+  | ApplyAugmentationActionStep
+  | ApplyConditionPresetActionStep;
 
 export interface ActionDefinition {
   id: string;
@@ -144,6 +224,7 @@ export interface Stats {
 export interface Sheet {
   id: string;
   name: string;
+  notes?: string;
   dm_only: boolean;
   xp_given_when_slayed: number;
   xp_cap: string;
@@ -156,6 +237,7 @@ export interface Sheet {
 
 export interface PersistentSheet {
   parent_id: string;
+  notes?: string;
   health: number;
   mana: number;
   augments: Record<string, Bridge>;
@@ -231,11 +313,6 @@ export interface EncounterPreset {
   name: string;
   entries: EncounterEntry[];
   updatedAt: string;
-}
-
-export interface SheetInventoryItem {
-  id: string;
-  itemTemplateId: string;
 }
 
 export type RollVisibility = "visible" | "hidden";

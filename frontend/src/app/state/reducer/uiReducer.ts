@@ -38,8 +38,6 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         pendingIntentIds: initialUiState.pendingIntentIds,
         intentFeedback: initialUiState.intentFeedback,
         localSheetNotes: initialUiState.localSheetNotes,
-        localSheetEquipment: initialUiState.localSheetEquipment,
-        localSheetActiveWeapon: initialUiState.localSheetActiveWeapon,
         localSheetStatOverrides: initialUiState.localSheetStatOverrides
       }));
     default:

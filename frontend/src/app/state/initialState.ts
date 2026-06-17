@@ -40,8 +40,6 @@ export const initialUiState: UIState = {
   pendingIntentIds: [],
   intentFeedback: [],
   localSheetNotes: {},
-  localSheetEquipment: {},
-  localSheetActiveWeapon: {},
   localSheetStatOverrides: {}
 };
 

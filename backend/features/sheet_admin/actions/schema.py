@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
+from backend.state.models.damage import DamageType
 
 
 class NumericBoundsPayload(BaseModel):
@@ -45,6 +46,14 @@ class DecrementValueActionStepPayload(NumericBoundsPayload):
     amount: FormulaPayload
 
 
+class ResolveDamageActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["resolve_damage"]
+    target: Literal["caster", "target"] = "caster"
+    damage_type: DamageType
+    amount: FormulaPayload
+
+
 class GainProficiencyUseActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["gain_proficiency_use"]
@@ -74,6 +83,7 @@ ActionStepPayload = Annotated[
     | SetValueActionStepPayload
     | IncrementValueActionStepPayload
     | DecrementValueActionStepPayload
+    | ResolveDamageActionStepPayload
     | GainProficiencyUseActionStepPayload
     | ApplyAugmentationActionStepPayload
     | ApplyConditionPresetActionStepPayload,

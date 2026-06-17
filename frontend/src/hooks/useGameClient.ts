@@ -6,6 +6,7 @@ import {
   ManagedGameClient,
   type ManagedGameClientOptions
 } from "@/infrastructure/ws/GameClient";
+import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { makeId } from "@/shared/utils/id";
 
 export interface GameClient {
@@ -13,6 +14,7 @@ export interface GameClient {
   disconnect: () => void;
   endSession: () => void;
   sendIntent: (intent: ClientIntent) => void;
+  sendProtocolRequest: (request: ProtocolApplicationRequest, label: string) => void;
   authenticate: (role: Role, token?: string) => void;
   authenticateWithCode: (code: string) => void;
   submitRoll: (request: RollRequest) => void;
@@ -85,6 +87,21 @@ export function useGameClient(): GameClient {
       }
       if (event.type === "snapshot") {
         dispatch({ type: "apply_snapshot", snapshot: event.snapshot });
+        if (event.requestId) {
+          const label = intentLabelMapRef.current[event.requestId] ?? "Intent";
+          delete intentLabelMapRef.current[event.requestId];
+          dispatch({
+            type: "push_intent_feedback",
+            item: {
+              id: makeId("feedback"),
+              intentId: event.requestId,
+              status: "success",
+              message: `${label} synced.`,
+              createdAt: new Date().toISOString()
+            }
+          });
+          dispatch({ type: "clear_intent", intentId: event.requestId });
+        }
         return;
       }
       if (event.type === "ack") {
@@ -156,6 +173,27 @@ export function useGameClient(): GameClient {
     client.sendIntent(intent);
   };
 
+  const sendProtocolRequest = (request: ProtocolApplicationRequest, label: string): void => {
+    const requestId = request.request_id ?? makeId("request");
+    const requestWithId = {
+      ...request,
+      request_id: requestId
+    } as ProtocolApplicationRequest;
+    intentLabelMapRef.current[requestId] = label;
+    dispatch({ type: "queue_intent", intentId: requestId });
+    dispatch({
+      type: "push_intent_feedback",
+      item: {
+        id: makeId("feedback"),
+        intentId: requestId,
+        status: "pending",
+        message: `${label} pending...`,
+        createdAt: new Date().toISOString()
+      }
+    });
+    client.sendProtocolRequest(requestWithId);
+  };
+
   const authenticate = (role: Role, token?: string): void => {
     client.authenticate(role, token);
   };
@@ -181,6 +219,7 @@ export function useGameClient(): GameClient {
     disconnect,
     endSession,
     sendIntent,
+    sendProtocolRequest,
     authenticate,
     authenticateWithCode,
     submitRoll

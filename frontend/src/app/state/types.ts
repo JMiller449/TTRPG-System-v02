@@ -9,7 +9,6 @@ import type {
   PersistentSheetPresentation,
   Role,
   Sheet,
-  SheetInventoryItem,
   SheetPresentation,
   StatKey,
 } from "@/domain/models";
@@ -65,8 +64,6 @@ export interface UIState {
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
   localSheetNotes: Record<string, string>;
-  localSheetEquipment: Record<string, SheetInventoryItem[]>;
-  localSheetActiveWeapon: Record<string, string | null>;
   localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
 
@@ -93,9 +90,6 @@ export type AppAction =
   | { type: "set_sheet_note"; sheetId: string; note: string }
   | { type: "upsert_item_template"; item: ItemTemplate }
   | { type: "remove_item_template"; itemId: string }
-  | { type: "add_sheet_equipment"; sheetId: string; entry: SheetInventoryItem }
-  | { type: "remove_sheet_equipment"; sheetId: string; inventoryItemId: string }
-  | { type: "set_sheet_active_weapon"; sheetId: string; inventoryItemId: string | null }
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

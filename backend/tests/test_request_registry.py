@@ -37,7 +37,9 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "CreateSheet",
         "UpdateSheet",
         "DeleteSheet",
+        "SetSheetNotes",
         "CreateInstancedSheet",
+        "SetInstancedSheetNotes",
         "CreateSheetActionBridge",
         "UpdateSheetActionBridge",
         "DeleteSheetActionBridge",
@@ -209,6 +211,14 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["delete_sheet"].minimum_role == "dm"
     assert contracts["delete_sheet"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["set_sheet_notes"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminNotes",
+            method_name="setSheetNotes",
+        )
+    )
+    assert contracts["set_sheet_notes"].minimum_role == "dm"
+    assert contracts["set_sheet_notes"].emitted_event_models == (StatePatchEvent,)
     assert contracts["create_instanced_sheet"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAdminSheets",
@@ -219,6 +229,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["create_instanced_sheet"].emitted_event_models == (
         StatePatchEvent,
         SheetAccessCodesEvent,
+    )
+    assert contracts["set_instanced_sheet_notes"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceNotes",
+            method_name="setInstancedSheetNotes",
+        )
+    )
+    assert contracts["set_instanced_sheet_notes"].minimum_role == "player"
+    assert contracts["set_instanced_sheet_notes"].emitted_event_models == (
+        StatePatchEvent,
     )
     assert contracts["create_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
@@ -237,6 +257,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["update_sheet_action_bridge"].minimum_role == "dm"
+    assert contracts["update_sheet_action_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["delete_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
@@ -244,6 +267,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["delete_sheet_action_bridge"].minimum_role == "dm"
+    assert contracts["delete_sheet_action_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["create_sheet_item_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetItemBridges",
@@ -261,6 +287,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["update_sheet_item_bridge"].minimum_role == "dm"
+    assert contracts["update_sheet_item_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["delete_sheet_item_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetItemBridges",
@@ -268,6 +297,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["delete_sheet_item_bridge"].minimum_role == "dm"
+    assert contracts["delete_sheet_item_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["create_sheet_proficiency_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetProficiencyBridges",
@@ -285,6 +317,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["update_sheet_proficiency_bridge"].minimum_role == "dm"
+    assert contracts["update_sheet_proficiency_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["delete_sheet_proficiency_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetProficiencyBridges",
@@ -292,6 +327,9 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["delete_sheet_proficiency_bridge"].minimum_role == "dm"
+    assert contracts["delete_sheet_proficiency_bridge"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["get_variable_registry"].client_generation == (
         ClientGenerationMetadata(
             namespace="variableRegistry",

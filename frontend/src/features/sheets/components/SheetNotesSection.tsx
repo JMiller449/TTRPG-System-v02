@@ -10,15 +10,14 @@ export function SheetNotesSection({
   return (
     <section className="character-sheet__section">
       <h4>Notes</h4>
-      <Field label="Player Notes">
+      <Field label="Instance Notes">
         <textarea
           value={note}
           onChange={(event) => onChange(event.target.value)}
           rows={5}
-          placeholder="Write quick player notes here..."
+          placeholder="Write quick notes here..."
         />
       </Field>
-      <p className="muted">Quick notes are local scaffold state until backend note persistence is finalized.</p>
     </section>
   );
 }

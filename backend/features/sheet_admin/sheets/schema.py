@@ -87,6 +87,7 @@ class ResistancesPayload(BaseModel):
 class SheetDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
+    notes: str = ""
     dm_only: bool = False
     xp_given_when_slayed: int = Field(ge=0)
     xp_cap: str = ""
@@ -114,14 +115,27 @@ class DeleteSheet(RequestModel):
     type: Literal["delete_sheet"]
 
 
+class SetSheetNotes(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    notes: str
+    type: Literal["set_sheet_notes"]
+
+
 class CreateInstancedSheet(RequestModel):
     instance_id: str = Field(min_length=1)
     parent_sheet_id: str = Field(min_length=1)
+    notes: str = ""
     health: float
     mana: int
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     generate_access_code: bool = False
     type: Literal["create_instanced_sheet"]
+
+
+class SetInstancedSheetNotes(RequestModel):
+    instance_id: str = Field(min_length=1)
+    notes: str
+    type: Literal["set_instanced_sheet_notes"]
 
 
 class CreateSheetActionBridge(RequestModel):

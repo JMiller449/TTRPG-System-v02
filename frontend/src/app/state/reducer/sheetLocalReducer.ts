@@ -12,43 +12,6 @@ export function sheetLocalReducer(state: AppState, action: AppAction): AppState 
         }
       }));
 
-    case "add_sheet_equipment": {
-      const current = state.uiState.localSheetEquipment[action.sheetId] ?? [];
-      return updateUiState(state, (uiState) => ({
-        ...uiState,
-        localSheetEquipment: {
-          ...uiState.localSheetEquipment,
-          [action.sheetId]: [...current, action.entry]
-        }
-      }));
-    }
-
-    case "remove_sheet_equipment": {
-      const current = state.uiState.localSheetEquipment[action.sheetId] ?? [];
-      const nextItems = current.filter((entry) => entry.id !== action.inventoryItemId);
-      const currentActive = state.uiState.localSheetActiveWeapon[action.sheetId] ?? null;
-      return updateUiState(state, (uiState) => ({
-        ...uiState,
-        localSheetEquipment: {
-          ...uiState.localSheetEquipment,
-          [action.sheetId]: nextItems
-        },
-        localSheetActiveWeapon: {
-          ...uiState.localSheetActiveWeapon,
-          [action.sheetId]: currentActive === action.inventoryItemId ? null : currentActive
-        }
-      }));
-    }
-
-    case "set_sheet_active_weapon":
-      return updateUiState(state, (uiState) => ({
-        ...uiState,
-        localSheetActiveWeapon: {
-          ...uiState.localSheetActiveWeapon,
-          [action.sheetId]: action.inventoryItemId
-        }
-      }));
-
     case "set_sheet_stat_overrides": {
       const sanitized = Object.fromEntries(
         Object.entries(action.overrides).filter((entry) => Number.isFinite(entry[1]))

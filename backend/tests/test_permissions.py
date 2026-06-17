@@ -8,6 +8,7 @@ from backend.core.permissions import (
 
 def test_permission_policy_defines_edit_and_execution_roles() -> None:
     assert permission_allowed_roles("notes_edit") == ("dm",)
+    assert permission_allowed_roles("instance_notes_edit") == ("player", "dm")
     assert permission_allowed_roles("equipment_edit") == ("dm",)
     assert permission_allowed_roles("proficiency_edit") == ("dm",)
     assert permission_allowed_roles("stat_edit") == ("dm",)
@@ -15,6 +16,7 @@ def test_permission_policy_defines_edit_and_execution_roles() -> None:
     assert permission_allowed_roles("action_execute") == ("player", "dm")
 
     assert permission_minimum_role("notes_edit") == "dm"
+    assert permission_minimum_role("instance_notes_edit") == "player"
     assert permission_minimum_role("equipment_edit") == "dm"
     assert permission_minimum_role("proficiency_edit") == "dm"
     assert permission_minimum_role("stat_edit") == "dm"
@@ -32,7 +34,9 @@ def test_permission_policy_rejects_unauthenticated_and_disallowed_roles() -> Non
 
     assert can_role("player", "action_execute")
     assert can_role("player", "resource_edit")
+    assert can_role("player", "instance_notes_edit")
     assert can_role("dm", "notes_edit")
+    assert can_role("dm", "instance_notes_edit")
     assert can_role("dm", "equipment_edit")
     assert can_role("dm", "proficiency_edit")
     assert can_role("dm", "stat_edit")
@@ -42,6 +46,10 @@ def test_permission_policy_rejects_unauthenticated_and_disallowed_roles() -> Non
 
 def test_permission_policy_exposes_specific_denial_reasons() -> None:
     assert permission_denied_reason("notes_edit") == "Only a DM can edit backend notes."
+    assert (
+        permission_denied_reason("instance_notes_edit")
+        == "Authenticate first to edit instance notes."
+    )
     assert permission_denied_reason("equipment_edit") == "Only a DM can edit equipment."
     assert (
         permission_denied_reason("proficiency_edit")

@@ -293,6 +293,46 @@ def test_create_sheet_proficiency_bridge_rejects_missing_sheet(monkeypatch) -> N
     asyncio.run(scenario())
 
 
+def test_create_sheet_proficiency_bridge_rejects_negative_use_count(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_proficiency_bridge",
+                    "sheet_id": "mage_template",
+                    "bridge": _bridge_payload(use_count=-1),
+                },
+            )
+
+            assert state.sheets["mage_template"].proficiencies == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "bridge.use_count: Input should be greater than or equal to 0"
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_create_sheet_proficiency_bridge_rejects_duplicate_relationship(
     monkeypatch,
 ) -> None:

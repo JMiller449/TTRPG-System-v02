@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
+from backend.state.models.damage import DamageType, ensure_damage_type
 from backend.state.models.formula import Formula
 
 ActionStepTarget = Literal["caster", "target"]
@@ -107,6 +108,24 @@ class DecrementValueStep:
 
 
 @dataclass
+class ResolveDamageStep:
+    step_id: str
+    damage_type: DamageType
+    amount: Formula
+    target: ActionStepTarget = "caster"
+    type: Literal["resolve_damage"] = "resolve_damage"
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ResolveDamageStep":
+        return cls(
+            step_id=raw["step_id"],
+            damage_type=ensure_damage_type(raw["damage_type"]),
+            amount=Formula.from_dict(raw["amount"]),
+            target=raw.get("target", "caster"),
+        )
+
+
+@dataclass
 class GainProficiencyUseStep:
     step_id: str
     proficiency_id: str
@@ -165,6 +184,7 @@ ActionStep = (
     | SetValueStep
     | IncrementValueStep
     | DecrementValueStep
+    | ResolveDamageStep
     | GainProficiencyUseStep
     | ApplyAugmentationStep
     | ApplyConditionPresetStep
@@ -194,6 +214,9 @@ class Action:
                 continue
             if step_type == "decrement_value":
                 steps.append(DecrementValueStep.from_dict(raw_step))
+                continue
+            if step_type == "resolve_damage":
+                steps.append(ResolveDamageStep.from_dict(raw_step))
                 continue
             if step_type == "gain_proficiency_use":
                 steps.append(GainProficiencyUseStep.from_dict(raw_step))

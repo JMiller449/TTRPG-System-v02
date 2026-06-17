@@ -59,6 +59,53 @@ describe("ManagedGameClient", () => {
     ]);
   });
 
+  it("sends protocol requests through the active transport", async () => {
+    const transport = new FakeTransport();
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      transportFactory: () => transport
+    });
+
+    await client.connect();
+    client.sendProtocolRequest({
+      type: "delete_sheet_item_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "bridge_1",
+      request_id: "req-1"
+    });
+
+    expect(transport.protocolRequests).toContainEqual({
+      type: "delete_sheet_item_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "bridge_1",
+      request_id: "req-1"
+    });
+  });
+
+  it("emits an error when protocol requests are sent while disconnected", () => {
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      transportFactory: () => new FakeTransport()
+    });
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    client.sendProtocolRequest({
+      type: "delete_sheet_item_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "bridge_1",
+      request_id: "req-1"
+    });
+
+    expect(events).toEqual([
+      {
+        type: "error",
+        requestId: "req-1",
+        message: "Cannot send request while disconnected"
+      }
+    ]);
+  });
+
   it("requests resync when an incremental state version skips ahead", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({

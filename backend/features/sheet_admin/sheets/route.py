@@ -19,6 +19,8 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
     DeleteSheet,
+    SetInstancedSheetNotes,
+    SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
     UpdateSheetProficiencyBridge,
@@ -68,6 +70,44 @@ class DeleteSheetRoute(RequestRoute[DeleteSheet]):
 
     async def handle(self, session: WebSocketSession, request: DeleteSheet) -> None:
         await service.delete_typed_sheet(request)
+
+
+class SetSheetNotesRoute(RequestRoute[SetSheetNotes]):
+    type_name = "set_sheet_notes"
+    request_model = SetSheetNotes
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("notes_edit")
+    permission_denied_reason = permission_denied_reason("notes_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminNotes",
+        method_name="setSheetNotes",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetSheetNotes,
+    ) -> None:
+        await service.set_sheet_notes(request)
+
+
+class SetInstancedSheetNotesRoute(RequestRoute[SetInstancedSheetNotes]):
+    type_name = "set_instanced_sheet_notes"
+    request_model = SetInstancedSheetNotes
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("instance_notes_edit")
+    permission_denied_reason = permission_denied_reason("instance_notes_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceNotes",
+        method_name="setInstancedSheetNotes",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetNotes,
+    ) -> None:
+        await service.set_instanced_sheet_notes(request)
 
 
 class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
@@ -262,6 +302,8 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateSheetRoute())
     registry.register(UpdateSheetRoute())
     registry.register(DeleteSheetRoute())
+    registry.register(SetSheetNotesRoute())
+    registry.register(SetInstancedSheetNotesRoute())
     registry.register(CreateInstancedSheetRoute())
     registry.register(CreateSheetActionBridgeRoute())
     registry.register(UpdateSheetActionBridgeRoute())

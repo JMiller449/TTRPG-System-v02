@@ -19,30 +19,10 @@ export function itemReducer(state: AppState, action: AppAction): AppState | unde
       const nextTemplates = { ...state.uiState.itemTemplates };
       delete nextTemplates[action.itemId];
 
-      const nextEquipment = Object.fromEntries(
-        Object.entries(state.uiState.localSheetEquipment).map(([sheetId, entries]) => [
-          sheetId,
-          entries.filter((entry) => entry.itemTemplateId !== action.itemId)
-        ])
-      );
-
-      const nextActiveWeapon = Object.fromEntries(
-        Object.entries(state.uiState.localSheetActiveWeapon).map(([sheetId, activeInventoryId]) => {
-          if (!activeInventoryId) {
-            return [sheetId, null];
-          }
-
-          const stillExists = (nextEquipment[sheetId] ?? []).some((entry) => entry.id === activeInventoryId);
-          return [sheetId, stillExists ? activeInventoryId : null];
-        })
-      );
-
       return updateUiState(state, (uiState) => ({
         ...uiState,
         itemTemplates: nextTemplates,
-        itemTemplateOrder: uiState.itemTemplateOrder.filter((id) => id !== action.itemId),
-        localSheetEquipment: nextEquipment,
-        localSheetActiveWeapon: nextActiveWeapon
+        itemTemplateOrder: uiState.itemTemplateOrder.filter((id) => id !== action.itemId)
       }));
     }
 

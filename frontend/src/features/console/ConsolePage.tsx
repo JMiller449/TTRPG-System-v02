@@ -14,7 +14,7 @@ export function ConsolePage({
   return (
     <main className={`app-grid-player-shell ${role === "gm" ? "app-grid-player-shell--gm" : ""}`}>
       <section className="player-console-main">
-        <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" />
+        <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
       </section>
       <section className="player-console-side">
         <RollPanel client={client} mode={role} />

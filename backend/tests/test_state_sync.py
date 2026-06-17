@@ -153,6 +153,7 @@ def _build_augmentation() -> Augmentation:
 
 def test_state_round_trips_sheet_and_instance_resistances() -> None:
     sheet = asdict(_build_sheet_state())
+    sheet["notes"] = "GM template notes."
     sheet["resistances"] = {
         "resistance": 0.1,
         "physical": 0.2,
@@ -166,6 +167,7 @@ def test_state_round_trips_sheet_and_instance_resistances() -> None:
             "instanced_sheets": {
                 "mage_instance": {
                     "parent_id": "mage_template",
+                    "notes": "Player instance notes.",
                     "health": 100,
                     "mana": 20,
                     "resistances": {
@@ -186,12 +188,15 @@ def test_state_round_trips_sheet_and_instance_resistances() -> None:
     )
 
     assert state.sheets["mage_template"].resistances.resistance == 0.1
+    assert state.sheets["mage_template"].notes == "GM template notes."
     assert state.sheets["mage_template"].resistances.physical == 0.2
     assert state.sheets["mage_template"].resistances.fire == 0.3
     assert state.instanced_sheets["mage_instance"].resistances.resistance == 0.05
+    assert state.instanced_sheets["mage_instance"].notes == "Player instance notes."
     assert state.instanced_sheets["mage_instance"].resistances.magical == 0.25
     assert state.instanced_sheets["mage_instance"].resistances.fire == 0.4
     assert state.instanced_sheets["legacy_instance"].resistances.fire == 0.0
+    assert state.instanced_sheets["legacy_instance"].notes == ""
 
 
 def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:

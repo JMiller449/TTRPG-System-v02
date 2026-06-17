@@ -93,6 +93,7 @@ class ResistancesPayload(ProtocolModel):
 class SheetPayload(ProtocolModel):
     id: str
     name: str
+    notes: str = ""
     dm_only: bool
     xp_given_when_slayed: int
     xp_cap: str
@@ -106,6 +107,7 @@ class SheetPayload(ProtocolModel):
 
 class InstancedSheetPayload(ProtocolModel):
     parent_id: str
+    notes: str = ""
     health: float
     mana: int
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
@@ -115,6 +117,25 @@ class InstancedSheetPayload(ProtocolModel):
 class FormulaDefinitionPayload(ProtocolModel):
     id: str
     formula: FormulaPayload
+
+
+DamageTypePayload = Literal[
+    "Arcane",
+    "Slashing",
+    "Bludgeoning",
+    "Piercing",
+    "Fire",
+    "Water",
+    "Earth",
+    "Wind",
+    "Light",
+    "Dark",
+    "Lightning",
+    "Ice",
+    "Time",
+    "Gravity",
+    "Psychic",
+]
 
 
 class SendMessageStepPayload(ProtocolModel):
@@ -154,6 +175,14 @@ class DecrementValueStepPayload(NumericBoundsPayload):
     type: Literal["decrement_value"]
 
 
+class ResolveDamageStepPayload(ProtocolModel):
+    step_id: str
+    damage_type: DamageTypePayload
+    amount: FormulaPayload
+    target: Literal["caster", "target"] = "caster"
+    type: Literal["resolve_damage"]
+
+
 class GainProficiencyUseStepPayload(ProtocolModel):
     step_id: str
     proficiency_id: str
@@ -183,6 +212,7 @@ ActionStepPayload = Annotated[
     | SetValueStepPayload
     | IncrementValueStepPayload
     | DecrementValueStepPayload
+    | ResolveDamageStepPayload
     | GainProficiencyUseStepPayload
     | ApplyAugmentationStepPayload
     | ApplyConditionPresetStepPayload,

@@ -175,7 +175,8 @@ export function adaptProtocolServerEvent(
             type: "snapshot",
             snapshot: projectSnapshot(backendState),
             stateVersion: event.state_version,
-            incremental: false
+            incremental: false,
+            requestId: event.request_id ?? undefined
           }
         ]
       };
@@ -203,7 +204,8 @@ export function adaptProtocolServerEvent(
             type: "snapshot",
             snapshot: projectSnapshot(backendState),
             stateVersion: event.state_version,
-            incremental: true
+            incremental: true,
+            requestId: event.request_id ?? undefined
           }
         ]
       };
@@ -225,6 +227,14 @@ export function adaptProtocolServerEvent(
             message: event.reason
           }
         ]
+      };
+
+    case "sheet_access_codes":
+    case "action_formula_authoring_metadata":
+    case "variable_registry":
+      return {
+        nextProtocolState: protocolState,
+        events: []
       };
   }
 }

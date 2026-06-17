@@ -59,10 +59,15 @@ def _resistances_payload(**overrides: float) -> dict:
     return payload
 
 
-def _sheet_payload(sheet_id: str = "mage_template", name: str = "Mage Template") -> dict:
+def _sheet_payload(
+    sheet_id: str = "mage_template",
+    name: str = "Mage Template",
+    notes: str = "",
+) -> dict:
     return {
         "id": sheet_id,
         "name": name,
+        "notes": notes,
         "dm_only": False,
         "xp_given_when_slayed": 25,
         "xp_cap": "A",
@@ -113,12 +118,13 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
                 websocket,
                 {
                     "type": "create_sheet",
-                    "sheet": _sheet_payload(),
+                    "sheet": _sheet_payload(notes="GM-only template notes."),
                 },
             )
 
             sheet = StateSingleton.getState().sheets["mage_template"]
             assert sheet.name == "Mage Template"
+            assert sheet.notes == "GM-only template notes."
             assert "baseline_check_strength" in StateSingleton.getState().actions
             assert "attack" in StateSingleton.getState().actions
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
@@ -148,6 +154,120 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             }
             assert websocket.sent_messages[0]["type"] == "state_patch"
             assert websocket.sent_messages[0]["request_id"] == "req-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_sheet_notes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_notes",
+                    "sheet_id": "mage_template",
+                    "notes": "Visible to the GM as backend template notes.",
+                },
+            )
+
+            assert state.sheets["mage_template"].notes == (
+                "Visible to the GM as backend template notes."
+            )
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "set",
+                            "path": "/sheets/mage_template/notes",
+                            "value": "Visible to the GM as backend template notes.",
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_set_sheet_notes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_notes",
+                    "sheet_id": "mage_template",
+                    "notes": "Player edit attempt.",
+                },
+            )
+
+            assert state.sheets["mage_template"].notes == ""
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Only a DM can edit backend notes.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_set_sheet_notes_rejects_missing_sheet(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_notes",
+                    "sheet_id": "missing",
+                    "notes": "No sheet exists.",
+                },
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Sheet 'missing' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
         finally:
             StateSingleton._state = original_state
 
@@ -356,6 +476,7 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
                     "type": "create_instanced_sheet",
                     "instance_id": "mage_instance",
                     "parent_sheet_id": "mage_template",
+                    "notes": "Instance table notes.",
                     "health": 100,
                     "mana": 20,
                 },
@@ -363,6 +484,7 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
 
             instance = state.instanced_sheets["mage_instance"]
             assert instance.parent_id == "mage_template"
+            assert instance.notes == "Instance table notes."
             assert instance.health == 100
             assert instance.mana == 20
             assert instance.resistances.fire == 0.0
@@ -376,6 +498,7 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
                             "path": "/instanced_sheets/mage_instance",
                             "value": {
                                 "parent_id": "mage_template",
+                                "notes": "Instance table notes.",
                                 "health": 100,
                                 "mana": 20,
                                 "resistances": _resistances_payload(),
@@ -385,6 +508,137 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
                     ],
                     "state_version": 1,
                     "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_can_set_instanced_sheet_notes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_notes",
+                    "instance_id": "mage_instance",
+                    "notes": "Player-authored instance notes.",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].notes == (
+                "Player-authored instance notes."
+            )
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "set",
+                            "path": "/instanced_sheets/mage_instance/notes",
+                            "value": "Player-authored instance notes.",
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_instanced_sheet_notes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "Player note.",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_notes",
+                    "instance_id": "mage_instance",
+                    "notes": "DM correction.",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].notes == "DM correction."
+            assert websocket.sent_messages[0]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/notes",
+                    "value": "DM correction.",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_set_instanced_sheet_notes_rejects_missing_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_notes",
+                    "instance_id": "missing",
+                    "notes": "No instance exists.",
+                },
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Instance 'missing' does not exist.",
+                    "type": "error",
                     "request_id": "req-1",
                 }
             ]

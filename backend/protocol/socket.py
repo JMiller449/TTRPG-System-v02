@@ -39,6 +39,8 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
     DeleteSheet,
+    SetInstancedSheetNotes,
+    SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
     UpdateSheetProficiencyBridge,
@@ -105,8 +107,8 @@ class StatePatchEvent(ProtocolModel):
 
 class ActionExecutedEvent(ProtocolModel):
     response_id: str | None = None
-    sheet_id: str
-    action_id: str
+    sheet_id: str = Field(min_length=1)
+    action_id: str = Field(min_length=1)
     applied_mutations: list[str]
     emitted_messages: list[str]
     type: Literal["action_executed"] = "action_executed"
@@ -226,6 +228,8 @@ ApplicationRequest = Annotated[
     | CreateSheet
     | UpdateSheet
     | DeleteSheet
+    | SetSheetNotes
+    | SetInstancedSheetNotes
     | CreateInstancedSheet
     | CreateSheetActionBridge
     | UpdateSheetActionBridge

@@ -1,13 +1,15 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from pydantic import Field
+
 from backend.core.transport import RequestModel
 
 
 class PerformAction(RequestModel):
-    sheet_id: str
-    action_id: str
-    target_sheet_id: str | None = None
+    sheet_id: str = Field(min_length=1)
+    action_id: str = Field(min_length=1)
+    target_sheet_id: str | None = Field(default=None, min_length=1)
     type: Literal["perform_action"]
 
 

@@ -26,6 +26,7 @@ class SheetSlayedBridge:
 class Sheet:
     id: str
     name: str
+    notes: str
     dm_only: bool  # toogle to hide from other users
     xp_given_when_slayed: int
     xp_cap: str
@@ -41,6 +42,7 @@ class Sheet:
         return cls(
             id=raw["id"],
             name=raw["name"],
+            notes=raw.get("notes", ""),
             dm_only=raw["dm_only"],
             xp_given_when_slayed=raw["xp_given_when_slayed"],
             xp_cap=raw["xp_cap"],
@@ -70,6 +72,7 @@ class Sheet:
 @dataclass
 class InstancedSheet:
     parent_id: str  # points to parent Sheet
+    notes: str
     health: float
     mana: int
     resistances: Resistances
@@ -79,6 +82,7 @@ class InstancedSheet:
     def from_dict(cls, raw: dict) -> "InstancedSheet":
         return cls(
             parent_id=raw["parent_id"],
+            notes=raw.get("notes", ""),
             health=raw["health"],
             mana=raw["mana"],
             resistances=Resistances.from_dict(raw.get("resistances")),

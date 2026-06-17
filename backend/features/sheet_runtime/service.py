@@ -21,8 +21,14 @@ from backend.state.models.action import (
     DecrementValueStep,
     GainProficiencyUseStep,
     IncrementValueStep,
+    ResolveDamageStep,
     SendMessageStep,
     SetValueStep,
+)
+from backend.state.models.damage import (
+    DamageType,
+    damage_type_category,
+    damage_type_resistance_key,
 )
 from backend.state.models.formula import Formula
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -131,12 +137,16 @@ def _resolve_action(
     sheet: Sheet,
     action_id: str,
     *,
+    actor_role: SessionRole,
     state: State | None = None,
 ) -> Action:
     current_state = _state() if state is None else state
     action = current_state.actions.get(action_id)
     if action is None:
         raise ValueError(f"Action '{action_id}' does not exist.")
+
+    if actor_role == "dm":
+        return action
 
     sheet_action_bridges = sheet.actions
     if sheet_action_bridges:
@@ -145,7 +155,9 @@ def _resolve_action(
                 return action
         raise ValueError(f"Sheet '{sheet.id}' does not reference action '{action_id}'.")
 
-    return action
+    raise ValueError(
+        f"Sheet '{sheet.id}' does not reference action '{action_id}'."
+    )
 
 
 def _validate_caster_target(target: str) -> None:
@@ -226,6 +238,41 @@ def _target_root(actor: RuntimeActor) -> Sheet | InstancedSheet:
     return actor.instance
 
 
+def _effective_damage_resistance(
+    actor: RuntimeActor,
+    damage_type: DamageType,
+) -> float:
+    category = damage_type_category(damage_type)
+    resistance_key = damage_type_resistance_key(damage_type)
+    resistance = (
+        actor.sheet.resistances.resistance
+        + getattr(actor.sheet.resistances, category)
+        + getattr(actor.sheet.resistances, resistance_key)
+    )
+    if actor.instance is not None:
+        resistance += (
+            actor.instance.resistances.resistance
+            + getattr(actor.instance.resistances, category)
+            + getattr(actor.instance.resistances, resistance_key)
+        )
+    return min(resistance, 1.0)
+
+
+def _resolve_damage_amount(
+    *,
+    actor: RuntimeActor,
+    formula_root: Any,
+    damage_type: DamageType,
+    amount: Formula,
+) -> float | int:
+    raw_damage = evaluate_numeric_formula(formula_root, amount)
+    if raw_damage < 0:
+        raise ValueError("Damage amount must be greater than or equal to 0.")
+    resistance = _effective_damage_resistance(actor, damage_type)
+    damage_taken = raw_damage - (raw_damage * resistance)
+    return normalize_numeric_result(max(0, damage_taken))
+
+
 def _bounded_numeric_result(
     value: float | int,
     *,
@@ -285,7 +332,11 @@ async def perform_action(
     actor_role: SessionRole = "player",
 ) -> ActionExecuted:
     actor = _resolve_allowed_runtime_actor(request, actor_role=actor_role)
-    action = _resolve_action(actor.sheet, request.action_id)
+    action = _resolve_action(
+        actor.sheet,
+        request.action_id,
+        actor_role=actor_role,
+    )
     steps = action.steps
 
     if any(isinstance(step, SendMessageStep) for step in steps):
@@ -295,7 +346,10 @@ async def perform_action(
     def mutation(state: State) -> tuple[tuple[list[str], list[str]], list[Any]]:
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
         current_action = _resolve_action(
-            current_actor.sheet, request.action_id, state=state
+            current_actor.sheet,
+            request.action_id,
+            actor_role=actor_role,
+            state=state,
         )
         current_steps = current_action.steps
         formula_root = RuntimeFormulaContext(
@@ -392,6 +446,40 @@ async def perform_action(
                 op = state_sync_service.decrement_mutation(state, path, amount)
                 ops.append(op)
                 applied_mutations.append(".".join(step.path) + f"-={amount}")
+                continue
+
+            if isinstance(step, ResolveDamageStep):
+                _validate_caster_target(step.target)
+                _required_instance_id(current_actor, "Resolve damage")
+                path = state_sync_service.join_path(
+                    "instanced_sheets",
+                    current_actor.actor_id,
+                    "health",
+                )
+                current_health = _numeric_path_value(
+                    _target_root(current_actor),
+                    ["health"],
+                    path,
+                )
+                damage_taken = _resolve_damage_amount(
+                    actor=current_actor,
+                    formula_root=formula_root,
+                    damage_type=step.damage_type,
+                    amount=step.amount,
+                )
+                result = normalize_numeric_result(
+                    max(0, current_health - damage_taken)
+                )
+                op = state_sync_service.set_mutation(state, path, result)
+                ops.append(op)
+                resistance = _effective_damage_resistance(
+                    current_actor,
+                    step.damage_type,
+                )
+                applied_mutations.append(
+                    f"health={result};damage={damage_taken};"
+                    f"type={step.damage_type};resistance={resistance}"
+                )
                 continue
 
             if isinstance(step, GainProficiencyUseStep):

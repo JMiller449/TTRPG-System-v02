@@ -26,6 +26,8 @@ from backend.features.sheet_admin.sheets.schema import (
     ItemBridgePayload,
     ProficiencyBridgePayload,
     ResistancesPayload,
+    SetInstancedSheetNotes,
+    SetSheetNotes,
     SheetDefinitionPayload,
     SheetActionBridgePayload,
     StatsPayload,
@@ -120,6 +122,7 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
     return Sheet(
         id=payload.id,
         name=payload.name,
+        notes=payload.notes,
         dm_only=payload.dm_only,
         xp_given_when_slayed=payload.xp_given_when_slayed,
         xp_cap=payload.xp_cap,
@@ -528,11 +531,40 @@ async def delete_typed_sheet(request: DeleteSheet) -> None:
     await _delete_sheet(request.sheet_id, request_id=request.request_id)
 
 
+async def set_sheet_notes(request: SetSheetNotes) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        if request.sheet_id not in state.sheets:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+
+        path = state_sync_service.join_path("sheets", request.sheet_id, "notes")
+        op = state_sync_service.set_mutation(state, path, request.notes)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_instanced_sheet_notes(request: SetInstancedSheetNotes) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        if request.instance_id not in state.instanced_sheets:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "notes",
+        )
+        op = state_sync_service.set_mutation(state, path, request.notes)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
 async def create_instanced_sheet(
     request: CreateInstancedSheet,
 ) -> SheetAccessCodes | None:
     instance = InstancedSheet(
         parent_id=request.parent_sheet_id,
+        notes=request.notes,
         health=request.health,
         mana=request.mana,
         resistances=_build_resistances(request.resistances),

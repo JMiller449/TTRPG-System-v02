@@ -130,6 +130,7 @@ describe("adaptProtocolServerEvent", () => {
         type: "snapshot",
         stateVersion: 0,
         incremental: false,
+        requestId: undefined,
         snapshot: {
           sheets: [protocolEvent.state.sheets?.sheet_1],
           persistentSheets: [
@@ -234,5 +235,6 @@ describe("adaptProtocolServerEvent", () => {
     }
     expect(snapshot.snapshot.sheets[0]?.id).toBe("template_1");
     expect(snapshot.snapshot.sheets[0]?.name).toBe("Goblin");
+    expect(snapshot.requestId).toBe("req-3");
   });
 });

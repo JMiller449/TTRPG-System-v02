@@ -127,6 +127,45 @@ def test_dm_can_create_action_with_augmentation_and_condition_steps(
     asyncio.run(scenario())
 
 
+def test_dm_can_create_action_with_resolve_damage_step(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "fire-damage",
+                    "type": "resolve_damage",
+                    "target": "caster",
+                    "damage_type": "Fire",
+                    "amount": _formula_payload("12"),
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": action,
+                },
+            )
+
+            step = StateSingleton.getState().actions["battle_cry"].steps[0]
+            assert step.type == "resolve_damage"
+            assert step.damage_type == "Fire"
+            assert step.amount.text == "12"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_update_action(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

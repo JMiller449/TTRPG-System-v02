@@ -105,6 +105,9 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "max_value",
     ]
     assert action_steps["send_message"].path_catalog == "none"
+    assert action_steps["resolve_damage"].category == "semantic_mutation"
+    assert action_steps["resolve_damage"].formula_fields == ["amount"]
+    assert action_steps["resolve_damage"].path_catalog == "none"
     assert action_steps["gain_proficiency_use"].path_catalog == "proficiency_bridges"
     assert action_steps["apply_augmentation"].category == "semantic_mutation"
     assert action_steps["apply_augmentation"].path_catalog == "augmentation_records"
@@ -206,6 +209,8 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
         assert variables["instance.resistances.fire"]["action_mutation_allowed"] is True
         assert aliases["mana"]["key"] == "instance.mana"
         assert action_steps["increment_value"]["allowed_targets"] == ["caster"]
+        assert action_steps["resolve_damage"]["formula_fields"] == ["amount"]
+        assert action_steps["resolve_damage"]["path_catalog"] == "none"
         assert set(action_presets) == {
             "heal_health",
             "spend_mana",

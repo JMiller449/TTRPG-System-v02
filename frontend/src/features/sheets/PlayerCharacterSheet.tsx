@@ -9,16 +9,19 @@ import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
+import type { GameClient } from "@/hooks/useGameClient";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
 export function PlayerCharacterSheet({
   mode = "player",
-  panelTitle
+  panelTitle,
+  client
 }: {
   mode?: "player" | "gm";
   panelTitle?: string;
+  client: GameClient;
 }): JSX.Element {
   const { dispatch } = useAppStore();
   const {
@@ -62,6 +65,32 @@ export function PlayerCharacterSheet({
   const showEquipmentSection = activeTab === "equipment";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
+  const canEditEquipment = mode === "gm";
+  const sheetId = detail.sheet?.id;
+
+  const updateEquipmentBridgeActive = (relationshipId: string, active: boolean): void => {
+    if (!sheetId) {
+      return;
+    }
+
+    const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
+    if (!bridge) {
+      return;
+    }
+
+    client.sendProtocolRequest(
+      {
+        type: "update_sheet_item_bridge",
+        sheet_id: sheetId,
+        relationship_id: relationshipId,
+        bridge: {
+          ...bridge,
+          active
+        }
+      },
+      active ? "Set active equipment" : "Clear active equipment"
+    );
+  };
 
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
@@ -134,41 +163,52 @@ export function PlayerCharacterSheet({
             activeWeaponLabel={activeWeaponLabel}
             equipment={equipment}
             activeWeaponId={activeWeaponId}
+            canEdit={canEditEquipment}
             onSelectedItemTemplateIdChange={setSelectedItemTemplateId}
             onAddSelectedTemplate={() => {
-              if (!selectedItem) {
+              if (!sheetId || !selectedItem) {
                 return;
               }
 
-              const nextEntry = {
-                id: makeId("inv"),
-                itemTemplateId: selectedItem.id
-              };
-
-              dispatch({ type: "add_sheet_equipment", sheetId: detail.instance.id, entry: nextEntry });
-
-              if (!activeWeaponId) {
-                dispatch({
-                  type: "set_sheet_active_weapon",
-                  sheetId: detail.instance.id,
-                  inventoryItemId: nextEntry.id
-                });
-              }
+              const relationshipId = makeId("item_bridge");
+              client.sendProtocolRequest(
+                {
+                  type: "create_sheet_item_bridge",
+                  sheet_id: sheetId,
+                  bridge: {
+                    relationship_id: relationshipId,
+                    item_id: selectedItem.id,
+                    count: 1,
+                    active: !activeWeaponId
+                  }
+                },
+                "Add equipment"
+              );
             }}
-            onToggleActiveWeapon={(inventoryItemId) =>
-              dispatch({
-                type: "set_sheet_active_weapon",
-                sheetId: detail.instance.id,
-                inventoryItemId: activeWeaponId === inventoryItemId ? null : inventoryItemId
-              })
-            }
-            onRemoveInventoryItem={(inventoryItemId) =>
-              dispatch({
-                type: "remove_sheet_equipment",
-                sheetId: detail.instance.id,
-                inventoryItemId
-              })
-            }
+            onToggleActiveWeapon={(relationshipId) => {
+              if (activeWeaponId === relationshipId) {
+                updateEquipmentBridgeActive(relationshipId, false);
+                return;
+              }
+
+              if (activeWeaponId) {
+                updateEquipmentBridgeActive(activeWeaponId, false);
+              }
+              updateEquipmentBridgeActive(relationshipId, true);
+            }}
+            onRemoveInventoryItem={(relationshipId) => {
+              if (!sheetId) {
+                return;
+              }
+              client.sendProtocolRequest(
+                {
+                  type: "delete_sheet_item_bridge",
+                  sheet_id: sheetId,
+                  relationship_id: relationshipId
+                },
+                "Remove equipment"
+              );
+            }}
           />
         ) : null}
       </article>

@@ -513,6 +513,153 @@ def test_perform_action_rejects_missing_action(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_perform_action_rejects_blank_payload_ids(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "",
+                    "action_id": "",
+                    "target_sheet_id": "",
+                },
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "sheet_id: String should have at least 1 character; "
+                        "action_id: String should have at least 1 character; "
+                        "target_sheet_id: String should have at least 1 character"
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_perform_unassigned_action(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions = {}
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["unassigned"] = Action.from_dict(
+                {
+                    "id": "unassigned",
+                    "name": "Unassigned",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("1"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "unassigned",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 30
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Sheet 'mage_template' does not reference action "
+                        "'unassigned'."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_admin_execute_unassigned_action(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions = {}
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["unassigned"] = Action.from_dict(
+                {
+                    "id": "unassigned",
+                    "name": "Unassigned",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("1"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "unassigned",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 29
+            assert websocket.sent_messages[0]["ops"] == [
+                {
+                    "op": "inc",
+                    "path": "/instanced_sheets/mage_instance/mana",
+                    "value": -1,
+                }
+            ]
+            assert websocket.sent_messages[1]["applied_mutations"] == ["mana-=1"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_perform_action_can_increment_and_decrement_instance_values(
     monkeypatch,
 ) -> None:
@@ -1182,7 +1329,9 @@ def test_perform_action_rejects_resource_overspend_without_patch(
     asyncio.run(scenario())
 
 
-def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
+def test_perform_action_applies_resisted_damage_to_instance_health(
+    monkeypatch,
+) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1190,6 +1339,8 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].resistances.resistance = 0.5
+            state.sheets["mage_template"].resistances.magical = 0.25
             state.sheets["mage_template"].actions["damage"] = Bridge.from_dict(
                 {
                     "relationship_id": "bridge-2",
@@ -1197,6 +1348,7 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
                 }
             )
             state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"].resistances.fire = 0.125
             state.actions["take_damage"] = Action.from_dict(
                 {
                     "id": "take_damage",
@@ -1204,11 +1356,10 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
                     "steps": [
                         {
                             "step_id": "step-1",
-                            "type": "decrement_value",
+                            "type": "resolve_damage",
                             "target": "caster",
-                            "path": ["health"],
-                            "amount": _formula_payload("15"),
-                            "min_value": _formula_payload("0"),
+                            "damage_type": "Fire",
+                            "amount": _formula_payload("80"),
                         },
                     ],
                 }
@@ -1226,7 +1377,7 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
                 },
             )
 
-            assert state.instanced_sheets["mage_instance"].health == 75
+            assert state.instanced_sheets["mage_instance"].health == 80
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
@@ -1234,7 +1385,7 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
                         {
                             "op": "set",
                             "path": "/instanced_sheets/mage_instance/health",
-                            "value": 75,
+                            "value": 80,
                         },
                     ],
                     "state_version": 1,
@@ -1245,7 +1396,9 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
                     "response_id": None,
                     "sheet_id": "mage_instance",
                     "action_id": "take_damage",
-                    "applied_mutations": ["health=75"],
+                    "applied_mutations": [
+                        "health=80;damage=10;type=Fire;resistance=0.875"
+                    ],
                     "emitted_messages": [],
                     "type": "action_executed",
                     "request_id": "req-1",
@@ -1257,7 +1410,69 @@ def test_perform_action_applies_damage_to_instance_health(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_perform_action_clamps_damage_at_zero(monkeypatch) -> None:
+def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].resistances.resistance = 0.75
+            state.sheets["mage_template"].resistances.magical = 0.5
+            state.sheets["mage_template"].actions["damage"] = Bridge.from_dict(
+                {
+                    "relationship_id": "bridge-2",
+                    "entry_id": "blocked_damage",
+                }
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["blocked_damage"] = Action.from_dict(
+                {
+                    "id": "blocked_damage",
+                    "name": "Blocked Damage",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Arcane",
+                            "amount": _formula_payload("25"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "blocked_damage",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 90
+            assert websocket.sent_messages[0]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 90,
+                }
+            ]
+            assert websocket.sent_messages[1]["applied_mutations"] == [
+                "health=90;damage=0;type=Arcane;resistance=1.0"
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1279,11 +1494,10 @@ def test_perform_action_clamps_damage_at_zero(monkeypatch) -> None:
                     "steps": [
                         {
                             "step_id": "step-1",
-                            "type": "decrement_value",
+                            "type": "resolve_damage",
                             "target": "caster",
-                            "path": ["health"],
+                            "damage_type": "Bludgeoning",
                             "amount": _formula_payload("200"),
-                            "min_value": _formula_payload("0"),
                         },
                     ],
                 }
@@ -1307,6 +1521,123 @@ def test_perform_action_clamps_damage_at_zero(monkeypatch) -> None:
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/health",
                     "value": 0,
+                }
+            ]
+            assert websocket.sent_messages[1]["applied_mutations"] == [
+                "health=0;damage=200;type=Bludgeoning;resistance=0.0"
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_resolve_damage_step_requires_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions["damage"] = Bridge.from_dict(
+                {
+                    "relationship_id": "bridge-2",
+                    "entry_id": "take_damage",
+                }
+            )
+            state.actions["take_damage"] = Action.from_dict(
+                {
+                    "id": "take_damage",
+                    "name": "Take Damage",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Slashing",
+                            "amount": _formula_payload("10"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "take_damage",
+                },
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Resolve damage steps require an instanced sheet.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_resolve_damage_step_rejects_negative_amount(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions["damage"] = Bridge.from_dict(
+                {
+                    "relationship_id": "bridge-2",
+                    "entry_id": "bad_damage",
+                }
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["bad_damage"] = Action.from_dict(
+                {
+                    "id": "bad_damage",
+                    "name": "Bad Damage",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Fire",
+                            "amount": _formula_payload("-1"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "bad_damage",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 90
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Damage amount must be greater than or equal to 0.",
+                    "type": "error",
+                    "request_id": "req-1",
                 }
             ]
         finally:

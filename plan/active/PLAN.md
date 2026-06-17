@@ -77,7 +77,7 @@ Backend:
 - Sheet, action, formula, and item admin CRUD flows are registered as public typed websocket routes.
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
-- Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
+- Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
 - Formula expansion is relative to one root object, supports dataclass/dict traversal, and guards against cycles.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
@@ -93,15 +93,15 @@ Frontend:
 - Template library/create/edit scaffolding exists for name, notes, tags, and core stats, but live backend persistence still depends on unmigrated legacy intents.
 - Encounter preset builder scaffolding exists with multi-entry rosters, but it is legacy-intent/mock-heavy.
 - Local intent lifecycle feedback banners exist for pending/success/error states.
-- Player notes, equipment inventory, active weapon, manual level-up/stat override, and resource adjustment UX exist as local scaffolding.
+- Player notes UI, manual level-up/stat override, and resource adjustment UX exist as local scaffolding; equipment inventory and active weapon display now read backend sheet item bridges.
 - Shared sheet selectors, resource/stat editor hooks, and feature reducer modules exist to keep the main sheet component smaller.
 - Stat metadata is centralized under frontend domain stats and reused by sheet and roll composer UI.
 - Frontend styles are split into feature-scoped files with shared tokens/utilities.
 - Roll composer scaffolding exists, including advantage/disadvantage controls and quick-roll prefill.
 - Generated protocol types/contracts exist, but generated request helpers do not yet exist.
-- Live websocket requests use generated protocol only for auth/resync; sheet create/update/instantiate, encounter save/spawn, and roll submission still use legacy handwritten `ClientIntent` messages that only the mock transport handles.
+- Live websocket requests use generated protocol for auth/resync and sheet item bridge equipment mutations; sheet create/update/instantiate, encounter save/spawn, and roll submission still use legacy handwritten `ClientIntent` messages that only the mock transport handles.
 - The client falls back from websocket to authoritative mock transport when websocket connection fails, which can mask missing backend route coverage during development.
-- Frontend-local state still owns player notes, sheet equipment, active weapon selection, stat overrides, and resource adjustment drafts.
+- Frontend-local state still owns note edit drafts, stat overrides, and resource adjustment drafts; sheet equipment and active weapon selection are no longer local sources of truth.
 - Item maker currently edits local UI item templates, not backend `ItemDefinition` records.
 - Formula/action authoring UI and assigned-action execution UI are not implemented yet.
 - Roll composer quick actions are preview/prefill scaffolding; they do not yet select or submit default editable action presets through the normal backend-authored action flow.
@@ -125,8 +125,8 @@ Frontend:
 - GM can roll/use actions from any sheet.
 - Sheet generation/assignment should create an access code that can be used to access/control that sheet once the player claim flow exists.
 - DM views should be able to see and manage all generated sheet access codes through DM-only routes; access codes must not be part of public snapshots or broadcasts.
-- Backend notes edits are DM-only for MVP; player-authored notes remain frontend-local or deferred until a dedicated player-notes route defines ownership rules.
-- Equipment, base stats, substats, max HP, max mana, action authoring, and backend note edits are DM-only.
+- Backend template notes edits are DM-only for MVP; instance notes edits are backend-backed for authenticated players/DMs and narrow to assigned players after ownership enforcement exists.
+- Equipment, base stats, substats, max HP, max mana, action authoring, and template note edits are DM-only.
 - Current instance resources such as HP and mana may be edited by the assigned player or DM once the direct resource edit intent exists.
 - Players may execute assigned actions against their current sheet instance; DMs may execute/admin-test actions from any sheet or instance.
 - Player ownership/access-code enforcement is a later slice because assignment state does not exist yet.
@@ -384,16 +384,22 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [x] Add named reusable action preset templates for healing, resource spend, and resource restore if the authoring UI needs presets beyond raw step composition.
 - [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
-- [ ] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
+- [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
 - [ ] Extend damage resolution later for armor derivation, critical rules, weapon/spell-specific damage composition, and other combat modifiers.
 - [x] Implement action execution against explicit sheet/instance IDs.
 - [ ] Implement backend roll resolution through generic authored action steps for default `attack`, `dodge`, `parry`, and `block` presets once those actions become backend-resolved.
 - [ ] Implement weapon/equipment-driven attack modifiers on the backend when attack support is added.
 - [ ] Implement advantage/disadvantage as predefined runtime action parameters.
 - [ ] Add Roll20 chat prefix wrapping for advantage/disadvantage and visibility/GM-only output.
-- [ ] Add validation/error responses for invalid action execution payloads and unauthorized actions.
-- [ ] Finalize websocket request/response types for typed template edits, sheet updates, bridge operations, and action execution requests.
-- [ ] Finalize sheet schema and permissions for instance notes, optional GM template notes, inventory-list equipment, and stat/resource adjustments.
+- [x] Add validation/error responses for invalid action execution payloads and unauthorized actions.
+- [x] Finalize websocket request/response types for action execution requests.
+- [x] Finalize websocket request/response types for typed template edits, sheet updates, and bridge operations.
+- [x] Audit sheet schema and permissions for instance notes, optional GM template notes, inventory-list equipment, and stat/resource adjustments.
+- [x] Add backend sheet note schema and DM-only note edit route for optional GM template notes.
+- [x] Add backend instance notes for authenticated player/DM editing; ownership enforcement narrows this after access-code claim state exists.
+- [x] Replace frontend-local equipment inventory mutations with backend sheet item bridge create/update/delete requests and authoritative patch reconciliation.
+- [ ] Add backend direct current instance resource edit routes for health and mana using `resource_edit` permissions, with backend validation and patch-only success.
+- [ ] Replace frontend-local stat override behavior with backend-authoritative stat requests or explicitly gate remaining override UI as mock-only.
 - [ ] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls.
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [ ] Implement player sheet access-code claim/assignment flow and enforce ownership once assignment state exists.
@@ -401,7 +407,7 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [ ] Add Roll20 bridge status/send-failure UX.
 - [x] Add optional World Anvil link field to item schema and backend protocol/update payloads.
 - [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
-- [ ] Scaffold stat/resource update intents so sheet modifiers flow through backend transport contracts.
+- [ ] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
 - [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
 - [ ] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
 - [ ] Decide whether existing encounter preset save/spawn UI is MVP; migrate it to typed backend routes or clearly gate it as later/mock-only.
@@ -411,7 +417,7 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 ### Phase 9: Remove Remaining Frontend Fake Authority
 
 - [ ] Remove or isolate mock transport behavior that acts authoritative.
-- [ ] Remove local sheet equipment mutations as source of truth.
+- [x] Remove local sheet equipment mutations as source of truth.
 - [ ] Remove local sheet stat/resource overrides as source of truth.
 - [ ] Remove local runtime values that masquerade as persisted domain state.
 - [ ] Ensure optimistic UI is always pending and overwritten by authoritative patches.
@@ -555,7 +561,7 @@ Completed frontend work includes:
 - template create/edit library scaffolding.
 - encounter preset builder scaffolding.
 - shared sheet UI path.
-- player notes notepad, equipment inventory scaffold, active weapon controls, and manual level-up override scaffold.
+- player notes notepad, original equipment inventory scaffold, active weapon controls, and manual level-up override scaffold; equipment/active weapon state has since been migrated to backend sheet item bridges.
 - roll composer scaffold and quick-roll prefill.
 - advantage/disadvantage controls and explicit TODO roll-equation previews.
 - local intent lifecycle feedback banners.

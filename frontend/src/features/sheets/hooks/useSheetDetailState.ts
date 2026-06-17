@@ -7,14 +7,14 @@ import {
   selectAvailableItems,
   selectSheetEquipment
 } from "@/app/state/selectors";
-import type { ItemDefinition, SheetInventoryItem } from "@/domain/models";
+import type { ItemBridge, ItemDefinition } from "@/domain/models";
 
 interface UseSheetDetailStateResult {
   detail: ReturnType<typeof selectActiveSheetDetail>;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
   runtimeNote: string;
-  equipment: SheetInventoryItem[];
+  equipment: ItemBridge[];
   activeWeaponId: string | null;
   activeWeaponLabel: string;
   selectedItemTemplateId: string;
@@ -61,9 +61,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     items,
     itemOrder,
     runtimeNote: localSheetNotes[detail.instance.id] ?? detail.instance.notes ?? "",
-    equipment: selectSheetEquipment(state, detail.instance.id),
-    activeWeaponId: selectActiveWeaponEntryId(state, detail.instance.id),
-    activeWeaponLabel: selectActiveWeaponLabel(state, detail.instance.id),
+    equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
+    activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),
+    activeWeaponLabel: selectActiveWeaponLabel(state, detail.sheet?.id ?? detail.instance.id),
     selectedItemTemplateId,
     selectedItem:
       selectedItemTemplateId ? availableItems.find((item) => item.id === selectedItemTemplateId) ?? null : null,

@@ -1,10 +1,10 @@
 import type { AppState } from "@/app/state/types";
 import type {
+  ItemBridge,
   ItemDefinition,
   PersistentSheet,
   Sheet,
   SheetInstanceView,
-  SheetInventoryItem,
   SheetKind,
   SheetTemplateView
 } from "@/domain/models";
@@ -79,7 +79,7 @@ export function selectSheetTemplateView(state: AppState, sheetId: string): Sheet
     sheet,
     kind: getSheetKind(state, sheet),
     name: sheet.name,
-    notes: presentation?.notes ?? "",
+    notes: sheet.notes ?? presentation?.notes ?? "",
     stats: buildBaseStatValues(sheet),
     tags: presentation?.tags ?? [],
     updatedAt: presentation?.updatedAt ?? ""
@@ -109,7 +109,7 @@ export function selectSheetInstanceView(state: AppState, persistentSheetId: stri
     parentSheet: sheet,
     kind: getSheetKind(state, sheet),
     name: persistentPresentation?.name ?? sheet?.name ?? persistentSheetId,
-    notes: sheetPresentation?.notes ?? "",
+    notes: persistentSheet.notes ?? sheet?.notes ?? sheetPresentation?.notes ?? "",
     updatedAt: persistentPresentation?.updatedAt ?? sheetPresentation?.updatedAt ?? ""
   };
 }
@@ -140,8 +140,19 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
   };
 }
 
-export function selectSheetEquipment(state: AppState, sheetId: string): SheetInventoryItem[] {
-  return state.uiState.localSheetEquipment[sheetId] ?? [];
+function resolveSheetFromSheetOrInstanceId(state: AppState, sheetOrInstanceId: string): Sheet | null {
+  const directSheet = state.serverState.sheets[sheetOrInstanceId];
+  if (directSheet) {
+    return directSheet;
+  }
+
+  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
+  return instance ? state.serverState.sheets[instance.parent_id] ?? null : null;
+}
+
+export function selectSheetEquipment(state: AppState, sheetOrInstanceId: string): ItemBridge[] {
+  const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
+  return Object.values(sheet?.items ?? {});
 }
 
 export function selectAvailableItems(state: AppState): ItemDefinition[] {
@@ -151,7 +162,7 @@ export function selectAvailableItems(state: AppState): ItemDefinition[] {
 }
 
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {
-  return state.uiState.localSheetActiveWeapon[sheetId] ?? null;
+  return selectSheetEquipment(state, sheetId).find((entry) => entry.active)?.relationship_id ?? null;
 }
 
 export function selectActiveWeaponLabel(state: AppState, sheetId: string): string {
@@ -161,12 +172,12 @@ export function selectActiveWeaponLabel(state: AppState, sheetId: string): strin
   }
 
   const equipment = selectSheetEquipment(state, sheetId);
-  const activeEntry = equipment.find((entry) => entry.id === activeWeaponEntryId);
+  const activeEntry = equipment.find((entry) => entry.relationship_id === activeWeaponEntryId);
   if (!activeEntry) {
     return "None";
   }
 
-  return state.serverState.items[activeEntry.itemTemplateId]?.name ?? "None";
+  return state.serverState.items[activeEntry.item_id]?.name ?? "None";
 }
 
 export function selectPlayerInstances(state: AppState): SheetInstanceView[] {

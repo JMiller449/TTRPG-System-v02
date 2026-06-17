@@ -71,6 +71,6 @@ export type ClientIntent =
 
 export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
-  | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean }
+  | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean; requestId?: string }
   | { type: "ack"; requestId: string }
   | { type: "error"; requestId?: string; message: string };

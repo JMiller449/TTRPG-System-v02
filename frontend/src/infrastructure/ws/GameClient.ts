@@ -172,6 +172,18 @@ export class ManagedGameClient {
     this.transport.sendIntent(intent);
   }
 
+  sendProtocolRequest(request: ProtocolApplicationRequest): void {
+    if (!this.transport) {
+      this.emit({
+        type: "error",
+        requestId: request.request_id ?? undefined,
+        message: "Cannot send request while disconnected"
+      });
+      return;
+    }
+    this.transport.sendProtocolRequest(request);
+  }
+
   authenticate(role: Role, token?: string): string | null {
     const requestId = makeId("auth");
     const resolvedToken = this.resolveAuthToken(role, token);

@@ -14,6 +14,7 @@ from backend.features.sheet_admin.actions.schema import (
     GainProficiencyUseActionStepPayload,
     IncrementValueActionStepPayload,
     NumericBoundsPayload,
+    ResolveDamageActionStepPayload,
     SendMessageActionStepPayload,
     SetValueActionStepPayload,
     UpdateAction,
@@ -36,6 +37,7 @@ from backend.state.models.action import (
     DecrementValueStep,
     GainProficiencyUseStep,
     IncrementValueStep,
+    ResolveDamageStep,
     SendMessageStep,
     SetValueStep,
 )
@@ -86,6 +88,8 @@ def _validate_action_step(step: ActionStepPayload) -> None:
         validate_formula_payload_paths(step.amount)
     if isinstance(step, GainProficiencyUseActionStepPayload):
         validate_formula_payload_paths(step.amount)
+    if isinstance(step, ResolveDamageActionStepPayload):
+        validate_formula_payload_paths(step.amount)
     if isinstance(step, NumericBoundsPayload):
         if step.min_value is not None:
             validate_formula_payload_paths(step.min_value)
@@ -117,6 +121,7 @@ def _build_step(
         | SetValueActionStepPayload
         | IncrementValueActionStepPayload
         | DecrementValueActionStepPayload
+        | ResolveDamageActionStepPayload
         | GainProficiencyUseActionStepPayload
         | ApplyAugmentationActionStepPayload
         | ApplyConditionPresetActionStepPayload
@@ -150,6 +155,13 @@ def _build_step(
             path=list(step.path),
             amount=build_formula(step.amount),
             **_bounds_kwargs(step),
+        )
+    if isinstance(step, ResolveDamageActionStepPayload):
+        return ResolveDamageStep(
+            step_id=step.step_id,
+            target=step.target,
+            damage_type=step.damage_type,
+            amount=build_formula(step.amount),
         )
     if isinstance(step, ApplyAugmentationActionStepPayload):
         return ApplyAugmentationStep(

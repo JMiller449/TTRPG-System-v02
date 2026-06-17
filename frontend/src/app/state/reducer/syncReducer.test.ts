@@ -1,12 +1,62 @@
 import { describe, expect, it } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { reducer } from "@/app/state/reducer";
+import { selectActiveWeaponLabel, selectSheetEquipment } from "@/app/state/selectors";
 import {
   adaptProtocolServerEvent,
   initialSocketProtocolState,
   type SocketProtocolState
 } from "@/infrastructure/ws/eventAdapters";
 import { parseProtocolServerEvent } from "@/infrastructure/ws/protocol";
+
+function formula(text: string) {
+  return { aliases: null, text };
+}
+
+function stats() {
+  return {
+    strength: 10,
+    dexterity: 10,
+    constitution: 10,
+    perception: 10,
+    arcane: 10,
+    will: 10,
+    lifting: formula("10"),
+    carry_weight: formula("10"),
+    acrobatics: formula("10"),
+    stamina: formula("10"),
+    reaction_time: formula("10"),
+    health: formula("100"),
+    endurance: formula("10"),
+    pain_tolerance: formula("10"),
+    sight_distance: formula("10"),
+    intuition: formula("10"),
+    registration: formula("10"),
+    mana: formula("20"),
+    control: formula("10"),
+    sensitivity: formula("10"),
+    charisma: formula("10"),
+    mental_fortitude: formula("10"),
+    courage: formula("10")
+  };
+}
+
+function sheet(items = {}) {
+  return {
+    id: "sheet_1",
+    name: "Mage",
+    notes: "",
+    dm_only: false,
+    xp_given_when_slayed: 0,
+    xp_cap: "",
+    proficiencies: {},
+    items,
+    stats: stats(),
+    resistances: {},
+    slayed_record: {},
+    actions: {}
+  };
+}
 
 function applyAuthoritativeEvent(
   state: typeof initialState,
@@ -191,5 +241,71 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.items.item_old).toBeUndefined();
     expect(result.state.serverState.items.item_new?.name).toBe("New Item");
     expect(result.state.serverState.itemOrder).toEqual(["item_new"]);
+  });
+
+  it("reconciles equipment from authoritative sheet item bridge patches", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {
+          sword: {
+            id: "sword",
+            name: "Sword",
+            description: "",
+            price: "10",
+            weight: "3",
+            stat_augmentations: []
+          }
+        },
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const result = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/sheets/sheet_1/items/main_hand",
+          value: {
+            relationship_id: "main_hand",
+            count: 1,
+            active: true,
+            item_id: "sword"
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-1"
+    });
+
+    expect(selectSheetEquipment(result.state, "instance_1")).toEqual([
+      {
+        relationship_id: "main_hand",
+        count: 1,
+        active: true,
+        item_id: "sword"
+      }
+    ]);
+    expect(selectActiveWeaponLabel(result.state, "instance_1")).toBe("Sword");
   });
 });

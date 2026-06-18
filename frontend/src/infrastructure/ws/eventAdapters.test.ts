@@ -29,6 +29,24 @@ describe("parseProtocolServerEvent", () => {
   it("rejects unknown payloads", () => {
     expect(parseProtocolServerEvent({ type: "mystery_event" })).toBeNull();
   });
+
+  it("parses sheet access claim events from the backend protocol", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      sheet_id: "sheet_1",
+      instance_id: "instance_1",
+      type: "sheet_access_claimed",
+      request_id: "req-claim"
+    });
+
+    expect(event).toEqual({
+      response_id: null,
+      sheet_id: "sheet_1",
+      instance_id: "instance_1",
+      type: "sheet_access_claimed",
+      request_id: "req-claim"
+    });
+  });
 });
 
 describe("adaptProtocolServerEvent", () => {
@@ -55,6 +73,31 @@ describe("adaptProtocolServerEvent", () => {
         role: "player",
         requestId: "req-2",
         reason: undefined
+      }
+    ]);
+  });
+
+  it("maps sheet access claim events into internal selection events", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      sheet_id: "sheet_1",
+      instance_id: "instance_1",
+      type: "sheet_access_claimed",
+      request_id: "req-claim"
+    });
+
+    if (!protocolEvent || protocolEvent.type !== "sheet_access_claimed") {
+      throw new Error("Expected sheet_access_claimed event");
+    }
+
+    const adapted = adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent);
+
+    expect(adapted.events).toEqual([
+      {
+        type: "sheet_access_claimed",
+        sheetId: "sheet_1",
+        instanceId: "instance_1",
+        requestId: "req-claim"
       }
     ]);
   });

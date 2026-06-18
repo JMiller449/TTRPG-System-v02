@@ -123,6 +123,18 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
       }
       return null;
 
+    case "sheet_access_claimed":
+      if (typeof payload.sheet_id === "string" && typeof payload.instance_id === "string") {
+        return {
+          response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
+          sheet_id: payload.sheet_id,
+          instance_id: payload.instance_id,
+          type: "sheet_access_claimed",
+          request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
     default:
       return null;
   }

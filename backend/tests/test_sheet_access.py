@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -171,6 +172,172 @@ def test_dm_can_list_sheet_access_codes(monkeypatch) -> None:
                         }
                     ],
                     "type": "sheet_access_codes",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_can_claim_sheet_access_code(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            state.sheet_access_codes["MAGE2026"] = SheetAccessCode(
+                code="MAGE2026",
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+                active=True,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            session = await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "claim_sheet_access_code",
+                    "code": "mage2026",
+                },
+            )
+
+            assert session.assigned_sheet_id == "mage_template"
+            assert session.assigned_instance_id == "mage_instance"
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "sheet_id": "mage_template",
+                    "instance_id": "mage_instance",
+                    "type": "sheet_access_claimed",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_claim_sheet_access_code_rejects_invalid_or_inactive_code(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            state.sheet_access_codes["MAGE2026"] = SheetAccessCode(
+                code="MAGE2026",
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+                active=False,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            session = await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "claim_sheet_access_code",
+                    "code": "MAGE2026",
+                },
+            )
+
+            assert session.assigned_instance_id is None
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Invalid or inactive sheet access code.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_must_claim_before_instance_edits(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_notes",
+                    "instance_id": "mage_instance",
+                    "notes": "No claim yet.",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].notes == ""
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Claim a sheet access code before editing a player sheet.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_edit_unassigned_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            state.instanced_sheets["other_instance"] = _build_instance()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.assign_player_sheet(
+                websocket,
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_notes",
+                    "instance_id": "other_instance",
+                    "notes": "Wrong character.",
+                },
+            )
+
+            assert state.instanced_sheets["other_instance"].notes == ""
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "You can only edit your assigned sheet instance.",
+                    "type": "error",
                     "request_id": "req-1",
                 }
             ]

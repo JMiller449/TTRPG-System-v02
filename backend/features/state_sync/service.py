@@ -19,6 +19,7 @@ from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
+PRIVATE_SHEET_FIELDS = {"notes"}
 
 
 def build_state_snapshot(
@@ -78,6 +79,18 @@ class StateSyncService:
             value.pop(field_name, None)
         return value
 
+    def _redact_sheet_payload(self, value: Any) -> Any:
+        if is_dataclass(value):
+            value = asdict(value)
+        elif isinstance(value, dict):
+            value = deepcopy(value)
+        else:
+            return value
+
+        for field_name in PRIVATE_SHEET_FIELDS:
+            value.pop(field_name, None)
+        return value
+
     def _redact_state_for_role(
         self,
         state: dict[str, Any],
@@ -86,6 +99,12 @@ class StateSyncService:
     ) -> dict[str, Any]:
         if role == "dm":
             return state
+
+        for sheet in state.get("sheets", {}).values():
+            if not isinstance(sheet, dict):
+                continue
+            for field_name in PRIVATE_SHEET_FIELDS:
+                sheet.pop(field_name, None)
 
         for item in state.get("items", {}).values():
             if not isinstance(item, dict):
@@ -107,6 +126,16 @@ class StateSyncService:
         redacted_ops: list[PatchOp] = []
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
+            if (
+                len(segments) >= 3
+                and segments[0] == "sheets"
+                and segments[2] in PRIVATE_SHEET_FIELDS
+            ):
+                continue
+
+            if len(segments) >= 2 and segments[0] == "sheets":
+                op.value = self._redact_sheet_payload(op.value)
+
             if (
                 len(segments) >= 3
                 and segments[0] == "items"

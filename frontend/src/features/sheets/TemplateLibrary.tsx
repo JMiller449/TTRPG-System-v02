@@ -6,18 +6,19 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { TemplateEditPanel } from "@/features/sheets/components/TemplateEditPanel";
 import { TemplateList } from "@/features/sheets/components/TemplateList";
 import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBar";
-import {
-  buildInstantiateSheetIntent,
-  buildUpdateSheetIntent
-} from "@/features/sheets/intentBuilders";
 import type { TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
-import { Panel } from "@/shared/ui/Panel";
 import {
   createEmptyTemplateEditorValues,
-  toSheetChanges,
-  toSheetPresentation,
-  toTemplateEditorValues
+  toInstancedSheetCreationValues,
+  toTemplateEditorValues,
+  toUpdatedSheetDefinitionPayload
 } from "@/features/sheets/templateEditorValues";
+import {
+  buildCreateInstancedSheetRequest,
+  buildUpdateSheetRequest
+} from "@/infrastructure/ws/requestBuilders";
+import { Panel } from "@/shared/ui/Panel";
+import { makeId } from "@/shared/utils/id";
 
 export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -57,11 +58,40 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       return;
     }
 
-    client.sendIntent(
-      buildUpdateSheetIntent(editingTemplateId, toSheetChanges(editValues), toSheetPresentation(editValues))
+    const sheet = state.serverState.sheets[editingTemplateId];
+    if (!sheet) {
+      return;
+    }
+
+    client.sendProtocolRequest(
+      buildUpdateSheetRequest({
+        sheetId: editingTemplateId,
+        sheet: toUpdatedSheetDefinitionPayload(sheet, editValues)
+      }),
+      "Update template"
     );
     setEditingTemplateId(null);
     setEditValues(createEmptyTemplateEditorValues("player"));
+  };
+
+  const spawnTemplate = (template: SheetTemplateView): void => {
+    const amount = Math.max(1, spawnCount);
+    let activeInstanceId: string | null = null;
+
+    for (let index = 0; index < amount; index += 1) {
+      const instanceId = makeId("instance");
+      activeInstanceId = instanceId;
+      client.sendProtocolRequest(
+        buildCreateInstancedSheetRequest(
+          toInstancedSheetCreationValues(template.sheet, template.kind, instanceId)
+        ),
+        amount > 1 ? `Spawn ${template.name} ${index + 1}` : `Spawn ${template.name}`
+      );
+    }
+
+    if (activeInstanceId) {
+      dispatch({ type: "set_active_sheet_local", sheetId: activeInstanceId });
+    }
   };
 
   return (
@@ -87,7 +117,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
         <TemplateList
           templates={visibleTemplates}
           onEdit={beginEditTemplate}
-          onSpawn={(template) => client.sendIntent(buildInstantiateSheetIntent(template.id, spawnCount))}
+          onSpawn={spawnTemplate}
         />
 
         <TemplateEditPanel

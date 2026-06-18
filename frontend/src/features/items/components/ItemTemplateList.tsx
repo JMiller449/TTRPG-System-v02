@@ -1,4 +1,4 @@
-import type { ItemTemplate } from "@/domain/models";
+import type { ItemDefinition } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ItemTemplateCard } from "@/features/items/components/ItemTemplateCard";
 
@@ -7,8 +7,8 @@ export function ItemTemplateList({
   onEdit,
   onDelete
 }: {
-  items: ItemTemplate[];
-  onEdit: (item: ItemTemplate) => void;
+  items: ItemDefinition[];
+  onEdit: (item: ItemDefinition) => void;
   onDelete: (itemId: string) => void;
 }): JSX.Element {
   return (

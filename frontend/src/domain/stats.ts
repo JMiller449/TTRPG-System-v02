@@ -14,6 +14,9 @@ export type GroupedSubStatKey = (typeof CORE_SUBSTAT_GROUPS)[number]["subs"][num
 export type SheetStatKey = CoreStatKey | GroupedSubStatKey;
 export type ResourceKey = "health" | "mana";
 
+export const CORE_STAT_KEYS: readonly CoreStatKey[] = CORE_SUBSTAT_GROUPS.map(
+  (group) => group.core
+);
 export const RESOURCE_KEYS: readonly ResourceKey[] = ["health", "mana"];
 
 export const ALL_STATS: readonly StatKey[] = [
@@ -96,4 +99,8 @@ export const DISPLAY_NAMES: Record<SheetStatKey, string> = {
 
 export function isResourceKey(value: string): value is ResourceKey {
   return RESOURCE_KEYS.includes(value as ResourceKey);
+}
+
+export function isCoreStatKey(value: string): value is CoreStatKey {
+  return CORE_STAT_KEYS.includes(value as CoreStatKey);
 }

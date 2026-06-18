@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { HealthDamageType } from "@/features/sheets/sheetDisplay";
 import { parseModifierInput, type ResourceKey } from "@/features/sheets/sheetDisplay";
+import type { GameClient } from "@/hooks/useGameClient";
+import { buildAdjustInstancedSheetResourceRequest } from "@/infrastructure/ws/requestBuilders";
 
 interface UseResourceEditorOptions {
   resetToken: string | undefined;
+  instanceId: string | undefined;
   baseHealth: number;
   baseMana: number;
+  client: Pick<GameClient, "sendProtocolRequest">;
 }
 
 interface UseResourceEditorResult {
@@ -25,13 +29,11 @@ interface UseResourceEditorResult {
 
 export function useResourceEditor({
   resetToken,
+  instanceId,
   baseHealth,
-  baseMana
+  baseMana,
+  client
 }: UseResourceEditorOptions): UseResourceEditorResult {
-  const [resources, setResources] = useState<Record<ResourceKey, number>>({
-    health: baseHealth,
-    mana: baseMana
-  });
   const [editingResource, setEditingResource] = useState<ResourceKey | null>(null);
   const [resourceDraftModifier, setResourceDraftModifier] = useState("");
   const [resourceEditorError, setResourceEditorError] = useState<string | null>(null);
@@ -42,10 +44,6 @@ export function useResourceEditor({
     setResourceDraftModifier("");
     setResourceEditorError(null);
     setHealthDamageType("untyped");
-    setResources({
-      health: baseHealth,
-      mana: baseMana
-    });
   }, [baseHealth, baseMana, resetToken]);
 
   const beginResourceEdit = (key: ResourceKey): void => {
@@ -67,10 +65,19 @@ export function useResourceEditor({
       return;
     }
 
-    setResources((prev) => ({
-      ...prev,
-      [key]: prev[key] + parsed
-    }));
+    if (!instanceId) {
+      setResourceEditorError("No active sheet instance selected.");
+      return;
+    }
+
+    client.sendProtocolRequest(
+      buildAdjustInstancedSheetResourceRequest({
+        instanceId,
+        resource: key,
+        delta: parsed
+      }),
+      `Adjust ${key}`
+    );
 
     cancelResourceEdit();
   };
@@ -89,7 +96,10 @@ export function useResourceEditor({
   };
 
   return {
-    resources,
+    resources: {
+      health: baseHealth,
+      mana: baseMana
+    },
     editingResource,
     resourceDraftModifier,
     resourceEditorError,

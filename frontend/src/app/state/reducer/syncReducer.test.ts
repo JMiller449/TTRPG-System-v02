@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { reducer } from "@/app/state/reducer";
-import { selectActiveWeaponLabel, selectSheetEquipment } from "@/app/state/selectors";
+import {
+  selectActiveSheetDetail,
+  selectActiveWeaponLabel,
+  selectSheetEquipment
+} from "@/app/state/selectors";
 import {
   adaptProtocolServerEvent,
   initialSocketProtocolState,
@@ -307,5 +311,159 @@ describe("authoritative server-state sync", () => {
       }
     ]);
     expect(selectActiveWeaponLabel(result.state, "instance_1")).toBe("Sword");
+  });
+
+  it("uses instance notes when player snapshots omit GM-only template notes", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+
+    const result = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: {
+            ...sheet(),
+            notes: undefined
+          }
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "Player-visible instance notes.",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const detail = selectActiveSheetDetail(result.state);
+    expect(detail?.sheet?.notes).toBeUndefined();
+    expect(detail?.instance.notes).toBe("Player-visible instance notes.");
+  });
+
+  it("reconciles current instance resources from authoritative patches", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const result = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/instanced_sheets/instance_1/health",
+          value: 82
+        },
+        {
+          op: "set",
+          path: "/instanced_sheets/instance_1/mana",
+          value: 14
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-resource"
+    });
+
+    const detail = selectActiveSheetDetail(result.state);
+    expect(detail?.persistentSheet.health).toBe(82);
+    expect(detail?.persistentSheet.mana).toBe(14);
+    expect(detail?.stats.health).toBe(82);
+    expect(detail?.stats.mana).toBe(14);
+  });
+
+  it("ignores local stat overrides and reconciles base stats from authoritative patches", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const localOverrideState = reducer(selectedState, {
+      type: "set_sheet_stat_overrides",
+      sheetId: "instance_1",
+      overrides: {
+        strength: 99
+      }
+    });
+    const initial = applyAuthoritativeEvent(localOverrideState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    expect(selectActiveSheetDetail(initial.state)?.stats.strength).toBe(10);
+
+    const result = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/stats/strength",
+          value: 14
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-stat"
+    });
+
+    expect(selectActiveSheetDetail(result.state)?.stats.strength).toBe(14);
   });
 });

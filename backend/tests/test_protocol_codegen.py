@@ -55,6 +55,15 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "set_instanced_sheet_notes";' in output
     assert '"clientNamespace": "sheetInstanceNotes"' in output
     assert '"clientMethodName": "setInstancedSheetNotes"' in output
+    assert "export type SetInstancedSheetResource = {" in output
+    assert '"resource": "health" | "mana";' in output
+    assert '"type": "set_instanced_sheet_resource";' in output
+    assert "export type AdjustInstancedSheetResource = {" in output
+    assert '"delta": number;' in output
+    assert '"type": "adjust_instanced_sheet_resource";' in output
+    assert '"clientNamespace": "sheetInstanceResources"' in output
+    assert '"clientMethodName": "setInstancedSheetResource"' in output
+    assert '"clientMethodName": "adjustInstancedSheetResource"' in output
     assert '"type": "create_sheet_action_bridge"' in output
     assert '"clientNamespace": "sheetActionBridges"' in output
     assert '"clientMethodName": "deleteSheetActionBridge"' in output
@@ -118,6 +127,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "generate_sheet_access_code"' in output
     assert '"clientNamespace": "sheetAccess"' in output
     assert '"clientMethodName": "getSheetAccessCodes"' in output
+    assert "export type ClaimSheetAccessCode = {" in output
+    assert '"type": "claim_sheet_access_code";' in output
+    assert '"clientMethodName": "claimSheetAccessCode"' in output
+    assert "export type SheetAccessClaimedEvent = {" in output
+    assert '"type": "sheet_access_claimed";' in output
     assert "export type SheetAccessCodesEvent" in output
     assert '"type": "create_condition_preset"' in output
     assert '"clientNamespace": "conditionPresets"' in output

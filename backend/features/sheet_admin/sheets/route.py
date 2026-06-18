@@ -8,8 +8,10 @@ from backend.core.permissions import (
     permission_minimum_role,
 )
 from backend.features.session.models import WebSocketSession
+from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_admin.sheets import service
 from backend.features.sheet_admin.sheets.schema import (
+    AdjustInstancedSheetResource,
     CreateInstancedSheet,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
@@ -20,6 +22,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetProficiencyBridge,
     DeleteSheet,
     SetInstancedSheetNotes,
+    SetInstancedSheetResource,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -107,7 +110,57 @@ class SetInstancedSheetNotesRoute(RequestRoute[SetInstancedSheetNotes]):
         session: WebSocketSession,
         request: SetInstancedSheetNotes,
     ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
         await service.set_instanced_sheet_notes(request)
+
+
+class SetInstancedSheetResourceRoute(RequestRoute[SetInstancedSheetResource]):
+    type_name = "set_instanced_sheet_resource"
+    request_model = SetInstancedSheetResource
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("resource_edit")
+    permission_denied_reason = permission_denied_reason("resource_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceResources",
+        method_name="setInstancedSheetResource",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetResource,
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
+        await service.set_instanced_sheet_resource(request)
+
+
+class AdjustInstancedSheetResourceRoute(RequestRoute[AdjustInstancedSheetResource]):
+    type_name = "adjust_instanced_sheet_resource"
+    request_model = AdjustInstancedSheetResource
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("resource_edit")
+    permission_denied_reason = permission_denied_reason("resource_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceResources",
+        method_name="adjustInstancedSheetResource",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: AdjustInstancedSheetResource,
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
+        await service.adjust_instanced_sheet_resource(request)
 
 
 class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
@@ -304,6 +357,8 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(DeleteSheetRoute())
     registry.register(SetSheetNotesRoute())
     registry.register(SetInstancedSheetNotesRoute())
+    registry.register(SetInstancedSheetResourceRoute())
+    registry.register(AdjustInstancedSheetResourceRoute())
     registry.register(CreateInstancedSheetRoute())
     registry.register(CreateSheetActionBridgeRoute())
     registry.register(UpdateSheetActionBridgeRoute())

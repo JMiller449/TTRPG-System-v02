@@ -154,6 +154,9 @@ export interface ItemDefinition {
   id: string;
   name: string;
   description: string;
+  world_anvil_url?: string;
+  gm_notes?: string;
+  gm_special_properties?: string;
   price: string;
   weight: string;
   stat_augmentations: StatAugmentation[];

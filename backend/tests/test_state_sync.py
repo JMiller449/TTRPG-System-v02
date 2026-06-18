@@ -13,7 +13,7 @@ from backend.state.models.augmentation import (
     FormulaModifierEffect,
 )
 from backend.state.models.formula import Formula
-from backend.state.models.sheet import Sheet
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -197,6 +197,167 @@ def test_state_round_trips_sheet_and_instance_resistances() -> None:
     assert state.instanced_sheets["mage_instance"].resistances.fire == 0.4
     assert state.instanced_sheets["legacy_instance"].resistances.fire == 0.0
     assert state.instanced_sheets["legacy_instance"].notes == ""
+
+
+def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            sheet = _build_sheet_state()
+            sheet.notes = "GM-only template notes."
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "Shared instance notes.",
+                    "health": 100,
+                    "mana": 20,
+                    "resistances": {},
+                    "augments": {},
+                }
+            )
+
+            player_snapshot = await state_sync_service.snapshot(role="player")
+            dm_snapshot = await state_sync_service.snapshot(role="dm")
+
+            assert "notes" not in player_snapshot.state["sheets"]["mage_template"]
+            assert player_snapshot.state["instanced_sheets"]["mage_instance"][
+                "notes"
+            ] == "Shared instance notes."
+            assert (
+                dm_snapshot.state["sheets"]["mage_template"]["notes"]
+                == "GM-only template notes."
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_template_note_patch_is_redacted_for_players(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+
+            await state_sync_service.set(
+                "/sheets/mage_template/notes",
+                "GM-only template notes.",
+                request_id="req-1",
+            )
+
+            assert dm_socket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "set",
+                            "path": "/sheets/mage_template/notes",
+                            "value": "GM-only template notes.",
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+            assert player_socket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_sheet_payload_patch_redacts_template_notes_for_players(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+
+            sheet = _build_sheet_state()
+            sheet.notes = "GM-only template notes."
+            await state_sync_service.add(
+                "/sheets/mage_template",
+                sheet,
+                request_id="req-1",
+            )
+
+            assert dm_socket.sent_messages[0]["ops"][0]["value"]["notes"] == (
+                "GM-only template notes."
+            )
+            assert "notes" not in player_socket.sent_messages[0]["ops"][0]["value"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_replayed_template_note_patch_is_redacted_for_players(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            session = await websocket_sessions.connect(websocket, role="player")
+
+            await state_sync_service.set(
+                "/sheets/mage_template/notes",
+                "GM-only template notes.",
+                request_id="req-1",
+            )
+            websocket.sent_messages.clear()
+
+            await state_sync_handler.handle_request(
+                session,
+                ResyncState(
+                    type="resync_state",
+                    last_seen_version=0,
+                    request_id="req-2",
+                ),
+            )
+
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-2",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:

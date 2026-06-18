@@ -1,8 +1,11 @@
 import {
   CORE_SUBSTAT_GROUPS,
+  CORE_STAT_KEYS,
   DISPLAY_NAMES,
+  isCoreStatKey,
   isResourceKey,
   RESOURCE_KEYS,
+  type CoreStatKey,
   type ResourceKey,
   type SheetStatKey
 } from "@/domain/stats";
@@ -33,5 +36,12 @@ export function formatModifier(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
-export { CORE_SUBSTAT_GROUPS, DISPLAY_NAMES, isResourceKey, RESOURCE_KEYS };
-export type { ResourceKey, SheetStatKey };
+export {
+  CORE_STAT_KEYS,
+  CORE_SUBSTAT_GROUPS,
+  DISPLAY_NAMES,
+  isCoreStatKey,
+  isResourceKey,
+  RESOURCE_KEYS
+};
+export type { CoreStatKey, ResourceKey, SheetStatKey };

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
@@ -136,6 +136,34 @@ class SetInstancedSheetNotes(RequestModel):
     instance_id: str = Field(min_length=1)
     notes: str
     type: Literal["set_instanced_sheet_notes"]
+
+
+class SetInstancedSheetResource(RequestModel):
+    instance_id: str = Field(min_length=1)
+    resource: Literal["health", "mana"]
+    value: float = Field(ge=0)
+    type: Literal["set_instanced_sheet_resource"]
+
+    @field_validator("value")
+    @classmethod
+    def validate_resource_value(cls, value: float, info: ValidationInfo) -> float:
+        if info.data.get("resource") == "mana" and not float(value).is_integer():
+            raise ValueError("Mana must be a whole number.")
+        return value
+
+
+class AdjustInstancedSheetResource(RequestModel):
+    instance_id: str = Field(min_length=1)
+    resource: Literal["health", "mana"]
+    delta: float
+    type: Literal["adjust_instanced_sheet_resource"]
+
+    @field_validator("delta")
+    @classmethod
+    def validate_resource_delta(cls, value: float, info: ValidationInfo) -> float:
+        if info.data.get("resource") == "mana" and not float(value).is_integer():
+            raise ValueError("Mana adjustments must be whole numbers.")
+        return value
 
 
 class CreateSheetActionBridge(RequestModel):

@@ -10,6 +10,11 @@ import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
+import {
+  buildCreateSheetItemBridgeRequest,
+  buildDeleteSheetItemBridgeRequest,
+  buildUpdateSheetItemBridgeRequest
+} from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
@@ -40,13 +45,18 @@ export function PlayerCharacterSheet({
   const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
 
   const statEditor = useStatModifierEditor({
-    resetToken: detail?.instance.id
+    resetToken: detail?.instance.id,
+    sheetId: detail?.sheet?.id,
+    baseStats: detail?.stats ?? {},
+    client
   });
 
   const resourceEditor = useResourceEditor({
     resetToken: detail?.instance.id,
+    instanceId: detail?.instance.id,
     baseHealth: detail?.stats.health ?? 0,
-    baseMana: detail?.stats.mana ?? 0
+    baseMana: detail?.stats.mana ?? 0,
+    client
   });
 
   useEffect(() => {
@@ -79,15 +89,14 @@ export function PlayerCharacterSheet({
     }
 
     client.sendProtocolRequest(
-      {
-        type: "update_sheet_item_bridge",
-        sheet_id: sheetId,
-        relationship_id: relationshipId,
+      buildUpdateSheetItemBridgeRequest({
+        sheetId,
+        relationshipId,
         bridge: {
           ...bridge,
           active
         }
-      },
+      }),
       active ? "Set active equipment" : "Clear active equipment"
     );
   };
@@ -172,16 +181,15 @@ export function PlayerCharacterSheet({
 
               const relationshipId = makeId("item_bridge");
               client.sendProtocolRequest(
-                {
-                  type: "create_sheet_item_bridge",
-                  sheet_id: sheetId,
+                buildCreateSheetItemBridgeRequest({
+                  sheetId,
                   bridge: {
                     relationship_id: relationshipId,
                     item_id: selectedItem.id,
                     count: 1,
                     active: !activeWeaponId
                   }
-                },
+                }),
                 "Add equipment"
               );
             }}
@@ -201,11 +209,10 @@ export function PlayerCharacterSheet({
                 return;
               }
               client.sendProtocolRequest(
-                {
-                  type: "delete_sheet_item_bridge",
-                  sheet_id: sheetId,
-                  relationship_id: relationshipId
-                },
+                buildDeleteSheetItemBridgeRequest({
+                  sheetId,
+                  relationshipId
+                }),
                 "Remove equipment"
               );
             }}

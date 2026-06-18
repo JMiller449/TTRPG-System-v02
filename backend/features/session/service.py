@@ -40,6 +40,22 @@ class WebSocketSessionService:
         session = await self.get_session(websocket)
         async with self._lock:
             session.role = role
+            if role != "player":
+                session.assigned_sheet_id = None
+                session.assigned_instance_id = None
+        return session
+
+    async def assign_player_sheet(
+        self,
+        websocket: WebSocket,
+        *,
+        sheet_id: str,
+        instance_id: str,
+    ) -> WebSocketSession:
+        session = await self.get_session(websocket)
+        async with self._lock:
+            session.assigned_sheet_id = sheet_id
+            session.assigned_instance_id = instance_id
         return session
 
     async def disconnect(self, websocket: WebSocket) -> None:

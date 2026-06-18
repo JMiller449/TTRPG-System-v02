@@ -32,6 +32,20 @@ def _reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
 
 
+async def _connect_assigned_player(
+    websocket: FakeWebSocket,
+    *,
+    sheet_id: str = "mage_template",
+    instance_id: str = "mage_instance",
+) -> None:
+    await websocket_sessions.connect(websocket, role="player")
+    await websocket_sessions.assign_player_sheet(
+        websocket,
+        sheet_id=sheet_id,
+        instance_id=instance_id,
+    )
+
+
 def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
     return {
         "aliases": aliases,
@@ -304,7 +318,7 @@ def test_player_cannot_perform_action_against_base_sheet(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -356,7 +370,7 @@ def test_player_cannot_perform_action_with_target_sheet(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -449,7 +463,7 @@ def test_perform_action_rejects_missing_sheet_or_instance(monkeypatch) -> None:
             _reset_state()
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -487,7 +501,7 @@ def test_perform_action_rejects_missing_action(monkeypatch) -> None:
             state.instanced_sheets["mage_instance"] = _build_instance_state()
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -521,7 +535,7 @@ def test_perform_action_rejects_blank_payload_ids(monkeypatch) -> None:
             _reset_state()
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -578,7 +592,7 @@ def test_player_cannot_perform_unassigned_action(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -787,7 +801,7 @@ def test_perform_action_rejects_incrementing_nonnumeric_instance_path(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -866,7 +880,7 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -950,7 +964,7 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1029,7 +1043,7 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1151,7 +1165,7 @@ def test_apply_semantic_steps_reject_missing_records(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1242,7 +1256,7 @@ def test_apply_augmentation_step_rejects_target_runtime(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1303,7 +1317,7 @@ def test_perform_action_rejects_resource_overspend_without_patch(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1366,7 +1380,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1444,7 +1458,7 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1504,7 +1518,7 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1620,7 +1634,7 @@ def test_resolve_damage_step_rejects_negative_amount(monkeypatch) -> None:
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,
@@ -1685,7 +1699,7 @@ def test_perform_action_applies_healing_to_instance_health_with_max_clamp(
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="player")
+            await _connect_assigned_player(websocket)
 
             await handle_client_payload(
                 websocket,

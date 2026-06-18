@@ -217,6 +217,19 @@ export function adaptProtocolServerEvent(
         events: event.request_id ? [{ type: "ack", requestId: event.request_id }] : []
       };
 
+    case "sheet_access_claimed":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "sheet_access_claimed",
+            sheetId: event.sheet_id,
+            instanceId: event.instance_id,
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "error":
       return {
         nextProtocolState: protocolState,

@@ -62,6 +62,14 @@ export function ItemEditorForm({
           </Field>
         </div>
 
+        <Field label="World Anvil URL">
+          <input
+            value={values.worldAnvilUrl}
+            onChange={(event) => onChange({ ...values, worldAnvilUrl: event.target.value })}
+            placeholder="https://..."
+          />
+        </Field>
+
         <Field label="Immediate Effects (applies to wearer stats)">
           <textarea
             rows={3}
@@ -77,6 +85,24 @@ export function ItemEditorForm({
             value={values.nonImmediateEffects}
             onChange={(event) => onChange({ ...values, nonImmediateEffects: event.target.value })}
             placeholder="e.g. +50 to all effects added to this weapon"
+          />
+        </Field>
+
+        <Field label="GM Notes">
+          <textarea
+            rows={3}
+            value={values.gmNotes}
+            onChange={(event) => onChange({ ...values, gmNotes: event.target.value })}
+            placeholder="Private GM notes"
+          />
+        </Field>
+
+        <Field label="GM Special Properties">
+          <textarea
+            rows={3}
+            value={values.gmSpecialProperties}
+            onChange={(event) => onChange({ ...values, gmSpecialProperties: event.target.value })}
+            placeholder="Private mechanical notes or hidden properties"
           />
         </Field>
 

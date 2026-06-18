@@ -1,30 +1,37 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { ItemTemplate } from "@/domain/models";
+import type { ItemDefinition } from "@/domain/models";
+import type { GameClient } from "@/hooks/useGameClient";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemTemplateList } from "@/features/items/components/ItemTemplateList";
 import {
   createEmptyItemValues,
+  toItemDefinitionPayload,
   toItemEditorValues,
-  toItemTemplate,
+  toUpdatedItemDefinitionPayload,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
+import {
+  buildCreateItemRequest,
+  buildDeleteItemRequest,
+  buildUpdateItemRequest
+} from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
+import { makeId } from "@/shared/utils/id";
 
-export function ItemMakerPage(): JSX.Element {
+export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      uiState: { itemTemplates, itemTemplateOrder }
-    },
-    dispatch
+      serverState: { items: itemRecords, itemOrder }
+    }
   } = useAppStore();
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
 
   const items = useMemo(
-    () => itemTemplateOrder.map((id) => itemTemplates[id]).filter((item): item is ItemTemplate => Boolean(item)),
-    [itemTemplateOrder, itemTemplates]
+    () => itemOrder.map((id) => itemRecords[id]).filter((item): item is ItemDefinition => Boolean(item)),
+    [itemOrder, itemRecords]
   );
 
   const onSubmit = (): void => {
@@ -32,13 +39,46 @@ export function ItemMakerPage(): JSX.Element {
       return;
     }
 
-    dispatch({
-      type: "upsert_item_template",
-      item: toItemTemplate(values, editingItemId ?? undefined)
-    });
+    if (editingItemId) {
+      const item = itemRecords[editingItemId];
+      if (!item) {
+        return;
+      }
+
+      const payload = toUpdatedItemDefinitionPayload(item, values);
+      client.sendProtocolRequest(
+        buildUpdateItemRequest({
+          itemId: editingItemId,
+          item: payload
+        }),
+        `Update item: ${payload.name}`
+      );
+    } else {
+      const payload = toItemDefinitionPayload(values, makeId("item"));
+      client.sendProtocolRequest(
+        buildCreateItemRequest({
+          item: payload
+        }),
+        `Create item: ${payload.name}`
+      );
+    }
 
     setEditingItemId(null);
     setValues(createEmptyItemValues());
+  };
+
+  const deleteItem = (itemId: string): void => {
+    const itemName = itemRecords[itemId]?.name ?? "item";
+    client.sendProtocolRequest(
+      buildDeleteItemRequest({
+        itemId
+      }),
+      `Delete item: ${itemName}`
+    );
+    if (editingItemId === itemId) {
+      setEditingItemId(null);
+      setValues(createEmptyItemValues());
+    }
   };
 
   return (
@@ -70,7 +110,7 @@ export function ItemMakerPage(): JSX.Element {
             setEditingItemId(item.id);
             setValues(toItemEditorValues(item));
           }}
-          onDelete={(itemId) => dispatch({ type: "remove_item_template", itemId })}
+          onDelete={deleteItem}
         />
       </div>
     </Panel>

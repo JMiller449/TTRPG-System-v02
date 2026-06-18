@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { SheetStatKey } from "@/domain/stats";
-import { formatModifier, parseModifierInput } from "@/features/sheets/sheetDisplay";
+import {
+  isCoreStatKey,
+  parseModifierInput
+} from "@/features/sheets/sheetDisplay";
+import type { GameClient } from "@/hooks/useGameClient";
+import { buildSetSheetBaseStatRequest } from "@/infrastructure/ws/requestBuilders";
 
 interface UseStatModifierEditorOptions {
   resetToken: string | undefined;
+  sheetId: string | undefined;
+  baseStats: Partial<Record<SheetStatKey, number>>;
+  client: Pick<GameClient, "sendProtocolRequest">;
 }
 
 interface UseStatModifierEditorResult {
@@ -21,27 +29,33 @@ interface UseStatModifierEditorResult {
   onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>, key: SheetStatKey) => void;
 }
 
-export function useStatModifierEditor({ resetToken }: UseStatModifierEditorOptions): UseStatModifierEditorResult {
-  const [modifiers, setModifiers] = useState<Partial<Record<SheetStatKey, number>>>({});
+export function useStatModifierEditor({
+  resetToken,
+  sheetId,
+  baseStats,
+  client
+}: UseStatModifierEditorOptions): UseStatModifierEditorResult {
   const [editingKey, setEditingKey] = useState<SheetStatKey | null>(null);
   const [draftModifier, setDraftModifier] = useState("");
   const [editorError, setEditorError] = useState<string | null>(null);
 
   useEffect(() => {
-    setModifiers({});
     setEditingKey(null);
     setDraftModifier("");
     setEditorError(null);
   }, [resetToken]);
 
-  const getModifier = (key: SheetStatKey): number => modifiers[key] ?? 0;
+  const getModifier = (_key: SheetStatKey): number => 0;
 
-  const getCurrentValue = (key: SheetStatKey, base: number): number => base + getModifier(key);
+  const getCurrentValue = (_key: SheetStatKey, base: number): number => base;
 
   const beginEditing = (key: SheetStatKey): void => {
-    const currentMod = getModifier(key);
+    if (!isCoreStatKey(key)) {
+      setEditorError("Formula stats are read-only here.");
+      return;
+    }
     setEditingKey(key);
-    setDraftModifier(currentMod === 0 ? "" : formatModifier(currentMod));
+    setDraftModifier("");
     setEditorError(null);
   };
 
@@ -58,15 +72,30 @@ export function useStatModifierEditor({ resetToken }: UseStatModifierEditorOptio
       return;
     }
 
-    setModifiers((prev) => {
-      const next: Partial<Record<SheetStatKey, number>> = { ...prev };
-      if (parsed === 0) {
-        delete next[key];
-      } else {
-        next[key] = parsed;
-      }
-      return next;
-    });
+    if (!isCoreStatKey(key)) {
+      setEditorError("Formula stats are read-only here.");
+      return;
+    }
+
+    if (!sheetId) {
+      setEditorError("No parent sheet selected for stat editing.");
+      return;
+    }
+
+    const baseValue = baseStats[key];
+    if (typeof baseValue !== "number" || !Number.isFinite(baseValue)) {
+      setEditorError("Current stat value is unavailable.");
+      return;
+    }
+
+    client.sendProtocolRequest(
+      buildSetSheetBaseStatRequest({
+        sheetId,
+        statName: key,
+        value: baseValue + parsed
+      }),
+      `Update ${key}`
+    );
 
     cancelEditing();
   };
@@ -85,12 +114,6 @@ export function useStatModifierEditor({ resetToken }: UseStatModifierEditorOptio
   };
 
   const resetModifier = (key: SheetStatKey): void => {
-    setModifiers((prev) => {
-      const next: Partial<Record<SheetStatKey, number>> = { ...prev };
-      delete next[key];
-      return next;
-    });
-
     if (editingKey === key) {
       cancelEditing();
     }

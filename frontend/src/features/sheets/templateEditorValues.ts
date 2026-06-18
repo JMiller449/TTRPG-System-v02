@@ -4,6 +4,16 @@ import {
   type CoreTemplateStatKey,
   type TemplateEditorValues
 } from "@/features/sheets/TemplateEditorForm";
+import type { SheetDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
+
+export interface InstancedSheetCreationValues {
+  instanceId: string;
+  parentSheetId: string;
+  health: number;
+  mana: number;
+  notes: string;
+  generateAccessCode: boolean;
+}
 
 function createFormula(text = "0") {
   return {
@@ -84,8 +94,70 @@ export function toTemplateEditorValues(
     ...base,
     kind: presentation?.kind ?? (sheet.dm_only ? "enemy" : "player"),
     name: sheet.name,
-    notes: presentation?.notes ?? "",
+    notes: presentation?.notes ?? sheet.notes ?? "",
     tags: (presentation?.tags ?? []).join(", ")
+  };
+}
+
+export function toSheetDefinitionPayload(values: TemplateEditorValues, sheetId: string): SheetDefinitionPayload {
+  const coreStats = parseTemplateCoreStats(values.coreStats);
+  return {
+    id: sheetId,
+    name: values.name.trim(),
+    notes: values.notes.trim(),
+    dm_only: values.kind === "enemy",
+    xp_given_when_slayed: 0,
+    xp_cap: "",
+    proficiencies: {},
+    items: {},
+    stats: {
+      ...createDefaultStats(),
+      ...coreStats
+    },
+    slayed_record: {},
+    actions: {}
+  };
+}
+
+export function toUpdatedSheetDefinitionPayload(
+  sheet: Sheet,
+  values: TemplateEditorValues
+): SheetDefinitionPayload {
+  const coreStats = parseTemplateCoreStats(values.coreStats);
+  return {
+    ...sheet,
+    name: values.name.trim(),
+    notes: values.notes.trim(),
+    dm_only: values.kind === "enemy",
+    stats: {
+      ...sheet.stats,
+      ...coreStats
+    }
+  };
+}
+
+function parseFiniteFormulaNumber(text: string): number | null {
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseIntegerFormulaNumber(text: string): number | null {
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : null;
+}
+
+export function toInstancedSheetCreationValues(
+  sheet: Sheet,
+  kind: SheetKind,
+  instanceId: string
+): InstancedSheetCreationValues {
+  return {
+    instanceId,
+    parentSheetId: sheet.id,
+    health: parseFiniteFormulaNumber(sheet.stats.health.text) ?? sheet.stats.constitution,
+    mana: parseIntegerFormulaNumber(sheet.stats.mana.text) ?? Math.trunc(sheet.stats.arcane),
+    notes: "",
+    generateAccessCode: kind === "player"
   };
 }
 

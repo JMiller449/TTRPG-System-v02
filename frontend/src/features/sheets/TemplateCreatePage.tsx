@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { Sheet } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildCreateSheetIntent } from "@/features/sheets/intentBuilders";
 import { TemplateEditorForm, type TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
 import {
   createEmptyTemplateEditorValues,
-  createDefaultStats,
-  toSheetPresentation
+  toSheetDefinitionPayload
 } from "@/features/sheets/templateEditorValues";
+import { buildCreateSheetRequest } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
@@ -23,28 +21,12 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
       return;
     }
 
-    const sheet: Sheet = {
-      id: makeId("template"),
-      name: createValues.name.trim(),
-      dm_only: createValues.kind === "enemy",
-      xp_given_when_slayed: 0,
-      xp_cap: "",
-      proficiencies: {},
-      items: {},
-      stats: {
-        ...createDefaultStats(),
-        strength: Number(createValues.coreStats.strength || 0),
-        dexterity: Number(createValues.coreStats.dexterity || 0),
-        constitution: Number(createValues.coreStats.constitution || 0),
-        perception: Number(createValues.coreStats.perception || 0),
-        arcane: Number(createValues.coreStats.arcane || 0),
-        will: Number(createValues.coreStats.will || 0)
-      },
-      slayed_record: {},
-      actions: {}
-    };
-
-    client.sendIntent(buildCreateSheetIntent(sheet, toSheetPresentation(createValues)));
+    client.sendProtocolRequest(
+      buildCreateSheetRequest({
+        sheet: toSheetDefinitionPayload(createValues, makeId("template"))
+      }),
+      "Create template"
+    );
 
     setCreateValues(createEmptyTemplateEditorValues(createValues.kind));
   };

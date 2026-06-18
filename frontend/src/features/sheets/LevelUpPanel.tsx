@@ -17,6 +17,7 @@ export function LevelUpPanel(): JSX.Element {
     state,
     dispatch
   } = useAppStore();
+  const isMockTransport = state.uiState.connection.transport === "mock";
   const { localSheetStatOverrides } = state.uiState;
 
   const detail = useMemo(() => {
@@ -52,6 +53,11 @@ export function LevelUpPanel(): JSX.Element {
   }
 
   const applyDraft = (): void => {
+    if (!isMockTransport) {
+      setLocalError("Manual level-up overrides are mock-only until backend level-up rules exist.");
+      return;
+    }
+
     const nextOverrides: Partial<Record<StatKey, number>> = {};
     for (const key of ALL_STATS) {
       const raw = draftValues[key].trim();
@@ -83,6 +89,11 @@ export function LevelUpPanel(): JSX.Element {
         <p className="muted">
           Manual values only. TODO: persist and validate through backend once update contracts are finalized.
         </p>
+        {!isMockTransport ? (
+          <p className="muted">
+            Backend mode is active. Manual stat overrides are disabled outside mock transport.
+          </p>
+        ) : null}
 
         <div className="level-grid">
           {ALL_STATS.map((key) => (
@@ -98,6 +109,7 @@ export function LevelUpPanel(): JSX.Element {
                   }))
                 }
                 placeholder="0"
+                disabled={!isMockTransport}
               />
             </label>
           ))}
@@ -123,6 +135,7 @@ export function LevelUpPanel(): JSX.Element {
               setDraftValues(toDraftValues(detail.baseStats));
               setLocalError(null);
             }}
+            disabled={!isMockTransport}
           >
             Clear Manual Overrides
           </button>

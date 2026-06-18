@@ -11,6 +11,7 @@ from backend.protocol.socket import (
     ActionFormulaAuthoringMetadataEvent,
     AuthenticateResponseEvent,
     SheetAccessCodesEvent,
+    SheetAccessClaimedEvent,
     StatePatchEvent,
     StateSnapshotEvent,
     VariableRegistryEvent,
@@ -40,6 +41,8 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "SetSheetNotes",
         "CreateInstancedSheet",
         "SetInstancedSheetNotes",
+        "SetInstancedSheetResource",
+        "AdjustInstancedSheetResource",
         "CreateSheetActionBridge",
         "UpdateSheetActionBridge",
         "DeleteSheetActionBridge",
@@ -55,6 +58,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "GetVariableRegistry",
         "GenerateSheetAccessCode",
         "GetSheetAccessCodes",
+        "ClaimSheetAccessCode",
         "CreateConditionPreset",
         "UpdateConditionPreset",
         "DeleteConditionPreset",
@@ -73,6 +77,7 @@ def test_request_registry_exposes_deduplicated_emitted_event_models() -> None:
     assert AuthenticateResponseEvent in emitted_models
     assert VariableRegistryEvent in emitted_models
     assert SheetAccessCodesEvent in emitted_models
+    assert SheetAccessClaimedEvent in emitted_models
     assert emitted_models.count(StatePatchEvent) == 1
 
 
@@ -240,6 +245,26 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["set_instanced_sheet_notes"].emitted_event_models == (
         StatePatchEvent,
     )
+    assert contracts["set_instanced_sheet_resource"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceResources",
+            method_name="setInstancedSheetResource",
+        )
+    )
+    assert contracts["set_instanced_sheet_resource"].minimum_role == "player"
+    assert contracts["set_instanced_sheet_resource"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["adjust_instanced_sheet_resource"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceResources",
+            method_name="adjustInstancedSheetResource",
+        )
+    )
+    assert contracts["adjust_instanced_sheet_resource"].minimum_role == "player"
+    assert contracts["adjust_instanced_sheet_resource"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["create_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
@@ -369,6 +394,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["get_sheet_access_codes"].minimum_role == "dm"
     assert contracts["get_sheet_access_codes"].emitted_event_models == (
         SheetAccessCodesEvent,
+    )
+    assert contracts["claim_sheet_access_code"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAccess",
+            method_name="claimSheetAccessCode",
+        )
+    )
+    assert contracts["claim_sheet_access_code"].minimum_role == "player"
+    assert contracts["claim_sheet_access_code"].emitted_event_models == (
+        SheetAccessClaimedEvent,
     )
     assert contracts["create_condition_preset"].client_generation == (
         ClientGenerationMetadata(

@@ -115,7 +115,7 @@ export function selectSheetInstanceView(state: AppState, persistentSheetId: stri
 }
 
 export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | null {
-  const { serverState, uiState } = state;
+  const { uiState } = state;
   if (!uiState.activeSheetId) {
     return null;
   }
@@ -126,17 +126,12 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
   }
 
   const baseStats = buildBaseStatValues(instance.parentSheet, instance.persistentSheet);
-  const statOverrides = uiState.localSheetStatOverrides[instance.id] ?? {};
-
   return {
     instance,
     sheet: instance.parentSheet,
     persistentSheet: instance.persistentSheet,
     baseStats,
-    stats: {
-      ...baseStats,
-      ...statOverrides
-    }
+    stats: baseStats
   };
 }
 

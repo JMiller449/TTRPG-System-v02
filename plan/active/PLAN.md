@@ -90,25 +90,25 @@ Frontend:
 - Auth/session state is server-derived.
 - Backend-native patch applier is the canonical frontend state sync path.
 - Player and GM sheet views share UI paths with role-based visibility.
-- Template library/create/edit scaffolding exists for name, notes, tags, and core stats, but live backend persistence still depends on unmigrated legacy intents.
+- Template library/create/edit/spawn scaffolding exists for name, notes, tags, core stats, and template spawning; these sheet flows now use typed backend routes.
 - Encounter preset builder scaffolding exists with multi-entry rosters, but it is legacy-intent/mock-heavy.
 - Local intent lifecycle feedback banners exist for pending/success/error states.
-- Player notes UI, manual level-up/stat override, and resource adjustment UX exist as local scaffolding; equipment inventory and active weapon display now read backend sheet item bridges.
+- Player notes UI and manual level-up UX exist as local scaffolding; equipment inventory, active weapon display, current-resource adjustment, and GM core base stat edits now use backend-authoritative routes/state.
 - Shared sheet selectors, resource/stat editor hooks, and feature reducer modules exist to keep the main sheet component smaller.
 - Stat metadata is centralized under frontend domain stats and reused by sheet and roll composer UI.
 - Frontend styles are split into feature-scoped files with shared tokens/utilities.
 - Roll composer scaffolding exists, including advantage/disadvantage controls and quick-roll prefill.
-- Generated protocol types/contracts exist, but generated request helpers do not yet exist.
-- Live websocket requests use generated protocol for auth/resync and sheet item bridge equipment mutations; sheet create/update/instantiate, encounter save/spawn, and roll submission still use legacy handwritten `ClientIntent` messages that only the mock transport handles.
+- Generated protocol types/contracts exist. Centralized request helpers cover the already-live frontend route set; fully generated request helpers for all registered backend routes remain future work.
+- Live websocket requests use generated protocol for auth/resync and centralized typed helpers for sheet creation/update/instancing, sheet access claims, sheet item bridge equipment mutations, current-resource adjustment, GM core base stat edits, and item maker CRUD; encounter save/spawn, action/formula authoring, and roll submission still use legacy/local paths.
 - The client falls back from websocket to authoritative mock transport when websocket connection fails, which can mask missing backend route coverage during development.
-- Frontend-local state still owns note edit drafts, stat overrides, and resource adjustment drafts; sheet equipment and active weapon selection are no longer local sources of truth.
-- Item maker currently edits local UI item templates, not backend `ItemDefinition` records.
+- Frontend-local state still owns note edit drafts and mock-only manual level-up drafts; sheet equipment, active weapon selection, current-resource values, and displayed sheet stats are no longer local sources of truth.
+- Item maker create/edit/delete now sends backend `ItemDefinition` CRUD requests and reconciles through authoritative item state, with backend-only item metadata fields still needing dedicated editor inputs.
 - Formula/action authoring UI and assigned-action execution UI are not implemented yet.
 - Roll composer quick actions are preview/prefill scaffolding; they do not yet select or submit default editable action presets through the normal backend-authored action flow.
-- Player entry still lists/selects player instances and can locally request player creation; it is not yet the planned generated sheet access-code flow.
+- Player entry now claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
 - The existing Roll Log panel is intentionally an empty Roll20 handoff surface; it must not grow into an authoritative in-app player-facing roll history for MVP.
 - Encounter preset UI exists but still uses legacy handwritten intents and should be migrated only if encounter convenience remains in scope; otherwise gate it as later/mock-only.
-- Health adjustment damage-type UI currently uses stale placeholder categories and needs to align with the canonical damage type list once backend health adjustment schema is finalized.
+- Direct health/resource adjustment is a current-value HP/mana edit without damage semantics; damage type belongs to semantic damage action steps.
 - Frontend build and tests pass, but lint currently fails on existing unused symbols, explicit `any` in websocket tests, and fast-refresh warnings with `--max-warnings 0`.
 
 ## 5. MVP Data Model Direction
@@ -123,13 +123,13 @@ Frontend:
 - Base stats, proficiencies, equipment, formulas, and permanent values live on base/template state or computed state.
 - A sheet should be handled by the DM and one assigned player, not multiple players for MVP.
 - GM can roll/use actions from any sheet.
-- Sheet generation/assignment should create an access code that can be used to access/control that sheet once the player claim flow exists.
+- Sheet generation/assignment creates an access code that can be claimed by a player session to access/control that sheet instance.
 - DM views should be able to see and manage all generated sheet access codes through DM-only routes; access codes must not be part of public snapshots or broadcasts.
-- Backend template notes edits are DM-only for MVP; instance notes edits are backend-backed for authenticated players/DMs and narrow to assigned players after ownership enforcement exists.
+- Backend template notes edits are DM-only for MVP and are redacted from player snapshots/patches; instance notes edits are backend-backed for DMs and the assigned player session.
 - Equipment, base stats, substats, max HP, max mana, action authoring, and template note edits are DM-only.
-- Current instance resources such as HP and mana may be edited by the assigned player or DM once the direct resource edit intent exists.
+- Current instance resources such as HP and mana may be edited by the assigned player session or DM.
 - Players may execute assigned actions against their current sheet instance; DMs may execute/admin-test actions from any sheet or instance.
-- Player ownership/access-code enforcement is a later slice because assignment state does not exist yet.
+- Player ownership/access-code enforcement is session-local for MVP; durable player identity/account binding remains later.
 
 ### Variables
 
@@ -354,7 +354,25 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 ### Phase 8: Intent And Runtime Migration
 
 - [ ] Migrate roll/action submission onto typed backend route/helper paths with backend-authoritative reconciliation only.
-- [ ] Replace handwritten frontend websocket builders with generated or centralized typed route helpers.
+- [x] Replace handwritten frontend websocket builders with centralized typed route helpers for the already-live route set.
+  - [x] Inventory current frontend request construction and classify each call site as live backend route, legacy/mock-only, or not ready.
+    - Live backend routes with inline/local request construction:
+      - `claim_sheet_access_code` in `frontend/src/features/auth/PlayerEntry.tsx`.
+      - `adjust_instanced_sheet_resource` in `frontend/src/features/sheets/hooks/useResourceEditor.ts`.
+      - `set_sheet_base_stat` in `frontend/src/features/sheets/hooks/useStatModifierEditor.ts`.
+      - `create_sheet_item_bridge`, `update_sheet_item_bridge`, and `delete_sheet_item_bridge` in `frontend/src/features/sheets/PlayerCharacterSheet.tsx`.
+    - Legacy/mock-only `ClientIntent` builders still in use:
+      - sheet `create_sheet`, `update_sheet`, and `instantiate_sheet` legacy builders have been removed after typed route migration.
+      - `save_encounter` and `spawn_encounter` in `frontend/src/features/encounters/intentBuilders.ts`.
+      - `submit_roll` in `frontend/src/hooks/useGameClient.ts`.
+    - Generated protocol route shapes already exist for the live helper migration targets in `frontend/src/generated/backendProtocol.ts` and are re-exported through `frontend/src/infrastructure/ws/protocol.ts`.
+  - [x] Add a centralized frontend request helper module for already-live backend routes.
+  - [x] Migrate sheet access-code claim request construction to the helper.
+  - [x] Migrate current resource set/adjust request construction to helpers; current UI uses adjust, and the centralized set helper is available for future direct set callers.
+  - [x] Migrate GM core base stat request construction to a helper.
+  - [x] Migrate sheet item bridge equipment request construction to helpers.
+  - [x] Add focused helper tests for migrated live routes.
+  - [x] Update plan wording after helper coverage is in place, leaving item maker, action/formula authoring, and roll/action submission as separate migration work.
 - [ ] Add generated frontend request helpers for registered backend route contracts.
 - [x] Add typed sheet create/update/delete route contracts.
 - [x] Add typed action/formula create/update/delete route contracts.
@@ -376,7 +394,7 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [x] Define `attack`, `dodge`, `parry`, and `block` as default editable action presets executed through the normal `perform_action` runtime.
 - [x] Add stronger cross-entity validation for sheet/action/item/formula references.
 - [x] Add runtime validation for allowed sheet/instance focus and reject `target_sheet_id` intersheet execution.
-- [ ] Add runtime validation for player ownership/access-code claim enforcement once assignment state exists.
+- [x] Add runtime validation for player ownership/access-code claim enforcement with session assignment state.
 - [x] Expand runtime steps beyond `send_message` and `set_value`.
 - [x] Implement bounded generic mutation options for increment/decrement/set steps, plus gain proficiency.
 - [x] Implement augmentation/status action steps.
@@ -396,18 +414,18 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [x] Finalize websocket request/response types for typed template edits, sheet updates, and bridge operations.
 - [x] Audit sheet schema and permissions for instance notes, optional GM template notes, inventory-list equipment, and stat/resource adjustments.
 - [x] Add backend sheet note schema and DM-only note edit route for optional GM template notes.
-- [x] Add backend instance notes for authenticated player/DM editing; ownership enforcement narrows this after access-code claim state exists.
+- [x] Add backend instance notes for assigned player/DM editing.
 - [x] Replace frontend-local equipment inventory mutations with backend sheet item bridge create/update/delete requests and authoritative patch reconciliation.
-- [ ] Add backend direct current instance resource edit routes for health and mana using `resource_edit` permissions, with backend validation and patch-only success.
-- [ ] Replace frontend-local stat override behavior with backend-authoritative stat requests or explicitly gate remaining override UI as mock-only.
-- [ ] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls.
+- [x] Add backend direct current instance resource edit routes for health and mana using `resource_edit` permissions, with backend validation and patch-only success: `set_instanced_sheet_resource` and `adjust_instanced_sheet_resource`.
+- [x] Replace frontend-local stat override behavior with backend-authoritative stat requests or explicitly gate remaining override UI as mock-only: GM core base stat edits submit `set_sheet_base_stat`, formula/substat edits stay read-only here, and manual level-up overrides are mock-only.
+- [x] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls: player snapshots/patches redact GM template notes and GM-only item fields, while player-visible controls remain limited to authenticated instance notes/resources/actions.
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
-- [ ] Implement player sheet access-code claim/assignment flow and enforce ownership once assignment state exists.
+- [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
 - [ ] Model relationship/bridge operations as semantic commands such as `attach`, `detach`, `link`, `unlink`, and `instantiate`.
 - [ ] Add Roll20 bridge status/send-failure UX.
 - [x] Add optional World Anvil link field to item schema and backend protocol/update payloads.
 - [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
-- [ ] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
+- [x] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
 - [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
 - [ ] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
 - [ ] Decide whether existing encounter preset save/spawn UI is MVP; migrate it to typed backend routes or clearly gate it as later/mock-only.
@@ -418,7 +436,7 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 
 - [ ] Remove or isolate mock transport behavior that acts authoritative.
 - [x] Remove local sheet equipment mutations as source of truth.
-- [ ] Remove local sheet stat/resource overrides as source of truth.
+- [x] Remove local sheet stat overrides as source of truth.
 - [ ] Remove local runtime values that masquerade as persisted domain state.
 - [ ] Ensure optimistic UI is always pending and overwritten by authoritative patches.
 - [ ] Keep only drafts, filters, tabs, active selection, and pending UX local.
@@ -436,8 +454,6 @@ MVP can leave duration/expiry manual because turn counting is out of scope, but 
 - [ ] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
 - [ ] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
 - [ ] Add integration tests for rapid intent sequences and snapshot/patch consistency.
-- [ ] Finalize schema for damage-type input on health adjustments.
-- [ ] Implement damage-type-aware health adjustment handling.
 - [ ] Add schema versions and migration support before serious data entry.
 - [ ] Add source request/action metadata to mutations for audit/debugging.
 - [ ] Add DM-only undo later; MVP uses manual DM correction for duplicate/incorrect mutations.
@@ -498,16 +514,82 @@ MVP is done when:
 - [ ] Add variable/path browser and shortcut picker UI for formula/action authoring.
 - [ ] Add assigned-action execution UI wired to `perform_action`.
 - [ ] Provide dedicated sheet viewer mode.
-- [ ] Replace player self-create/list-all flow with generated sheet access-code entry/assignment flow.
-- [ ] Wire sheet create/edit/spawn flows to backend typed route contracts once available.
+- [x] Replace player self-create/list-all flow with generated sheet access-code entry/assignment flow.
+- [x] Wire sheet create/edit/spawn flows to backend typed route contracts once available.
+  - [x] Inventory current frontend sheet create/edit/spawn call sites and classify each as live route-ready, legacy/mock-only, or blocked by UI shape.
+    - `TemplateCreatePage.tsx` previously created a frontend `Sheet` plus frontend-only `SheetPresentation` and sent legacy/mock `buildCreateSheetIntent`; it now maps editor values to backend `SheetDefinitionPayload` and sends typed `create_sheet`.
+    - `TemplateLibrary.tsx` edit/save previously sent legacy/mock `buildUpdateSheetIntent` with partial `Sheet` changes plus frontend-only `SheetPresentation`; it now sends typed `update_sheet` with a full `SheetDefinitionPayload`.
+    - `TemplateLibrary.tsx` spawn previously sent legacy/mock `buildInstantiateSheetIntent`; it now sends typed `create_instanced_sheet` requests with generated instance IDs, starting resources, empty notes, default resistances, and player-template access-code generation.
+    - `features/sheets/intentBuilders.ts` was removed after the sheet create/edit/spawn call sites moved to typed requests.
+    - Generated protocol route shapes already exist for `create_sheet`, `update_sheet`, and `create_instanced_sheet`.
+  - [x] Map current sheet create/edit/spawn UI payloads to generated backend route contracts.
+    - Template create maps `TemplateEditorValues` to `CreateSheet.sheet` / `SheetDefinitionPayload`:
+      - `id`: frontend-generated `makeId("template")`.
+      - `name`: trimmed editor name.
+      - `notes`: trimmed editor notes, stored on backend `sheet.notes` because template notes are now backend-backed and player-redacted.
+      - `dm_only`: `values.kind === "enemy"`.
+      - `xp_given_when_slayed`: `0` for the current UI.
+      - `xp_cap`: `""` for the current UI.
+      - `stats`: `createDefaultStats()` plus parsed core stat overrides.
+      - `proficiencies`, `items`, `slayed_record`, and `actions`: empty records.
+      - `resistances`: omitted until template resistance UI exists, letting backend defaults apply.
+    - Template edit maps to `UpdateSheet.sheet` as a full sheet payload, not a partial patch:
+      - Start from the current authoritative `Sheet`, apply editor name/notes/kind/core stats, and preserve existing bridge records, XP fields, formulas, resistances, and other sheet fields.
+      - Submit the same ID in both `sheet_id` and `sheet.id`.
+    - Presentation metadata handling during typed-route migration:
+      - `kind` is derived from `dm_only`.
+      - template notes move to backend `sheet.notes`.
+      - `tags` and `updatedAt` are frontend presentation-only today and are not accepted by backend `create_sheet` / `update_sheet`; hide/drop them for the live typed migration or defer them behind a future backend metadata field/route before preserving them live.
+    - Template spawn maps to `CreateInstancedSheet`:
+      - `instance_id`: frontend-generated `makeId("instance")`.
+      - `parent_sheet_id`: selected template ID.
+      - `health`: numeric `sheet.stats.health.text` when finite, otherwise `sheet.stats.constitution`.
+      - `mana`: numeric integer `sheet.stats.mana.text` when finite, otherwise `sheet.stats.arcane`.
+      - `notes`: `""` for the current spawn UI.
+      - `resistances`: omitted until spawn resistance UI exists, letting backend defaults apply.
+      - `generate_access_code`: `true` for player templates and `false` for enemy templates.
+      - Multiple spawn count should emit one `create_instanced_sheet` request per instance unless/until a backend batch route exists.
+  - [x] Add centralized request helpers for sheet create/update/delete and sheet instancing/spawn routes.
+  - [x] Migrate template creation flow from legacy `ClientIntent` to typed backend `create_sheet` request.
+  - [x] Migrate template edit/save flow from legacy `ClientIntent` to typed backend `update_sheet` request.
+  - [x] Migrate template spawn flow from legacy `ClientIntent` to typed backend instancing/spawn request.
+  - [x] Remove or isolate migrated sheet legacy intent builders once no live call sites remain.
+  - [x] Add focused helper/reconciliation tests for sheet create/edit/spawn migration.
+  - [x] Update plan wording after sheet create/edit/spawn live route migration is complete.
 - [ ] Wire item maker to backend item records instead of local UI templates.
+  - [x] Inventory current item maker/local-template shape against backend `ItemDefinition` routes.
+    - `ItemMakerPage.tsx` previously read `uiState.itemTemplates` / `itemTemplateOrder` and dispatched local `upsert_item_template` / `remove_item_template`; these records never became backend `items`.
+    - `SheetEquipmentSection` already reads authoritative `serverState.items` / `itemOrder`, so item maker output should feed the same backend item records used by equipment attachment.
+    - Backend typed item routes already exist: `create_item`, `update_item`, and `delete_item`, gated by `equipment_edit` and emitted through state patches.
+  - [x] Map current item editor fields to backend item payload fields and identify gaps.
+    - `name` maps directly to `ItemDefinitionPayload.name`.
+    - `value` maps to `price`; `weight` maps to `weight`.
+    - Current freeform `immediateEffects` / `nonImmediateEffects` are not structured augmentation records; preserve them as labeled public `description` text for the migration, and leave `stat_augmentations` / `augmentation_templates` empty until the augmentation builder exists.
+    - Current `type`, `rank`, and `updatedAt` have no backend item fields; either fold `type` / `rank` into the public description during migration or defer first-class item metadata fields until the backend schema intentionally supports them.
+    - Existing backend fields missing from the current UI are `description`, `world_anvil_url`, `gm_notes`, `gm_special_properties`, `stat_augmentations`, and `augmentation_templates`.
+  - [x] Add centralized typed request helpers and focused tests for `create_item`, `update_item`, and `delete_item`.
+  - [x] Replace item maker local reducer dispatches with typed backend item CRUD requests and pending/ack feedback.
+  - [x] Update item maker editor/list components to read/write `ItemDefinition` records from authoritative server state.
+  - [x] Add World Anvil URL, GM notes, and GM special properties fields to the item maker UI.
+  - [ ] Remove or isolate local `ItemTemplate` seed/reducer state once no live UI depends on it.
+    - [x] Audit remaining `ItemTemplate`, `itemTemplates`, `itemTemplateOrder`, `upsert_item_template`, and `remove_item_template` references and classify live vs dead code.
+      - Dead local-authority path: `initialState.ts` still seeds `uiState.itemTemplates` / `itemTemplateOrder` from `DEFAULT_ITEM_LIBRARY`, but no live item maker or equipment flow reads those records.
+      - Dead local-authority path: `types.ts` and `itemReducer.ts` still define local item-template UI state plus `upsert_item_template` / `remove_item_template` actions; current item maker create/edit/delete uses typed backend item CRUD instead.
+      - Dead type/seed path: `ItemTemplate` in `domain/models.ts` and `DEFAULT_ITEM_LIBRARY` in `features/items/itemLibrarySeed.ts` only support the local UI-state seed path.
+      - Live naming-only cleanup: `ItemTemplateList`, `ItemTemplateCard`, and `selectedItemTemplateId` names still include "template", but their data path is backend `ItemDefinition` / `serverState.items`.
+    - [x] Remove default local item library seeding from frontend initial UI state once authoritative item seeding is confirmed elsewhere or intentionally deferred.
+      - Authoritative item records now come only from backend snapshots/patches; reference item seeding is deferred to a backend seed/migration path instead of frontend UI state.
+    - [ ] Remove local item template UI-state fields and reducer actions when no live component reads or dispatches them.
+    - [ ] Remove the frontend `ItemTemplate` domain type and old mapper names once all item maker/list code uses `ItemDefinition`.
+    - [ ] Update plan wording to state item records are backend-authoritative and no local item template authority remains.
+  - [ ] Add item maker reconciliation tests covering create/edit/delete against authoritative item snapshots or patches.
 - [ ] Wire action/formula authoring flows to backend typed route contracts.
 - [ ] Add augmentation builder scaffold.
 - [ ] Add UI for gear/weapon augmentation attachment.
 - [ ] Define frontend augmentation UX boundaries for what is editable versus display-only on weapon/gear augments.
-- [ ] Add stat/resource update intent UI wired to backend-authoritative requests.
+- [x] Wire current HP/mana resource adjustment and GM core base stat edits to backend-authoritative requests; formula/substat editing remains read-only here, and manual level-up drafts remain mock-only.
 - [ ] Use roll composer quick controls to prefill or select default editable actions, then submit through the normal backend-authored action/Roll20 flow.
-- [ ] Align health/resource adjustment controls with canonical damage types and backend health adjustment schema.
+- [ ] Add canonical damage type selection to semantic damage action-step authoring UI.
 - [ ] Keep the Roll Log panel as Roll20 handoff/status only, or remove it; do not store a player-facing authoritative roll history.
 - [ ] Add bridge status and send-failure UX.
 - [ ] Add sync conflict/recovery UX for resyncs and rejected intents.

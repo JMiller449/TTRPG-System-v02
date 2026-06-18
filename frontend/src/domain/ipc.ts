@@ -10,7 +10,6 @@ import type {
   RollLogEntry,
   RollRequest,
   Sheet,
-  SheetPresentation,
   SheetPresentationRecord
 } from "@/domain/models";
 
@@ -35,21 +34,6 @@ export type ClientIntent =
     }
   | {
       intentId: string;
-      type: "create_sheet";
-      payload: { sheet: Sheet; presentation?: SheetPresentation };
-    }
-  | {
-      intentId: string;
-      type: "update_sheet";
-      payload: { sheetId: string; changes: Partial<Sheet>; presentation?: Partial<SheetPresentation> };
-    }
-  | {
-      intentId: string;
-      type: "instantiate_sheet";
-      payload: { sheetId: string; count: number };
-    }
-  | {
-      intentId: string;
       type: "save_encounter";
       payload: { encounter: EncounterPreset };
     }
@@ -71,6 +55,7 @@ export type ClientIntent =
 
 export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
+  | { type: "sheet_access_claimed"; sheetId: string; instanceId: string; requestId?: string }
   | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean; requestId?: string }
   | { type: "ack"; requestId: string }
   | { type: "error"; requestId?: string; message: string };

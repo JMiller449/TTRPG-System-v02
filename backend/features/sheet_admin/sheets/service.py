@@ -14,6 +14,7 @@ from backend.features.sheet_admin.shared.schema import (
 )
 from backend.features.sheet_admin.sheets.schema import (
     ActionBridgePayload,
+    AdjustInstancedSheetResource,
     CreateInstancedSheet,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
@@ -27,6 +28,7 @@ from backend.features.sheet_admin.sheets.schema import (
     ProficiencyBridgePayload,
     ResistancesPayload,
     SetInstancedSheetNotes,
+    SetInstancedSheetResource,
     SetSheetNotes,
     SheetDefinitionPayload,
     SheetActionBridgePayload,
@@ -554,6 +556,60 @@ async def set_instanced_sheet_notes(request: SetInstancedSheetNotes) -> None:
             "notes",
         )
         op = state_sync_service.set_mutation(state, path, request.notes)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+def _normalize_resource_value(resource: str, value: float) -> int | float:
+    if value < 0:
+        raise ValueError("Current resource value cannot be below zero.")
+    if resource == "mana":
+        if not float(value).is_integer():
+            raise ValueError("Mana must be a whole number.")
+        return int(value)
+    return value
+
+
+async def set_instanced_sheet_resource(
+    request: SetInstancedSheetResource,
+) -> None:
+    value = _normalize_resource_value(request.resource, request.value)
+
+    def mutation(state: State) -> tuple[None, list]:
+        if request.instance_id not in state.instanced_sheets:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            request.resource,
+        )
+        op = state_sync_service.set_mutation(state, path, value)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def adjust_instanced_sheet_resource(
+    request: AdjustInstancedSheetResource,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+
+        current = getattr(instance, request.resource)
+        next_value = _normalize_resource_value(
+            request.resource,
+            current + request.delta,
+        )
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            request.resource,
+        )
+        op = state_sync_service.set_mutation(state, path, next_value)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

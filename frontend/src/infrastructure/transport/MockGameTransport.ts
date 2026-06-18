@@ -5,8 +5,7 @@ import type {
   PersistentSheetPresentation,
   PersistentSheetRecord,
   RollLogEntry,
-  Sheet,
-  SheetPresentation
+  Sheet
 } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
@@ -23,6 +22,24 @@ function createPersistentSheet(parent_id: string, health: number, mana: number):
     health,
     mana,
     augments: {}
+  };
+}
+
+type SheetDefinitionRequest = Extract<ProtocolApplicationRequest, { type: "create_sheet" | "update_sheet" }>;
+
+function createSheetFromDefinition(sheet: SheetDefinitionRequest["sheet"]): Sheet {
+  return {
+    id: sheet.id,
+    name: sheet.name,
+    notes: sheet.notes,
+    dm_only: sheet.dm_only ?? false,
+    xp_given_when_slayed: sheet.xp_given_when_slayed,
+    xp_cap: sheet.xp_cap ?? "",
+    proficiencies: sheet.proficiencies ?? {},
+    items: sheet.items ?? {},
+    stats: sheet.stats,
+    slayed_record: sheet.slayed_record ?? {},
+    actions: sheet.actions ?? {}
   };
 }
 
@@ -143,68 +160,6 @@ export class MockGameTransport implements GameTransport {
         this.emit({ type: "ack", requestId: intent.intentId });
         return;
       }
-      case "create_sheet": {
-        const sheet = intent.payload.sheet;
-        const presentation = intent.payload.presentation ?? this.createDefaultSheetPresentation(sheet);
-        this.snapshot.sheets = [sheet, ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)];
-        this.upsertSheetPresentation(sheet.id, presentation);
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
-      case "update_sheet": {
-        const existing = this.snapshot.sheets.find((entry) => entry.id === intent.payload.sheetId);
-        if (!existing) {
-          this.emit({
-            type: "error",
-            requestId: intent.intentId,
-            message: "Sheet not found"
-          });
-          return;
-        }
-        const updated = {
-          ...existing,
-          ...intent.payload.changes,
-          stats: {
-            ...existing.stats,
-            ...intent.payload.changes.stats
-          }
-        } satisfies Sheet;
-        this.snapshot.sheets = this.snapshot.sheets.map((entry) => (entry.id === updated.id ? updated : entry));
-        if (intent.payload.presentation) {
-          const presentation = {
-            ...this.getSheetPresentation(updated.id),
-            ...intent.payload.presentation,
-            updatedAt: now()
-          } satisfies SheetPresentation;
-          this.upsertSheetPresentation(updated.id, presentation);
-        }
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
-      case "instantiate_sheet": {
-        const sheet = this.snapshot.sheets.find((entry) => entry.id === intent.payload.sheetId);
-        if (!sheet) {
-          this.emit({
-            type: "error",
-            requestId: intent.intentId,
-            message: "Sheet not found"
-          });
-          return;
-        }
-
-        const amount = Math.max(1, intent.payload.count);
-        for (let i = 0; i < amount; i += 1) {
-          const record = this.createPersistentSheetRecord(sheet.id, sheet.name, amount > 1 ? i + 1 : null);
-          this.snapshot.persistentSheets = [record, ...this.snapshot.persistentSheets];
-          this.upsertPersistentSheetPresentation(record.id, {
-            name: amount > 1 ? `${sheet.name} ${i + 1}` : sheet.name,
-            updatedAt: now()
-          });
-          this.snapshot.activeSheetId = record.id;
-        }
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
       case "save_encounter": {
         const encounter = {
           ...intent.payload.encounter,
@@ -298,6 +253,91 @@ export class MockGameTransport implements GameTransport {
       case "resync_state":
         this.emit({ type: "snapshot", snapshot: this.snapshot, stateVersion: this.stateVersion });
         return;
+      case "create_sheet": {
+        const sheet = createSheetFromDefinition(request.sheet);
+        this.snapshot.sheets = [sheet, ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)];
+        this.emitIncrementalSnapshot(request.request_id ?? makeId("request"));
+        return;
+      }
+      case "update_sheet": {
+        const existing = this.snapshot.sheets.find((entry) => entry.id === request.sheet_id);
+        if (!existing) {
+          this.emit({
+            type: "error",
+            requestId: request.request_id ?? undefined,
+            message: "Sheet not found"
+          });
+          return;
+        }
+        const updated = createSheetFromDefinition(request.sheet);
+        this.snapshot.sheets = this.snapshot.sheets.map((entry) =>
+          entry.id === request.sheet_id ? updated : entry
+        );
+        this.emitIncrementalSnapshot(request.request_id ?? makeId("request"));
+        return;
+      }
+      case "delete_sheet": {
+        this.snapshot.sheets = this.snapshot.sheets.filter((entry) => entry.id !== request.sheet_id);
+        this.snapshot.persistentSheets = this.snapshot.persistentSheets.filter(
+          (entry) => entry.value.parent_id !== request.sheet_id
+        );
+        this.emitIncrementalSnapshot(request.request_id ?? makeId("request"));
+        return;
+      }
+      case "create_instanced_sheet": {
+        const parentSheet = this.snapshot.sheets.find((entry) => entry.id === request.parent_sheet_id);
+        if (!parentSheet) {
+          this.emit({
+            type: "error",
+            requestId: request.request_id ?? undefined,
+            message: "Sheet not found"
+          });
+          return;
+        }
+        if (this.snapshot.persistentSheets.some((entry) => entry.id === request.instance_id)) {
+          this.emit({
+            type: "error",
+            requestId: request.request_id ?? undefined,
+            message: "Instance already exists"
+          });
+          return;
+        }
+        this.snapshot.persistentSheets = [
+          {
+            id: request.instance_id,
+            value: createPersistentSheet(request.parent_sheet_id, request.health, request.mana)
+          },
+          ...this.snapshot.persistentSheets
+        ];
+        this.snapshot.activeSheetId = request.instance_id;
+        this.upsertPersistentSheetPresentation(request.instance_id, {
+          name: parentSheet.name,
+          updatedAt: now()
+        });
+        this.emitIncrementalSnapshot(request.request_id ?? makeId("request"));
+        return;
+      }
+      case "claim_sheet_access_code": {
+        const firstPlayerInstance = this.snapshot.persistentSheets.find((record) => {
+          const parentSheet = this.snapshot.sheets.find((sheet) => sheet.id === record.value.parent_id);
+          return parentSheet && !parentSheet.dm_only;
+        });
+        if (!firstPlayerInstance) {
+          this.emit({
+            type: "error",
+            requestId: request.request_id ?? undefined,
+            message: "No mock player sheet is available."
+          });
+          return;
+        }
+        this.emit({
+          type: "sheet_access_claimed",
+          sheetId: firstPlayerInstance.value.parent_id,
+          instanceId: firstPlayerInstance.id,
+          requestId: request.request_id ?? undefined
+        });
+        return;
+      }
       default:
         this.emit({
           type: "error",
@@ -311,15 +351,6 @@ export class MockGameTransport implements GameTransport {
     this.listeners.add(handler);
     return () => {
       this.listeners.delete(handler);
-    };
-  }
-
-  private createDefaultSheetPresentation(sheet: Sheet): SheetPresentation {
-    return {
-      kind: sheet.dm_only ? "enemy" : "player",
-      notes: "",
-      tags: [],
-      updatedAt: now()
     };
   }
 
@@ -339,24 +370,6 @@ export class MockGameTransport implements GameTransport {
     });
 
     return record;
-  }
-
-  private getSheetPresentation(sheetId: string): SheetPresentation {
-    return (
-      this.snapshot.sheetPresentation.find((entry) => entry.sheetId === sheetId)?.value ?? {
-        kind: "player",
-        notes: "",
-        tags: [],
-        updatedAt: now()
-      }
-    );
-  }
-
-  private upsertSheetPresentation(sheetId: string, presentation: SheetPresentation): void {
-    this.snapshot.sheetPresentation = [
-      { sheetId, value: presentation },
-      ...this.snapshot.sheetPresentation.filter((entry) => entry.sheetId !== sheetId)
-    ];
   }
 
   private getPersistentSheetPresentation(persistentSheetId: string): PersistentSheetPresentation {

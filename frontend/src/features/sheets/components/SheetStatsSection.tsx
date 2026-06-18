@@ -4,6 +4,7 @@ import {
   CORE_SUBSTAT_GROUPS,
   DISPLAY_NAMES,
   formatModifier,
+  isCoreStatKey,
   isResourceKey,
   type SheetStatKey
 } from "@/features/sheets/sheetDisplay";
@@ -42,7 +43,7 @@ export function SheetStatsSection({
       <h4>Core Stats and Related Substats</h4>
       <p className="muted character-sheet__hint">
         {canEditStats
-          ? "GM can click values to apply modifiers. Press Enter to apply, or Esc to cancel."
+          ? "GM can click core stats to submit backend base stat edits. Formula stats are read-only here."
           : "Player view is read-only for stats and substats."}
       </p>
       <div className="character-sheet__core-blocks">
@@ -108,9 +109,7 @@ export function SheetStatsSection({
                     Cancel
                   </button>
                   {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
-                  {!editorError ? (
-                    <p className="muted stat-editor__hint">Modifier only; base value remains from template.</p>
-                  ) : null}
+                  {!editorError ? <p className="muted stat-editor__hint">Updates template base stat.</p> : null}
                 </div>
               ) : null}
 
@@ -131,12 +130,13 @@ export function SheetStatsSection({
                     );
                   }
 
+                  const canEditSubStat = canEditStats && isCoreStatKey(subKey);
                   const subModifier = getModifier(subKey);
                   const subCurrent = getCurrentValue(subKey, subBase);
                   return (
                     <div key={subKey} className="core-sub-row">
                       <div className="core-sub-row__top">
-                        {canEditStats ? (
+                        {canEditSubStat ? (
                           <button className="core-sub-row__main" onClick={() => onBeginEditing(subKey)}>
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
                             <span
@@ -154,7 +154,7 @@ export function SheetStatsSection({
                           </div>
                         )}
                         <div className="core-sub-row__actions">
-                          {canEditStats && subModifier !== 0 ? (
+                          {canEditSubStat && subModifier !== 0 ? (
                             <>
                               <span
                                 className={`stat-modifier ${
@@ -171,7 +171,7 @@ export function SheetStatsSection({
                         </div>
                       </div>
 
-                      {canEditStats && editingKey === subKey ? (
+                      {canEditSubStat && editingKey === subKey ? (
                         <div className="stat-editor stat-editor--sub">
                           <Field label={`${DISPLAY_NAMES[subKey]} Modifier`}>
                             <input
@@ -192,9 +192,7 @@ export function SheetStatsSection({
                           </button>
                           {editorError ? <p className="error-text stat-editor__error">{editorError}</p> : null}
                           {!editorError ? (
-                            <p className="muted stat-editor__hint">
-                              Modifier only; base value remains from template.
-                            </p>
+                            <p className="muted stat-editor__hint">Updates template base stat.</p>
                           ) : null}
                         </div>
                       ) : null}
@@ -206,7 +204,7 @@ export function SheetStatsSection({
           );
         })}
       </div>
-      {canEditStats ? <p className="muted">Modified stats can be reset back to base.</p> : null}
+      {canEditStats ? <p className="muted">Formula stat editing stays in formula authoring.</p> : null}
     </section>
   );
 }

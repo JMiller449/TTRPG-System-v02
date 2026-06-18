@@ -1,9 +1,4 @@
 import type { AppState, ServerState, UIState } from "@/app/state/types";
-import { DEFAULT_ITEM_LIBRARY } from "@/features/items/itemLibrarySeed";
-
-const initialItemTemplates = Object.fromEntries(
-  DEFAULT_ITEM_LIBRARY.map((item) => [item.id, item])
-);
 
 export const initialServerState: ServerState = {
   role: null,
@@ -33,8 +28,8 @@ export const initialUiState: UIState = {
       | "ws"
   },
   gmView: "console",
-  itemTemplates: initialItemTemplates,
-  itemTemplateOrder: DEFAULT_ITEM_LIBRARY.map((item) => item.id),
+  itemTemplates: {},
+  itemTemplateOrder: [],
   activeSheetId: null,
   templateSearch: "",
   pendingIntentIds: [],

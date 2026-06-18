@@ -78,7 +78,7 @@ export function App(): JSX.Element {
         </main>
       ) : gmView === "item_maker" ? (
         <main className="app-grid-player">
-          <ItemMakerPage />
+          <ItemMakerPage client={client} />
         </main>
       ) : (
         <>

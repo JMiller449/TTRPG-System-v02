@@ -18,6 +18,11 @@ class GetSheetAccessCodes(RequestModel):
     type: Literal["get_sheet_access_codes"]
 
 
+class ClaimSheetAccessCode(RequestModel):
+    code: str = Field(min_length=1)
+    type: Literal["claim_sheet_access_code"]
+
+
 @dataclass
 class SheetAccessCodePayload:
     code: str
@@ -30,4 +35,12 @@ class SheetAccessCodePayload:
 class SheetAccessCodes(ResponseModel):
     codes: list[SheetAccessCodePayload]
     type: Literal["sheet_access_codes"] = "sheet_access_codes"
+    request_id: str | None = None
+
+
+@dataclass
+class SheetAccessClaimed(ResponseModel):
+    sheet_id: str
+    instance_id: str
+    type: Literal["sheet_access_claimed"] = "sheet_access_claimed"
     request_id: str | None = None

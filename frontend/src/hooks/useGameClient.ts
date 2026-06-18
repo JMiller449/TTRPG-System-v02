@@ -28,12 +28,6 @@ function getIntentLabel(intent: ClientIntent): string {
   switch (intent.type) {
     case "authenticate_gm":
       return "GM authentication";
-    case "create_sheet":
-      return `Sheet create: ${intent.payload.sheet.name}`;
-    case "update_sheet":
-      return "Sheet update";
-    case "instantiate_sheet":
-      return "Sheet spawn";
     case "save_encounter":
       return `Encounter save: ${intent.payload.encounter.name}`;
     case "spawn_encounter":
@@ -118,6 +112,26 @@ export function useGameClient(): GameClient {
           }
         });
         dispatch({ type: "clear_intent", intentId: event.requestId });
+        return;
+      }
+      if (event.type === "sheet_access_claimed") {
+        dispatch({ type: "set_active_sheet_local", sheetId: event.instanceId });
+        dispatch({ type: "set_player_sheet_selection_complete", value: true });
+        if (event.requestId) {
+          const label = intentLabelMapRef.current[event.requestId] ?? "Sheet access";
+          delete intentLabelMapRef.current[event.requestId];
+          dispatch({
+            type: "push_intent_feedback",
+            item: {
+              id: makeId("feedback"),
+              intentId: event.requestId,
+              status: "success",
+              message: `${label} synced.`,
+              createdAt: new Date().toISOString()
+            }
+          });
+          dispatch({ type: "clear_intent", intentId: event.requestId });
+        }
         return;
       }
       const label = event.requestId ? intentLabelMapRef.current[event.requestId] ?? "Intent" : "Transport";

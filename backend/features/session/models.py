@@ -12,6 +12,8 @@ SessionRole = Literal["unauthenticated", "player", "dm"]
 class WebSocketSession:
     websocket: WebSocket
     role: SessionRole = "unauthenticated"
+    assigned_sheet_id: str | None = None
+    assigned_instance_id: str | None = None
 
     @property
     def is_authenticated(self) -> bool:

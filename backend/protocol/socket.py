@@ -30,6 +30,7 @@ from backend.features.sheet_admin.items.schema import (
     UpsertItemAugmentationTemplate,
 )
 from backend.features.sheet_admin.sheets.schema import (
+    AdjustInstancedSheetResource,
     CreateInstancedSheet,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
@@ -40,6 +41,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetProficiencyBridge,
     DeleteSheet,
     SetInstancedSheetNotes,
+    SetInstancedSheetResource,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -51,6 +53,7 @@ from backend.features.sheet_admin.stats.schema import (
     SetSheetFormulaStat,
 )
 from backend.features.sheet_access.schema import (
+    ClaimSheetAccessCode,
     GenerateSheetAccessCode,
     GetSheetAccessCodes,
 )
@@ -207,12 +210,21 @@ class SheetAccessCodesEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class SheetAccessClaimedEvent(ProtocolModel):
+    response_id: str | None = None
+    sheet_id: str = Field(min_length=1)
+    instance_id: str = Field(min_length=1)
+    type: Literal["sheet_access_claimed"] = "sheet_access_claimed"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
     | SendRoll20ChatMessage
     | GenerateSheetAccessCode
     | GetSheetAccessCodes
+    | ClaimSheetAccessCode
     | CreateAction
     | UpdateAction
     | DeleteAction
@@ -230,6 +242,8 @@ ApplicationRequest = Annotated[
     | DeleteSheet
     | SetSheetNotes
     | SetInstancedSheetNotes
+    | SetInstancedSheetResource
+    | AdjustInstancedSheetResource
     | CreateInstancedSheet
     | CreateSheetActionBridge
     | UpdateSheetActionBridge
@@ -258,7 +272,8 @@ ServerEvent = Annotated[
     | ActionExecutedEvent
     | ActionFormulaAuthoringMetadataEvent
     | VariableRegistryEvent
-    | SheetAccessCodesEvent,
+    | SheetAccessCodesEvent
+    | SheetAccessClaimedEvent,
     Field(discriminator="type"),
 ]
 

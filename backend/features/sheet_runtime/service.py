@@ -313,6 +313,7 @@ def _resolve_allowed_runtime_actor(
     request: PerformAction,
     *,
     actor_role: SessionRole,
+    assigned_instance_id: str | None = None,
 ) -> RuntimeActor:
     if request.target_sheet_id is not None:
         raise ValueError(
@@ -323,6 +324,13 @@ def _resolve_allowed_runtime_actor(
     actor = resolve_runtime_actor(request.sheet_id)
     if actor.instance is None and actor_role != "dm":
         raise ValueError("Players can only execute actions against an instanced sheet.")
+    if actor_role == "player":
+        if assigned_instance_id is None:
+            raise PermissionError(
+                "Claim a sheet access code before editing a player sheet."
+            )
+        if actor.actor_id != assigned_instance_id:
+            raise PermissionError("You can only edit your assigned sheet instance.")
     return actor
 
 
@@ -330,8 +338,13 @@ async def perform_action(
     request: PerformAction,
     *,
     actor_role: SessionRole = "player",
+    assigned_instance_id: str | None = None,
 ) -> ActionExecuted:
-    actor = _resolve_allowed_runtime_actor(request, actor_role=actor_role)
+    actor = _resolve_allowed_runtime_actor(
+        request,
+        actor_role=actor_role,
+        assigned_instance_id=assigned_instance_id,
+    )
     action = _resolve_action(
         actor.sheet,
         request.action_id,

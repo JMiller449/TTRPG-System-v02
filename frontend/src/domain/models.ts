@@ -162,18 +162,6 @@ export interface ItemDefinition {
   stat_augmentations: StatAugmentation[];
 }
 
-export interface ItemTemplate {
-  id: string;
-  name: string;
-  type: string;
-  rank: string;
-  weight: string;
-  value: string;
-  immediateEffects: string;
-  nonImmediateEffects: string;
-  updatedAt: string;
-}
-
 export interface Bridge {
   relationship_id: string;
   entry_id: string;

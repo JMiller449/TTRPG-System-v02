@@ -7,7 +7,9 @@ const NAV_ITEMS: Array<{ view: GMView; label: string }> = [
   { view: "template_library", label: "Template Library" },
   { view: "create_template", label: "Create Template" },
   { view: "encounter_presets", label: "Encounter Presets" },
-  { view: "item_maker", label: "Item Maker" }
+  { view: "item_maker", label: "Item Maker" },
+  { view: "formula_authoring", label: "Formula Authoring" },
+  { view: "action_authoring", label: "Action Authoring" }
 ];
 
 export function GMPageNavPanel(): JSX.Element {
@@ -32,7 +34,6 @@ export function GMPageNavPanel(): JSX.Element {
             </button>
           ))}
         </div>
-        <p className="muted">Template and encounter management are available as separate pages.</p>
       </div>
     </Panel>
   );

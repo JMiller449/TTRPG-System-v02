@@ -1,4 +1,5 @@
 import type {
+  ActionFormulaAuthoringMetadataEvent as ProtocolActionFormulaAuthoringMetadataEvent,
   ActionExecutedEvent as ProtocolActionExecutedEvent,
   AuthenticateResponseEvent as ProtocolAuthenticateResponseEvent,
   BackendStateSnapshotPayload as ProtocolBackendState,
@@ -11,6 +12,7 @@ import type {
 } from "@/generated/backendProtocol";
 
 export type {
+  ProtocolActionFormulaAuthoringMetadataEvent,
   ProtocolActionExecutedEvent,
   ProtocolApplicationRequest,
   ProtocolAuthenticateResponseEvent,
@@ -130,6 +132,29 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           sheet_id: payload.sheet_id,
           instance_id: payload.instance_id,
           type: "sheet_access_claimed",
+          request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "action_formula_authoring_metadata":
+      if (
+        Array.isArray(payload.variables) &&
+        Array.isArray(payload.formula_roots) &&
+        Array.isArray(payload.action_mutation_roots) &&
+        Array.isArray(payload.formula_aliases) &&
+        Array.isArray(payload.action_steps) &&
+        Array.isArray(payload.action_preset_templates)
+      ) {
+        return {
+          response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
+          variables: payload.variables as ProtocolActionFormulaAuthoringMetadataEvent["variables"],
+          formula_roots: payload.formula_roots as ProtocolActionFormulaAuthoringMetadataEvent["formula_roots"],
+          action_mutation_roots: payload.action_mutation_roots as ProtocolActionFormulaAuthoringMetadataEvent["action_mutation_roots"],
+          formula_aliases: payload.formula_aliases as ProtocolActionFormulaAuthoringMetadataEvent["formula_aliases"],
+          action_steps: payload.action_steps as ProtocolActionFormulaAuthoringMetadataEvent["action_steps"],
+          action_preset_templates: payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
+          type: "action_formula_authoring_metadata",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
         };
       }

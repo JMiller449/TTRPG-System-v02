@@ -1,0 +1,162 @@
+import { describe, expect, it } from "vitest";
+import type { ItemDefinition } from "@/domain/models";
+import { createEmptyItemValues } from "@/features/items/itemEditorValues";
+import {
+  buildCreateItemSubmission,
+  buildDeleteItemSubmission,
+  buildUpdateItemSubmission,
+  selectOrderedItemDefinitions
+} from "@/features/items/itemMakerRequests";
+
+const testFormula = { aliases: null, text: "0" };
+
+function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
+  return {
+    id: "item_1",
+    name: "Sword of Mana",
+    description: [
+      "Type: Sword",
+      "Rank: S",
+      "Immediate Effects: 25% increased mana regen.",
+      "Non-Immediate Effects: Conducts mana at 100% efficiency."
+    ].join("\n"),
+    world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
+    gm_notes: "Award only after the mana trial.",
+    gm_special_properties: "Adds +50 to sword enchantments.",
+    price: "NA",
+    weight: "3LBS",
+    stat_augmentations: [
+      {
+        stat_name: "mana",
+        augmentation: testFormula
+      }
+    ],
+    ...overrides
+  };
+}
+
+describe("itemMakerRequests", () => {
+  it("selects authoritative item definitions in server item order", () => {
+    const sword = testItem({ id: "item_sword", name: "Sword" });
+    const shield = testItem({ id: "item_shield", name: "Shield" });
+
+    expect(
+      selectOrderedItemDefinitions(
+        {
+          item_sword: sword,
+          item_shield: shield
+        },
+        ["item_shield", "missing_item", "item_sword"]
+      )
+    ).toEqual([shield, sword]);
+  });
+
+  it("builds create submissions from editor values", () => {
+    const values = createEmptyItemValues();
+    values.name = "  Sword of Mana  ";
+    values.type = " Sword ";
+    values.rank = "S";
+    values.weight = " 3LBS ";
+    values.value = " NA ";
+    values.worldAnvilUrl = " https://worldanvil.example/items/sword-of-mana ";
+    values.gmNotes = " Award only after the mana trial. ";
+    values.gmSpecialProperties = " Adds +50 to sword enchantments. ";
+    values.immediateEffects = " 25% increased mana regen. ";
+    values.nonImmediateEffects = " Conducts mana at 100% efficiency. ";
+
+    expect(buildCreateItemSubmission(values, "item_created")).toEqual({
+      request: {
+        type: "create_item",
+        item: {
+          id: "item_created",
+          name: "Sword of Mana",
+          description: [
+            "Type: Sword",
+            "Rank: S",
+            "Immediate Effects: 25% increased mana regen.",
+            "Non-Immediate Effects: Conducts mana at 100% efficiency."
+          ].join("\n"),
+          world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
+          gm_notes: "Award only after the mana trial.",
+          gm_special_properties: "Adds +50 to sword enchantments.",
+          price: "NA",
+          weight: "3LBS",
+          stat_augmentations: [],
+          augmentation_templates: []
+        }
+      },
+      label: "Create item: Sword of Mana"
+    });
+  });
+
+  it("does not build create or update submissions for blank names", () => {
+    const values = createEmptyItemValues();
+    values.name = "   ";
+
+    expect(buildCreateItemSubmission(values, "item_created")).toBeNull();
+    expect(buildUpdateItemSubmission(testItem(), values)).toBeNull();
+  });
+
+  it("builds update submissions without dropping existing backend-only records", () => {
+    const item = testItem();
+    const values = createEmptyItemValues();
+    values.name = "  Edited Sword of Mana  ";
+    values.type = " Sword ";
+    values.rank = "S+";
+    values.weight = " 4LBS ";
+    values.value = " 1,000CP ";
+    values.worldAnvilUrl = " https://worldanvil.example/items/edited-sword ";
+    values.gmNotes = " Updated GM notes. ";
+    values.gmSpecialProperties = " Updated hidden property. ";
+    values.immediateEffects = " +30% mana regen. ";
+    values.nonImmediateEffects = " Better enchantment channeling. ";
+
+    expect(buildUpdateItemSubmission(item, values)).toEqual({
+      request: {
+        type: "update_item",
+        item_id: "item_1",
+        item: {
+          ...item,
+          name: "Edited Sword of Mana",
+          description: [
+            "Type: Sword",
+            "Rank: S+",
+            "Immediate Effects: +30% mana regen.",
+            "Non-Immediate Effects: Better enchantment channeling."
+          ].join("\n"),
+          world_anvil_url: "https://worldanvil.example/items/edited-sword",
+          gm_notes: "Updated GM notes.",
+          gm_special_properties: "Updated hidden property.",
+          price: "1,000CP",
+          weight: "4LBS"
+        }
+      },
+      label: "Update item: Edited Sword of Mana"
+    });
+  });
+
+  it("does not build update submissions without a selected item", () => {
+    const values = createEmptyItemValues();
+    values.name = "Sword of Mana";
+
+    expect(buildUpdateItemSubmission(undefined, values)).toBeNull();
+  });
+
+  it("builds delete submissions with item labels and a missing-item fallback", () => {
+    expect(buildDeleteItemSubmission("item_1", testItem())).toEqual({
+      request: {
+        type: "delete_item",
+        item_id: "item_1"
+      },
+      label: "Delete item: Sword of Mana"
+    });
+
+    expect(buildDeleteItemSubmission("item_missing", undefined)).toEqual({
+      request: {
+        type: "delete_item",
+        item_id: "item_missing"
+      },
+      label: "Delete item: item"
+    });
+  });
+});

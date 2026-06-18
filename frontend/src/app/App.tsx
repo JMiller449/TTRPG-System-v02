@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/app/state/store";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
+import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
 import { AuthPanel } from "@/features/auth/AuthPanel";
 import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
@@ -8,6 +9,7 @@ import { SessionLanding } from "@/features/auth/SessionLanding";
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
+import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
@@ -79,6 +81,14 @@ export function App(): JSX.Element {
       ) : gmView === "item_maker" ? (
         <main className="app-grid-player">
           <ItemMakerPage client={client} />
+        </main>
+      ) : gmView === "formula_authoring" ? (
+        <main className="app-grid-player">
+          <FormulaAuthoringPage client={client} />
+        </main>
+      ) : gmView === "action_authoring" ? (
+        <main className="app-grid-player">
+          <ActionAuthoringPage client={client} />
         </main>
       ) : (
         <>

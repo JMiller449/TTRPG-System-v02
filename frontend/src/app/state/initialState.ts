@@ -28,12 +28,11 @@ export const initialUiState: UIState = {
       | "ws"
   },
   gmView: "console",
-  itemTemplates: {},
-  itemTemplateOrder: [],
   activeSheetId: null,
   templateSearch: "",
   pendingIntentIds: [],
   intentFeedback: [],
+  actionFormulaAuthoringMetadata: null,
   localSheetNotes: {},
   localSheetStatOverrides: {}
 };

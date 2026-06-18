@@ -134,6 +134,25 @@ export function useGameClient(): GameClient {
         }
         return;
       }
+      if (event.type === "action_formula_authoring_metadata") {
+        dispatch({ type: "set_action_formula_authoring_metadata", metadata: event.metadata });
+        if (event.requestId) {
+          const label = intentLabelMapRef.current[event.requestId] ?? "Authoring metadata";
+          delete intentLabelMapRef.current[event.requestId];
+          dispatch({
+            type: "push_intent_feedback",
+            item: {
+              id: makeId("feedback"),
+              intentId: event.requestId,
+              status: "success",
+              message: `${label} synced.`,
+              createdAt: new Date().toISOString()
+            }
+          });
+          dispatch({ type: "clear_intent", intentId: event.requestId });
+        }
+        return;
+      }
       const label = event.requestId ? intentLabelMapRef.current[event.requestId] ?? "Intent" : "Transport";
       dispatch({ type: "connection_error", error: event.message });
       dispatch({

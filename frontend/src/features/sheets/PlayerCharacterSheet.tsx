@@ -37,9 +37,9 @@ export function PlayerCharacterSheet({
     equipment,
     activeWeaponId,
     activeWeaponLabel,
-    selectedItemTemplateId,
+    selectedItemId,
     selectedItem,
-    setSelectedItemTemplateId
+    setSelectedItemId
   } = useSheetDetailState();
 
   const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
@@ -167,14 +167,14 @@ export function PlayerCharacterSheet({
           <SheetEquipmentSection
             items={items}
             itemOrder={itemOrder}
-            selectedItemTemplateId={selectedItemTemplateId}
+            selectedItemId={selectedItemId}
             selectedItem={selectedItem}
             activeWeaponLabel={activeWeaponLabel}
             equipment={equipment}
             activeWeaponId={activeWeaponId}
             canEdit={canEditEquipment}
-            onSelectedItemTemplateIdChange={setSelectedItemTemplateId}
-            onAddSelectedTemplate={() => {
+            onSelectedItemIdChange={setSelectedItemId}
+            onAddSelectedItem={() => {
               if (!sheetId || !selectedItem) {
                 return;
               }

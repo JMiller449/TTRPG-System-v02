@@ -556,7 +556,7 @@ MVP is done when:
   - [x] Remove or isolate migrated sheet legacy intent builders once no live call sites remain.
   - [x] Add focused helper/reconciliation tests for sheet create/edit/spawn migration.
   - [x] Update plan wording after sheet create/edit/spawn live route migration is complete.
-- [ ] Wire item maker to backend item records instead of local UI templates.
+- [x] Wire item maker to backend item records instead of local UI templates.
   - [x] Inventory current item maker/local-template shape against backend `ItemDefinition` routes.
     - `ItemMakerPage.tsx` previously read `uiState.itemTemplates` / `itemTemplateOrder` and dispatched local `upsert_item_template` / `remove_item_template`; these records never became backend `items`.
     - `SheetEquipmentSection` already reads authoritative `serverState.items` / `itemOrder`, so item maker output should feed the same backend item records used by equipment attachment.
@@ -571,19 +571,36 @@ MVP is done when:
   - [x] Replace item maker local reducer dispatches with typed backend item CRUD requests and pending/ack feedback.
   - [x] Update item maker editor/list components to read/write `ItemDefinition` records from authoritative server state.
   - [x] Add World Anvil URL, GM notes, and GM special properties fields to the item maker UI.
-  - [ ] Remove or isolate local `ItemTemplate` seed/reducer state once no live UI depends on it.
+  - [x] Remove or isolate local `ItemTemplate` seed/reducer state once no live UI depends on it.
     - [x] Audit remaining `ItemTemplate`, `itemTemplates`, `itemTemplateOrder`, `upsert_item_template`, and `remove_item_template` references and classify live vs dead code.
-      - Dead local-authority path: `initialState.ts` still seeds `uiState.itemTemplates` / `itemTemplateOrder` from `DEFAULT_ITEM_LIBRARY`, but no live item maker or equipment flow reads those records.
-      - Dead local-authority path: `types.ts` and `itemReducer.ts` still define local item-template UI state plus `upsert_item_template` / `remove_item_template` actions; current item maker create/edit/delete uses typed backend item CRUD instead.
-      - Dead type/seed path: `ItemTemplate` in `domain/models.ts` and `DEFAULT_ITEM_LIBRARY` in `features/items/itemLibrarySeed.ts` only support the local UI-state seed path.
-      - Live naming-only cleanup: `ItemTemplateList`, `ItemTemplateCard`, and `selectedItemTemplateId` names still include "template", but their data path is backend `ItemDefinition` / `serverState.items`.
+      - Local item-template authority has been removed from frontend state, reducer actions, domain models, seed files, item maker components, and equipment selection naming.
     - [x] Remove default local item library seeding from frontend initial UI state once authoritative item seeding is confirmed elsewhere or intentionally deferred.
       - Authoritative item records now come only from backend snapshots/patches; reference item seeding is deferred to a backend seed/migration path instead of frontend UI state.
-    - [ ] Remove local item template UI-state fields and reducer actions when no live component reads or dispatches them.
-    - [ ] Remove the frontend `ItemTemplate` domain type and old mapper names once all item maker/list code uses `ItemDefinition`.
-    - [ ] Update plan wording to state item records are backend-authoritative and no local item template authority remains.
-  - [ ] Add item maker reconciliation tests covering create/edit/delete against authoritative item snapshots or patches.
+    - [x] Remove local item template UI-state fields and reducer actions when no live component reads or dispatches them.
+    - [x] Remove the frontend `ItemTemplate` domain type and old mapper names once all item maker/list code uses `ItemDefinition`.
+    - [x] Update plan wording to state item records are backend-authoritative and no local item template authority remains.
+  - [x] Add item maker reconciliation tests covering create/edit/delete against authoritative item snapshots or patches.
+    - [x] Add focused item editor mapping tests for authoritative `ItemDefinition` create/update payloads and backend-to-editor value loading.
+    - [x] Add item maker request/reconciliation tests for create/edit/delete UI submission against backend snapshot or patch state.
 - [ ] Wire action/formula authoring flows to backend typed route contracts.
+  - [x] Inventory current action/formula authoring shape against backend route contracts.
+    - Backend typed CRUD routes already exist and are DM-only patch emitters: `create_formula`, `update_formula`, `delete_formula`, `create_action`, `update_action`, and `delete_action`.
+    - Generated frontend protocol types and route metadata already include those CRUD routes under `sheetAdminFormulas` and `sheetAdminActions`.
+    - Authoring metadata route exists as `get_action_formula_authoring_metadata`; it is player-accessible and returns formula alias/path metadata, action step metadata, and default action preset templates for authoring UI.
+    - Frontend authoritative state already stores backend `formulas` / `formulaOrder` and `actions` / `actionOrder` from snapshots and patches.
+    - Frontend does not currently have dedicated formula or action authoring pages; GM navigation only exposes console, template library/create, encounter presets, and item maker.
+    - Current roll quick controls are still UI-only preview controls and are separate from global action authoring; execution through `perform_action` remains a later roll/action submission slice.
+  - [x] Add centralized request helpers and focused tests for formula create/update/delete and action create/update/delete.
+  - [x] Add formula authoring value mappers for `FormulaDefinition` payloads, including alias/path preservation.
+  - [x] Add formula authoring page/list/editor that reads authoritative `serverState.formulas` and submits typed formula CRUD requests.
+  - [x] Add action authoring value mappers for `ActionDefinition` payloads, initially preserving ordered existing steps and supporting basic name/notes editing.
+  - [x] Add action authoring page/list/editor that reads authoritative `serverState.actions` and submits typed action CRUD requests.
+  - [x] Add action step editing scaffold using authoring metadata, without exposing raw mutation paths before validated picker UX exists.
+    - [x] Add request helper, protocol adapter handling, and UI-state storage for `get_action_formula_authoring_metadata` / `action_formula_authoring_metadata`.
+    - [x] Add a metadata loader to action authoring and display safe step metadata without raw mutation path editing.
+    - [x] Add safe initial `send_message` step creation/editing.
+  - [x] Add frontend reconciliation tests for formula/action create/edit/delete snapshots or patches.
+  - [ ] Update GM navigation once formula/action authoring pages are live.
 - [ ] Add augmentation builder scaffold.
 - [ ] Add UI for gear/weapon augmentation attachment.
 - [ ] Define frontend augmentation UX boundaries for what is editable versus display-only on weapon/gear augments.

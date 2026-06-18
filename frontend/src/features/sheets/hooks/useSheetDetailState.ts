@@ -17,9 +17,9 @@ interface UseSheetDetailStateResult {
   equipment: ItemBridge[];
   activeWeaponId: string | null;
   activeWeaponLabel: string;
-  selectedItemTemplateId: string;
+  selectedItemId: string;
   selectedItem: ItemDefinition | null;
-  setSelectedItemTemplateId: (itemTemplateId: string) => void;
+  setSelectedItemId: (itemId: string) => void;
 }
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
@@ -30,10 +30,10 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
   const detail = selectActiveSheetDetail(state);
   const availableItems = selectAvailableItems(state);
 
-  const [selectedItemTemplateId, setSelectedItemTemplateId] = useState<string>(itemOrder[0] || "");
+  const [selectedItemId, setSelectedItemId] = useState<string>(itemOrder[0] || "");
 
   useEffect(() => {
-    setSelectedItemTemplateId((prev) => {
+    setSelectedItemId((prev) => {
       if (prev && items[prev]) {
         return prev;
       }
@@ -50,9 +50,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       equipment: [],
       activeWeaponId: null,
       activeWeaponLabel: "None",
-      selectedItemTemplateId,
+      selectedItemId,
       selectedItem: null,
-      setSelectedItemTemplateId
+      setSelectedItemId
     };
   }
 
@@ -64,9 +64,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponLabel: selectActiveWeaponLabel(state, detail.sheet?.id ?? detail.instance.id),
-    selectedItemTemplateId,
+    selectedItemId,
     selectedItem:
-      selectedItemTemplateId ? availableItems.find((item) => item.id === selectedItemTemplateId) ?? null : null,
-    setSelectedItemTemplateId
+      selectedItemId ? availableItems.find((item) => item.id === selectedItemId) ?? null : null,
+    setSelectedItemId
   };
 }

@@ -14,27 +14,27 @@ function describeAugmentations(item: ItemDefinition): string {
 export function SheetEquipmentSection({
   items,
   itemOrder,
-  selectedItemTemplateId,
+  selectedItemId,
   selectedItem,
   activeWeaponLabel,
   equipment,
   activeWeaponId,
   canEdit,
-  onSelectedItemTemplateIdChange,
-  onAddSelectedTemplate,
+  onSelectedItemIdChange,
+  onAddSelectedItem,
   onToggleActiveWeapon,
   onRemoveInventoryItem
 }: {
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
-  selectedItemTemplateId: string;
+  selectedItemId: string;
   selectedItem: ItemDefinition | null;
   activeWeaponLabel: string;
   equipment: ItemBridge[];
   activeWeaponId: string | null;
   canEdit: boolean;
-  onSelectedItemTemplateIdChange: (itemTemplateId: string) => void;
-  onAddSelectedTemplate: () => void;
+  onSelectedItemIdChange: (itemId: string) => void;
+  onAddSelectedItem: () => void;
   onToggleActiveWeapon: (inventoryItemId: string) => void;
   onRemoveInventoryItem: (inventoryItemId: string) => void;
 }): JSX.Element {
@@ -46,10 +46,10 @@ export function SheetEquipmentSection({
       </p>
       {canEdit ? (
         <div className="equipment-add-row">
-          <Field label="Item Template">
+          <Field label="Item">
             <select
-              value={selectedItemTemplateId}
-              onChange={(event) => onSelectedItemTemplateIdChange(event.target.value)}
+              value={selectedItemId}
+              onChange={(event) => onSelectedItemIdChange(event.target.value)}
             >
               {itemOrder.length === 0 ? <option value="">No items loaded yet</option> : null}
               {itemOrder.map((itemId) => {
@@ -65,7 +65,7 @@ export function SheetEquipmentSection({
               })}
             </select>
           </Field>
-          <button className="button" onClick={onAddSelectedTemplate} disabled={!selectedItem}>
+          <button className="button" onClick={onAddSelectedItem} disabled={!selectedItem}>
             Add
           </button>
         </div>

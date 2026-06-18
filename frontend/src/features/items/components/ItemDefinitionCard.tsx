@@ -1,7 +1,7 @@
 import type { ItemDefinition } from "@/domain/models";
 import { toItemEditorValues } from "@/features/items/itemEditorValues";
 
-export function ItemTemplateCard({
+export function ItemDefinitionCard({
   item,
   onEdit,
   onDelete
@@ -13,7 +13,7 @@ export function ItemTemplateCard({
   const preview = toItemEditorValues(item);
 
   return (
-    <article className="list-item list-item--block item-template-card">
+    <article className="list-item list-item--block item-definition-card">
       <div className="list-item__top">
         <strong>{item.name}</strong>
         {item.world_anvil_url ? (

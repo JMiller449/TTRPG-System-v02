@@ -1,8 +1,8 @@
 import type { ItemDefinition } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { ItemTemplateCard } from "@/features/items/components/ItemTemplateCard";
+import { ItemDefinitionCard } from "@/features/items/components/ItemDefinitionCard";
 
-export function ItemTemplateList({
+export function ItemDefinitionList({
   items,
   onEdit,
   onDelete
@@ -15,7 +15,7 @@ export function ItemTemplateList({
     <div className="list">
       {items.length === 0 ? <EmptyState message="No items created yet." /> : null}
       {items.map((item) => (
-        <ItemTemplateCard
+        <ItemDefinitionCard
           key={item.id}
           item={item}
           onEdit={() => onEdit(item)}

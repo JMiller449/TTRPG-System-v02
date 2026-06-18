@@ -230,6 +230,25 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "action_formula_authoring_metadata":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "action_formula_authoring_metadata",
+            metadata: {
+              variables: event.variables,
+              formula_roots: event.formula_roots,
+              action_mutation_roots: event.action_mutation_roots,
+              formula_aliases: event.formula_aliases,
+              action_steps: event.action_steps,
+              action_preset_templates: event.action_preset_templates
+            },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "error":
       return {
         nextProtocolState: protocolState,
@@ -243,7 +262,6 @@ export function adaptProtocolServerEvent(
       };
 
     case "sheet_access_codes":
-    case "action_formula_authoring_metadata":
     case "variable_registry":
       return {
         nextProtocolState: protocolState,

@@ -193,6 +193,251 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.formulas.formula_1?.formula.text).toBe("@arcane * 8");
   });
 
+  it("reconciles item create, edit, and delete patches from the authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/items/item_1",
+          value: {
+            id: "item_1",
+            name: "Focus Ring",
+            description: "Improves mana.",
+            price: "120g",
+            weight: "1",
+            stat_augmentations: []
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-item"
+    });
+
+    expect(created.state.serverState.items.item_1?.name).toBe("Focus Ring");
+    expect(created.state.serverState.itemOrder).toEqual(["item_1"]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/items/item_1/name",
+          value: "Edited Focus Ring"
+        },
+        {
+          op: "set",
+          path: "/items/item_1/gm_notes",
+          value: "Award after the mana trial."
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-item"
+    });
+
+    expect(edited.state.serverState.items.item_1?.name).toBe("Edited Focus Ring");
+    expect(edited.state.serverState.items.item_1?.gm_notes).toBe("Award after the mana trial.");
+    expect(edited.state.serverState.itemOrder).toEqual(["item_1"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/items/item_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-item"
+    });
+
+    expect(deleted.state.serverState.items.item_1).toBeUndefined();
+    expect(deleted.state.serverState.itemOrder).toEqual([]);
+  });
+
+  it("reconciles formula create, edit, and delete patches from the authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/formulas/formula_1",
+          value: {
+            id: "formula_1",
+            formula: {
+              aliases: null,
+              text: "@arcane * 8"
+            }
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-formula"
+    });
+
+    expect(created.state.serverState.formulas.formula_1?.formula.text).toBe("@arcane * 8");
+    expect(created.state.serverState.formulaOrder).toEqual(["formula_1"]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/formulas/formula_1/formula/text",
+          value: "@arcane * 10"
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-formula"
+    });
+
+    expect(edited.state.serverState.formulas.formula_1?.formula.text).toBe("@arcane * 10");
+    expect(edited.state.serverState.formulaOrder).toEqual(["formula_1"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/formulas/formula_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-formula"
+    });
+
+    expect(deleted.state.serverState.formulas.formula_1).toBeUndefined();
+    expect(deleted.state.serverState.formulaOrder).toEqual([]);
+  });
+
+  it("reconciles action create, edit, and delete patches from the authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/actions/action_1",
+          value: {
+            id: "action_1",
+            name: "Mana Burst",
+            notes: "Roll20 output.",
+            steps: [
+              {
+                step_id: "step_message",
+                type: "send_message",
+                message: {
+                  aliases: null,
+                  text: "/em releases a mana burst."
+                }
+              }
+            ]
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-action"
+    });
+
+    expect(created.state.serverState.actions.action_1?.name).toBe("Mana Burst");
+    expect(created.state.serverState.actions.action_1?.steps?.[0]?.type).toBe("send_message");
+    expect(created.state.serverState.actionOrder).toEqual(["action_1"]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/actions/action_1/name",
+          value: "Edited Mana Burst"
+        },
+        {
+          op: "set",
+          path: "/actions/action_1/steps/0/message/text",
+          value: "/em releases an edited mana burst."
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-action"
+    });
+
+    expect(edited.state.serverState.actions.action_1?.name).toBe("Edited Mana Burst");
+    const editedStep = edited.state.serverState.actions.action_1?.steps?.[0];
+    expect(editedStep?.type).toBe("send_message");
+    if (editedStep?.type === "send_message") {
+      expect(editedStep.message.text).toBe("/em releases an edited mana burst.");
+    }
+    expect(edited.state.serverState.actionOrder).toEqual(["action_1"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/actions/action_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-action"
+    });
+
+    expect(deleted.state.serverState.actions.action_1).toBeUndefined();
+    expect(deleted.state.serverState.actionOrder).toEqual([]);
+  });
+
   it("accepts a forced resync snapshot as the new authoritative source of truth", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,

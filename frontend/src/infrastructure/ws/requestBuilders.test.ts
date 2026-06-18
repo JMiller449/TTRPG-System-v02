@@ -1,19 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCreateActionRequest,
+  buildCreateFormulaRequest,
   buildAdjustInstancedSheetResourceRequest,
   buildClaimSheetAccessCodeRequest,
   buildCreateInstancedSheetRequest,
   buildCreateItemRequest,
   buildCreateSheetRequest,
   buildCreateSheetItemBridgeRequest,
+  buildDeleteActionRequest,
+  buildDeleteFormulaRequest,
   buildDeleteItemRequest,
+  buildGetActionFormulaAuthoringMetadataRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetItemBridgeRequest,
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
+  buildUpdateActionRequest,
+  buildUpdateFormulaRequest,
   buildUpdateItemRequest,
   buildUpdateSheetItemBridgeRequest,
   buildUpdateSheetRequest,
+  type ActionDefinitionPayload,
+  type FormulaDefinitionPayload,
   type ItemDefinitionPayload,
   type SheetDefinitionPayload
 } from "@/infrastructure/ws/requestBuilders";
@@ -31,6 +40,35 @@ const testItem: ItemDefinitionPayload = {
   weight: "3LBS",
   stat_augmentations: [],
   augmentation_templates: []
+};
+
+const testFormulaDefinition: FormulaDefinitionPayload = {
+  id: "formula_1",
+  formula: {
+    aliases: [
+      {
+        name: "arcane",
+        path: ["sheet", "stats", "arcane"]
+      }
+    ],
+    text: "@arcane * 8"
+  }
+};
+
+const testAction: ActionDefinitionPayload = {
+  id: "action_1",
+  name: "Mana Burst",
+  notes: "Roll20 output only.",
+  steps: [
+    {
+      step_id: "step_1",
+      type: "send_message",
+      message: {
+        aliases: null,
+        text: "/em releases a mana burst."
+      }
+    }
+  ]
 };
 
 const testSheet: SheetDefinitionPayload = {
@@ -275,6 +313,92 @@ describe("requestBuilders", () => {
     expect(buildDeleteItemRequest({ itemId: "item_1" })).toEqual({
       type: "delete_item",
       item_id: "item_1"
+    });
+  });
+
+  it("builds formula create requests", () => {
+    expect(buildCreateFormulaRequest({ formula: testFormulaDefinition })).toEqual({
+      type: "create_formula",
+      formula: testFormulaDefinition
+    });
+  });
+
+  it("builds formula update requests", () => {
+    expect(
+      buildUpdateFormulaRequest({
+        requestId: "req-formula-update",
+        formulaId: "formula_1",
+        formula: {
+          ...testFormulaDefinition,
+          formula: {
+            aliases: testFormulaDefinition.formula.aliases,
+            text: "@arcane * 10"
+          }
+        }
+      })
+    ).toEqual({
+      request_id: "req-formula-update",
+      type: "update_formula",
+      formula_id: "formula_1",
+      formula: {
+        ...testFormulaDefinition,
+        formula: {
+          aliases: testFormulaDefinition.formula.aliases,
+          text: "@arcane * 10"
+        }
+      }
+    });
+  });
+
+  it("builds formula delete requests", () => {
+    expect(buildDeleteFormulaRequest({ formulaId: "formula_1" })).toEqual({
+      type: "delete_formula",
+      formula_id: "formula_1"
+    });
+  });
+
+  it("builds action create requests", () => {
+    expect(buildCreateActionRequest({ action: testAction })).toEqual({
+      type: "create_action",
+      action: testAction
+    });
+  });
+
+  it("builds action update requests", () => {
+    expect(
+      buildUpdateActionRequest({
+        requestId: "req-action-update",
+        actionId: "action_1",
+        action: {
+          ...testAction,
+          name: "Edited Mana Burst"
+        }
+      })
+    ).toEqual({
+      request_id: "req-action-update",
+      type: "update_action",
+      action_id: "action_1",
+      action: {
+        ...testAction,
+        name: "Edited Mana Burst"
+      }
+    });
+  });
+
+  it("builds action delete requests", () => {
+    expect(buildDeleteActionRequest({ actionId: "action_1" })).toEqual({
+      type: "delete_action",
+      action_id: "action_1"
+    });
+  });
+
+  it("builds action/formula authoring metadata requests", () => {
+    expect(buildGetActionFormulaAuthoringMetadataRequest()).toEqual({
+      type: "get_action_formula_authoring_metadata"
+    });
+    expect(buildGetActionFormulaAuthoringMetadataRequest({ requestId: "req-metadata" })).toEqual({
+      request_id: "req-metadata",
+      type: "get_action_formula_authoring_metadata"
     });
   });
 });

@@ -1,0 +1,102 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAppStore } from "@/app/state/store";
+import type { GameClient } from "@/hooks/useGameClient";
+import { ActionDefinitionList } from "@/features/actions/components/ActionDefinitionList";
+import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
+import { ActionStepMetadataPanel } from "@/features/actions/components/ActionStepMetadataPanel";
+import {
+  createEmptyActionEditorValues,
+  toActionEditorValues,
+  type ActionEditorValues
+} from "@/features/actions/actionEditorValues";
+import {
+  buildCreateActionSubmission,
+  buildDeleteActionSubmission,
+  buildLoadActionFormulaAuthoringMetadataSubmission,
+  buildUpdateActionSubmission,
+  selectOrderedActionDefinitions
+} from "@/features/actions/actionAuthoringRequests";
+import { Panel } from "@/shared/ui/Panel";
+import { makeId } from "@/shared/utils/id";
+
+export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
+  const {
+    state: {
+      serverState: { actions: actionRecords, actionOrder },
+      uiState: { actionFormulaAuthoringMetadata }
+    }
+  } = useAppStore();
+  const requestedMetadataRef = useRef(false);
+
+  const [editingActionId, setEditingActionId] = useState<string | null>(null);
+  const [values, setValues] = useState<ActionEditorValues>(createEmptyActionEditorValues);
+
+  const actions = useMemo(
+    () => selectOrderedActionDefinitions(actionRecords, actionOrder),
+    [actionOrder, actionRecords]
+  );
+
+  useEffect(() => {
+    if (actionFormulaAuthoringMetadata || requestedMetadataRef.current) {
+      return;
+    }
+
+    requestedMetadataRef.current = true;
+    const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [actionFormulaAuthoringMetadata, client]);
+
+  const onSubmit = (): void => {
+    if (!values.name.trim()) {
+      return;
+    }
+
+    const submission = editingActionId
+      ? buildUpdateActionSubmission(actionRecords[editingActionId], values)
+      : buildCreateActionSubmission(values, makeId("action"));
+    if (!submission) {
+      return;
+    }
+
+    client.sendProtocolRequest(submission.request, submission.label);
+    setEditingActionId(null);
+    setValues(createEmptyActionEditorValues());
+  };
+
+  const deleteAction = (actionId: string): void => {
+    const submission = buildDeleteActionSubmission(actionId, actionRecords[actionId]);
+    client.sendProtocolRequest(submission.request, submission.label);
+    if (editingActionId === actionId) {
+      setEditingActionId(null);
+      setValues(createEmptyActionEditorValues());
+    }
+  };
+
+  return (
+    <Panel title="Action Authoring">
+      <div className="stack">
+        <ActionEditorForm
+          editingActionId={editingActionId}
+          values={values}
+          onChange={setValues}
+          onSubmit={onSubmit}
+          onCancel={() => {
+            setEditingActionId(null);
+            setValues(createEmptyActionEditorValues());
+          }}
+        />
+
+        <ActionStepMetadataPanel metadata={actionFormulaAuthoringMetadata} />
+
+        <ActionDefinitionList
+          actions={actions}
+          onEdit={(action) => {
+            setEditingActionId(action.id);
+            setValues(toActionEditorValues(action));
+          }}
+          onDelete={deleteAction}
+        />
+      </div>
+    </Panel>
+  );
+}

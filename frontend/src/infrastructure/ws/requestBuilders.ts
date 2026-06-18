@@ -19,6 +19,8 @@ export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
 export type InstancedSheetResistancesPayload = ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
+export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
+export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 
 export function buildClaimSheetAccessCodeRequest({
   code,
@@ -253,5 +255,98 @@ export function buildDeleteItemRequest({
     ...requestIdField(requestId),
     type: "delete_item",
     item_id: itemId
+  };
+}
+
+export function buildCreateFormulaRequest({
+  formula,
+  requestId
+}: {
+  formula: FormulaDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_formula"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_formula",
+    formula
+  };
+}
+
+export function buildUpdateFormulaRequest({
+  formulaId,
+  formula,
+  requestId
+}: {
+  formulaId: string;
+  formula: FormulaDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_formula"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_formula",
+    formula_id: formulaId,
+    formula
+  };
+}
+
+export function buildDeleteFormulaRequest({
+  formulaId,
+  requestId
+}: {
+  formulaId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_formula"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_formula",
+    formula_id: formulaId
+  };
+}
+
+export function buildCreateActionRequest({
+  action,
+  requestId
+}: {
+  action: ActionDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_action"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_action",
+    action
+  };
+}
+
+export function buildUpdateActionRequest({
+  actionId,
+  action,
+  requestId
+}: {
+  actionId: string;
+  action: ActionDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_action"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_action",
+    action_id: actionId,
+    action
+  };
+}
+
+export function buildDeleteActionRequest({
+  actionId,
+  requestId
+}: {
+  actionId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_action"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_action",
+    action_id: actionId
+  };
+}
+
+export function buildGetActionFormulaAuthoringMetadataRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_action_formula_authoring_metadata"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_action_formula_authoring_metadata"
   };
 }

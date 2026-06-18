@@ -1,10 +1,9 @@
-import type { AppSnapshot } from "@/domain/ipc";
+import type { ActionFormulaAuthoringMetadata, AppSnapshot } from "@/domain/ipc";
 import type {
   ActionDefinition,
   EncounterPreset,
   FormulaDefinition,
   ItemDefinition,
-  ItemTemplate,
   PersistentSheet,
   PersistentSheetPresentation,
   Role,
@@ -20,7 +19,9 @@ export type GMView =
   | "template_library"
   | "create_template"
   | "encounter_presets"
-  | "item_maker";
+  | "item_maker"
+  | "formula_authoring"
+  | "action_authoring";
 
 export interface IntentFeedbackItem {
   id: string;
@@ -57,12 +58,11 @@ export interface UIState {
     error?: string;
   };
   gmView: GMView;
-  itemTemplates: Record<string, ItemTemplate>;
-  itemTemplateOrder: string[];
   activeSheetId: string | null;
   templateSearch: string;
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
+  actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   localSheetNotes: Record<string, string>;
   localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
@@ -87,9 +87,8 @@ export type AppAction =
   | { type: "clear_intent"; intentId: string }
   | { type: "push_intent_feedback"; item: IntentFeedbackItem }
   | { type: "dismiss_intent_feedback"; id: string }
+  | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_sheet_note"; sheetId: string; note: string }
-  | { type: "upsert_item_template"; item: ItemTemplate }
-  | { type: "remove_item_template"; itemId: string }
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

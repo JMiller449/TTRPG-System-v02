@@ -28,6 +28,11 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
       return updateUiState(state, (uiState) => ({ ...uiState, activeSheetId: action.sheetId }));
     case "set_template_search":
       return updateUiState(state, (uiState) => ({ ...uiState, templateSearch: action.value }));
+    case "set_action_formula_authoring_metadata":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        actionFormulaAuthoringMetadata: action.metadata
+      }));
     case "reset_session_ui":
       return updateUiState(state, (uiState) => ({
         ...uiState,
@@ -37,6 +42,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         templateSearch: initialUiState.templateSearch,
         pendingIntentIds: initialUiState.pendingIntentIds,
         intentFeedback: initialUiState.intentFeedback,
+        actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,
         localSheetNotes: initialUiState.localSheetNotes,
         localSheetStatOverrides: initialUiState.localSheetStatOverrides
       }));

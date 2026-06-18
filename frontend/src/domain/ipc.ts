@@ -12,6 +12,12 @@ import type {
   Sheet,
   SheetPresentationRecord
 } from "@/domain/models";
+import type { ProtocolActionFormulaAuthoringMetadataEvent } from "@/infrastructure/ws/protocol";
+
+export type ActionFormulaAuthoringMetadata = Omit<
+  ProtocolActionFormulaAuthoringMetadataEvent,
+  "response_id" | "request_id" | "type"
+>;
 
 export interface AppSnapshot {
   sheets: Sheet[];
@@ -56,6 +62,7 @@ export type ClientIntent =
 export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
   | { type: "sheet_access_claimed"; sheetId: string; instanceId: string; requestId?: string }
+  | { type: "action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata; requestId?: string }
   | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean; requestId?: string }
   | { type: "ack"; requestId: string }
   | { type: "error"; requestId?: string; message: string };

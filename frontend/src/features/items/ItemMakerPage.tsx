@@ -1,21 +1,19 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/store";
-import type { ItemDefinition } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
-import { ItemTemplateList } from "@/features/items/components/ItemTemplateList";
+import { ItemDefinitionList } from "@/features/items/components/ItemDefinitionList";
 import {
   createEmptyItemValues,
-  toItemDefinitionPayload,
   toItemEditorValues,
-  toUpdatedItemDefinitionPayload,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
 import {
-  buildCreateItemRequest,
-  buildDeleteItemRequest,
-  buildUpdateItemRequest
-} from "@/infrastructure/ws/requestBuilders";
+  buildCreateItemSubmission,
+  buildDeleteItemSubmission,
+  buildUpdateItemSubmission,
+  selectOrderedItemDefinitions
+} from "@/features/items/itemMakerRequests";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
@@ -30,7 +28,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
 
   const items = useMemo(
-    () => itemOrder.map((id) => itemRecords[id]).filter((item): item is ItemDefinition => Boolean(item)),
+    () => selectOrderedItemDefinitions(itemRecords, itemOrder),
     [itemOrder, itemRecords]
   );
 
@@ -39,42 +37,21 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       return;
     }
 
-    if (editingItemId) {
-      const item = itemRecords[editingItemId];
-      if (!item) {
-        return;
-      }
-
-      const payload = toUpdatedItemDefinitionPayload(item, values);
-      client.sendProtocolRequest(
-        buildUpdateItemRequest({
-          itemId: editingItemId,
-          item: payload
-        }),
-        `Update item: ${payload.name}`
-      );
-    } else {
-      const payload = toItemDefinitionPayload(values, makeId("item"));
-      client.sendProtocolRequest(
-        buildCreateItemRequest({
-          item: payload
-        }),
-        `Create item: ${payload.name}`
-      );
+    const submission = editingItemId
+      ? buildUpdateItemSubmission(itemRecords[editingItemId], values)
+      : buildCreateItemSubmission(values, makeId("item"));
+    if (!submission) {
+      return;
     }
 
+    client.sendProtocolRequest(submission.request, submission.label);
     setEditingItemId(null);
     setValues(createEmptyItemValues());
   };
 
   const deleteItem = (itemId: string): void => {
-    const itemName = itemRecords[itemId]?.name ?? "item";
-    client.sendProtocolRequest(
-      buildDeleteItemRequest({
-        itemId
-      }),
-      `Delete item: ${itemName}`
-    );
+    const submission = buildDeleteItemSubmission(itemId, itemRecords[itemId]);
+    client.sendProtocolRequest(submission.request, submission.label);
     if (editingItemId === itemId) {
       setEditingItemId(null);
       setValues(createEmptyItemValues());
@@ -104,7 +81,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           }}
         />
 
-        <ItemTemplateList
+        <ItemDefinitionList
           items={items}
           onEdit={(item) => {
             setEditingItemId(item.id);

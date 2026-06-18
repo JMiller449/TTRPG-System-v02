@@ -47,6 +47,98 @@ describe("parseProtocolServerEvent", () => {
       request_id: "req-claim"
     });
   });
+
+  it("parses action/formula authoring metadata events from the backend protocol", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      variables: [
+        {
+          key: "health",
+          label: "Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          editable_roles: ["player", "dm"],
+          formula_backed: false,
+          description: "Current health.",
+          shortcuts: ["hp"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: true
+        }
+      ],
+      formula_roots: ["sheet", "instance"],
+      action_mutation_roots: ["instance"],
+      formula_aliases: [
+        {
+          name: "health",
+          label: "Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          description: "Current health.",
+          shortcuts: ["hp"]
+        }
+      ],
+      action_steps: [
+        {
+          type: "send_message",
+          label: "Send Message",
+          category: "roll20_output",
+          allowed_targets: ["caster"],
+          formula_fields: ["message"],
+          path_catalog: "none"
+        }
+      ],
+      action_preset_templates: [],
+      type: "action_formula_authoring_metadata",
+      request_id: "req-metadata"
+    });
+
+    expect(event).toEqual({
+      response_id: null,
+      variables: [
+        {
+          key: "health",
+          label: "Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          editable_roles: ["player", "dm"],
+          formula_backed: false,
+          description: "Current health.",
+          shortcuts: ["hp"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: true
+        }
+      ],
+      formula_roots: ["sheet", "instance"],
+      action_mutation_roots: ["instance"],
+      formula_aliases: [
+        {
+          name: "health",
+          label: "Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          description: "Current health.",
+          shortcuts: ["hp"]
+        }
+      ],
+      action_steps: [
+        {
+          type: "send_message",
+          label: "Send Message",
+          category: "roll20_output",
+          allowed_targets: ["caster"],
+          formula_fields: ["message"],
+          path_catalog: "none"
+        }
+      ],
+      action_preset_templates: [],
+      type: "action_formula_authoring_metadata",
+      request_id: "req-metadata"
+    });
+  });
 });
 
 describe("adaptProtocolServerEvent", () => {
@@ -98,6 +190,59 @@ describe("adaptProtocolServerEvent", () => {
         sheetId: "sheet_1",
         instanceId: "instance_1",
         requestId: "req-claim"
+      }
+    ]);
+  });
+
+  it("maps action/formula authoring metadata into an internal metadata event", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      variables: [],
+      formula_roots: ["sheet", "instance"],
+      action_mutation_roots: ["instance"],
+      formula_aliases: [],
+      action_steps: [
+        {
+          type: "send_message",
+          label: "Send Message",
+          category: "roll20_output",
+          allowed_targets: ["caster"],
+          formula_fields: ["message"],
+          path_catalog: "none"
+        }
+      ],
+      action_preset_templates: [],
+      type: "action_formula_authoring_metadata",
+      request_id: "req-metadata"
+    });
+
+    if (!protocolEvent || protocolEvent.type !== "action_formula_authoring_metadata") {
+      throw new Error("Expected action_formula_authoring_metadata event");
+    }
+
+    const adapted = adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent);
+
+    expect(adapted.events).toEqual([
+      {
+        type: "action_formula_authoring_metadata",
+        requestId: "req-metadata",
+        metadata: {
+          variables: [],
+          formula_roots: ["sheet", "instance"],
+          action_mutation_roots: ["instance"],
+          formula_aliases: [],
+          action_steps: [
+            {
+              type: "send_message",
+              label: "Send Message",
+              category: "roll20_output",
+              allowed_targets: ["caster"],
+              formula_fields: ["message"],
+              path_catalog: "none"
+            }
+          ],
+          action_preset_templates: []
+        }
       }
     ]);
   });

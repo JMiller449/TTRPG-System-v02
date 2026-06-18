@@ -3,6 +3,14 @@
   background: #fff;
 }
 
-.item-template-card {
+.item-definition-card {
+  background: #fff;
+}
+
+.formula-editor,
+.formula-definition-card,
+.action-editor,
+.action-definition-card,
+.action-metadata-panel {
   background: #fff;
 }

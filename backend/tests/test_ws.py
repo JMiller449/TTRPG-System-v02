@@ -240,6 +240,62 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
     asyncio.run(scenario())
 
 
+def test_get_roll20_bridge_status_reports_disconnected() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="player")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "get_roll20_bridge_status",
+                "request_id": "req-status",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "connected": False,
+                "type": "roll20_bridge_status",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_get_roll20_bridge_status_reports_connected() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        websocket = FakeWebSocket()
+        bridge_socket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="player")
+        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "get_roll20_bridge_status",
+                "request_id": "req-status",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "connected": True,
+                "type": "roll20_bridge_status",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
 def test_unauthenticated_socket_must_authenticate_before_other_requests() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()

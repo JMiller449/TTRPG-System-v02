@@ -4,6 +4,7 @@ import logging
 import json
 from pathlib import Path
 
+from backend.state.models.action_history import prune_action_history
 from backend.state.models.state import State
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class StateSingleton:
     def dumpState(cls) -> None:
         if cls._state is None:
             cls._state = State()
+        cls._state.action_history = prune_action_history(cls._state.action_history)
         with STATE_PATH.open("w", encoding="utf-8") as file:
             json.dump(cls._state.to_dict(include_private=True), file)
 

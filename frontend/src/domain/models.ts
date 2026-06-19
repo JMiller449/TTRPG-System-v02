@@ -96,6 +96,24 @@ export type DamageType =
   | "Gravity"
   | "Psychic";
 
+export const DAMAGE_TYPES: readonly DamageType[] = [
+  "Arcane",
+  "Slashing",
+  "Bludgeoning",
+  "Piercing",
+  "Fire",
+  "Water",
+  "Earth",
+  "Wind",
+  "Light",
+  "Dark",
+  "Lightning",
+  "Ice",
+  "Time",
+  "Gravity",
+  "Psychic"
+];
+
 export interface ResolveDamageActionStep {
   step_id: string;
   damage_type: DamageType;
@@ -150,6 +168,69 @@ export interface StatAugmentation {
   augmentation: Formula;
 }
 
+export type AugmentationSourceType =
+  | "item"
+  | "action"
+  | "spell"
+  | "condition"
+  | "ally_effect"
+  | "manual"
+  | "other";
+
+export type AugmentationScope = "sheet" | "instance";
+
+export type AugmentationTargetRoot = "state" | "sheet" | "instance";
+
+export type AugmentationOperation = "add" | "subtract" | "multiply" | "divide" | "set";
+
+export interface AugmentationSource {
+  type: AugmentationSourceType;
+  id?: string | null;
+  label?: string | null;
+}
+
+export interface AugmentationTarget {
+  root: AugmentationTargetRoot;
+  path: string[];
+}
+
+export interface FormulaModifierEffect {
+  operation: AugmentationOperation;
+  value: Formula;
+  type: "formula_modifier";
+}
+
+export interface AugmentationLifecycle {
+  duration?: string | null;
+  expires_at?: string | null;
+  removal_condition?: string | null;
+}
+
+export interface Augmentation {
+  id: string;
+  name: string;
+  description?: string;
+  source: AugmentationSource;
+  scope: AugmentationScope;
+  target: AugmentationTarget;
+  effect: FormulaModifierEffect;
+  active?: boolean;
+  applied?: boolean;
+  applied_target_id?: string | null;
+  lifecycle?: AugmentationLifecycle;
+}
+
+export type ConditionVisibility = "public" | "gm_only";
+
+export interface ConditionPreset {
+  id: string;
+  name: string;
+  description?: string;
+  visibility?: ConditionVisibility;
+  augmentation_ids?: string[];
+  augmentation_templates?: Augmentation[];
+}
+
 export interface ItemDefinition {
   id: string;
   name: string;
@@ -160,6 +241,7 @@ export interface ItemDefinition {
   price: string;
   weight: string;
   stat_augmentations: StatAugmentation[];
+  augmentation_templates?: Augmentation[];
 }
 
 export interface Bridge {
@@ -337,4 +419,27 @@ export interface RollLogEntry {
   requestedByRole: Role;
   resultText?: string;
   error?: string;
+}
+
+export type ActionHistoryStatus = "success" | "failed";
+export type ActionHistoryActorRole = "player" | "dm";
+
+export interface ActionHistoryEntry {
+  id: string;
+  request_id?: string | null;
+  action_id: string;
+  action_name: string;
+  actor_role: ActionHistoryActorRole;
+  actor_sheet_id: string;
+  actor_instance_id?: string | null;
+  target_sheet_id?: string | null;
+  created_at: string;
+  state_version: number;
+  status: ActionHistoryStatus;
+  summary: string;
+  emitted_messages?: string[];
+  mutation_summaries?: string[];
+  formula_summaries?: string[];
+  error?: string | null;
+  redacted?: boolean;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
+import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
@@ -13,6 +14,7 @@ import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildCreateSheetItemBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
+  buildPerformActionRequest,
   buildUpdateSheetItemBridgeRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -35,6 +37,7 @@ export function PlayerCharacterSheet({
     itemOrder,
     runtimeNote,
     equipment,
+    assignedActions,
     activeWeaponId,
     activeWeaponLabel,
     selectedItemId,
@@ -72,6 +75,7 @@ export function PlayerCharacterSheet({
   }
 
   const showStatsSection = activeTab === "stats";
+  const showActionsSection = activeTab === "actions";
   const showEquipmentSection = activeTab === "equipment";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
@@ -147,6 +151,21 @@ export function PlayerCharacterSheet({
             onDraftModifierChange={statEditor.setDraftModifier}
             onCancelEditing={statEditor.cancelEditing}
             onEditorKeyDown={statEditor.onEditorKeyDown}
+          />
+        ) : null}
+
+        {showActionsSection ? (
+          <SheetActionsSection
+            assignedActions={assignedActions}
+            onPerformAction={(action) => {
+              client.sendProtocolRequest(
+                buildPerformActionRequest({
+                  sheetId: detail.instance.id,
+                  actionId: action.actionId
+                }),
+                `Perform action: ${action.action.name}`
+              );
+            }}
           />
         ) : null}
 

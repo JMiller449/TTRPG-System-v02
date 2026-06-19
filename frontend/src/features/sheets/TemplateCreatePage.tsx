@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
-import { TemplateEditorForm, type TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
+import { TemplateEditorForm } from "@/features/sheets/TemplateEditorForm";
+import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import {
   createEmptyTemplateEditorValues,
   toSheetDefinitionPayload

@@ -1,4 +1,4 @@
-import type { TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
+import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import { TemplateEditorForm } from "@/features/sheets/TemplateEditorForm";
 
 export function TemplateEditPanel({

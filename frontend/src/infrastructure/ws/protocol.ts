@@ -7,6 +7,7 @@ import type {
   PatchOperation as ProtocolPatchOperation,
   ProtocolApplicationRequest,
   ProtocolServerEvent,
+  Roll20BridgeStatusEvent as ProtocolRoll20BridgeStatusEvent,
   StatePatchEvent as ProtocolStatePatchEvent,
   StateSnapshotEvent as ProtocolStateSnapshotEvent
 } from "@/generated/backendProtocol";
@@ -19,6 +20,7 @@ export type {
   ProtocolBackendState,
   ProtocolErrorEvent,
   ProtocolPatchOperation,
+  ProtocolRoll20BridgeStatusEvent,
   ProtocolServerEvent,
   ProtocolStatePatchEvent,
   ProtocolStateSnapshotEvent
@@ -155,6 +157,17 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           action_steps: payload.action_steps as ProtocolActionFormulaAuthoringMetadataEvent["action_steps"],
           action_preset_templates: payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
           type: "action_formula_authoring_metadata",
+          request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "roll20_bridge_status":
+      if (typeof payload.connected === "boolean") {
+        return {
+          response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
+          connected: payload.connected,
+          type: "roll20_bridge_status",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
         };
       }

@@ -4,7 +4,6 @@ import type {
   PersistentSheet,
   PersistentSheetPresentation,
   PersistentSheetRecord,
-  RollLogEntry,
   Sheet
 } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
@@ -101,6 +100,7 @@ export class MockGameTransport implements GameTransport {
     items: [],
     actions: [],
     formulas: [],
+    conditionPresets: [],
     sheetPresentation: [
       {
         sheetId: "template_player_base",
@@ -131,7 +131,7 @@ export class MockGameTransport implements GameTransport {
       }
     ],
     encounters: [],
-    rollLog: [],
+    actionHistory: [],
     activeSheetId: "instance_player_1"
   };
 
@@ -199,19 +199,6 @@ export class MockGameTransport implements GameTransport {
         return;
       }
       case "submit_roll": {
-        const resultText =
-          intent.payload.request.kind === "dice"
-            ? `Mock ${intent.payload.request.count}d${intent.payload.request.sides} roll only. Awaiting backend authoritative resolution.`
-            : "Mock stat-check result only. Awaiting backend authoritative resolution.";
-        const pendingEntry: RollLogEntry = {
-          id: makeId("roll"),
-          status: "resolved",
-          request: intent.payload.request,
-          createdAt: now(),
-          requestedByRole: intent.payload.requestedByRole,
-          resultText
-        };
-        this.snapshot.rollLog = [pendingEntry, ...this.snapshot.rollLog];
         this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
@@ -252,6 +239,13 @@ export class MockGameTransport implements GameTransport {
       }
       case "resync_state":
         this.emit({ type: "snapshot", snapshot: this.snapshot, stateVersion: this.stateVersion });
+        return;
+      case "get_roll20_bridge_status":
+        this.emit({
+          type: "roll20_bridge_status",
+          connected: false,
+          requestId: request.request_id ?? undefined
+        });
         return;
       case "create_sheet": {
         const sheet = createSheetFromDefinition(request.sheet);
@@ -338,6 +332,9 @@ export class MockGameTransport implements GameTransport {
         });
         return;
       }
+      case "perform_action":
+        this.emit({ type: "ack", requestId: request.request_id ?? makeId("request") });
+        return;
       default:
         this.emit({
           type: "error",

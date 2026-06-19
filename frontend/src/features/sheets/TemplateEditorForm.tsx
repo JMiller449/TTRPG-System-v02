@@ -1,40 +1,11 @@
 import type { ChangeEvent } from "react";
-import type { SheetKind } from "@/domain/models";
+import {
+  CORE_STAT_LABELS,
+  CORE_TEMPLATE_STATS,
+  type CoreTemplateStatKey,
+  type TemplateEditorValues
+} from "@/features/sheets/templateEditorTypes";
 import { Field } from "@/shared/ui/Field";
-
-export type CoreTemplateStatKey =
-  | "strength"
-  | "dexterity"
-  | "constitution"
-  | "perception"
-  | "arcane"
-  | "will";
-
-export const CORE_TEMPLATE_STATS: readonly CoreTemplateStatKey[] = [
-  "strength",
-  "dexterity",
-  "constitution",
-  "perception",
-  "arcane",
-  "will"
-];
-
-export const CORE_STAT_LABELS: Record<CoreTemplateStatKey, string> = {
-  strength: "Strength",
-  dexterity: "Dexterity",
-  constitution: "Constitution",
-  perception: "Perception",
-  arcane: "Arcane",
-  will: "Will"
-};
-
-export interface TemplateEditorValues {
-  kind: SheetKind;
-  name: string;
-  notes: string;
-  tags: string;
-  coreStats: Record<CoreTemplateStatKey, string>;
-}
 
 interface TemplateEditorFormProps {
   title: string;
@@ -80,7 +51,7 @@ export function TemplateEditorForm({
           <Field label="Kind">
             <select
               value={values.kind}
-              onChange={(event) => onChange({ ...values, kind: event.target.value as SheetKind })}
+              onChange={(event) => onChange({ ...values, kind: event.target.value as TemplateEditorValues["kind"] })}
             >
               <option value="player">Player</option>
               <option value="enemy">Enemy</option>

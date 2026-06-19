@@ -139,10 +139,11 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     items: Object.values(state.items ?? {}),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
+    conditionPresets: Object.values(state.condition_presets ?? {}),
     sheetPresentation: [],
     persistentSheetPresentation: [],
     encounters: [],
-    rollLog: [],
+    actionHistory: Object.values(state.action_history ?? {}),
     activeSheetId: null
   };
 }
@@ -244,6 +245,18 @@ export function adaptProtocolServerEvent(
               action_steps: event.action_steps,
               action_preset_templates: event.action_preset_templates
             },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
+    case "roll20_bridge_status":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "roll20_bridge_status",
+            connected: event.connected,
             requestId: event.request_id ?? undefined
           }
         ]

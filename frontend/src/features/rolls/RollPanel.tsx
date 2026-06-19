@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
 import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import { Field } from "@/shared/ui/Field";
@@ -7,10 +7,16 @@ import { Panel } from "@/shared/ui/Panel";
 import type { GameClient } from "@/hooks/useGameClient";
 import type { CommonDieSides, RollVisibility, StatKey } from "@/domain/models";
 import {
+  buildGetRoll20BridgeStatusRequest,
+  buildPerformActionRequest
+} from "@/infrastructure/ws/requestBuilders";
+import {
   getRollEquationPreview,
   getQuickRollLabel,
   formatDiceExpression,
+  QUICK_ROLL_DEFAULT_STATS,
   QUICK_ROLL_ACTIONS,
+  resolveQuickRollAction,
   type QuickRollAction
 } from "@/features/rolls/quickRolls";
 
@@ -42,6 +48,8 @@ export function RollPanel({
     state
   } = useAppStore();
   const { activeSheetId } = state.uiState;
+  const { roll20Bridge } = state.uiState;
+  const { actions } = state.serverState;
 
   const [composerMode, setComposerMode] = useState<ComposerMode>("stat");
   const [stat, setStat] = useState<StatKey>("strength");
@@ -51,12 +59,13 @@ export function RollPanel({
   const [diceCount, setDiceCount] = useState<number>(1);
   const [diceSides, setDiceSides] = useState<CommonDieSides>(20);
 
-  const activeSheetName = useMemo(() => {
+  const activeSheetView = useMemo(() => {
     if (!activeSheetId) {
-      return "None";
+      return null;
     }
-    return selectSheetInstanceView(state, activeSheetId)?.name ?? activeSheetId;
+    return selectSheetInstanceView(state, activeSheetId);
   }, [activeSheetId, state]);
+  const activeSheetName = activeSheetView?.name ?? activeSheetId ?? "None";
   const activeWeapon = useMemo(() => {
     if (!activeSheetId) {
       return null;
@@ -64,6 +73,19 @@ export function RollPanel({
     const label = selectActiveWeaponLabel(state, activeSheetId);
     return label === "None" ? null : label;
   }, [activeSheetId, state]);
+  const quickActionResolutions = useMemo(
+    () =>
+      Object.fromEntries(
+        QUICK_ROLL_ACTIONS.map((action) => [
+          action,
+          resolveQuickRollAction(activeSheetView?.parentSheet, actions, action)
+        ])
+      ) as Record<QuickRollAction, ReturnType<typeof resolveQuickRollAction>>,
+    [activeSheetView?.parentSheet, actions]
+  );
+  const selectedQuickActionResolution = selectedQuickAction
+    ? quickActionResolutions[selectedQuickAction]
+    : null;
   const showVisibilityControls = mode === "gm";
 
   const submit = (): void => {
@@ -82,6 +104,21 @@ export function RollPanel({
       return;
     }
 
+    if (selectedQuickAction && !selectedQuickActionResolution) {
+      return;
+    }
+
+    if (selectedQuickActionResolution) {
+      client.sendProtocolRequest(
+        buildPerformActionRequest({
+          sheetId: activeSheetId,
+          actionId: selectedQuickActionResolution.actionId
+        }),
+        `Perform action: ${selectedQuickActionResolution.actionName}`
+      );
+      return;
+    }
+
     client.submitRoll({
       kind: "stat",
       sheetId: activeSheetId,
@@ -92,7 +129,24 @@ export function RollPanel({
 
   const title = mode === "player" ? "Roll Composer" : "Roll";
   const statLabel = mode === "player" ? "Stat" : "Governing Stat";
-  const selectedActionLabel = selectedQuickAction ? getQuickRollLabel(selectedQuickAction, activeWeapon) : null;
+  const selectedActionLabel = selectedQuickActionResolution
+    ? selectedQuickActionResolution.actionName
+    : selectedQuickAction
+      ? getQuickRollLabel(selectedQuickAction, activeWeapon)
+      : null;
+  const submitLabel =
+    composerMode === "dice"
+      ? "Roll Dice"
+        : selectedQuickActionResolution
+        ? "Perform Action"
+        : "Submit Roll";
+  const canSubmit = Boolean(activeSheetId) && !(composerMode === "stat" && selectedQuickAction && !selectedQuickActionResolution);
+  const bridgeStatusLabel =
+    roll20Bridge.status === "connected"
+      ? "Roll20 connected"
+      : roll20Bridge.status === "disconnected"
+        ? "Roll20 disconnected"
+        : "Roll20 unknown";
 
   return (
     <Panel title={title}>
@@ -100,6 +154,9 @@ export function RollPanel({
         <div className="status-row roll-panel__meta">
           <span className="pill">sheet: {activeSheetName}</span>
           <span className="pill">mode: {composerMode === "stat" ? "stat check" : "dice roll"}</span>
+          <span className={`pill roll20-bridge-pill roll20-bridge-pill--${roll20Bridge.status}`}>
+            {bridgeStatusLabel}
+          </span>
           {selectedActionLabel ? <span className="pill">action: {selectedActionLabel}</span> : null}
         </div>
         <div className="inline-group roll-panel__controls">
@@ -170,7 +227,14 @@ export function RollPanel({
                   className={`quick-roll-btn ${selectedQuickAction === action ? "quick-roll-btn--active" : ""}`}
                   onClick={() => {
                     setSelectedQuickAction(action);
+                    setStat(QUICK_ROLL_DEFAULT_STATS[action]);
                   }}
+                  disabled={!quickActionResolutions[action]}
+                  title={
+                    quickActionResolutions[action]
+                      ? `Select ${quickActionResolutions[action]?.actionName}`
+                      : "This sheet does not have that action assigned"
+                  }
                 >
                   {getQuickRollLabel(action, activeWeapon)}
                 </button>
@@ -180,19 +244,46 @@ export function RollPanel({
         ) : null}
         <div className="roll-panel__footer">
           <div className="equation-preview">
-            <span className="muted">{composerMode === "dice" ? "Dice Expression" : "Roll Equation"}</span>
+            <span className="muted">
+              {composerMode === "dice"
+                ? "Dice Expression"
+                : selectedQuickActionResolution
+                  ? "Action Request"
+                  : "Roll Equation"}
+            </span>
             {composerMode === "dice" ? (
               <code>{formatDiceExpression(diceCount, diceSides)}</code>
+            ) : selectedQuickActionResolution ? (
+              <code>
+                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId}
+              </code>
+            ) : selectedQuickAction ? (
+              <code>Selected quick action is not assigned to this sheet.</code>
             ) : (
               <code>
                 {getRollEquationPreview(stat, selectedQuickAction, activeWeapon)} + {getRollEdgePreview(rollEdge)}
               </code>
             )}
           </div>
-          <button className="button" onClick={submit} disabled={!activeSheetId}>
-            {composerMode === "dice" ? "Roll Dice" : "Submit Roll"}
+          <button className="button" onClick={submit} disabled={!canSubmit}>
+            {submitLabel}
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={() =>
+              client.sendProtocolRequest(
+                buildGetRoll20BridgeStatusRequest(),
+                "Roll20 bridge status"
+              )
+            }
+          >
+            Check Bridge
           </button>
         </div>
+        {roll20Bridge.lastError ? (
+          <p className="error-text roll-panel__bridge-error">{roll20Bridge.lastError}</p>
+        ) : null}
 
         {/* TODO: backend may require dedicated dice-roll and edge fields; align once request schema is finalized. */}
       </div>

@@ -1,5 +1,7 @@
 import type { AppState } from "@/app/state/types";
 import type {
+  ActionDefinition,
+  Bridge,
   ItemBridge,
   ItemDefinition,
   PersistentSheet,
@@ -16,6 +18,13 @@ export interface ActiveSheetDetail {
   persistentSheet: PersistentSheet;
   baseStats: Partial<Record<SheetStatKey, number>>;
   stats: Partial<Record<SheetStatKey, number>>;
+}
+
+export interface AssignedSheetAction {
+  relationshipId: string;
+  actionId: string;
+  action: ActionDefinition;
+  bridge: Bridge;
 }
 
 function getSheetKind(state: AppState, sheet: Sheet | null): SheetKind {
@@ -154,6 +163,25 @@ export function selectAvailableItems(state: AppState): ItemDefinition[] {
   return state.serverState.itemOrder
     .map((id) => state.serverState.items[id])
     .filter((entry): entry is ItemDefinition => Boolean(entry));
+}
+
+export function selectSheetAssignedActions(state: AppState, sheetOrInstanceId: string): AssignedSheetAction[] {
+  const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
+  return Object.values(sheet?.actions ?? {})
+    .map((bridge) => {
+      const action = state.serverState.actions[bridge.entry_id];
+      if (!action) {
+        return null;
+      }
+
+      return {
+        relationshipId: bridge.relationship_id,
+        actionId: action.id,
+        action,
+        bridge
+      };
+    })
+    .filter((entry): entry is AssignedSheetAction => Boolean(entry));
 }
 
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {

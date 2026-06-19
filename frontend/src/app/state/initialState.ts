@@ -13,10 +13,14 @@ export const initialServerState: ServerState = {
   actionOrder: [],
   formulas: {},
   formulaOrder: [],
+  conditionPresets: {},
+  conditionPresetOrder: [],
   sheetPresentation: {},
   persistentSheetPresentation: {},
   encounters: {},
-  encounterOrder: []
+  encounterOrder: [],
+  actionHistory: {},
+  actionHistoryOrder: []
 };
 
 export const initialUiState: UIState = {
@@ -26,6 +30,9 @@ export const initialUiState: UIState = {
     transport: (import.meta.env.VITE_TRANSPORT === "mock" ? "mock" : "ws") as
       | "mock"
       | "ws"
+  },
+  roll20Bridge: {
+    status: "unknown"
   },
   gmView: "console",
   activeSheetId: null,

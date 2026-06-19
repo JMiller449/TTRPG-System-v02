@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import type { ClientIntent } from "@/domain/ipc";
 import type { Role, RollRequest } from "@/domain/models";
 import {
@@ -46,6 +46,37 @@ function getIntentLabel(intent: ClientIntent): string {
   }
 }
 
+function isRoll20BridgeUnavailableError(message: string): boolean {
+  return message.toLowerCase().includes("roll20 chat bridge is not connected");
+}
+
+export function buildIntentSuccessMessage(label: string): string {
+  return label === "State resync" ? "State resynced." : `${label} synced.`;
+}
+
+export function buildIntentErrorMessage({
+  label,
+  message,
+  requestId,
+  isRoll20BridgeError
+}: {
+  label: string;
+  message: string;
+  requestId?: string;
+  isRoll20BridgeError: boolean;
+}): string {
+  if (isRoll20BridgeError) {
+    return `${label} failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded before trying again.`;
+  }
+  if (!requestId) {
+    return `Transport error: ${message}`;
+  }
+  if (message.toLowerCase().includes("disconnected")) {
+    return `${label} failed: ${message}`;
+  }
+  return `${label} rejected: ${message}`;
+}
+
 export function useGameClient(): GameClient {
   const { state, dispatch } = useAppStore();
   const clientRef = useRef<ManagedGameClient | null>(null);
@@ -90,7 +121,7 @@ export function useGameClient(): GameClient {
               id: makeId("feedback"),
               intentId: event.requestId,
               status: "success",
-              message: `${label} synced.`,
+              message: buildIntentSuccessMessage(label),
               createdAt: new Date().toISOString()
             }
           });
@@ -107,7 +138,7 @@ export function useGameClient(): GameClient {
             id: makeId("feedback"),
             intentId: event.requestId,
             status: "success",
-            message: `${label} synced.`,
+            message: buildIntentSuccessMessage(label),
             createdAt: new Date().toISOString()
           }
         });
@@ -126,7 +157,7 @@ export function useGameClient(): GameClient {
               id: makeId("feedback"),
               intentId: event.requestId,
               status: "success",
-              message: `${label} synced.`,
+              message: buildIntentSuccessMessage(label),
               createdAt: new Date().toISOString()
             }
           });
@@ -145,7 +176,7 @@ export function useGameClient(): GameClient {
               id: makeId("feedback"),
               intentId: event.requestId,
               status: "success",
-              message: `${label} synced.`,
+              message: buildIntentSuccessMessage(label),
               createdAt: new Date().toISOString()
             }
           });
@@ -153,7 +184,57 @@ export function useGameClient(): GameClient {
         }
         return;
       }
+      if (event.type === "roll20_bridge_status") {
+        dispatch({
+          type: "set_roll20_bridge_status",
+          status: event.connected ? "connected" : "disconnected",
+          checkedAt: new Date().toISOString(),
+          error: event.connected ? undefined : "Roll20 chat bridge is not connected."
+        });
+        if (event.requestId) {
+          const label = intentLabelMapRef.current[event.requestId] ?? "Roll20 bridge status";
+          delete intentLabelMapRef.current[event.requestId];
+          dispatch({
+            type: "push_intent_feedback",
+            item: {
+              id: makeId("feedback"),
+              intentId: event.requestId,
+              status: event.connected ? "success" : "error",
+              message: event.connected
+                ? `${label} synced.`
+                : "Roll20 bridge disconnected. Open Roll20 with the extension loaded before sending chat output.",
+              createdAt: new Date().toISOString()
+            }
+          });
+          dispatch({ type: "clear_intent", intentId: event.requestId });
+        }
+        return;
+      }
+      if (event.type === "sync_recovery") {
+        intentLabelMapRef.current[event.requestId] = "State resync";
+        dispatch({ type: "queue_intent", intentId: event.requestId });
+        dispatch({
+          type: "push_intent_feedback",
+          item: {
+            id: makeId("feedback"),
+            intentId: event.requestId,
+            status: "pending",
+            message: `State version gap detected. Resyncing from v${event.lastSeenVersion ?? "unknown"} to v${event.receivedVersion}.`,
+            createdAt: new Date().toISOString()
+          }
+        });
+        return;
+      }
       const label = event.requestId ? intentLabelMapRef.current[event.requestId] ?? "Intent" : "Transport";
+      const isRoll20BridgeError = isRoll20BridgeUnavailableError(event.message);
+      if (isRoll20BridgeError) {
+        dispatch({
+          type: "set_roll20_bridge_status",
+          status: "disconnected",
+          checkedAt: new Date().toISOString(),
+          error: event.message
+        });
+      }
       dispatch({ type: "connection_error", error: event.message });
       dispatch({
         type: "push_intent_feedback",
@@ -161,7 +242,12 @@ export function useGameClient(): GameClient {
           id: makeId("feedback"),
           intentId: event.requestId,
           status: "error",
-          message: event.requestId ? `${label} failed: ${event.message}` : `Transport error: ${event.message}`,
+          message: buildIntentErrorMessage({
+            label,
+            message: event.message,
+            requestId: event.requestId,
+            isRoll20BridgeError
+          }),
           createdAt: new Date().toISOString()
         }
       });

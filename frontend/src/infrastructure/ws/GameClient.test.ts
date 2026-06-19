@@ -124,10 +124,11 @@ describe("ManagedGameClient", () => {
         items: [],
         actions: [],
         formulas: [],
+        conditionPresets: [],
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
-        rollLog: [],
+        actionHistory: [],
         activeSheetId: null
       },
       stateVersion: 5,
@@ -141,23 +142,56 @@ describe("ManagedGameClient", () => {
         items: [],
         actions: [],
         formulas: [],
+        conditionPresets: [],
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
-        rollLog: [],
+        actionHistory: [],
         activeSheetId: null
       },
       stateVersion: 7,
       incremental: true
     });
 
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
     expect(events[0]?.type).toBe("snapshot");
+    expect(events[1]).toEqual({
+      type: "sync_recovery",
+      requestId: transport.protocolRequests[0]?.request_id,
+      lastSeenVersion: 5,
+      receivedVersion: 7
+    });
     expect(transport.protocolRequests[0]?.type).toBe("resync_state");
     if (transport.protocolRequests[0]?.type !== "resync_state") {
       throw new Error("Expected resync_state request");
     }
     expect(transport.protocolRequests[0].last_seen_version).toBe(5);
+
+    transport.emit({
+      type: "snapshot",
+      snapshot: {
+        sheets: [],
+        persistentSheets: [],
+        items: [],
+        actions: [],
+        formulas: [],
+        conditionPresets: [],
+        sheetPresentation: [],
+        persistentSheetPresentation: [],
+        encounters: [],
+        actionHistory: [],
+        activeSheetId: null
+      },
+      stateVersion: 7,
+      incremental: false,
+      requestId: transport.protocolRequests[0].request_id ?? undefined
+    });
+
+    expect(events.at(-1)).toMatchObject({
+      type: "snapshot",
+      stateVersion: 7,
+      requestId: transport.protocolRequests[0].request_id
+    });
   });
 
   it("re-authenticates on reconnect after a successful auth attempt", async () => {

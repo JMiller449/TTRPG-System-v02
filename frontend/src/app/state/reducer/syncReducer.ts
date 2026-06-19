@@ -1,4 +1,4 @@
-import type { AppAction, AppState, ServerState } from "@/app/state/types";
+import type { AppAction, AppState } from "@/app/state/types";
 import { updateServerState, updateUiState } from "@/app/state/reducer/shared";
 
 function normalizeUiSelections(state: AppState): AppState {
@@ -28,6 +28,7 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       const items = Object.fromEntries(action.snapshot.items.map((item) => [item.id, item]));
       const actions = Object.fromEntries(action.snapshot.actions.map((item) => [item.id, item]));
       const formulas = Object.fromEntries(action.snapshot.formulas.map((item) => [item.id, item]));
+      const conditionPresets = Object.fromEntries(action.snapshot.conditionPresets.map((item) => [item.id, item]));
       const sheetPresentation = Object.fromEntries(
         action.snapshot.sheetPresentation.map((item) => [item.sheetId, item.value])
       );
@@ -35,6 +36,7 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
         action.snapshot.persistentSheetPresentation.map((item) => [item.persistentSheetId, item.value])
       );
       const encounters = Object.fromEntries(action.snapshot.encounters.map((item) => [item.id, item]));
+      const actionHistory = Object.fromEntries(action.snapshot.actionHistory.map((item) => [item.id, item]));
       return normalizeUiSelections(
         updateServerState(state, (serverState) => ({
           ...serverState,
@@ -48,10 +50,14 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
           actionOrder: action.snapshot.actions.map((item) => item.id),
           formulas,
           formulaOrder: action.snapshot.formulas.map((item) => item.id),
+          conditionPresets,
+          conditionPresetOrder: action.snapshot.conditionPresets.map((item) => item.id),
           sheetPresentation,
           persistentSheetPresentation,
           encounters,
-          encounterOrder: action.snapshot.encounters.map((item) => item.id)
+          encounterOrder: action.snapshot.encounters.map((item) => item.id),
+          actionHistory,
+          actionHistoryOrder: action.snapshot.actionHistory.map((item) => item.id)
         }))
       );
     }

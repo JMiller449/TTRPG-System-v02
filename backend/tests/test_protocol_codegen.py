@@ -11,6 +11,10 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "send_roll20_chat_message"' in output
     assert '"clientNamespace": "chat"' in output
     assert '"clientMethodName": "sendRoll20ChatMessage"' in output
+    assert '"type": "get_roll20_bridge_status"' in output
+    assert '"clientMethodName": "getRoll20BridgeStatus"' in output
+    assert "export type Roll20BridgeStatusEvent = {" in output
+    assert '"connected": boolean;' in output
     assert '"type": "resync_state"' in output
     assert '"minimumRole": "player"' in output
     assert '"type": "perform_action"' in output
@@ -29,6 +33,12 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "createInstancedSheet"' in output
     assert '"clientMethodName": "deleteSheet"' in output
     assert "export type SheetDefinitionPayload = {" in output
+    assert "export type ActionHistoryEntryPayload = {" in output
+    assert '"summary": string;' in output
+    assert '"mutation_summaries"?: string[];' in output
+    assert '"formula_summaries"?: string[];' in output
+    assert '"redacted"?: boolean;' in output
+    assert '"action_history"?: Record<string, ActionHistoryEntryPayload>;' in output
     assert '"notes"?: string;' in output
     assert '"stats": StatsPayload;' in output
     assert '"resistances"?: ResistancesPayload;' in output

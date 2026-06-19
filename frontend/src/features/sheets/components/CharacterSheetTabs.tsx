@@ -16,6 +16,12 @@ export function CharacterSheetTabs({
         Stats
       </button>
       <button
+        className={`character-sheet__tab ${activeTab === "actions" ? "character-sheet__tab--active" : ""}`}
+        onClick={() => onChange("actions")}
+      >
+        Actions
+      </button>
+      <button
         className={`character-sheet__tab ${activeTab === "equipment" ? "character-sheet__tab--active" : ""}`}
         onClick={() => onChange("equipment")}
       >

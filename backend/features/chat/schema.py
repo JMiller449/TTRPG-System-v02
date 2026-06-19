@@ -11,6 +11,10 @@ class SendRoll20ChatMessage(RequestModel):
     type: Literal["send_roll20_chat_message"]
 
 
+class GetRoll20BridgeStatus(RequestModel):
+    type: Literal["get_roll20_bridge_status"]
+
+
 @dataclass
 class Roll20ChatMessage:
     message_id: str

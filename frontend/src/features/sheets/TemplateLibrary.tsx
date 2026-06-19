@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { SheetTemplateView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { TemplateEditPanel } from "@/features/sheets/components/TemplateEditPanel";
 import { TemplateList } from "@/features/sheets/components/TemplateList";
 import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBar";
-import type { TemplateEditorValues } from "@/features/sheets/TemplateEditorForm";
+import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import {
   createEmptyTemplateEditorValues,
   toInstancedSheetCreationValues,

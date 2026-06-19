@@ -118,7 +118,38 @@ describe("authoritative server-state sync", () => {
             }
           }
         },
-        proficiencies: {}
+        condition_presets: {
+          poisoned: {
+            id: "poisoned",
+            name: "Poisoned",
+            description: "Poison status.",
+            visibility: "public",
+            augmentation_ids: [],
+            augmentation_templates: []
+          }
+        },
+        proficiencies: {},
+        action_history: {
+          history_1: {
+            id: "history_1",
+            request_id: "request_1",
+            action_id: "action_1",
+            action_name: "Mana Burst",
+            actor_role: "player",
+            actor_sheet_id: "sheet_1",
+            actor_instance_id: "instance_1",
+            target_sheet_id: null,
+            created_at: "2026-06-18T12:00:00Z",
+            state_version: 1,
+            status: "success",
+            summary: "Mana Burst succeeded.",
+            emitted_messages: ["Mana Burst"],
+            mutation_summaries: [],
+            formula_summaries: [],
+            error: null,
+            redacted: true
+          }
+        }
       },
       state_version: 0,
       type: "state_snapshot",
@@ -128,6 +159,10 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.itemOrder).toEqual(["item_1"]);
     expect(result.state.serverState.actionOrder).toEqual(["action_1"]);
     expect(result.state.serverState.formulaOrder).toEqual(["formula_1"]);
+    expect(result.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
+    expect(result.state.serverState.conditionPresets.poisoned.name).toBe("Poisoned");
+    expect(result.state.serverState.actionHistoryOrder).toEqual(["history_1"]);
+    expect(result.state.serverState.actionHistory.history_1.summary).toBe("Mana Burst succeeded.");
   });
 
   it("applies incremental backend patches against the same authoritative state shape", () => {

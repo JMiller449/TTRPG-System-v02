@@ -11,6 +11,35 @@
 .formula-definition-card,
 .action-editor,
 .action-definition-card,
-.action-metadata-panel {
+.action-metadata-panel,
+.augmentation-template-panel,
+.augmentation-template-card {
   background: #fff;
+}
+
+.augmentation-template-panel__target {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.augmentation-template-panel__segments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.augmentation-template-panel__segment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.augmentation-template-panel__active {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.9rem;
 }

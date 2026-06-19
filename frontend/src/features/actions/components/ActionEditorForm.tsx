@@ -1,11 +1,25 @@
 import { Field } from "@/shared/ui/Field";
+import { DAMAGE_TYPES, type DamageType } from "@/domain/models";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
+  addResolveDamageActionStep,
   addSendMessageActionStep,
+  moveResolveDamageActionStep,
   moveSendMessageActionStep,
+  removeResolveDamageActionStep,
   removeSendMessageActionStep,
+  updateResolveDamageActionStep,
+  updateResolveDamageActionStepFormula,
   updateSendMessageActionStepText,
+  updateSendMessageActionStepFormula,
   type ActionEditorValues
 } from "@/features/actions/actionEditorValues";
+import { VariablePathBrowser } from "@/features/variables/components/VariablePathBrowser";
+import {
+  appendFormulaToken,
+  upsertFormulaAlias,
+  type VariablePickerEntry
+} from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 
 export function ActionEditorForm({
@@ -13,14 +27,48 @@ export function ActionEditorForm({
   values,
   onChange,
   onSubmit,
-  onCancel
+  onCancel,
+  metadata
 }: {
   editingActionId: string | null;
   values: ActionEditorValues;
   onChange: (values: ActionEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  metadata: ActionFormulaAuthoringMetadata | null;
 }): JSX.Element {
+  const insertIntoMessageStep = (stepId: string, entry: VariablePickerEntry): void => {
+    const step = values.steps.find(
+      (candidate) => candidate.step_id === stepId && candidate.type === "send_message"
+    );
+    if (!step || step.type !== "send_message") {
+      return;
+    }
+
+    onChange(
+      updateSendMessageActionStepFormula(values, stepId, {
+        messageText: appendFormulaToken(step.message.text, entry.token),
+        aliases: upsertFormulaAlias(step.message.aliases ?? null, entry.alias)
+      })
+    );
+  };
+
+  const insertIntoDamageStep = (stepId: string, entry: VariablePickerEntry): void => {
+    const step = values.steps.find(
+      (candidate) => candidate.step_id === stepId && candidate.type === "resolve_damage"
+    );
+    if (!step || step.type !== "resolve_damage") {
+      return;
+    }
+
+    onChange(
+      updateResolveDamageActionStepFormula(values, stepId, {
+        amountText: appendFormulaToken(step.amount.text, entry.token),
+        aliases: upsertFormulaAlias(step.amount.aliases ?? null, entry.alias)
+      })
+    );
+  };
+
   return (
     <div className="template-editor action-editor">
       <p className="template-editor__title">{editingActionId ? "Edit Action" : "Create Action"}</p>
@@ -45,12 +93,20 @@ export function ActionEditorForm({
         <div className="stack">
           <div className="list-item__top">
             <span className="muted">Steps: {values.steps.length}</span>
-            <button
-              className="button button--secondary"
-              onClick={() => onChange(addSendMessageActionStep(values, makeId("step")))}
-            >
-              Add Message
-            </button>
+            <div className="inline-actions">
+              <button
+                className="button button--secondary"
+                onClick={() => onChange(addSendMessageActionStep(values, makeId("step")))}
+              >
+                Add Message
+              </button>
+              <button
+                className="button button--secondary"
+                onClick={() => onChange(addResolveDamageActionStep(values, makeId("damage")))}
+              >
+                Add Damage
+              </button>
+            </div>
           </div>
           <div className="list">
             {values.steps.map((step) =>
@@ -66,6 +122,12 @@ export function ActionEditorForm({
                       placeholder="/em describes the action."
                     />
                   </Field>
+                  <VariablePathBrowser
+                    metadata={metadata}
+                    mode="formula"
+                    title="Message Variables"
+                    onPick={(entry) => insertIntoMessageStep(step.step_id, entry)}
+                  />
                   <div className="inline-actions">
                     <button
                       className="button button--secondary"
@@ -82,6 +144,68 @@ export function ActionEditorForm({
                     <button
                       className="button button--secondary"
                       onClick={() => onChange(removeSendMessageActionStep(values, step.step_id))}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : step.type === "resolve_damage" ? (
+                <div className="list-item list-item--block" key={step.step_id}>
+                  <div className="inline-group">
+                    <Field label={`Damage Type: ${step.step_id}`}>
+                      <select
+                        value={step.damage_type}
+                        onChange={(event) =>
+                          onChange(
+                            updateResolveDamageActionStep(values, step.step_id, {
+                              damageType: event.target.value as DamageType
+                            })
+                          )
+                        }
+                      >
+                        {DAMAGE_TYPES.map((damageType) => (
+                          <option key={damageType} value={damageType}>
+                            {damageType}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Amount Formula">
+                      <input
+                        value={step.amount.text}
+                        onChange={(event) =>
+                          onChange(
+                            updateResolveDamageActionStep(values, step.step_id, {
+                              amountText: event.target.value
+                            })
+                          )
+                        }
+                        placeholder="e.g. @strength * 2"
+                      />
+                    </Field>
+                  </div>
+                  <VariablePathBrowser
+                    metadata={metadata}
+                    mode="formula"
+                    title="Damage Amount Variables"
+                    onPick={(entry) => insertIntoDamageStep(step.step_id, entry)}
+                  />
+                  <div className="inline-actions">
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(moveResolveDamageActionStep(values, step.step_id, "up"))}
+                    >
+                      Up
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(moveResolveDamageActionStep(values, step.step_id, "down"))}
+                    >
+                      Down
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(removeResolveDamageActionStep(values, step.step_id))}
                     >
                       Delete
                     </button>

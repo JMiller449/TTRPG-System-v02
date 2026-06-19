@@ -1,16 +1,18 @@
 import { useEffect } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
 import { AuthPanel } from "@/features/auth/AuthPanel";
 import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
+import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
+import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
@@ -21,7 +23,7 @@ export function App(): JSX.Element {
   const { state } = useAppStore();
   const client = useGameClient();
   const { role } = state.serverState;
-  const { connection, activeSheetId, gmView, playerSheetSelectionComplete } = state.uiState;
+  const { connection, gmView, playerSheetSelectionComplete } = state.uiState;
   const activeDetail = selectActiveSheetDetail(state);
 
   useEffect(() => {
@@ -66,6 +68,10 @@ export function App(): JSX.Element {
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />
+      ) : gmView === "sheet_viewer" ? (
+        <main className="app-grid-player">
+          <SheetViewerPage client={client} />
+        </main>
       ) : gmView === "template_library" ? (
         <main className="app-grid-player">
           <TemplateLibrary client={client} />
@@ -85,6 +91,10 @@ export function App(): JSX.Element {
       ) : gmView === "formula_authoring" ? (
         <main className="app-grid-player">
           <FormulaAuthoringPage client={client} />
+        </main>
+      ) : gmView === "condition_authoring" ? (
+        <main className="app-grid-player">
+          <ConditionAuthoringPage client={client} />
         </main>
       ) : gmView === "action_authoring" ? (
         <main className="app-grid-player">

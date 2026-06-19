@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
-from backend.features.chat.schema import SendRoll20ChatMessage
+from backend.features.chat.schema import GetRoll20BridgeStatus, SendRoll20ChatMessage
 from backend.features.sheet_admin.actions.schema import (
     CreateAction,
     DeleteAction,
@@ -118,6 +118,13 @@ class ActionExecutedEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class Roll20BridgeStatusEvent(ProtocolModel):
+    response_id: str | None = None
+    connected: bool
+    type: Literal["roll20_bridge_status"] = "roll20_bridge_status"
+    request_id: str | None = None
+
+
 class VariablePathMetadataEvent(ProtocolModel):
     key: str
     label: str
@@ -222,6 +229,7 @@ ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
     | SendRoll20ChatMessage
+    | GetRoll20BridgeStatus
     | GenerateSheetAccessCode
     | GetSheetAccessCodes
     | ClaimSheetAccessCode
@@ -270,6 +278,7 @@ ServerEvent = Annotated[
     | StateSnapshotEvent
     | StatePatchEvent
     | ActionExecutedEvent
+    | Roll20BridgeStatusEvent
     | ActionFormulaAuthoringMetadataEvent
     | VariableRegistryEvent
     | SheetAccessCodesEvent

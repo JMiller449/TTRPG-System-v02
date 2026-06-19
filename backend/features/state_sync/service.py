@@ -8,6 +8,7 @@ from dataclasses import asdict, is_dataclass
 from typing import Any, TypeVar
 
 from backend.core.transport import PatchOp
+from backend.features.action_history.service import serialize_action_history
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
@@ -53,7 +54,10 @@ def build_state_patch(
 async def send_bootstrap(session: WebSocketSession) -> None:
     await websocket_sessions.send(
         session,
-        await state_sync_service.snapshot(role=session.role),
+        await state_sync_service.snapshot(
+            role=session.role,
+            assigned_instance_id=session.assigned_instance_id,
+        ),
     )
 
 
@@ -126,6 +130,9 @@ class StateSyncService:
         redacted_ops: list[PatchOp] = []
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
+            if segments and segments[0] == "action_history":
+                continue
+
             if (
                 len(segments) >= 3
                 and segments[0] == "sheets"
@@ -154,12 +161,22 @@ class StateSyncService:
         self,
         *,
         role: SessionRole,
+        assigned_instance_id: str | None = None,
         request_id: str | None = None,
     ) -> StateSnapshot:
+        state_model = StateSingleton.getState()
         state = self._redact_state_for_role(
-            StateSingleton.getState().to_dict(),
+            state_model.to_dict(),
             role=role,
         )
+        state["action_history"] = {
+            key: value.model_dump(mode="json")
+            for key, value in serialize_action_history(
+                state_model.action_history,
+                role=role,
+                assigned_instance_id=assigned_instance_id,
+            ).items()
+        }
         return build_state_snapshot(
             state,
             state_version=self._state_version,
@@ -171,9 +188,14 @@ class StateSyncService:
         *,
         request_id: str | None = None,
         role: SessionRole = "player",
+        assigned_instance_id: str | None = None,
     ) -> StateSnapshot:
         async with self._lock:
-            return self._build_snapshot_locked(role=role, request_id=request_id)
+            return self._build_snapshot_locked(
+                role=role,
+                assigned_instance_id=assigned_instance_id,
+                request_id=request_id,
+            )
 
     async def reset(self) -> None:
         async with self._lock:

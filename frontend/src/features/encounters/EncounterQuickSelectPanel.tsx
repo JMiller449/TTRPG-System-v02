@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import type { EncounterPreset } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildSpawnEncounterIntent } from "@/features/encounters/intentBuilders";

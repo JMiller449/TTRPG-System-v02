@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerEvent } from "@/domain/ipc";
 import { SocketProtocolClient } from "@/infrastructure/ws/SocketProtocolClient";
 
+type FakeWebSocketEvent = { type: string } | { data: string };
+
 class FakeWebSocket {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
@@ -10,7 +12,7 @@ class FakeWebSocket {
 
   static instances: FakeWebSocket[] = [];
 
-  readonly listeners = new Map<string, Set<(event: any) => void>>();
+  readonly listeners = new Map<string, Set<(event: FakeWebSocketEvent) => void>>();
   readonly sentMessages: string[] = [];
   readyState = FakeWebSocket.CONNECTING;
 
@@ -18,7 +20,7 @@ class FakeWebSocket {
     FakeWebSocket.instances.push(this);
   }
 
-  addEventListener(type: string, listener: (event: any) => void): void {
+  addEventListener(type: string, listener: (event: FakeWebSocketEvent) => void): void {
     const listeners = this.listeners.get(type) ?? new Set();
     listeners.add(listener);
     this.listeners.set(type, listeners);
@@ -46,7 +48,7 @@ class FakeWebSocket {
     this.dispatch("message", { data });
   }
 
-  private dispatch(type: string, event: any): void {
+  private dispatch(type: string, event: FakeWebSocketEvent): void {
     for (const listener of this.listeners.get(type) ?? []) {
       listener(event);
     }
@@ -102,10 +104,11 @@ describe("SocketProtocolClient", () => {
           items: [],
           actions: [],
           formulas: [],
+          conditionPresets: [],
           sheetPresentation: [],
           persistentSheetPresentation: [],
           encounters: [],
-          rollLog: [],
+          actionHistory: [],
           activeSheetId: null
         },
         stateVersion: 0,

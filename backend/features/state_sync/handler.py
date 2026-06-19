@@ -15,6 +15,7 @@ async def handle_request(session: WebSocketSession, request: ResyncState) -> Non
             await service.state_sync_service.snapshot(
                 request_id=request.request_id,
                 role=session.role,
+                assigned_instance_id=session.assigned_instance_id,
             ),
         )
         return
@@ -29,6 +30,7 @@ async def handle_request(session: WebSocketSession, request: ResyncState) -> Non
             await service.state_sync_service.snapshot(
                 request_id=request.request_id,
                 role=session.role,
+                assigned_instance_id=session.assigned_instance_id,
             ),
         )
         return

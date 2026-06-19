@@ -1,6 +1,8 @@
 import type { ActionFormulaAuthoringMetadata, AppSnapshot } from "@/domain/ipc";
 import type {
   ActionDefinition,
+  ActionHistoryEntry,
+  ConditionPreset,
   EncounterPreset,
   FormulaDefinition,
   ItemDefinition,
@@ -14,13 +16,16 @@ import type {
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 export type IntentFeedbackStatus = "pending" | "success" | "error";
+export type Roll20BridgeConnectionStatus = "unknown" | "connected" | "disconnected";
 export type GMView =
   | "console"
+  | "sheet_viewer"
   | "template_library"
   | "create_template"
   | "encounter_presets"
   | "item_maker"
   | "formula_authoring"
+  | "condition_authoring"
   | "action_authoring";
 
 export interface IntentFeedbackItem {
@@ -44,10 +49,14 @@ export interface ServerState {
   actionOrder: string[];
   formulas: Record<string, FormulaDefinition>;
   formulaOrder: string[];
+  conditionPresets: Record<string, ConditionPreset>;
+  conditionPresetOrder: string[];
   sheetPresentation: Record<string, SheetPresentation>;
   persistentSheetPresentation: Record<string, PersistentSheetPresentation>;
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
+  actionHistory: Record<string, ActionHistoryEntry>;
+  actionHistoryOrder: string[];
 }
 
 export interface UIState {
@@ -56,6 +65,11 @@ export interface UIState {
     status: ConnectionStatus;
     transport: "mock" | "ws";
     error?: string;
+  };
+  roll20Bridge: {
+    status: Roll20BridgeConnectionStatus;
+    lastCheckedAt?: string;
+    lastError?: string;
   };
   gmView: GMView;
   activeSheetId: string | null;
@@ -83,6 +97,12 @@ export type AppAction =
   | { type: "connection_status"; status: ConnectionStatus }
   | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
+  | {
+      type: "set_roll20_bridge_status";
+      status: Roll20BridgeConnectionStatus;
+      checkedAt?: string;
+      error?: string;
+    }
   | { type: "queue_intent"; intentId: string }
   | { type: "clear_intent"; intentId: string }
   | { type: "push_intent_feedback"; item: IntentFeedbackItem }

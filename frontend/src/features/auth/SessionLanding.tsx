@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 
 const INTENT_BANNER_TTL_MS = {
   pending: 4000,

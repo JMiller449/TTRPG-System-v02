@@ -48,6 +48,22 @@ describe("parseProtocolServerEvent", () => {
     });
   });
 
+  it("parses Roll20 bridge status events from the backend protocol", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      connected: true,
+      type: "roll20_bridge_status",
+      request_id: "req-status"
+    });
+
+    expect(event).toEqual({
+      response_id: null,
+      connected: true,
+      type: "roll20_bridge_status",
+      request_id: "req-status"
+    });
+  });
+
   it("parses action/formula authoring metadata events from the backend protocol", () => {
     const event = parseProtocolServerEvent({
       response_id: null,
@@ -247,6 +263,29 @@ describe("adaptProtocolServerEvent", () => {
     ]);
   });
 
+  it("maps Roll20 bridge status into an internal status event", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      connected: false,
+      type: "roll20_bridge_status",
+      request_id: "req-status"
+    });
+
+    if (!protocolEvent || protocolEvent.type !== "roll20_bridge_status") {
+      throw new Error("Expected roll20_bridge_status event");
+    }
+
+    const adapted = adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent);
+
+    expect(adapted.events).toEqual([
+      {
+        type: "roll20_bridge_status",
+        connected: false,
+        requestId: "req-status"
+      }
+    ]);
+  });
+
   it("projects backend snapshots into the current app snapshot shape", () => {
     const protocolEvent = parseProtocolServerEvent({
       response_id: null,
@@ -300,7 +339,28 @@ describe("adaptProtocolServerEvent", () => {
         formulas: {},
         actions: {},
         items: {},
-        proficiencies: {}
+        proficiencies: {},
+        action_history: {
+          history_1: {
+            id: "history_1",
+            request_id: "request_1",
+            action_id: "fire_bolt",
+            action_name: "Fire Bolt",
+            actor_role: "player",
+            actor_sheet_id: "sheet_1",
+            actor_instance_id: "instance_1",
+            target_sheet_id: null,
+            created_at: "2026-06-18T12:00:00Z",
+            state_version: 4,
+            status: "success",
+            summary: "Fire Bolt succeeded.",
+            emitted_messages: ["Fire Bolt: /r 1d100"],
+            mutation_summaries: [],
+            formula_summaries: [],
+            error: null,
+            redacted: true
+          }
+        }
       },
       state_version: 0,
       type: "state_snapshot",
@@ -330,10 +390,31 @@ describe("adaptProtocolServerEvent", () => {
           items: [],
           actions: [],
           formulas: [],
+          conditionPresets: [],
           sheetPresentation: [],
           persistentSheetPresentation: [],
           encounters: [],
-          rollLog: [],
+          actionHistory: [
+            {
+              id: "history_1",
+              request_id: "request_1",
+              action_id: "fire_bolt",
+              action_name: "Fire Bolt",
+              actor_role: "player",
+              actor_sheet_id: "sheet_1",
+              actor_instance_id: "instance_1",
+              target_sheet_id: null,
+              created_at: "2026-06-18T12:00:00Z",
+              state_version: 4,
+              status: "success",
+              summary: "Fire Bolt succeeded.",
+              emitted_messages: ["Fire Bolt: /r 1d100"],
+              mutation_summaries: [],
+              formula_summaries: [],
+              error: null,
+              redacted: true
+            }
+          ],
           activeSheetId: null
         }
       }

@@ -1,4 +1,4 @@
-import type { StatKey } from "@/domain/models";
+import type { ActionDefinition, Sheet, StatKey } from "@/domain/models";
 import { STAT_LABELS } from "@/domain/stats";
 
 export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
@@ -10,8 +10,56 @@ export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
   "block"
 ];
 
+export const QUICK_ROLL_DEFAULT_STATS: Record<QuickRollAction, StatKey> = {
+  attack: "strength",
+  dodge: "dexterity",
+  parry: "dexterity",
+  block: "constitution"
+};
+
+export interface ResolvedQuickRollAction {
+  action: QuickRollAction;
+  actionId: string;
+  actionName: string;
+  relationshipId: string;
+}
+
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function getQuickRollRelationshipId(action: QuickRollAction): string {
+  return `default_${action}`;
+}
+
+export function resolveQuickRollAction(
+  sheet: Sheet | null | undefined,
+  actions: Record<string, ActionDefinition>,
+  action: QuickRollAction
+): ResolvedQuickRollAction | null {
+  if (!sheet) {
+    return null;
+  }
+
+  const relationshipId = getQuickRollRelationshipId(action);
+  const bridge =
+    sheet.actions[relationshipId] ??
+    Object.values(sheet.actions).find((entry) => entry.entry_id === action);
+  if (!bridge) {
+    return null;
+  }
+
+  const actionDefinition = actions[bridge.entry_id];
+  if (!actionDefinition) {
+    return null;
+  }
+
+  return {
+    action,
+    actionId: actionDefinition.id,
+    actionName: actionDefinition.name,
+    relationshipId: bridge.relationship_id
+  };
 }
 
 export function getQuickRollContext(action: QuickRollAction, activeWeapon?: string | null): string {

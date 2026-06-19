@@ -9,6 +9,26 @@ class ProtocolModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ActionHistoryEntryPayload(ProtocolModel):
+    id: str
+    request_id: str | None = None
+    action_id: str
+    action_name: str
+    actor_role: Literal["player", "dm"]
+    actor_sheet_id: str
+    actor_instance_id: str | None = None
+    target_sheet_id: str | None = None
+    created_at: str
+    state_version: int
+    status: Literal["success", "failed"]
+    summary: str
+    emitted_messages: list[str] = Field(default_factory=list)
+    mutation_summaries: list[str] = Field(default_factory=list)
+    formula_summaries: list[str] = Field(default_factory=list)
+    error: str | None = None
+    redacted: bool = False
+
+
 class BridgePayload(ProtocolModel):
     relationship_id: str
     entry_id: str
@@ -314,6 +334,7 @@ class ConditionPresetPayload(ProtocolModel):
 
 
 class BackendStateSnapshotPayload(ProtocolModel):
+    action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)
     formulas: dict[str, FormulaDefinitionPayload] = Field(default_factory=dict)

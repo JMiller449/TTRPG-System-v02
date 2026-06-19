@@ -1,13 +1,13 @@
 import type {
   ActionDefinition,
+  ActionHistoryEntry,
+  ConditionPreset,
   EncounterPreset,
   FormulaDefinition,
   ItemDefinition,
-  PersistentSheetPresentation,
   PersistentSheetPresentationRecord,
   PersistentSheetRecord,
   Role,
-  RollLogEntry,
   RollRequest,
   Sheet,
   SheetPresentationRecord
@@ -25,10 +25,11 @@ export interface AppSnapshot {
   items: ItemDefinition[];
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];
+  conditionPresets: ConditionPreset[];
   sheetPresentation: SheetPresentationRecord[];
   persistentSheetPresentation: PersistentSheetPresentationRecord[];
   encounters: EncounterPreset[];
-  rollLog: RollLogEntry[];
+  actionHistory: ActionHistoryEntry[];
   activeSheetId: string | null;
 }
 
@@ -63,6 +64,8 @@ export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
   | { type: "sheet_access_claimed"; sheetId: string; instanceId: string; requestId?: string }
   | { type: "action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata; requestId?: string }
+  | { type: "roll20_bridge_status"; connected: boolean; requestId?: string }
   | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean; requestId?: string }
   | { type: "ack"; requestId: string }
+  | { type: "sync_recovery"; requestId: string; lastSeenVersion: number | null; receivedVersion: number }
   | { type: "error"; requestId?: string; message: string };

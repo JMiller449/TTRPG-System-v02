@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
 import { EncounterEntryList } from "@/features/encounters/components/EncounterEntryList";

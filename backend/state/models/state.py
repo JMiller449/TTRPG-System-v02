@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from backend.state.models.action_history import (
+    ActionHistoryEntry,
+    prune_action_history,
+)
 from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import Augmentation
@@ -15,6 +19,7 @@ from backend.state.models.sheet import InstancedSheet, Sheet
 
 @dataclass
 class State:
+    action_history: dict[str, ActionHistoryEntry] = field(default_factory=dict)
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
     formulas: dict[str, FormulaDefinition] = field(default_factory=dict)
@@ -28,6 +33,12 @@ class State:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
         return cls(
+            action_history=prune_action_history(
+                {
+                    key: ActionHistoryEntry.from_dict(entry)
+                    for key, entry in raw.get("action_history", {}).items()
+                }
+            ),
             sheets={
                 key: Sheet.from_dict(sheet)
                 for key, sheet in raw.get("sheets", {}).items()

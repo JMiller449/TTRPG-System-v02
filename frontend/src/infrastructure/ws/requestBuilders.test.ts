@@ -11,9 +11,12 @@ import {
   buildDeleteActionRequest,
   buildDeleteFormulaRequest,
   buildDeleteItemRequest,
+  buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
+  buildGetRoll20BridgeStatusRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetItemBridgeRequest,
+  buildPerformActionRequest,
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
   buildUpdateActionRequest,
@@ -21,6 +24,8 @@ import {
   buildUpdateItemRequest,
   buildUpdateSheetItemBridgeRequest,
   buildUpdateSheetRequest,
+  buildUpsertItemAugmentationTemplateRequest,
+  type AugmentationPayload,
   type ActionDefinitionPayload,
   type FormulaDefinitionPayload,
   type ItemDefinitionPayload,
@@ -40,6 +45,38 @@ const testItem: ItemDefinitionPayload = {
   weight: "3LBS",
   stat_augmentations: [],
   augmentation_templates: []
+};
+
+const testAugmentation: AugmentationPayload = {
+  id: "aug_1",
+  name: "Arcane Guard",
+  description: "Adds arcane defense while equipped.",
+  source: {
+    type: "item",
+    id: "item_1",
+    label: "Sword of Mana"
+  },
+  scope: "instance",
+  target: {
+    root: "instance",
+    path: ["resistances", "arcane", "resistance"]
+  },
+  effect: {
+    operation: "add",
+    value: {
+      aliases: null,
+      text: "2"
+    },
+    type: "formula_modifier"
+  },
+  active: true,
+  applied: false,
+  applied_target_id: null,
+  lifecycle: {
+    duration: null,
+    expires_at: null,
+    removal_condition: null
+  }
 };
 
 const testFormulaDefinition: FormulaDefinitionPayload = {
@@ -110,6 +147,13 @@ const testSheet: SheetDefinitionPayload = {
 };
 
 describe("requestBuilders", () => {
+  it("builds Roll20 bridge status requests", () => {
+    expect(buildGetRoll20BridgeStatusRequest({ requestId: "req-status" })).toEqual({
+      type: "get_roll20_bridge_status",
+      request_id: "req-status"
+    });
+  });
+
   it("builds sheet access code claim requests", () => {
     expect(buildClaimSheetAccessCodeRequest({ code: "MAGE2026" })).toEqual({
       type: "claim_sheet_access_code",
@@ -316,6 +360,34 @@ describe("requestBuilders", () => {
     });
   });
 
+  it("builds item augmentation template upsert requests", () => {
+    expect(
+      buildUpsertItemAugmentationTemplateRequest({
+        requestId: "req-augmentation-upsert",
+        itemId: "item_1",
+        augmentation: testAugmentation
+      })
+    ).toEqual({
+      request_id: "req-augmentation-upsert",
+      type: "upsert_item_augmentation_template",
+      item_id: "item_1",
+      augmentation: testAugmentation
+    });
+  });
+
+  it("builds item augmentation template remove requests", () => {
+    expect(
+      buildRemoveItemAugmentationTemplateRequest({
+        itemId: "item_1",
+        augmentationId: "aug_1"
+      })
+    ).toEqual({
+      type: "remove_item_augmentation_template",
+      item_id: "item_1",
+      augmentation_id: "aug_1"
+    });
+  });
+
   it("builds formula create requests", () => {
     expect(buildCreateFormulaRequest({ formula: testFormulaDefinition })).toEqual({
       type: "create_formula",
@@ -389,6 +461,36 @@ describe("requestBuilders", () => {
     expect(buildDeleteActionRequest({ actionId: "action_1" })).toEqual({
       type: "delete_action",
       action_id: "action_1"
+    });
+  });
+
+  it("builds authored action execution requests", () => {
+    expect(
+      buildPerformActionRequest({
+        requestId: "req-action-execute",
+        sheetId: "instance_1",
+        actionId: "attack"
+      })
+    ).toEqual({
+      request_id: "req-action-execute",
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "attack"
+    });
+  });
+
+  it("builds authored action execution requests with target ids", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "heal",
+        targetSheetId: null
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "heal",
+      target_sheet_id: null
     });
   });
 

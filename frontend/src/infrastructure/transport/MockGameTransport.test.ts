@@ -41,6 +41,22 @@ function sheetDefinition(overrides: Partial<SheetDefinitionPayload> = {}): Sheet
 }
 
 describe("MockGameTransport protocol sheet requests", () => {
+  it("reports Roll20 bridge status through protocol-shaped events", () => {
+    const transport = new MockGameTransport();
+    const events = collectEvents(transport);
+
+    transport.sendProtocolRequest({
+      request_id: "req-status",
+      type: "get_roll20_bridge_status"
+    });
+
+    expect(events).toContainEqual({
+      type: "roll20_bridge_status",
+      connected: false,
+      requestId: "req-status"
+    });
+  });
+
   it("reconciles typed sheet creation through snapshot and ack events", () => {
     const transport = new MockGameTransport();
     const events = collectEvents(transport);

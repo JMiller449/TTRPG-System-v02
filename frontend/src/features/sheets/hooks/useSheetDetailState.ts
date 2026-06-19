@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import {
   selectActiveSheetDetail,
   selectActiveWeaponEntryId,
   selectActiveWeaponLabel,
   selectAvailableItems,
+  selectSheetAssignedActions,
   selectSheetEquipment
 } from "@/app/state/selectors";
+import type { AssignedSheetAction } from "@/app/state/selectors";
 import type { ItemBridge, ItemDefinition } from "@/domain/models";
 
 interface UseSheetDetailStateResult {
@@ -15,6 +17,7 @@ interface UseSheetDetailStateResult {
   itemOrder: string[];
   runtimeNote: string;
   equipment: ItemBridge[];
+  assignedActions: AssignedSheetAction[];
   activeWeaponId: string | null;
   activeWeaponLabel: string;
   selectedItemId: string;
@@ -48,6 +51,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       itemOrder,
       runtimeNote: "",
       equipment: [],
+      assignedActions: [],
       activeWeaponId: null,
       activeWeaponLabel: "None",
       selectedItemId,
@@ -62,6 +66,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     itemOrder,
     runtimeNote: localSheetNotes[detail.instance.id] ?? detail.instance.notes ?? "",
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
+    assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponLabel: selectActiveWeaponLabel(state, detail.sheet?.id ?? detail.instance.id),
     selectedItemId,

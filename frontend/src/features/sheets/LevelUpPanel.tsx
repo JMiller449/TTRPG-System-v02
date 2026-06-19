@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ALL_STATS, STAT_LABELS } from "@/domain/stats";
 import type { StatKey } from "@/domain/models";

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
 import { Panel } from "@/shared/ui/Panel";

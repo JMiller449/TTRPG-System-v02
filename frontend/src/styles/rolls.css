@@ -22,6 +22,31 @@
   min-width: 140px;
 }
 
+.roll-panel__bridge-error {
+  margin: 0;
+}
+
+.roll20-bridge-pill {
+  border: 1px solid var(--line);
+}
+
+.roll20-bridge-pill--connected {
+  background: #e4f1e8;
+  color: #1f5b33;
+  border-color: #b9d8c2;
+}
+
+.roll20-bridge-pill--disconnected {
+  background: #f7e1dc;
+  color: #7b2e21;
+  border-color: #e2b7ae;
+}
+
+.roll20-bridge-pill--unknown {
+  background: #f3efe6;
+  color: var(--muted);
+}
+
 .quick-roll-row {
   display: flex;
   gap: 0.4rem;
@@ -40,6 +65,13 @@
 .quick-roll-btn--active {
   border-color: var(--accent);
   background: #d8e8e9;
+}
+
+.quick-roll-btn:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: #f4f1ea;
+  opacity: 0.75;
 }
 
 .equation-preview {
@@ -61,8 +93,96 @@
   margin: 0.28rem 0 0;
 }
 
+.action-history-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.action-history-entry {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.7rem;
+}
+
+.action-history-entry__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.action-history-entry__header strong {
+  display: block;
+  color: var(--text);
+}
+
+.action-history-entry__header p,
+.action-history-entry__error {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.action-history-entry__meta {
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.action-history-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  border: 1px solid var(--line);
+}
+
+.action-history-status--success {
+  background: #e4f1e8;
+  color: #1f5b33;
+  border-color: #b9d8c2;
+}
+
+.action-history-status--failed {
+  background: #f7e1dc;
+  color: #7b2e21;
+  border-color: #e2b7ae;
+}
+
+.action-history-entry__details {
+  margin-top: 0.55rem;
+}
+
+.action-history-entry__details span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.action-history-entry__details ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+}
+
+.action-history-entry__details li {
+  margin-top: 0.18rem;
+  line-height: 1.35;
+}
+
+.action-history-entry__error {
+  color: #7b2e21;
+}
+
 @media (max-width: 720px) {
   .roll-panel__footer .button {
     width: 100%;
+  }
+
+  .action-history-entry__header {
+    display: grid;
   }
 }

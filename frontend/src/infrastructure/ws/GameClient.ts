@@ -259,7 +259,15 @@ export class ManagedGameClient {
           this.lastSeenStateVersion !== null &&
           event.stateVersion !== this.lastSeenStateVersion + 1
         ) {
-          this.requestResync();
+          const requestId = this.requestResync();
+          if (requestId) {
+            this.emit({
+              type: "sync_recovery",
+              requestId,
+              lastSeenVersion: this.lastSeenStateVersion,
+              receivedVersion: event.stateVersion
+            });
+          }
           return;
         }
         this.lastSeenStateVersion = event.stateVersion;

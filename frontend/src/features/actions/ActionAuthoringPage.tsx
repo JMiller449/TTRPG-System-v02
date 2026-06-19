@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAppStore } from "@/app/state/store";
+import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ActionDefinitionList } from "@/features/actions/components/ActionDefinitionList";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
@@ -36,6 +36,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     [actionOrder, actionRecords]
   );
 
+  const startNewAction = (): void => {
+    setEditingActionId(null);
+    setValues(createEmptyActionEditorValues());
+  };
+
   useEffect(() => {
     if (actionFormulaAuthoringMetadata || requestedMetadataRef.current) {
       return;
@@ -59,31 +64,36 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     }
 
     client.sendProtocolRequest(submission.request, submission.label);
-    setEditingActionId(null);
-    setValues(createEmptyActionEditorValues());
+    startNewAction();
   };
 
   const deleteAction = (actionId: string): void => {
     const submission = buildDeleteActionSubmission(actionId, actionRecords[actionId]);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingActionId === actionId) {
-      setEditingActionId(null);
-      setValues(createEmptyActionEditorValues());
+      startNewAction();
     }
   };
 
   return (
-    <Panel title="Action Authoring">
+    <Panel
+      title="Action Authoring"
+      actions={
+        editingActionId ? (
+          <button className="button button--secondary" onClick={startNewAction}>
+            New Action
+          </button>
+        ) : null
+      }
+    >
       <div className="stack">
         <ActionEditorForm
           editingActionId={editingActionId}
           values={values}
           onChange={setValues}
           onSubmit={onSubmit}
-          onCancel={() => {
-            setEditingActionId(null);
-            setValues(createEmptyActionEditorValues());
-          }}
+          onCancel={startNewAction}
+          metadata={actionFormulaAuthoringMetadata}
         />
 
         <ActionStepMetadataPanel metadata={actionFormulaAuthoringMetadata} />

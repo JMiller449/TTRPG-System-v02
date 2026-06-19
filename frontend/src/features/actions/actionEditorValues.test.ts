@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { ActionDefinition } from "@/domain/models";
+import type { ActionDefinition, DamageType, ResolveDamageActionStep } from "@/domain/models";
 import {
+  addResolveDamageActionStep,
   addSendMessageActionStep,
+  createResolveDamageActionStep,
   createEmptyActionEditorValues,
+  moveResolveDamageActionStep,
   moveSendMessageActionStep,
+  removeResolveDamageActionStep,
   removeSendMessageActionStep,
   toActionDefinitionPayload,
   toActionEditorValues,
   toUpdatedActionDefinitionPayload,
+  updateResolveDamageActionStep,
+  updateResolveDamageActionStepFormula,
+  updateSendMessageActionStepFormula,
   updateSendMessageActionStepText
 } from "@/features/actions/actionEditorValues";
 
@@ -49,6 +56,23 @@ function testAction(overrides: Partial<ActionDefinition> = {}): ActionDefinition
       }
     ],
     ...overrides
+  };
+}
+
+function testResolveDamageStep(
+  stepId: string,
+  amountText: string,
+  damageType: DamageType
+): ResolveDamageActionStep {
+  return {
+    step_id: stepId,
+    type: "resolve_damage",
+    target: "caster",
+    damage_type: damageType,
+    amount: {
+      aliases: null,
+      text: amountText
+    }
   };
 }
 
@@ -130,6 +154,38 @@ describe("actionEditorValues", () => {
     });
   });
 
+  it("adds resolve damage steps with canonical damage defaults", () => {
+    const values = createEmptyActionEditorValues();
+
+    expect(addResolveDamageActionStep(values, "damage_created")).toEqual({
+      name: "",
+      notes: "",
+      steps: [
+        {
+          step_id: "damage_created",
+          type: "resolve_damage",
+          target: "caster",
+          damage_type: "Slashing",
+          amount: {
+            aliases: null,
+            text: ""
+          }
+        }
+      ]
+    });
+
+    expect(createResolveDamageActionStep("damage_fire", "10", "Fire")).toEqual({
+      step_id: "damage_fire",
+      type: "resolve_damage",
+      target: "caster",
+      damage_type: "Fire",
+      amount: {
+        aliases: null,
+        text: "10"
+      }
+    });
+  });
+
   it("updates only send message step text and preserves aliases", () => {
     const values = toActionEditorValues(testAction());
     const result = updateSendMessageActionStepText(values, "step_message", "  /em edited message  ");
@@ -150,11 +206,148 @@ describe("actionEditorValues", () => {
     expect(result.steps[1]).toEqual(values.steps[1]);
   });
 
+  it("updates send message formula text and aliases together", () => {
+    const values = toActionEditorValues(testAction());
+    const result = updateSendMessageActionStepFormula(values, "step_message", {
+      messageText: "/em uses @mana",
+      aliases: [
+        {
+          name: "mana",
+          path: ["instance", "mana"]
+        }
+      ]
+    });
+
+    expect(result.steps[0]).toEqual({
+      step_id: "step_message",
+      type: "send_message",
+      message: {
+        aliases: [
+          {
+            name: "mana",
+            path: ["instance", "mana"]
+          }
+        ],
+        text: "/em uses @mana"
+      }
+    });
+    expect(result.steps[1]).toEqual(values.steps[1]);
+  });
+
+  it("updates only resolve damage step fields and preserves amount aliases", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          {
+            step_id: "damage",
+            type: "resolve_damage",
+            target: "caster",
+            damage_type: "Fire",
+            amount: {
+              aliases: [
+                {
+                  name: "arcane",
+                  path: ["sheet", "stats", "arcane"]
+                }
+              ],
+              text: "@arcane"
+            }
+          },
+          {
+            step_id: "step_message",
+            type: "send_message",
+            message: {
+              aliases: null,
+              text: "message"
+            }
+          }
+        ]
+      })
+    );
+
+    const result = updateResolveDamageActionStep(values, "damage", {
+      damageType: "Arcane",
+      amountText: "@arcane * 2"
+    });
+
+    expect(result.steps[0]).toEqual({
+      step_id: "damage",
+      type: "resolve_damage",
+      target: "caster",
+      damage_type: "Arcane",
+      amount: {
+        aliases: [
+          {
+            name: "arcane",
+            path: ["sheet", "stats", "arcane"]
+          }
+        ],
+        text: "@arcane * 2"
+      }
+    });
+    expect(result.steps[1]).toEqual(values.steps[1]);
+  });
+
+  it("updates resolve damage formula text and aliases together", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [testResolveDamageStep("damage", "5", "Fire")]
+      })
+    );
+
+    expect(
+      updateResolveDamageActionStepFormula(values, "damage", {
+        amountText: "@arc * 2",
+        aliases: [
+          {
+            name: "arc",
+            path: ["sheet", "stats", "arcane"]
+          }
+        ]
+      }).steps[0]
+    ).toEqual({
+      step_id: "damage",
+      type: "resolve_damage",
+      target: "caster",
+      damage_type: "Fire",
+      amount: {
+        aliases: [
+          {
+            name: "arc",
+            path: ["sheet", "stats", "arcane"]
+          }
+        ],
+        text: "@arc * 2"
+      }
+    });
+  });
+
   it("removes only send message steps", () => {
     const values = toActionEditorValues(testAction());
 
     expect(removeSendMessageActionStep(values, "step_message").steps).toEqual([values.steps[1]]);
     expect(removeSendMessageActionStep(values, "step_mana").steps).toEqual(values.steps);
+  });
+
+  it("removes only resolve damage steps", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          testResolveDamageStep("damage", "5", "Fire"),
+          {
+            step_id: "step_message",
+            type: "send_message",
+            message: {
+              aliases: null,
+              text: "message"
+            }
+          }
+        ]
+      })
+    );
+
+    expect(removeResolveDamageActionStep(values, "damage").steps).toEqual([values.steps[1]]);
+    expect(removeResolveDamageActionStep(values, "step_message").steps).toEqual(values.steps);
   });
 
   it("reorders send message steps without moving non-message step slots", () => {
@@ -197,5 +390,31 @@ describe("actionEditorValues", () => {
       values.steps[0]
     ]);
     expect(moveSendMessageActionStep(values, "step_message_1", "up").steps).toEqual(values.steps);
+  });
+
+  it("reorders resolve damage steps without moving other step slots", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          testResolveDamageStep("damage_1", "5", "Fire"),
+          {
+            step_id: "step_message",
+            type: "send_message",
+            message: {
+              aliases: null,
+              text: "message"
+            }
+          },
+          testResolveDamageStep("damage_2", "8", "Arcane")
+        ]
+      })
+    );
+
+    expect(moveResolveDamageActionStep(values, "damage_2", "up").steps).toEqual([
+      values.steps[2],
+      values.steps[1],
+      values.steps[0]
+    ]);
+    expect(moveResolveDamageActionStep(values, "damage_1", "up").steps).toEqual(values.steps);
   });
 });

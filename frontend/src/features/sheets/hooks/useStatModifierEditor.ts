@@ -45,9 +45,12 @@ export function useStatModifierEditor({
     setEditorError(null);
   }, [resetToken]);
 
-  const getModifier = (_key: SheetStatKey): number => 0;
+  const getModifier = (): number => 0;
 
-  const getCurrentValue = (_key: SheetStatKey, base: number): number => base;
+  const getCurrentValue = (key: SheetStatKey, base: number): number => {
+    void key;
+    return base;
+  };
 
   const beginEditing = (key: SheetStatKey): void => {
     if (!isCoreStatKey(key)) {

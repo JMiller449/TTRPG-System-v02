@@ -19,8 +19,19 @@ export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
 export type InstancedSheetResistancesPayload = ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
+export type AugmentationPayload = ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
+export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
+
+export function buildGetRoll20BridgeStatusRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_roll20_bridge_status"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_roll20_bridge_status"
+  };
+}
 
 export function buildClaimSheetAccessCodeRequest({
   code,
@@ -258,6 +269,38 @@ export function buildDeleteItemRequest({
   };
 }
 
+export function buildUpsertItemAugmentationTemplateRequest({
+  itemId,
+  augmentation,
+  requestId
+}: {
+  itemId: string;
+  augmentation: AugmentationPayload;
+} & OptionalRequestId): ProtocolRequest<"upsert_item_augmentation_template"> {
+  return {
+    ...requestIdField(requestId),
+    type: "upsert_item_augmentation_template",
+    item_id: itemId,
+    augmentation
+  };
+}
+
+export function buildRemoveItemAugmentationTemplateRequest({
+  itemId,
+  augmentationId,
+  requestId
+}: {
+  itemId: string;
+  augmentationId: string;
+} & OptionalRequestId): ProtocolRequest<"remove_item_augmentation_template"> {
+  return {
+    ...requestIdField(requestId),
+    type: "remove_item_augmentation_template",
+    item_id: itemId,
+    augmentation_id: augmentationId
+  };
+}
+
 export function buildCreateFormulaRequest({
   formula,
   requestId
@@ -342,11 +385,72 @@ export function buildDeleteActionRequest({
   };
 }
 
+export function buildCreateConditionPresetRequest({
+  condition,
+  requestId
+}: {
+  condition: ConditionPresetPayload;
+} & OptionalRequestId): ProtocolRequest<"create_condition_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_condition_preset",
+    condition
+  };
+}
+
+export function buildUpdateConditionPresetRequest({
+  conditionId,
+  conditionPartial,
+  requestId
+}: {
+  conditionId: string;
+  conditionPartial: ProtocolRequest<"update_condition_preset">["condition_partial"];
+} & OptionalRequestId): ProtocolRequest<"update_condition_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_condition_preset",
+    condition_id: conditionId,
+    condition_partial: conditionPartial
+  };
+}
+
+export function buildDeleteConditionPresetRequest({
+  conditionId,
+  requestId
+}: {
+  conditionId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_condition_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_condition_preset",
+    condition_id: conditionId
+  };
+}
+
 export function buildGetActionFormulaAuthoringMetadataRequest({
   requestId
 }: OptionalRequestId = {}): ProtocolRequest<"get_action_formula_authoring_metadata"> {
   return {
     ...requestIdField(requestId),
     type: "get_action_formula_authoring_metadata"
+  };
+}
+
+export function buildPerformActionRequest({
+  sheetId,
+  actionId,
+  targetSheetId,
+  requestId
+}: {
+  sheetId: string;
+  actionId: string;
+  targetSheetId?: string | null;
+} & OptionalRequestId): ProtocolRequest<"perform_action"> {
+  return {
+    ...requestIdField(requestId),
+    type: "perform_action",
+    sheet_id: sheetId,
+    action_id: actionId,
+    ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId })
   };
 }

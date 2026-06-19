@@ -3,7 +3,7 @@ import {
   CORE_TEMPLATE_STATS,
   type CoreTemplateStatKey,
   type TemplateEditorValues
-} from "@/features/sheets/TemplateEditorForm";
+} from "@/features/sheets/templateEditorTypes";
 import type { SheetDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
 export interface InstancedSheetCreationValues {

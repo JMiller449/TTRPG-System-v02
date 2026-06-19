@@ -5,6 +5,7 @@ import { createEmptyConditionPresetEditorValues } from "@/features/conditions/co
 import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
+  buildLoadConditionAugmentationTargetMetadataSubmission,
   buildRemoveConditionAugmentationSubmission,
   buildUpdateConditionPresetSubmission,
   buildUpsertConditionAugmentationSubmission,
@@ -78,6 +79,16 @@ describe("conditionAuthoringRequests", () => {
         condition_id: "poisoned"
       },
       label: "Delete condition: Poisoned"
+    });
+  });
+
+  it("builds condition augmentation target metadata load submissions", () => {
+    expect(buildLoadConditionAugmentationTargetMetadataSubmission()).toEqual({
+      request: {
+        type: "get_augmentation_target_metadata",
+        context: "condition_template"
+      },
+      label: "Load condition augmentation targets"
     });
   });
 

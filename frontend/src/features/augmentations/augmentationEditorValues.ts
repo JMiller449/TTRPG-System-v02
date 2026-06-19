@@ -3,9 +3,11 @@ import type {
   AugmentationOperation,
   FormulaAlias
 } from "@/domain/models";
+import type { AugmentationTargetMetadata } from "@/domain/ipc";
 import type { AugmentationPayload } from "@/infrastructure/ws/requestBuilders";
 
 export type ItemAugmentationTargetRoot = "sheet" | "instance";
+export type AugmentationTargetOption = AugmentationTargetMetadata["targets"][number];
 
 export interface AugmentationEditorValues {
   name: string;
@@ -43,6 +45,51 @@ function cloneAliases(aliases: FormulaAlias[] | null | undefined): FormulaAlias[
 
 function cleanPath(path: string[]): string[] {
   return path.map((segment) => segment.trim()).filter(Boolean);
+}
+
+function pathsEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((segment, index) => segment === right[index]);
+}
+
+function targetKey(root: string, path: string[]): string {
+  return `${root}.${path.join(".")}`;
+}
+
+export function augmentationTargetOptionKey(target: AugmentationTargetOption): string {
+  return targetKey(target.root, target.path);
+}
+
+export function augmentationEditorTargetKey(values: AugmentationEditorValues): string {
+  return targetKey(values.targetRoot, cleanPath(values.targetPath));
+}
+
+export function formatAugmentationTargetOption(target: AugmentationTargetOption): string {
+  return `${target.label} (${target.key})`;
+}
+
+export function isKnownAugmentationEditorTarget(
+  values: AugmentationEditorValues,
+  targets: AugmentationTargetOption[]
+): boolean {
+  const path = cleanPath(values.targetPath);
+  return targets.some(
+    (target) => target.root === values.targetRoot && pathsEqual(target.path, path)
+  );
+}
+
+export function applyAugmentationTargetOption(
+  values: AugmentationEditorValues,
+  target: AugmentationTargetOption
+): AugmentationEditorValues {
+  if (target.root !== "sheet" && target.root !== "instance") {
+    return values;
+  }
+
+  return {
+    ...values,
+    targetRoot: target.root,
+    targetPath: [...target.path]
+  };
 }
 
 function optionalText(value: string): string | null {

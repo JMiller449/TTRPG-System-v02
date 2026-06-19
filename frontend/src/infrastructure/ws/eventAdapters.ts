@@ -250,6 +250,21 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "augmentation_target_metadata":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "augmentation_target_metadata",
+            metadata: {
+              targets: event.targets,
+              context: event.context
+            },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "roll20_bridge_status":
       return {
         nextProtocolState: protocolState,

@@ -40,6 +40,7 @@ export const initialUiState: UIState = {
   pendingIntentIds: [],
   intentFeedback: [],
   actionFormulaAuthoringMetadata: null,
+  augmentationTargetMetadata: null,
   localSheetNotes: {},
   localSheetStatOverrides: {}
 };

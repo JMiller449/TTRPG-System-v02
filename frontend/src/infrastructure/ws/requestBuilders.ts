@@ -23,6 +23,9 @@ export type AugmentationPayload = ProtocolRequest<"upsert_item_augmentation_temp
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
+export type AugmentationTargetContext = NonNullable<
+  ProtocolRequest<"get_augmentation_target_metadata">["context"]
+>;
 
 export function buildGetRoll20BridgeStatusRequest({
   requestId
@@ -433,6 +436,19 @@ export function buildGetActionFormulaAuthoringMetadataRequest({
   return {
     ...requestIdField(requestId),
     type: "get_action_formula_authoring_metadata"
+  };
+}
+
+export function buildGetAugmentationTargetMetadataRequest({
+  context,
+  requestId
+}: {
+  context?: AugmentationTargetContext | null;
+} & OptionalRequestId = {}): ProtocolRequest<"get_augmentation_target_metadata"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_augmentation_target_metadata",
+    ...(context === undefined ? {} : { context })
   };
 }
 

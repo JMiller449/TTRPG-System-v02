@@ -4,6 +4,7 @@ import {
   createEmptyAugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import {
+  buildLoadItemAugmentationTargetMetadataSubmission,
   buildRemoveItemAugmentationTemplateSubmission,
   buildUpsertItemAugmentationTemplateSubmission,
   selectItemAugmentationTemplates
@@ -16,7 +17,6 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     description: "Rank C ring.",
     price: "100CP",
     weight: "1LBS",
-    stat_augmentations: [],
     augmentation_templates: [],
     ...overrides
   };
@@ -41,6 +41,16 @@ describe("augmentationRequests", () => {
 
     expect(selectItemAugmentationTemplates(testItem({ augmentation_templates: templates }))).toEqual(templates);
     expect(selectItemAugmentationTemplates(undefined)).toEqual([]);
+  });
+
+  it("builds item augmentation target metadata load submissions", () => {
+    expect(buildLoadItemAugmentationTargetMetadataSubmission()).toEqual({
+      request: {
+        type: "get_augmentation_target_metadata",
+        context: "item_template"
+      },
+      label: "Load item augmentation targets"
+    });
   });
 
   it("builds upsert submissions for valid item augmentation templates", () => {

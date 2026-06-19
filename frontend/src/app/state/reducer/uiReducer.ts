@@ -33,6 +33,11 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         ...uiState,
         actionFormulaAuthoringMetadata: action.metadata
       }));
+    case "set_augmentation_target_metadata":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        augmentationTargetMetadata: action.metadata
+      }));
     case "set_roll20_bridge_status":
       return updateUiState(state, (uiState) => ({
         ...uiState,
@@ -52,6 +57,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         pendingIntentIds: initialUiState.pendingIntentIds,
         intentFeedback: initialUiState.intentFeedback,
         actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,
+        augmentationTargetMetadata: initialUiState.augmentationTargetMetadata,
         roll20Bridge: initialUiState.roll20Bridge,
         localSheetNotes: initialUiState.localSheetNotes,
         localSheetStatOverrides: initialUiState.localSheetStatOverrides

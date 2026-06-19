@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { uiReducer } from "@/app/state/reducer/uiReducer";
-import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
+import type {
+  ActionFormulaAuthoringMetadata,
+  AugmentationTargetMetadata
+} from "@/domain/ipc";
 
 const metadata: ActionFormulaAuthoringMetadata = {
   variables: [],
@@ -19,6 +22,21 @@ const metadata: ActionFormulaAuthoringMetadata = {
     }
   ],
   action_preset_templates: []
+};
+
+const augmentationTargetMetadata: AugmentationTargetMetadata = {
+  targets: [
+    {
+      key: "instance.health",
+      label: "Current Health",
+      root: "instance",
+      path: ["health"],
+      value_type: "resource",
+      description: "Current instance resource: Current Health.",
+      allowed_contexts: ["runtime", "item_template", "condition_template"]
+    }
+  ],
+  context: "condition_template"
 };
 
 describe("uiReducer", () => {
@@ -46,16 +64,35 @@ describe("uiReducer", () => {
     expect(state?.uiState.actionFormulaAuthoringMetadata).toEqual(metadata);
   });
 
+  it("stores augmentation target metadata in UI state", () => {
+    const state = uiReducer(initialState, {
+      type: "set_augmentation_target_metadata",
+      metadata: augmentationTargetMetadata
+    });
+
+    expect(state?.uiState.augmentationTargetMetadata).toEqual(
+      augmentationTargetMetadata
+    );
+  });
+
   it("clears stored authoring metadata on session UI reset", () => {
     const stateWithMetadata = uiReducer(initialState, {
       type: "set_action_formula_authoring_metadata",
       metadata
     });
-    const resetState = uiReducer(stateWithMetadata ?? initialState, {
+    const stateWithAugmentationMetadata = uiReducer(
+      stateWithMetadata ?? initialState,
+      {
+        type: "set_augmentation_target_metadata",
+        metadata: augmentationTargetMetadata
+      }
+    );
+    const resetState = uiReducer(stateWithAugmentationMetadata ?? initialState, {
       type: "reset_session_ui"
     });
 
     expect(resetState?.uiState.actionFormulaAuthoringMetadata).toBeNull();
+    expect(resetState?.uiState.augmentationTargetMetadata).toBeNull();
   });
 
   it("clears Roll20 bridge status on session UI reset", () => {

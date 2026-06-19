@@ -3,7 +3,6 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 
-from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.items.schema import (
     CreateItem,
     DeleteItem,
@@ -18,9 +17,15 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation
-from backend.state.models.item import Item, StatAugmentation
+from backend.state.models.item import Item
 from backend.state.models.state import State
+
+
+def _target_label(augmentation: Augmentation) -> str:
+    path = ".".join(augmentation.target.path)
+    return f"{augmentation.target.root}.{path}" if path else augmentation.target.root
 
 
 def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
@@ -30,6 +35,28 @@ def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
         raise ValueError(
             "Item augmentation template scope must match its relative target root."
         )
+
+    if not is_augmentation_target_allowed(
+        root=augmentation.target.root,
+        path=augmentation.target.path,
+        context="item_template",
+    ):
+        raise ValueError(
+            "Item augmentation template target "
+            f"'{_target_label(augmentation)}' is not allowed."
+        )
+
+
+def _build_item_augmentation_templates(
+    payload: ItemDefinitionPayload,
+) -> list[Augmentation]:
+    augmentations = [
+        Augmentation.from_dict(augmentation.model_dump(mode="json"))
+        for augmentation in payload.augmentation_templates
+    ]
+    for augmentation in augmentations:
+        _validate_item_augmentation_template(augmentation)
+    return augmentations
 
 
 def _build_item(payload: ItemDefinitionPayload) -> Item:
@@ -42,17 +69,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
-        stat_augmentations=[
-            StatAugmentation(
-                stat_name=augmentation.stat_name,
-                augmentation=build_formula(augmentation.augmentation),
-            )
-            for augmentation in payload.stat_augmentations
-        ],
-        augmentation_templates=[
-            Augmentation.from_dict(augmentation.model_dump(mode="json"))
-            for augmentation in payload.augmentation_templates
-        ],
+        augmentation_templates=_build_item_augmentation_templates(payload),
     )
 
 

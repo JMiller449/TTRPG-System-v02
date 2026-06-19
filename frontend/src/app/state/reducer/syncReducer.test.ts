@@ -98,7 +98,7 @@ describe("authoritative server-state sync", () => {
             description: "Improves mana.",
             price: "120g",
             weight: "1",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         },
         actions: {
@@ -193,7 +193,7 @@ describe("authoritative server-state sync", () => {
             description: "Improves mana.",
             price: "120g",
             weight: "1",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         },
         {
@@ -256,7 +256,7 @@ describe("authoritative server-state sync", () => {
             description: "Improves mana.",
             price: "120g",
             weight: "1",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         }
       ],
@@ -486,7 +486,7 @@ describe("authoritative server-state sync", () => {
             description: "",
             price: "1",
             weight: "1",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         },
         actions: {},
@@ -510,7 +510,7 @@ describe("authoritative server-state sync", () => {
             description: "",
             price: "2",
             weight: "1",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         },
         actions: {},
@@ -551,7 +551,7 @@ describe("authoritative server-state sync", () => {
             description: "",
             price: "10",
             weight: "3",
-            stat_augmentations: []
+            augmentation_templates: []
           }
         },
         actions: {},

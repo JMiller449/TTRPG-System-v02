@@ -341,7 +341,7 @@ Combat automation:
 
 ## 9. Augmentation Direction
 
-Replace item-owned `stat_augmentations` as the long-term center of effect modeling with a general backend-owned augmentation system.
+Item-owned `stat_augmentations` has been replaced as the effect modeling surface by the general backend-owned augmentation system.
 
 Augmentations should:
 
@@ -364,16 +364,57 @@ Frontend augmentation UX boundary:
 - Runtime/applied augmentation state is display-only in frontend item authoring: `applied`, `applied_target_id`, concrete instance bridges, recomputed values, stacking outcomes, and application/removal results remain backend-authoritative.
 - Players do not directly create, edit, attach, or remove item augmentation templates. Player-facing adjustment must go through backend-approved actions/intents for their allowed sheet or instance.
 - Until validated target picker metadata exists, frontend target editing stays constrained to root selection plus path segment inputs and must not expose raw JSON pointers, arbitrary state-root targets, intersheet targets, or cross-sheet automation.
-- `stat_augmentations` remains legacy/display-only during migration; new gear/weapon effects should use `augmentation_templates` instead of adding new item-owned stat augmentation behavior.
+- Item effects use `augmentation_templates`; legacy `stat_augmentations` is no longer part of the live item model, request payloads, frontend domain type, or item equipment display.
 
 ## 10. Roadmap
 
 ### Phase 7: General Augmentations
 
-- [ ] Replace item-owned `stat_augmentations` with a general augmentation model.
+- [x] Replace item-owned `stat_augmentations` with a general augmentation model.
+  - Removed `stat_augmentations` from item state models, item create/update payloads, protocol snapshots, generated frontend protocol types, frontend item domain types, and equipment display.
+  - Existing legacy dumped `stat_augmentations` keys are ignored on item load; new item effects should use `augmentation_templates`.
 - [x] Model augmentations as applied, reversible effects.
 - [x] Add stable identity and source metadata.
-- [ ] Move augmentation targeting to validated backend paths/references.
+- [x] Move augmentation targeting to validated backend paths/references.
+  - [x] Audit current augmentation target validation and call sites for item templates, condition templates, direct runtime augmentation application, and frontend target inputs.
+    - Item augmentation upsert rejects `state` root and scope/root mismatch, but still accepts arbitrary non-empty `sheet` or `instance` path segments and does not validate against a backend target catalog.
+    - Full item create/update can carry `augmentation_templates` through `_build_item` without running the item augmentation template validator.
+    - Condition preset create/update accepts `augmentation_templates` without authoring-time target validation; runtime condition application later rejects non-instance templates.
+    - Runtime augmentation apply/remove validates root/scope, target ID existence, target path existence, and numeric leaf type at mutation time, but it is still late dynamic validation rather than catalog-backed authoring validation.
+    - Action `apply_augmentation` execution is current-instance only and rejects target runtime/cross-sheet paths, but it relies on the stored augmentation record's target path being valid at execution time.
+    - Frontend item and condition augmentation panels currently expose free target path segment inputs; item templates allow `sheet` or `instance`, condition templates display instance-only root.
+    - Existing variable/action authoring metadata already exposes numeric/resource/percent paths with `action_mutation_allowed`; this is the best candidate source for the allowed augmentation target catalog.
+  - [x] Define the allowed augmentation target catalog from backend-owned metadata, reusing variable/path registry concepts where practical.
+    - Added backend `AugmentationTargetMetadata` and `build_augmentation_target_catalog()` derived from the canonical variable registry.
+    - Catalog includes only mutation-safe numeric/resource/percent paths and excludes formula-backed stats, raw paths, global state, sheet items, and other non-catalog paths.
+    - Item-template context allows sheet and instance targets; condition-template context allows instance targets only; runtime context keeps sheet/instance targets available for backend application flows.
+    - Added focused backend tests for catalog membership, context filtering, and exclusion rules.
+  - [x] Enforce backend target root/path validation when creating or updating item augmentation templates.
+    - Item template upsert and full item create/update now validate augmentation targets against the backend `item_template` catalog.
+    - Legacy/shared item update service path validates after merge before replacing the item record.
+    - Added focused tests for accepted instance health, sheet stat, and resistance targets, plus rejected global, arbitrary, and formula-backed paths.
+  - [x] Enforce backend target root/path validation when creating or updating condition augmentation templates.
+    - Condition preset create/update now validates augmentation templates against the backend `condition_template` catalog.
+    - Condition templates remain instance-only and reject sheet, state, arbitrary, and non-catalog paths before persistence.
+    - Added focused tests for accepted instance health/fire resistance targets and rejected sheet/arbitrary update/create targets.
+  - [x] Enforce backend target validation before runtime augmentation apply/recompute mutates state.
+    - Runtime augmentation apply/remove now validates the stored root/path against the backend `runtime` augmentation target catalog before resolving and mutating sheet or instance state.
+    - Runtime validation still rejects global state targets explicitly and preserves sheet/instance scope and target ID checks.
+    - Recompute now preflights targeted augmentations that need apply/remove work before mutating, so invalid catalog paths fail the recompute pass without partial runtime changes.
+    - Added focused runtime tests for accepted instance and sheet targets, rejected arbitrary/global/formula-backed targets, and recompute skip/preflight behavior.
+  - [x] Add backend tests for accepted targets, rejected arbitrary paths, rejected global/intersheet targets, and stale/deleted target metadata.
+    - Consolidated backend coverage across catalog metadata, item templates, condition templates, and runtime apply/recompute.
+    - Added missing tests for item scope/root mismatch, condition global targets, runtime sheet/instance scope mismatch, and stale/deleted catalog targets rejecting before mutation.
+  - [x] Expose augmentation target metadata to the frontend authoring flow without exposing raw mutation paths.
+    - Added typed `get_augmentation_target_metadata` websocket route with optional `item_template`, `condition_template`, or `runtime` context filtering.
+    - Backend response exposes catalog metadata only: target key, label, relative root/path segments, value type, description, and allowed contexts; it does not expose JSON pointers or freeform state mutation paths.
+    - Regenerated frontend protocol types and route contract metadata for the new request/event.
+    - Added frontend request builder, protocol parser, event adapter, and UI-state storage for augmentation target metadata.
+  - [x] Replace frontend free segment target input with metadata-driven target selection where metadata exists.
+    - Item and condition augmentation panels now use metadata-driven target selects instead of free path segment inputs.
+    - Item authoring requests `item_template` target metadata; condition authoring requests `condition_template` target metadata.
+    - Submit buttons require the selected target to exist in the loaded metadata, preventing stale or arbitrary frontend-authored paths from being submitted through normal UI controls.
+    - Added frontend helper tests for metadata target application and metadata load request construction.
 - [x] Add backend-evaluable formula/effect payload shape.
 - [x] Keep application, removal, stacking, and recomputation backend-authoritative.
 - [x] Implement current-instance condition/status augmentation hooks.
@@ -623,9 +664,9 @@ MVP is done when:
   - [x] Map current item editor fields to backend item payload fields and identify gaps.
     - `name` maps directly to `ItemDefinitionPayload.name`.
     - `value` maps to `price`; `weight` maps to `weight`.
-    - Current freeform `immediateEffects` / `nonImmediateEffects` are not structured augmentation records; preserve them as labeled public `description` text for the migration, and leave `stat_augmentations` / `augmentation_templates` empty until the augmentation builder exists.
+    - Current freeform `immediateEffects` / `nonImmediateEffects` are not structured augmentation records; preserve them as labeled public `description` text for the migration, and leave `augmentation_templates` empty until the augmentation builder exists.
     - Current `type`, `rank`, and `updatedAt` have no backend item fields; either fold `type` / `rank` into the public description during migration or defer first-class item metadata fields until the backend schema intentionally supports them.
-    - Existing backend fields missing from the current UI are `description`, `world_anvil_url`, `gm_notes`, `gm_special_properties`, `stat_augmentations`, and `augmentation_templates`.
+    - Existing backend fields missing from the current UI are `description`, `world_anvil_url`, `gm_notes`, `gm_special_properties`, and `augmentation_templates`.
   - [x] Add centralized typed request helpers and focused tests for `create_item`, `update_item`, and `delete_item`.
   - [x] Replace item maker local reducer dispatches with typed backend item CRUD requests and pending/ack feedback.
   - [x] Update item maker editor/list components to read/write `ItemDefinition` records from authoritative server state.

@@ -8,8 +8,6 @@ import {
   selectOrderedItemDefinitions
 } from "@/features/items/itemMakerRequests";
 
-const testFormula = { aliases: null, text: "0" };
-
 function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
   return {
     id: "item_1",
@@ -25,12 +23,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: "3LBS",
-    stat_augmentations: [
-      {
-        stat_name: "mana",
-        augmentation: testFormula
-      }
-    ],
+    augmentation_templates: [],
     ...overrides
   };
 }
@@ -81,7 +74,6 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Adds +50 to sword enchantments.",
           price: "NA",
           weight: "3LBS",
-          stat_augmentations: [],
           augmentation_templates: []
         }
       },

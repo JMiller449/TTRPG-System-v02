@@ -10,6 +10,7 @@ from backend.features.formula_runtime.service import (
     normalize_numeric_result,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
@@ -44,6 +45,30 @@ def _evaluate_formula(root: Any, augmentation: Augmentation) -> float | int:
     return evaluate_numeric_formula(root, augmentation.effect.value)
 
 
+def _target_label(augmentation: Augmentation) -> str:
+    path = ".".join(augmentation.target.path)
+    if not path:
+        return augmentation.target.root
+    return f"{augmentation.target.root}.{path}"
+
+
+def _validate_runtime_augmentation_target(augmentation: Augmentation) -> None:
+    if not augmentation.target.path:
+        raise ValueError("Augmentation target path must not be empty.")
+
+    if augmentation.target.root == "state":
+        raise ValueError("Global state augmentation targets are not supported yet.")
+
+    if not is_augmentation_target_allowed(
+        root=augmentation.target.root,
+        path=augmentation.target.path,
+        context="runtime",
+    ):
+        raise ValueError(
+            f"Runtime augmentation target '{_target_label(augmentation)}' is not allowed."
+        )
+
+
 def _resolve_target(
     state: State,
     augmentation: Augmentation,
@@ -51,11 +76,7 @@ def _resolve_target(
     sheet_id: str | None = None,
     instance_id: str | None = None,
 ) -> _ResolvedTarget:
-    if not augmentation.target.path:
-        raise ValueError("Augmentation target path must not be empty.")
-
-    if augmentation.target.root == "state":
-        raise ValueError("Global state augmentation targets are not supported yet.")
+    _validate_runtime_augmentation_target(augmentation)
 
     if augmentation.target.root == "sheet":
         if augmentation.scope != "sheet":
@@ -654,6 +675,7 @@ async def recompute_augmentations(
     def mutation(state: State) -> tuple[list[AugmentationMutationResult], list[PatchOp]]:
         results: list[AugmentationMutationResult] = []
         ops: list[PatchOp] = []
+        recompute_targets: list[tuple[str, str | None]] = []
 
         for augmentation_id in list(state.augmentations):
             augmentation = state.augmentations[augmentation_id]
@@ -665,6 +687,15 @@ async def recompute_augmentations(
             if augmentation.target.root != "state" and target_id is None:
                 continue
 
+            if (augmentation.active and not augmentation.applied) or (
+                not augmentation.active and augmentation.applied
+            ):
+                _validate_runtime_augmentation_target(augmentation)
+
+            recompute_targets.append((augmentation_id, target_id))
+
+        for augmentation_id, target_id in recompute_targets:
+            augmentation = state.augmentations[augmentation_id]
             if augmentation.active and not augmentation.applied:
                 result, result_ops = _apply_augmentation_mutation(
                     state,

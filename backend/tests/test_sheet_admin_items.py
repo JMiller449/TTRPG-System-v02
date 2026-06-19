@@ -36,7 +36,6 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
         "gm_special_properties": "Cursed under moonlight.",
         "price": "10g",
         "weight": "3",
-        "stat_augmentations": [],
         "augmentation_templates": [],
     }
 

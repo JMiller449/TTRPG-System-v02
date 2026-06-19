@@ -247,11 +247,6 @@ class ActionPayload(ProtocolModel):
     steps: list[ActionStepPayload] = Field(default_factory=list)
 
 
-class StatAugmentationPayload(ProtocolModel):
-    stat_name: str
-    augmentation: FormulaPayload
-
-
 class ProficiencyPayload(ProtocolModel):
     id: str
     name: str
@@ -320,7 +315,6 @@ class ItemPayload(ProtocolModel):
     gm_special_properties: str = ""
     price: str
     weight: str
-    stat_augmentations: list[StatAugmentationPayload]
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 

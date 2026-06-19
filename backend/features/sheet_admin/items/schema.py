@@ -5,14 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from backend.core.transport import RequestModel
-from backend.features.sheet_admin.formulas.schema import FormulaPayload
 from backend.protocol.state_schema import AugmentationPayload
-from backend.state.models.stat import StatName
-
-
-class StatAugmentationPayload(BaseModel):
-    stat_name: StatName
-    augmentation: FormulaPayload
 
 
 class ItemDefinitionPayload(BaseModel):
@@ -24,7 +17,6 @@ class ItemDefinitionPayload(BaseModel):
     gm_special_properties: str = ""
     price: str = ""
     weight: str = ""
-    stat_augmentations: list[StatAugmentationPayload] = Field(default_factory=list)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 

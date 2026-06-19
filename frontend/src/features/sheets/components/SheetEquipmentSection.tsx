@@ -3,11 +3,15 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 
 function describeAugmentations(item: ItemDefinition): string {
-  if (item.stat_augmentations.length === 0) {
+  const augmentations = item.augmentation_templates ?? [];
+  if (augmentations.length === 0) {
     return "(none)";
   }
-  return item.stat_augmentations
-    .map((augmentation) => `${augmentation.stat_name}: ${augmentation.augmentation.text}`)
+  return augmentations
+    .map((augmentation) => {
+      const target = [augmentation.target.root, ...augmentation.target.path].join(".");
+      return `${augmentation.name}: ${augmentation.effect.operation} ${augmentation.effect.value.text} to ${target}`;
+    })
     .join("; ");
 }
 
@@ -76,7 +80,7 @@ export function SheetEquipmentSection({
           <p className="template-editor__title">Selected Item Preview</p>
           <div className="muted">Weight {selectedItem.weight} · Price {selectedItem.price}</div>
           <p className="muted">{selectedItem.description || "(no description)"}</p>
-          <p className="muted">Stat Augmentations: {describeAugmentations(selectedItem)}</p>
+          <p className="muted">Augmentations: {describeAugmentations(selectedItem)}</p>
         </article>
       ) : null}
       <div className="list">
@@ -93,7 +97,7 @@ export function SheetEquipmentSection({
                 <div className="muted">Count {entry.count}</div>
                 <div className="muted">Weight {item.weight} · Price {item.price}</div>
                 <div className="muted">{item.description || "(no description)"}</div>
-                <div className="muted">Stat Augmentations: {describeAugmentations(item)}</div>
+                <div className="muted">Augmentations: {describeAugmentations(item)}</div>
                 {activeWeaponId === entry.relationship_id ? <div className="muted">Active weapon</div> : null}
               </div>
               {canEdit ? (

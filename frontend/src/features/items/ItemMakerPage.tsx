@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
@@ -8,6 +8,7 @@ import {
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import {
+  buildLoadItemAugmentationTargetMetadataSubmission,
   buildRemoveItemAugmentationTemplateSubmission,
   buildUpsertItemAugmentationTemplateSubmission,
   selectItemAugmentationTemplates
@@ -31,7 +32,8 @@ import { makeId } from "@/shared/utils/id";
 export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { items: itemRecords, itemOrder }
+      serverState: { items: itemRecords, itemOrder },
+      uiState: { augmentationTargetMetadata }
     }
   } = useAppStore();
 
@@ -47,6 +49,19 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     [itemOrder, itemRecords]
   );
   const selectedItem = editingItemId ? itemRecords[editingItemId] : undefined;
+  const targetOptions =
+    augmentationTargetMetadata?.context === "item_template"
+      ? augmentationTargetMetadata.targets
+      : [];
+
+  useEffect(() => {
+    if (augmentationTargetMetadata?.context === "item_template") {
+      return;
+    }
+
+    const submission = buildLoadItemAugmentationTargetMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [augmentationTargetMetadata?.context, client]);
 
   const resetAugmentationEditor = (): void => {
     setEditingAugmentationId(null);
@@ -146,6 +161,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
             itemName={selectedItem.name}
             editingAugmentationId={editingAugmentationId}
             templates={selectItemAugmentationTemplates(selectedItem)}
+            targetOptions={targetOptions}
             values={augmentationValues}
             onChange={setAugmentationValues}
             onSubmit={submitAugmentation}

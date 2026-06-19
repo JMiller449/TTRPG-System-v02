@@ -10,11 +10,44 @@ from backend.features.sheet_admin.conditions.schema import (
     UpdateConditionPreset,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.variable_registry.service import is_augmentation_target_allowed
+from backend.state.models.augmentation import Augmentation
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.state import State
 
 
+def _target_label(augmentation: Augmentation) -> str:
+    path = ".".join(augmentation.target.path)
+    return f"{augmentation.target.root}.{path}" if path else augmentation.target.root
+
+
+def _validate_condition_augmentation_template(augmentation: Augmentation) -> None:
+    if augmentation.target.root != "instance" or augmentation.scope != "instance":
+        raise ValueError(
+            "Condition preset augmentation templates must target the current instance."
+        )
+
+    if not is_augmentation_target_allowed(
+        root=augmentation.target.root,
+        path=augmentation.target.path,
+        context="condition_template",
+    ):
+        raise ValueError(
+            "Condition preset augmentation template target "
+            f"'{_target_label(augmentation)}' is not allowed."
+        )
+
+
+def _validate_condition_augmentation_templates(
+    payload: ConditionPresetPayload,
+) -> None:
+    for template in payload.augmentation_templates:
+        augmentation = Augmentation.from_dict(template.model_dump(mode="json"))
+        _validate_condition_augmentation_template(augmentation)
+
+
 def _build_condition_preset(payload: ConditionPresetPayload) -> ConditionPreset:
+    _validate_condition_augmentation_templates(payload)
     return ConditionPreset.from_dict(payload.model_dump(mode="json"))
 
 

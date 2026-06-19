@@ -3,6 +3,7 @@ import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import {
   buildCreateConditionPresetRequest,
   buildDeleteConditionPresetRequest,
+  buildGetAugmentationTargetMetadataRequest,
   buildUpdateConditionPresetRequest,
   type ConditionPresetPayload
 } from "@/infrastructure/ws/requestBuilders";
@@ -31,6 +32,13 @@ export function selectOrderedConditionPresets(
   order: string[]
 ): ConditionPreset[] {
   return order.map((id) => records[id]).filter((condition): condition is ConditionPreset => Boolean(condition));
+}
+
+export function buildLoadConditionAugmentationTargetMetadataSubmission(): ConditionPresetSubmission {
+  return {
+    request: buildGetAugmentationTargetMetadataRequest({ context: "condition_template" }),
+    label: "Load condition augmentation targets"
+  };
 }
 
 export function buildCreateConditionPresetSubmission(

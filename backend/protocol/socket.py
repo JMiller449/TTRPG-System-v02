@@ -61,6 +61,7 @@ from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_sync.schema import ResyncState
 from backend.features.variable_registry.schema import (
     GetActionFormulaAuthoringMetadata,
+    GetAugmentationTargetMetadata,
     GetVariableRegistry,
 )
 from backend.protocol.state_schema import ActionStepPayload, BackendStateSnapshotPayload
@@ -203,6 +204,24 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class AugmentationTargetMetadataPayload(ProtocolModel):
+    key: str
+    label: str
+    root: Literal["state", "sheet", "instance"]
+    path: list[str]
+    value_type: Literal["number", "percent", "formula", "resource"]
+    description: str
+    allowed_contexts: list[Literal["item_template", "condition_template", "runtime"]]
+
+
+class AugmentationTargetMetadataEvent(ProtocolModel):
+    response_id: str | None = None
+    targets: list[AugmentationTargetMetadataPayload]
+    context: Literal["item_template", "condition_template", "runtime"] | None = None
+    type: Literal["augmentation_target_metadata"] = "augmentation_target_metadata"
+    request_id: str | None = None
+
+
 class SheetAccessCodeEventPayload(ProtocolModel):
     code: str
     sheet_id: str
@@ -267,6 +286,7 @@ ApplicationRequest = Annotated[
     | SetSheetBaseStat
     | SetSheetFormulaStat
     | GetActionFormulaAuthoringMetadata
+    | GetAugmentationTargetMetadata
     | GetVariableRegistry
     | PerformAction,
     Field(discriminator="type"),
@@ -280,6 +300,7 @@ ServerEvent = Annotated[
     | ActionExecutedEvent
     | Roll20BridgeStatusEvent
     | ActionFormulaAuthoringMetadataEvent
+    | AugmentationTargetMetadataEvent
     | VariableRegistryEvent
     | SheetAccessCodesEvent
     | SheetAccessClaimedEvent,

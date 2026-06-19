@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Augmentation } from "@/domain/models";
 import {
+  applyAugmentationTargetOption,
+  augmentationEditorTargetKey,
+  augmentationTargetOptionKey,
   createEmptyAugmentationEditorValues,
+  formatAugmentationTargetOption,
   hasValidAugmentationEditorValues,
+  isKnownAugmentationEditorTarget,
   toAugmentationEditorValues,
   toItemAugmentationTemplatePayload
 } from "@/features/augmentations/augmentationEditorValues";
@@ -166,5 +171,28 @@ describe("augmentationEditorValues", () => {
 
     values.targetPath = ["stats", "arcane"];
     expect(hasValidAugmentationEditorValues(values)).toBe(true);
+  });
+
+  it("maps metadata target selections into editor target values", () => {
+    const values = createEmptyAugmentationEditorValues();
+    const target = {
+      key: "sheet.stats.strength",
+      label: "Strength",
+      root: "sheet" as const,
+      path: ["stats", "strength"],
+      value_type: "number" as const,
+      description: "Base sheet stat: Strength.",
+      allowed_contexts: ["runtime" as const, "item_template" as const]
+    };
+
+    const nextValues = applyAugmentationTargetOption(values, target);
+
+    expect(augmentationTargetOptionKey(target)).toBe("sheet.stats.strength");
+    expect(formatAugmentationTargetOption(target)).toBe("Strength (sheet.stats.strength)");
+    expect(augmentationEditorTargetKey(nextValues)).toBe("sheet.stats.strength");
+    expect(nextValues.targetRoot).toBe("sheet");
+    expect(nextValues.targetPath).toEqual(["stats", "strength"]);
+    expect(isKnownAugmentationEditorTarget(nextValues, [target])).toBe(true);
+    expect(isKnownAugmentationEditorTarget(values, [target])).toBe(false);
   });
 });

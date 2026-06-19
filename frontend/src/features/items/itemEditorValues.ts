@@ -102,7 +102,6 @@ export function toItemDefinitionPayload(values: ItemEditorValues, itemId: string
     gm_special_properties: values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
-    stat_augmentations: [],
     augmentation_templates: []
   };
 }

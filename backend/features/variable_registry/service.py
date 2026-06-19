@@ -5,6 +5,9 @@ from backend.features.variable_registry.schema import (
     ActionFormulaAuthoringMetadata,
     ActionPresetTemplate,
     ActionStepAuthoringMetadata,
+    AugmentationTargetContext,
+    AugmentationTargetMetadata,
+    AugmentationTargetMetadataResponse,
     AuthoringVariablePathMetadata,
     FormulaAliasMetadata,
     VariableEditableRole,
@@ -342,6 +345,73 @@ def _authoring_variable(
         shortcuts=shortcuts,
         formula_reference_allowed=True,
         action_mutation_allowed=_action_mutation_allowed(variable),
+    )
+
+
+def _augmentation_target_contexts(
+    variable: VariablePathMetadata,
+) -> list[AugmentationTargetContext]:
+    if not _action_mutation_allowed(variable):
+        return []
+    if variable.root == "state":
+        return []
+
+    contexts: list[AugmentationTargetContext] = ["runtime"]
+    if variable.root in {"sheet", "instance"}:
+        contexts.append("item_template")
+    if variable.root == "instance":
+        contexts.append("condition_template")
+    return contexts
+
+
+def build_augmentation_target_catalog(
+    *,
+    context: AugmentationTargetContext | None = None,
+) -> list[AugmentationTargetMetadata]:
+    targets: list[AugmentationTargetMetadata] = []
+    for variable in build_variable_registry().variables:
+        contexts = _augmentation_target_contexts(variable)
+        if not contexts:
+            continue
+        if context is not None and context not in contexts:
+            continue
+
+        targets.append(
+            AugmentationTargetMetadata(
+                key=variable.key,
+                label=variable.label,
+                root=variable.root,
+                path=list(variable.path),
+                value_type=variable.value_type,
+                description=variable.description,
+                allowed_contexts=list(contexts),
+            )
+        )
+    return targets
+
+
+def build_augmentation_target_metadata(
+    *,
+    context: AugmentationTargetContext | None = None,
+    request_id: str | None = None,
+) -> AugmentationTargetMetadataResponse:
+    return AugmentationTargetMetadataResponse(
+        response_id=None,
+        targets=build_augmentation_target_catalog(context=context),
+        context=context,
+        request_id=request_id,
+    )
+
+
+def is_augmentation_target_allowed(
+    *,
+    root: VariableRoot,
+    path: list[str],
+    context: AugmentationTargetContext,
+) -> bool:
+    return any(
+        target.root == root and target.path == path
+        for target in build_augmentation_target_catalog(context=context)
     )
 
 

@@ -1,8 +1,14 @@
 import type { Augmentation, AugmentationOperation } from "@/domain/models";
 import { Field } from "@/shared/ui/Field";
 import {
+  applyAugmentationTargetOption,
+  augmentationEditorTargetKey,
+  augmentationTargetOptionKey,
+  formatAugmentationTargetOption,
   hasValidAugmentationEditorValues,
-  type AugmentationEditorValues
+  isKnownAugmentationEditorTarget,
+  type AugmentationEditorValues,
+  type AugmentationTargetOption
 } from "@/features/augmentations/augmentationEditorValues";
 
 const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
@@ -18,33 +24,11 @@ function formatTarget(augmentation: Augmentation): string {
   return `${augmentation.target.root}.${path}`;
 }
 
-function updateTargetPathSegment(
-  values: AugmentationEditorValues,
-  index: number,
-  segment: string
-): AugmentationEditorValues {
-  const targetPath = [...values.targetPath];
-  targetPath[index] = segment;
-  return {
-    ...values,
-    targetPath
-  };
-}
-
-function removeTargetPathSegment(
-  values: AugmentationEditorValues,
-  index: number
-): AugmentationEditorValues {
-  return {
-    ...values,
-    targetPath: values.targetPath.filter((_, currentIndex) => currentIndex !== index)
-  };
-}
-
 export function ConditionAugmentationTemplatePanel({
   conditionName,
   editingAugmentationId,
   templates,
+  targetOptions,
   values,
   onChange,
   onSubmit,
@@ -55,6 +39,7 @@ export function ConditionAugmentationTemplatePanel({
   conditionName: string;
   editingAugmentationId: string | null;
   templates: Augmentation[];
+  targetOptions: AugmentationTargetOption[];
   values: AugmentationEditorValues;
   onChange: (values: AugmentationEditorValues) => void;
   onSubmit: () => void;
@@ -62,8 +47,10 @@ export function ConditionAugmentationTemplatePanel({
   onEdit: (augmentation: Augmentation) => void;
   onRemove: (augmentationId: string) => void;
 }): JSX.Element {
-  const pathInputs = values.targetPath.length > 0 ? values.targetPath : [""];
-  const canSubmit = hasValidAugmentationEditorValues(values);
+  const selectedTargetKey = augmentationEditorTargetKey(values);
+  const hasCurrentTargetPath = values.targetPath.some((segment) => segment.trim().length > 0);
+  const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
+  const canSubmit = hasValidAugmentationEditorValues(values) && targetIsKnown;
 
   return (
     <section className="template-editor augmentation-template-panel">
@@ -81,8 +68,33 @@ export function ConditionAugmentationTemplatePanel({
               placeholder="e.g. Poison penalty"
             />
           </Field>
-          <Field label="Target Root">
-            <input value="Instance" readOnly />
+          <Field label="Target">
+            <select
+              value={targetIsKnown ? selectedTargetKey : ""}
+              onChange={(event) => {
+                const target = targetOptions.find(
+                  (option) => augmentationTargetOptionKey(option) === event.target.value
+                );
+                if (target) {
+                  onChange(applyAugmentationTargetOption(values, target));
+                }
+              }}
+              disabled={targetOptions.length === 0}
+            >
+              <option value="">
+                {targetOptions.length === 0 ? "Target metadata unavailable" : "Select target"}
+              </option>
+              {!targetIsKnown && hasCurrentTargetPath ? (
+                <option value={selectedTargetKey} disabled>
+                  Unavailable target ({selectedTargetKey})
+                </option>
+              ) : null}
+              {targetOptions.map((target) => (
+                <option key={augmentationTargetOptionKey(target)} value={augmentationTargetOptionKey(target)}>
+                  {formatAugmentationTargetOption(target)}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Operation">
             <select
@@ -111,35 +123,6 @@ export function ConditionAugmentationTemplatePanel({
             placeholder="GM-facing augmentation notes"
           />
         </Field>
-
-        <div className="augmentation-template-panel__target">
-          <div className="list-item__top">
-            <span className="field__label">Instance Target Path Segments</span>
-            <button
-              className="button button--secondary"
-              onClick={() => onChange({ ...values, targetPath: [...values.targetPath, ""] })}
-            >
-              Add Segment
-            </button>
-          </div>
-          <div className="augmentation-template-panel__segments">
-            {pathInputs.map((segment, index) => (
-              <div className="augmentation-template-panel__segment" key={`${index}-${pathInputs.length}`}>
-                <input
-                  value={segment}
-                  onChange={(event) => onChange(updateTargetPathSegment(values, index, event.target.value))}
-                  placeholder={index === 0 ? "stats" : "arcane"}
-                />
-                <button
-                  className="button button--secondary"
-                  onClick={() => onChange(removeTargetPathSegment(values, index))}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
 
         <Field label="Formula">
           <textarea

@@ -13,6 +13,7 @@ import {
   buildDeleteItemRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
+  buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetItemBridgeRequest,
@@ -43,7 +44,6 @@ const testItem: ItemDefinitionPayload = {
   gm_special_properties: "Conducts mana at 100% efficiency.",
   price: "NA",
   weight: "3LBS",
-  stat_augmentations: [],
   augmentation_templates: []
 };
 
@@ -501,6 +501,22 @@ describe("requestBuilders", () => {
     expect(buildGetActionFormulaAuthoringMetadataRequest({ requestId: "req-metadata" })).toEqual({
       request_id: "req-metadata",
       type: "get_action_formula_authoring_metadata"
+    });
+  });
+
+  it("builds augmentation target metadata requests", () => {
+    expect(buildGetAugmentationTargetMetadataRequest()).toEqual({
+      type: "get_augmentation_target_metadata"
+    });
+    expect(
+      buildGetAugmentationTargetMetadataRequest({
+        context: "condition_template",
+        requestId: "req-targets"
+      })
+    ).toEqual({
+      context: "condition_template",
+      request_id: "req-targets",
+      type: "get_augmentation_target_metadata"
     });
   });
 });

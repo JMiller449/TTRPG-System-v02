@@ -163,11 +163,6 @@ export interface ActionDefinition {
   steps?: ActionStep[];
 }
 
-export interface StatAugmentation {
-  stat_name: string;
-  augmentation: Formula;
-}
-
 export type AugmentationSourceType =
   | "item"
   | "action"
@@ -240,7 +235,6 @@ export interface ItemDefinition {
   gm_special_properties?: string;
   price: string;
   weight: string;
-  stat_augmentations: StatAugmentation[];
   augmentation_templates?: Augmentation[];
 }
 

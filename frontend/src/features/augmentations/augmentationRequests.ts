@@ -1,6 +1,7 @@
 import type { Augmentation, ItemDefinition } from "@/domain/models";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import {
+  buildGetAugmentationTargetMetadataRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildUpsertItemAugmentationTemplateRequest
 } from "@/infrastructure/ws/requestBuilders";
@@ -17,6 +18,13 @@ export interface AugmentationTemplateSubmission {
 
 export function selectItemAugmentationTemplates(item: ItemDefinition | undefined): Augmentation[] {
   return item?.augmentation_templates ?? [];
+}
+
+export function buildLoadItemAugmentationTargetMetadataSubmission(): AugmentationTemplateSubmission {
+  return {
+    request: buildGetAugmentationTargetMetadataRequest({ context: "item_template" }),
+    label: "Load item augmentation targets"
+  };
 }
 
 export function buildUpsertItemAugmentationTemplateSubmission({

@@ -2,6 +2,7 @@ import type {
   ActionFormulaAuthoringMetadataEvent as ProtocolActionFormulaAuthoringMetadataEvent,
   ActionExecutedEvent as ProtocolActionExecutedEvent,
   AuthenticateResponseEvent as ProtocolAuthenticateResponseEvent,
+  AugmentationTargetMetadataEvent as ProtocolAugmentationTargetMetadataEvent,
   BackendStateSnapshotPayload as ProtocolBackendState,
   ErrorEvent as ProtocolErrorEvent,
   PatchOperation as ProtocolPatchOperation,
@@ -15,6 +16,7 @@ import type {
 export type {
   ProtocolActionFormulaAuthoringMetadataEvent,
   ProtocolActionExecutedEvent,
+  ProtocolAugmentationTargetMetadataEvent,
   ProtocolApplicationRequest,
   ProtocolAuthenticateResponseEvent,
   ProtocolBackendState,
@@ -157,6 +159,25 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           action_steps: payload.action_steps as ProtocolActionFormulaAuthoringMetadataEvent["action_steps"],
           action_preset_templates: payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
           type: "action_formula_authoring_metadata",
+          request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "augmentation_target_metadata":
+      if (
+        Array.isArray(payload.targets) &&
+        (payload.context === "item_template" ||
+          payload.context === "condition_template" ||
+          payload.context === "runtime" ||
+          payload.context === null ||
+          payload.context === undefined)
+      ) {
+        return {
+          response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
+          targets: payload.targets as ProtocolAugmentationTargetMetadataEvent["targets"],
+          context: payload.context ?? null,
+          type: "augmentation_target_metadata",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
         };
       }

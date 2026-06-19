@@ -137,6 +137,79 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     ]
 
 
+def test_augmentation_target_catalog_reuses_mutation_safe_variable_metadata() -> None:
+    catalog = service.build_augmentation_target_catalog()
+    targets = {target.key: target for target in catalog}
+
+    assert targets["instance.health"].root == "instance"
+    assert targets["instance.health"].path == ["health"]
+    assert targets["instance.health"].value_type == "resource"
+    assert targets["instance.health"].allowed_contexts == [
+        "runtime",
+        "item_template",
+        "condition_template",
+    ]
+
+    assert targets["instance.mana"].path == ["mana"]
+    assert targets["sheet.stats.strength"].root == "sheet"
+    assert targets["sheet.stats.strength"].path == ["stats", "strength"]
+    assert targets["sheet.stats.strength"].allowed_contexts == [
+        "runtime",
+        "item_template",
+    ]
+    assert "condition_template" not in targets["sheet.stats.strength"].allowed_contexts
+
+    assert targets["sheet.resistances.fire"].path == ["resistances", "fire"]
+    assert targets["sheet.resistances.fire"].value_type == "percent"
+    assert targets["instance.resistances.fire"].path == ["resistances", "fire"]
+    assert targets["instance.resistances.fire"].value_type == "percent"
+
+    assert "sheet.stats.health" not in targets
+    assert "sheet.items" not in targets
+    assert all(target.root != "state" for target in catalog)
+    assert {target.value_type for target in catalog} <= {
+        "number",
+        "percent",
+        "resource",
+    }
+
+
+def test_augmentation_target_catalog_can_filter_authoring_contexts() -> None:
+    item_targets = {
+        target.key: target
+        for target in service.build_augmentation_target_catalog(context="item_template")
+    }
+    condition_targets = {
+        target.key: target
+        for target in service.build_augmentation_target_catalog(
+            context="condition_template"
+        )
+    }
+
+    assert "sheet.stats.strength" in item_targets
+    assert "instance.health" in item_targets
+    assert "sheet.stats.strength" not in condition_targets
+    assert condition_targets["instance.health"].root == "instance"
+    assert condition_targets["instance.resistances.fire"].root == "instance"
+    assert all(target.root == "instance" for target in condition_targets.values())
+
+
+def test_augmentation_target_metadata_response_filters_contexts() -> None:
+    response = service.build_augmentation_target_metadata(
+        context="condition_template",
+        request_id="req-1",
+    )
+    targets = {target.key: target for target in response.targets}
+
+    assert response.type == "augmentation_target_metadata"
+    assert response.context == "condition_template"
+    assert response.request_id == "req-1"
+    assert "instance.health" in targets
+    assert "instance.resistances.fire" in targets
+    assert "sheet.stats.strength" not in targets
+    assert all(target.root == "instance" for target in response.targets)
+
+
 def test_player_can_request_variable_registry() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()
@@ -161,6 +234,39 @@ def test_player_can_request_variable_registry() -> None:
         assert variables["sheet.stats.arcane"]["shortcuts"] == ["arc", "arcane"]
         assert variables["instance.mana"]["value_type"] == "resource"
         assert variables["instance.mana"]["shortcuts"] == ["mana"]
+
+    asyncio.run(scenario())
+
+
+def test_player_can_request_augmentation_target_metadata() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="player")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "get_augmentation_target_metadata",
+                "context": "item_template",
+                "request_id": "client-id-ignored",
+            },
+        )
+
+        assert websocket.sent_messages[0]["type"] == "augmentation_target_metadata"
+        assert websocket.sent_messages[0]["context"] == "item_template"
+        assert websocket.sent_messages[0]["request_id"] == "req-1"
+        targets = {
+            target["key"]: target for target in websocket.sent_messages[0]["targets"]
+        }
+        assert targets["sheet.stats.strength"]["path"] == ["stats", "strength"]
+        assert targets["sheet.stats.strength"]["allowed_contexts"] == [
+            "runtime",
+            "item_template",
+        ]
+        assert targets["instance.health"]["root"] == "instance"
+        assert targets["instance.health"]["value_type"] == "resource"
+        assert "sheet.stats.health" not in targets
 
     asyncio.run(scenario())
 

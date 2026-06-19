@@ -55,7 +55,7 @@ function item(id: string, name: string): ItemDefinition {
     description: "",
     price: "",
     weight: "",
-    stat_augmentations: []
+    augmentation_templates: []
   };
 }
 

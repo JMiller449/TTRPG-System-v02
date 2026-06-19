@@ -13,7 +13,7 @@ from backend.state.models.augmentation import (
 )
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import Formula, FormulaAliases
-from backend.state.models.sheet import InstancedSheet
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -44,12 +44,65 @@ def _build_instance() -> InstancedSheet:
     )
 
 
+def _formula_payload(text: str = "0") -> dict:
+    return {
+        "aliases": None,
+        "text": text,
+    }
+
+
+def _build_sheet() -> Sheet:
+    formula = _formula_payload()
+    return Sheet.from_dict(
+        {
+            "id": "sheet-1",
+            "name": "Mage",
+            "notes": "",
+            "dm_only": False,
+            "xp_given_when_slayed": 0,
+            "xp_cap": "",
+            "proficiencies": {},
+            "items": {},
+            "stats": {
+                "strength": 10,
+                "dexterity": 10,
+                "constitution": 10,
+                "perception": 10,
+                "arcane": 10,
+                "will": 10,
+                "lifting": formula,
+                "carry_weight": formula,
+                "acrobatics": formula,
+                "stamina": formula,
+                "reaction_time": formula,
+                "health": formula,
+                "endurance": formula,
+                "pain_tolerance": formula,
+                "sight_distance": formula,
+                "intuition": formula,
+                "registration": formula,
+                "mana": formula,
+                "control": formula,
+                "sensitivity": formula,
+                "charisma": formula,
+                "mental_fortitude": formula,
+                "courage": formula,
+            },
+            "resistances": {},
+            "slayed_record": {},
+            "actions": {},
+        }
+    )
+
+
 def _build_augmentation(
     *,
     augmentation_id: str = "aug-1",
     active: bool = True,
     applied: bool = False,
     applied_target_id: str | None = None,
+    root: str = "instance",
+    scope: str = "instance",
     path: list[str] | None = None,
     operation: str = "add",
     value: str = "5",
@@ -60,9 +113,9 @@ def _build_augmentation(
         name="Blessed Health",
         description="Temporary health modifier.",
         source=AugmentationSource(type="manual", label="GM adjustment"),
-        scope="instance",
+        scope=scope,
         target=AugmentationTarget(
-            root="instance",
+            root=root,
             path=["health"] if path is None else path,
         ),
         effect=FormulaModifierEffect(
@@ -185,6 +238,38 @@ def test_apply_augmentation_mutates_target_and_marks_record(monkeypatch) -> None
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_apply_augmentation_accepts_sheet_catalog_target(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["sheet-1"] = _build_sheet()
+            state.augmentations["aug-1"] = _build_augmentation(
+                root="sheet",
+                scope="sheet",
+                path=["stats", "strength"],
+                value="2",
+            )
+
+            result = await augmentation_service.apply_augmentation(
+                "aug-1",
+                sheet_id="sheet-1",
+                request_id="req-1",
+            )
+
+            assert result.operation == "applied"
+            assert result.value == 12
+            assert state.sheets["sheet-1"].stats.strength == 12
+            assert state.augmentations["aug-1"].applied is True
+            assert state.augmentations["aug-1"].applied_target_id == "sheet-1"
         finally:
             StateSingleton._state = original_state
 
@@ -419,7 +504,7 @@ def test_inactive_augmentation_is_ignored(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_invalid_augmentation_target_is_rejected(monkeypatch) -> None:
+def test_uncataloged_augmentation_target_is_rejected(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -429,7 +514,173 @@ def test_invalid_augmentation_target_is_rejected(monkeypatch) -> None:
             state.instanced_sheets["inst-1"] = _build_instance()
             state.augmentations["aug-1"] = _build_augmentation(path=["missing"])
 
-            with pytest.raises(ValueError, match="does not exist"):
+            with pytest.raises(
+                ValueError,
+                match="Runtime augmentation target 'instance.missing' is not allowed.",
+            ):
+                await augmentation_service.apply_augmentation(
+                    "aug-1",
+                    instance_id="inst-1",
+                    request_id="req-1",
+                )
+
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations["aug-1"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_formula_backed_sheet_augmentation_target_is_rejected(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["sheet-1"] = _build_sheet()
+            state.augmentations["aug-1"] = _build_augmentation(
+                root="sheet",
+                scope="sheet",
+                path=["stats", "health"],
+            )
+
+            with pytest.raises(
+                ValueError,
+                match=(
+                    "Runtime augmentation target 'sheet.stats.health' is not allowed."
+                ),
+            ):
+                await augmentation_service.apply_augmentation(
+                    "aug-1",
+                    sheet_id="sheet-1",
+                    request_id="req-1",
+                )
+
+            assert state.sheets["sheet-1"].stats.health.text == "0"
+            assert state.augmentations["aug-1"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_global_augmentation_target_is_rejected_before_mutation(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["aug-1"] = _build_augmentation(
+                root="state",
+                path=["sheets"],
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Global state augmentation targets are not supported yet.",
+            ):
+                await augmentation_service.apply_augmentation(
+                    "aug-1",
+                    instance_id="inst-1",
+                    request_id="req-1",
+                )
+
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations["aug-1"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_runtime_sheet_target_rejects_instance_scope(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["sheet-1"] = _build_sheet()
+            state.augmentations["aug-1"] = _build_augmentation(
+                root="sheet",
+                scope="instance",
+                path=["stats", "strength"],
+                value="2",
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Sheet augmentation targets must use sheet scope.",
+            ):
+                await augmentation_service.apply_augmentation(
+                    "aug-1",
+                    sheet_id="sheet-1",
+                    request_id="req-1",
+                )
+
+            assert state.sheets["sheet-1"].stats.strength == 10
+            assert state.augmentations["aug-1"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_runtime_instance_target_rejects_sheet_scope(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["aug-1"] = _build_augmentation(
+                root="instance",
+                scope="sheet",
+                path=["health"],
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Instance augmentation targets must use instance scope.",
+            ):
+                await augmentation_service.apply_augmentation(
+                    "aug-1",
+                    instance_id="inst-1",
+                    request_id="req-1",
+                )
+
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations["aug-1"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_runtime_rejects_stale_catalog_target_before_mutation(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        monkeypatch.setattr(
+            augmentation_service,
+            "is_augmentation_target_allowed",
+            lambda *, root, path, context: False,
+        )
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["aug-1"] = _build_augmentation(path=["health"])
+
+            with pytest.raises(
+                ValueError,
+                match="Runtime augmentation target 'instance.health' is not allowed.",
+            ):
                 await augmentation_service.apply_augmentation(
                     "aug-1",
                     instance_id="inst-1",
@@ -476,6 +727,69 @@ def test_recompute_applies_active_and_removes_inactive_augmentations(
             assert state.instanced_sheets["inst-1"].health == 12
             assert state.augmentations["active"].applied is True
             assert state.augmentations["inactive"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_recompute_skips_untargeted_augmentations(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["invalid"] = _build_augmentation(
+                augmentation_id="invalid",
+                path=["missing"],
+            )
+
+            results = await augmentation_service.recompute_augmentations(
+                request_id="req-1",
+            )
+
+            assert results == []
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations["invalid"].applied is False
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_recompute_rejects_uncataloged_target_before_mutation(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["valid"] = _build_augmentation(
+                augmentation_id="valid",
+                value="2",
+            )
+            state.augmentations["invalid"] = _build_augmentation(
+                augmentation_id="invalid",
+                path=["missing"],
+            )
+
+            with pytest.raises(
+                ValueError,
+                match=(
+                    "Runtime augmentation target 'instance.missing' is not allowed."
+                ),
+            ):
+                await augmentation_service.recompute_augmentations(
+                    instance_id="inst-1",
+                    request_id="req-1",
+                )
+
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations["valid"].applied is False
+            assert state.augmentations["invalid"].applied is False
         finally:
             StateSingleton._state = original_state
 

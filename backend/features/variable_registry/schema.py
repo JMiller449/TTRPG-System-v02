@@ -11,6 +11,7 @@ VariableEditableRole = Literal["unauthenticated", "player", "dm"]
 ActionStepTarget = Literal["caster", "target"]
 ActionStepCategory = Literal["roll20_output", "bounded_mutation", "semantic_mutation"]
 ActionPresetTemplateCategory = Literal["healing", "resource"]
+AugmentationTargetContext = Literal["item_template", "condition_template", "runtime"]
 ActionPathCatalog = Literal[
     "none",
     "variable_mutation_paths",
@@ -26,6 +27,11 @@ class GetVariableRegistry(RequestModel):
 
 class GetActionFormulaAuthoringMetadata(RequestModel):
     type: Literal["get_action_formula_authoring_metadata"]
+
+
+class GetAugmentationTargetMetadata(RequestModel):
+    context: AugmentationTargetContext | None = None
+    type: Literal["get_augmentation_target_metadata"]
 
 
 @dataclass
@@ -61,6 +67,25 @@ class AuthoringVariablePathMetadata:
     shortcuts: list[str] | None = None
     formula_reference_allowed: bool = True
     action_mutation_allowed: bool = False
+
+
+@dataclass
+class AugmentationTargetMetadata:
+    key: str
+    label: str
+    root: VariableRoot
+    path: list[str]
+    value_type: VariableValueType
+    description: str
+    allowed_contexts: list[AugmentationTargetContext]
+
+
+@dataclass
+class AugmentationTargetMetadataResponse(ResponseModel):
+    targets: list[AugmentationTargetMetadata]
+    context: AugmentationTargetContext | None = None
+    type: Literal["augmentation_target_metadata"] = "augmentation_target_metadata"
+    request_id: str | None = None
 
 
 @dataclass

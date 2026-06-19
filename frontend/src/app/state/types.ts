@@ -1,4 +1,8 @@
-import type { ActionFormulaAuthoringMetadata, AppSnapshot } from "@/domain/ipc";
+import type {
+  ActionFormulaAuthoringMetadata,
+  AppSnapshot,
+  AugmentationTargetMetadata
+} from "@/domain/ipc";
 import type {
   ActionDefinition,
   ActionHistoryEntry,
@@ -77,6 +81,7 @@ export interface UIState {
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
+  augmentationTargetMetadata: AugmentationTargetMetadata | null;
   localSheetNotes: Record<string, string>;
   localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
@@ -108,6 +113,7 @@ export type AppAction =
   | { type: "push_intent_feedback"; item: IntentFeedbackItem }
   | { type: "dismiss_intent_feedback"; id: string }
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
+  | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
   | { type: "set_sheet_note"; sheetId: string; note: string }
   | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
   | { type: "clear_sheet_stat_overrides"; sheetId: string }

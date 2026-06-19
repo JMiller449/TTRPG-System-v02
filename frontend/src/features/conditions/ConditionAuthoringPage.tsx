@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ConditionAugmentationTemplatePanel } from "@/features/conditions/components/ConditionAugmentationTemplatePanel";
@@ -12,6 +12,7 @@ import {
 import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
+  buildLoadConditionAugmentationTargetMetadataSubmission,
   buildRemoveConditionAugmentationSubmission,
   buildUpdateConditionPresetSubmission,
   buildUpsertConditionAugmentationSubmission,
@@ -28,7 +29,8 @@ import { makeId } from "@/shared/utils/id";
 export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { conditionPresets, conditionPresetOrder }
+      serverState: { conditionPresets, conditionPresetOrder },
+      uiState: { augmentationTargetMetadata }
     }
   } = useAppStore();
 
@@ -46,6 +48,19 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     [conditionPresetOrder, conditionPresets]
   );
   const selectedCondition = editingConditionId ? conditionPresets[editingConditionId] : undefined;
+  const targetOptions =
+    augmentationTargetMetadata?.context === "condition_template"
+      ? augmentationTargetMetadata.targets
+      : [];
+
+  useEffect(() => {
+    if (augmentationTargetMetadata?.context === "condition_template") {
+      return;
+    }
+
+    const submission = buildLoadConditionAugmentationTargetMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [augmentationTargetMetadata?.context, client]);
 
   const resetAugmentationEditor = (): void => {
     setEditingAugmentationId(null);
@@ -132,6 +147,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
             conditionName={selectedCondition.name}
             editingAugmentationId={editingAugmentationId}
             templates={selectedCondition.augmentation_templates ?? []}
+            targetOptions={targetOptions}
             values={augmentationValues}
             onChange={setAugmentationValues}
             onSubmit={submitAugmentation}

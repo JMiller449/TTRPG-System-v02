@@ -79,7 +79,6 @@ def _item_payload(item_id: str = "sword") -> dict:
         "description": "A test item.",
         "price": "10g",
         "weight": "3",
-        "stat_augmentations": [],
         "augmentation_templates": [],
     }
 

@@ -1,4 +1,7 @@
 import asyncio
+from copy import deepcopy
+
+import pytest
 
 from backend.features.auth.tokens import (
     DM_ADMIN_CODE,
@@ -14,6 +17,7 @@ from backend.routes.ws import (
     handle_client_payload,
     websocket_sessions,
 )
+from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
 class FakeWebSocket:
@@ -33,6 +37,11 @@ class FakeWebSocket:
 
     async def receive_text(self) -> str:
         raise RuntimeError("receive_text not implemented for FakeWebSocket")
+
+
+@pytest.fixture(autouse=True)
+def reset_state() -> None:
+    StateSingleton._state = deepcopy(DEFAULT_STATE)
 
 
 def test_connections_start_unauthenticated() -> None:
@@ -398,6 +407,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
             {
                 "response_id": None,
                 "state": {
+                    "action_history": {},
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
@@ -443,6 +453,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
             {
                 "response_id": None,
                 "state": {
+                    "action_history": {},
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
@@ -488,6 +499,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
             {
                 "response_id": None,
                 "state": {
+                    "action_history": {},
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
@@ -600,6 +612,7 @@ def test_state_sync_bootstrap_sends_snapshot() -> None:
             {
                 "response_id": None,
                 "state": {
+                    "action_history": {},
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
@@ -636,6 +649,7 @@ def test_resync_state_returns_state_snapshot() -> None:
             {
                 "response_id": None,
                 "state": {
+                    "action_history": {},
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},

@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from typing import List
 
 from backend.state.models.augmentation import Augmentation
-from backend.state.models.formula import Formula
-from backend.state.models.stat import StatName
 
 
 @dataclass
@@ -24,19 +22,6 @@ class ItemBridge:
 
 
 @dataclass
-class StatAugmentation:
-    stat_name: StatName
-    augmentation: Formula
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "StatAugmentation":
-        return cls(
-            stat_name=raw["stat_name"],
-            augmentation=Formula.from_dict(raw["augmentation"]),
-        )
-
-
-@dataclass
 class Item:
     id: str
     name: str
@@ -46,7 +31,6 @@ class Item:
     gm_special_properties: str
     price: str
     weight: str
-    stat_augmentations: List[StatAugmentation]
     augmentation_templates: List[Augmentation]
 
     @classmethod
@@ -60,10 +44,6 @@ class Item:
             gm_special_properties=raw.get("gm_special_properties", ""),
             price=raw["price"],
             weight=raw["weight"],
-            stat_augmentations=[
-                StatAugmentation.from_dict(augmentation)
-                for augmentation in raw.get("stat_augmentations", [])
-            ],
             augmentation_templates=[
                 Augmentation.from_dict(augmentation)
                 for augmentation in raw.get("augmentation_templates", [])

@@ -155,6 +155,44 @@ describe("parseProtocolServerEvent", () => {
       request_id: "req-metadata"
     });
   });
+
+  it("parses augmentation target metadata events from the backend protocol", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      targets: [
+        {
+          key: "instance.health",
+          label: "Current Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          description: "Current instance resource: Current Health.",
+          allowed_contexts: ["runtime", "item_template", "condition_template"]
+        }
+      ],
+      context: "condition_template",
+      type: "augmentation_target_metadata",
+      request_id: "req-targets"
+    });
+
+    expect(event).toEqual({
+      response_id: null,
+      targets: [
+        {
+          key: "instance.health",
+          label: "Current Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          description: "Current instance resource: Current Health.",
+          allowed_contexts: ["runtime", "item_template", "condition_template"]
+        }
+      ],
+      context: "condition_template",
+      type: "augmentation_target_metadata",
+      request_id: "req-targets"
+    });
+  });
 });
 
 describe("adaptProtocolServerEvent", () => {
@@ -258,6 +296,53 @@ describe("adaptProtocolServerEvent", () => {
             }
           ],
           action_preset_templates: []
+        }
+      }
+    ]);
+  });
+
+  it("maps augmentation target metadata into an internal metadata event", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      targets: [
+        {
+          key: "instance.health",
+          label: "Current Health",
+          root: "instance",
+          path: ["health"],
+          value_type: "resource",
+          description: "Current instance resource: Current Health.",
+          allowed_contexts: ["runtime", "item_template", "condition_template"]
+        }
+      ],
+      context: "condition_template",
+      type: "augmentation_target_metadata",
+      request_id: "req-targets"
+    });
+
+    if (!protocolEvent || protocolEvent.type !== "augmentation_target_metadata") {
+      throw new Error("Expected augmentation_target_metadata event");
+    }
+
+    const adapted = adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent);
+
+    expect(adapted.events).toEqual([
+      {
+        type: "augmentation_target_metadata",
+        requestId: "req-targets",
+        metadata: {
+          targets: [
+            {
+              key: "instance.health",
+              label: "Current Health",
+              root: "instance",
+              path: ["health"],
+              value_type: "resource",
+              description: "Current instance resource: Current Health.",
+              allowed_contexts: ["runtime", "item_template", "condition_template"]
+            }
+          ],
+          context: "condition_template"
         }
       }
     ]);

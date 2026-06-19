@@ -122,6 +122,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientNamespace": "authoringMetadata"' in output
     assert '"clientMethodName": "getActionFormulaAuthoringMetadata"' in output
     assert "export type ActionFormulaAuthoringMetadataEvent" in output
+    assert '"type": "get_augmentation_target_metadata"' in output
+    assert '"clientMethodName": "getAugmentationTargetMetadata"' in output
+    assert "export type AugmentationTargetMetadataEvent" in output
+    assert '"targets": AugmentationTargetMetadataPayload[];' in output
+    assert '"allowed_contexts": ("item_template" | "condition_template" | "runtime")[];' in output
     assert "export type PerformAction = {" in output
     assert '"sheet_id": string;' in output
     assert '"action_id": string;' in output

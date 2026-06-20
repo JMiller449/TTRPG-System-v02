@@ -66,6 +66,7 @@ AugmentationEffect = FormulaModifierEffect
 
 @dataclass
 class AugmentationLifecycle:
+    # MVP lifecycle fields are descriptive metadata only; no predicate syntax is executed.
     duration: str | None = None
     expires_at: str | None = None
     removal_condition: str | None = None

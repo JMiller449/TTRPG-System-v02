@@ -11,6 +11,7 @@ from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.condition import ConditionPreset
+from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
 from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
@@ -28,6 +29,7 @@ class State:
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
     augmentations: dict[str, Augmentation] = field(default_factory=dict)
     condition_presets: dict[str, ConditionPreset] = field(default_factory=dict)
+    encounter_presets: dict[str, EncounterPreset] = field(default_factory=dict)
     sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
 
     @classmethod
@@ -69,6 +71,10 @@ class State:
             condition_presets={
                 key: ConditionPreset.from_dict(condition)
                 for key, condition in raw.get("condition_presets", {}).items()
+            },
+            encounter_presets={
+                key: EncounterPreset.from_dict(encounter)
+                for key, encounter in raw.get("encounter_presets", {}).items()
             },
             sheet_access_codes={
                 key: SheetAccessCode.from_dict(access_code)

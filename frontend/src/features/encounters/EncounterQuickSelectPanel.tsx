@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { EncounterPreset } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildSpawnEncounterIntent } from "@/features/encounters/intentBuilders";
+import { buildSpawnEncounterPresetSubmission } from "@/features/encounters/encounterRequests";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -30,7 +30,8 @@ export function EncounterQuickSelectPanel({ client }: { client: GameClient }): J
     if (!selectedEncounterId) {
       return;
     }
-    client.sendIntent(buildSpawnEncounterIntent(selectedEncounterId));
+    const submission = buildSpawnEncounterPresetSubmission(selectedEncounterId);
+    client.sendProtocolRequest(submission.request, submission.label);
   };
 
   return (

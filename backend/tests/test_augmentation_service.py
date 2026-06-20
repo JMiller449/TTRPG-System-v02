@@ -7,6 +7,7 @@ from backend.features.augmentations import service as augmentation_service
 from backend.features.session.service import websocket_sessions
 from backend.state.models.augmentation import (
     Augmentation,
+    AugmentationLifecycle,
     AugmentationSource,
     AugmentationTarget,
     FormulaModifierEffect,
@@ -107,6 +108,7 @@ def _build_augmentation(
     operation: str = "add",
     value: str = "5",
     aliases: list[FormulaAliases] | None = None,
+    lifecycle: AugmentationLifecycle | None = None,
 ) -> Augmentation:
     return Augmentation(
         id=augmentation_id,
@@ -128,6 +130,7 @@ def _build_augmentation(
         active=active,
         applied=applied,
         applied_target_id=applied_target_id,
+        lifecycle=lifecycle or AugmentationLifecycle(),
     )
 
 
@@ -469,6 +472,74 @@ def test_remove_augmentation_reverses_target_and_marks_record(monkeypatch) -> No
             assert state.instanced_sheets["inst-1"].health == 10
             assert state.augmentations["aug-1"].applied is False
             assert state.augmentations["aug-1"].applied_target_id is None
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_lifecycle_notes_do_not_control_runtime_application(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.augmentations["aug-1"] = _build_augmentation(
+                lifecycle=AugmentationLifecycle(
+                    duration="until hp <= 10",
+                    expires_at="2000-01-01T00:00:00Z",
+                    removal_condition="remove when @health <= 10",
+                )
+            )
+
+            result = await augmentation_service.apply_augmentation(
+                "aug-1",
+                instance_id="inst-1",
+                request_id="req-1",
+            )
+
+            assert result.operation == "applied"
+            assert state.instanced_sheets["inst-1"].health == 15
+            assert state.augmentations["aug-1"].applied is True
+            assert state.augmentations["aug-1"].lifecycle.removal_condition == (
+                "remove when @health <= 10"
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_recompute_does_not_remove_from_lifecycle_notes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.instanced_sheets["inst-1"].health = 15
+            state.augmentations["aug-1"] = _build_augmentation(
+                applied=True,
+                applied_target_id="inst-1",
+                lifecycle=AugmentationLifecycle(
+                    duration="encounter",
+                    expires_at="2000-01-01T00:00:00Z",
+                    removal_condition="remove when @health <= 15",
+                ),
+            )
+
+            results = await augmentation_service.recompute_augmentations(
+                instance_id="inst-1",
+                request_id="req-1",
+            )
+
+            assert [result.operation for result in results] == ["ignored"]
+            assert results[0].reason == "already_in_sync"
+            assert state.instanced_sheets["inst-1"].health == 15
+            assert state.augmentations["aug-1"].applied is True
         finally:
             StateSingleton._state = original_state
 

@@ -5,13 +5,21 @@ import { ManagedGameClient } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 
 class FakeTransport implements GameTransport {
-  public readonly mode = "ws" as const;
   public protocolRequests: ProtocolApplicationRequest[] = [];
   public sentIntents: ClientIntent[] = [];
   public disconnectCount = 0;
   private handler: ((event: ServerEvent) => void) | null = null;
 
-  async connect(): Promise<void> {}
+  constructor(
+    public readonly mode: "mock" | "ws" = "ws",
+    private readonly connectError: Error | null = null
+  ) {}
+
+  async connect(): Promise<void> {
+    if (this.connectError) {
+      throw this.connectError;
+    }
+  }
 
   disconnect(): void {
     this.disconnectCount += 1;
@@ -40,6 +48,61 @@ class FakeTransport implements GameTransport {
 }
 
 describe("ManagedGameClient", () => {
+  it("does not fall back to mock transport when websocket connection fails", async () => {
+    const requestedModes: string[] = [];
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      transportFactory: (mode) => {
+        requestedModes.push(mode);
+        return new FakeTransport(mode, new Error("ws failed"));
+      }
+    });
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    await client.connect();
+
+    expect(requestedModes).toEqual(["ws"]);
+    expect(client.getConnectionState()).toEqual({
+      status: "disconnected",
+      transport: "ws",
+      error: "Failed to connect transport"
+    });
+
+    client.sendProtocolRequest({
+      type: "get_roll20_bridge_status",
+      request_id: "req-status"
+    });
+
+    expect(events).toEqual([
+      {
+        type: "error",
+        requestId: "req-status",
+        message: "Cannot send request while disconnected"
+      }
+    ]);
+  });
+
+  it("uses mock transport only when explicitly requested", async () => {
+    const requestedModes: string[] = [];
+    const mockTransport = new FakeTransport("mock");
+    const client = new ManagedGameClient({
+      preferredMode: "mock",
+      transportFactory: (mode) => {
+        requestedModes.push(mode);
+        return mockTransport;
+      }
+    });
+
+    await client.connect();
+
+    expect(requestedModes).toEqual(["mock"]);
+    expect(client.getConnectionState()).toMatchObject({
+      status: "connected",
+      transport: "mock"
+    });
+  });
+
   it("sends authenticate requests through the wrapper", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({

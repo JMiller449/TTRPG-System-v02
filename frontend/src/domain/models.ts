@@ -382,39 +382,6 @@ export interface EncounterPreset {
   updatedAt: string;
 }
 
-export type RollVisibility = "visible" | "hidden";
-
-export type CommonDieSides = 4 | 6 | 8 | 10 | 12 | 20 | 100;
-
-export interface StatRollRequest {
-  kind: "stat";
-  sheetId: string;
-  stat: StatKey;
-  visibility: RollVisibility;
-}
-
-export interface DiceRollRequest {
-  kind: "dice";
-  sheetId: string;
-  count: number;
-  sides: CommonDieSides;
-  visibility: RollVisibility;
-}
-
-export type RollRequest = StatRollRequest | DiceRollRequest;
-
-export type RollStatus = "pending" | "resolved" | "failed";
-
-export interface RollLogEntry {
-  id: string;
-  status: RollStatus;
-  request: RollRequest;
-  createdAt: string;
-  requestedByRole: Role;
-  resultText?: string;
-  error?: string;
-}
-
 export type ActionHistoryStatus = "success" | "failed";
 export type ActionHistoryActorRole = "player" | "dm";
 

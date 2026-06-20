@@ -164,6 +164,9 @@ class RequestRegistry:
 def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.auth.route import register_routes as register_auth_routes
     from backend.features.chat.route import register_routes as register_chat_routes
+    from backend.features.encounters.route import (
+        register_routes as register_encounter_routes,
+    )
     from backend.features.sheet_runtime.route import (
         register_routes as register_sheet_runtime_routes,
     )
@@ -197,6 +200,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
 
     register_auth_routes(registry)
     register_chat_routes(registry)
+    register_encounter_routes(registry)
     register_sheet_admin_actions_routes(registry)
     register_sheet_admin_conditions_routes(registry)
     register_sheet_admin_formulas_routes(registry)

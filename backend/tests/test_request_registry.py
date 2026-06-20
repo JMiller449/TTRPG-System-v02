@@ -66,6 +66,9 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "DeleteConditionPreset",
         "UpsertItemAugmentationTemplate",
         "RemoveItemAugmentationTemplate",
+        "SaveEncounterPreset",
+        "DeleteEncounterPreset",
+        "SpawnEncounterPreset",
     }.issubset(model_names)
 
 
@@ -103,6 +106,28 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["get_roll20_bridge_status"].emitted_event_models == (
         Roll20BridgeStatusEvent,
+    )
+    assert contracts["save_encounter_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="encounterPresets",
+            method_name="saveEncounterPreset",
+        )
+    )
+    assert contracts["save_encounter_preset"].minimum_role == "dm"
+    assert contracts["save_encounter_preset"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["delete_encounter_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="encounterPresets",
+            method_name="deleteEncounterPreset",
+        )
+    )
+    assert contracts["spawn_encounter_preset"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="encounterPresets",
+            method_name="spawnEncounterPreset",
+        )
     )
     assert contracts["authenticate"].client_generation == ClientGenerationMetadata(
         namespace="auth",

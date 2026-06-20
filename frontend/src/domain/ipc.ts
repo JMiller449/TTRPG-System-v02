@@ -8,7 +8,6 @@ import type {
   PersistentSheetPresentationRecord,
   PersistentSheetRecord,
   Role,
-  RollRequest,
   Sheet,
   SheetPresentationRecord
 } from "@/domain/models";
@@ -46,21 +45,6 @@ export type ClientIntent =
       intentId: string;
       type: "authenticate_gm";
       payload: { password: string };
-    }
-  | {
-      intentId: string;
-      type: "save_encounter";
-      payload: { encounter: EncounterPreset };
-    }
-  | {
-      intentId: string;
-      type: "spawn_encounter";
-      payload: { encounterId: string };
-    }
-  | {
-      intentId: string;
-      type: "submit_roll";
-      payload: { request: RollRequest; requestedByRole: Role };
     }
   | {
       intentId: string;

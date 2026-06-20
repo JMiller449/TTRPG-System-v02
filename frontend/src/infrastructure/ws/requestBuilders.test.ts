@@ -1,35 +1,58 @@
 import { describe, expect, it } from "vitest";
+import { protocolRouteContracts, type ProtocolApplicationRequest } from "@/generated/backendProtocol";
 import {
+  buildAuthenticateRequest,
   buildCreateActionRequest,
+  buildCreateConditionPresetRequest,
   buildCreateFormulaRequest,
   buildAdjustInstancedSheetResourceRequest,
   buildClaimSheetAccessCodeRequest,
   buildCreateInstancedSheetRequest,
   buildCreateItemRequest,
   buildCreateSheetRequest,
+  buildCreateSheetActionBridgeRequest,
   buildCreateSheetItemBridgeRequest,
+  buildCreateSheetProficiencyBridgeRequest,
   buildDeleteActionRequest,
+  buildDeleteConditionPresetRequest,
+  buildDeleteEncounterPresetRequest,
   buildDeleteFormulaRequest,
   buildDeleteItemRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
+  buildGetSheetAccessCodesRequest,
+  buildGetVariableRegistryRequest,
+  buildSaveEncounterPresetRequest,
   buildDeleteSheetRequest,
+  buildDeleteSheetActionBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
+  buildDeleteSheetProficiencyBridgeRequest,
   buildPerformActionRequest,
+  buildGenerateSheetAccessCodeRequest,
+  buildResyncStateRequest,
+  buildSendRoll20ChatMessageRequest,
+  buildSetInstancedSheetNotesRequest,
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
+  buildSetSheetFormulaStatRequest,
+  buildSetSheetNotesRequest,
+  buildSpawnEncounterPresetRequest,
   buildUpdateActionRequest,
+  buildUpdateConditionPresetRequest,
   buildUpdateFormulaRequest,
   buildUpdateItemRequest,
+  buildUpdateSheetActionBridgeRequest,
   buildUpdateSheetItemBridgeRequest,
+  buildUpdateSheetProficiencyBridgeRequest,
   buildUpdateSheetRequest,
   buildUpsertItemAugmentationTemplateRequest,
   type AugmentationPayload,
   type ActionDefinitionPayload,
   type FormulaDefinitionPayload,
   type ItemDefinitionPayload,
+  type EncounterPresetPayload,
   type SheetDefinitionPayload
 } from "@/infrastructure/ws/requestBuilders";
 
@@ -108,6 +131,18 @@ const testAction: ActionDefinitionPayload = {
   ]
 };
 
+const testEncounter: EncounterPresetPayload = {
+  id: "encounter_1",
+  name: "Two Mages",
+  entries: [
+    {
+      template_id: "sheet_1",
+      count: 2
+    }
+  ],
+  updated_at: "2026-06-19T00:00:00+00:00"
+};
+
 const testSheet: SheetDefinitionPayload = {
   id: "sheet_1",
   name: "Mage",
@@ -146,7 +181,71 @@ const testSheet: SheetDefinitionPayload = {
   actions: {}
 };
 
+const requestBuilderByType = {
+  adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
+  authenticate: buildAuthenticateRequest,
+  claim_sheet_access_code: buildClaimSheetAccessCodeRequest,
+  create_action: buildCreateActionRequest,
+  create_condition_preset: buildCreateConditionPresetRequest,
+  create_formula: buildCreateFormulaRequest,
+  create_instanced_sheet: buildCreateInstancedSheetRequest,
+  create_item: buildCreateItemRequest,
+  create_sheet: buildCreateSheetRequest,
+  create_sheet_action_bridge: buildCreateSheetActionBridgeRequest,
+  create_sheet_item_bridge: buildCreateSheetItemBridgeRequest,
+  create_sheet_proficiency_bridge: buildCreateSheetProficiencyBridgeRequest,
+  delete_action: buildDeleteActionRequest,
+  delete_condition_preset: buildDeleteConditionPresetRequest,
+  delete_encounter_preset: buildDeleteEncounterPresetRequest,
+  delete_formula: buildDeleteFormulaRequest,
+  delete_item: buildDeleteItemRequest,
+  delete_sheet: buildDeleteSheetRequest,
+  delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
+  delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
+  delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
+  generate_sheet_access_code: buildGenerateSheetAccessCodeRequest,
+  get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
+  get_augmentation_target_metadata: buildGetAugmentationTargetMetadataRequest,
+  get_roll20_bridge_status: buildGetRoll20BridgeStatusRequest,
+  get_sheet_access_codes: buildGetSheetAccessCodesRequest,
+  get_variable_registry: buildGetVariableRegistryRequest,
+  perform_action: buildPerformActionRequest,
+  remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
+  resync_state: buildResyncStateRequest,
+  save_encounter_preset: buildSaveEncounterPresetRequest,
+  send_roll20_chat_message: buildSendRoll20ChatMessageRequest,
+  set_instanced_sheet_notes: buildSetInstancedSheetNotesRequest,
+  set_instanced_sheet_resource: buildSetInstancedSheetResourceRequest,
+  set_sheet_base_stat: buildSetSheetBaseStatRequest,
+  set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
+  set_sheet_notes: buildSetSheetNotesRequest,
+  spawn_encounter_preset: buildSpawnEncounterPresetRequest,
+  update_action: buildUpdateActionRequest,
+  update_condition_preset: buildUpdateConditionPresetRequest,
+  update_formula: buildUpdateFormulaRequest,
+  update_item: buildUpdateItemRequest,
+  update_sheet: buildUpdateSheetRequest,
+  update_sheet_action_bridge: buildUpdateSheetActionBridgeRequest,
+  update_sheet_item_bridge: buildUpdateSheetItemBridgeRequest,
+  update_sheet_proficiency_bridge: buildUpdateSheetProficiencyBridgeRequest,
+  upsert_item_augmentation_template: buildUpsertItemAugmentationTemplateRequest
+} satisfies Record<ProtocolApplicationRequest["type"], unknown>;
+
 describe("requestBuilders", () => {
+  it("has request helpers for every generated registered route", () => {
+    expect(Object.keys(requestBuilderByType).sort()).toEqual(
+      protocolRouteContracts.map((contract) => contract.type).sort()
+    );
+  });
+
+  it("builds authentication requests", () => {
+    expect(buildAuthenticateRequest({ token: "player-code", requestId: "req-auth" })).toEqual({
+      request_id: "req-auth",
+      type: "authenticate",
+      token: "player-code"
+    });
+  });
+
   it("builds Roll20 bridge status requests", () => {
     expect(buildGetRoll20BridgeStatusRequest({ requestId: "req-status" })).toEqual({
       type: "get_roll20_bridge_status",
@@ -158,6 +257,61 @@ describe("requestBuilders", () => {
     expect(buildClaimSheetAccessCodeRequest({ code: "MAGE2026" })).toEqual({
       type: "claim_sheet_access_code",
       code: "MAGE2026"
+    });
+  });
+
+  it("builds sheet access-code admin requests", () => {
+    expect(
+      buildGenerateSheetAccessCodeRequest({
+        requestId: "req-code",
+        sheetId: "sheet_1",
+        instanceId: null
+      })
+    ).toEqual({
+      request_id: "req-code",
+      type: "generate_sheet_access_code",
+      sheet_id: "sheet_1",
+      instance_id: null
+    });
+    expect(buildGetSheetAccessCodesRequest()).toEqual({
+      type: "get_sheet_access_codes"
+    });
+  });
+
+  it("builds registry, chat, and state-sync utility requests", () => {
+    expect(buildGetVariableRegistryRequest({ requestId: "req-registry" })).toEqual({
+      request_id: "req-registry",
+      type: "get_variable_registry"
+    });
+    expect(buildSendRoll20ChatMessageRequest({ message: "/em checks the door." })).toEqual({
+      type: "send_roll20_chat_message",
+      message: "/em checks the door."
+    });
+    expect(buildResyncStateRequest({ requestId: "req-resync", lastSeenVersion: 12 })).toEqual({
+      request_id: "req-resync",
+      type: "resync_state",
+      last_seen_version: 12
+    });
+  });
+
+  it("builds encounter preset requests", () => {
+    expect(
+      buildSaveEncounterPresetRequest({
+        requestId: "req-encounter-save",
+        encounter: testEncounter
+      })
+    ).toEqual({
+      request_id: "req-encounter-save",
+      type: "save_encounter_preset",
+      encounter: testEncounter
+    });
+    expect(buildDeleteEncounterPresetRequest({ encounterId: "encounter_1" })).toEqual({
+      type: "delete_encounter_preset",
+      encounter_id: "encounter_1"
+    });
+    expect(buildSpawnEncounterPresetRequest({ encounterId: "encounter_1" })).toEqual({
+      type: "spawn_encounter_preset",
+      encounter_id: "encounter_1"
     });
   });
 
@@ -205,6 +359,47 @@ describe("requestBuilders", () => {
       sheet_id: "sheet_1",
       stat_name: "strength",
       value: 14
+    });
+  });
+
+  it("builds notes and formula stat update requests", () => {
+    expect(
+      buildSetInstancedSheetNotesRequest({
+        instanceId: "instance_1",
+        notes: "Player-visible note."
+      })
+    ).toEqual({
+      type: "set_instanced_sheet_notes",
+      instance_id: "instance_1",
+      notes: "Player-visible note."
+    });
+    expect(
+      buildSetSheetNotesRequest({
+        sheetId: "sheet_1",
+        notes: "GM template note."
+      })
+    ).toEqual({
+      type: "set_sheet_notes",
+      sheet_id: "sheet_1",
+      notes: "GM template note."
+    });
+    expect(
+      buildSetSheetFormulaStatRequest({
+        sheetId: "sheet_1",
+        statName: "health",
+        formula: {
+          aliases: null,
+          text: "30 + @constitution"
+        }
+      })
+    ).toEqual({
+      type: "set_sheet_formula_stat",
+      sheet_id: "sheet_1",
+      stat_name: "health",
+      formula: {
+        aliases: null,
+        text: "30 + @constitution"
+      }
     });
   });
 
@@ -266,6 +461,82 @@ describe("requestBuilders", () => {
       type: "delete_sheet_item_bridge",
       sheet_id: "sheet_1",
       relationship_id: "item_bridge_1"
+    });
+  });
+
+  it("builds sheet action bridge CRUD requests", () => {
+    const bridge = {
+      relationship_id: "default_attack",
+      action_id: "attack"
+    };
+
+    expect(buildCreateSheetActionBridgeRequest({ sheetId: "sheet_1", bridge })).toEqual({
+      type: "create_sheet_action_bridge",
+      sheet_id: "sheet_1",
+      bridge
+    });
+    expect(
+      buildUpdateSheetActionBridgeRequest({
+        requestId: "req-action-bridge",
+        sheetId: "sheet_1",
+        relationshipId: "default_attack",
+        bridge
+      })
+    ).toEqual({
+      request_id: "req-action-bridge",
+      type: "update_sheet_action_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "default_attack",
+      bridge
+    });
+    expect(
+      buildDeleteSheetActionBridgeRequest({
+        sheetId: "sheet_1",
+        relationshipId: "default_attack"
+      })
+    ).toEqual({
+      type: "delete_sheet_action_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "default_attack"
+    });
+  });
+
+  it("builds sheet proficiency bridge CRUD requests", () => {
+    const bridge = {
+      relationship_id: "prof_sword",
+      prof_id: "sword",
+      use_count: 2,
+      growth_rate: 1
+    };
+
+    expect(buildCreateSheetProficiencyBridgeRequest({ sheetId: "sheet_1", bridge })).toEqual({
+      type: "create_sheet_proficiency_bridge",
+      sheet_id: "sheet_1",
+      bridge
+    });
+    expect(
+      buildUpdateSheetProficiencyBridgeRequest({
+        requestId: "req-prof-bridge",
+        sheetId: "sheet_1",
+        relationshipId: "prof_sword",
+        bridge
+      })
+    ).toEqual({
+      request_id: "req-prof-bridge",
+      type: "update_sheet_proficiency_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "prof_sword",
+      bridge
+    });
+    expect(
+      buildDeleteSheetProficiencyBridgeRequest({
+        sheetId: "sheet_1",
+        relationshipId: "prof_sword"
+      })
+    ).toEqual({
+      type: "delete_sheet_proficiency_bridge",
+      sheet_id: "sheet_1",
+      relationship_id: "prof_sword"
     });
   });
 

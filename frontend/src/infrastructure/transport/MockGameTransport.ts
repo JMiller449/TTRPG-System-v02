@@ -1,6 +1,5 @@
 import type { AppSnapshot, ClientIntent, ServerEvent } from "@/domain/ipc";
 import type {
-  EncounterPreset,
   PersistentSheet,
   PersistentSheetPresentation,
   PersistentSheetRecord,
@@ -158,48 +157,6 @@ export class MockGameTransport implements GameTransport {
           return;
         }
         this.emit({ type: "ack", requestId: intent.intentId });
-        return;
-      }
-      case "save_encounter": {
-        const encounter = {
-          ...intent.payload.encounter,
-          updatedAt: now()
-        } satisfies EncounterPreset;
-        this.snapshot.encounters = [encounter, ...this.snapshot.encounters.filter((e) => e.id !== encounter.id)];
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
-      case "spawn_encounter": {
-        const encounter = this.snapshot.encounters.find((entry) => entry.id === intent.payload.encounterId);
-        if (!encounter) {
-          this.emit({
-            type: "error",
-            requestId: intent.intentId,
-            message: "Encounter not found"
-          });
-          return;
-        }
-
-        encounter.entries.forEach((entry) => {
-          const sheet = this.snapshot.sheets.find((sheetItem) => sheetItem.id === entry.templateId);
-          if (!sheet) {
-            return;
-          }
-          for (let i = 0; i < Math.max(1, entry.count); i += 1) {
-            const record = this.createPersistentSheetRecord(sheet.id, sheet.name, entry.count > 1 ? i + 1 : null);
-            this.snapshot.persistentSheets = [record, ...this.snapshot.persistentSheets];
-            this.upsertPersistentSheetPresentation(record.id, {
-              name: entry.count > 1 ? `${sheet.name} ${i + 1}` : sheet.name,
-              updatedAt: now()
-            });
-          }
-        });
-
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
-      case "submit_roll": {
-        this.emitIncrementalSnapshot(intent.intentId);
         return;
       }
       case "set_active_sheet": {

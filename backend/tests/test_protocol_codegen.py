@@ -13,6 +13,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "sendRoll20ChatMessage"' in output
     assert '"type": "get_roll20_bridge_status"' in output
     assert '"clientMethodName": "getRoll20BridgeStatus"' in output
+    assert '"type": "save_encounter_preset"' in output
+    assert '"clientNamespace": "encounterPresets"' in output
+    assert '"clientMethodName": "spawnEncounterPreset"' in output
+    assert "export type EncounterPresetPayload = {" in output
+    assert '"encounter_presets"?: Record<string, EncounterPresetPayload>;' in output
     assert "export type Roll20BridgeStatusEvent = {" in output
     assert '"connected": boolean;' in output
     assert '"type": "resync_state"' in output

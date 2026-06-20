@@ -3,6 +3,10 @@ import type { Role } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { MockGameTransport } from "@/infrastructure/transport/MockGameTransport";
 import { WebSocketGameTransport } from "@/infrastructure/transport/WebSocketGameTransport";
+import {
+  buildAuthenticateRequest,
+  buildResyncStateRequest
+} from "@/infrastructure/ws/requestBuilders";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { makeId } from "@/shared/utils/id";
 
@@ -107,33 +111,10 @@ export class ManagedGameClient {
       });
       this.bootstrapAuthenticatedSession();
     } catch {
-      if (this.preferredMode === "ws") {
-        const fallbackTransport = this.transportFactory("mock", this.wsUrl);
-        this.bindTransport(fallbackTransport);
-        this.updateConnectionState({
-          ...this.connectionState,
-          transport: fallbackTransport.mode
-        });
-        try {
-          await fallbackTransport.connect();
-          this.updateConnectionState({
-            ...this.connectionState,
-            status: "connected",
-            transport: fallbackTransport.mode,
-            error: "WebSocket unavailable. Falling back to mock transport."
-          });
-          this.bootstrapAuthenticatedSession();
-          return;
-        } catch {
-          this.updateConnectionState({
-            ...this.connectionState,
-            transport: fallbackTransport.mode
-          });
-        }
-      }
-
+      this.clearTransport();
       this.updateConnectionState({
         ...this.connectionState,
+        transport: this.preferredMode,
         status: "disconnected",
         error: "Failed to connect transport"
       });
@@ -197,11 +178,7 @@ export class ManagedGameClient {
       return requestId;
     }
 
-    this.transport.sendProtocolRequest({
-      type: "authenticate",
-      token: resolvedToken,
-      request_id: requestId
-    });
+    this.transport.sendProtocolRequest(buildAuthenticateRequest({ token: resolvedToken, requestId }));
     return requestId;
   }
 
@@ -218,11 +195,7 @@ export class ManagedGameClient {
       return requestId;
     }
 
-    this.transport.sendProtocolRequest({
-      type: "authenticate",
-      token: resolvedToken,
-      request_id: requestId
-    });
+    this.transport.sendProtocolRequest(buildAuthenticateRequest({ token: resolvedToken, requestId }));
     return requestId;
   }
 
@@ -236,11 +209,10 @@ export class ManagedGameClient {
     }
 
     const requestId = makeId("resync");
-    const request: ProtocolApplicationRequest = {
-      type: "resync_state",
-      request_id: requestId,
-      last_seen_version: this.lastSeenStateVersion
-    };
+    const request = buildResyncStateRequest({
+      requestId,
+      lastSeenVersion: this.lastSeenStateVersion
+    });
     this.transport.sendProtocolRequest(request);
     return requestId;
   }
@@ -276,16 +248,23 @@ export class ManagedGameClient {
     });
   }
 
+  private clearTransport(): void {
+    this.transportUnsubscribe?.();
+    this.transportUnsubscribe = null;
+    this.transport = null;
+  }
+
   private bootstrapAuthenticatedSession(): void {
     if (!this.transport || this.transport.mode !== "ws" || !this.authToken) {
       return;
     }
 
-    this.transport.sendProtocolRequest({
-      type: "authenticate",
-      token: this.authToken,
-      request_id: makeId("auth")
-    });
+    this.transport.sendProtocolRequest(
+      buildAuthenticateRequest({
+        token: this.authToken,
+        requestId: makeId("auth")
+      })
+    );
   }
 
   private resolveAuthToken(role: Role, providedToken?: string): string {

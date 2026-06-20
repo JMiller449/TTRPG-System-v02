@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ActionDefinition, Sheet } from "@/domain/models";
 import {
+  buildQuickRollExecutionRequest,
   getQuickRollRelationshipId,
-  QUICK_ROLL_DEFAULT_STATS,
   resolveQuickRollAction
 } from "@/features/rolls/quickRolls";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
@@ -49,21 +49,29 @@ describe("quickRolls", () => {
     expect(getQuickRollRelationshipId("block")).toBe("default_block");
   });
 
-  it("defines the default stat used when quick controls prefill the composer", () => {
-    expect(QUICK_ROLL_DEFAULT_STATS).toEqual({
-      attack: "strength",
-      dodge: "dexterity",
-      parry: "dexterity",
-      block: "constitution"
-    });
-  });
-
   it("resolves quick controls through authoritative sheet action bridges", () => {
     expect(resolveQuickRollAction(testSheet(), actions, "attack")).toEqual({
       action: "attack",
       actionId: "attack",
       actionName: "Attack",
       relationshipId: "default_attack"
+    });
+  });
+
+  it("builds typed perform_action requests for resolved quick actions", () => {
+    const resolution = resolveQuickRollAction(testSheet(), actions, "attack");
+
+    if (!resolution) {
+      throw new Error("Expected attack quick action to resolve.");
+    }
+
+    expect(buildQuickRollExecutionRequest({ sheetId: "instance_1", resolution })).toEqual({
+      request: {
+        type: "perform_action",
+        sheet_id: "instance_1",
+        action_id: "attack"
+      },
+      label: "Perform action: Attack"
     });
   });
 

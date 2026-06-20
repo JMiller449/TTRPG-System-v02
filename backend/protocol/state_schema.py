@@ -327,6 +327,18 @@ class ConditionPresetPayload(ProtocolModel):
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 
+class EncounterEntryPayload(ProtocolModel):
+    template_id: str
+    count: int
+
+
+class EncounterPresetPayload(ProtocolModel):
+    id: str
+    name: str
+    entries: list[EncounterEntryPayload] = Field(default_factory=list)
+    updated_at: str
+
+
 class BackendStateSnapshotPayload(ProtocolModel):
     action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
@@ -337,3 +349,4 @@ class BackendStateSnapshotPayload(ProtocolModel):
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)
     augmentations: dict[str, AugmentationPayload] = Field(default_factory=dict)
     condition_presets: dict[str, ConditionPresetPayload] = Field(default_factory=dict)
+    encounter_presets: dict[str, EncounterPresetPayload] = Field(default_factory=dict)

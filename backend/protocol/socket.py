@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
 from backend.features.chat.schema import GetRoll20BridgeStatus, SendRoll20ChatMessage
+from backend.features.encounters.schema import (
+    DeleteEncounterPreset,
+    SaveEncounterPreset,
+    SpawnEncounterPreset,
+)
 from backend.features.sheet_admin.actions.schema import (
     CreateAction,
     DeleteAction,
@@ -249,6 +254,9 @@ ApplicationRequest = Annotated[
     | ResyncState
     | SendRoll20ChatMessage
     | GetRoll20BridgeStatus
+    | SaveEncounterPreset
+    | DeleteEncounterPreset
+    | SpawnEncounterPreset
     | GenerateSheetAccessCode
     | GetSheetAccessCodes
     | ClaimSheetAccessCode

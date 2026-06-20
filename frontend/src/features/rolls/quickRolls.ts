@@ -1,5 +1,5 @@
-import type { ActionDefinition, Sheet, StatKey } from "@/domain/models";
-import { STAT_LABELS } from "@/domain/stats";
+import type { ActionDefinition, Sheet } from "@/domain/models";
+import { buildPerformActionRequest } from "@/infrastructure/ws/requestBuilders";
 
 export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
 
@@ -10,18 +10,16 @@ export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
   "block"
 ];
 
-export const QUICK_ROLL_DEFAULT_STATS: Record<QuickRollAction, StatKey> = {
-  attack: "strength",
-  dodge: "dexterity",
-  parry: "dexterity",
-  block: "constitution"
-};
-
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
   actionId: string;
   actionName: string;
   relationshipId: string;
+}
+
+export interface QuickRollExecutionRequest {
+  request: ReturnType<typeof buildPerformActionRequest>;
+  label: string;
 }
 
 function capitalize(value: string): string {
@@ -76,24 +74,18 @@ export function getQuickRollLabel(action: QuickRollAction, activeWeapon?: string
   return capitalize(action);
 }
 
-export function getRollEquationPreview(
-  stat: StatKey,
-  action: QuickRollAction | null,
-  activeWeapon?: string | null
-): string {
-  const statTerm = `[${STAT_LABELS[stat]}]`;
-  if (!action) {
-    return `[ROLL_DICE_TODO] + ${statTerm} + [ACTION_MOD_TODO]`;
-  }
-
-  if (action === "attack") {
-    const weaponTerm = activeWeapon ? `[WEAPON_MOD_TODO:${activeWeapon}]` : "[WEAPON_MOD_TODO]";
-    return `[ROLL_DICE_TODO] + ${statTerm} + ${weaponTerm} + [ATTACK_MOD_TODO]`;
-  }
-
-  return `[ROLL_DICE_TODO] + ${statTerm} + [${action.toUpperCase()}_MOD_TODO]`;
-}
-
-export function formatDiceExpression(count: number, sides: number): string {
-  return `${Math.max(1, count)}d${sides}`;
+export function buildQuickRollExecutionRequest({
+  sheetId,
+  resolution
+}: {
+  sheetId: string;
+  resolution: ResolvedQuickRollAction;
+}): QuickRollExecutionRequest {
+  return {
+    request: buildPerformActionRequest({
+      sheetId,
+      actionId: resolution.actionId
+    }),
+    label: `Perform action: ${resolution.actionName}`
+  };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { ClientIntent } from "@/domain/ipc";
-import type { Role, RollRequest } from "@/domain/models";
+import type { Role } from "@/domain/models";
 import {
   ManagedGameClient,
   type ManagedGameClientOptions
@@ -17,7 +17,6 @@ export interface GameClient {
   sendProtocolRequest: (request: ProtocolApplicationRequest, label: string) => void;
   authenticate: (role: Role, token?: string) => void;
   authenticateWithCode: (code: string) => void;
-  submitRoll: (request: RollRequest) => void;
 }
 
 function getPreferredTransportMode(): "mock" | "ws" {
@@ -28,14 +27,6 @@ function getIntentLabel(intent: ClientIntent): string {
   switch (intent.type) {
     case "authenticate_gm":
       return "GM authentication";
-    case "save_encounter":
-      return `Encounter save: ${intent.payload.encounter.name}`;
-    case "spawn_encounter":
-      return "Encounter spawn";
-    case "submit_roll":
-      return intent.payload.request.kind === "dice"
-        ? `Roll: ${intent.payload.request.count}d${intent.payload.request.sides}`
-        : `Roll: ${intent.payload.request.stat}`;
     case "set_active_sheet":
       return "Active sheet change";
     default: {
@@ -78,7 +69,7 @@ export function buildIntentErrorMessage({
 }
 
 export function useGameClient(): GameClient {
-  const { state, dispatch } = useAppStore();
+  const { dispatch } = useAppStore();
   const clientRef = useRef<ManagedGameClient | null>(null);
   const intentLabelMapRef = useRef<Record<string, string>>({});
   if (!clientRef.current) {
@@ -340,18 +331,6 @@ export function useGameClient(): GameClient {
     client.authenticateWithCode(code);
   };
 
-  const submitRoll = (request: RollRequest): void => {
-    const rollIntentId = makeId("intent");
-    sendIntent({
-      intentId: rollIntentId,
-      type: "submit_roll",
-      payload: {
-        request,
-        requestedByRole: state.serverState.role ?? "player"
-      }
-    });
-  };
-
   return {
     connect,
     disconnect,
@@ -359,7 +338,6 @@ export function useGameClient(): GameClient {
     sendIntent,
     sendProtocolRequest,
     authenticate,
-    authenticateWithCode,
-    submitRoll
+    authenticateWithCode
   };
 }

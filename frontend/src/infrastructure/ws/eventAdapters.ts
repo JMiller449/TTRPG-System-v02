@@ -1,10 +1,11 @@
 import type { AppSnapshot, ServerEvent } from "@/domain/ipc";
-import type { Role } from "@/domain/models";
+import type { EncounterPreset, Role } from "@/domain/models";
 import type {
   ProtocolBackendState,
   ProtocolPatchOperation,
   ProtocolServerEvent
 } from "@/infrastructure/ws/protocol";
+import type { EncounterPresetPayload } from "@/generated/backendProtocol";
 
 export interface SocketProtocolState {
   backendState: ProtocolBackendState | null;
@@ -132,6 +133,18 @@ function mapRole(role: "player" | "dm" | "service" | null): Role | null {
   return null;
 }
 
+function projectEncounterPreset(value: EncounterPresetPayload): EncounterPreset {
+  return {
+    id: value.id,
+    name: value.name,
+    entries: (value.entries ?? []).map((entry) => ({
+      templateId: entry.template_id,
+      count: entry.count
+    })),
+    updatedAt: value.updated_at
+  };
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}),
@@ -142,7 +155,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     conditionPresets: Object.values(state.condition_presets ?? {}),
     sheetPresentation: [],
     persistentSheetPresentation: [],
-    encounters: [],
+    encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),
     actionHistory: Object.values(state.action_history ?? {}),
     activeSheetId: null
   };

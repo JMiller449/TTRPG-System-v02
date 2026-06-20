@@ -15,17 +15,35 @@ function requestIdField(requestId: string | null | undefined): { request_id?: st
 
 export type SheetResourceName = ProtocolRequest<"adjust_instanced_sheet_resource">["resource"];
 export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_name"];
+export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
 export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">["bridge"];
+export type SheetActionBridgePayload = ProtocolRequest<"create_sheet_action_bridge">["bridge"];
+export type SheetProficiencyBridgePayload = ProtocolRequest<"create_sheet_proficiency_bridge">["bridge"];
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
 export type InstancedSheetResistancesPayload = ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
 export type AugmentationPayload = ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
+export type FormulaPayload = ProtocolRequest<"set_sheet_formula_stat">["formula"];
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
+export type EncounterPresetPayload = ProtocolRequest<"save_encounter_preset">["encounter"];
 export type AugmentationTargetContext = NonNullable<
   ProtocolRequest<"get_augmentation_target_metadata">["context"]
 >;
+
+export function buildAuthenticateRequest({
+  token,
+  requestId
+}: {
+  token: string;
+} & OptionalRequestId): ProtocolRequest<"authenticate"> {
+  return {
+    ...requestIdField(requestId),
+    type: "authenticate",
+    token
+  };
+}
 
 export function buildGetRoll20BridgeStatusRequest({
   requestId
@@ -33,6 +51,19 @@ export function buildGetRoll20BridgeStatusRequest({
   return {
     ...requestIdField(requestId),
     type: "get_roll20_bridge_status"
+  };
+}
+
+export function buildSendRoll20ChatMessageRequest({
+  message,
+  requestId
+}: {
+  message: string;
+} & OptionalRequestId): ProtocolRequest<"send_roll20_chat_message"> {
+  return {
+    ...requestIdField(requestId),
+    type: "send_roll20_chat_message",
+    message
   };
 }
 
@@ -46,6 +77,79 @@ export function buildClaimSheetAccessCodeRequest({
     ...requestIdField(requestId),
     type: "claim_sheet_access_code",
     code
+  };
+}
+
+export function buildGenerateSheetAccessCodeRequest({
+  sheetId,
+  instanceId,
+  requestId
+}: {
+  sheetId: string;
+  instanceId?: string | null;
+} & OptionalRequestId): ProtocolRequest<"generate_sheet_access_code"> {
+  return {
+    ...requestIdField(requestId),
+    type: "generate_sheet_access_code",
+    sheet_id: sheetId,
+    ...(instanceId === undefined ? {} : { instance_id: instanceId })
+  };
+}
+
+export function buildGetSheetAccessCodesRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_sheet_access_codes"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_sheet_access_codes"
+  };
+}
+
+export function buildGetVariableRegistryRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_variable_registry"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_variable_registry"
+  };
+}
+
+export function buildSaveEncounterPresetRequest({
+  encounter,
+  requestId
+}: {
+  encounter: EncounterPresetPayload;
+} & OptionalRequestId): ProtocolRequest<"save_encounter_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "save_encounter_preset",
+    encounter
+  };
+}
+
+export function buildDeleteEncounterPresetRequest({
+  encounterId,
+  requestId
+}: {
+  encounterId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_encounter_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_encounter_preset",
+    encounter_id: encounterId
+  };
+}
+
+export function buildSpawnEncounterPresetRequest({
+  encounterId,
+  requestId
+}: {
+  encounterId: string;
+} & OptionalRequestId): ProtocolRequest<"spawn_encounter_preset"> {
+  return {
+    ...requestIdField(requestId),
+    type: "spawn_encounter_preset",
+    encounter_id: encounterId
   };
 }
 
@@ -65,6 +169,22 @@ export function buildSetInstancedSheetResourceRequest({
     instance_id: instanceId,
     resource,
     value
+  };
+}
+
+export function buildSetInstancedSheetNotesRequest({
+  instanceId,
+  notes,
+  requestId
+}: {
+  instanceId: string;
+  notes: string;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_notes"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_notes",
+    instance_id: instanceId,
+    notes
   };
 }
 
@@ -103,6 +223,92 @@ export function buildSetSheetBaseStatRequest({
     sheet_id: sheetId,
     stat_name: statName,
     value
+  };
+}
+
+export function buildSetSheetFormulaStatRequest({
+  sheetId,
+  statName,
+  formula,
+  requestId
+}: {
+  sheetId: string;
+  statName: SheetFormulaStatName;
+  formula: FormulaPayload;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_formula_stat"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_formula_stat",
+    sheet_id: sheetId,
+    stat_name: statName,
+    formula
+  };
+}
+
+export function buildSetSheetNotesRequest({
+  sheetId,
+  notes,
+  requestId
+}: {
+  sheetId: string;
+  notes: string;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_notes"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_notes",
+    sheet_id: sheetId,
+    notes
+  };
+}
+
+export function buildCreateSheetActionBridgeRequest({
+  sheetId,
+  bridge,
+  requestId
+}: {
+  sheetId: string;
+  bridge: SheetActionBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"create_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_sheet_action_bridge",
+    sheet_id: sheetId,
+    bridge
+  };
+}
+
+export function buildUpdateSheetActionBridgeRequest({
+  sheetId,
+  relationshipId,
+  bridge,
+  requestId
+}: {
+  sheetId: string;
+  relationshipId: string;
+  bridge: SheetActionBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"update_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_sheet_action_bridge",
+    sheet_id: sheetId,
+    relationship_id: relationshipId,
+    bridge
+  };
+}
+
+export function buildDeleteSheetActionBridgeRequest({
+  sheetId,
+  relationshipId,
+  requestId
+}: {
+  sheetId: string;
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_sheet_action_bridge",
+    sheet_id: sheetId,
+    relationship_id: relationshipId
   };
 }
 
@@ -152,6 +358,57 @@ export function buildDeleteSheetItemBridgeRequest({
   return {
     ...requestIdField(requestId),
     type: "delete_sheet_item_bridge",
+    sheet_id: sheetId,
+    relationship_id: relationshipId
+  };
+}
+
+export function buildCreateSheetProficiencyBridgeRequest({
+  sheetId,
+  bridge,
+  requestId
+}: {
+  sheetId: string;
+  bridge: SheetProficiencyBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"create_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_sheet_proficiency_bridge",
+    sheet_id: sheetId,
+    bridge
+  };
+}
+
+export function buildUpdateSheetProficiencyBridgeRequest({
+  sheetId,
+  relationshipId,
+  bridge,
+  requestId
+}: {
+  sheetId: string;
+  relationshipId: string;
+  bridge: SheetProficiencyBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"update_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_sheet_proficiency_bridge",
+    sheet_id: sheetId,
+    relationship_id: relationshipId,
+    bridge
+  };
+}
+
+export function buildDeleteSheetProficiencyBridgeRequest({
+  sheetId,
+  relationshipId,
+  requestId
+}: {
+  sheetId: string;
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_sheet_proficiency_bridge",
     sheet_id: sheetId,
     relationship_id: relationshipId
   };
@@ -468,5 +725,18 @@ export function buildPerformActionRequest({
     sheet_id: sheetId,
     action_id: actionId,
     ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId })
+  };
+}
+
+export function buildResyncStateRequest({
+  lastSeenVersion,
+  requestId
+}: {
+  lastSeenVersion?: number | null;
+} & OptionalRequestId = {}): ProtocolRequest<"resync_state"> {
+  return {
+    ...requestIdField(requestId),
+    type: "resync_state",
+    ...(lastSeenVersion === undefined ? {} : { last_seen_version: lastSeenVersion })
   };
 }

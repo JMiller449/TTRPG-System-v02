@@ -7,9 +7,9 @@ import { EncounterPresetList } from "@/features/encounters/components/EncounterP
 import type { DraftEncounterEntry } from "@/features/encounters/encounterDraft";
 import { newRosterEntry } from "@/features/encounters/encounterDraft";
 import {
-  buildSaveEncounterIntent,
-  buildSpawnEncounterIntent
-} from "@/features/encounters/intentBuilders";
+  buildSaveEncounterPresetSubmission,
+  buildSpawnEncounterPresetSubmission
+} from "@/features/encounters/encounterRequests";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
@@ -60,14 +60,13 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
       return;
     }
 
-    client.sendIntent(
-      buildSaveEncounterIntent({
-        id: makeId("encounter"),
-        name: name.trim(),
-        entries: validEntries,
-        updatedAt: new Date().toISOString()
-      })
-    );
+    const submission = buildSaveEncounterPresetSubmission({
+      id: makeId("encounter"),
+      name: name.trim(),
+      entries: validEntries,
+      updatedAt: new Date().toISOString()
+    });
+    client.sendProtocolRequest(submission.request, submission.label);
 
     setName("");
     setEntries([newRosterEntry()]);
@@ -95,7 +94,10 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
         <EncounterPresetList
           encounters={savedEncounters}
           templates={sheets}
-          onSpawn={(encounterId) => client.sendIntent(buildSpawnEncounterIntent(encounterId))}
+          onSpawn={(encounterId) => {
+            const submission = buildSpawnEncounterPresetSubmission(encounterId);
+            client.sendProtocolRequest(submission.request, submission.label);
+          }}
         />
       </div>
     </Panel>

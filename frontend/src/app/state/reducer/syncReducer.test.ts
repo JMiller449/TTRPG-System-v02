@@ -118,6 +118,19 @@ describe("authoritative server-state sync", () => {
             }
           }
         },
+        encounter_presets: {
+          encounter_1: {
+            id: "encounter_1",
+            name: "Two Mages",
+            entries: [
+              {
+                template_id: "sheet_1",
+                count: 2
+              }
+            ],
+            updated_at: "2026-06-19T00:00:00+00:00"
+          }
+        },
         condition_presets: {
           poisoned: {
             id: "poisoned",
@@ -159,6 +172,18 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.itemOrder).toEqual(["item_1"]);
     expect(result.state.serverState.actionOrder).toEqual(["action_1"]);
     expect(result.state.serverState.formulaOrder).toEqual(["formula_1"]);
+    expect(result.state.serverState.encounterOrder).toEqual(["encounter_1"]);
+    expect(result.state.serverState.encounters.encounter_1).toEqual({
+      id: "encounter_1",
+      name: "Two Mages",
+      entries: [
+        {
+          templateId: "sheet_1",
+          count: 2
+        }
+      ],
+      updatedAt: "2026-06-19T00:00:00+00:00"
+    });
     expect(result.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
     expect(result.state.serverState.conditionPresets.poisoned.name).toBe("Poisoned");
     expect(result.state.serverState.actionHistoryOrder).toEqual(["history_1"]);
@@ -306,6 +331,105 @@ describe("authoritative server-state sync", () => {
 
     expect(deleted.state.serverState.items.item_1).toBeUndefined();
     expect(deleted.state.serverState.itemOrder).toEqual([]);
+  });
+
+  it("reconciles encounter preset save, edit, and delete patches from the authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {},
+        encounter_presets: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/encounter_presets/encounter_1",
+          value: {
+            id: "encounter_1",
+            name: "Two Mages",
+            entries: [
+              {
+                template_id: "sheet_1",
+                count: 2
+              }
+            ],
+            updated_at: "2026-06-19T00:00:00+00:00"
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-save-encounter"
+    });
+
+    expect(created.state.serverState.encounterOrder).toEqual(["encounter_1"]);
+    expect(created.state.serverState.encounters.encounter_1?.entries).toEqual([
+      {
+        templateId: "sheet_1",
+        count: 2
+      }
+    ]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/encounter_presets/encounter_1/name",
+          value: "Three Mages"
+        },
+        {
+          op: "set",
+          path: "/encounter_presets/encounter_1/entries",
+          value: [
+            {
+              template_id: "sheet_1",
+              count: 3
+            }
+          ]
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-encounter"
+    });
+
+    expect(edited.state.serverState.encounters.encounter_1?.name).toBe("Three Mages");
+    expect(edited.state.serverState.encounters.encounter_1?.entries).toEqual([
+      {
+        templateId: "sheet_1",
+        count: 3
+      }
+    ]);
+    expect(edited.state.serverState.encounterOrder).toEqual(["encounter_1"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/encounter_presets/encounter_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-encounter"
+    });
+
+    expect(deleted.state.serverState.encounters.encounter_1).toBeUndefined();
+    expect(deleted.state.serverState.encounterOrder).toEqual([]);
   });
 
   it("reconciles formula create, edit, and delete patches from the authoritative backend state", () => {
@@ -527,6 +651,190 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.itemOrder).toEqual(["item_new"]);
   });
 
+  it("reconciles sheet root create, nested update, and delete patches from authoritative backend state", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/sheets/sheet_1",
+          value: sheet()
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-sheet"
+    });
+
+    expect(created.state.serverState.sheetOrder).toEqual(["sheet_1"]);
+    expect(created.state.serverState.sheets.sheet_1?.name).toBe("Mage");
+    expect(selectActiveSheetDetail(created.state)?.sheet?.id).toBe("sheet_1");
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/name",
+          value: "Edited Mage"
+        },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/notes",
+          value: "Edited template notes."
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-sheet"
+    });
+
+    expect(edited.state.serverState.sheets.sheet_1?.name).toBe("Edited Mage");
+    expect(edited.state.serverState.sheets.sheet_1?.notes).toBe("Edited template notes.");
+    expect(edited.state.serverState.sheetOrder).toEqual(["sheet_1"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/sheets/sheet_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-sheet"
+    });
+
+    expect(deleted.state.serverState.sheets.sheet_1).toBeUndefined();
+    expect(deleted.state.serverState.sheetOrder).toEqual([]);
+    expect(selectActiveSheetDetail(deleted.state)?.sheet).toBeNull();
+    expect(deleted.state.uiState.activeSheetId).toBe("instance_1");
+  });
+
+  it("reconciles instanced sheet root create, nested update, and delete patches from authoritative backend state", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    expect(initial.state.uiState.activeSheetId).toBeNull();
+
+    const selectedAfterSnapshot = reducer(initial.state, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const created = applyAuthoritativeEvent(selectedAfterSnapshot, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/instanced_sheets/instance_1",
+          value: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-instance"
+    });
+
+    expect(created.state.serverState.persistentSheetOrder).toEqual(["instance_1"]);
+    expect(created.state.serverState.persistentSheets.instance_1?.health).toBe(100);
+    expect(created.state.uiState.activeSheetId).toBe("instance_1");
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/instanced_sheets/instance_1/notes",
+          value: "Edited instance notes."
+        },
+        {
+          op: "set",
+          path: "/instanced_sheets/instance_1/health",
+          value: 77
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-instance"
+    });
+
+    expect(edited.state.serverState.persistentSheets.instance_1?.notes).toBe("Edited instance notes.");
+    expect(edited.state.serverState.persistentSheets.instance_1?.health).toBe(77);
+    expect(selectActiveSheetDetail(edited.state)?.instance.notes).toBe("Edited instance notes.");
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/instanced_sheets/instance_1"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-instance"
+    });
+
+    expect(deleted.state.serverState.persistentSheets.instance_1).toBeUndefined();
+    expect(deleted.state.serverState.persistentSheetOrder).toEqual([]);
+    expect(deleted.state.uiState.activeSheetId).toBeNull();
+    expect(deleted.state.uiState.playerSheetSelectionComplete).toBe(false);
+  });
+
   it("reconciles equipment from authoritative sheet item bridge patches", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,
@@ -631,6 +939,81 @@ describe("authoritative server-state sync", () => {
     const detail = selectActiveSheetDetail(result.state);
     expect(detail?.sheet?.notes).toBeUndefined();
     expect(detail?.instance.notes).toBe("Player-visible instance notes.");
+  });
+
+  it("reconciles template and instance notes patches while preserving player-redacted template notes", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: {
+            ...sheet(),
+            notes: undefined
+          }
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "Initial instance notes.",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const redactedDetail = selectActiveSheetDetail(initial.state);
+    expect(redactedDetail?.sheet?.notes).toBeUndefined();
+    expect(redactedDetail?.instance.notes).toBe("Initial instance notes.");
+
+    const withTemplateNotes = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/notes",
+          value: "GM-visible template notes."
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-template-notes"
+    });
+
+    expect(withTemplateNotes.state.serverState.sheets.sheet_1?.notes).toBe("GM-visible template notes.");
+    expect(selectActiveSheetDetail(withTemplateNotes.state)?.sheet?.notes).toBe("GM-visible template notes.");
+
+    const withInstanceNotes = applyAuthoritativeEvent(withTemplateNotes.state, withTemplateNotes.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/instanced_sheets/instance_1/notes",
+          value: "Edited instance notes."
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-instance-notes"
+    });
+
+    const detail = selectActiveSheetDetail(withInstanceNotes.state);
+    expect(withInstanceNotes.state.serverState.persistentSheets.instance_1?.notes).toBe("Edited instance notes.");
+    expect(detail?.sheet?.notes).toBe("GM-visible template notes.");
+    expect(detail?.instance.notes).toBe("Edited instance notes.");
   });
 
   it("reconciles current instance resources from authoritative patches", () => {
@@ -745,5 +1128,85 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(selectActiveSheetDetail(result.state)?.stats.strength).toBe(14);
+  });
+
+  it("reconciles formula-backed stat patches without evaluating formulas on the frontend", () => {
+    const selectedState = reducer(initialState, {
+      type: "set_active_sheet_local",
+      sheetId: "instance_1"
+    });
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    expect(selectActiveSheetDetail(initial.state)?.stats.reaction_time).toBe(10);
+
+    const result = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/stats/reaction_time",
+          value: {
+            aliases: null,
+            text: "37"
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-formula-stat"
+    });
+
+    expect(result.state.serverState.sheets.sheet_1?.stats.reaction_time).toEqual({
+      aliases: null,
+      text: "37"
+    });
+    expect(selectActiveSheetDetail(result.state)?.stats.reaction_time).toBe(37);
+
+    const formulaTextResult = applyAuthoritativeEvent(result.state, result.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/stats/reaction_time",
+          value: {
+            aliases: null,
+            text: "10 + 5"
+          }
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-formula-stat-text"
+    });
+
+    expect(formulaTextResult.state.serverState.sheets.sheet_1?.stats.reaction_time).toEqual({
+      aliases: null,
+      text: "10 + 5"
+    });
+    expect(selectActiveSheetDetail(formulaTextResult.state)?.stats.reaction_time).toBe(0);
   });
 });

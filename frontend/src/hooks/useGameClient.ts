@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
-import type { ClientIntent } from "@/domain/ipc";
 import type { Role } from "@/domain/models";
 import {
   ManagedGameClient,
@@ -13,7 +12,6 @@ export interface GameClient {
   connect: () => Promise<void>;
   disconnect: () => void;
   endSession: () => void;
-  sendIntent: (intent: ClientIntent) => void;
   sendProtocolRequest: (request: ProtocolApplicationRequest, label: string) => void;
   authenticate: (role: Role, token?: string) => void;
   authenticateWithCode: (code: string) => void;
@@ -21,20 +19,6 @@ export interface GameClient {
 
 function getPreferredTransportMode(): "mock" | "ws" {
   return import.meta.env.VITE_TRANSPORT === "mock" ? "mock" : "ws";
-}
-
-function getIntentLabel(intent: ClientIntent): string {
-  switch (intent.type) {
-    case "authenticate_gm":
-      return "GM authentication";
-    case "set_active_sheet":
-      return "Active sheet change";
-    default: {
-      const _exhaustive: never = intent;
-      void _exhaustive;
-      return "Intent";
-    }
-  }
 }
 
 function isRoll20BridgeUnavailableError(message: string): boolean {
@@ -285,23 +269,6 @@ export function useGameClient(): GameClient {
     client.endSession();
   };
 
-  const sendIntent = (intent: ClientIntent): void => {
-    const label = getIntentLabel(intent);
-    intentLabelMapRef.current[intent.intentId] = label;
-    dispatch({ type: "queue_intent", intentId: intent.intentId });
-    dispatch({
-      type: "push_intent_feedback",
-      item: {
-        id: makeId("feedback"),
-        intentId: intent.intentId,
-        status: "pending",
-        message: `${label} pending...`,
-        createdAt: new Date().toISOString()
-      }
-    });
-    client.sendIntent(intent);
-  };
-
   const sendProtocolRequest = (request: ProtocolApplicationRequest, label: string): void => {
     const requestId = request.request_id ?? makeId("request");
     const requestWithId = {
@@ -335,7 +302,6 @@ export function useGameClient(): GameClient {
     connect,
     disconnect,
     endSession,
-    sendIntent,
     sendProtocolRequest,
     authenticate,
     authenticateWithCode

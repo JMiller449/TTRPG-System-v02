@@ -13,9 +13,7 @@ export function TemplateListItem({
     <article className="list-item">
       <div>
         <strong>{template.name}</strong>
-        <div className="muted">
-          {template.kind} template · tags: {template.tags.join(", ") || "none"}
-        </div>
+        <div className="muted">{template.kind} template</div>
       </div>
       <div className="inline-actions">
         <button className="button button--secondary" onClick={onEdit}>

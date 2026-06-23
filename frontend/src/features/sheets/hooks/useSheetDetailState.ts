@@ -27,7 +27,6 @@ interface UseSheetDetailStateResult {
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
   const { state } = useAppStore();
-  const { localSheetNotes } = state.uiState;
   const { items, itemOrder } = state.serverState;
 
   const detail = selectActiveSheetDetail(state);
@@ -64,7 +63,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     detail,
     items,
     itemOrder,
-    runtimeNote: localSheetNotes[detail.instance.id] ?? detail.instance.notes ?? "",
+    runtimeNote: detail.instance.notes ?? "",
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
     assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),

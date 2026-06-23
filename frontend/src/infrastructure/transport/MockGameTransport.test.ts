@@ -160,7 +160,6 @@ describe("MockGameTransport protocol sheet requests", () => {
         augments: {}
       }
     });
-    expect(snapshot.snapshot.activeSheetId).toBe("instance_spawned");
     expect(presentation?.value.name).toBe("Player Base");
     expect(events).toContainEqual({ type: "ack", requestId: "req-create-instance" });
   });

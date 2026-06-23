@@ -1073,19 +1073,12 @@ describe("authoritative server-state sync", () => {
     expect(detail?.stats.mana).toBe(14);
   });
 
-  it("ignores local stat overrides and reconciles base stats from authoritative patches", () => {
+  it("reconciles base stat patches from authoritative state", () => {
     const selectedState = reducer(initialState, {
       type: "set_active_sheet_local",
       sheetId: "instance_1"
     });
-    const localOverrideState = reducer(selectedState, {
-      type: "set_sheet_stat_overrides",
-      sheetId: "instance_1",
-      overrides: {
-        strength: 99
-      }
-    });
-    const initial = applyAuthoritativeEvent(localOverrideState, initialSocketProtocolState, {
+    const initial = applyAuthoritativeEvent(selectedState, initialSocketProtocolState, {
       response_id: null,
       state: {
         sheets: {

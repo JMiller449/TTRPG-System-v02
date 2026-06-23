@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { ClientIntent, ServerEvent } from "@/domain/ipc";
+import type { ServerEvent } from "@/domain/ipc";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { ManagedGameClient } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 
 class FakeTransport implements GameTransport {
   public protocolRequests: ProtocolApplicationRequest[] = [];
-  public sentIntents: ClientIntent[] = [];
   public disconnectCount = 0;
   private handler: ((event: ServerEvent) => void) | null = null;
 
@@ -23,10 +22,6 @@ class FakeTransport implements GameTransport {
 
   disconnect(): void {
     this.disconnectCount += 1;
-  }
-
-  sendIntent(intent: ClientIntent): void {
-    this.sentIntents.push(intent);
   }
 
   sendProtocolRequest(request: ProtocolApplicationRequest): void {
@@ -191,8 +186,7 @@ describe("ManagedGameClient", () => {
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
-        actionHistory: [],
-        activeSheetId: null
+        actionHistory: []
       },
       stateVersion: 5,
       incremental: false
@@ -209,8 +203,7 @@ describe("ManagedGameClient", () => {
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
-        actionHistory: [],
-        activeSheetId: null
+        actionHistory: []
       },
       stateVersion: 7,
       incremental: true
@@ -242,8 +235,7 @@ describe("ManagedGameClient", () => {
         sheetPresentation: [],
         persistentSheetPresentation: [],
         encounters: [],
-        actionHistory: [],
-        activeSheetId: null
+        actionHistory: []
       },
       stateVersion: 7,
       incremental: false,

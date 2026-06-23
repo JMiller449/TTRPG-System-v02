@@ -1,4 +1,4 @@
-import type { ClientIntent, ServerEvent } from "@/domain/ipc";
+import type { ServerEvent } from "@/domain/ipc";
 import type { Role } from "@/domain/models";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { MockGameTransport } from "@/infrastructure/transport/MockGameTransport";
@@ -139,18 +139,6 @@ export class ManagedGameClient {
       authenticated: false,
       role: null
     });
-  }
-
-  sendIntent(intent: ClientIntent): void {
-    if (!this.transport) {
-      this.emit({
-        type: "error",
-        requestId: intent.intentId,
-        message: "Cannot send intent while disconnected"
-      });
-      return;
-    }
-    this.transport.sendIntent(intent);
   }
 
   sendProtocolRequest(request: ProtocolApplicationRequest): void {

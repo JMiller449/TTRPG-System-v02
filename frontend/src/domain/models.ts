@@ -356,7 +356,6 @@ export interface SheetTemplateView {
   name: string;
   notes: string;
   stats: Partial<Record<StatKey, number>>;
-  tags: string[];
   updatedAt: string;
 }
 

@@ -14,7 +14,6 @@ describe("templateEditorValues", () => {
     const values = createEmptyTemplateEditorValues("enemy");
     values.name = "  Ember Guard  ";
     values.notes = "  GM-facing notes  ";
-    values.tags = "enemy, fire";
     values.coreStats.strength = "12";
     values.coreStats.arcane = "8";
     values.coreStats.will = "not-a-number";

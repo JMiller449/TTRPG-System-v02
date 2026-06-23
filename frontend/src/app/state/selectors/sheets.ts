@@ -90,7 +90,6 @@ export function selectSheetTemplateView(state: AppState, sheetId: string): Sheet
     name: sheet.name,
     notes: sheet.notes ?? presentation?.notes ?? "",
     stats: buildBaseStatValues(sheet),
-    tags: presentation?.tags ?? [],
     updatedAt: presentation?.updatedAt ?? ""
   };
 }

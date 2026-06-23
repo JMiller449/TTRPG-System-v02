@@ -55,19 +55,11 @@ export function createEmptyTemplateEditorValues(kind: SheetKind = "player"): Tem
     kind,
     name: "",
     notes: "",
-    tags: kind,
     coreStats: CORE_TEMPLATE_STATS.reduce(
       (acc, key) => ({ ...acc, [key]: "" }),
       {} as TemplateEditorValues["coreStats"]
     )
   };
-}
-
-export function parseTemplateTags(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }
 
 export function parseTemplateCoreStats(
@@ -94,8 +86,7 @@ export function toTemplateEditorValues(
     ...base,
     kind: presentation?.kind ?? (sheet.dm_only ? "enemy" : "player"),
     name: sheet.name,
-    notes: presentation?.notes ?? sheet.notes ?? "",
-    tags: (presentation?.tags ?? []).join(", ")
+    notes: presentation?.notes ?? sheet.notes ?? ""
   };
 }
 
@@ -177,7 +168,7 @@ export function toSheetPresentation(values: TemplateEditorValues): SheetPresenta
   return {
     kind: values.kind,
     notes: values.notes.trim(),
-    tags: parseTemplateTags(values.tags),
+    tags: [],
     updatedAt: new Date().toISOString()
   };
 }

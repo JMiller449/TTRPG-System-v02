@@ -1,7 +1,6 @@
 import type { AppAction, AppState } from "@/app/state/types";
 import { connectionReducer } from "@/app/state/reducer/connectionReducer";
 import { intentReducer } from "@/app/state/reducer/intentReducer";
-import { sheetLocalReducer } from "@/app/state/reducer/sheetLocalReducer";
 import { syncReducer } from "@/app/state/reducer/syncReducer";
 import { uiReducer } from "@/app/state/reducer/uiReducer";
 
@@ -11,7 +10,6 @@ const DOMAIN_REDUCERS: readonly DomainReducer[] = [
   uiReducer,
   connectionReducer,
   intentReducer,
-  sheetLocalReducer,
   syncReducer
 ];
 

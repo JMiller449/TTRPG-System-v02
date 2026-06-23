@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useAppStore } from "@/app/state/useAppStore";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
@@ -15,6 +14,7 @@ import {
   buildCreateSheetItemBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
   buildPerformActionRequest,
+  buildSetInstancedSheetNotesRequest,
   buildUpdateSheetItemBridgeRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -30,7 +30,6 @@ export function PlayerCharacterSheet({
   panelTitle?: string;
   client: GameClient;
 }): JSX.Element {
-  const { dispatch } = useAppStore();
   const {
     detail,
     items,
@@ -65,6 +64,14 @@ export function PlayerCharacterSheet({
   useEffect(() => {
     setActiveTab("stats");
   }, [detail?.instance.id]);
+
+  const formattedUpdatedAt =
+    detail && detail.instance.updatedAt
+      ? (() => {
+          const parsed = new Date(detail.instance.updatedAt);
+          return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString();
+        })()
+      : null;
 
   if (!detail) {
     return (
@@ -108,7 +115,8 @@ export function PlayerCharacterSheet({
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
       <p className="character-sheet__panel-subtext muted">
-        Sheet ID: {detail.instance.id} · Updated: {new Date(detail.instance.updatedAt).toLocaleDateString()}
+        Sheet ID: {detail.instance.id}
+        {formattedUpdatedAt ? ` · Updated: ${formattedUpdatedAt}` : ""}
       </p>
       <article className="character-sheet">
         <header className="character-sheet__header">
@@ -171,13 +179,16 @@ export function PlayerCharacterSheet({
 
         {showNotesSection ? (
           <SheetNotesSection
+            sheetId={detail.instance.id}
             note={runtimeNote}
-            onChange={(note) =>
-              dispatch({
-                type: "set_sheet_note",
-                sheetId: detail.instance.id,
-                note
-              })
+            onSave={(note) =>
+              client.sendProtocolRequest(
+                buildSetInstancedSheetNotesRequest({
+                  instanceId: detail.instance.id,
+                  notes: note
+                }),
+                "Update instance notes"
+              )
             }
           />
         ) : null}

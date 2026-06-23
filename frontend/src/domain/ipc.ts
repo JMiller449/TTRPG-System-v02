@@ -37,20 +37,7 @@ export interface AppSnapshot {
   persistentSheetPresentation: PersistentSheetPresentationRecord[];
   encounters: EncounterPreset[];
   actionHistory: ActionHistoryEntry[];
-  activeSheetId: string | null;
 }
-
-export type ClientIntent =
-  | {
-      intentId: string;
-      type: "authenticate_gm";
-      payload: { password: string };
-    }
-  | {
-      intentId: string;
-      type: "set_active_sheet";
-      payload: { sheetId: string | null };
-    };
 
 export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }

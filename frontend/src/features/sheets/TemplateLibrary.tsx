@@ -41,10 +41,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
           return true;
         }
 
-        return (
-          entry.name.toLowerCase().includes(query) ||
-          entry.tags.some((tag) => tag.toLowerCase().includes(query))
-        );
+        return entry.name.toLowerCase().includes(query);
       });
   }, [state, templateSearch]);
 

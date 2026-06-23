@@ -59,14 +59,6 @@ export function TemplateEditorForm({
           </Field>
         </div>
 
-        <Field label="Tags (comma-separated)">
-          <input
-            value={values.tags}
-            onChange={(event) => onChange({ ...values, tags: event.target.value })}
-            placeholder="starter, melee, enemy"
-          />
-        </Field>
-
         <Field label="Notes">
           <textarea
             value={values.notes}

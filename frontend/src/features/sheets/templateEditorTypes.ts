@@ -30,6 +30,5 @@ export interface TemplateEditorValues {
   kind: SheetKind;
   name: string;
   notes: string;
-  tags: string;
   coreStats: Record<CoreTemplateStatKey, string>;
 }

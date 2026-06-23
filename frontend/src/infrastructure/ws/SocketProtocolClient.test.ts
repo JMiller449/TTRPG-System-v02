@@ -108,8 +108,7 @@ describe("SocketProtocolClient", () => {
           sheetPresentation: [],
           persistentSheetPresentation: [],
           encounters: [],
-          actionHistory: [],
-          activeSheetId: null
+          actionHistory: []
         },
         stateVersion: 0,
         incremental: false

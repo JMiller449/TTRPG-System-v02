@@ -1,4 +1,4 @@
-import type { ClientIntent, ServerEvent } from "@/domain/ipc";
+import type { ServerEvent } from "@/domain/ipc";
 import {
   adaptProtocolServerEvent,
   initialSocketProtocolState,
@@ -51,10 +51,6 @@ export class SocketProtocolClient {
     this.protocolState = initialSocketProtocolState;
   }
 
-  sendIntent(intent: ClientIntent): void {
-    this.sendPayload(intent, intent.intentId, "Cannot send intent while disconnected");
-  }
-
   sendProtocolRequest(request: ProtocolApplicationRequest): void {
     this.sendPayload(
       request,
@@ -88,7 +84,7 @@ export class SocketProtocolClient {
   }
 
   private sendPayload(
-    payload: ClientIntent | ProtocolApplicationRequest,
+    payload: ProtocolApplicationRequest,
     requestId: string | undefined,
     disconnectedMessage: string
   ): void {

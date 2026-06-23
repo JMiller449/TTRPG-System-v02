@@ -58,9 +58,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         intentFeedback: initialUiState.intentFeedback,
         actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,
         augmentationTargetMetadata: initialUiState.augmentationTargetMetadata,
-        roll20Bridge: initialUiState.roll20Bridge,
-        localSheetNotes: initialUiState.localSheetNotes,
-        localSheetStatOverrides: initialUiState.localSheetStatOverrides
+        roll20Bridge: initialUiState.roll20Bridge
       }));
     default:
       return undefined;

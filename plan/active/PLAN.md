@@ -565,12 +565,19 @@ Frontend augmentation UX boundary:
 
 ### Phase 9: Remove Remaining Frontend Fake Authority
 
-- [ ] Remove or isolate mock transport behavior that acts authoritative.
+- [x] Remove or isolate mock transport behavior that acts authoritative.
+  - Removed the legacy frontend-only `ClientIntent` path so app transports now submit only generated/backend-owned protocol requests.
+  - Mock transport remains available only through explicit mock mode and now stays out of active-sheet ownership; active sheet selection remains frontend-local.
 - [x] Remove local sheet equipment mutations as source of truth.
 - [x] Remove local sheet stat overrides as source of truth.
-- [ ] Remove local runtime values that masquerade as persisted domain state.
-- [ ] Ensure optimistic UI is always pending and overwritten by authoritative patches.
-- [ ] Keep only drafts, filters, tabs, active selection, and pending UX local.
+- [x] Remove local runtime values that masquerade as persisted domain state.
+  - Removed UI-state shadow copies for sheet notes and mock-local stat overrides.
+  - Deleted the unused mock-only manual level-up override panel rather than leaving a dormant fake-authority path in the codebase.
+- [x] Ensure optimistic UI is always pending and overwritten by authoritative patches.
+  - Instance notes now use a local draft with explicit backend save; authoritative backend notes remain the rendered source of truth and overwrite the draft when patches land.
+  - Frontend authoritative snapshots no longer carry backend-owned `activeSheetId`; active selection stays local and is not projected from transport snapshots.
+- [x] Keep only drafts, filters, tabs, active selection, and pending UX local.
+  - Remaining frontend-local state for sheets is now limited to active selection, current tab, editor/input drafts, search filters, and request feedback/pending status.
 
 ### Phase 10: Verification And Hardening
 

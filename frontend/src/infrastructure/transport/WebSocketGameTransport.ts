@@ -1,4 +1,4 @@
-import type { ClientIntent, ServerEvent } from "@/domain/ipc";
+import type { ServerEvent } from "@/domain/ipc";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import {
@@ -21,10 +21,6 @@ export class WebSocketGameTransport implements GameTransport {
 
   disconnect(): void {
     this.client.disconnect();
-  }
-
-  sendIntent(intent: ClientIntent): void {
-    this.client.sendIntent(intent);
   }
 
   sendProtocolRequest(request: ProtocolApplicationRequest): void {

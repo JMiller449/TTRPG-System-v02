@@ -193,7 +193,6 @@ describe("sheet selectors", () => {
       kind: "player",
       name: "Mage",
       notes: "Mage template notes",
-      tags: ["caster", "starter"],
       updatedAt: "2026-06-18T01:00:00Z"
     });
     expect(playerTemplate?.stats.health).toBe(45);

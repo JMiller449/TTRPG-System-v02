@@ -15,7 +15,6 @@ import type {
   Role,
   Sheet,
   SheetPresentation,
-  StatKey,
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -82,8 +81,6 @@ export interface UIState {
   intentFeedback: IntentFeedbackItem[];
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
-  localSheetNotes: Record<string, string>;
-  localSheetStatOverrides: Record<string, Partial<Record<StatKey, number>>>;
 }
 
 export interface AppState {
@@ -114,7 +111,4 @@ export type AppAction =
   | { type: "dismiss_intent_feedback"; id: string }
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
-  | { type: "set_sheet_note"; sheetId: string; note: string }
-  | { type: "set_sheet_stat_overrides"; sheetId: string; overrides: Partial<Record<StatKey, number>> }
-  | { type: "clear_sheet_stat_overrides"; sheetId: string }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

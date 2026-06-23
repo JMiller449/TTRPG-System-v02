@@ -500,7 +500,6 @@ describe("adaptProtocolServerEvent", () => {
               redacted: true
             }
           ],
-          activeSheetId: null
         }
       }
     ]);

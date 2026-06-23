@@ -1,4 +1,4 @@
-import type { AppSnapshot, ClientIntent, ServerEvent } from "@/domain/ipc";
+import type { AppSnapshot, ServerEvent } from "@/domain/ipc";
 import type {
   PersistentSheet,
   PersistentSheetPresentation,
@@ -130,8 +130,7 @@ export class MockGameTransport implements GameTransport {
       }
     ],
     encounters: [],
-    actionHistory: [],
-    activeSheetId: "instance_player_1"
+    actionHistory: []
   };
 
   async connect(): Promise<void> {
@@ -142,33 +141,6 @@ export class MockGameTransport implements GameTransport {
 
   disconnect(): void {
     this.emit({ type: "error", message: "Mock transport disconnected" });
-  }
-
-  sendIntent(intent: ClientIntent): void {
-    switch (intent.type) {
-      case "authenticate_gm": {
-        const accepted = intent.payload.password.length > 0;
-        if (!accepted) {
-          this.emit({
-            type: "error",
-            requestId: intent.intentId,
-            message: "GM password cannot be empty"
-          });
-          return;
-        }
-        this.emit({ type: "ack", requestId: intent.intentId });
-        return;
-      }
-      case "set_active_sheet": {
-        this.snapshot.activeSheetId = intent.payload.sheetId;
-        this.emitIncrementalSnapshot(intent.intentId);
-        return;
-      }
-      default: {
-        const _exhaustive: never = intent;
-        void _exhaustive;
-      }
-    }
   }
 
   sendProtocolRequest(request: ProtocolApplicationRequest): void {
@@ -260,7 +232,6 @@ export class MockGameTransport implements GameTransport {
           },
           ...this.snapshot.persistentSheets
         ];
-        this.snapshot.activeSheetId = request.instance_id;
         this.upsertPersistentSheetPresentation(request.instance_id, {
           name: parentSheet.name,
           updatedAt: now()

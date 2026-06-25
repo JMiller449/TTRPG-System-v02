@@ -8,6 +8,7 @@ import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
+import { GMConsoleOverlay } from "@/features/console/GMConsoleOverlay";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
@@ -66,6 +67,7 @@ export function App(): JSX.Element {
       </header>
       <IntentFeedbackBanners />
       {role === "gm" ? <GMPageNavPanel /> : null}
+      {role === "gm" ? <GMConsoleOverlay client={client} /> : null}
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />

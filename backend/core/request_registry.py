@@ -6,6 +6,11 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
+from backend.core.request_context import (
+    RequestContext,
+    reset_request_context,
+    set_request_context,
+)
 from backend.features.session.models import SessionRole, WebSocketSession
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -157,7 +162,27 @@ class RequestRegistry:
 
     async def dispatch(self, session: WebSocketSession, payload: Any) -> BaseModel:
         match = self.resolve(payload)
-        await match.route.run(session, match.request)
+        request = match.request
+        source_sheet_id = getattr(request, "sheet_id", None)
+        if source_sheet_id is None:
+            source_sheet_id = getattr(request, "instance_id", None)
+        if source_sheet_id is None:
+            source_sheet_id = getattr(request, "parent_sheet_id", None)
+        if source_sheet_id is None:
+            source_sheet = getattr(request, "sheet", None)
+            source_sheet_id = getattr(source_sheet, "id", None)
+        context_token = set_request_context(
+            RequestContext(
+                request_id=getattr(request, "request_id", None),
+                request_type=match.route.type_name,
+                action_id=getattr(request, "action_id", None),
+                sheet_id=source_sheet_id,
+            )
+        )
+        try:
+            await match.route.run(session, request)
+        finally:
+            reset_request_context(context_token)
         return match.request
 
 

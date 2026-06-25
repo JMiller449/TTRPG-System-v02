@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
-import { Panel } from "@/shared/ui/Panel";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildGetRoll20BridgeStatusRequest } from "@/infrastructure/ws/requestBuilders";
 import {
@@ -9,23 +8,28 @@ import {
   getQuickRollLabel,
   QUICK_ROLL_ACTIONS,
   resolveQuickRollAction,
-  type QuickRollAction
+  type QuickRollAction,
+  type QuickRollMode,
+  type QuickRollVisibility
 } from "@/features/rolls/quickRolls";
+import { Field } from "@/shared/ui/Field";
+import { Panel } from "@/shared/ui/Panel";
 
 export function RollPanel({
-  client
+  client,
+  mode = "player"
 }: {
   client: GameClient;
   mode?: "gm" | "player";
 }): JSX.Element {
-  const {
-    state
-  } = useAppStore();
+  const { state } = useAppStore();
   const { activeSheetId } = state.uiState;
   const { roll20Bridge } = state.uiState;
   const { actions } = state.serverState;
 
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
+  const [rollMode, setRollMode] = useState<QuickRollMode>("normal");
+  const [visibility, setVisibility] = useState<QuickRollVisibility>("public");
 
   const activeSheetView = useMemo(() => {
     if (!activeSheetId) {
@@ -62,7 +66,9 @@ export function RollPanel({
 
     const execution = buildQuickRollExecutionRequest({
       sheetId: activeSheetId,
-      resolution: selectedQuickActionResolution
+      resolution: selectedQuickActionResolution,
+      rollMode,
+      visibility: mode === "gm" ? visibility : "public"
     });
     client.sendProtocolRequest(execution.request, execution.label);
   };
@@ -106,6 +112,29 @@ export function RollPanel({
               {getQuickRollLabel(action, activeWeapon)}
             </button>
           ))}
+        </div>
+        <div className="inline-group">
+          <Field label="Roll Mode">
+            <select
+              value={rollMode}
+              onChange={(event) => setRollMode(event.target.value as QuickRollMode)}
+            >
+              <option value="normal">Normal</option>
+              <option value="advantage">Advantage</option>
+              <option value="disadvantage">Disadvantage</option>
+            </select>
+          </Field>
+          {mode === "gm" ? (
+            <Field label="Output Visibility">
+              <select
+                value={visibility}
+                onChange={(event) => setVisibility(event.target.value as QuickRollVisibility)}
+              >
+                <option value="public">Public</option>
+                <option value="gm_only">GM only</option>
+              </select>
+            </Field>
+          ) : null}
         </div>
         <div className="roll-panel__footer">
           <div className="equation-preview">

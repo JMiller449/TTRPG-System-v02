@@ -4,9 +4,10 @@ import asyncio
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, TypeVar
 
+from backend.core.request_context import get_request_context
 from backend.core.transport import PatchOp
 from backend.features.action_history.service import serialize_action_history
 from backend.features.session.models import SessionRole, WebSocketSession
@@ -21,6 +22,16 @@ from backend.state.store import StateSingleton
 MutationResultT = TypeVar("MutationResultT")
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
+
+
+@dataclass(frozen=True)
+class MutationAuditRecord:
+    state_version: int
+    request_id: str | None
+    request_type: str | None
+    action_id: str | None
+    sheet_id: str | None
+    operation_paths: tuple[str, ...]
 
 
 def build_state_snapshot(
@@ -62,14 +73,26 @@ async def send_bootstrap(session: WebSocketSession) -> None:
 
 
 class StateSyncService:
-    def __init__(self, *, patch_history_limit: int = 256) -> None:
+    def __init__(
+        self,
+        *,
+        patch_history_limit: int = 256,
+        mutation_history_limit: int = 256,
+    ) -> None:
         self._lock = asyncio.Lock()
         self._state_version = 0
         self._patch_history: deque[StatePatch] = deque(maxlen=patch_history_limit)
+        self._mutation_history: deque[MutationAuditRecord] = deque(
+            maxlen=mutation_history_limit
+        )
 
     @property
     def current_version(self) -> int:
         return self._state_version
+
+    @property
+    def mutation_history(self) -> tuple[MutationAuditRecord, ...]:
+        return tuple(self._mutation_history)
 
     def _redact_item_payload(self, value: Any) -> Any:
         if is_dataclass(value):
@@ -201,6 +224,7 @@ class StateSyncService:
         async with self._lock:
             self._state_version = 0
             self._patch_history.clear()
+            self._mutation_history.clear()
 
     def _next_patch(
         self,
@@ -209,12 +233,38 @@ class StateSyncService:
         request_id: str | None = None,
     ) -> StatePatch:
         self._state_version += 1
+        request_context = get_request_context()
+        resolved_request_id = request_id
+        if resolved_request_id is None and request_context is not None:
+            resolved_request_id = request_context.request_id
         patch = build_state_patch(
             ops,
             state_version=self._state_version,
-            request_id=request_id,
+            request_id=resolved_request_id,
         )
         self._patch_history.append(patch)
+        self._mutation_history.append(
+            MutationAuditRecord(
+                state_version=self._state_version,
+                request_id=resolved_request_id,
+                request_type=(
+                    request_context.request_type
+                    if request_context is not None
+                    else None
+                ),
+                action_id=(
+                    request_context.action_id
+                    if request_context is not None
+                    else None
+                ),
+                sheet_id=(
+                    request_context.sheet_id
+                    if request_context is not None
+                    else None
+                ),
+                operation_paths=tuple(op.path for op in ops),
+            )
+        )
         return patch
 
     async def replay_since(

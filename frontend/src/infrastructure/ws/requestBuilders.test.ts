@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { protocolRouteContracts, type ProtocolApplicationRequest } from "@/generated/backendProtocol";
+import {
+  protocolRouteContracts,
+  type ProtocolApplicationRequest
+} from "@/generated/backendProtocol";
 import {
   buildAuthenticateRequest,
   buildCreateActionRequest,
@@ -812,6 +815,23 @@ describe("requestBuilders", () => {
       sheet_id: "instance_1",
       action_id: "heal",
       target_sheet_id: null
+    });
+  });
+
+  it("builds authored action execution requests with predefined output parameters", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "attack",
+        rollMode: "disadvantage",
+        visibility: "gm_only"
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "attack",
+      roll_mode: "disadvantage",
+      visibility: "gm_only"
     });
   });
 

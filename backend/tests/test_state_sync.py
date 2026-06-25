@@ -480,6 +480,28 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                 },
             ]
             assert player_socket.sent_messages == dm_socket.sent_messages
+            assert [
+                (
+                    record.state_version,
+                    record.request_id,
+                    record.request_type,
+                    record.operation_paths,
+                )
+                for record in state_sync_service.mutation_history
+            ] == [
+                (
+                    1,
+                    "req-1",
+                    None,
+                    ("/sheets/mage_template/stats/strength",),
+                ),
+                (
+                    2,
+                    "req-2",
+                    None,
+                    ("/sheets/mage_template/stats/strength",),
+                ),
+            ]
         finally:
             StateSingleton._state = original_state
 

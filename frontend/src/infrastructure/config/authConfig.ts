@@ -5,20 +5,17 @@ export interface AuthCodeEnv {
   VITE_DM_AUTH_TOKEN?: string;
 }
 
-export const LOCAL_DEV_PLAYER_AUTH_TOKEN = "player";
-export const LOCAL_DEV_DM_AUTH_TOKEN = "dm";
-
-function readCode(value: string | undefined, fallback: string): string {
+function readCode(value: string | undefined): string | null {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : fallback;
+  return trimmed || null;
 }
 
 export function resolveDefaultAuthToken(
   role: Role,
   env: AuthCodeEnv = import.meta.env as AuthCodeEnv
-): string {
+): string | null {
   if (role === "gm") {
-    return readCode(env.VITE_DM_AUTH_TOKEN, LOCAL_DEV_DM_AUTH_TOKEN);
+    return readCode(env.VITE_DM_AUTH_TOKEN);
   }
-  return readCode(env.VITE_PLAYER_AUTH_TOKEN, LOCAL_DEV_PLAYER_AUTH_TOKEN);
+  return readCode(env.VITE_PLAYER_AUTH_TOKEN);
 }

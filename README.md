@@ -2,7 +2,6 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
-
 Backend-first TTRPG system with authoritative state, websocket-driven gameplay, DM-only content authoring, and a local Firefox extension that bridges backend chat messages into Roll20.
 
 ## Current Shape
@@ -84,6 +83,9 @@ The extension only runs on `https://app.roll20.net/editor/*`.
   - later changes arrive as ordered `state_patch` diffs
   - snapshots and patches include `state_version`
   - clients should resync if they detect a version gap
+- Persisted backend state uses a versioned envelope with sequential migrations. Legacy unversioned
+  state is migrated on load, unsupported future versions fail safely, and dumps use atomic file
+  replacement.
 - Frontend state ownership is split:
   - backend-authoritative server state comes from auth/snapshot/patch events
   - active sheet selection, page/view state, drafts, and pending UX stay frontend-local
@@ -274,6 +276,14 @@ Do not:
 - The Firefox extension authenticates first on `/ws/chat` with the service code.
 - Route-level DM requirements should be declared on `RequestRoute`.
 - Do not trust role claims from client payloads.
+- Backend auth codes are configured with `PLAYER_JOIN_CODE`, `DM_ADMIN_CODE`, and
+  `SERVICE_AUTH_CODE`. Copy `.env.example` to `.env` for `just run-backend`, or export the
+  variables before starting Uvicorn.
+- `APP_ENV=development` permits the documented local defaults (`player`, `dm`, and `service`).
+  Any other environment requires all three codes to be explicitly configured and distinct.
+- Optional frontend role shortcuts use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN` from
+  `frontend/.env.local`; compiled fallback codes are intentionally not provided.
+- Configure the Roll20 bridge URL and service code through the Firefox extension options page.
 
 ## Testing
 

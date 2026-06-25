@@ -98,7 +98,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "create_sheet"' in output
     assert '"clientNamespace": "sheetAdminSheets"' in output
     assert '"type": "create_instanced_sheet"' in output
-    assert '"clientMethodName": "createInstancedSheet"' in output
+    assert '"clientMethodName": "instantiateSheet"' in output
     assert '"clientMethodName": "deleteSheet"' in output
     assert "export type SheetDefinitionPayload = {" in output
     assert "export type ActionHistoryEntryPayload = {" in output
@@ -144,7 +144,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "adjustInstancedSheetResource"' in output
     assert '"type": "create_sheet_action_bridge"' in output
     assert '"clientNamespace": "sheetActionBridges"' in output
-    assert '"clientMethodName": "deleteSheetActionBridge"' in output
+    assert '"clientMethodName": "detachAction"' in output
     assert "export type SheetActionBridgePayload = {" in output
     assert '"action_id": string;' in output
     assert "export type CreateSheetActionBridge = {" in output
@@ -155,7 +155,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "delete_sheet_action_bridge";' in output
     assert '"type": "create_sheet_item_bridge"' in output
     assert '"clientNamespace": "sheetItemBridges"' in output
-    assert '"clientMethodName": "deleteSheetItemBridge"' in output
+    assert '"clientMethodName": "detachItem"' in output
     assert "export type ItemBridgePayload = {" in output
     assert '"count": number;' in output
     assert '"active": boolean;' in output
@@ -168,7 +168,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "delete_sheet_item_bridge";' in output
     assert '"type": "create_sheet_proficiency_bridge"' in output
     assert '"clientNamespace": "sheetProficiencyBridges"' in output
-    assert '"clientMethodName": "deleteSheetProficiencyBridge"' in output
+    assert '"clientMethodName": "unlinkProficiency"' in output
     assert "export type ProficiencyBridgePayload = {" in output
     assert '"prof_id": string;' in output
     assert '"use_count": number;' in output
@@ -199,6 +199,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"sheet_id": string;' in output
     assert '"action_id": string;' in output
     assert '"target_sheet_id"?: string | null;' in output
+    assert '"roll_mode"?: "normal" | "advantage" | "disadvantage";' in output
+    assert '"visibility"?: "public" | "gm_only";' in output
     assert '"type": "perform_action";' in output
     assert "export type ActionExecutedEvent = {" in output
     assert '"applied_mutations": string[];' in output
@@ -234,3 +236,41 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert "export type ResistancesPayload" in output
     assert '"resistances"?: ResistancesPayload' in output
     assert '"value_type": "number" | "percent" | "formula" | "resource"' in output
+
+
+def test_typescript_codegen_exports_every_registered_request_and_event_model() -> None:
+    output = _build_output()
+
+    for request_model in request_registry.request_models():
+        assert f"export type {request_model.__name__} =" in output
+
+    for event_model in request_registry.emitted_event_models():
+        assert f"export type {event_model.__name__} =" in output
+
+
+def test_generated_route_manifest_matches_registry_contracts() -> None:
+    manifest = _build_route_contract_manifest()
+    manifest_by_type = {entry["type"]: entry for entry in manifest}
+    generated_contracts = [
+        contract
+        for contract in request_registry.route_contracts()
+        if contract.client_generation is not None
+    ]
+
+    assert set(manifest_by_type) == {
+        contract.type_name for contract in generated_contracts
+    }
+    for contract in generated_contracts:
+        metadata = contract.client_generation
+        assert metadata is not None
+        assert manifest_by_type[contract.type_name] == {
+            "type": contract.type_name,
+            "requestModel": contract.request_model.__name__,
+            "emittedEventTypes": [
+                _resolve_type_discriminant(model)
+                for model in contract.emitted_event_models
+            ],
+            "minimumRole": contract.minimum_role,
+            "clientNamespace": metadata.namespace,
+            "clientMethodName": metadata.method_name,
+        }

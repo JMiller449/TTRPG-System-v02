@@ -228,6 +228,103 @@ describe("SocketProtocolClient", () => {
     expect(events).toEqual([{ type: "error", message: "Invalid server payload" }]);
   });
 
+  it("keeps rapid ordered patches consistent with their request and state versions", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const client = new SocketProtocolClient("ws://example.test/ws");
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    const connectPromise = client.connect();
+    const socket = FakeWebSocket.instances[0];
+    if (!socket) {
+      throw new Error("Expected fake websocket instance");
+    }
+
+    socket.open();
+    await connectPromise;
+    socket.message(
+      JSON.stringify({
+        response_id: null,
+        state: {
+          sheets: {},
+          instanced_sheets: {},
+          formulas: {},
+          actions: {},
+          items: {},
+          proficiencies: {}
+        },
+        state_version: 0,
+        type: "state_snapshot",
+        request_id: null
+      })
+    );
+
+    socket.message(
+      JSON.stringify({
+        response_id: null,
+        ops: [
+          {
+            op: "add",
+            path: "/items/item_1",
+            value: {
+              id: "item_1",
+              name: "Focus Ring",
+              description: "",
+              price: "10",
+              weight: "1",
+              augmentation_templates: []
+            }
+          }
+        ],
+        state_version: 1,
+        type: "state_patch",
+        request_id: "req-create"
+      })
+    );
+    socket.message(
+      JSON.stringify({
+        response_id: null,
+        ops: [
+          {
+            op: "set",
+            path: "/items/item_1/name",
+            value: "Greater Focus Ring"
+          }
+        ],
+        state_version: 2,
+        type: "state_patch",
+        request_id: "req-update"
+      })
+    );
+    socket.message(
+      JSON.stringify({
+        response_id: null,
+        ops: [
+          {
+            op: "remove",
+            path: "/items/item_1"
+          }
+        ],
+        state_version: 3,
+        type: "state_patch",
+        request_id: "req-delete"
+      })
+    );
+
+    const snapshots = events.filter(
+      (event): event is Extract<ServerEvent, { type: "snapshot" }> => event.type === "snapshot"
+    );
+    expect(snapshots.map((event) => event.stateVersion)).toEqual([0, 1, 2, 3]);
+    expect(snapshots.slice(1).map((event) => event.requestId)).toEqual([
+      "req-create",
+      "req-update",
+      "req-delete"
+    ]);
+    expect(snapshots[1]?.snapshot.items[0]?.name).toBe("Focus Ring");
+    expect(snapshots[2]?.snapshot.items[0]?.name).toBe("Greater Focus Ring");
+    expect(snapshots[3]?.snapshot.items).toEqual([]);
+  });
+
   it("emits connection_lost when an open socket closes unexpectedly", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const client = new SocketProtocolClient("ws://example.test/ws");

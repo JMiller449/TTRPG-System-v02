@@ -103,6 +103,55 @@
   margin-bottom: 1rem;
 }
 
+.gm-command-trigger {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
+  box-shadow: 0 5px 18px rgb(20 45 48 / 24%);
+}
+
+.gm-command-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(20 24 22 / 52%);
+}
+
+.gm-command-overlay {
+  width: min(760px, 100%);
+  max-height: min(88vh, 820px);
+  overflow-y: auto;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 18px 60px rgb(15 25 22 / 35%);
+}
+
+.gm-command-overlay__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.gm-command-overlay__header h2,
+.gm-command-overlay__header p {
+  margin: 0;
+}
+
+.gm-command-overlay__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .app-grid-player-shell--gm {
   height: auto;
   align-items: start;
@@ -254,5 +303,62 @@
 
   .header-row {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 0.5rem;
+  }
+
+  .app-header {
+    margin-bottom: 0.65rem;
+  }
+
+  .app-grid,
+  .app-grid-player,
+  .app-grid-player-shell,
+  .player-console-side,
+  .gm-console-tools {
+    gap: 0.65rem;
+  }
+
+  .header-row > .button {
+    width: 100%;
+  }
+
+  .intent-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gm-command-trigger {
+    right: 0.65rem;
+    bottom: 0.65rem;
+  }
+
+  .gm-command-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .gm-command-overlay {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 14px 14px 0 0;
+    padding: 0.8rem;
+  }
+
+  .gm-command-overlay__header {
+    align-items: stretch;
+  }
+
+  .gm-command-overlay__header .button {
+    flex: 0 0 auto;
+  }
+
+  .gm-command-overlay__nav {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }

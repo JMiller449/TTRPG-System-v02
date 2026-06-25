@@ -2,7 +2,11 @@ import asyncio
 from copy import deepcopy
 from dataclasses import asdict
 
+import pytest
+
 from backend.features.chat import service as chat_service
+from backend.features.sheet_runtime import service as runtime_service
+from backend.features.sheet_runtime.schema import PerformAction
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.action import Action
@@ -30,6 +34,72 @@ class FakeWebSocket:
 
 def _reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
+
+
+def test_roll20_action_output_wraps_roll_modes_and_gm_visibility() -> None:
+    message = "Attack: /r (1d100 / 100) * 10"
+
+    assert runtime_service.format_roll20_message(
+        message,
+        roll_mode="advantage",
+        visibility="public",
+    ) == (
+        "Attack: /r "
+        "{(1d100 / 100) * 10, (1d100 / 100) * 10}kh1"
+    )
+    assert runtime_service.format_roll20_message(
+        message,
+        roll_mode="disadvantage",
+        visibility="gm_only",
+    ) == (
+        "/w gm Attack: "
+        "[[{(1d100 / 100) * 10, (1d100 / 100) * 10}kl1]]"
+    )
+    assert runtime_service.format_roll20_message(
+        "The door opens.",
+        roll_mode="normal",
+        visibility="gm_only",
+    ) == "/w gm The door opens."
+
+
+def test_action_runtime_parameters_reject_invalid_visibility_and_nonroll_modes() -> None:
+    nonroll_action = Action.from_dict(
+        {
+            "id": "announce",
+            "name": "Announce",
+            "steps": [
+                {
+                    "step_id": "message",
+                    "type": "send_message",
+                    "message": {"aliases": None, "text": "Hello"},
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(PermissionError, match="Only a DM"):
+        runtime_service.validate_action_runtime_parameters(
+            PerformAction(
+                type="perform_action",
+                sheet_id="instance-1",
+                action_id="announce",
+                visibility="gm_only",
+            ),
+            actor_role="player",
+            action=nonroll_action,
+        )
+
+    with pytest.raises(ValueError, match="requires an action with a Roll20 /r"):
+        runtime_service.validate_action_runtime_parameters(
+            PerformAction(
+                type="perform_action",
+                sheet_id="instance-1",
+                action_id="announce",
+                roll_mode="advantage",
+            ),
+            actor_role="dm",
+            action=nonroll_action,
+        )
 
 
 async def _connect_assigned_player(
@@ -279,6 +349,15 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "request_id": "req-1",
                 }
             ]
+            mutation_audit = state_sync_service.mutation_history[-1]
+            assert mutation_audit.state_version == 1
+            assert mutation_audit.request_id == "req-1"
+            assert mutation_audit.request_type == "perform_action"
+            assert mutation_audit.action_id == "battle_cry"
+            assert mutation_audit.sheet_id == "mage_template"
+            assert mutation_audit.operation_paths == (
+                "/sheets/mage_template/stats/strength",
+            )
         finally:
             StateSingleton._state = original_state
 

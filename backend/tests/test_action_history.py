@@ -208,6 +208,7 @@ def test_dump_state_trims_action_history_before_persisting(tmp_path, monkeypatch
     StateSingleton.dumpState()
 
     persisted = json.loads(state_path.read_text(encoding="utf-8"))
-    assert len(persisted["action_history"]) == ACTION_HISTORY_RETENTION_LIMIT
-    assert "history-000" not in persisted["action_history"]
-    assert f"history-{ACTION_HISTORY_RETENTION_LIMIT:03d}" in persisted["action_history"]
+    persisted_history = persisted["state"]["action_history"]
+    assert len(persisted_history) == ACTION_HISTORY_RETENTION_LIMIT
+    assert "history-000" not in persisted_history
+    assert f"history-{ACTION_HISTORY_RETENTION_LIMIT:03d}" in persisted_history

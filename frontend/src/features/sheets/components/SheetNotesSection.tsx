@@ -61,7 +61,9 @@ export function SheetNotesSection({
         >
           Reset
         </button>
-        <span className="muted">{isDirty ? "Local draft pending save." : "Synced to backend."}</span>
+        <span className="muted" role="status" aria-live="polite">
+          {isDirty ? "Local draft pending save." : "Synced to backend."}
+        </span>
       </div>
     </section>
   );

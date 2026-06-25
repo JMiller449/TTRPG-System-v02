@@ -1,48 +1,50 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass
-from os import environ
-from typing import Mapping
-
-
-PLAYER_JOIN_CODE_ENV = "PLAYER_JOIN_CODE"
-DM_ADMIN_CODE_ENV = "DM_ADMIN_CODE"
-SERVICE_AUTH_CODE_ENV = "SERVICE_AUTH_CODE"
-
-LOCAL_DEV_PLAYER_JOIN_CODE = "player"
-LOCAL_DEV_DM_ADMIN_CODE = "dm"
-LOCAL_DEV_SERVICE_AUTH_CODE = "service"
 
 
 @dataclass(frozen=True)
-class AuthCodeConfig:
+class AuthSettings:
     player_join_code: str
     dm_admin_code: str
     service_auth_code: str
+    environment: str
 
 
-def _read_code(env: Mapping[str, str], name: str, default: str) -> str:
-    value = env.get(name)
-    if value is None or not value.strip():
-        return default
-    return value.strip()
+_DEVELOPMENT_DEFAULTS = {
+    "PLAYER_JOIN_CODE": "player",
+    "DM_ADMIN_CODE": "dm",
+    "SERVICE_AUTH_CODE": "service",
+}
 
 
-def get_auth_code_config(env: Mapping[str, str] = environ) -> AuthCodeConfig:
-    return AuthCodeConfig(
-        player_join_code=_read_code(
-            env,
-            PLAYER_JOIN_CODE_ENV,
-            LOCAL_DEV_PLAYER_JOIN_CODE,
-        ),
-        dm_admin_code=_read_code(
-            env,
-            DM_ADMIN_CODE_ENV,
-            LOCAL_DEV_DM_ADMIN_CODE,
-        ),
-        service_auth_code=_read_code(
-            env,
-            SERVICE_AUTH_CODE_ENV,
-            LOCAL_DEV_SERVICE_AUTH_CODE,
-        ),
+def load_auth_settings(environment: Mapping[str, str] | None = None) -> AuthSettings:
+    source = os.environ if environment is None else environment
+    app_environment = source.get("APP_ENV", "development").strip().lower()
+    allow_development_defaults = app_environment in {"development", "test"}
+
+    codes: dict[str, str] = {}
+    for name, development_default in _DEVELOPMENT_DEFAULTS.items():
+        value = source.get(name)
+        if value is None and allow_development_defaults:
+            value = development_default
+        if value is None or not value.strip():
+            raise RuntimeError(
+                f"{name} must be configured when APP_ENV is {app_environment!r}."
+            )
+        codes[name] = value.strip()
+
+    if len(set(codes.values())) != len(codes):
+        raise RuntimeError("Player, DM, and service authentication codes must be distinct.")
+
+    return AuthSettings(
+        player_join_code=codes["PLAYER_JOIN_CODE"],
+        dm_admin_code=codes["DM_ADMIN_CODE"],
+        service_auth_code=codes["SERVICE_AUTH_CODE"],
+        environment=app_environment,
     )
+
+
+AUTH_SETTINGS = load_auth_settings()

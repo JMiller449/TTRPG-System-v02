@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TTRPG Roll20 Bridge Settings</title>
+  </head>
+  <body>
+    <main>
+      <h1>TTRPG Roll20 Bridge Settings</h1>
+      <form id="bridge-settings">
+        <p>
+          <label>
+            Backend WebSocket URL
+            <input id="backend-ws-url" type="url" required />
+          </label>
+        </p>
+        <p>
+          <label>
+            Service authentication code
+            <input id="service-auth-code" type="password" required />
+          </label>
+        </p>
+        <button type="submit">Save</button>
+        <span id="save-status" role="status" aria-live="polite"></span>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

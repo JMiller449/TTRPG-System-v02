@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -12,7 +13,12 @@ from backend.features.formula_runtime.service import (
     normalize_numeric_result,
 )
 from backend.features.session.models import SessionRole
-from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
+from backend.features.sheet_runtime.schema import (
+    ActionExecuted,
+    ActionRollMode,
+    ActionVisibility,
+    PerformAction,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
     Action,
@@ -334,6 +340,59 @@ def _resolve_allowed_runtime_actor(
     return actor
 
 
+ROLL20_ROLL_PATTERN = re.compile(
+    r"^(?P<label>.*?)(?P<command>/r\s+)(?P<expression>.+)$",
+    flags=re.IGNORECASE,
+)
+
+
+def format_roll20_message(
+    message: str,
+    *,
+    roll_mode: ActionRollMode,
+    visibility: ActionVisibility,
+) -> str:
+    match = ROLL20_ROLL_PATTERN.match(message)
+    if match is None:
+        return f"/w gm {message}" if visibility == "gm_only" else message
+
+    label = match.group("label").rstrip()
+    expression = match.group("expression").strip()
+    if roll_mode == "advantage":
+        expression = f"{{{expression}, {expression}}}kh1"
+    elif roll_mode == "disadvantage":
+        expression = f"{{{expression}, {expression}}}kl1"
+
+    label_prefix = f"{label} " if label else ""
+    if visibility == "gm_only":
+        return f"/w gm {label_prefix}[[{expression}]]"
+
+    return f"{label_prefix}{match.group('command')}{expression}"
+
+
+def validate_action_runtime_parameters(
+    request: PerformAction,
+    *,
+    actor_role: SessionRole,
+    action: Action,
+) -> None:
+    if request.visibility == "gm_only" and actor_role != "dm":
+        raise PermissionError("Only a DM can send GM-only action output.")
+
+    if request.roll_mode == "normal":
+        return
+
+    emits_roll = any(
+        isinstance(step, SendMessageStep)
+        and ROLL20_ROLL_PATTERN.match(step.message.text) is not None
+        for step in action.steps
+    )
+    if not emits_roll:
+        raise ValueError(
+            "Advantage/disadvantage requires an action with a Roll20 /r expression."
+        )
+
+
 async def perform_action(
     request: PerformAction,
     *,
@@ -349,6 +408,11 @@ async def perform_action(
         actor.sheet,
         request.action_id,
         actor_role=actor_role,
+    )
+    validate_action_runtime_parameters(
+        request,
+        actor_role=actor_role,
+        action=action,
     )
     steps = action.steps
 
@@ -376,7 +440,13 @@ async def perform_action(
         for step in current_steps:
             if isinstance(step, SendMessageStep):
                 message = step.message.expand_formula(formula_root)
-                emitted_messages.append(message)
+                emitted_messages.append(
+                    format_roll20_message(
+                        message,
+                        roll_mode=request.roll_mode,
+                        visibility=request.visibility,
+                    )
+                )
                 continue
 
             if isinstance(step, SetValueStep):

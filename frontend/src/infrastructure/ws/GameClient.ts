@@ -24,7 +24,8 @@ export interface ManagedGameClientOptions {
   preferredMode?: ClientTransportMode;
   wsUrl?: string;
   transportFactory?: (mode: ClientTransportMode, wsUrl: string) => GameTransport;
-  reconnectDelaysMs?: number[];
+  autoReconnect?: boolean;
+  reconnectDelaysMs?: readonly number[];
   reconnectScheduler?: (callback: () => void, delayMs: number) => TransportUnsubscribe;
 }
 
@@ -32,7 +33,7 @@ type ConnectionListener = (state: ClientConnectionState) => void;
 type EventListener = (event: ServerEvent) => void;
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:6767/ws";
-const DEFAULT_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000];
+const DEFAULT_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000, 10000] as const;
 
 function scheduleReconnect(callback: () => void, delayMs: number): TransportUnsubscribe {
   const timeoutId = globalThis.setTimeout(callback, delayMs);
@@ -54,8 +55,12 @@ export class ManagedGameClient {
   private readonly preferredMode: ClientTransportMode;
   private readonly wsUrl: string;
   private readonly transportFactory: (mode: ClientTransportMode, wsUrl: string) => GameTransport;
-  private readonly reconnectDelaysMs: number[];
-  private readonly reconnectScheduler: (callback: () => void, delayMs: number) => TransportUnsubscribe;
+  private readonly autoReconnect: boolean;
+  private readonly reconnectDelaysMs: readonly number[];
+  private readonly reconnectScheduler: (
+    callback: () => void,
+    delayMs: number
+  ) => TransportUnsubscribe;
 
   private transport: GameTransport | null = null;
   private transportUnsubscribe: TransportUnsubscribe | null = null;
@@ -71,6 +76,7 @@ export class ManagedGameClient {
     this.preferredMode = options.preferredMode ?? "ws";
     this.wsUrl = options.wsUrl ?? DEFAULT_WS_URL;
     this.transportFactory = options.transportFactory ?? createTransport;
+    this.autoReconnect = options.autoReconnect ?? true;
     this.reconnectDelaysMs = options.reconnectDelaysMs?.length
       ? options.reconnectDelaysMs
       : DEFAULT_RECONNECT_DELAYS_MS;
@@ -201,6 +207,14 @@ export class ManagedGameClient {
   authenticate(role: Role, token?: string): string | null {
     const requestId = makeId("auth");
     const resolvedToken = this.resolveAuthToken(role, token);
+    if (!resolvedToken) {
+      this.emit({
+        type: "error",
+        requestId,
+        message: `No ${role === "gm" ? "DM" : "player"} authentication code is configured`
+      });
+      return requestId;
+    }
     this.authToken = resolvedToken;
     if (!this.transport) {
       this.emit({
@@ -211,7 +225,9 @@ export class ManagedGameClient {
       return requestId;
     }
 
-    this.transport.sendProtocolRequest(buildAuthenticateRequest({ token: resolvedToken, requestId }));
+    this.transport.sendProtocolRequest(
+      buildAuthenticateRequest({ token: resolvedToken, requestId })
+    );
     return requestId;
   }
 
@@ -228,7 +244,9 @@ export class ManagedGameClient {
       return requestId;
     }
 
-    this.transport.sendProtocolRequest(buildAuthenticateRequest({ token: resolvedToken, requestId }));
+    this.transport.sendProtocolRequest(
+      buildAuthenticateRequest({ token: resolvedToken, requestId })
+    );
     return requestId;
   }
 
@@ -309,7 +327,7 @@ export class ManagedGameClient {
   }
 
   private shouldAutoReconnect(): boolean {
-    return this.desiredConnected && this.preferredMode === "ws";
+    return this.autoReconnect && this.desiredConnected && this.preferredMode === "ws";
   }
 
   private queueReconnect(reason: string): void {
@@ -317,7 +335,9 @@ export class ManagedGameClient {
       return;
     }
 
-    const delayMs = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 0;
+    const delayMs =
+      this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ??
+      0;
     this.reconnectAttempt += 1;
     this.updateConnectionState({
       ...this.connectionState,
@@ -349,7 +369,7 @@ export class ManagedGameClient {
     );
   }
 
-  private resolveAuthToken(role: Role, providedToken?: string): string {
+  private resolveAuthToken(role: Role, providedToken?: string): string | null {
     return providedToken?.trim() || resolveDefaultAuthToken(role);
   }
 

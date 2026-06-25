@@ -75,6 +75,32 @@ describe("quickRolls", () => {
     });
   });
 
+  it("adds predefined roll mode and visibility parameters to quick actions", () => {
+    const resolution = resolveQuickRollAction(testSheet(), actions, "attack");
+
+    if (!resolution) {
+      throw new Error("Expected attack quick action to resolve.");
+    }
+
+    expect(
+      buildQuickRollExecutionRequest({
+        sheetId: "instance_1",
+        resolution,
+        rollMode: "advantage",
+        visibility: "gm_only"
+      })
+    ).toEqual({
+      request: {
+        type: "perform_action",
+        sheet_id: "instance_1",
+        action_id: "attack",
+        roll_mode: "advantage",
+        visibility: "gm_only"
+      },
+      label: "Perform action: Attack (advantage)"
+    });
+  });
+
   it("respects edited default bridges that point at replacement actions", () => {
     expect(resolveQuickRollAction(testSheet(), actions, "dodge")).toEqual({
       action: "dodge",

@@ -45,9 +45,7 @@ export function SheetEquipmentSection({
   return (
     <section className="character-sheet__section">
       <h4>Equipment</h4>
-      <p className="muted">
-        Inventory uses GM-defined item classes.
-      </p>
+      <p className="muted">Inventory uses GM-defined item classes.</p>
       {canEdit ? (
         <div className="equipment-add-row">
           <Field label="Item">
@@ -69,7 +67,12 @@ export function SheetEquipmentSection({
               })}
             </select>
           </Field>
-          <button className="button" onClick={onAddSelectedItem} disabled={!selectedItem}>
+          <button
+            type="button"
+            className="button"
+            onClick={onAddSelectedItem}
+            disabled={!selectedItem}
+          >
             Add
           </button>
         </div>
@@ -78,7 +81,9 @@ export function SheetEquipmentSection({
       {canEdit && selectedItem ? (
         <article className="template-editor">
           <p className="template-editor__title">Selected Item Preview</p>
-          <div className="muted">Weight {selectedItem.weight} · Price {selectedItem.price}</div>
+          <div className="muted">
+            Weight {selectedItem.weight} · Price {selectedItem.price}
+          </div>
           <p className="muted">{selectedItem.description || "(no description)"}</p>
           <p className="muted">Augmentations: {describeAugmentations(selectedItem)}</p>
         </article>
@@ -95,22 +100,31 @@ export function SheetEquipmentSection({
               <div>
                 <strong>{item.name}</strong>
                 <div className="muted">Count {entry.count}</div>
-                <div className="muted">Weight {item.weight} · Price {item.price}</div>
+                <div className="muted">
+                  Weight {item.weight} · Price {item.price}
+                </div>
                 <div className="muted">{item.description || "(no description)"}</div>
                 <div className="muted">Augmentations: {describeAugmentations(item)}</div>
-                {activeWeaponId === entry.relationship_id ? <div className="muted">Active weapon</div> : null}
+                {activeWeaponId === entry.relationship_id ? (
+                  <div className="muted">Active weapon</div>
+                ) : null}
               </div>
               {canEdit ? (
                 <div className="inline-actions">
                   <button
+                    type="button"
                     className="button button--secondary"
                     onClick={() => onToggleActiveWeapon(entry.relationship_id)}
+                    aria-pressed={activeWeaponId === entry.relationship_id}
+                    aria-label={`${activeWeaponId === entry.relationship_id ? "Clear active weapon" : "Set active weapon"}: ${item.name}`}
                   >
                     {activeWeaponId === entry.relationship_id ? "Clear Active" : "Set Active"}
                   </button>
                   <button
+                    type="button"
                     className="button button--secondary"
                     onClick={() => onRemoveInventoryItem(entry.relationship_id)}
+                    aria-label={`Remove ${item.name} from equipment`}
                   >
                     Remove
                   </button>

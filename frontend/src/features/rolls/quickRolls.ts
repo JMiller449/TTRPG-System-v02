@@ -2,13 +2,10 @@ import type { ActionDefinition, Sheet } from "@/domain/models";
 import { buildPerformActionRequest } from "@/infrastructure/ws/requestBuilders";
 
 export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
+export type QuickRollMode = "normal" | "advantage" | "disadvantage";
+export type QuickRollVisibility = "public" | "gm_only";
 
-export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
-  "attack",
-  "dodge",
-  "parry",
-  "block"
-];
+export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = ["attack", "dodge", "parry", "block"];
 
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
@@ -76,16 +73,24 @@ export function getQuickRollLabel(action: QuickRollAction, activeWeapon?: string
 
 export function buildQuickRollExecutionRequest({
   sheetId,
-  resolution
+  resolution,
+  rollMode = "normal",
+  visibility = "public"
 }: {
   sheetId: string;
   resolution: ResolvedQuickRollAction;
+  rollMode?: QuickRollMode;
+  visibility?: QuickRollVisibility;
 }): QuickRollExecutionRequest {
   return {
     request: buildPerformActionRequest({
       sheetId,
-      actionId: resolution.actionId
+      actionId: resolution.actionId,
+      rollMode,
+      visibility
     }),
-    label: `Perform action: ${resolution.actionName}`
+    label: `Perform action: ${resolution.actionName}${
+      rollMode === "normal" ? "" : ` (${rollMode})`
+    }`
   };
 }

@@ -2,7 +2,6 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
-
 Temporary Firefox extension that runs on `https://app.roll20.net/editor/*`, opens a
 WebSocket to the local backend, and forwards incoming chat jobs into the Roll20 chat UI.
 
@@ -18,17 +17,10 @@ The content script connects to:
 
 `ws://127.0.0.1:6767/ws/chat`
 
-If you change the backend host or port, update
-[roll20-chat-bridge.js](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/firefox_extension/content/roll20-chat-bridge.js).
+After loading the extension, open its preferences/options page and configure:
 
-### Service Auth Code
+- the backend WebSocket URL
+- the same service authentication code used by the backend's `SERVICE_AUTH_CODE`
 
-The bridge authenticates with the backend `SERVICE_AUTH_CODE`. For local development
-the default is `service`.
-
-To override it for a loaded temporary extension, run this in the Roll20 editor page
-console before reconnecting the extension:
-
-```js
-localStorage.setItem("TTRPG_SERVICE_AUTH_CODE", "your-service-code");
-```
+Reload the Roll20 editor tab after saving. The service code is stored in Firefox extension
+storage and is not committed in the content script.

@@ -14,17 +14,14 @@ import {
   toUpdatedSheetDefinitionPayload
 } from "@/features/sheets/templateEditorValues";
 import {
-  buildCreateInstancedSheetRequest,
+  buildInstantiateSheetRequest,
   buildUpdateSheetRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
 export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element {
-  const {
-    state,
-    dispatch
-  } = useAppStore();
+  const { state, dispatch } = useAppStore();
   const { templateSearch } = state.uiState;
 
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -35,19 +32,20 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const visibleTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
-    return selectSheetTemplateViews(state)
-      .filter((entry) => {
-        if (!query) {
-          return true;
-        }
+    return selectSheetTemplateViews(state).filter((entry) => {
+      if (!query) {
+        return true;
+      }
 
-        return entry.name.toLowerCase().includes(query);
-      });
+      return entry.name.toLowerCase().includes(query);
+    });
   }, [state, templateSearch]);
 
   const beginEditTemplate = (template: SheetTemplateView): void => {
     setEditingTemplateId(template.id);
-    setEditValues(toTemplateEditorValues(template.sheet, state.serverState.sheetPresentation[template.id]));
+    setEditValues(
+      toTemplateEditorValues(template.sheet, state.serverState.sheetPresentation[template.id])
+    );
   };
 
   const saveTemplateEdit = (): void => {
@@ -79,7 +77,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       const instanceId = makeId("instance");
       activeInstanceId = instanceId;
       client.sendProtocolRequest(
-        buildCreateInstancedSheetRequest(
+        buildInstantiateSheetRequest(
           toInstancedSheetCreationValues(template.sheet, template.kind, instanceId)
         ),
         amount > 1 ? `Spawn ${template.name} ${index + 1}` : `Spawn ${template.name}`
@@ -119,7 +117,9 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
         <TemplateEditPanel
           editingTemplateId={editingTemplateId}
-          editingTemplateName={editingTemplateId ? state.serverState.sheets[editingTemplateId]?.name : undefined}
+          editingTemplateName={
+            editingTemplateId ? state.serverState.sheets[editingTemplateId]?.name : undefined
+          }
           values={editValues}
           onChange={setEditValues}
           onSubmit={saveTemplateEdit}

@@ -170,7 +170,7 @@ class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
     minimum_role = "dm"
     client_generation = ClientGenerationMetadata(
         namespace="sheetAdminSheets",
-        method_name="createInstancedSheet",
+        method_name="instantiateSheet",
     )
 
     async def handle(
@@ -178,7 +178,7 @@ class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
         session: WebSocketSession,
         request: CreateInstancedSheet,
     ) -> None:
-        response = await service.create_instanced_sheet(request)
+        response = await service.instantiate_sheet(request)
         if response is not None:
             await websocket_sessions.send(session, response)
 
@@ -190,7 +190,7 @@ class CreateSheetActionBridgeRoute(RequestRoute[CreateSheetActionBridge]):
     minimum_role = "dm"
     client_generation = ClientGenerationMetadata(
         namespace="sheetActionBridges",
-        method_name="createSheetActionBridge",
+        method_name="attachAction",
     )
 
     async def handle(
@@ -198,7 +198,7 @@ class CreateSheetActionBridgeRoute(RequestRoute[CreateSheetActionBridge]):
         session: WebSocketSession,
         request: CreateSheetActionBridge,
     ) -> None:
-        await service.create_sheet_action_bridge(request)
+        await service.attach_sheet_action(request)
 
 
 class UpdateSheetActionBridgeRoute(RequestRoute[UpdateSheetActionBridge]):
@@ -208,7 +208,7 @@ class UpdateSheetActionBridgeRoute(RequestRoute[UpdateSheetActionBridge]):
     minimum_role = "dm"
     client_generation = ClientGenerationMetadata(
         namespace="sheetActionBridges",
-        method_name="updateSheetActionBridge",
+        method_name="relinkAction",
     )
 
     async def handle(
@@ -216,7 +216,7 @@ class UpdateSheetActionBridgeRoute(RequestRoute[UpdateSheetActionBridge]):
         session: WebSocketSession,
         request: UpdateSheetActionBridge,
     ) -> None:
-        await service.update_sheet_action_bridge(request)
+        await service.relink_sheet_action(request)
 
 
 class DeleteSheetActionBridgeRoute(RequestRoute[DeleteSheetActionBridge]):
@@ -226,7 +226,7 @@ class DeleteSheetActionBridgeRoute(RequestRoute[DeleteSheetActionBridge]):
     minimum_role = "dm"
     client_generation = ClientGenerationMetadata(
         namespace="sheetActionBridges",
-        method_name="deleteSheetActionBridge",
+        method_name="detachAction",
     )
 
     async def handle(
@@ -234,7 +234,7 @@ class DeleteSheetActionBridgeRoute(RequestRoute[DeleteSheetActionBridge]):
         session: WebSocketSession,
         request: DeleteSheetActionBridge,
     ) -> None:
-        await service.delete_sheet_action_bridge(request)
+        await service.detach_sheet_action(request)
 
 
 class CreateSheetItemBridgeRoute(RequestRoute[CreateSheetItemBridge]):
@@ -245,7 +245,7 @@ class CreateSheetItemBridgeRoute(RequestRoute[CreateSheetItemBridge]):
     permission_denied_reason = permission_denied_reason("equipment_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetItemBridges",
-        method_name="createSheetItemBridge",
+        method_name="attachItem",
     )
 
     async def handle(
@@ -253,7 +253,7 @@ class CreateSheetItemBridgeRoute(RequestRoute[CreateSheetItemBridge]):
         session: WebSocketSession,
         request: CreateSheetItemBridge,
     ) -> None:
-        await service.create_sheet_item_bridge(request)
+        await service.attach_sheet_item(request)
 
 
 class UpdateSheetItemBridgeRoute(RequestRoute[UpdateSheetItemBridge]):
@@ -264,7 +264,7 @@ class UpdateSheetItemBridgeRoute(RequestRoute[UpdateSheetItemBridge]):
     permission_denied_reason = permission_denied_reason("equipment_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetItemBridges",
-        method_name="updateSheetItemBridge",
+        method_name="updateAttachedItem",
     )
 
     async def handle(
@@ -272,7 +272,7 @@ class UpdateSheetItemBridgeRoute(RequestRoute[UpdateSheetItemBridge]):
         session: WebSocketSession,
         request: UpdateSheetItemBridge,
     ) -> None:
-        await service.update_sheet_item_bridge(request)
+        await service.update_attached_sheet_item(request)
 
 
 class DeleteSheetItemBridgeRoute(RequestRoute[DeleteSheetItemBridge]):
@@ -283,7 +283,7 @@ class DeleteSheetItemBridgeRoute(RequestRoute[DeleteSheetItemBridge]):
     permission_denied_reason = permission_denied_reason("equipment_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetItemBridges",
-        method_name="deleteSheetItemBridge",
+        method_name="detachItem",
     )
 
     async def handle(
@@ -291,7 +291,7 @@ class DeleteSheetItemBridgeRoute(RequestRoute[DeleteSheetItemBridge]):
         session: WebSocketSession,
         request: DeleteSheetItemBridge,
     ) -> None:
-        await service.delete_sheet_item_bridge(request)
+        await service.detach_sheet_item(request)
 
 
 class CreateSheetProficiencyBridgeRoute(RequestRoute[CreateSheetProficiencyBridge]):
@@ -302,7 +302,7 @@ class CreateSheetProficiencyBridgeRoute(RequestRoute[CreateSheetProficiencyBridg
     permission_denied_reason = permission_denied_reason("proficiency_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetProficiencyBridges",
-        method_name="createSheetProficiencyBridge",
+        method_name="linkProficiency",
     )
 
     async def handle(
@@ -310,7 +310,7 @@ class CreateSheetProficiencyBridgeRoute(RequestRoute[CreateSheetProficiencyBridg
         session: WebSocketSession,
         request: CreateSheetProficiencyBridge,
     ) -> None:
-        await service.create_sheet_proficiency_bridge(request)
+        await service.link_sheet_proficiency(request)
 
 
 class UpdateSheetProficiencyBridgeRoute(RequestRoute[UpdateSheetProficiencyBridge]):
@@ -321,7 +321,7 @@ class UpdateSheetProficiencyBridgeRoute(RequestRoute[UpdateSheetProficiencyBridg
     permission_denied_reason = permission_denied_reason("proficiency_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetProficiencyBridges",
-        method_name="updateSheetProficiencyBridge",
+        method_name="updateLinkedProficiency",
     )
 
     async def handle(
@@ -329,7 +329,7 @@ class UpdateSheetProficiencyBridgeRoute(RequestRoute[UpdateSheetProficiencyBridg
         session: WebSocketSession,
         request: UpdateSheetProficiencyBridge,
     ) -> None:
-        await service.update_sheet_proficiency_bridge(request)
+        await service.update_linked_sheet_proficiency(request)
 
 
 class DeleteSheetProficiencyBridgeRoute(RequestRoute[DeleteSheetProficiencyBridge]):
@@ -340,7 +340,7 @@ class DeleteSheetProficiencyBridgeRoute(RequestRoute[DeleteSheetProficiencyBridg
     permission_denied_reason = permission_denied_reason("proficiency_edit")
     client_generation = ClientGenerationMetadata(
         namespace="sheetProficiencyBridges",
-        method_name="deleteSheetProficiencyBridge",
+        method_name="unlinkProficiency",
     )
 
     async def handle(
@@ -348,7 +348,7 @@ class DeleteSheetProficiencyBridgeRoute(RequestRoute[DeleteSheetProficiencyBridg
         session: WebSocketSession,
         request: DeleteSheetProficiencyBridge,
     ) -> None:
-        await service.delete_sheet_proficiency_bridge(request)
+        await service.unlink_sheet_proficiency(request)
 
 
 def register_routes(registry: RequestRegistry) -> None:

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerEvent } from "@/domain/ipc";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 import { MockGameTransport } from "@/infrastructure/transport/MockGameTransport";
@@ -41,19 +41,25 @@ function sheetDefinition(overrides: Partial<SheetDefinitionPayload> = {}): Sheet
 }
 
 describe("MockGameTransport protocol sheet requests", () => {
-  it("authenticates with explicit local development auth tokens", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("authenticates with explicitly configured development auth tokens", () => {
+    vi.stubEnv("VITE_PLAYER_AUTH_TOKEN", "configured-player");
+    vi.stubEnv("VITE_DM_AUTH_TOKEN", "configured-dm");
     const transport = new MockGameTransport();
     const events = collectEvents(transport);
 
     transport.sendProtocolRequest({
       request_id: "req-player",
       type: "authenticate",
-      token: "player"
+      token: "configured-player"
     });
     transport.sendProtocolRequest({
       request_id: "req-gm",
       type: "authenticate",
-      token: "dm"
+      token: "configured-dm"
     });
 
     expect(events).toContainEqual({
@@ -84,6 +90,28 @@ describe("MockGameTransport protocol sheet requests", () => {
       connected: false,
       requestId: "req-status"
     });
+  });
+
+  it("rejects action execution instead of reporting a false mock success", () => {
+    const transport = new MockGameTransport();
+    const events = collectEvents(transport);
+
+    transport.sendProtocolRequest({
+      request_id: "req-action",
+      type: "perform_action",
+      sheet_id: "instance_player",
+      action_id: "attack",
+      target_sheet_id: null
+    });
+
+    expect(events).toEqual([
+      {
+        type: "error",
+        requestId: "req-action",
+        message:
+          "Action execution requires the live backend and Roll20 bridge; mock transport cannot resolve actions."
+      }
+    ]);
   });
 
   it("reconciles typed sheet creation through snapshot and ack events", () => {
@@ -175,7 +203,9 @@ describe("MockGameTransport protocol sheet requests", () => {
     });
 
     const snapshot = latestSnapshot(events);
-    const instance = snapshot.snapshot.persistentSheets.find((sheet) => sheet.id === "instance_spawned");
+    const instance = snapshot.snapshot.persistentSheets.find(
+      (sheet) => sheet.id === "instance_spawned"
+    );
     const presentation = snapshot.snapshot.persistentSheetPresentation.find(
       (entry) => entry.persistentSheetId === "instance_spawned"
     );

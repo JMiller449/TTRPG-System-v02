@@ -293,7 +293,7 @@ Proficiency:
 - Range: 0 to 100 percent.
 - 100 percent is mastery.
 - Increments happen on approved use and are configurable per weapon/spell/skill.
-- Downtime training exists in the rules but can stay manual/Roll20 for MVP.
+- Downtime training is manual DM adjudication for MVP; the DM may decide that a character practiced/activated something a number of times and award a specific proficiency/XP amount.
 - Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
 - DM-authored global proficiency definitions are the registry of available proficiencies.
@@ -342,6 +342,15 @@ Combat automation:
 - Turn order, action point reset, reactions, contested reactions, opportunity attacks, flanking, grappling, AOE positioning, and cross-sheet damage application are Roll20/manual.
 - The app should not automate cross-sheet combat workflows.
 - `slayed_record` remains part of full sheet state for history/bookkeeping, but dedicated semantic slay-record routes are deferred until combat/history automation becomes MVP-relevant.
+
+XP and level-up:
+
+- MVP should track level-up readiness through a DM-configured XP tracker.
+- DM defines XP needed for next level and mob/enemy XP values.
+- Players can mark/count how many tracked mobs they killed.
+- Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
+- DM reviews XP at end of session and applies level-up changes manually through normal sheet edits.
+- Automated stat distribution and level-up mutation workflows are deferred.
 
 ## 9. Augmentation Direction
 
@@ -517,8 +526,13 @@ Frontend augmentation UX boundary:
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
 - [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
-- [ ] Implement advantage/disadvantage as predefined runtime action parameters.
-- [ ] Add public Roll20 chat prefix wrapping for advantage/disadvantage output.
+- [x] Implement advantage/disadvantage as predefined runtime action parameters.
+  - `perform_action` now accepts backend-validated `normal`, `advantage`, or `disadvantage` roll mode; non-normal modes reject actions that do not author a Roll20 `/r` expression.
+  - Quick actions expose the predefined modes and submit them through the typed action request without performing gameplay math in the frontend.
+- [x] Add Roll20 chat prefix wrapping for advantage/disadvantage and visibility/GM-only output.
+  - Backend output duplicates authored Roll20 expressions with `kh1`/`kl1` grouping for advantage/disadvantage.
+  - DM-only output converts rolls to whispered inline rolls and prefixes non-roll messages with `/w gm`; player sessions are forbidden from requesting hidden output.
+  - Added backend format/validation coverage plus frontend request/quick-action coverage; the runnable frontend suite passes 23 files and 149 tests.
 - [x] Add validation/error responses for invalid action execution payloads and unauthorized actions.
 - [x] Finalize websocket request/response types for action execution requests.
 - [x] Finalize websocket request/response types for typed template edits, sheet updates, and bridge operations.
@@ -531,7 +545,9 @@ Frontend augmentation UX boundary:
 - [x] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls: player snapshots/patches redact GM template notes and GM-only item fields, while player-visible controls remain limited to authenticated instance notes/resources/actions.
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
-- [ ] Model relationship/bridge operations as semantic commands such as `attach`, `detach`, `link`, `unlink`, and `instantiate`.
+- [x] Keep relationship/bridge operations as simple explicit add/update/remove flows.
+  - The stable websocket contract continues to use direct bridge create/update/delete operations for sheet actions, equipment, and proficiencies.
+  - Internal service/helper names may describe intent, but do not create a second transport command vocabulary for MVP.
 - [x] Add Roll20 bridge status/send-failure UX.
   - Added a typed backend `get_roll20_bridge_status` request and `roll20_bridge_status` event.
   - Frontend roll/action panel can refresh and display Roll20 bridge connected/disconnected/unknown state.
@@ -539,7 +555,10 @@ Frontend augmentation UX boundary:
 - [x] Add optional World Anvil link field to item schema and backend protocol/update payloads.
 - [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
 - [x] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
-- [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
+- [x] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
+  - Live action execution already uses typed backend `perform_action` handling and the Roll20 bridge.
+  - Explicit mock mode no longer acknowledges action execution as successful; it returns a clear backend-required error instead of inventing roll/chat outcomes.
+  - Added mock transport regression coverage for the authority boundary.
 - [x] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
   - Removed silent websocket-to-mock fallback from `ManagedGameClient`; failed websocket connects now remain disconnected with an error.
   - Mock transport is still available only when explicitly selected through mock transport mode.
@@ -599,41 +618,66 @@ Frontend augmentation UX boundary:
 ### Phase 10: Verification And Hardening
 
 - [x] Add websocket reliability behavior for reconnect/backoff and explicit snapshot resync recovery.
-  - Socket close events now surface as managed connection-loss signals instead of generic payload errors.
-  - Managed websocket clients schedule bounded reconnect/backoff attempts after unexpected disconnects, re-authenticate when an auth token is available, and reset state-version tracking so the next backend snapshot becomes authoritative.
-  - Added focused frontend tests for dropped websocket reconnect scheduling, retry backoff after reconnect failure, re-authentication, fresh snapshot/version handling, and intentional disconnect behavior.
-- [ ] Add idempotency/ordering handling for intent replay or duplicate messages after MVP, unless DM manual correction remains sufficient.
+  - Managed websocket clients now retry failed and interrupted connections with bounded backoff delays, without falling back to mock transport.
+  - Deliberate disconnect and session-end paths cancel scheduled retries, while successful reconnects automatically re-authenticate the prior session and receive the backend bootstrap snapshot.
+  - Existing state-version gap detection continues to request explicit `resync_state` recovery and reject the out-of-order incremental snapshot until a full recovery snapshot arrives.
+  - Added focused client tests for reconnect, progressive retry delays, re-authentication, deliberate-disconnect cancellation, and version-gap resync.
+- [x] Add idempotency/ordering handling for intent replay or duplicate messages after MVP, unless DM manual correction remains sufficient.
+  - MVP deliberately does not queue or automatically replay in-flight mutation intents after reconnect, avoiding accidental duplicate side effects.
+  - Reconnect restores authority through re-authentication and a fresh backend snapshot; ambiguous interrupted mutations remain a DM manual-correction case.
+  - Durable client intent IDs, deduplication storage, and replay semantics remain post-MVP work if deployment conditions later require them.
 - [x] Decide whether to keep the HTTP chat debug endpoint long-term.
-  - Decision: do not keep or reintroduce an HTTP chat debug endpoint for MVP.
-  - Roll20 chat delivery remains websocket-only through app `send_roll20_chat_message` requests and the `/ws/chat` Firefox-extension bridge.
-  - Added backend route regression coverage proving no Roll20/chat HTTP route is registered.
+  - No HTTP chat debug endpoint remains in the FastAPI app; Roll20 delivery uses the authenticated `/ws/chat` service bridge and app chat intents use the registered `/ws` contract.
 - [x] Move auth codes into explicit environment/config management before deployment needs tighten.
-  - Backend auth token resolution now goes through `backend.core.config`, with documented env vars for player, DM, and Roll20 service codes plus explicit local-development defaults.
-  - Frontend helper/mock auth token defaults now go through a shared auth config module and `.env.example` documents the matching Vite env vars.
-  - Roll20 extension service auth uses an explicit `TTRPG_SERVICE_AUTH_CODE` localStorage override with a documented local-development fallback.
-  - Added focused backend/frontend config tests and refreshed stale websocket snapshot expectations for the current `encounter_presets` state root.
+  - Backend auth settings now load through `backend/core/config.py`, allow documented defaults only for development/test, require explicit non-empty codes outside those environments, and reject duplicate role codes.
+  - Added root and frontend environment examples; `just` loads the root `.env` when present.
+  - Removed compiled frontend fallback auth codes. Optional role shortcuts now require Vite environment configuration, while normal code entry continues to submit the user-provided code.
+  - Replaced the Firefox bridge's hardcoded service code with an extension options page backed by Firefox local extension storage.
+  - Added backend settings tests and frontend coverage for missing auth configuration.
 - [x] Continue trimming redundant websocket success payloads where authoritative patches already prove success.
-  - Mutating `perform_action` requests now complete through their authoritative `state_patch`; `action_executed` remains only for action executions that produce no state patch.
-  - Updated backend runtime tests to assert patch-only success for mutating action execution while preserving explicit success for no-op/Roll20-only action execution.
+  - Audited registered route contracts and handlers; sheet, item, formula, action, condition, stat, bridge, encounter, and resource mutations are already patch-only.
+  - Retained authentication, metadata/status queries, sheet access-code/claim results, and other private/non-state responses because an authoritative patch cannot carry those semantics.
+  - Retained `action_executed` because valid actions may emit Roll20 messages without mutating state and therefore produce no `state_patch`; the result event is the request completion signal in that case.
 - [x] Backend websocket contract tests cover auth, snapshot, patch, error, resync, permission failures, action execution, variable mutation, and Roll20 bridge failure.
-  - Added focused websocket contract coverage for DM-only permission denial, patch broadcast, replay resync, variable-registry mutation metadata, mutating action execution, and no-patch Roll20-only action success.
-  - Reset state-sync version/history in websocket tests so snapshot, patch, and replay assertions remain isolated.
-- [x] Backend role-based access tests cover DM-only and future typed admin mutations.
-  - Added a registry-wide access matrix that classifies every public websocket route as unauthenticated, player-accessible, or DM-only.
-  - Exercised route authorization for unauthenticated, player, and DM sessions, and locked expected custom denial reasons so new typed admin mutations must make their access boundary explicit.
-- [x] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
-  - Added structured codegen tests that compare generated route-helper metadata against the live request registry.
-  - Added checked-in generated protocol freshness coverage and verified every registered request/event model is exported and included in the generated TypeScript unions.
+  - `test_ws.py` covers player/DM/service auth, bootstrap snapshots, unknown-request and auth errors, explicit resync, bridge status, successful delivery, and disconnected bridge failure.
+  - `test_state_sync.py` covers ordered patch broadcast, increment/decrement mutations, patch replay, redaction during replay, and full-snapshot fallback.
+  - `test_sheet_runtime.py` covers action execution plus set/increment/decrement, bounded resources, proficiency, augmentation, condition, damage, healing, and authorization failures.
+  - Sheet-admin contract suites cover DM-only mutation rejection and patch-only success across each typed admin family.
+- [ ] Backend role-based access tests cover DM-only and future typed admin mutations.
+  - Added a registry-level invariant that every current and future `minimum_role = "dm"` route rejects player sessions and accepts DM sessions.
+  - Existing feature-family suites continue to cover representative DM success and player rejection through the full transport path.
+  - Pending execution in a backend environment with the pinned Python dependencies installed.
+- [ ] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
+  - Added dynamic checks that every public registry route declares client-generation metadata, every registered request/event model is exported, and every generated route-manifest entry exactly matches its registry contract.
+  - Pending execution in a backend environment with the pinned Python dependencies installed.
 - [x] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
-  - Existing frontend suites cover websocket wrapper parsing, reconnect/backoff, resync recovery, authoritative snapshot/patch reconciliation, optimistic pending feedback, reducers, request builders, selectors, and mock-mode sheet flows.
-  - Added focused coverage for backend error/action-executed parsing and adaptation, unsupported typed mock transport requests, and sheet modifier parsing/formatting used by resource/stat edit controls.
+  - Socket protocol/event-adapter tests cover parsing, invalid payloads, snapshots, and patches.
+  - Managed-client tests cover reconnect/backoff, re-authentication, deliberate disconnect, and version-gap resync.
+  - Sync reducer tests cover backend-authoritative snapshots/patches, forced-snapshot overwrite, resources, notes, equipment, stats, and migrated entity families.
+  - Reducer, mock transport, sheet selector, quick-action, and request/editor-value suites cover local lifecycle behavior and core sheet workflows.
+  - The complete runnable frontend set passes: 23 files and 146 tests; the generated request-helper suite remains tied to the separate pending backend codegen-environment verification item.
 - [x] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
-  - Added tablist semantics and arrow/Home/End keyboard handling for character sheet sections, plus explicit active-sheet quick-switch tab states.
-  - Added accessible names, expanded states, described hints/errors, alert roles, and visible focus styling for resource/stat editor controls.
-  - Fixed a Vite env typing issue surfaced by frontend build verification.
-- [ ] Add integration tests for rapid intent sequences and snapshot/patch consistency.
-- [ ] Add schema versions and migration support before serious data entry.
-- [ ] Add source request/action metadata to mutations for audit/debugging.
+  - Added consistent high-contrast `:focus-visible` treatment and disabled-control styling for shared interactive elements.
+  - Character-sheet navigation now uses tablist/tab/tabpanel semantics with roving tab focus plus arrow, Home, and End keyboard navigation.
+  - Stat and resource value buttons now expose current values, expanded state, and editor relationships; editor inputs expose descriptions, invalid state, and announced errors.
+  - Notes synchronization uses a polite live status, action/equipment controls have contextual accessible names, and active equipment uses pressed-state semantics.
+  - All 146 runnable frontend tests remain green; sheet lint and formatting checks pass.
+- [x] Add integration tests for rapid intent sequences and snapshot/patch consistency.
+  - Added a socket-client integration case that processes rapid create/update/delete patches back-to-back and verifies ordered state versions, originating request IDs, intermediate state, and final authoritative state.
+  - Existing managed-client coverage verifies that skipped versions are rejected and trigger explicit resync rather than being applied.
+  - The focused socket, reconnect, and authoritative sync set passes: 31 tests.
+- [x] Add schema versions and migration support before serious data entry.
+  - Persisted state now uses a versioned envelope independent of the public snapshot schema, with a sequential migration registry and current schema version constant.
+  - Legacy unversioned state migrates automatically to v1 and is rewritten only after successful domain deserialization.
+  - Invalid JSON, malformed envelopes, missing migration steps, and unsupported future versions fail explicitly instead of silently resetting valuable state.
+  - State dumps now fsync a same-directory temporary file and atomically replace the prior dump.
+  - Added focused migration/store tests and updated persistence assertions; direct migration/load/write validation passes in the available Python runtime.
+- [x] Add source request/action metadata to mutations for audit/debugging.
+  - Registry dispatch now establishes an async-safe scoped request context containing server request ID, request type, action ID, and relevant sheet/instance ID.
+  - State sync records a bounded internal mutation audit stream keyed by state version with originating request/action metadata and mutated paths.
+  - The context is reset in a `finally` block to prevent metadata leaking between concurrent or subsequent websocket requests.
+  - Mutation provenance stays backend-internal so player patches do not expose GM/debug metadata or expand the authoritative transport contract.
+  - Added coverage for context scoping, action provenance, and direct internal mutations.
 - [ ] Add DM-only undo later; MVP uses manual DM correction for duplicate/incorrect mutations.
 
 ## 11. MVP Acceptance Criteria
@@ -865,15 +909,31 @@ MVP is done when:
 
 ### Later
 
-- [ ] GM console overlay mode for fast page switching and encounter spawn actions.
+- [x] GM console overlay mode for fast page switching and encounter spawn actions.
+  - Added persistent GM quick controls on every GM page with Alt+G open/toggle, Escape dismissal, backdrop dismissal, focus trapping, and trigger-focus restoration.
+  - The semantic dialog exposes every GM page once and reuses the existing authoritative `gmView` state.
+  - Embedded the typed encounter quick-select/spawn panel so saved encounters can be launched without returning to the main console.
+  - Added navigation/shortcut regression coverage; the runnable frontend suite passes 24 files and 151 tests.
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode/alternative handling.
-- [ ] Downtime training automation.
+- [x] Keep downtime training manual for MVP.
+  - Decision: DM manually adjudicates downtime practice/activation counts and awards proficiency/XP as appropriate; no downtime automation is needed for MVP.
 - [ ] Mastery unlock enforcement.
-- [ ] Level-up policy automation; manual value edits remain enough until rules are settled.
+- [ ] Add XP tracker for level-up readiness.
+  - DM defines XP needed for next level and mob/enemy XP values.
+  - Players can mark/count how many tracked mobs they killed.
+  - Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
+  - DM UI shows current XP versus XP needed; DM reviews at end of session.
+  - Level-up application remains manual DM sheet edits for MVP.
 - [ ] Export/import JSON.
+  - Export must originate from the backend's private persisted-state envelope so backups include authoritative private fields such as sheet access codes.
+  - Import must be DM-only, run through the persisted schema migration/validation path, replace state atomically, clear stale patch replay history, and rebroadcast role-redacted full snapshots.
+  - Add the registry-backed request/event contract and regenerate frontend protocol output before adding download/upload controls; do not derive backups from the redacted frontend snapshot.
 - [ ] Multi-campaign support.
-- [ ] Mobile layout refinement for player character sheet and GM encounter/template panels.
+- [x] Mobile layout refinement for player character sheet and GM encounter/template panels.
+  - Added a compact app shell and single-column mobile grids for player resources, core stats, equipment, encounter roster entries, and template editor fields.
+  - Added horizontally scrollable sheet/navigation tabs, 44px touch targets, wrapping/full-width action controls, and stacked encounter/template list cards.
+  - Converted the GM quick console to a mobile bottom sheet while preserving its dialog, focus, and keyboard behavior.
 - [ ] DM-only undo.
 
 ## 13. Deferred Rule Decisions
@@ -888,7 +948,7 @@ These are not MVP blockers:
 - Exact heavy armor penalty augmentation behavior.
 - Exact overload DC formula.
 - Stacking rules beyond additive resistance capped at 100 percent.
-- Level-up policy boundaries beyond manual edits and GM discretion.
+- Automated level-up stat distribution beyond XP readiness tracking and manual GM edits.
 - Exact frontend roll composer preview terms for formulas that remain Roll20-resolved.
 - Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, or formula-driven.
 
@@ -931,3 +991,246 @@ Completed backend work includes:
 - removal of the old public generic sheet-admin websocket CRUD surface.
 
 The legacy `plan/archived/Completed.md` is archived; new completion updates should be recorded in this active plan unless the project adopts a separate completion log again.
+
+# 15. Known Bugs and Integration Issues
+
+## BUG-001 — Landing page does not connect until a code is submitted
+
+* **Status:** Open
+* **Priority:** P1
+* **Area:** Frontend / WebSocket lifecycle
+* **Observed behavior:** When the frontend first loads, the landing page displays `disconnected` even though the backend server is running. Submitting any code, including an invalid code, causes the WebSocket to connect and the badge to change to `connected`.
+* **Expected behavior:** The frontend should connect to the backend WebSocket as soon as the application loads, before authentication is attempted.
+* **Reproduction steps:**
+
+  1. Start the backend.
+  2. Start the frontend.
+  3. Open the frontend landing page.
+  4. Observe that the status badge says `disconnected`.
+  5. Submit an invalid authentication code.
+  6. Observe that the status changes to `connected`.
+* **Suspected cause:** The initial connection effect in `frontend/src/app/App.tsx` prevents `client.connect()` from running while the authenticated role is `null`.
+* **Acceptance criteria:**
+
+  * The application attempts to connect immediately after loading.
+  * The badge transitions through `connecting` to `connected` without requiring code submission.
+  * Authentication remains a separate step from transport connection.
+  * Invalid authentication codes do not close the WebSocket.
+  * A frontend regression test covers initial connection behavior.
+
+---
+
+## BUG-002 — Backend replaces client request IDs and leaves pending notifications unresolved
+
+* **Status:** Open
+* **Priority:** P1
+* **Area:** Backend protocol / Frontend request tracking
+* **Observed behavior:** Clicking **Perform Action** briefly displays both:
+
+  * `Perform action: Attack pending...`
+  * `Intent synced.`
+
+  The pending notification is not resolved by the response and instead disappears only after its timeout.
+* **Expected behavior:** The pending notification should be matched to the corresponding backend response, removed immediately, and replaced by a correctly labeled success or failure notification.
+* **Reproduction steps:**
+
+  1. Log in as a player.
+  2. Claim a character sheet.
+  3. Select an action such as `Attack`.
+  4. Click **Perform Action**.
+  5. Observe the simultaneous generic success and unresolved pending notifications.
+* **Suspected cause:** The backend assigns a new `request_id` even when the frontend already provided one. The response therefore cannot be correlated with the frontend’s pending request.
+* **Relevant backend area:** `backend/routes/ws.py`, particularly request-ID assignment.
+* **Acceptance criteria:**
+
+  * A valid client-provided `request_id` is preserved.
+  * A request ID is generated only when the client did not provide one.
+  * The action’s pending notification is cleared as soon as the terminal action response arrives.
+  * The success notification uses the original action label rather than the generic label `Intent`.
+  * Automated tests verify request-ID preservation and frontend correlation.
+
+---
+
+## BUG-003 — Action requests may be resolved more than once
+
+* **Status:** Open
+* **Priority:** P2
+* **Area:** Frontend protocol handling
+* **Observed behavior:** A `perform_action` request may produce both a state update and an `action_executed` response using the same request ID. The frontend can treat both events as successful request completion.
+* **Expected behavior:** Each user request should produce one terminal success or failure notification.
+* **Suspected cause:** The frontend resolves pending requests when processing state-patch or snapshot events, even when a later `action_executed` event is the proper terminal response.
+* **Acceptance criteria:**
+
+  * State synchronization events do not prematurely resolve action requests.
+  * `action_executed` is treated as the terminal response for `perform_action`.
+  * Only one success notification appears for each action.
+  * Tests cover multi-event responses sharing one request ID.
+
+---
+
+## BUG-004 — Roll20 bridge status becomes stale after the extension connects or disconnects
+
+* **Status:** Open
+* **Priority:** P1
+* **Area:** Backend WebSocket integration / Frontend status
+* **Observed behavior:** The player console can display `Roll20 disconnected` and show the error `Roll20 chat bridge is not connected` even while action messages are successfully being delivered to Roll20.
+* **Expected behavior:** The bridge status shown in the frontend should update automatically whenever the extension connects or disconnects.
+* **Reproduction steps:**
+
+  1. Open the player frontend before the Roll20 extension has connected.
+  2. Allow the frontend to receive a disconnected bridge status.
+  3. Open or reload the Roll20 editor and allow the extension to connect.
+  4. Perform an action and confirm that it reaches Roll20.
+  5. Observe that the frontend can still display the old disconnected state.
+* **Suspected cause:** The backend records bridge connections on `/ws/chat` but does not broadcast connection-state changes to frontend clients connected to `/ws`.
+* **Acceptance criteria:**
+
+  * The backend broadcasts a bridge-status event when the extension authenticates successfully.
+  * The backend broadcasts an updated status when the extension disconnects.
+  * The frontend clears stale bridge errors after receiving a connected status.
+  * The status remains correct without requiring the user to click **Check Bridge**.
+  * Tests cover bridge connection and disconnection broadcasts.
+
+---
+
+## BUG-005 — Generated player sheet access codes are not shown to the GM
+
+* **Status:** Open
+* **Priority:** P1
+* **Area:** GM frontend / Character-sheet provisioning
+* **Observed behavior:** Spawning a player sheet causes the backend to generate an access code, but the GM interface does not display that code.
+* **Expected behavior:** After spawning a player sheet, the GM should immediately receive and be able to copy the generated access code.
+* **Current workaround:** Read the generated code directly from `state_dumpy.json`.
+* **Suspected cause:** The frontend receives a `sheet_access_codes` event but discards it without creating a UI event or updating visible state.
+* **Relevant frontend area:** `frontend/src/infrastructure/ws/eventAdapters.ts`.
+* **Acceptance criteria:**
+
+  * The generated code is displayed after the player instance is created.
+  * The result identifies the character or instance associated with the code.
+  * The GM can copy the code through a copy button or equivalent control.
+  * The GM can view active codes again after dismissing the initial notification.
+  * Errors during code generation are shown clearly.
+  * Frontend tests verify handling of `sheet_access_codes` events.
+
+---
+
+## BUG-006 — Firefox extension does not match the exact Roll20 editor URL
+
+* **Status:** Open
+
+* **Priority:** P1
+
+* **Area:** Firefox extension
+
+* **Observed behavior:** Firefox reports that the extension cannot read or change data on the Roll20 editor page when the page URL is:
+
+  `https://app.roll20.net/editor`
+
+* **Expected behavior:** The extension should run on the Roll20 game editor regardless of whether the URL includes a trailing slash or additional path components.
+
+* **Suspected cause:** The manifest matches only:
+
+  `https://app.roll20.net/editor/*`
+
+  This does not match the exact `/editor` URL.
+
+* **Acceptance criteria:**
+
+  * The manifest supports `https://app.roll20.net/editor`.
+  * The manifest continues to support `https://app.roll20.net/editor/*`.
+  * Reloading the extension and Roll20 page activates the content script.
+  * An installation or smoke-test checklist documents the supported URL patterns.
+
+---
+
+## BUG-007 — Public Roll20 roll commands are formatted as ordinary text
+
+* **Status:** Open
+* **Priority:** P1
+* **Area:** Backend / Roll20 message formatting
+* **Observed behavior:** Roll20 receives messages resembling:
+
+  `Attack: /r (1d100 / 100) * (10)`
+
+  Roll20 displays the command as text instead of evaluating it as a roll.
+* **Expected behavior:** Roll20 should evaluate the expression and display the roll result while retaining the action label.
+* **Suspected cause:** Roll20 slash commands must begin at the start of the message. Prefixing `/r` with `Attack:` prevents command parsing.
+* **Acceptance criteria:**
+
+  * Public action messages use valid Roll20 syntax.
+  * Labeled rolls use inline-roll syntax, such as `Attack: [[expression]]`, or another verified Roll20-compatible format.
+  * GM-only rolls continue to use correct whisper syntax.
+  * Tests cover public, GM-only, labeled, and unlabeled roll messages.
+  * Manual verification confirms that Roll20 displays a calculated result.
+
+---
+
+## BUG-008 — Required ASGI server is absent from backend dependencies
+
+* **Status:** Open
+* **Priority:** P2
+* **Area:** Backend setup / Dependency management
+* **Observed behavior:** The repository documentation and `justfile` start the backend using Uvicorn, but installing `backend/requirements.txt` does not install Uvicorn.
+* **Expected behavior:** A clean clone should be runnable after creating a virtual environment and installing the documented dependency file.
+* **Reproduction steps:**
+
+  1. Clone or extract the repository without an existing `.venv`.
+  2. Create a new virtual environment.
+  3. Install `backend/requirements.txt`.
+  4. Run the documented Uvicorn command.
+  5. Observe that the Uvicorn module is unavailable.
+* **Acceptance criteria:**
+
+  * The selected ASGI server is declared in a committed dependency file.
+  * The dependency version is appropriately constrained.
+  * Setup documentation uses the same dependency-management path.
+  * A clean-environment startup test or CI check verifies that the backend can launch.
+
+---
+
+## BUG-009 — Roll20 bridge connection errors remain visible after successful delivery
+
+* **Status:** Open
+* **Priority:** P2
+* **Area:** Frontend status and feedback
+* **Observed behavior:** A prior `Roll20 chat bridge is not connected` error can remain visible after a later action is successfully sent to Roll20.
+* **Expected behavior:** A successful bridge-status check or successful message delivery should clear stale connection errors.
+* **Relationship:** This is closely related to `BUG-004`, but also concerns frontend error-state cleanup.
+* **Acceptance criteria:**
+
+  * Receiving `connected: true` clears the stored bridge error.
+  * Successful Roll20 delivery clears connection-specific errors.
+  * Unrelated action errors are not incorrectly cleared.
+  * Tests verify stale-error cleanup.
+
+---
+
+# Recommended Implementation Order
+
+1. `BUG-002` — Preserve request IDs.
+2. `BUG-003` — Ensure one terminal response per action.
+3. `BUG-001` — Connect the frontend on initial load.
+4. `BUG-004` — Broadcast live Roll20 bridge status.
+5. `BUG-009` — Clear stale bridge errors.
+6. `BUG-007` — Correct Roll20 roll formatting.
+7. `BUG-006` — Correct the Firefox URL match.
+8. `BUG-005` — Expose generated sheet codes in the GM UI.
+9. `BUG-008` — Correct backend dependency declarations.
+
+# Agent Instructions
+
+For each bug:
+
+1. Reproduce or confirm the reported behavior before editing code.
+2. Identify and document the root cause.
+3. Implement the smallest architecture-consistent fix.
+4. Add or update automated regression tests where practical.
+5. Run the relevant backend, frontend, and extension checks.
+6. Update the bug entry with:
+
+   * Final status
+   * Root cause
+   * Files changed
+   * Tests added
+   * Verification commands and results
+7. Do not mark a bug resolved solely because the immediate symptom disappeared.

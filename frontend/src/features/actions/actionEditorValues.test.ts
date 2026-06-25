@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { ActionDefinition, DamageType, ResolveDamageActionStep } from "@/domain/models";
+import type {
+  ActionDefinition,
+  DamageType,
+  GainProficiencyUseActionStep,
+  ResolveDamageActionStep
+} from "@/domain/models";
 import {
+  addGainProficiencyUseActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  createGainProficiencyUseActionStep,
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
+  moveGainProficiencyUseActionStep,
   moveResolveDamageActionStep,
   moveSendMessageActionStep,
+  removeGainProficiencyUseActionStep,
   removeResolveDamageActionStep,
   removeSendMessageActionStep,
   toActionDefinitionPayload,
@@ -14,6 +23,8 @@ import {
   toUpdatedActionDefinitionPayload,
   updateResolveDamageActionStep,
   updateResolveDamageActionStepFormula,
+  updateGainProficiencyUseActionStep,
+  updateGainProficiencyUseActionStepFormula,
   updateSendMessageActionStepFormula,
   updateSendMessageActionStepText
 } from "@/features/actions/actionEditorValues";
@@ -69,6 +80,23 @@ function testResolveDamageStep(
     type: "resolve_damage",
     target: "caster",
     damage_type: damageType,
+    amount: {
+      aliases: null,
+      text: amountText
+    }
+  };
+}
+
+function testGainProficiencyUseStep(
+  stepId: string,
+  proficiencyId: string,
+  amountText = "1"
+): GainProficiencyUseActionStep {
+  return {
+    step_id: stepId,
+    type: "gain_proficiency_use",
+    target: "caster",
+    proficiency_id: proficiencyId,
     amount: {
       aliases: null,
       text: amountText
@@ -182,6 +210,38 @@ describe("actionEditorValues", () => {
       amount: {
         aliases: null,
         text: "10"
+      }
+    });
+  });
+
+  it("adds proficiency gain steps with a selected proficiency and default amount", () => {
+    const values = createEmptyActionEditorValues();
+
+    expect(addGainProficiencyUseActionStep(values, "prof_created", "longsword")).toEqual({
+      name: "",
+      notes: "",
+      steps: [
+        {
+          step_id: "prof_created",
+          type: "gain_proficiency_use",
+          target: "caster",
+          proficiency_id: "longsword",
+          amount: {
+            aliases: null,
+            text: "1"
+          }
+        }
+      ]
+    });
+
+    expect(createGainProficiencyUseActionStep("prof_magic", "magic", "2")).toEqual({
+      step_id: "prof_magic",
+      type: "gain_proficiency_use",
+      target: "caster",
+      proficiency_id: "magic",
+      amount: {
+        aliases: null,
+        text: "2"
       }
     });
   });
@@ -322,6 +382,82 @@ describe("actionEditorValues", () => {
     });
   });
 
+  it("updates proficiency gain fields and preserves amount aliases", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          {
+            ...testGainProficiencyUseStep("prof", "longsword", "@arcane"),
+            amount: {
+              aliases: [
+                {
+                  name: "arcane",
+                  path: ["sheet", "stats", "arcane"]
+                }
+              ],
+              text: "@arcane"
+            }
+          }
+        ]
+      })
+    );
+
+    const result = updateGainProficiencyUseActionStep(values, "prof", {
+      proficiencyId: "greatsword",
+      amountText: "@arcane + 1"
+    });
+
+    expect(result.steps[0]).toEqual({
+      step_id: "prof",
+      type: "gain_proficiency_use",
+      target: "caster",
+      proficiency_id: "greatsword",
+      amount: {
+        aliases: [
+          {
+            name: "arcane",
+            path: ["sheet", "stats", "arcane"]
+          }
+        ],
+        text: "@arcane + 1"
+      }
+    });
+  });
+
+  it("updates proficiency gain formula text and aliases together", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [testGainProficiencyUseStep("prof", "longsword")]
+      })
+    );
+
+    expect(
+      updateGainProficiencyUseActionStepFormula(values, "prof", {
+        amountText: "@focus",
+        aliases: [
+          {
+            name: "focus",
+            path: ["sheet", "stats", "will"]
+          }
+        ]
+      }).steps[0]
+    ).toEqual({
+      step_id: "prof",
+      type: "gain_proficiency_use",
+      target: "caster",
+      proficiency_id: "longsword",
+      amount: {
+        aliases: [
+          {
+            name: "focus",
+            path: ["sheet", "stats", "will"]
+          }
+        ],
+        text: "@focus"
+      }
+    });
+  });
+
   it("removes only send message steps", () => {
     const values = toActionEditorValues(testAction());
 
@@ -348,6 +484,27 @@ describe("actionEditorValues", () => {
 
     expect(removeResolveDamageActionStep(values, "damage").steps).toEqual([values.steps[1]]);
     expect(removeResolveDamageActionStep(values, "step_message").steps).toEqual(values.steps);
+  });
+
+  it("removes only proficiency gain steps", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          testGainProficiencyUseStep("prof", "longsword"),
+          {
+            step_id: "step_message",
+            type: "send_message",
+            message: {
+              aliases: null,
+              text: "message"
+            }
+          }
+        ]
+      })
+    );
+
+    expect(removeGainProficiencyUseActionStep(values, "prof").steps).toEqual([values.steps[1]]);
+    expect(removeGainProficiencyUseActionStep(values, "step_message").steps).toEqual(values.steps);
   });
 
   it("reorders send message steps without moving non-message step slots", () => {
@@ -416,5 +573,31 @@ describe("actionEditorValues", () => {
       values.steps[0]
     ]);
     expect(moveResolveDamageActionStep(values, "damage_1", "up").steps).toEqual(values.steps);
+  });
+
+  it("reorders proficiency gain steps without moving other step slots", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          testGainProficiencyUseStep("prof_1", "longsword"),
+          {
+            step_id: "step_message",
+            type: "send_message",
+            message: {
+              aliases: null,
+              text: "message"
+            }
+          },
+          testGainProficiencyUseStep("prof_2", "greatsword")
+        ]
+      })
+    );
+
+    expect(moveGainProficiencyUseActionStep(values, "prof_2", "up").steps).toEqual([
+      values.steps[2],
+      values.steps[1],
+      values.steps[0]
+    ]);
+    expect(moveGainProficiencyUseActionStep(values, "prof_1", "up").steps).toEqual(values.steps);
   });
 });

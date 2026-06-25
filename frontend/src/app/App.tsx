@@ -12,6 +12,7 @@ import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
+import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
@@ -91,6 +92,10 @@ export function App(): JSX.Element {
       ) : gmView === "formula_authoring" ? (
         <main className="app-grid-player">
           <FormulaAuthoringPage client={client} />
+        </main>
+      ) : gmView === "proficiency_authoring" ? (
+        <main className="app-grid-player">
+          <ProficiencyAuthoringPage client={client} />
         </main>
       ) : gmView === "condition_authoring" ? (
         <main className="app-grid-player">

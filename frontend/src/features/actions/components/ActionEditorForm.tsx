@@ -1,13 +1,18 @@
 import { Field } from "@/shared/ui/Field";
-import { DAMAGE_TYPES, type DamageType } from "@/domain/models";
+import { DAMAGE_TYPES, type DamageType, type ProficiencyDefinition } from "@/domain/models";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
+  addGainProficiencyUseActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  moveGainProficiencyUseActionStep,
   moveResolveDamageActionStep,
   moveSendMessageActionStep,
+  removeGainProficiencyUseActionStep,
   removeResolveDamageActionStep,
   removeSendMessageActionStep,
+  updateGainProficiencyUseActionStep,
+  updateGainProficiencyUseActionStepFormula,
   updateResolveDamageActionStep,
   updateResolveDamageActionStepFormula,
   updateSendMessageActionStepText,
@@ -28,7 +33,8 @@ export function ActionEditorForm({
   onChange,
   onSubmit,
   onCancel,
-  metadata
+  metadata,
+  proficiencies
 }: {
   editingActionId: string | null;
   values: ActionEditorValues;
@@ -36,7 +42,10 @@ export function ActionEditorForm({
   onSubmit: () => void;
   onCancel: () => void;
   metadata: ActionFormulaAuthoringMetadata | null;
+  proficiencies: ProficiencyDefinition[];
 }): JSX.Element {
+  const defaultProficiencyId = proficiencies[0]?.id ?? "";
+
   const insertIntoMessageStep = (stepId: string, entry: VariablePickerEntry): void => {
     const step = values.steps.find(
       (candidate) => candidate.step_id === stepId && candidate.type === "send_message"
@@ -63,6 +72,22 @@ export function ActionEditorForm({
 
     onChange(
       updateResolveDamageActionStepFormula(values, stepId, {
+        amountText: appendFormulaToken(step.amount.text, entry.token),
+        aliases: upsertFormulaAlias(step.amount.aliases ?? null, entry.alias)
+      })
+    );
+  };
+
+  const insertIntoProficiencyStep = (stepId: string, entry: VariablePickerEntry): void => {
+    const step = values.steps.find(
+      (candidate) => candidate.step_id === stepId && candidate.type === "gain_proficiency_use"
+    );
+    if (!step || step.type !== "gain_proficiency_use") {
+      return;
+    }
+
+    onChange(
+      updateGainProficiencyUseActionStepFormula(values, stepId, {
         amountText: appendFormulaToken(step.amount.text, entry.token),
         aliases: upsertFormulaAlias(step.amount.aliases ?? null, entry.alias)
       })
@@ -105,6 +130,15 @@ export function ActionEditorForm({
                 onClick={() => onChange(addResolveDamageActionStep(values, makeId("damage")))}
               >
                 Add Damage
+              </button>
+              <button
+                className="button button--secondary"
+                disabled={!defaultProficiencyId}
+                onClick={() =>
+                  onChange(addGainProficiencyUseActionStep(values, makeId("proficiency"), defaultProficiencyId))
+                }
+              >
+                Add Proficiency
               </button>
             </div>
           </div>
@@ -206,6 +240,71 @@ export function ActionEditorForm({
                     <button
                       className="button button--secondary"
                       onClick={() => onChange(removeResolveDamageActionStep(values, step.step_id))}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : step.type === "gain_proficiency_use" ? (
+                <div className="list-item list-item--block" key={step.step_id}>
+                  <div className="inline-group">
+                    <Field label={`Proficiency: ${step.step_id}`}>
+                      <select
+                        value={step.proficiency_id}
+                        onChange={(event) =>
+                          onChange(
+                            updateGainProficiencyUseActionStep(values, step.step_id, {
+                              proficiencyId: event.target.value
+                            })
+                          )
+                        }
+                      >
+                        {proficiencies.some((proficiency) => proficiency.id === step.proficiency_id) ? null : (
+                          <option value={step.proficiency_id}>{step.proficiency_id}</option>
+                        )}
+                        {proficiencies.map((proficiency) => (
+                          <option key={proficiency.id} value={proficiency.id}>
+                            {proficiency.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Use Amount Formula">
+                      <input
+                        value={step.amount.text}
+                        onChange={(event) =>
+                          onChange(
+                            updateGainProficiencyUseActionStep(values, step.step_id, {
+                              amountText: event.target.value
+                            })
+                          )
+                        }
+                        placeholder="e.g. 1"
+                      />
+                    </Field>
+                  </div>
+                  <VariablePathBrowser
+                    metadata={metadata}
+                    mode="formula"
+                    title="Use Amount Variables"
+                    onPick={(entry) => insertIntoProficiencyStep(step.step_id, entry)}
+                  />
+                  <div className="inline-actions">
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(moveGainProficiencyUseActionStep(values, step.step_id, "up"))}
+                    >
+                      Up
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(moveGainProficiencyUseActionStep(values, step.step_id, "down"))}
+                    >
+                      Down
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => onChange(removeGainProficiencyUseActionStep(values, step.step_id))}
                     >
                       Delete
                     </button>

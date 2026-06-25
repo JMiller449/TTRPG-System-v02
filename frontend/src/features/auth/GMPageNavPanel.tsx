@@ -10,6 +10,7 @@ const NAV_ITEMS: Array<{ view: GMView; label: string }> = [
   { view: "encounter_presets", label: "Encounter Presets" },
   { view: "item_maker", label: "Item Maker" },
   { view: "formula_authoring", label: "Formula Authoring" },
+  { view: "proficiency_authoring", label: "Proficiency Authoring" },
   { view: "condition_authoring", label: "Condition Authoring" },
   { view: "action_authoring", label: "Action Authoring" }
 ];

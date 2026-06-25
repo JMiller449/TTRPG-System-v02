@@ -5,6 +5,7 @@ export type ActionEditorSteps = NonNullable<ActionDefinitionPayload["steps"]>;
 export type ActionEditorStep = ActionEditorSteps[number];
 export type SendMessageEditorStep = Extract<ActionEditorStep, { type: "send_message" }>;
 export type ResolveDamageEditorStep = Extract<ActionEditorStep, { type: "resolve_damage" }>;
+export type GainProficiencyUseEditorStep = Extract<ActionEditorStep, { type: "gain_proficiency_use" }>;
 
 export interface ActionEditorValues {
   name: string;
@@ -68,6 +69,23 @@ export function createResolveDamageActionStep(
   };
 }
 
+export function createGainProficiencyUseActionStep(
+  stepId: string,
+  proficiencyId: string,
+  amountText = "1"
+): GainProficiencyUseEditorStep {
+  return {
+    step_id: stepId,
+    type: "gain_proficiency_use",
+    target: "caster",
+    proficiency_id: proficiencyId,
+    amount: {
+      aliases: null,
+      text: amountText
+    }
+  };
+}
+
 export function addSendMessageActionStep(
   values: ActionEditorValues,
   stepId: string
@@ -85,6 +103,17 @@ export function addResolveDamageActionStep(
   return {
     ...values,
     steps: [...cloneActionSteps(values.steps), createResolveDamageActionStep(stepId)]
+  };
+}
+
+export function addGainProficiencyUseActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  proficiencyId: string
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [...cloneActionSteps(values.steps), createGainProficiencyUseActionStep(stepId, proficiencyId)]
   };
 }
 
@@ -186,6 +215,57 @@ export function updateResolveDamageActionStepFormula(
   };
 }
 
+export function updateGainProficiencyUseActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  updates: {
+    proficiencyId?: string;
+    amountText?: string;
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "gain_proficiency_use"
+        ? {
+            ...step,
+            proficiency_id: updates.proficiencyId ?? step.proficiency_id,
+            amount: {
+              aliases: step.amount.aliases,
+              text: updates.amountText ?? step.amount.text
+            }
+          }
+        : step
+    )
+  };
+}
+
+export function updateGainProficiencyUseActionStepFormula(
+  values: ActionEditorValues,
+  stepId: string,
+  updates: {
+    amountText?: string;
+    aliases?: FormulaAlias[] | null;
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "gain_proficiency_use"
+        ? {
+            ...step,
+            amount: {
+              aliases: updates.aliases === undefined ? step.amount.aliases : cloneAliases(updates.aliases),
+              text: updates.amountText ?? step.amount.text
+            }
+          }
+        : step
+    )
+  };
+}
+
 export function removeSendMessageActionStep(
   values: ActionEditorValues,
   stepId: string
@@ -203,6 +283,16 @@ export function removeResolveDamageActionStep(
   return {
     ...values,
     steps: cloneActionSteps(values.steps).filter((step) => step.step_id !== stepId || step.type !== "resolve_damage")
+  };
+}
+
+export function removeGainProficiencyUseActionStep(
+  values: ActionEditorValues,
+  stepId: string
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: cloneActionSteps(values.steps).filter((step) => step.step_id !== stepId || step.type !== "gain_proficiency_use")
   };
 }
 
@@ -255,6 +345,36 @@ export function moveResolveDamageActionStep(
 
   const currentSlot = damageSlots[currentDamageIndex];
   const targetSlot = damageSlots[targetDamageIndex];
+  nextValues.steps[currentSlot.index] = targetSlot.step;
+  nextValues.steps[targetSlot.index] = currentSlot.step;
+  return nextValues;
+}
+
+export function moveGainProficiencyUseActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  direction: "up" | "down"
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  const proficiencySlots = nextValues.steps
+    .map((step, index) => ({ step, index }))
+    .filter(
+      (entry): entry is { step: GainProficiencyUseEditorStep; index: number } =>
+        entry.step.type === "gain_proficiency_use"
+    );
+  const currentProficiencyIndex = proficiencySlots.findIndex((entry) => entry.step.step_id === stepId);
+  const targetProficiencyIndex = direction === "up" ? currentProficiencyIndex - 1 : currentProficiencyIndex + 1;
+
+  if (
+    currentProficiencyIndex < 0 ||
+    targetProficiencyIndex < 0 ||
+    targetProficiencyIndex >= proficiencySlots.length
+  ) {
+    return nextValues;
+  }
+
+  const currentSlot = proficiencySlots[currentProficiencyIndex];
+  const targetSlot = proficiencySlots[targetProficiencyIndex];
   nextValues.steps[currentSlot.index] = targetSlot.step;
   nextValues.steps[targetSlot.index] = currentSlot.step;
   return nextValues;

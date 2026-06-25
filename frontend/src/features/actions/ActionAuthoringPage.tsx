@@ -22,7 +22,12 @@ import { makeId } from "@/shared/utils/id";
 export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { actions: actionRecords, actionOrder },
+      serverState: {
+        actions: actionRecords,
+        actionOrder,
+        proficiencies: proficiencyRecords,
+        proficiencyOrder
+      },
       uiState: { actionFormulaAuthoringMetadata }
     }
   } = useAppStore();
@@ -34,6 +39,13 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
   const actions = useMemo(
     () => selectOrderedActionDefinitions(actionRecords, actionOrder),
     [actionOrder, actionRecords]
+  );
+  const proficiencies = useMemo(
+    () =>
+      proficiencyOrder
+        .map((proficiencyId) => proficiencyRecords[proficiencyId])
+        .filter((proficiency) => Boolean(proficiency)),
+    [proficiencyOrder, proficiencyRecords]
   );
 
   const startNewAction = (): void => {
@@ -94,6 +106,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           onSubmit={onSubmit}
           onCancel={startNewAction}
           metadata={actionFormulaAuthoringMetadata}
+          proficiencies={proficiencies}
         />
 
         <ActionStepMetadataPanel metadata={actionFormulaAuthoringMetadata} />

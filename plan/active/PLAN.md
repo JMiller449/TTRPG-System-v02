@@ -486,11 +486,13 @@ Frontend augmentation UX boundary:
 - [x] Add global proficiency definition CRUD.
   - Added DM-only backend websocket create/update/delete routes for `/proficiencies/{proficiency_id}`.
   - Added generated frontend protocol/request helpers and frontend authoritative state reconciliation for global proficiency definitions.
+  - Added GM Proficiency Authoring UI for creating, editing, and deleting global proficiency definitions.
 - [x] Validate sheet proficiency bridges against existing global proficiency definitions.
   - Sheet create/update and sheet proficiency bridge create/update now reject missing global `prof_id` references.
-- [ ] Keep MVP strict for action proficiency references: do not auto-create sheet progress bridges at runtime when an action references a proficiency the sheet does not have.
-- [ ] Add action-level proficiency gain authoring.
-  - Actions should declare the proficiency/proficiencies they train instead of requiring the DM to hand-author generic gain steps for the common case.
+- [x] Keep MVP strict for action proficiency references: do not auto-create sheet progress bridges at runtime when an action references a proficiency the sheet does not have.
+  - Action create/update validates `gain_proficiency_use.proficiency_id` against global proficiency definitions, while runtime still rejects missing sheet progress bridges.
+- [x] Add action-level proficiency gain authoring.
+  - Action authoring can add/edit/remove/reorder proficiency gain steps using global proficiency definitions and an amount formula.
   - Multiple actions may feed the same proficiency definition.
 - [x] Add variable registry/path metadata for formula authoring.
 - [x] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.

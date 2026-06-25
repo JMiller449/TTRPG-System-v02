@@ -29,6 +29,7 @@ export type GMView =
   | "encounter_presets"
   | "item_maker"
   | "formula_authoring"
+  | "proficiency_authoring"
   | "condition_authoring"
   | "action_authoring";
 

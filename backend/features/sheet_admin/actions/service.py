@@ -72,7 +72,7 @@ def _validate_action_mutation_path(path: list[str]) -> None:
         )
 
 
-def _validate_action_step(step: ActionStepPayload) -> None:
+def _validate_action_step(step: ActionStepPayload, state: State | None = None) -> None:
     _validate_action_step_target(step)
     if isinstance(step, SendMessageActionStepPayload):
         validate_formula_payload_paths(step.message)
@@ -87,6 +87,8 @@ def _validate_action_step(step: ActionStepPayload) -> None:
         _validate_action_mutation_path(step.path)
         validate_formula_payload_paths(step.amount)
     if isinstance(step, GainProficiencyUseActionStepPayload):
+        if state is not None and step.proficiency_id not in state.proficiencies:
+            raise ValueError(f"Proficiency '{step.proficiency_id}' does not exist.")
         validate_formula_payload_paths(step.amount)
     if isinstance(step, ResolveDamageActionStepPayload):
         validate_formula_payload_paths(step.amount)
@@ -97,9 +99,12 @@ def _validate_action_step(step: ActionStepPayload) -> None:
             validate_formula_payload_paths(step.max_value)
 
 
-def _validate_action_payload(payload: ActionDefinitionPayload) -> None:
+def _validate_action_payload(
+    payload: ActionDefinitionPayload,
+    state: State | None = None,
+) -> None:
     for step in payload.steps:
-        _validate_action_step(step)
+        _validate_action_step(step, state)
 
 
 def _bounds_kwargs(step: NumericBoundsPayload) -> dict:
@@ -185,8 +190,8 @@ def _build_step(
     )
 
 
-def _build_action(payload: ActionDefinitionPayload) -> Action:
-    _validate_action_payload(payload)
+def _build_action(payload: ActionDefinitionPayload, state: State | None = None) -> Action:
+    _validate_action_payload(payload, state)
     return Action(
         id=payload.id,
         name=payload.name,
@@ -224,12 +229,11 @@ async def _create_action(
     *,
     request_id: str | None = None,
 ) -> None:
-    action = _build_action(payload)
-
     def mutation(state: State) -> tuple[None, list]:
         actions = _actions_state(state)
         if payload.id in actions:
             raise ValueError(f"Action '{payload.id}' already exists.")
+        action = _build_action(payload, state)
         path = state_sync_service.join_path("actions", payload.id)
         op = state_sync_service.add_mutation(state, path, action)
         return None, [op]
@@ -246,13 +250,12 @@ async def _update_action(
     if payload.id != action_id:
         raise ValueError("Action ID cannot be changed.")
 
-    action = _build_action(payload)
-
     def mutation(state: State) -> tuple[None, list]:
         actions = _actions_state(state)
         if action_id not in actions:
             raise ValueError(f"Action '{action_id}' does not exist.")
 
+        action = _build_action(payload, state)
         path = state_sync_service.join_path("actions", action_id)
         op = state_sync_service.set_mutation(state, path, action)
         return None, [op]

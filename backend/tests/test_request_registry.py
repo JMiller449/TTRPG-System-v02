@@ -34,6 +34,9 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "CreateFormula",
         "UpdateFormula",
         "DeleteFormula",
+        "CreateProficiency",
+        "UpdateProficiency",
+        "DeleteProficiency",
         "CreateItem",
         "UpdateItem",
         "DeleteItem",
@@ -213,6 +216,30 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         )
     )
     assert contracts["delete_item"].minimum_role == "dm"
+    assert contracts["create_proficiency"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="proficiencies",
+            method_name="createProficiency",
+        )
+    )
+    assert contracts["create_proficiency"].minimum_role == "dm"
+    assert contracts["create_proficiency"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["update_proficiency"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="proficiencies",
+            method_name="updateProficiency",
+        )
+    )
+    assert contracts["update_proficiency"].minimum_role == "dm"
+    assert contracts["update_proficiency"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["delete_proficiency"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="proficiencies",
+            method_name="deleteProficiency",
+        )
+    )
+    assert contracts["delete_proficiency"].minimum_role == "dm"
+    assert contracts["delete_proficiency"].emitted_event_models == (StatePatchEvent,)
     assert contracts["set_sheet_base_stat"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAdminStats",

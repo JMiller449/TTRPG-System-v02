@@ -20,3 +20,15 @@ The content script connects to:
 
 If you change the backend host or port, update
 [roll20-chat-bridge.js](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/firefox_extension/content/roll20-chat-bridge.js).
+
+### Service Auth Code
+
+The bridge authenticates with the backend `SERVICE_AUTH_CODE`. For local development
+the default is `service`.
+
+To override it for a loaded temporary extension, run this in the Roll20 editor page
+console before reconnecting the extension:
+
+```js
+localStorage.setItem("TTRPG_SERVICE_AUTH_CODE", "your-service-code");
+```

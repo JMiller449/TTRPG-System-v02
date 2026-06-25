@@ -26,6 +26,7 @@ export type AugmentationPayload = ProtocolRequest<"upsert_item_augmentation_temp
 export type FormulaPayload = ProtocolRequest<"set_sheet_formula_stat">["formula"];
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
+export type ProficiencyDefinitionPayload = ProtocolRequest<"create_proficiency">["proficiency"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
 export type EncounterPresetPayload = ProtocolRequest<"save_encounter_preset">["encounter"];
 export type AugmentationTargetContext = NonNullable<
@@ -526,6 +527,48 @@ export function buildDeleteItemRequest({
     ...requestIdField(requestId),
     type: "delete_item",
     item_id: itemId
+  };
+}
+
+export function buildCreateProficiencyRequest({
+  proficiency,
+  requestId
+}: {
+  proficiency: ProficiencyDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_proficiency"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_proficiency",
+    proficiency
+  };
+}
+
+export function buildUpdateProficiencyRequest({
+  proficiencyId,
+  proficiency,
+  requestId
+}: {
+  proficiencyId: string;
+  proficiency: ProficiencyDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_proficiency"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_proficiency",
+    proficiency_id: proficiencyId,
+    proficiency
+  };
+}
+
+export function buildDeleteProficiencyRequest({
+  proficiencyId,
+  requestId
+}: {
+  proficiencyId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_proficiency"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_proficiency",
+    proficiency_id: proficiencyId
   };
 }
 

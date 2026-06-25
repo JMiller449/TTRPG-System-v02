@@ -219,6 +219,10 @@ export function useGameClient(): GameClient {
         });
         return;
       }
+      if (event.type === "connection_lost") {
+        dispatch({ type: "connection_error", error: event.message });
+        return;
+      }
       const label = event.requestId ? intentLabelMapRef.current[event.requestId] ?? "Intent" : "Transport";
       const isRoll20BridgeError = isRoll20BridgeUnavailableError(event.message);
       if (isRoll20BridgeError) {

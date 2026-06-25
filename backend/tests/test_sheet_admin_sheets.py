@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -115,6 +116,14 @@ def _sheet_payload(
         "resistances": _resistances_payload(),
         "slayed_record": {},
         "actions": {},
+    }
+
+
+def _proficiency_payload(proficiency_id: str = "magic_prof") -> dict:
+    return {
+        "id": proficiency_id,
+        "name": proficiency_id.replace("_", " ").title(),
+        "description": "Test proficiency.",
     }
 
 
@@ -1265,6 +1274,102 @@ def test_create_sheet_rejects_missing_embedded_item_reference(monkeypatch) -> No
                 {
                     "response_id": None,
                     "reason": "Item 'missing_item' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_sheet_rejects_missing_embedded_proficiency_reference(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            sheet = _sheet_payload()
+            sheet["proficiencies"] = {
+                "magic": {
+                    "relationship_id": "magic",
+                    "prof_id": "missing_prof",
+                    "use_count": 0,
+                    "growth_rate": 1.0,
+                }
+            }
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet",
+                    "sheet": sheet,
+                },
+            )
+
+            assert StateSingleton.getState().sheets == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Proficiency 'missing_prof' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_update_sheet_rejects_missing_embedded_proficiency_reference(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["magic_prof"] = Proficiency.from_dict(
+                _proficiency_payload()
+            )
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            sheet = _sheet_payload()
+            sheet["proficiencies"] = {
+                "magic": {
+                    "relationship_id": "magic",
+                    "prof_id": "missing_prof",
+                    "use_count": 0,
+                    "growth_rate": 1.0,
+                }
+            }
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_sheet",
+                    "sheet_id": "mage_template",
+                    "sheet": sheet,
+                },
+            )
+
+            assert state.sheets["mage_template"].proficiencies == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Proficiency 'missing_prof' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }

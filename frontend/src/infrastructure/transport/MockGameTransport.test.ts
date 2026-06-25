@@ -41,6 +41,35 @@ function sheetDefinition(overrides: Partial<SheetDefinitionPayload> = {}): Sheet
 }
 
 describe("MockGameTransport protocol sheet requests", () => {
+  it("authenticates with explicit local development auth tokens", () => {
+    const transport = new MockGameTransport();
+    const events = collectEvents(transport);
+
+    transport.sendProtocolRequest({
+      request_id: "req-player",
+      type: "authenticate",
+      token: "player"
+    });
+    transport.sendProtocolRequest({
+      request_id: "req-gm",
+      type: "authenticate",
+      token: "dm"
+    });
+
+    expect(events).toContainEqual({
+      type: "authenticated",
+      authenticated: true,
+      role: "player",
+      requestId: "req-player"
+    });
+    expect(events).toContainEqual({
+      type: "authenticated",
+      authenticated: true,
+      role: "gm",
+      requestId: "req-gm"
+    });
+  });
+
   it("reports Roll20 bridge status through protocol-shaped events", () => {
     const transport = new MockGameTransport();
     const events = collectEvents(transport);
@@ -162,5 +191,22 @@ describe("MockGameTransport protocol sheet requests", () => {
     });
     expect(presentation?.value.name).toBe("Player Base");
     expect(events).toContainEqual({ type: "ack", requestId: "req-create-instance" });
+  });
+
+  it("emits explicit errors for typed requests unsupported by mock transport", () => {
+    const transport = new MockGameTransport();
+    const events = collectEvents(transport);
+
+    transport.sendProtocolRequest({
+      request_id: "req-delete-action",
+      type: "delete_action",
+      action_id: "action_missing"
+    });
+
+    expect(events).toContainEqual({
+      type: "error",
+      requestId: "req-delete-action",
+      message: "delete_action is not supported by mock transport"
+    });
   });
 });

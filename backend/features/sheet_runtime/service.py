@@ -339,7 +339,7 @@ async def perform_action(
     *,
     actor_role: SessionRole = "player",
     assigned_instance_id: str | None = None,
-) -> ActionExecuted:
+) -> ActionExecuted | None:
     actor = _resolve_allowed_runtime_actor(
         request,
         actor_role=actor_role,
@@ -356,7 +356,7 @@ async def perform_action(
         if not await chat_service.roll20_chat_bridge.is_connected():
             raise ValueError("Roll20 chat bridge is not connected.")
 
-    def mutation(state: State) -> tuple[tuple[list[str], list[str]], list[Any]]:
+    def mutation(state: State) -> tuple[tuple[list[str], list[str], bool], list[Any]]:
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
         current_action = _resolve_action(
             current_actor.sheet,
@@ -597,11 +597,13 @@ async def perform_action(
                 f"Unsupported runtime action step '{step.__class__.__name__}'."
             )
 
-        return (applied_mutations, emitted_messages), ops
+        return (applied_mutations, emitted_messages, bool(ops)), ops
 
-    applied_mutations, emitted_messages = await state_sync_service.apply_mutation(
-        mutation,
-        request_id=request.request_id,
+    applied_mutations, emitted_messages, emitted_state_patch = (
+        await state_sync_service.apply_mutation(
+            mutation,
+            request_id=request.request_id,
+        )
     )
 
     for message in emitted_messages:
@@ -612,6 +614,9 @@ async def perform_action(
                 request_id=request.request_id,
             )
         )
+
+    if emitted_state_patch:
+        return None
 
     return ActionExecuted(
         response_id=None,

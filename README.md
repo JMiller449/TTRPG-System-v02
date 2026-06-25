@@ -52,6 +52,9 @@ The backend websocket endpoints are:
 - app clients: `ws://127.0.0.1:6767/ws`
 - Roll20 bridge: `ws://127.0.0.1:6767/ws/chat`
 
+There is intentionally no HTTP chat debug endpoint. Roll20 chat delivery goes
+through app websocket requests and the `/ws/chat` bridge only.
+
 ## Load The Firefox Extension
 
 For local use on your machine, you do not need to package or sign it.
@@ -71,6 +74,11 @@ The extension only runs on `https://app.roll20.net/editor/*`.
 ## Development Notes
 
 - Active frontend/backend migration work is tracked in [PLAN.md](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/plan/active/PLAN.md).
+- Local auth codes are configured through environment variables:
+  - `PLAYER_JOIN_CODE` for app player auth, defaulting to `player` for local development.
+  - `DM_ADMIN_CODE` for app GM auth, defaulting to `dm` for local development.
+  - `SERVICE_AUTH_CODE` for the Roll20 bridge, defaulting to `service` for local development.
+  - Frontend helper/mock tokens use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN`; keep them aligned with backend codes when using those helper paths.
 - Backend state sync is patch-first:
   - clients get a full snapshot on connect
   - later changes arrive as ordered `state_patch` diffs

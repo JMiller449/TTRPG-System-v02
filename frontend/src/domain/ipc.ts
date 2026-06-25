@@ -7,6 +7,7 @@ import type {
   ItemDefinition,
   PersistentSheetPresentationRecord,
   PersistentSheetRecord,
+  ProficiencyDefinition,
   Role,
   Sheet,
   SheetPresentationRecord
@@ -30,6 +31,7 @@ export interface AppSnapshot {
   sheets: Sheet[];
   persistentSheets: PersistentSheetRecord[];
   items: ItemDefinition[];
+  proficiencies: ProficiencyDefinition[];
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];
   conditionPresets: ConditionPreset[];
@@ -48,4 +50,5 @@ export type ServerEvent =
   | { type: "snapshot"; snapshot: AppSnapshot; stateVersion?: number; incremental?: boolean; requestId?: string }
   | { type: "ack"; requestId: string }
   | { type: "sync_recovery"; requestId: string; lastSeenVersion: number | null; receivedVersion: number }
+  | { type: "connection_lost"; message: string }
   | { type: "error"; requestId?: string; message: string };

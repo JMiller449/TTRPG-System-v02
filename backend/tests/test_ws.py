@@ -10,6 +10,7 @@ from backend.features.auth.tokens import (
 )
 from backend.features.chat import service as chat_service
 from backend.features.state_sync import handler as state_sync_handler
+from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import (
     AUTH_CLOSE_CODE,
     authenticate_application_websocket,
@@ -17,6 +18,8 @@ from backend.routes.ws import (
     handle_client_payload,
     websocket_sessions,
 )
+from backend.state.models.action import Action
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -42,6 +45,84 @@ class FakeWebSocket:
 @pytest.fixture(autouse=True)
 def reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
+    asyncio.run(state_sync_service.reset())
+
+
+def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
+    return {
+        "aliases": aliases,
+        "text": text,
+    }
+
+
+def _build_sheet_state() -> Sheet:
+    return Sheet.from_dict(
+        {
+            "id": "mage_template",
+            "name": "Mage Template",
+            "dm_only": False,
+            "xp_given_when_slayed": 25,
+            "xp_cap": "A",
+            "proficiencies": {},
+            "items": {},
+            "stats": {
+                "strength": 10,
+                "dexterity": 11,
+                "constitution": 12,
+                "perception": 13,
+                "arcane": 14,
+                "will": 15,
+                "lifting": _formula_payload("@strength * 2"),
+                "carry_weight": _formula_payload("@strength * 3"),
+                "acrobatics": _formula_payload("@dexterity"),
+                "stamina": _formula_payload("@constitution"),
+                "reaction_time": _formula_payload("@dexterity"),
+                "health": _formula_payload("@constitution * 10"),
+                "endurance": _formula_payload("@constitution * 2"),
+                "pain_tolerance": _formula_payload("@will"),
+                "sight_distance": _formula_payload("@perception * 4"),
+                "intuition": _formula_payload("@perception"),
+                "registration": _formula_payload("@arcane"),
+                "mana": _formula_payload("@arcane * 8"),
+                "control": _formula_payload("@arcane"),
+                "sensitivity": _formula_payload("@arcane"),
+                "charisma": _formula_payload("@will"),
+                "mental_fortitude": _formula_payload("@will * 2"),
+                "courage": _formula_payload("@will"),
+            },
+            "slayed_record": {},
+            "actions": {
+                "spend": {
+                    "relationship_id": "bridge-1",
+                    "entry_id": "spend_mana",
+                },
+                "announce": {
+                    "relationship_id": "bridge-2",
+                    "entry_id": "announce",
+                },
+            },
+        }
+    )
+
+
+def _build_instance_state() -> InstancedSheet:
+    return InstancedSheet.from_dict(
+        {
+            "parent_id": "mage_template",
+            "health": 90,
+            "mana": 30,
+            "augments": {},
+        }
+    )
+
+
+async def _connect_assigned_player(websocket: FakeWebSocket) -> None:
+    await websocket_sessions.connect(websocket, role="player")
+    await websocket_sessions.assign_player_sheet(
+        websocket,
+        sheet_id="mage_template",
+        instance_id="mage_instance",
+    )
 
 
 def test_connections_start_unauthenticated() -> None:
@@ -411,6 +492,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
                     "items": {},
@@ -457,6 +539,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
                     "items": {},
@@ -503,6 +586,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
                     "items": {},
@@ -600,6 +684,275 @@ def test_unknown_request_type_returns_error() -> None:
     asyncio.run(scenario())
 
 
+def test_websocket_contract_player_cannot_call_dm_only_route(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await _connect_assigned_player(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "set_sheet_notes",
+                "sheet_id": "mage_template",
+                "notes": "Player edit attempt.",
+            },
+        )
+
+        assert state.sheets["mage_template"].notes == ""
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Only a DM can edit backend notes.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_resource_mutation_broadcasts_state_patch(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "adjust_instanced_sheet_resource",
+                "instance_id": "mage_instance",
+                "resource": "health",
+                "delta": -5,
+            },
+        )
+
+        expected_patch = {
+            "response_id": None,
+            "ops": [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 85,
+                }
+            ],
+            "state_version": 1,
+            "type": "state_patch",
+            "request_id": "req-1",
+        }
+        assert state.instanced_sheets["mage_instance"].health == 85
+        assert dm_socket.sent_messages == [expected_patch]
+        assert player_socket.sent_messages == [expected_patch]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_resync_replays_missing_patch(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "adjust_instanced_sheet_resource",
+                "instance_id": "mage_instance",
+                "resource": "mana",
+                "delta": -3,
+            },
+        )
+        websocket.sent_messages.clear()
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "resync_state",
+                "last_seen_version": 0,
+            },
+        )
+
+        assert state.instanced_sheets["mage_instance"].mana == 27
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "ops": [
+                    {
+                        "op": "set",
+                        "path": "/instanced_sheets/mage_instance/mana",
+                        "value": 27,
+                    }
+                ],
+                "state_version": 1,
+                "type": "state_patch",
+                "request_id": "req-2",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_variable_registry_returns_mutation_metadata() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="player")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "get_variable_registry",
+            },
+        )
+
+        assert websocket.sent_messages[0]["type"] == "variable_registry"
+        assert websocket.sent_messages[0]["request_id"] == "req-1"
+        variables_by_key = {
+            variable["key"]: variable
+            for variable in websocket.sent_messages[0]["variables"]
+        }
+        assert variables_by_key["instance.health"]["root"] == "instance"
+        assert variables_by_key["instance.health"]["path"] == ["health"]
+        assert variables_by_key["instance.health"]["value_type"] == "resource"
+        assert variables_by_key["instance.health"]["editable_roles"] == [
+            "player",
+            "dm",
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_perform_action_variable_mutation_emits_patch(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        state.actions["spend_mana"] = Action.from_dict(
+            {
+                "id": "spend_mana",
+                "name": "Spend Mana",
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "type": "decrement_value",
+                        "target": "caster",
+                        "path": ["mana"],
+                        "amount": _formula_payload("4"),
+                    }
+                ],
+            }
+        )
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await _connect_assigned_player(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "spend_mana",
+            },
+        )
+
+        assert state.instanced_sheets["mage_instance"].mana == 26
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "ops": [
+                    {
+                        "op": "inc",
+                        "path": "/instanced_sheets/mage_instance/mana",
+                        "value": -4,
+                    }
+                ],
+                "state_version": 1,
+                "type": "state_patch",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_roll20_only_action_returns_action_executed() -> None:
+    async def scenario() -> None:
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        state.actions["announce"] = Action.from_dict(
+            {
+                "id": "announce",
+                "name": "Announce",
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "type": "send_message",
+                        "message": _formula_payload(
+                            "Mana is @mana",
+                            [{"name": "mana", "path": ["mana"]}],
+                        ),
+                    }
+                ],
+            }
+        )
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        websocket = FakeWebSocket()
+        bridge_socket = FakeWebSocket()
+        await _connect_assigned_player(websocket)
+        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "announce",
+            },
+        )
+
+        assert state.instanced_sheets["mage_instance"].mana == 30
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "sheet_id": "mage_instance",
+                "action_id": "announce",
+                "applied_mutations": [],
+                "emitted_messages": ["Mana is (30)"],
+                "type": "action_executed",
+                "request_id": "req-1",
+            }
+        ]
+        assert bridge_socket.sent_messages == [
+            {
+                "message_id": bridge_socket.sent_messages[0]["message_id"],
+                "message": "Mana is (30)",
+                "type": "chat_message",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
 def test_state_sync_bootstrap_sends_snapshot() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()
@@ -616,6 +969,7 @@ def test_state_sync_bootstrap_sends_snapshot() -> None:
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
                     "items": {},
@@ -653,6 +1007,7 @@ def test_resync_state_returns_state_snapshot() -> None:
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
                     "items": {},

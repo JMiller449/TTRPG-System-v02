@@ -1,13 +1,19 @@
 (function () {
   const BACKEND_WS_URL = "ws://127.0.0.1:6767/ws/chat";
-  const SERVICE_AUTH_CODE = "change-me-service-code";
+  const LOCAL_DEV_SERVICE_AUTH_CODE = "service";
   const CHAT_INPUT_SELECTOR = 'textarea[title="Text Chat Input"]';
   const SEND_BUTTON_SELECTOR = "#chatSendBtn";
   const RECONNECT_DELAY_MS = 3000;
+  const SERVICE_AUTH_CODE_STORAGE_KEY = "TTRPG_SERVICE_AUTH_CODE";
 
   let socket = null;
   let reconnectTimer = null;
   let isAuthenticated = false;
+
+  function readServiceAuthCode() {
+    const configuredCode = window.localStorage.getItem(SERVICE_AUTH_CODE_STORAGE_KEY);
+    return configuredCode && configuredCode.trim() ? configuredCode.trim() : LOCAL_DEV_SERVICE_AUTH_CODE;
+  }
 
   function log(message, extra) {
     if (extra === undefined) {
@@ -137,7 +143,7 @@
       log("Connected to backend chat socket");
       socket.send(JSON.stringify({
         type: "authenticate",
-        token: SERVICE_AUTH_CODE
+        token: readServiceAuthCode()
       }));
     });
 

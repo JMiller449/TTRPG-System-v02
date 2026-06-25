@@ -4,6 +4,7 @@ import { reducer } from "@/app/state/reducer";
 import {
   selectActiveSheetDetail,
   selectActiveWeaponLabel,
+  selectSheetAssignedActions,
   selectSheetEquipment
 } from "@/app/state/selectors";
 import {
@@ -59,6 +60,62 @@ function sheet(items = {}) {
     resistances: {},
     slayed_record: {},
     actions: {}
+  };
+}
+
+function augmentationTemplate({ id = "aug_1", name = "Arcane Guard", value = "2" } = {}) {
+  return {
+    id,
+    name,
+    description: "Raises current health.",
+    source: {
+      type: "item",
+      id: "item_1",
+      label: "Focus Ring"
+    },
+    scope: "instance",
+    target: {
+      root: "instance",
+      path: ["health"]
+    },
+    effect: {
+      type: "formula_modifier",
+      operation: "add",
+      value: {
+        aliases: null,
+        text: value
+      }
+    },
+    active: true,
+    applied: false,
+    applied_target_id: null,
+    lifecycle: {
+      duration: "",
+      expires_at: "",
+      removal_condition: ""
+    }
+  };
+}
+
+function actionHistoryEntry({ id = "history_1", summary = "Mana Burst succeeded.", version = 1 } = {}) {
+  return {
+    id,
+    request_id: `request_${id}`,
+    action_id: "action_1",
+    action_name: "Mana Burst",
+    actor_role: "dm",
+    actor_sheet_id: "sheet_1",
+    actor_instance_id: "instance_1",
+    target_sheet_id: null,
+    created_at: "2026-06-18T12:00:00Z",
+    state_version: version,
+    status: "success",
+    summary,
+    emitted_messages: ["Mana Burst"],
+    mutation_summaries: [],
+    formula_summaries: [],
+    error: null,
+    redacted: false
   };
 }
 
@@ -871,7 +928,7 @@ describe("authoritative server-state sync", () => {
       request_id: null
     });
 
-    const result = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
       response_id: null,
       ops: [
         {
@@ -890,7 +947,7 @@ describe("authoritative server-state sync", () => {
       request_id: "req-1"
     });
 
-    expect(selectSheetEquipment(result.state, "instance_1")).toEqual([
+    expect(selectSheetEquipment(created.state, "instance_1")).toEqual([
       {
         relationship_id: "main_hand",
         count: 1,
@@ -898,7 +955,532 @@ describe("authoritative server-state sync", () => {
         item_id: "sword"
       }
     ]);
-    expect(selectActiveWeaponLabel(result.state, "instance_1")).toBe("Sword");
+    expect(selectActiveWeaponLabel(created.state, "instance_1")).toBe("Sword");
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/items/main_hand/count",
+          value: 2
+        },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/items/main_hand/active",
+          value: false
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-item-bridge"
+    });
+
+    expect(selectSheetEquipment(edited.state, "instance_1")).toEqual([
+      {
+        relationship_id: "main_hand",
+        count: 2,
+        active: false,
+        item_id: "sword"
+      }
+    ]);
+    expect(selectActiveWeaponLabel(edited.state, "instance_1")).toBe("None");
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/sheets/sheet_1/items/main_hand"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-item-bridge"
+    });
+
+    expect(selectSheetEquipment(deleted.state, "instance_1")).toEqual([]);
+    expect(selectActiveWeaponLabel(deleted.state, "instance_1")).toBe("None");
+  });
+
+  it("reconciles assigned actions from authoritative sheet action bridge patches", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {
+          action_1: {
+            id: "action_1",
+            name: "Attack",
+            notes: "",
+            steps: []
+          },
+          action_2: {
+            id: "action_2",
+            name: "Power Attack",
+            notes: "",
+            steps: []
+          }
+        },
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/sheets/sheet_1/actions/default_attack",
+          value: {
+            relationship_id: "default_attack",
+            entry_id: "action_1"
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-action-bridge"
+    });
+
+    expect(selectSheetAssignedActions(created.state, "instance_1")).toEqual([
+      {
+        relationshipId: "default_attack",
+        actionId: "action_1",
+        action: {
+          id: "action_1",
+          name: "Attack",
+          notes: "",
+          steps: []
+        },
+        bridge: {
+          relationship_id: "default_attack",
+          entry_id: "action_1"
+        }
+      }
+    ]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/actions/default_attack/entry_id",
+          value: "action_2"
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-action-bridge"
+    });
+
+    expect(selectSheetAssignedActions(edited.state, "instance_1")[0]?.action.name).toBe("Power Attack");
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/sheets/sheet_1/actions/default_attack"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-action-bridge"
+    });
+
+    expect(selectSheetAssignedActions(deleted.state, "instance_1")).toEqual([]);
+  });
+
+  it("reconciles sheet proficiency bridge patches from authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/sheets/sheet_1/proficiencies/longsword",
+          value: {
+            relationship_id: "longsword",
+            prof_id: "prof_longsword",
+            use_count: 2,
+            growth_rate: 0.5
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-proficiency-bridge"
+    });
+
+    expect(created.state.serverState.sheets.sheet_1?.proficiencies.longsword).toEqual({
+      relationship_id: "longsword",
+      prof_id: "prof_longsword",
+      use_count: 2,
+      growth_rate: 0.5
+    });
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/sheets/sheet_1/proficiencies/longsword/use_count",
+          value: 3
+        },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/proficiencies/longsword/growth_rate",
+          value: 0.75
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-proficiency-bridge"
+    });
+
+    expect(edited.state.serverState.sheets.sheet_1?.proficiencies.longsword?.use_count).toBe(3);
+    expect(edited.state.serverState.sheets.sheet_1?.proficiencies.longsword?.growth_rate).toBe(0.75);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/sheets/sheet_1/proficiencies/longsword"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-proficiency-bridge"
+    });
+
+    expect(deleted.state.serverState.sheets.sheet_1?.proficiencies.longsword).toBeUndefined();
+  });
+
+  it("reconciles global proficiency definition patches from authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/proficiencies/longsword",
+          value: {
+            id: "longsword",
+            name: "Longsword",
+            description: "Tracks approved longsword use."
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-proficiency"
+    });
+
+    expect(created.state.serverState.proficiencies.longsword).toEqual({
+      id: "longsword",
+      name: "Longsword",
+      description: "Tracks approved longsword use."
+    });
+    expect(created.state.serverState.proficiencyOrder).toEqual(["longsword"]);
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/proficiencies/longsword/name",
+          value: "Longsword Mastery"
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-proficiency"
+    });
+
+    expect(edited.state.serverState.proficiencies.longsword?.name).toBe("Longsword Mastery");
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/proficiencies/longsword"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-proficiency"
+    });
+
+    expect(deleted.state.serverState.proficiencies.longsword).toBeUndefined();
+    expect(deleted.state.serverState.proficiencyOrder).toEqual([]);
+  });
+
+  it("reconciles condition preset create, edit, and delete patches from authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {},
+        condition_presets: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/condition_presets/poisoned",
+          value: {
+            id: "poisoned",
+            name: "Poisoned",
+            description: "Poison status.",
+            visibility: "public",
+            augmentation_ids: ["aug_1"],
+            augmentation_templates: [augmentationTemplate()]
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-create-condition"
+    });
+
+    expect(created.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
+    expect(created.state.serverState.conditionPresets.poisoned?.augmentation_templates?.[0]?.id).toBe("aug_1");
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/condition_presets/poisoned/name",
+          value: "Severe Poison"
+        },
+        {
+          op: "set",
+          path: "/condition_presets/poisoned/visibility",
+          value: "gm_only"
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-condition"
+    });
+
+    expect(edited.state.serverState.conditionPresets.poisoned?.name).toBe("Severe Poison");
+    expect(edited.state.serverState.conditionPresets.poisoned?.visibility).toBe("gm_only");
+    expect(edited.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/condition_presets/poisoned"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-delete-condition"
+    });
+
+    expect(deleted.state.serverState.conditionPresets.poisoned).toBeUndefined();
+    expect(deleted.state.serverState.conditionPresetOrder).toEqual([]);
+  });
+
+  it("reconciles item augmentation template upsert and remove patches from authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {
+          item_1: {
+            id: "item_1",
+            name: "Focus Ring",
+            description: "Improves health.",
+            price: "120g",
+            weight: "1",
+            augmentation_templates: []
+          }
+        },
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const created = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/items/item_1/augmentation_templates/-",
+          value: augmentationTemplate()
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-upsert-augmentation"
+    });
+
+    expect(created.state.serverState.items.item_1?.augmentation_templates).toHaveLength(1);
+    expect(created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect.value.text).toBe("2");
+
+    const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "set",
+          path: "/items/item_1/augmentation_templates/0",
+          value: augmentationTemplate({ value: "4" })
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-update-augmentation"
+    });
+
+    expect(edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect.value.text).toBe("4");
+
+    const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/items/item_1/augmentation_templates/0"
+        }
+      ],
+      state_version: 3,
+      type: "state_patch",
+      request_id: "req-remove-augmentation"
+    });
+
+    expect(deleted.state.serverState.items.item_1?.augmentation_templates).toEqual([]);
+  });
+
+  it("reconciles action-history append and prune patches from authoritative backend state", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {},
+        action_history: {
+          history_old: actionHistoryEntry({
+            id: "history_old",
+            summary: "Old action succeeded.",
+            version: 1
+          })
+        }
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    expect(initial.state.serverState.actionHistoryOrder).toEqual(["history_old"]);
+
+    const appended = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: "/action_history/history_new",
+          value: actionHistoryEntry({
+            id: "history_new",
+            summary: "New action succeeded.",
+            version: 2
+          })
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-append-history"
+    });
+
+    expect(appended.state.serverState.actionHistoryOrder).toEqual(["history_old", "history_new"]);
+    expect(appended.state.serverState.actionHistory.history_new?.summary).toBe("New action succeeded.");
+
+    const pruned = applyAuthoritativeEvent(appended.state, appended.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "remove",
+          path: "/action_history/history_old"
+        }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-prune-history"
+    });
+
+    expect(pruned.state.serverState.actionHistory.history_old).toBeUndefined();
+    expect(pruned.state.serverState.actionHistoryOrder).toEqual(["history_new"]);
   });
 
   it("uses instance notes when player snapshots omit GM-only template notes", () => {

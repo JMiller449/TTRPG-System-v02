@@ -102,6 +102,7 @@ describe("SocketProtocolClient", () => {
           sheets: [],
           persistentSheets: [],
           items: [],
+          proficiencies: [],
           actions: [],
           formulas: [],
           conditionPresets: [],
@@ -225,5 +226,48 @@ describe("SocketProtocolClient", () => {
     socket.message("not json");
 
     expect(events).toEqual([{ type: "error", message: "Invalid server payload" }]);
+  });
+
+  it("emits connection_lost when an open socket closes unexpectedly", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const client = new SocketProtocolClient("ws://example.test/ws");
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    const connectPromise = client.connect();
+    const socket = FakeWebSocket.instances[0];
+    if (!socket) {
+      throw new Error("Expected fake websocket instance");
+    }
+
+    socket.open();
+    await connectPromise;
+    socket.close();
+
+    expect(events).toEqual([{ type: "connection_lost", message: "Connection closed" }]);
+
+    const reconnectPromise = client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    FakeWebSocket.instances[1]?.open();
+    await reconnectPromise;
+  });
+
+  it("does not emit connection_lost for intentional disconnects", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    const client = new SocketProtocolClient("ws://example.test/ws");
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    const connectPromise = client.connect();
+    const socket = FakeWebSocket.instances[0];
+    if (!socket) {
+      throw new Error("Expected fake websocket instance");
+    }
+
+    socket.open();
+    await connectPromise;
+    client.disconnect();
+
+    expect(events).toEqual([]);
   });
 });

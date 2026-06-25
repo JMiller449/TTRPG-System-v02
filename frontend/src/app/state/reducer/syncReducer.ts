@@ -26,6 +26,7 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
         action.snapshot.persistentSheets.map((item) => [item.id, item.value])
       );
       const items = Object.fromEntries(action.snapshot.items.map((item) => [item.id, item]));
+      const proficiencies = Object.fromEntries(action.snapshot.proficiencies.map((item) => [item.id, item]));
       const actions = Object.fromEntries(action.snapshot.actions.map((item) => [item.id, item]));
       const formulas = Object.fromEntries(action.snapshot.formulas.map((item) => [item.id, item]));
       const conditionPresets = Object.fromEntries(action.snapshot.conditionPresets.map((item) => [item.id, item]));
@@ -46,6 +47,8 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
           persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
           items,
           itemOrder: action.snapshot.items.map((item) => item.id),
+          proficiencies,
+          proficiencyOrder: action.snapshot.proficiencies.map((item) => item.id),
           actions,
           actionOrder: action.snapshot.actions.map((item) => item.id),
           formulas,

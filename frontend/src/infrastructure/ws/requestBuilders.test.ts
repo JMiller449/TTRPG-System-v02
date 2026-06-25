@@ -9,6 +9,7 @@ import {
   buildClaimSheetAccessCodeRequest,
   buildCreateInstancedSheetRequest,
   buildCreateItemRequest,
+  buildCreateProficiencyRequest,
   buildCreateSheetRequest,
   buildCreateSheetActionBridgeRequest,
   buildCreateSheetItemBridgeRequest,
@@ -18,6 +19,7 @@ import {
   buildDeleteEncounterPresetRequest,
   buildDeleteFormulaRequest,
   buildDeleteItemRequest,
+  buildDeleteProficiencyRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
@@ -43,6 +45,7 @@ import {
   buildUpdateConditionPresetRequest,
   buildUpdateFormulaRequest,
   buildUpdateItemRequest,
+  buildUpdateProficiencyRequest,
   buildUpdateSheetActionBridgeRequest,
   buildUpdateSheetItemBridgeRequest,
   buildUpdateSheetProficiencyBridgeRequest,
@@ -52,6 +55,7 @@ import {
   type ActionDefinitionPayload,
   type FormulaDefinitionPayload,
   type ItemDefinitionPayload,
+  type ProficiencyDefinitionPayload,
   type EncounterPresetPayload,
   type SheetDefinitionPayload
 } from "@/infrastructure/ws/requestBuilders";
@@ -68,6 +72,12 @@ const testItem: ItemDefinitionPayload = {
   price: "NA",
   weight: "3LBS",
   augmentation_templates: []
+};
+
+const testProficiency: ProficiencyDefinitionPayload = {
+  id: "longsword",
+  name: "Longsword",
+  description: "Tracks approved longsword use."
 };
 
 const testAugmentation: AugmentationPayload = {
@@ -190,6 +200,7 @@ const requestBuilderByType = {
   create_formula: buildCreateFormulaRequest,
   create_instanced_sheet: buildCreateInstancedSheetRequest,
   create_item: buildCreateItemRequest,
+  create_proficiency: buildCreateProficiencyRequest,
   create_sheet: buildCreateSheetRequest,
   create_sheet_action_bridge: buildCreateSheetActionBridgeRequest,
   create_sheet_item_bridge: buildCreateSheetItemBridgeRequest,
@@ -199,6 +210,7 @@ const requestBuilderByType = {
   delete_encounter_preset: buildDeleteEncounterPresetRequest,
   delete_formula: buildDeleteFormulaRequest,
   delete_item: buildDeleteItemRequest,
+  delete_proficiency: buildDeleteProficiencyRequest,
   delete_sheet: buildDeleteSheetRequest,
   delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
@@ -224,6 +236,7 @@ const requestBuilderByType = {
   update_condition_preset: buildUpdateConditionPresetRequest,
   update_formula: buildUpdateFormulaRequest,
   update_item: buildUpdateItemRequest,
+  update_proficiency: buildUpdateProficiencyRequest,
   update_sheet: buildUpdateSheetRequest,
   update_sheet_action_bridge: buildUpdateSheetActionBridgeRequest,
   update_sheet_item_bridge: buildUpdateSheetItemBridgeRequest,
@@ -621,6 +634,43 @@ describe("requestBuilders", () => {
         ...testItem,
         name: "Edited Sword of Mana"
       }
+    });
+  });
+
+  it("builds proficiency CRUD requests", () => {
+    expect(
+      buildCreateProficiencyRequest({
+        proficiency: testProficiency
+      })
+    ).toEqual({
+      type: "create_proficiency",
+      proficiency: testProficiency
+    });
+    expect(
+      buildUpdateProficiencyRequest({
+        requestId: "req-proficiency-update",
+        proficiencyId: "longsword",
+        proficiency: {
+          ...testProficiency,
+          name: "Longsword Mastery"
+        }
+      })
+    ).toEqual({
+      request_id: "req-proficiency-update",
+      type: "update_proficiency",
+      proficiency_id: "longsword",
+      proficiency: {
+        ...testProficiency,
+        name: "Longsword Mastery"
+      }
+    });
+    expect(
+      buildDeleteProficiencyRequest({
+        proficiencyId: "longsword"
+      })
+    ).toEqual({
+      type: "delete_proficiency",
+      proficiency_id: "longsword"
     });
   });
 

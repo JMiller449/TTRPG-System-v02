@@ -14,6 +14,7 @@ export class SocketProtocolClient {
   private socket: WebSocket | null = null;
   private readonly listeners = new Set<EventListener>();
   private protocolState: SocketProtocolState = initialSocketProtocolState;
+  private intentionalClose = false;
 
   constructor(private readonly url: string) {}
 
@@ -25,12 +26,23 @@ export class SocketProtocolClient {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(this.url);
       this.socket = socket;
+      this.intentionalClose = false;
+      let opened = false;
 
-      socket.addEventListener("open", () => resolve(), { once: true });
+      socket.addEventListener(
+        "open",
+        () => {
+          opened = true;
+          resolve();
+        },
+        { once: true }
+      );
       socket.addEventListener(
         "error",
         () => {
-          reject(new Error("Failed to open websocket connection"));
+          if (!opened) {
+            reject(new Error("Failed to open websocket connection"));
+          }
         },
         { once: true }
       );
@@ -40,12 +52,27 @@ export class SocketProtocolClient {
       });
 
       socket.addEventListener("close", () => {
-        this.emit({ type: "error", message: "Connection closed" });
+        const wasIntentional = this.intentionalClose;
+        if (this.socket === socket) {
+          this.socket = null;
+        }
+        this.protocolState = initialSocketProtocolState;
+        this.intentionalClose = false;
+
+        if (!opened && !wasIntentional) {
+          reject(new Error("Websocket connection closed before opening"));
+          return;
+        }
+
+        if (!wasIntentional) {
+          this.emit({ type: "connection_lost", message: "Connection closed" });
+        }
       });
     });
   }
 
   disconnect(): void {
+    this.intentionalClose = true;
     this.socket?.close();
     this.socket = null;
     this.protocolState = initialSocketProtocolState;

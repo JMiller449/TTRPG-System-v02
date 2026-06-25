@@ -185,6 +185,9 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.sheet_admin.items.route import (
         register_routes as register_sheet_admin_items_routes,
     )
+    from backend.features.sheet_admin.proficiencies.route import (
+        register_routes as register_sheet_admin_proficiencies_routes,
+    )
     from backend.features.sheet_admin.sheets.route import (
         register_routes as register_sheet_admin_sheets_routes,
     )
@@ -205,6 +208,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_sheet_admin_conditions_routes(registry)
     register_sheet_admin_formulas_routes(registry)
     register_sheet_admin_items_routes(registry)
+    register_sheet_admin_proficiencies_routes(registry)
     register_sheet_admin_sheets_routes(registry)
     register_sheet_admin_stats_routes(registry)
     register_sheet_access_routes(registry)

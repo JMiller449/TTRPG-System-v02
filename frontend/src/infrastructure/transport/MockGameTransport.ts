@@ -5,6 +5,10 @@ import type {
   PersistentSheetRecord,
   Sheet
 } from "@/domain/models";
+import {
+  LOCAL_DEV_DM_AUTH_TOKEN,
+  LOCAL_DEV_PLAYER_AUTH_TOKEN
+} from "@/infrastructure/config/authConfig";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
@@ -97,6 +101,7 @@ export class MockGameTransport implements GameTransport {
       }
     ],
     items: [],
+    proficiencies: [],
     actions: [],
     formulas: [],
     conditionPresets: [],
@@ -146,7 +151,12 @@ export class MockGameTransport implements GameTransport {
   sendProtocolRequest(request: ProtocolApplicationRequest): void {
     switch (request.type) {
       case "authenticate": {
-        const role = request.token === "change-me-dm-code" ? "gm" : request.token === "change-me-player-code" ? "player" : null;
+        const role =
+          request.token === LOCAL_DEV_DM_AUTH_TOKEN
+            ? "gm"
+            : request.token === LOCAL_DEV_PLAYER_AUTH_TOKEN
+              ? "player"
+              : null;
         if (!role) {
           this.emit({
             type: "authenticated",

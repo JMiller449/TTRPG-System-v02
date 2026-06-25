@@ -36,6 +36,15 @@ textarea {
   background: #fff;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 3px solid #7aa8ad;
+  outline-offset: 2px;
+}
+
 textarea {
   resize: vertical;
   width: 100%;
@@ -98,6 +107,11 @@ textarea {
 
 .button:hover {
   background: var(--accent-strong);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .button--secondary {

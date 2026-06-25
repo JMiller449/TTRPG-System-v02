@@ -20,7 +20,12 @@ This frontend is intentionally scaffolded for backend-authoritative integration.
 ## Transport Modes
 - `VITE_TRANSPORT=ws` (default): try the real websocket backend using `VITE_WS_URL`.
 - `VITE_TRANSPORT=mock`: force local scaffold mode for UI development.
-- If websocket connect fails while running in default `ws` mode, the frontend falls back to mock transport.
+- If websocket connect fails while running in default `ws` mode, the frontend stays on websocket mode and reports the connection error.
+
+## Auth Configuration
+- `VITE_PLAYER_AUTH_TOKEN`: optional local development player token used by role-based helper auth. Defaults to `player`.
+- `VITE_DM_AUTH_TOKEN`: optional local development GM token used by role-based helper auth. Defaults to `dm`.
+- Normal login uses the code entered by the player or GM; these env values are only for helper paths and mock/dev flows.
 
 ## Integration Boundary
 - Align request helpers and transport types with generated route-backed contract output as backend typed routes land.

@@ -12,6 +12,7 @@ import type {
   ItemDefinition,
   PersistentSheet,
   PersistentSheetPresentation,
+  ProficiencyDefinition,
   Role,
   Sheet,
   SheetPresentation,
@@ -48,6 +49,8 @@ export interface ServerState {
   persistentSheetOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  proficiencies: Record<string, ProficiencyDefinition>;
+  proficiencyOrder: string[];
   actions: Record<string, ActionDefinition>;
   actionOrder: string[];
   formulas: Record<string, FormulaDefinition>;

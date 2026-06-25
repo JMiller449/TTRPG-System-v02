@@ -270,15 +270,6 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "type": "state_patch",
                     "request_id": "req-1",
                 },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_template",
-                    "action_id": "battle_cry",
-                    "applied_mutations": ["stats.strength=8"],
-                    "emitted_messages": ["Strength now (8)"],
-                    "type": "action_executed",
-                    "request_id": "req-1",
-                },
             ]
             assert bridge_socket.sent_messages == [
                 {
@@ -667,7 +658,7 @@ def test_dm_can_admin_execute_unassigned_action(monkeypatch) -> None:
                     "value": -1,
                 }
             ]
-            assert websocket.sent_messages[1]["applied_mutations"] == ["mana-=1"]
+            assert len(websocket.sent_messages) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -749,15 +740,6 @@ def test_perform_action_can_increment_and_decrement_instance_values(
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
-                },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_instance",
-                    "action_id": "cast_spell",
-                    "applied_mutations": ["mana-=7", "health+=7"],
-                    "emitted_messages": [],
-                    "type": "action_executed",
                     "request_id": "req-1",
                 },
             ]
@@ -912,18 +894,6 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                     "type": "state_patch",
                     "request_id": "req-1",
                 },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_instance",
-                    "action_id": "focused_cast",
-                    "applied_mutations": [
-                        "mana=22",
-                        "proficiencies.magic.use_count+=1",
-                    ],
-                    "emitted_messages": [],
-                    "type": "action_executed",
-                    "request_id": "req-1",
-                },
             ]
         finally:
             StateSingleton._state = original_state
@@ -995,15 +965,7 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
                     "value": "mage_instance",
                 },
             ]
-            assert websocket.sent_messages[1] == {
-                "response_id": None,
-                "sheet_id": "mage_instance",
-                "action_id": "ward",
-                "applied_mutations": ["augmentations.shielded apply:applied"],
-                "emitted_messages": [],
-                "type": "action_executed",
-                "request_id": "req-1",
-            }
+            assert len(websocket.sent_messages) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -1067,9 +1029,7 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
                 f"/augmentations/{concrete_id}/applied",
                 f"/augmentations/{concrete_id}/applied_target_id",
             ]
-            assert websocket.sent_messages[1]["applied_mutations"] == [
-                "conditions.poisoned apply:applied"
-            ]
+            assert len(websocket.sent_messages) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -1406,17 +1366,6 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
                     "type": "state_patch",
                     "request_id": "req-1",
                 },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_instance",
-                    "action_id": "take_damage",
-                    "applied_mutations": [
-                        "health=80;damage=10;type=Fire;resistance=0.875"
-                    ],
-                    "emitted_messages": [],
-                    "type": "action_executed",
-                    "request_id": "req-1",
-                },
             ]
         finally:
             StateSingleton._state = original_state
@@ -1477,9 +1426,7 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
                     "value": 90,
                 }
             ]
-            assert websocket.sent_messages[1]["applied_mutations"] == [
-                "health=90;damage=0;type=Arcane;resistance=1.0"
-            ]
+            assert len(websocket.sent_messages) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -1537,9 +1484,7 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
                     "value": 0,
                 }
             ]
-            assert websocket.sent_messages[1]["applied_mutations"] == [
-                "health=0;damage=200;type=Bludgeoning;resistance=0.0"
-            ]
+            assert len(websocket.sent_messages) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -1782,15 +1727,6 @@ def test_perform_action_can_apply_bounded_decrement_against_base_sheet(
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
-                },
-                {
-                    "response_id": None,
-                    "sheet_id": "mage_template",
-                    "action_id": "take_damage",
-                    "applied_mutations": ["stats.strength=0"],
-                    "emitted_messages": [],
-                    "type": "action_executed",
                     "request_id": "req-1",
                 },
             ]

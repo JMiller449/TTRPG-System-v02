@@ -150,6 +150,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     sheets: Object.values(state.sheets ?? {}),
     persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({ id, value })),
     items: Object.values(state.items ?? {}),
+    proficiencies: Object.values(state.proficiencies ?? {}),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
     conditionPresets: Object.values(state.condition_presets ?? {}),

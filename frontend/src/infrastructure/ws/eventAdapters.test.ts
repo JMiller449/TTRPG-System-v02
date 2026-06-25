@@ -64,6 +64,42 @@ describe("parseProtocolServerEvent", () => {
     });
   });
 
+  it("parses backend error and action execution events", () => {
+    expect(
+      parseProtocolServerEvent({
+        response_id: null,
+        reason: "Action is not assigned to this sheet.",
+        type: "error",
+        request_id: "req-error"
+      })
+    ).toEqual({
+      response_id: null,
+      reason: "Action is not assigned to this sheet.",
+      type: "error",
+      request_id: "req-error"
+    });
+
+    expect(
+      parseProtocolServerEvent({
+        response_id: null,
+        sheet_id: "instance_1",
+        action_id: "announce",
+        applied_mutations: [],
+        emitted_messages: ["Mana is (30)"],
+        type: "action_executed",
+        request_id: "req-action"
+      })
+    ).toEqual({
+      response_id: null,
+      sheet_id: "instance_1",
+      action_id: "announce",
+      applied_mutations: [],
+      emitted_messages: ["Mana is (30)"],
+      type: "action_executed",
+      request_id: "req-action"
+    });
+  });
+
   it("parses action/formula authoring metadata events from the backend protocol", () => {
     const event = parseProtocolServerEvent({
       response_id: null,
@@ -371,6 +407,45 @@ describe("adaptProtocolServerEvent", () => {
     ]);
   });
 
+  it("maps backend errors and no-patch action execution into internal request outcomes", () => {
+    const errorEvent = parseProtocolServerEvent({
+      response_id: null,
+      reason: "Roll20 chat bridge is not connected.",
+      type: "error",
+      request_id: "req-chat"
+    });
+    const actionEvent = parseProtocolServerEvent({
+      response_id: null,
+      sheet_id: "instance_1",
+      action_id: "announce",
+      applied_mutations: [],
+      emitted_messages: ["Mana is (30)"],
+      type: "action_executed",
+      request_id: "req-action"
+    });
+
+    if (!errorEvent || errorEvent.type !== "error") {
+      throw new Error("Expected error event");
+    }
+    if (!actionEvent || actionEvent.type !== "action_executed") {
+      throw new Error("Expected action_executed event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, errorEvent).events).toEqual([
+      {
+        type: "error",
+        requestId: "req-chat",
+        message: "Roll20 chat bridge is not connected."
+      }
+    ]);
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, actionEvent).events).toEqual([
+      {
+        type: "ack",
+        requestId: "req-action"
+      }
+    ]);
+  });
+
   it("projects backend snapshots into the current app snapshot shape", () => {
     const protocolEvent = parseProtocolServerEvent({
       response_id: null,
@@ -473,6 +548,7 @@ describe("adaptProtocolServerEvent", () => {
             }
           ],
           items: [],
+          proficiencies: [],
           actions: [],
           formulas: [],
           conditionPresets: [],

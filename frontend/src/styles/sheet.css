@@ -105,6 +105,12 @@
   background: #d8e8e9;
 }
 
+.character-sheet__tab[aria-selected="true"],
+.tab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
 .resource-grid {
   display: grid;
   gap: 0.6rem;
@@ -140,7 +146,8 @@
   background: transparent;
   cursor: pointer;
   color: inherit;
-  padding: 0;
+  border-radius: 6px;
+  padding: 0.05rem 0.15rem;
 }
 
 .resource-card__value {
@@ -194,7 +201,8 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  padding: 0;
+  border-radius: 6px;
+  padding: 0.05rem 0.15rem;
   color: inherit;
 }
 
@@ -301,7 +309,8 @@
   background: transparent;
   color: var(--accent-strong);
   cursor: pointer;
-  padding: 0;
+  border-radius: 4px;
+  padding: 0.05rem 0.12rem;
   font-size: 0.77rem;
   text-decoration: underline;
 }

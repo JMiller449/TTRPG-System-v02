@@ -295,6 +295,11 @@ def _validate_relationship_key(
         )
 
 
+def _validate_proficiency_reference(proficiency_id: str, state: State) -> None:
+    if proficiency_id not in state.proficiencies:
+        raise ValueError(f"Proficiency '{proficiency_id}' does not exist.")
+
+
 def _validate_stats_formula_paths(payload: StatsPayload) -> None:
     for formula in (
         payload.lifting,
@@ -352,6 +357,7 @@ def _validate_sheet_references(
             key=key,
             relationship_id=bridge.relationship_id,
         )
+        _validate_proficiency_reference(bridge.prof_id, state)
 
     valid_sheet_ids = set(state.sheets) | {payload.id}
     for key, bridge in payload.slayed_record.items():
@@ -817,6 +823,7 @@ async def create_sheet_proficiency_bridge(
                 "Sheet proficiency bridge "
                 f"'{request.bridge.relationship_id}' already exists."
             )
+        _validate_proficiency_reference(request.bridge.prof_id, state)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -846,6 +853,7 @@ async def update_sheet_proficiency_bridge(
             raise ValueError(
                 f"Sheet proficiency bridge '{request.relationship_id}' does not exist."
             )
+        _validate_proficiency_reference(request.bridge.prof_id, state)
 
         path = state_sync_service.join_path(
             "sheets",

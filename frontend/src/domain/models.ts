@@ -257,6 +257,12 @@ export interface ProficiencyBridge {
   growth_rate: number;
 }
 
+export interface ProficiencyDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface SheetSlayedBridge {
   sheet_id: string;
   count: number;

@@ -9,6 +9,8 @@ export const initialServerState: ServerState = {
   persistentSheetOrder: [],
   items: {},
   itemOrder: [],
+  proficiencies: {},
+  proficiencyOrder: [],
   actions: {},
   actionOrder: [],
   formulas: {},

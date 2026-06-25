@@ -34,6 +34,11 @@ from backend.features.sheet_admin.items.schema import (
     UpdateItem,
     UpsertItemAugmentationTemplate,
 )
+from backend.features.sheet_admin.proficiencies.schema import (
+    CreateProficiency,
+    DeleteProficiency,
+    UpdateProficiency,
+)
 from backend.features.sheet_admin.sheets.schema import (
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
@@ -272,6 +277,9 @@ ApplicationRequest = Annotated[
     | CreateItem
     | UpdateItem
     | DeleteItem
+    | CreateProficiency
+    | UpdateProficiency
+    | DeleteProficiency
     | CreateSheet
     | UpdateSheet
     | DeleteSheet

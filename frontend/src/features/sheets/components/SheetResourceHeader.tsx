@@ -45,11 +45,19 @@ export function SheetResourceHeader({
         const baseValue = stats[key] ?? 0;
         const currentValue = resources[key];
         const delta = currentValue - baseValue;
+        const descriptionId = `resource-${key}-editor-description`;
+        const errorId = `resource-${key}-editor-error`;
         return (
           <article key={key} className="resource-card">
             <div className="resource-card__top">
               <span className="resource-card__label">{DISPLAY_NAMES[key]}</span>
-              <button className="resource-card__value-btn" onClick={() => onBeginResourceEdit(key)}>
+              <button
+                className="resource-card__value-btn"
+                type="button"
+                aria-label={`Edit ${DISPLAY_NAMES[key]} resource. Current ${currentValue} of ${baseValue}.`}
+                aria-expanded={editingResource === key}
+                onClick={() => onBeginResourceEdit(key)}
+              >
                 <strong
                   className={`resource-card__value ${delta > 0 ? "stat-value--up" : delta < 0 ? "stat-value--down" : ""}`}
                 >
@@ -75,6 +83,8 @@ export function SheetResourceHeader({
                     inputMode="numeric"
                     placeholder="+10 or -10"
                     aria-label={`${DISPLAY_NAMES[key]} resource modifier`}
+                    aria-describedby={resourceEditorError ? errorId : descriptionId}
+                    aria-invalid={Boolean(resourceEditorError)}
                     autoFocus
                   />
                 </Field>
@@ -95,20 +105,24 @@ export function SheetResourceHeader({
                     </select>
                   </Field>
                 ) : null}
-                <button className="button" onClick={() => onApplyResourceModifier(key)}>
+                <button className="button" type="button" onClick={() => onApplyResourceModifier(key)}>
                   Apply
                 </button>
-                <button className="button button--secondary" onClick={onCancelResourceEdit}>
+                <button className="button button--secondary" type="button" onClick={onCancelResourceEdit}>
                   Cancel
                 </button>
                 {resourceEditorError ? (
-                  <p className="error-text stat-editor__error">{resourceEditorError}</p>
+                  <p className="error-text stat-editor__error" id={errorId} role="alert">
+                    {resourceEditorError}
+                  </p>
                 ) : mode === "player" && key === "health" ? (
-                  <p className="muted stat-editor__hint">
+                  <p className="muted stat-editor__hint" id={descriptionId}>
                     Damage type is UI-only scaffolding until backend health-update schema is finalized.
                   </p>
                 ) : (
-                  <p className="muted stat-editor__hint">Updates active value only.</p>
+                  <p className="muted stat-editor__hint" id={descriptionId}>
+                    Updates active value only.
+                  </p>
                 )}
               </div>
             ) : null}

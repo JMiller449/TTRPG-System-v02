@@ -2,7 +2,7 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.proficiency import ProficiencyBridge
+from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -87,6 +87,16 @@ def _bridge_payload(
     }
 
 
+def _add_proficiency_definition(state, proficiency_id: str = "magic_prof") -> None:
+    state.proficiencies[proficiency_id] = Proficiency.from_dict(
+        {
+            "id": proficiency_id,
+            "name": proficiency_id.replace("_", " ").title(),
+            "description": "Test proficiency.",
+        }
+    )
+
+
 def test_dm_can_create_sheet_proficiency_bridge(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -95,6 +105,7 @@ def test_dm_can_create_sheet_proficiency_bridge(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            _add_proficiency_definition(state)
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -137,6 +148,8 @@ def test_dm_can_update_sheet_proficiency_bridge(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            _add_proficiency_definition(state)
+            _add_proficiency_definition(state, "arcane_prof")
             state.sheets["mage_template"].proficiencies["magic"] = (
                 ProficiencyBridge.from_dict(_bridge_payload())
             )
@@ -172,6 +185,88 @@ def test_dm_can_update_sheet_proficiency_bridge(monkeypatch) -> None:
                     "growth_rate": 1.5,
                 },
             }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_sheet_proficiency_bridge_rejects_missing_proficiency(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_proficiency_bridge",
+                    "sheet_id": "mage_template",
+                    "bridge": _bridge_payload(prof_id="missing_prof"),
+                },
+            )
+
+            assert state.sheets["mage_template"].proficiencies == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Proficiency 'missing_prof' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_update_sheet_proficiency_bridge_rejects_missing_proficiency(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.sheets["mage_template"].proficiencies["magic"] = (
+                ProficiencyBridge.from_dict(_bridge_payload())
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_sheet_proficiency_bridge",
+                    "sheet_id": "mage_template",
+                    "relationship_id": "magic",
+                    "bridge": _bridge_payload(prof_id="missing_prof"),
+                },
+            )
+
+            assert state.sheets["mage_template"].proficiencies["magic"].prof_id == (
+                "magic_prof"
+            )
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Proficiency 'missing_prof' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
         finally:
             StateSingleton._state = original_state
 

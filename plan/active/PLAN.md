@@ -87,7 +87,7 @@ Frontend:
 
 - React/Vite frontend is scaffolded.
 - Websocket wrapper handles raw JSON parsing, event normalization, connection status, snapshots, patches, and invalid payload handling.
-- Websocket wrapper tracks last seen state versions and can request resync when it detects a state version gap; reconnect/backoff behavior still needs hardening.
+- Websocket wrapper tracks last seen state versions, can request resync when it detects a state version gap, and reconnects with bounded backoff after dropped websocket connections.
 - Server-state and UI-state ownership are split.
 - Auth/session state is server-derived.
 - Backend-native patch applier is the canonical frontend state sync path.
@@ -296,7 +296,10 @@ Proficiency:
 - Downtime training exists in the rules but can stay manual/Roll20 for MVP.
 - Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
-- MVP proficiency admin uses sheet proficiency bridge CRUD for GM correction; global proficiency definition CRUD is deferred until the registry shape is needed.
+- DM-authored global proficiency definitions are the registry of available proficiencies.
+- Sheet proficiency bridges are per-sheet progress records that point at a global proficiency definition.
+- Strict mode for MVP: sheets/actions must reference existing proficiency definitions and existing sheet bridges; missing links should return clear backend errors rather than silently creating progress.
+- Action authoring should make proficiency gains feel self-feeding: an action can declare which proficiency/proficiencies it trains, and multiple actions can feed the same proficiency.
 
 Equipment and items:
 
@@ -479,7 +482,16 @@ Frontend augmentation UX boundary:
 - [x] Complete backend typed intent families for sheet create/update, sheet instancing/spawn, item management, and action/formula state adoption.
 - [x] Implement `sheet_admin/stats`.
 - [x] Decide whether proficiencies need dedicated admin CRUD or are managed only through actions plus GM correction.
-- [ ] Add global proficiency definition CRUD if/when the proficiency registry needs first-class authoring.
+  - Decision: add dedicated DM-authored global proficiency definition CRUD now; keep sheet proficiency bridges as per-sheet progress/correction records.
+- [x] Add global proficiency definition CRUD.
+  - Added DM-only backend websocket create/update/delete routes for `/proficiencies/{proficiency_id}`.
+  - Added generated frontend protocol/request helpers and frontend authoritative state reconciliation for global proficiency definitions.
+- [x] Validate sheet proficiency bridges against existing global proficiency definitions.
+  - Sheet create/update and sheet proficiency bridge create/update now reject missing global `prof_id` references.
+- [ ] Keep MVP strict for action proficiency references: do not auto-create sheet progress bridges at runtime when an action references a proficiency the sheet does not have.
+- [ ] Add action-level proficiency gain authoring.
+  - Actions should declare the proficiency/proficiencies they train instead of requiring the DM to hand-author generic gain steps for the common case.
+  - Multiple actions may feed the same proficiency definition.
 - [x] Add variable registry/path metadata for formula authoring.
 - [x] Add action/formula authoring metadata for sheet/instance scopes, aliases, and valid path catalogs from backend contracts.
 - [x] Add common variable shortcuts.
@@ -498,7 +510,8 @@ Frontend augmentation UX boundary:
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
 - [ ] Extend damage resolution later for armor derivation, critical rules, weapon/spell-specific damage composition, and other combat modifiers.
 - [x] Implement action execution against explicit sheet/instance IDs.
-- [ ] Implement backend roll resolution through generic authored action steps for default `attack`, `dodge`, `parry`, and `block` presets once those actions become backend-resolved.
+- [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
+  - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
 - [ ] Implement weapon/equipment-driven attack modifiers on the backend when attack support is added.
 - [ ] Implement advantage/disadvantage as predefined runtime action parameters.
 - [ ] Add Roll20 chat prefix wrapping for advantage/disadvantage and visibility/GM-only output.
@@ -537,7 +550,7 @@ Frontend augmentation UX boundary:
   - [x] Migrate existing frontend encounter preset UI off legacy `ClientIntent` and onto typed request helpers.
     - Encounter preset panels now use typed `save_encounter_preset` and `spawn_encounter_preset` request helpers.
     - Removed legacy frontend `save_encounter` / `spawn_encounter` intent builders and mock-local encounter save/spawn behavior.
-- [ ] For each migrated intent family, add backend contract tests and frontend reconciliation tests.
+- [x] For each migrated intent family, add backend contract tests and frontend reconciliation tests.
   - [x] Encounter preset route/reconciliation coverage.
     - Backend websocket contract tests now cover encounter preset save, spawn, delete, DM permission, and missing-preset errors.
     - Frontend sync reducer tests now cover encounter preset snapshots and add/edit/remove patches from backend `encounter_presets`.
@@ -547,8 +560,8 @@ Frontend augmentation UX boundary:
     - No missing backend route-family coverage was found in this audit; next testing gap is frontend snapshot/patch reconciliation coverage by migrated family.
   - [x] Audit remaining migrated typed-route families for missing frontend snapshot/patch reconciliation tests.
     - Covered by frontend reconciliation tests today: protocol snapshot/patch projection (`eventAdapters.test.ts`, `SocketProtocolClient.test.ts`), reducer snapshot hydration for primary roots (`syncReducer.test.ts`), item CRUD patches, formula CRUD patches, action CRUD patches, encounter preset patches, sheet item bridge add/equipment projection, current instance resource patches, base stat patches, forced resync overwrite, Roll20 bridge status events, sheet access claim events, and mock transport sheet create/update/instance snapshots.
-    - Missing explicit frontend snapshot/patch reconciliation tests by migrated family: sheet action bridge create/update/delete patches, sheet item bridge update/delete patches, sheet proficiency bridge create/update/delete patches, condition preset create/update/delete patches, item augmentation template upsert/remove patches, and action-history append/prune patch reconciliation.
-    - Request-construction tests already cover many of these families, but they do not prove authoritative snapshots/patches overwrite frontend state.
+    - Added focused frontend snapshot/patch reconciliation tests for sheet action bridge create/update/delete patches, sheet item bridge update/delete patches, sheet proficiency bridge create/update/delete patches, condition preset create/update/delete patches, item augmentation template upsert/remove patches, and action-history append/prune patch reconciliation.
+    - Request-construction tests still cover request payloads separately; these reducer tests prove authoritative snapshots/patches overwrite frontend state.
   - [x] Add focused frontend reconciliation coverage for sheet root and instanced sheet patches.
     - `syncReducer.test.ts` now covers real adapter/reducer reconciliation for `/sheets/{sheet_id}` add/nested update/remove and `/instanced_sheets/{instance_id}` add/nested update/remove.
     - Coverage verifies authoritative root/order updates and active-sheet normalization when an active instance disappears.
@@ -581,16 +594,39 @@ Frontend augmentation UX boundary:
 
 ### Phase 10: Verification And Hardening
 
-- [ ] Add websocket reliability behavior for reconnect/backoff and explicit snapshot resync recovery.
+- [x] Add websocket reliability behavior for reconnect/backoff and explicit snapshot resync recovery.
+  - Socket close events now surface as managed connection-loss signals instead of generic payload errors.
+  - Managed websocket clients schedule bounded reconnect/backoff attempts after unexpected disconnects, re-authenticate when an auth token is available, and reset state-version tracking so the next backend snapshot becomes authoritative.
+  - Added focused frontend tests for dropped websocket reconnect scheduling, retry backoff after reconnect failure, re-authentication, fresh snapshot/version handling, and intentional disconnect behavior.
 - [ ] Add idempotency/ordering handling for intent replay or duplicate messages after MVP, unless DM manual correction remains sufficient.
-- [ ] Decide whether to keep the HTTP chat debug endpoint long-term.
-- [ ] Move auth codes into explicit environment/config management before deployment needs tighten.
-- [ ] Continue trimming redundant websocket success payloads where authoritative patches already prove success.
-- [ ] Backend websocket contract tests cover auth, snapshot, patch, error, resync, permission failures, action execution, variable mutation, and Roll20 bridge failure.
-- [ ] Backend role-based access tests cover DM-only and future typed admin mutations.
-- [ ] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
-- [ ] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
-- [ ] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
+- [x] Decide whether to keep the HTTP chat debug endpoint long-term.
+  - Decision: do not keep or reintroduce an HTTP chat debug endpoint for MVP.
+  - Roll20 chat delivery remains websocket-only through app `send_roll20_chat_message` requests and the `/ws/chat` Firefox-extension bridge.
+  - Added backend route regression coverage proving no Roll20/chat HTTP route is registered.
+- [x] Move auth codes into explicit environment/config management before deployment needs tighten.
+  - Backend auth token resolution now goes through `backend.core.config`, with documented env vars for player, DM, and Roll20 service codes plus explicit local-development defaults.
+  - Frontend helper/mock auth token defaults now go through a shared auth config module and `.env.example` documents the matching Vite env vars.
+  - Roll20 extension service auth uses an explicit `TTRPG_SERVICE_AUTH_CODE` localStorage override with a documented local-development fallback.
+  - Added focused backend/frontend config tests and refreshed stale websocket snapshot expectations for the current `encounter_presets` state root.
+- [x] Continue trimming redundant websocket success payloads where authoritative patches already prove success.
+  - Mutating `perform_action` requests now complete through their authoritative `state_patch`; `action_executed` remains only for action executions that produce no state patch.
+  - Updated backend runtime tests to assert patch-only success for mutating action execution while preserving explicit success for no-op/Roll20-only action execution.
+- [x] Backend websocket contract tests cover auth, snapshot, patch, error, resync, permission failures, action execution, variable mutation, and Roll20 bridge failure.
+  - Added focused websocket contract coverage for DM-only permission denial, patch broadcast, replay resync, variable-registry mutation metadata, mutating action execution, and no-patch Roll20-only action success.
+  - Reset state-sync version/history in websocket tests so snapshot, patch, and replay assertions remain isolated.
+- [x] Backend role-based access tests cover DM-only and future typed admin mutations.
+  - Added a registry-wide access matrix that classifies every public websocket route as unauthenticated, player-accessible, or DM-only.
+  - Exercised route authorization for unauthenticated, player, and DM sessions, and locked expected custom denial reasons so new typed admin mutations must make their access boundary explicit.
+- [x] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
+  - Added structured codegen tests that compare generated route-helper metadata against the live request registry.
+  - Added checked-in generated protocol freshness coverage and verified every registered request/event model is exported and included in the generated TypeScript unions.
+- [x] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
+  - Existing frontend suites cover websocket wrapper parsing, reconnect/backoff, resync recovery, authoritative snapshot/patch reconciliation, optimistic pending feedback, reducers, request builders, selectors, and mock-mode sheet flows.
+  - Added focused coverage for backend error/action-executed parsing and adaptation, unsupported typed mock transport requests, and sheet modifier parsing/formatting used by resource/stat edit controls.
+- [x] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
+  - Added tablist semantics and arrow/Home/End keyboard handling for character sheet sections, plus explicit active-sheet quick-switch tab states.
+  - Added accessible names, expanded states, described hints/errors, alert roles, and visible focus styling for resource/stat editor controls.
+  - Fixed a Vite env typing issue surfaced by frontend build verification.
 - [ ] Add integration tests for rapid intent sequences and snapshot/patch consistency.
 - [ ] Add schema versions and migration support before serious data entry.
 - [ ] Add source request/action metadata to mutations for audit/debugging.

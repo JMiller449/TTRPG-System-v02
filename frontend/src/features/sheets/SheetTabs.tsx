@@ -23,11 +23,15 @@ export function SheetTabs(): JSX.Element {
 
   return (
     <Panel title="Active Sheets (Quick Switch)">
-      <div className="tab-row">
+      <div className="tab-row" role="tablist" aria-label="Active sheet instances">
         {items.length === 0 ? <EmptyState message="No active sheet instances." /> : null}
         {items.map((sheet) => (
           <button
             key={sheet.id}
+            type="button"
+            role="tab"
+            aria-selected={sheet.id === activeSheetId}
+            aria-label={`Switch to ${sheet.name}`}
             className={`tab ${sheet.id === activeSheetId ? "tab--active" : ""}`}
             onClick={() => dispatch({ type: "set_active_sheet_local", sheetId: sheet.id })}
           >

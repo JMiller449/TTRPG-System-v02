@@ -1,4 +1,63 @@
-from backend.protocol.generate_typescript import _build_output
+import re
+
+from backend.core.request_registry import request_registry
+from backend.protocol.generate_typescript import (
+    OUTPUT_PATH,
+    _build_output,
+    _build_route_contract_manifest,
+    _resolve_type_discriminant,
+)
+from backend.protocol.socket import ErrorEvent
+
+
+def _exported_type_names(output: str) -> set[str]:
+    return set(re.findall(r"^export type ([A-Za-z0-9_]+) =", output, re.MULTILINE))
+
+
+def _union_members(output: str, type_name: str) -> set[str]:
+    match = re.search(rf"^export type {type_name} = (.*);$", output, re.MULTILINE)
+    assert match is not None, f"Missing generated {type_name} union."
+    return set(match.group(1).split(" | "))
+
+
+def test_typescript_codegen_checked_in_output_is_current() -> None:
+    assert OUTPUT_PATH.read_text(encoding="utf-8") == _build_output()
+
+
+def test_typescript_codegen_route_manifest_matches_registry_metadata() -> None:
+    expected_manifest = [
+        {
+            "type": contract.type_name,
+            "requestModel": contract.request_model.__name__,
+            "emittedEventTypes": [
+                _resolve_type_discriminant(model)
+                for model in contract.emitted_event_models
+            ],
+            "minimumRole": contract.minimum_role,
+            "clientNamespace": contract.client_generation.namespace,
+            "clientMethodName": contract.client_generation.method_name,
+        }
+        for contract in request_registry.route_contracts()
+        if contract.client_generation is not None
+    ]
+
+    assert _build_route_contract_manifest() == expected_manifest
+
+
+def test_typescript_codegen_exports_registered_request_and_event_models() -> None:
+    output = _build_output()
+    exported_types = _exported_type_names(output)
+
+    request_model_names = {model.__name__ for model in request_registry.request_models()}
+    event_model_names = {
+        model.__name__
+        for model in (ErrorEvent, *request_registry.emitted_event_models())
+    }
+
+    assert request_model_names <= exported_types
+    assert event_model_names <= exported_types
+    assert _union_members(output, "ProtocolApplicationRequest") == request_model_names
+    assert _union_members(output, "ProtocolServerEvent") == event_model_names
 
 
 def test_typescript_codegen_exports_route_contract_manifest() -> None:
@@ -32,6 +91,10 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "create_item"' in output
     assert '"clientNamespace": "sheetAdminItems"' in output
     assert '"clientMethodName": "deleteItem"' in output
+    assert '"type": "create_proficiency"' in output
+    assert '"clientNamespace": "proficiencies"' in output
+    assert '"clientMethodName": "deleteProficiency"' in output
+    assert "export type ProficiencyDefinitionPayload = {" in output
     assert '"type": "create_sheet"' in output
     assert '"clientNamespace": "sheetAdminSheets"' in output
     assert '"type": "create_instanced_sheet"' in output

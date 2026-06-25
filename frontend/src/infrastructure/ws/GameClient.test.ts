@@ -4,6 +4,22 @@ import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/trans
 import { ManagedGameClient } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 
+function emptySnapshot() {
+  return {
+    sheets: [],
+    persistentSheets: [],
+    items: [],
+    proficiencies: [],
+    actions: [],
+    formulas: [],
+    conditionPresets: [],
+    sheetPresentation: [],
+    persistentSheetPresentation: [],
+    encounters: [],
+    actionHistory: []
+  };
+}
+
 class FakeTransport implements GameTransport {
   public protocolRequests: ProtocolApplicationRequest[] = [];
   public disconnectCount = 0;
@@ -176,35 +192,13 @@ describe("ManagedGameClient", () => {
     await client.connect();
     transport.emit({
       type: "snapshot",
-      snapshot: {
-        sheets: [],
-        persistentSheets: [],
-        items: [],
-        actions: [],
-        formulas: [],
-        conditionPresets: [],
-        sheetPresentation: [],
-        persistentSheetPresentation: [],
-        encounters: [],
-        actionHistory: []
-      },
+      snapshot: emptySnapshot(),
       stateVersion: 5,
       incremental: false
     });
     transport.emit({
       type: "snapshot",
-      snapshot: {
-        sheets: [],
-        persistentSheets: [],
-        items: [],
-        actions: [],
-        formulas: [],
-        conditionPresets: [],
-        sheetPresentation: [],
-        persistentSheetPresentation: [],
-        encounters: [],
-        actionHistory: []
-      },
+      snapshot: emptySnapshot(),
       stateVersion: 7,
       incremental: true
     });
@@ -225,18 +219,7 @@ describe("ManagedGameClient", () => {
 
     transport.emit({
       type: "snapshot",
-      snapshot: {
-        sheets: [],
-        persistentSheets: [],
-        items: [],
-        actions: [],
-        formulas: [],
-        conditionPresets: [],
-        sheetPresentation: [],
-        persistentSheetPresentation: [],
-        encounters: [],
-        actionHistory: []
-      },
+      snapshot: emptySnapshot(),
       stateVersion: 7,
       incremental: false,
       requestId: transport.protocolRequests[0].request_id ?? undefined
@@ -246,6 +229,139 @@ describe("ManagedGameClient", () => {
       type: "snapshot",
       stateVersion: 7,
       requestId: transport.protocolRequests[0].request_id
+    });
+  });
+
+  it("schedules websocket reconnects with backoff and re-authenticates after a dropped connection", async () => {
+    const transports: FakeTransport[] = [];
+    const scheduledReconnects: Array<{ delayMs: number; callback: () => void; canceled: boolean }> = [];
+    const connectionStates: unknown[] = [];
+    const events: ServerEvent[] = [];
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      reconnectDelaysMs: [10, 25],
+      reconnectScheduler: (callback, delayMs) => {
+        const scheduled = { delayMs, callback, canceled: false };
+        scheduledReconnects.push(scheduled);
+        return () => {
+          scheduled.canceled = true;
+        };
+      },
+      transportFactory: () => {
+        const transport = new FakeTransport("ws");
+        transports.push(transport);
+        return transport;
+      }
+    });
+    client.onConnectionState((state) => connectionStates.push(state));
+    client.onEvent((event) => events.push(event));
+
+    await client.connect();
+    client.authenticate("player", "player-token");
+    transports[0]?.emit({
+      type: "snapshot",
+      snapshot: emptySnapshot(),
+      stateVersion: 5,
+      incremental: false
+    });
+    transports[0]?.emit({ type: "connection_lost", message: "Connection closed" });
+
+    expect(scheduledReconnects).toHaveLength(1);
+    expect(scheduledReconnects[0]).toMatchObject({ delayMs: 10, canceled: false });
+    expect(client.getConnectionState()).toEqual({
+      status: "connecting",
+      transport: "ws",
+      error: "Connection closed. Reconnecting in 10ms..."
+    });
+
+    scheduledReconnects[0]?.callback();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(transports).toHaveLength(2);
+    expect(client.getConnectionState()).toMatchObject({
+      status: "connected",
+      transport: "ws",
+      error: undefined
+    });
+    expect(transports[1]?.protocolRequests).toHaveLength(1);
+    expect(transports[1]?.protocolRequests[0]).toMatchObject({
+      type: "authenticate",
+      token: "player-token"
+    });
+
+    transports[1]?.emit({
+      type: "snapshot",
+      snapshot: emptySnapshot(),
+      stateVersion: 20,
+      incremental: false
+    });
+    transports[1]?.emit({
+      type: "snapshot",
+      snapshot: emptySnapshot(),
+      stateVersion: 21,
+      incremental: true
+    });
+
+    expect(events.filter((event) => event.type === "sync_recovery")).toHaveLength(0);
+    expect(connectionStates).toContainEqual({
+      status: "connecting",
+      transport: "ws",
+      error: "Connection closed. Reconnecting in 10ms..."
+    });
+  });
+
+  it("continues reconnect backoff after retry failures", async () => {
+    const scheduledReconnects: Array<{ delayMs: number; callback: () => void }> = [];
+    const transports: FakeTransport[] = [];
+    let factoryCalls = 0;
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      reconnectDelaysMs: [5, 15],
+      reconnectScheduler: (callback, delayMs) => {
+        scheduledReconnects.push({ delayMs, callback });
+        return () => undefined;
+      },
+      transportFactory: () => {
+        factoryCalls += 1;
+        if (factoryCalls === 2) {
+          const transport = new FakeTransport("ws", new Error("retry failed"));
+          transports.push(transport);
+          return transport;
+        }
+        const transport = new FakeTransport("ws");
+        transports.push(transport);
+        return transport;
+      }
+    });
+
+    await client.connect();
+    expect(factoryCalls).toBe(1);
+
+    transports[0]?.emit({ type: "connection_lost", message: "Connection closed" });
+
+    expect(scheduledReconnects[0]?.delayMs).toBe(5);
+    scheduledReconnects[0]?.callback();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(factoryCalls).toBe(2);
+    expect(scheduledReconnects[1]?.delayMs).toBe(15);
+    expect(client.getConnectionState()).toEqual({
+      status: "connecting",
+      transport: "ws",
+      error: "Failed to reconnect transport. Reconnecting in 15ms..."
+    });
+
+    scheduledReconnects[1]?.callback();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(factoryCalls).toBe(3);
+    expect(client.getConnectionState()).toMatchObject({
+      status: "connected",
+      transport: "ws",
+      error: undefined
     });
   });
 

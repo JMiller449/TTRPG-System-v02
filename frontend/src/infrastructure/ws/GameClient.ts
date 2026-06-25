@@ -1,5 +1,6 @@
 import type { ServerEvent } from "@/domain/ipc";
 import type { Role } from "@/domain/models";
+import { resolveDefaultAuthToken } from "@/infrastructure/config/authConfig";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { MockGameTransport } from "@/infrastructure/transport/MockGameTransport";
 import { WebSocketGameTransport } from "@/infrastructure/transport/WebSocketGameTransport";
@@ -23,14 +24,22 @@ export interface ManagedGameClientOptions {
   preferredMode?: ClientTransportMode;
   wsUrl?: string;
   transportFactory?: (mode: ClientTransportMode, wsUrl: string) => GameTransport;
+  reconnectDelaysMs?: number[];
+  reconnectScheduler?: (callback: () => void, delayMs: number) => TransportUnsubscribe;
 }
 
 type ConnectionListener = (state: ClientConnectionState) => void;
 type EventListener = (event: ServerEvent) => void;
 
 const DEFAULT_WS_URL = "ws://127.0.0.1:6767/ws";
-const DEFAULT_PLAYER_AUTH_TOKEN = "change-me-player-code";
-const DEFAULT_DM_AUTH_TOKEN = "change-me-dm-code";
+const DEFAULT_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000];
+
+function scheduleReconnect(callback: () => void, delayMs: number): TransportUnsubscribe {
+  const timeoutId = globalThis.setTimeout(callback, delayMs);
+  return () => {
+    globalThis.clearTimeout(timeoutId);
+  };
+}
 
 function createTransport(mode: ClientTransportMode, wsUrl: string): GameTransport {
   if (mode === "ws") {
@@ -45,17 +54,27 @@ export class ManagedGameClient {
   private readonly preferredMode: ClientTransportMode;
   private readonly wsUrl: string;
   private readonly transportFactory: (mode: ClientTransportMode, wsUrl: string) => GameTransport;
+  private readonly reconnectDelaysMs: number[];
+  private readonly reconnectScheduler: (callback: () => void, delayMs: number) => TransportUnsubscribe;
 
   private transport: GameTransport | null = null;
   private transportUnsubscribe: TransportUnsubscribe | null = null;
+  private cancelScheduledReconnect: TransportUnsubscribe | null = null;
   private authToken: string | null = null;
   private lastSeenStateVersion: number | null = null;
   private connectionState: ClientConnectionState;
+  private desiredConnected = false;
+  private reconnectAttempt = 0;
+  private connectInFlight: Promise<void> | null = null;
 
   constructor(options: ManagedGameClientOptions = {}) {
     this.preferredMode = options.preferredMode ?? "ws";
     this.wsUrl = options.wsUrl ?? DEFAULT_WS_URL;
     this.transportFactory = options.transportFactory ?? createTransport;
+    this.reconnectDelaysMs = options.reconnectDelaysMs?.length
+      ? options.reconnectDelaysMs
+      : DEFAULT_RECONNECT_DELAYS_MS;
+    this.reconnectScheduler = options.reconnectScheduler ?? scheduleReconnect;
     this.connectionState = {
       status: "disconnected",
       transport: this.preferredMode
@@ -82,13 +101,23 @@ export class ManagedGameClient {
   }
 
   async connect(): Promise<void> {
+    this.desiredConnected = true;
+    this.clearScheduledReconnect();
+    await this.connectTransport({ retryOnFailure: false });
+  }
+
+  private async connectTransport({ retryOnFailure }: { retryOnFailure: boolean }): Promise<void> {
+    if (this.connectInFlight) {
+      return this.connectInFlight;
+    }
+
     this.updateConnectionState({
       ...this.connectionState,
       status: "connecting",
       error: undefined
     });
 
-    try {
+    this.connectInFlight = (async () => {
       let transport = this.transport;
       if (this.preferredMode === "ws" && transport?.mode !== "ws") {
         transport = this.transportFactory("ws", this.wsUrl);
@@ -109,21 +138,37 @@ export class ManagedGameClient {
         transport: transport.mode,
         error: undefined
       });
+      this.reconnectAttempt = 0;
       this.bootstrapAuthenticatedSession();
+    })();
+
+    try {
+      await this.connectInFlight;
     } catch {
       this.clearTransport();
-      this.updateConnectionState({
-        ...this.connectionState,
-        transport: this.preferredMode,
-        status: "disconnected",
-        error: "Failed to connect transport"
-      });
+      if (retryOnFailure && this.shouldAutoReconnect()) {
+        this.queueReconnect("Failed to reconnect transport");
+      } else {
+        this.updateConnectionState({
+          ...this.connectionState,
+          transport: this.preferredMode,
+          status: "disconnected",
+          error: "Failed to connect transport"
+        });
+      }
+    } finally {
+      this.connectInFlight = null;
     }
   }
 
   disconnect(): void {
-    this.transport?.disconnect();
+    this.desiredConnected = false;
+    this.clearScheduledReconnect();
+    const transport = this.transport;
+    this.clearTransport();
+    transport?.disconnect();
     this.lastSeenStateVersion = null;
+    this.reconnectAttempt = 0;
     this.updateConnectionState({
       ...this.connectionState,
       status: "disconnected",
@@ -209,6 +254,11 @@ export class ManagedGameClient {
     this.transportUnsubscribe?.();
     this.transport = transport;
     this.transportUnsubscribe = transport.onEvent((event) => {
+      if (event.type === "connection_lost") {
+        this.handleConnectionLost(event.message);
+        return;
+      }
+
       if (event.type === "authenticated" && !event.authenticated) {
         this.authToken = null;
       }
@@ -242,6 +292,50 @@ export class ManagedGameClient {
     this.transport = null;
   }
 
+  private handleConnectionLost(message: string): void {
+    this.lastSeenStateVersion = null;
+    this.clearTransport();
+
+    if (!this.shouldAutoReconnect()) {
+      this.updateConnectionState({
+        ...this.connectionState,
+        status: "disconnected",
+        error: message
+      });
+      return;
+    }
+
+    this.queueReconnect(message);
+  }
+
+  private shouldAutoReconnect(): boolean {
+    return this.desiredConnected && this.preferredMode === "ws";
+  }
+
+  private queueReconnect(reason: string): void {
+    if (this.cancelScheduledReconnect) {
+      return;
+    }
+
+    const delayMs = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 0;
+    this.reconnectAttempt += 1;
+    this.updateConnectionState({
+      ...this.connectionState,
+      transport: "ws",
+      status: "connecting",
+      error: `${reason}. Reconnecting in ${delayMs}ms...`
+    });
+    this.cancelScheduledReconnect = this.reconnectScheduler(() => {
+      this.cancelScheduledReconnect = null;
+      void this.connectTransport({ retryOnFailure: true });
+    }, delayMs);
+  }
+
+  private clearScheduledReconnect(): void {
+    this.cancelScheduledReconnect?.();
+    this.cancelScheduledReconnect = null;
+  }
+
   private bootstrapAuthenticatedSession(): void {
     if (!this.transport || this.transport.mode !== "ws" || !this.authToken) {
       return;
@@ -256,10 +350,7 @@ export class ManagedGameClient {
   }
 
   private resolveAuthToken(role: Role, providedToken?: string): string {
-    if (role === "gm") {
-      return providedToken?.trim() || import.meta.env.VITE_DM_AUTH_TOKEN || DEFAULT_DM_AUTH_TOKEN;
-    }
-    return providedToken?.trim() || import.meta.env.VITE_PLAYER_AUTH_TOKEN || DEFAULT_PLAYER_AUTH_TOKEN;
+    return providedToken?.trim() || resolveDefaultAuthToken(role);
   }
 
   private updateConnectionState(nextState: ClientConnectionState): void {

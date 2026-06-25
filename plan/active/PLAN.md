@@ -293,7 +293,7 @@ Proficiency:
 - Range: 0 to 100 percent.
 - 100 percent is mastery.
 - Increments happen on approved use and are configurable per weapon/spell/skill.
-- Downtime training exists in the rules but can stay manual/Roll20 for MVP.
+- Downtime training is manual DM adjudication for MVP; the DM may decide that a character practiced/activated something a number of times and award a specific proficiency/XP amount.
 - Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
 - DM-authored global proficiency definitions are the registry of available proficiencies.
@@ -342,6 +342,15 @@ Combat automation:
 - Turn order, action point reset, reactions, contested reactions, opportunity attacks, flanking, grappling, AOE positioning, and cross-sheet damage application are Roll20/manual.
 - The app should not automate cross-sheet combat workflows.
 - `slayed_record` remains part of full sheet state for history/bookkeeping, but dedicated semantic slay-record routes are deferred until combat/history automation becomes MVP-relevant.
+
+XP and level-up:
+
+- MVP should track level-up readiness through a DM-configured XP tracker.
+- DM defines XP needed for next level and mob/enemy XP values.
+- Players can mark/count how many tracked mobs they killed.
+- Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
+- DM reviews XP at end of session and applies level-up changes manually through normal sheet edits.
+- Automated stat distribution and level-up mutation workflows are deferred.
 
 ## 9. Augmentation Direction
 
@@ -531,7 +540,8 @@ Frontend augmentation UX boundary:
 - [x] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls: player snapshots/patches redact GM template notes and GM-only item fields, while player-visible controls remain limited to authenticated instance notes/resources/actions.
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
-- [ ] Model relationship/bridge operations as semantic commands such as `attach`, `detach`, `link`, `unlink`, and `instantiate`.
+- [x] Keep relationship/bridge operations as simple explicit add/update/remove flows.
+  - Decision: do not introduce a separate semantic command vocabulary such as `attach`, `detach`, `link`, or `unlink` for MVP; sheet actions, equipment, and proficiencies use direct bridge create/update/delete operations.
 - [x] Add Roll20 bridge status/send-failure UX.
   - Added a typed backend `get_roll20_bridge_status` request and `roll20_bridge_status` event.
   - Frontend roll/action panel can refresh and display Roll20 bridge connected/disconnected/unknown state.
@@ -868,9 +878,15 @@ MVP is done when:
 - [ ] GM console overlay mode for fast page switching and encounter spawn actions.
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode/alternative handling.
-- [ ] Downtime training automation.
+- [x] Keep downtime training manual for MVP.
+  - Decision: DM manually adjudicates downtime practice/activation counts and awards proficiency/XP as appropriate; no downtime automation is needed for MVP.
 - [ ] Mastery unlock enforcement.
-- [ ] Level-up policy automation; manual value edits remain enough until rules are settled.
+- [ ] Add XP tracker for level-up readiness.
+  - DM defines XP needed for next level and mob/enemy XP values.
+  - Players can mark/count how many tracked mobs they killed.
+  - Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
+  - DM UI shows current XP versus XP needed; DM reviews at end of session.
+  - Level-up application remains manual DM sheet edits for MVP.
 - [ ] Export/import JSON.
 - [ ] Multi-campaign support.
 - [ ] Mobile layout refinement for player character sheet and GM encounter/template panels.
@@ -888,7 +904,7 @@ These are not MVP blockers:
 - Exact heavy armor penalty augmentation behavior.
 - Exact overload DC formula.
 - Stacking rules beyond additive resistance capped at 100 percent.
-- Level-up policy boundaries beyond manual edits and GM discretion.
+- Automated level-up stat distribution beyond XP readiness tracking and manual GM edits.
 - Exact frontend roll composer preview terms for formulas that remain Roll20-resolved.
 - Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, or formula-driven.
 

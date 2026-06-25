@@ -60,8 +60,8 @@ A:
 ```
 
 ```md
-Q: Can a single action have both advantage and disadvantage selected?
-PA: One of: impossible, cancel to normal, stack by source, or GM chooses.
+Q: If one source gives advantage and another source gives disadvantage to the same hit/check roll, what should happen?
+PA: One of: cancel to normal, GM chooses which applies, strongest source wins, or another conflict rule.
 A:
 ```
 
@@ -313,7 +313,7 @@ A:
 ```md
 Q: Should downtime training use the same growth formula as action use?
 PA: Same formula, separate formula, or manual-only decision.
-A: Downtime can be allocated to practice a skill/spell/weapon in order to increase proficiency, but the exact downtime gain formula is not specified.
+A: Manual-only for MVP. The DM decides downtime training results, such as saying a character practiced/activated a spell a certain number of times and gains a specific amount of proficiency/XP.
 ```
 
 ```md
@@ -374,98 +374,6 @@ A: The rules explicitly allow unlock requirements based on another proficiency: 
 ```md
 Q: Can mastery be lost, and if so do unlocks remain?
 PA: Mastery-loss and unlock-retention rule.
-A:
-```
-
-### Downtime Training
-
-Current understanding:
-
-- Downtime training exists in the rules.
-- It can stay manual/Roll20 until rules are settled.
-
-```md
-Q: What resources does downtime training consume?
-PA: Resource list, such as time, money, teacher, location, materials, fatigue, or none.
-A: Downtime consumes a period of time, such as days, weeks, months, or years. During downtime, each player is asked what they wish to do. Money, teacher, location, materials, and fatigue costs are not specified.
-```
-
-```md
-Q: What is the downtime training gain formula?
-PA: Formula and examples.
-A: Downtime training can increase proficiency by practicing a skill/spell/weapon, but no exact gain formula is specified.
-```
-
-```md
-Q: Is training capped by current proficiency, level, teacher quality, or equipment?
-PA: Cap/limit rules.
-A: Training/proficiency is capped at 100%. No level, teacher quality, or equipment training cap is specified in the supplied rules.
-```
-
-```md
-Q: How does downtime training interact with normal action-use proficiency gain?
-PA: Same pool, separate pool, daily cap, stacking rule, or manual-only.
-A: Downtime training increases the same proficiency concept as normal use. The rules do not define daily caps, stacking, or whether downtime uses the exact same per-use rate.
-```
-
-```md
-Q: Can players request downtime training, or is it GM-only?
-PA: Permission and approval flow.
-A: When downtime happens, each player is asked what they wish to do, so players can request/choose training activity during downtime. GM adjudication is implied but not fully specified.
-```
-
-```md
-Q: Does training require rolls, and can it fail?
-PA: Roll rule, failure rule, and success/failure outcomes.
-A: The supplied downtime rules do not specify training rolls or training failure.
-```
-
-### Level-Up Policy
-
-Current understanding:
-
-- Manual value edits are enough until rules are settled.
-- Player-facing manual level-up drafts were removed because they were not authoritative.
-
-```md
-Q: What triggers level-up?
-PA: Trigger rule, such as XP, milestone, proficiency threshold, GM decision, or mixed.
-A: Characters gain XP from fighting monsters. Each level has an XP threshold that must be reached before leveling up.
-```
-
-```md
-Q: Which values change on level-up?
-PA: Field list, such as HP, mana, stats, proficiencies, spells, actions, resistances, other.
-A: Leveling up grants stat points assigned randomly or by GM discretion across core statistics. The rules state that statistics are the only aspect of the character that improves upon leveling; skills and spells are not limited by player level, only by statistics.
-```
-
-```md
-Q: Are HP, mana, stats, proficiencies, spells, and actions all part of level-up?
-PA: Inclusion/exclusion list with formulas where applicable.
-A: Core statistics change through level-up stat points. HP, mana, action points, and other derived values may change indirectly because they derive from stats. Proficiencies, spells, and skills do not level directly through character level in the supplied rules.
-```
-
-```md
-Q: What is the exact HP max formula and race modifier behavior?
-PA: Formula and source fields.
-A: The supplied rules state that every race has an HP modifier and give examples `Human: 10 * 50 = 500 HP` and `Demon: 100 * 50 = 5000 HP`. The exact source of the `50` multiplier and how this combines with Constitution/Health needs confirmation.
-```
-
-```md
-Q: What is the exact Strength-to-carry-weight formula?
-PA: Formula and rounding rule.
-A: Strength determines total carry weight, but the supplied rules do not provide an exact formula.
-```
-
-```md
-Q: Who can apply level-up changes?
-PA: One of: player request, GM approval, GM-only, automatic, or mixed.
-A: The GM assigns level-up stat points randomly across core statistics, or by GM discretion. Unassigned stat points may be allocated by the player when the GM grants them.
-```
-
-```md
-Q: Should level-up changes be reversible/auditable?
-PA: Audit and undo policy.
 A:
 ```
 
@@ -639,37 +547,6 @@ A: The supplied rules do not specify automated defeated/slayed tracking.
 Q: What combat events must be logged for audit/history?
 PA: Event list and visibility policy.
 A: The supplied rules do not specify app audit/history logging requirements.
-```
-
-### Relationship And Bridge Commands
-
-Current understanding:
-
-- The backend has explicit bridge records for sheet actions, sheet items, and sheet proficiencies.
-- A later plan item proposes semantic commands such as `attach`, `detach`, `link`, `unlink`, and `instantiate`.
-
-```md
-Q: Which relationships should be user-facing commands?
-PA: Relationship list and command names.
-A:
-```
-
-```md
-Q: What is the difference between attach, link, equip, assign, instantiate, and apply?
-PA: Term definitions.
-A:
-```
-
-```md
-Q: Should bridge operations have permissions, costs, or audit history?
-PA: Permission/cost/audit policy.
-A:
-```
-
-```md
-Q: Are bridge changes ever player-requested, or always GM-only?
-PA: Permission and approval flow.
-A:
 ```
 
 ### Conditions And Augmentations

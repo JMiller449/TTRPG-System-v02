@@ -546,8 +546,12 @@ Frontend augmentation UX boundary:
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
 - [x] Keep relationship/bridge operations as simple explicit add/update/remove flows.
+<<<<<<< HEAD
   - The stable websocket contract continues to use direct bridge create/update/delete operations for sheet actions, equipment, and proficiencies.
   - Internal service/helper names may describe intent, but do not create a second transport command vocabulary for MVP.
+=======
+  - Decision: do not introduce a separate semantic command vocabulary such as `attach`, `detach`, `link`, or `unlink` for MVP; sheet actions, equipment, and proficiencies use direct bridge create/update/delete operations.
+>>>>>>> f223a7b37f9c32956339a39f2685cf4d1cf5f198
 - [x] Add Roll20 bridge status/send-failure UX.
   - Added a typed backend `get_roll20_bridge_status` request and `roll20_bridge_status` event.
   - Frontend roll/action panel can refresh and display Roll20 bridge connected/disconnected/unknown state.

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { shouldConnectApp } from "@/app/appConnection";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
@@ -6,6 +7,7 @@ import { AuthPanel } from "@/features/auth/AuthPanel";
 import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
+import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { GMConsoleOverlay } from "@/features/console/GMConsoleOverlay";
@@ -29,11 +31,11 @@ export function App(): JSX.Element {
   const activeDetail = selectActiveSheetDetail(state);
 
   useEffect(() => {
-    if (!role || connection.status !== "disconnected") {
+    if (!shouldConnectApp(connection.status)) {
       return;
     }
     void client.connect();
-  }, [client, connection.status, role]);
+  }, [client, connection.status]);
 
   if (!role) {
     return <SessionLanding client={client} />;
@@ -67,6 +69,7 @@ export function App(): JSX.Element {
       </header>
       <IntentFeedbackBanners />
       {role === "gm" ? <GMPageNavPanel /> : null}
+      {role === "gm" ? <SheetAccessCodesPanel client={client} /> : null}
       {role === "gm" ? <GMConsoleOverlay client={client} /> : null}
 
       {role === "player" ? (

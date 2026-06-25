@@ -32,7 +32,12 @@ def _assign_request_id(payload: Any) -> tuple[Any, str | None]:
         return payload, None
 
     normalized_payload = dict(payload)
-    request_id = generate_request_id()
+    supplied_request_id = normalized_payload.get("request_id")
+    request_id = (
+        supplied_request_id
+        if isinstance(supplied_request_id, str) and supplied_request_id.strip()
+        else generate_request_id()
+    )
     normalized_payload["request_id"] = request_id
     return normalized_payload, request_id
 
@@ -261,6 +266,7 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
         return
 
     await chat_service.roll20_chat_bridge.connect(websocket, accept=False)
+    await chat_service.broadcast_bridge_status(connected=True)
 
     try:
         while True:
@@ -286,3 +292,6 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
         pass
     finally:
         await chat_service.roll20_chat_bridge.disconnect(websocket)
+        await chat_service.broadcast_bridge_status(
+            connected=await chat_service.roll20_chat_bridge.is_connected()
+        )

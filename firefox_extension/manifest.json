@@ -10,7 +10,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://app.roll20.net/editor/*"],
+      "matches": [
+        "https://app.roll20.net/editor",
+        "https://app.roll20.net/editor/*"
+      ],
       "js": ["content/roll20-chat-bridge.js"],
       "run_at": "document_idle"
     }

@@ -209,7 +209,7 @@ Actions:
 - Current-value changes such as resource costs, resource restores, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
 - Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
 - Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
-- Full attack-specific damage composition, armor derivation, critical rules, and combat modifiers remain later resolver work.
+- Full attack-specific damage composition, critical rules, and augmentation-derived combat modifiers remain later resolver work.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
 - Roll/check variants should be modeled as action steps or sheet presets, not as separate roll-type records.
 - Freeform situational modifiers are not MVP; common modifiers should become GM-authored actions/conditions, and one-off adjustments can be manual in Roll20.
@@ -240,8 +240,8 @@ Quick actions:
 - If the bridge is disconnected, requests fail immediately and the frontend should show a clear failure/toast.
 - Do not queue disconnected Roll20 messages.
 - Plain text and Roll20 `/r` output are preferred over tightly coupled templates.
-- Lightweight prefix wrapping can support advantage/disadvantage and visibility/GM-only output.
-- Hidden GM roll support can be handled through that prefixing if needed.
+- Roll20 roll/action chat output is public by default.
+- Lightweight prefix wrapping can support public advantage/disadvantage mode labels.
 
 Roll20 output should include enough context to be auditable:
 
@@ -251,7 +251,7 @@ Roll20 output should include enough context to be auditable:
 - resolved result when backend resolves it
 - optional DC/success/mutation details per action
 
-Roll20 output should be compact by default while still showing enough formula detail for GM/player trust. Any non-Roll20 roll/debug metadata should be debug/audit-oriented, not a player-facing app roll history. Formula/action errors should be detailed for GM/debug views and concise for players.
+Roll20 output should be compact by default while still showing enough formula detail for GM/player trust. Any non-Roll20 roll/debug metadata should be debug/audit-oriented, not a player-facing app roll history. Roll/action calculation failures emitted to Roll20 should use concise public error text.
 
 ## 7A. Action History Boundary
 
@@ -306,8 +306,8 @@ Equipment and items:
 - Equipped/active weapon selection exists for attack rolls.
 - Equipment is an inventory-list model, not a slot-based layout for MVP; records can still mark active/equipped gear where rules need it.
 - Weapons define damage, governing stat, reach, damage type, and proficiency reference.
-- Armor adds resistance and does not increase AC; heavy armor AC disadvantage remains unresolved and manual/deferred.
-- Shields give advantage on block actions and otherwise do not affect resistance or AC unless specified.
+- Equipment mechanical effects should use generic augmentation templates wherever possible instead of bespoke per-equipment-type rules.
+- Armor, shields, and other gear can provide resistance, penalties, advantage/disadvantage sources, or other modifiers through augmentations or authored actions unless a future core resolver requires a first-class field.
 - Consumables are items and using one in battle costs an action point.
 - Item records should support World Anvil links.
 - Item records should support GM-only notes/special properties for campaign-specific effects that are not player-visible.
@@ -489,6 +489,8 @@ Frontend augmentation UX boundary:
   - Added GM Proficiency Authoring UI for creating, editing, and deleting global proficiency definitions.
 - [x] Validate sheet proficiency bridges against existing global proficiency definitions.
   - Sheet create/update and sheet proficiency bridge create/update now reject missing global `prof_id` references.
+- [x] Add GM sheet proficiency assignment UI.
+  - Sheet Viewer now has a Proficiencies tab for viewing sheet progress bridges and GM-only create/update/delete controls backed by global proficiency definitions.
 - [x] Keep MVP strict for action proficiency references: do not auto-create sheet progress bridges at runtime when an action references a proficiency the sheet does not have.
   - Action create/update validates `gain_proficiency_use.proficiency_id` against global proficiency definitions, while runtime still rejects missing sheet progress bridges.
 - [x] Add action-level proficiency gain authoring.
@@ -510,13 +512,13 @@ Frontend augmentation UX boundary:
 - [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
-- [ ] Extend damage resolution later for armor derivation, critical rules, weapon/spell-specific damage composition, and other combat modifiers.
+- [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
 - [x] Implement action execution against explicit sheet/instance IDs.
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
-- [ ] Implement weapon/equipment-driven attack modifiers on the backend when attack support is added.
+- [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
 - [ ] Implement advantage/disadvantage as predefined runtime action parameters.
-- [ ] Add Roll20 chat prefix wrapping for advantage/disadvantage and visibility/GM-only output.
+- [ ] Add public Roll20 chat prefix wrapping for advantage/disadvantage output.
 - [x] Add validation/error responses for invalid action execution payloads and unauthorized actions.
 - [x] Finalize websocket request/response types for action execution requests.
 - [x] Finalize websocket request/response types for typed template edits, sheet updates, and bridge operations.
@@ -876,12 +878,14 @@ MVP is done when:
 
 ## 13. Deferred Rule Decisions
 
+Expanded DM/common rules author handoff: `reference-docs/rule-decisions-needed.md`.
+
 These are not MVP blockers:
 
 - Exact HP max formula and race modifier behavior. Use GM-authored/configurable formula for now.
 - Exact Strength-to-carry-weight formula.
 - Critical behavior outside physical weapon attacks.
-- Heavy armor disadvantage on fixed AC.
+- Exact heavy armor penalty augmentation behavior.
 - Exact overload DC formula.
 - Stacking rules beyond additive resistance capped at 100 percent.
 - Level-up policy boundaries beyond manual edits and GM discretion.

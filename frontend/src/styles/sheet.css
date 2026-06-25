@@ -8,6 +8,42 @@
   margin: 0;
 }
 
+.sheet-proficiency-add-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(90px, 120px) minmax(90px, 120px) auto;
+  align-items: end;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.sheet-proficiency-add-row .field,
+.sheet-proficiency-editor .field {
+  margin: 0;
+}
+
+.sheet-proficiency-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.sheet-proficiency-card__metrics {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  color: var(--muted);
+  font-size: 0.87rem;
+  white-space: nowrap;
+}
+
+.sheet-proficiency-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(90px, 120px) minmax(90px, 120px) auto;
+  align-items: end;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
 .level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -374,5 +410,16 @@
 
   .core-block__actions {
     justify-content: flex-start;
+  }
+
+  .sheet-proficiency-add-row,
+  .sheet-proficiency-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-proficiency-card__top,
+  .sheet-proficiency-card__metrics {
+    flex-direction: column;
+    gap: 0.25rem;
   }
 }

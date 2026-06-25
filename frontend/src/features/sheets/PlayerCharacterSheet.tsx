@@ -3,6 +3,7 @@ import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetT
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
+import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
@@ -12,10 +13,13 @@ import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildCreateSheetItemBridgeRequest,
+  buildCreateSheetProficiencyBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
+  buildDeleteSheetProficiencyBridgeRequest,
   buildPerformActionRequest,
   buildSetInstancedSheetNotesRequest,
-  buildUpdateSheetItemBridgeRequest
+  buildUpdateSheetItemBridgeRequest,
+  buildUpdateSheetProficiencyBridgeRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
@@ -34,8 +38,11 @@ export function PlayerCharacterSheet({
     detail,
     items,
     itemOrder,
+    proficiencyDefinitions,
+    proficiencyOrder,
     runtimeNote,
     equipment,
+    sheetProficiencies,
     assignedActions,
     activeWeaponId,
     activeWeaponLabel,
@@ -84,9 +91,11 @@ export function PlayerCharacterSheet({
   const showStatsSection = activeTab === "stats";
   const showActionsSection = activeTab === "actions";
   const showEquipmentSection = activeTab === "equipment";
+  const showProficienciesSection = activeTab === "proficiencies";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
   const canEditEquipment = mode === "gm";
+  const canEditProficiencies = mode === "gm";
   const sheetId = detail.sheet?.id;
 
   const updateEquipmentBridgeActive = (relationshipId: string, active: boolean): void => {
@@ -190,6 +199,52 @@ export function PlayerCharacterSheet({
                 "Update instance notes"
               )
             }
+          />
+        ) : null}
+
+        {showProficienciesSection ? (
+          <SheetProficienciesSection
+            proficiencyDefinitions={proficiencyDefinitions}
+            proficiencyOrder={proficiencyOrder}
+            sheetProficiencies={sheetProficiencies}
+            canEdit={canEditProficiencies}
+            onCreate={(bridge) => {
+              if (!sheetId) {
+                return;
+              }
+              client.sendProtocolRequest(
+                buildCreateSheetProficiencyBridgeRequest({
+                  sheetId,
+                  bridge
+                }),
+                `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+              );
+            }}
+            onUpdate={(relationshipId, bridge) => {
+              if (!sheetId) {
+                return;
+              }
+              client.sendProtocolRequest(
+                buildUpdateSheetProficiencyBridgeRequest({
+                  sheetId,
+                  relationshipId,
+                  bridge
+                }),
+                `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+              );
+            }}
+            onDelete={(relationshipId) => {
+              if (!sheetId) {
+                return;
+              }
+              client.sendProtocolRequest(
+                buildDeleteSheetProficiencyBridgeRequest({
+                  sheetId,
+                  relationshipId
+                }),
+                "Remove proficiency"
+              );
+            }}
           />
         ) : null}
 

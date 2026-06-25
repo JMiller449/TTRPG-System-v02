@@ -6,17 +6,26 @@ import {
   selectActiveWeaponLabel,
   selectAvailableItems,
   selectSheetAssignedActions,
-  selectSheetEquipment
+  selectSheetEquipment,
+  selectSheetProficiencies
 } from "@/app/state/selectors";
 import type { AssignedSheetAction } from "@/app/state/selectors";
-import type { ItemBridge, ItemDefinition } from "@/domain/models";
+import type {
+  ItemBridge,
+  ItemDefinition,
+  ProficiencyBridge,
+  ProficiencyDefinition
+} from "@/domain/models";
 
 interface UseSheetDetailStateResult {
   detail: ReturnType<typeof selectActiveSheetDetail>;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  proficiencyDefinitions: Record<string, ProficiencyDefinition>;
+  proficiencyOrder: string[];
   runtimeNote: string;
   equipment: ItemBridge[];
+  sheetProficiencies: ProficiencyBridge[];
   assignedActions: AssignedSheetAction[];
   activeWeaponId: string | null;
   activeWeaponLabel: string;
@@ -27,7 +36,12 @@ interface UseSheetDetailStateResult {
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
   const { state } = useAppStore();
-  const { items, itemOrder } = state.serverState;
+  const {
+    items,
+    itemOrder,
+    proficiencies: proficiencyDefinitions,
+    proficiencyOrder
+  } = state.serverState;
 
   const detail = selectActiveSheetDetail(state);
   const availableItems = selectAvailableItems(state);
@@ -48,8 +62,11 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       detail: null,
       items,
       itemOrder,
+      proficiencyDefinitions,
+      proficiencyOrder,
       runtimeNote: "",
       equipment: [],
+      sheetProficiencies: [],
       assignedActions: [],
       activeWeaponId: null,
       activeWeaponLabel: "None",
@@ -63,14 +80,18 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     detail,
     items,
     itemOrder,
+    proficiencyDefinitions,
+    proficiencyOrder,
     runtimeNote: detail.instance.notes ?? "",
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
+    sheetProficiencies: selectSheetProficiencies(state, detail.sheet?.id ?? detail.instance.id),
     assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),
     activeWeaponLabel: selectActiveWeaponLabel(state, detail.sheet?.id ?? detail.instance.id),
     selectedItemId,
-    selectedItem:
-      selectedItemId ? availableItems.find((item) => item.id === selectedItemId) ?? null : null,
+    selectedItem: selectedItemId
+      ? (availableItems.find((item) => item.id === selectedItemId) ?? null)
+      : null,
     setSelectedItemId
   };
 }

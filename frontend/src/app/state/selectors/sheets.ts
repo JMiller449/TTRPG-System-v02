@@ -5,6 +5,7 @@ import type {
   ItemBridge,
   ItemDefinition,
   PersistentSheet,
+  ProficiencyBridge,
   Sheet,
   SheetInstanceView,
   SheetKind,
@@ -75,7 +76,10 @@ function buildBaseStatValues(
   };
 }
 
-export function selectSheetTemplateView(state: AppState, sheetId: string): SheetTemplateView | null {
+export function selectSheetTemplateView(
+  state: AppState,
+  sheetId: string
+): SheetTemplateView | null {
   const { serverState } = state;
   const sheet = serverState.sheets[sheetId];
   if (!sheet) {
@@ -100,7 +104,10 @@ export function selectSheetTemplateViews(state: AppState): SheetTemplateView[] {
     .filter((entry): entry is SheetTemplateView => Boolean(entry));
 }
 
-export function selectSheetInstanceView(state: AppState, persistentSheetId: string): SheetInstanceView | null {
+export function selectSheetInstanceView(
+  state: AppState,
+  persistentSheetId: string
+): SheetInstanceView | null {
   const { serverState } = state;
   const persistentSheet = serverState.persistentSheets[persistentSheetId];
   if (!persistentSheet) {
@@ -143,19 +150,30 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
   };
 }
 
-function resolveSheetFromSheetOrInstanceId(state: AppState, sheetOrInstanceId: string): Sheet | null {
+function resolveSheetFromSheetOrInstanceId(
+  state: AppState,
+  sheetOrInstanceId: string
+): Sheet | null {
   const directSheet = state.serverState.sheets[sheetOrInstanceId];
   if (directSheet) {
     return directSheet;
   }
 
   const instance = state.serverState.persistentSheets[sheetOrInstanceId];
-  return instance ? state.serverState.sheets[instance.parent_id] ?? null : null;
+  return instance ? (state.serverState.sheets[instance.parent_id] ?? null) : null;
 }
 
 export function selectSheetEquipment(state: AppState, sheetOrInstanceId: string): ItemBridge[] {
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
   return Object.values(sheet?.items ?? {});
+}
+
+export function selectSheetProficiencies(
+  state: AppState,
+  sheetOrInstanceId: string
+): ProficiencyBridge[] {
+  const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
+  return Object.values(sheet?.proficiencies ?? {});
 }
 
 export function selectAvailableItems(state: AppState): ItemDefinition[] {
@@ -164,7 +182,10 @@ export function selectAvailableItems(state: AppState): ItemDefinition[] {
     .filter((entry): entry is ItemDefinition => Boolean(entry));
 }
 
-export function selectSheetAssignedActions(state: AppState, sheetOrInstanceId: string): AssignedSheetAction[] {
+export function selectSheetAssignedActions(
+  state: AppState,
+  sheetOrInstanceId: string
+): AssignedSheetAction[] {
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
   return Object.values(sheet?.actions ?? {})
     .map((bridge) => {
@@ -184,7 +205,9 @@ export function selectSheetAssignedActions(state: AppState, sheetOrInstanceId: s
 }
 
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {
-  return selectSheetEquipment(state, sheetId).find((entry) => entry.active)?.relationship_id ?? null;
+  return (
+    selectSheetEquipment(state, sheetId).find((entry) => entry.active)?.relationship_id ?? null
+  );
 }
 
 export function selectActiveWeaponLabel(state: AppState, sheetId: string): string {

@@ -831,6 +831,75 @@ def test_perform_action_can_increment_and_decrement_instance_values(
     asyncio.run(scenario())
 
 
+def test_perform_action_resolves_dice_damage_with_resistance(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        rolls = iter([4, 6])
+        monkeypatch.setattr(
+            "backend.features.formula_runtime.service.random.randint",
+            lambda _minimum, _maximum: next(rolls),
+        )
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions["burn"] = Bridge.from_dict(
+                {
+                    "relationship_id": "bridge-burn",
+                    "entry_id": "burn_self",
+                }
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"].resistances.fire = 0.25
+            state.actions["burn_self"] = Action.from_dict(
+                {
+                    "id": "burn_self",
+                    "name": "Burn Self",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Fire",
+                            "amount": _formula_payload("2d6"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "burn_self",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 82.5
+            assert websocket.sent_messages[0]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 82.5,
+                }
+            ]
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["applied_mutations"] == [
+                "health=82.5;damage=7.5;type=Fire;resistance=0.25"
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_perform_action_rejects_incrementing_nonnumeric_instance_path(
     monkeypatch,
 ) -> None:

@@ -80,7 +80,8 @@ Backend:
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
 - Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
-- Formula expansion is relative to one root object, supports dataclass/dict traversal, and guards against cycles.
+- Formula expansion is relative to one root object, supports dataclass/dict traversal, guards against cycles, and backend numeric evaluation supports arithmetic, dice expressions, `min`, `max`, `floor`, `ceil`, and `round` for authoritative action/stat calculations.
+- Semantic damage action steps evaluate authored formulas, apply typed resistance, and mutate instance health through state sync.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
 Frontend:

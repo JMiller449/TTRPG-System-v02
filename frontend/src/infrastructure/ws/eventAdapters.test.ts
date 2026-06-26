@@ -100,6 +100,32 @@ describe("parseProtocolServerEvent", () => {
     ]);
   });
 
+  it("parses and adapts state backup export events", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      persisted_state_json: '{"schema_version":1,"state":{}}',
+      schema_version: 1,
+      type: "state_backup_exported",
+      request_id: "req-export"
+    });
+
+    expect(event?.type).toBe("state_backup_exported");
+    if (!event || event.type !== "state_backup_exported") {
+      throw new Error("Expected state_backup_exported event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, event).events).toEqual([
+      {
+        type: "state_backup_exported",
+        backup: {
+          persisted_state_json: '{"schema_version":1,"state":{}}',
+          schema_version: 1
+        },
+        requestId: "req-export"
+      }
+    ]);
+  });
+
   it("parses backend error and action execution events", () => {
     expect(
       parseProtocolServerEvent({

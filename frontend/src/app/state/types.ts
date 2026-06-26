@@ -2,7 +2,8 @@ import type {
   ActionFormulaAuthoringMetadata,
   AppSnapshot,
   AugmentationTargetMetadata,
-  SheetAccessCode
+  SheetAccessCode,
+  StateBackupExport
 } from "@/domain/ipc";
 import type {
   ActionDefinition,
@@ -32,7 +33,8 @@ export type GMView =
   | "formula_authoring"
   | "proficiency_authoring"
   | "condition_authoring"
-  | "action_authoring";
+  | "action_authoring"
+  | "state_backup";
 
 export interface IntentFeedbackItem {
   id: string;
@@ -87,6 +89,7 @@ export interface UIState {
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
   sheetAccessCodes: SheetAccessCode[];
+  stateBackupExport: StateBackupExport | null;
 }
 
 export interface AppState {
@@ -119,4 +122,5 @@ export type AppAction =
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
   | { type: "set_sheet_access_codes"; codes: SheetAccessCode[] }
+  | { type: "set_state_backup_export"; backup: StateBackupExport | null }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

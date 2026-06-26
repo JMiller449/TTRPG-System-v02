@@ -118,6 +118,28 @@ export function buildGetVariableRegistryRequest({
   };
 }
 
+export function buildExportStateBackupRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"export_state_backup"> {
+  return {
+    ...requestIdField(requestId),
+    type: "export_state_backup"
+  };
+}
+
+export function buildImportStateBackupRequest({
+  persistedStateJson,
+  requestId
+}: {
+  persistedStateJson: string;
+} & OptionalRequestId): ProtocolRequest<"import_state_backup"> {
+  return {
+    ...requestIdField(requestId),
+    type: "import_state_backup",
+    persisted_state_json: persistedStateJson
+  };
+}
+
 export function buildSaveEncounterPresetRequest({
   encounter,
   requestId

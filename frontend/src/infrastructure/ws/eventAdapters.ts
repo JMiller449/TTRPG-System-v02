@@ -307,6 +307,21 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "state_backup_exported":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "state_backup_exported",
+            backup: {
+              persisted_state_json: event.persisted_state_json,
+              schema_version: event.schema_version
+            },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "error":
       return {
         nextProtocolState: protocolState,

@@ -14,7 +14,8 @@ import type {
 } from "@/domain/models";
 import type {
   ProtocolActionFormulaAuthoringMetadataEvent,
-  ProtocolAugmentationTargetMetadataEvent
+  ProtocolAugmentationTargetMetadataEvent,
+  ProtocolStateBackupExportedEvent
 } from "@/infrastructure/ws/protocol";
 
 export type ActionFormulaAuthoringMetadata = Omit<
@@ -24,6 +25,11 @@ export type ActionFormulaAuthoringMetadata = Omit<
 
 export type AugmentationTargetMetadata = Omit<
   ProtocolAugmentationTargetMetadataEvent,
+  "response_id" | "request_id" | "type"
+>;
+
+export type StateBackupExport = Omit<
+  ProtocolStateBackupExportedEvent,
   "response_id" | "request_id" | "type"
 >;
 
@@ -52,6 +58,7 @@ export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
   | { type: "sheet_access_claimed"; sheetId: string; instanceId: string; requestId?: string }
   | { type: "sheet_access_codes"; codes: SheetAccessCode[]; requestId?: string }
+  | { type: "state_backup_exported"; backup: StateBackupExport; requestId?: string }
   | { type: "action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata; requestId?: string }
   | { type: "augmentation_target_metadata"; metadata: AugmentationTargetMetadata; requestId?: string }
   | { type: "roll20_bridge_status"; connected: boolean; requestId?: string }

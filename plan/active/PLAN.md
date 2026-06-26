@@ -925,10 +925,15 @@ MVP is done when:
   - Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
   - DM UI shows current XP versus XP needed; DM reviews at end of session.
   - Level-up application remains manual DM sheet edits for MVP.
-- [ ] Export/import JSON.
+- [x] Export/import JSON.
   - Export must originate from the backend's private persisted-state envelope so backups include authoritative private fields such as sheet access codes.
   - Import must be DM-only, run through the persisted schema migration/validation path, replace state atomically, clear stale patch replay history, and rebroadcast role-redacted full snapshots.
   - Add the registry-backed request/event contract and regenerate frontend protocol output before adding download/upload controls; do not derive backups from the redacted frontend snapshot.
+  - Added DM-only `export_state_backup` and `import_state_backup` websocket routes with generated frontend protocol contracts.
+  - Export returns the backend private persisted-state envelope as JSON, including private fields omitted from role-redacted snapshots.
+  - Import validates JSON through the persisted migration/domain-load path, atomically replaces state through the existing persisted-state writer, clears patch replay history, bumps state version, and broadcasts full role-redacted snapshots to connected clients.
+  - Added GM State Backup UI for export/download and paste/file import.
+  - Added backend contract/store coverage plus frontend request-builder and protocol-adapter coverage.
 - [ ] Multi-campaign support.
 - [x] Mobile layout refinement for player character sheet and GM encounter/template panels.
   - Added a compact app shell and single-column mobile grids for player resources, core stats, equipment, encounter roster entries, and template editor fields.

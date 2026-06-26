@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from backend.state.models.action_history import prune_action_history
 from backend.state.models.state import State
@@ -59,12 +60,30 @@ class StateSingleton:
         persisted_state = build_persisted_state(
             cls._state.to_dict(include_private=True)
         )
+        cls.writePersistedState(persisted_state)
+
+    @classmethod
+    def writePersistedState(cls, persisted_state: dict[str, Any]) -> None:
         temporary_path = STATE_PATH.with_suffix(f"{STATE_PATH.suffix}.tmp")
         with temporary_path.open("w", encoding="utf-8") as file:
             json.dump(persisted_state, file)
             file.flush()
             os.fsync(file.fileno())
         temporary_path.replace(STATE_PATH)
+
+    @classmethod
+    def exportPersistedState(cls) -> dict[str, Any]:
+        if cls._state is None:
+            cls._state = State()
+        cls._state.action_history = prune_action_history(cls._state.action_history)
+        return build_persisted_state(cls._state.to_dict(include_private=True))
+
+    @classmethod
+    def replaceState(cls, state: State) -> None:
+        state.action_history = prune_action_history(state.action_history)
+        persisted_state = build_persisted_state(state.to_dict(include_private=True))
+        cls.writePersistedState(persisted_state)
+        cls._state = state
 
     @classmethod
     def restartState(cls) -> None:

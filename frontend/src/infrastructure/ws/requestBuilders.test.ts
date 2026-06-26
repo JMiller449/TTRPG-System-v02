@@ -23,12 +23,14 @@ import {
   buildDeleteFormulaRequest,
   buildDeleteItemRequest,
   buildDeleteProficiencyRequest,
+  buildExportStateBackupRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
   buildGetSheetAccessCodesRequest,
   buildGetVariableRegistryRequest,
+  buildImportStateBackupRequest,
   buildSaveEncounterPresetRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetActionBridgeRequest,
@@ -218,12 +220,14 @@ const requestBuilderByType = {
   delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
   delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
+  export_state_backup: buildExportStateBackupRequest,
   generate_sheet_access_code: buildGenerateSheetAccessCodeRequest,
   get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
   get_augmentation_target_metadata: buildGetAugmentationTargetMetadataRequest,
   get_roll20_bridge_status: buildGetRoll20BridgeStatusRequest,
   get_sheet_access_codes: buildGetSheetAccessCodesRequest,
   get_variable_registry: buildGetVariableRegistryRequest,
+  import_state_backup: buildImportStateBackupRequest,
   perform_action: buildPerformActionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   resync_state: buildResyncStateRequest,
@@ -307,6 +311,23 @@ describe("requestBuilders", () => {
       request_id: "req-resync",
       type: "resync_state",
       last_seen_version: 12
+    });
+  });
+
+  it("builds state backup requests", () => {
+    expect(buildExportStateBackupRequest({ requestId: "req-export" })).toEqual({
+      request_id: "req-export",
+      type: "export_state_backup"
+    });
+    expect(
+      buildImportStateBackupRequest({
+        requestId: "req-import",
+        persistedStateJson: '{"schema_version":1,"state":{}}'
+      })
+    ).toEqual({
+      request_id: "req-import",
+      type: "import_state_backup",
+      persisted_state_json: '{"schema_version":1,"state":{}}'
     });
   });
 

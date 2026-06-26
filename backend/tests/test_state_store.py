@@ -11,6 +11,7 @@ from backend.state.migrations import (
     build_persisted_state,
     migrate_persisted_state,
 )
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.store import StateSingleton
 
 
@@ -81,3 +82,38 @@ def test_initialize_state_rejects_invalid_json(tmp_path, monkeypatch) -> None:
 
     with pytest.raises(PersistedStateError, match="not valid JSON"):
         StateSingleton.initializeState()
+
+
+def test_export_and_replace_persisted_state_use_private_envelope(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    state_path = tmp_path / "state.json"
+    monkeypatch.setattr(store_module, "STATE_PATH", state_path)
+    StateSingleton._state = None
+
+    state = StateSingleton.getState()
+    state.sheet_access_codes["ACCESS-1"] = SheetAccessCode(
+        code="ACCESS-1",
+        sheet_id="sheet_1",
+        instance_id="instance_1",
+    )
+
+    exported = StateSingleton.exportPersistedState()
+
+    assert exported["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+    assert exported["state"]["sheet_access_codes"]["ACCESS-1"] == {
+        "active": True,
+        "code": "ACCESS-1",
+        "instance_id": "instance_1",
+        "sheet_id": "sheet_1",
+    }
+
+    replacement = StateSingleton.getState()
+    replacement.sheet_access_codes = {}
+    StateSingleton.replaceState(replacement)
+
+    persisted = json.loads(state_path.read_text(encoding="utf-8"))
+    assert persisted["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+    assert persisted["state"]["sheet_access_codes"] == {}
+    assert not state_path.with_suffix(".json.tmp").exists()

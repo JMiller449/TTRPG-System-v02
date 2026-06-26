@@ -68,6 +68,7 @@ from backend.features.sheet_access.schema import (
     GetSheetAccessCodes,
 )
 from backend.features.sheet_runtime.schema import PerformAction
+from backend.features.state_backup.schema import ExportStateBackup, ImportStateBackup
 from backend.features.state_sync.schema import ResyncState
 from backend.features.variable_registry.schema import (
     GetActionFormulaAuthoringMetadata,
@@ -254,9 +255,19 @@ class SheetAccessClaimedEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class StateBackupExportedEvent(ProtocolModel):
+    response_id: str | None = None
+    persisted_state_json: str
+    schema_version: int
+    type: Literal["state_backup_exported"] = "state_backup_exported"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
+    | ExportStateBackup
+    | ImportStateBackup
     | SendRoll20ChatMessage
     | GetRoll20BridgeStatus
     | SaveEncounterPreset
@@ -319,7 +330,8 @@ ServerEvent = Annotated[
     | AugmentationTargetMetadataEvent
     | VariableRegistryEvent
     | SheetAccessCodesEvent
-    | SheetAccessClaimedEvent,
+    | SheetAccessClaimedEvent
+    | StateBackupExportedEvent,
     Field(discriminator="type"),
 ]
 

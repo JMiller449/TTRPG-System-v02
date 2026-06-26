@@ -226,6 +226,36 @@ class StateSyncService:
             self._patch_history.clear()
             self._mutation_history.clear()
 
+    async def replace_state_and_broadcast_snapshots(
+        self,
+        state: State,
+        *,
+        requesting_session: WebSocketSession,
+        request_id: str | None = None,
+    ) -> None:
+        async with self._lock:
+            StateSingleton.replaceState(state)
+            self._state_version += 1
+            self._patch_history.clear()
+            self._mutation_history.clear()
+            sessions = await websocket_sessions.authenticated_sessions()
+            snapshots = tuple(
+                (
+                    session,
+                    self._build_snapshot_locked(
+                        role=session.role,
+                        assigned_instance_id=session.assigned_instance_id,
+                        request_id=(
+                            request_id if session is requesting_session else None
+                        ),
+                    ),
+                )
+                for session in sessions
+            )
+
+        for session, snapshot in snapshots:
+            await websocket_sessions.send(session, snapshot)
+
     def _next_patch(
         self,
         ops: list[PatchOp],

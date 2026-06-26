@@ -17,6 +17,7 @@ import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
+import { StateBackupPage } from "@/features/stateBackup/StateBackupPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
@@ -109,6 +110,10 @@ export function App(): JSX.Element {
       ) : gmView === "action_authoring" ? (
         <main className="app-grid-player">
           <ActionAuthoringPage client={client} />
+        </main>
+      ) : gmView === "state_backup" ? (
+        <main className="app-grid-player">
+          <StateBackupPage client={client} />
         </main>
       ) : (
         <>

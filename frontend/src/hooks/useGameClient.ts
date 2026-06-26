@@ -161,6 +161,13 @@ export function useGameClient(): GameClient {
         }
         return;
       }
+      if (event.type === "state_backup_exported") {
+        dispatch({ type: "set_state_backup_export", backup: event.backup });
+        if (event.requestId) {
+          resolveIntent(event.requestId);
+        }
+        return;
+      }
       if (event.type === "action_formula_authoring_metadata") {
         dispatch({ type: "set_action_formula_authoring_metadata", metadata: event.metadata });
         if (event.requestId) {

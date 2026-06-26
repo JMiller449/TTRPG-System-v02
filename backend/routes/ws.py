@@ -17,6 +17,7 @@ from backend.features.auth import tokens as auth_tokens
 from backend.features.auth.schema import Authenticate
 from backend.features.chat import service as chat_service
 from backend.features.session.service import websocket_sessions
+from backend.state.migrations import PersistedStateError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -125,7 +126,7 @@ async def handle_client_payload(
             )
         )
         return
-    except (PermissionError, ValueError) as exc:
+    except (PermissionError, PersistedStateError, ValueError) as exc:
         await websocket.send_json(
             normalize_server_event(
                 _error_payload(

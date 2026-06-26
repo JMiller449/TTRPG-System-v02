@@ -1,4 +1,5 @@
 import asyncio
+import json
 from copy import deepcopy
 
 import pytest
@@ -20,7 +21,9 @@ from backend.routes.ws import (
     websocket_sessions,
 )
 from backend.state.models.action import Action
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.migrations import CURRENT_STATE_SCHEMA_VERSION, build_persisted_state
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -1070,6 +1073,112 @@ def test_resync_state_returns_state_snapshot() -> None:
                 "state_version": 0,
                 "type": "state_snapshot",
                 "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_export_private_persisted_state_backup() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+        StateSingleton.getState().sheet_access_codes["ACCESS-1"] = SheetAccessCode(
+            code="ACCESS-1",
+            sheet_id="sheet_1",
+            instance_id="instance_1",
+        )
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "export_state_backup",
+                "request_id": "backup-1",
+            },
+        )
+
+        assert len(websocket.sent_messages) == 1
+        event = websocket.sent_messages[0]
+        assert event["type"] == "state_backup_exported"
+        assert event["request_id"] == "backup-1"
+        assert event["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+        exported = json.loads(event["persisted_state_json"])
+        assert exported["state"]["sheet_access_codes"]["ACCESS-1"]["code"] == "ACCESS-1"
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        persisted_state_json = json.dumps(
+            build_persisted_state(
+                {
+                    "sheet_access_codes": {
+                        "ACCESS-1": {
+                            "code": "ACCESS-1",
+                            "sheet_id": "sheet_1",
+                            "instance_id": "instance_1",
+                            "active": True,
+                        }
+                    },
+                    "sheets": {},
+                }
+            )
+        )
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "import_state_backup",
+                "persisted_state_json": persisted_state_json,
+                "request_id": "import-1",
+            },
+        )
+
+        assert StateSingleton.getState().sheet_access_codes["ACCESS-1"].sheet_id == "sheet_1"
+        assert dm_socket.sent_messages[-1]["type"] == "state_snapshot"
+        assert dm_socket.sent_messages[-1]["request_id"] == "import-1"
+        assert dm_socket.sent_messages[-1]["state_version"] == 1
+        assert player_socket.sent_messages[-1]["type"] == "state_snapshot"
+        assert player_socket.sent_messages[-1]["request_id"] is None
+        assert player_socket.sent_messages[-1]["state_version"] == 1
+        assert "sheet_access_codes" not in dm_socket.sent_messages[-1]["state"]
+        assert "sheet_access_codes" not in player_socket.sent_messages[-1]["state"]
+
+    asyncio.run(scenario())
+
+
+def test_import_state_backup_rejects_invalid_json() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "import_state_backup",
+                "persisted_state_json": "{not-json",
+                "request_id": "import-bad",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Imported state backup is not valid JSON.",
+                "type": "error",
+                "request_id": "import-bad",
             }
         ]
 

@@ -14,6 +14,8 @@ describe("templateEditorValues", () => {
     const values = createEmptyTemplateEditorValues("enemy");
     values.name = "  Ember Guard  ";
     values.notes = "  GM-facing notes  ";
+    values.xpGivenWhenSlayed = "25";
+    values.xpCap = " 100 ";
     values.coreStats.strength = "12";
     values.coreStats.arcane = "8";
     values.coreStats.will = "not-a-number";
@@ -23,8 +25,8 @@ describe("templateEditorValues", () => {
       name: "Ember Guard",
       notes: "GM-facing notes",
       dm_only: true,
-      xp_given_when_slayed: 0,
-      xp_cap: "",
+      xp_given_when_slayed: 25,
+      xp_cap: "100",
       proficiencies: {},
       items: {},
       stats: {
@@ -52,7 +54,11 @@ describe("templateEditorValues", () => {
       actions: {}
     };
 
-    expect(toTemplateEditorValues(sheet).notes).toBe("Backend template notes");
+    expect(toTemplateEditorValues(sheet)).toMatchObject({
+      notes: "Backend template notes",
+      xpGivenWhenSlayed: "",
+      xpCap: ""
+    });
   });
 
   it("maps template edits to full backend sheet definitions without dropping existing records", () => {
@@ -101,6 +107,8 @@ describe("templateEditorValues", () => {
     const values = createEmptyTemplateEditorValues("enemy");
     values.name = "  Edited Mage  ";
     values.notes = "  Updated notes  ";
+    values.xpGivenWhenSlayed = "50";
+    values.xpCap = "200";
     values.coreStats.strength = "10";
     values.coreStats.arcane = "";
 
@@ -109,6 +117,8 @@ describe("templateEditorValues", () => {
       name: "Edited Mage",
       notes: "Updated notes",
       dm_only: true,
+      xp_given_when_slayed: 50,
+      xp_cap: "200",
       stats: {
         ...sheet.stats,
         strength: 10

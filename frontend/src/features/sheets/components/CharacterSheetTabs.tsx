@@ -6,6 +6,7 @@ const SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
   { id: "actions", label: "Actions" },
   { id: "equipment", label: "Equipment" },
   { id: "proficiencies", label: "Proficiencies" },
+  { id: "xp", label: "XP" },
   { id: "notes", label: "Notes" }
 ];
 

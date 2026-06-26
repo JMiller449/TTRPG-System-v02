@@ -10,7 +10,7 @@ import {
   type SheetStatKey
 } from "@/domain/stats";
 
-export type PlayerSheetTab = "stats" | "actions" | "equipment" | "proficiencies" | "notes";
+export type PlayerSheetTab = "stats" | "actions" | "equipment" | "proficiencies" | "xp" | "notes";
 
 export const PLAYER_HEALTH_DAMAGE_TYPES = [
   { value: "untyped", label: "Untyped" },

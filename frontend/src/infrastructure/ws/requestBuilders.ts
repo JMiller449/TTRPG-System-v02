@@ -287,6 +287,25 @@ export function buildSetSheetNotesRequest({
   };
 }
 
+export function buildSetSheetSlayedCountRequest({
+  sheetId,
+  slayedSheetId,
+  count,
+  requestId
+}: {
+  sheetId: string;
+  slayedSheetId: string;
+  count: number;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_slayed_count"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_slayed_count",
+    sheet_id: sheetId,
+    slayed_sheet_id: slayedSheetId,
+    count
+  };
+}
+
 export function buildAttachSheetActionRequest({
   sheetId,
   bridge,

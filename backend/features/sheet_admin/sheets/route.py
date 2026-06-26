@@ -23,6 +23,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheet,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
+    SetSheetSlayedCount,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -92,6 +93,29 @@ class SetSheetNotesRoute(RequestRoute[SetSheetNotes]):
         request: SetSheetNotes,
     ) -> None:
         await service.set_sheet_notes(request)
+
+
+class SetSheetSlayedCountRoute(RequestRoute[SetSheetSlayedCount]):
+    type_name = "set_sheet_slayed_count"
+    request_model = SetSheetSlayedCount
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "player"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetXpTracker",
+        method_name="setSlayedCount",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetSheetSlayedCount,
+    ) -> None:
+        if session.role != "dm":
+            sheet_access_service.ensure_session_can_access_sheet(
+                session,
+                request.sheet_id,
+            )
+        await service.set_sheet_slayed_count(request)
 
 
 class SetInstancedSheetNotesRoute(RequestRoute[SetInstancedSheetNotes]):
@@ -356,6 +380,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(UpdateSheetRoute())
     registry.register(DeleteSheetRoute())
     registry.register(SetSheetNotesRoute())
+    registry.register(SetSheetSlayedCountRoute())
     registry.register(SetInstancedSheetNotesRoute())
     registry.register(SetInstancedSheetResourceRoute())
     registry.register(AdjustInstancedSheetResourceRoute())

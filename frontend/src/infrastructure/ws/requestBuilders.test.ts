@@ -45,6 +45,7 @@ import {
   buildSetSheetBaseStatRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetNotesRequest,
+  buildSetSheetSlayedCountRequest,
   buildSpawnEncounterPresetRequest,
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
@@ -238,6 +239,7 @@ const requestBuilderByType = {
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
+  set_sheet_slayed_count: buildSetSheetSlayedCountRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
@@ -419,6 +421,20 @@ describe("requestBuilders", () => {
       type: "set_sheet_notes",
       sheet_id: "sheet_1",
       notes: "GM template note."
+    });
+    expect(
+      buildSetSheetSlayedCountRequest({
+        requestId: "req-xp",
+        sheetId: "sheet_1",
+        slayedSheetId: "enemy_1",
+        count: 3
+      })
+    ).toEqual({
+      request_id: "req-xp",
+      type: "set_sheet_slayed_count",
+      sheet_id: "sheet_1",
+      slayed_sheet_id: "enemy_1",
+      count: 3
     });
     expect(
       buildSetSheetFormulaStatRequest({

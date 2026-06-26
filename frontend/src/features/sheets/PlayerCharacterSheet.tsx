@@ -6,6 +6,7 @@ import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSectio
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
+import { SheetXpSection } from "@/features/sheets/components/SheetXpSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
@@ -17,6 +18,7 @@ import {
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetSheetSlayedCountRequest,
   buildUnlinkSheetProficiencyRequest,
   buildUpdateAttachedSheetItemRequest,
   buildUpdateLinkedSheetProficiencyRequest
@@ -36,6 +38,8 @@ export function PlayerCharacterSheet({
 }): JSX.Element {
   const {
     detail,
+    sheets,
+    sheetOrder,
     items,
     itemOrder,
     proficiencyDefinitions,
@@ -92,6 +96,7 @@ export function PlayerCharacterSheet({
   const showActionsSection = activeTab === "actions";
   const showEquipmentSection = activeTab === "equipment";
   const showProficienciesSection = activeTab === "proficiencies";
+  const showXpSection = activeTab === "xp";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
   const canEditEquipment = mode === "gm";
@@ -219,6 +224,35 @@ export function PlayerCharacterSheet({
                   "Update instance notes"
                 )
               }
+            />
+          </div>
+        ) : null}
+
+        {showXpSection && detail.sheet ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-xp"
+            aria-labelledby="sheet-tab-xp"
+            tabIndex={0}
+          >
+            <SheetXpSection
+              mode={mode}
+              sheet={detail.sheet}
+              sheets={sheets}
+              sheetOrder={sheetOrder}
+              onSetSlayedCount={(slayedSheetId, count) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildSetSheetSlayedCountRequest({
+                    sheetId,
+                    slayedSheetId,
+                    count
+                  }),
+                  "Update XP tracker"
+                );
+              }}
             />
           </div>
         ) : null}

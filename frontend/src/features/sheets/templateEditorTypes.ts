@@ -30,5 +30,7 @@ export interface TemplateEditorValues {
   kind: SheetKind;
   name: string;
   notes: string;
+  xpGivenWhenSlayed: string;
+  xpCap: string;
   coreStats: Record<CoreTemplateStatKey, string>;
 }

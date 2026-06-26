@@ -52,6 +52,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheet,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
+    SetSheetSlayedCount,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -295,6 +296,7 @@ ApplicationRequest = Annotated[
     | UpdateSheet
     | DeleteSheet
     | SetSheetNotes
+    | SetSheetSlayedCount
     | SetInstancedSheetNotes
     | SetInstancedSheetResource
     | AdjustInstancedSheetResource

@@ -54,6 +54,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "set_sheet_base_stat": "dm",
     "set_sheet_formula_stat": "dm",
     "set_sheet_notes": "dm",
+    "set_sheet_slayed_count": "player",
     "spawn_encounter_preset": "dm",
     "update_action": "dm",
     "update_condition_preset": "dm",

@@ -29,6 +29,7 @@ from backend.features.sheet_admin.sheets.schema import (
     ResistancesPayload,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
+    SetSheetSlayedCount,
     SetSheetNotes,
     SheetDefinitionPayload,
     SheetActionBridgePayload,
@@ -546,6 +547,41 @@ async def set_sheet_notes(request: SetSheetNotes) -> None:
 
         path = state_sync_service.join_path("sheets", request.sheet_id, "notes")
         op = state_sync_service.set_mutation(state, path, request.notes)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_sheet_slayed_count(request: SetSheetSlayedCount) -> None:
+    bridge = SheetSlayedBridge(
+        sheet_id=request.slayed_sheet_id,
+        count=request.count,
+    )
+
+    def mutation(state: State) -> tuple[None, list]:
+        sheet = state.sheets.get(request.sheet_id)
+        if sheet is None:
+            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+        if request.slayed_sheet_id not in state.sheets:
+            raise ValueError(f"Sheet '{request.slayed_sheet_id}' does not exist.")
+
+        path = state_sync_service.join_path(
+            "sheets",
+            request.sheet_id,
+            "slayed_record",
+            request.slayed_sheet_id,
+        )
+        if request.count == 0:
+            if request.slayed_sheet_id not in sheet.slayed_record:
+                return None, []
+            _, op = state_sync_service.remove_mutation(state, path)
+            return None, [op]
+
+        if request.slayed_sheet_id in sheet.slayed_record:
+            op = state_sync_service.set_mutation(state, path, bridge)
+            return None, [op]
+
+        op = state_sync_service.add_mutation(state, path, bridge)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

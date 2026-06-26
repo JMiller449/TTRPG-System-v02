@@ -962,12 +962,15 @@ MVP is done when:
   - Support authored unlock prerequisites for higher-rank spells, higher-rank skills, powerful weapons, and proficiency-derived modifiers.
   - Requirements may use one or multiple proficiency thresholds with explicit `all`/AND or `any`/OR grouping.
   - Show known unavailable content disabled with unmet requirements; hide secret, undiscovered, or GM-only content.
-- [ ] Add XP tracker for level-up readiness.
+- [x] Add XP tracker for level-up readiness.
   - DM defines XP needed for next level and mob/enemy XP values.
   - Players can mark/count how many tracked mobs they killed.
   - Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
   - DM UI shows current XP versus XP needed; DM reviews at end of session.
   - Level-up application remains manual DM sheet edits for MVP.
+  - Added typed `set_sheet_slayed_count` route for updating existing sheet `slayed_record` counts through backend-authoritative patches.
+  - Assigned players may update only their claimed sheet's counts; DMs may update any sheet.
+  - Sheet XP tab lets players maintain tracked defeat counts and lets GMs see XP totals against numeric sheet XP-needed values.
 - [x] Export/import JSON.
   - Export must originate from the backend's private persisted-state envelope so backups include authoritative private fields such as sheet access codes.
   - Import must be DM-only, run through the persisted schema migration/validation path, replace state atomically, clear stale patch replay history, and rebroadcast role-redacted full snapshots.

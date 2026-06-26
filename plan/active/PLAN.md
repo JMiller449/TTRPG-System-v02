@@ -13,7 +13,7 @@ This is the consolidated working plan for the project. It combines the active pl
 - `plan/archived/frontend_completed.md`
 - `plan/archived/Completed.md`
 
-Do not delete the source documents just because this file exists. Keep AGENTS, README files, policy docs, and rules/reference documents as source material. The highest rules authority remains `reference-docs/Chip TTRPG System_2-20-26.pdf`; `temp/Chip TTRPG System.md` is useful extracted reference text and should also be preserved.
+Do not delete the source documents just because this file exists. Keep AGENTS, README files, policy docs, and rules/reference documents as source material. The highest rules authority for the active rules text is `reference-docs/Chip_TTRPG_System.md`; answered implementation rulings live in `reference-docs/rule-decisions-needed-answered.md`. Archived PDFs remain preserved for history.
 
 ## 1. Product Goal
 
@@ -166,8 +166,8 @@ Known derived/rule values:
 - Action points: Reaction Time threshold table
 - Movement: Dexterity threshold table
 - Resistance totals: additive by damage type, capped at 100 percent
-- Carry weight: Strength-derived, but exact formula is not settled
-- HP max: GM-authored/configurable for now; doc examples use `stat * 50` style values but exact governing stat/race behavior is not settled
+- Carry weight: `FLOOR(Strength)`
+- HP max: `Health * Racial HP Multiplier`, with the multiplier authored on the race or creature template approved by the GM
 
 ## 6. Formula And Action Model
 
@@ -206,8 +206,10 @@ Actions:
 - Actions execute against an explicit owning/current sheet instance; cross-sheet targets are not an app workflow.
 - Runtime parameters are allowed for predefined GM-configured options, currently just advantage/disadvantage.
 - Selected mode and overload alternatives are later work.
+- Advantage/disadvantage applies to hit/check rolls, not damage rolls. If both advantage and disadvantage apply, they cancel to a normal roll; multiples do not stack.
 - Current-value changes such as resource costs, resource restores, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
 - Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
+- Healing is a separate semantic healing model or bounded HP mutation pattern, not negative damage; resistance does not affect healing unless a specific effect says so.
 - Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
 - Full attack-specific damage composition, critical rules, and augmentation-derived combat modifiers remain later resolver work.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
@@ -281,20 +283,25 @@ Default redaction:
 
 Skill check:
 
-- `(d100 / 100) * Governing Stat`
+- `FLOOR((1 + Skill Proficiency) * (d100 / 100) * Governing Stat)`
 - `d100` is an integer roll from 1 to 100.
-- Advantage: roll two of the same check and take the higher.
-- Disadvantage: roll two of the same check and take the lower.
+- Advantage: replace the `1d100` check die with `2d100kh1` and take the higher kept die.
+- Disadvantage: replace the `1d100` check die with `2d100kl1` and take the lower kept die.
+- Only the kept die determines natural 1 or natural 100.
+- Advantage/disadvantage applies to hit/check rolls, not damage rolls. Opposing advantage and disadvantage cancel to normal; multiple sources do not stack.
 
 Proficiency:
 
 - First-class model separate from stats.
 - Categories: weapon type, specific weapon, skill, spell.
-- Range: 0 to 100 percent.
+- Display range: 0 to 100 percent; formula value: `0.00` to `1.00`.
 - 100 percent is mastery.
-- Increments happen on approved use and are configurable per weapon/spell/skill.
+- Increments happen on meaningful approved use even if the action fails.
+- Per-use formula: `New Proficiency = MIN(1.00, Current Proficiency + Growth Rate)`.
+- Growth rate is the configured per-use increase for that weapon, skill, or spell, such as `0.01` for 1 percent or `0.001` for 0.1 percent.
 - Downtime training is manual DM adjudication for MVP; the DM may decide that a character practiced/activated something a number of times and award a specific proficiency/XP amount.
-- Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
+- Mastery can unlock higher-ranked spells, higher-ranked skills, powerful weapons, and authored modifiers such as lower mana cost, more damage, range, or secondary features.
+- Unlock prerequisites can require one or multiple proficiency thresholds using explicit `all`/AND or `any`/OR grouping; do not infer grouping.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
 - DM-authored global proficiency definitions are the registry of available proficiencies.
 - Sheet proficiency bridges are per-sheet progress records that point at a global proficiency definition.
@@ -305,9 +312,15 @@ Equipment and items:
 
 - Equipped/active weapon selection exists for attack rolls.
 - Equipment is an inventory-list model, not a slot-based layout for MVP; records can still mark active/equipped gear where rules need it.
-- Weapons define damage, governing stat, reach, damage type, and proficiency reference.
+- Each attack action selects exactly one active weapon for the resolution; dual-wield or multi-weapon actions must be authored explicitly.
+- Weapons require name, weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate.
+- Optional weapon fields include stat bonuses, attached skills, traits, special effects, prerequisites, tags, and notes.
+- Weapon reach is stored/shown for Roll20/manual reference only and does not affect app-side mechanics, formulas, targeting, or positioning.
+- Offhand, two-handed, thrown, ranged, and improvised weapon modes are represented as tags/reference metadata unless a future resolver requires first-class fields.
 - Equipment mechanical effects should use generic augmentation templates wherever possible instead of bespoke per-equipment-type rules.
 - Armor, shields, and other gear can provide resistance, penalties, advantage/disadvantage sources, or other modifiers through augmentations or authored actions unless a future core resolver requires a first-class field.
+- Armor grants resistance rather than AC. Heavy armor must impose disadvantage on Dodge, ideally through a standard attached augmentation/template.
+- Shields normally grant advantage on Block attempts, do not automatically increase AC or resistance, and may be required for some Block actions.
 - Consumables are items and using one in battle costs an action point.
 - Item records should support World Anvil links.
 - Item records should support GM-only notes/special properties for campaign-specific effects that are not player-visible.
@@ -315,32 +328,45 @@ Equipment and items:
 Damage and resistance:
 
 - Physical damage types: Piercing, Slashing, Bludgeoning.
-- Magical damage types: Arcane, Fire, Water, Earth, Wind, Light, Dark, Lightning, Ice, Time, Gravity, Psychic.
+- Magical damage types: Fire, Water, Earth, Wind, Light, Dark, Lightning, Ice, Time, Gravity, Psychic; spells may define additional types.
 - Resistance is additive and capped at 100 percent.
 - Resistance should use a consistent internal numeric convention; prefer fractions where `0.25` means 25 percent.
 - Effective resistance should combine total resistance, physical/magical category resistance, and specific damage-type resistance, then cap at 100 percent.
-- Damage taken: `Damage Inflicted - (Damage Inflicted * Resistance)`.
-- Stacking rules beyond additive resistance are unresolved and deferred.
+- Damage taken: `FLOOR(Damage Inflicted * (1 - Resistance))`.
+- Damage may be reduced to 0; 100 percent resistance means immunity unless a special rule bypasses it.
+- Resistance is clamped to `0.00..1.00`; vulnerability or bonus damage must be modeled as a separate explicit effect unless future rules define negative resistance.
+- When an effect halves damage, halve the damage first, then apply resistance.
 
 Physical attacks:
 
-- To hit: `Proficiency * (1d100 / 100) * Attack Stat`
-- Damage: `Weapon Damage + Proficiency * (d100 / 100) * Governing Stat`
-- Critical 1: GM-determined failure, usually no damage.
-- Critical 100: double total damage.
-- Critical behavior outside physical attacks is unresolved and deferred.
+- To hit: `FLOOR((1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)`.
+- If the defender has no reaction available or chooses not to react, compare the attack roll against AC.
+- If the defender chooses a reaction, compare against Dodge, Block, or Parry; the defender wins ties.
+- Damage is a separate roll: `FLOOR(Weapon Base Damage + (1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)`.
+- Critical 1: automatic miss regardless of modifiers; any additional physical-attack consequence is GM-determined.
+- Critical 100: roll damage normally, double total damage, then apply defense-based reductions and resistance.
+- Attack and damage are separate rolls.
 
 Magical attacks:
 
-- To hit: `Proficiency * (d100 / 100) * Arcane`
-- Damage: `Proficiency * (d100 / 100) * Base Spell Damage`
+- To hit: `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane)`.
+- Damage: `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane + Base Spell Damage)`.
+- Spell damage is a separate roll from spell to-hit.
+- Spell to-hit natural 1 automatically misses, requires no defense roll, and still spends mana unless the spell says otherwise.
+- Spell to-hit natural 100 is critical; if not successfully defended, roll damage normally and double total damage before defense reduction and resistance.
+- Each individual spell has its own proficiency.
 - Spell ranks: F, F+, E, E+, D, D+, C, C+, B, B+, A, A+, S, S+, SS, SS+.
-- Overload is not MVP; exact DC formula is deferred.
+- Base spell damage is authored per spell, not derived from rank by a universal formula.
+- Overload is not MVP; it is a selectable spell-cast mode with known data requirements and GM-assigned DCs.
 
 Combat automation:
 
 - Turn order, action point reset, reactions, contested reactions, opportunity attacks, flanking, grappling, AOE positioning, and cross-sheet damage application are Roll20/manual.
 - The app should not automate cross-sheet combat workflows.
+- Action points use the Reaction Time threshold table from `reference-docs/Chip_TTRPG_System.md`.
+- There is no separate reaction pool; reactions spend normal action points outside the character's turn.
+- Action points reset at the start of that character's own turn and do not carry over.
+- Consumable use in combat normally costs one action point.
 - `slayed_record` remains part of full sheet state for history/bookkeeping, but dedicated semantic slay-record routes are deferred until combat/history automation becomes MVP-relevant.
 
 XP and level-up:
@@ -522,10 +548,16 @@ Frontend augmentation UX boundary:
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
 - [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
+  - Critical damage order is defined: calculate damage, double total damage for qualifying natural 100 outcomes, then apply defense-based reductions and resistance.
+  - Physical and spell attacks roll hit and damage separately; advantage/disadvantage affects hit/check rolls only, not damage.
+  - Spell and physical attack natural 1/100 behavior is defined in the critical reference table, but app-side automation remains later resolver work.
 - [x] Implement action execution against explicit sheet/instance IDs.
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
 - [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
+  - Required weapon resolver fields: weapon type, base damage, governing stat, damage type(s), reach, proficiency reference, and proficiency growth rate.
+  - Reach remains stored/displayed reference metadata unless a specific future resolver rule needs it.
+  - Standard heavy-armor Dodge disadvantage and shield Block advantage should be expressible through the augmentation/action modifier path.
 - [x] Implement advantage/disadvantage as predefined runtime action parameters.
   - `perform_action` now accepts backend-validated `normal`, `advantage`, or `disadvantage` roll mode; non-normal modes reject actions that do not author a Roll20 `/r` expression.
   - Quick actions expose the predefined modes and submit them through the typed action request without performing gameplay math in the frontend.
@@ -915,10 +947,20 @@ MVP is done when:
   - Embedded the typed encounter quick-select/spawn panel so saved encounters can be launched without returning to the main console.
   - Added navigation/shortcut regression coverage; the runnable frontend suite passes 24 files and 151 tests.
 - [ ] Combat/turn tracking.
+  - Initiative/turn order remains Roll20-authoritative/manual for MVP.
+  - Future automation should use the Reaction Time action-point threshold table and reset points at the start of that character's own turn.
+  - Reactions spend normal action points; there is no separate reaction pool.
 - [ ] Overload selected mode/alternative handling.
+  - Treat overload as a selected spell-cast mode, not a separate action.
+  - Supported tiers are 1 through 5 with total mana costs of 1.10x, 1.50x, 2.00x, 3.00x, and 6.00x base mana.
+  - Overload checks use `FLOOR((d100 / 100) * Control * (1 + Spell Proficiency))` against a GM-assigned DC.
+  - On failed tier checks, consume committed mana, prevent the intended target effect, and resolve the failed-tier overloaded explosion per the rulebook/decision doc when that automation is in scope.
 - [x] Keep downtime training manual for MVP.
   - Decision: DM manually adjudicates downtime practice/activation counts and awards proficiency/XP as appropriate; no downtime automation is needed for MVP.
 - [ ] Mastery unlock enforcement.
+  - Support authored unlock prerequisites for higher-rank spells, higher-rank skills, powerful weapons, and proficiency-derived modifiers.
+  - Requirements may use one or multiple proficiency thresholds with explicit `all`/AND or `any`/OR grouping.
+  - Show known unavailable content disabled with unmet requirements; hide secret, undiscovered, or GM-only content.
 - [ ] Add XP tracker for level-up readiness.
   - DM defines XP needed for next level and mob/enemy XP values.
   - Players can mark/count how many tracked mobs they killed.
@@ -943,19 +985,26 @@ MVP is done when:
 
 ## 13. Deferred Rule Decisions
 
-Expanded DM/common rules author handoff: `reference-docs/rule-decisions-needed.md`.
+Expanded answered rules and future-automation handoff: `reference-docs/rule-decisions-needed-answered.md`.
 
-These are not MVP blockers:
+Answered rulings now captured in this plan:
 
-- Exact HP max formula and race modifier behavior. Use GM-authored/configurable formula for now.
-- Exact Strength-to-carry-weight formula.
-- Critical behavior outside physical weapon attacks.
-- Exact heavy armor penalty augmentation behavior.
-- Exact overload DC formula.
-- Stacking rules beyond additive resistance capped at 100 percent.
+- HP max is `Health * Racial HP Multiplier`; the multiplier is authored by race or creature template.
+- Carry weight is `FLOOR(Strength)`.
+- Resistance is additive, clamped to `0.00..1.00`, capped at 100 percent, and applied as `FLOOR(Damage * (1 - Resistance))`.
+- Heavy armor imposes disadvantage on Dodge; shields normally grant advantage on Block.
+- Critical behavior is defined for physical attacks, spell to-hit, Dodge, Block, Parry, skill checks, grapple checks, and overload checks.
+- Overload has defined tiers, mana costs, check formula, and failure outline; only the DC remains GM-assigned rather than formula-derived.
+
+These remain future implementation or campaign-adjudication boundaries, not MVP blockers:
+
 - Automated level-up stat distribution beyond XP readiness tracking and manual GM edits.
-- Exact frontend roll composer preview terms for formulas that remain Roll20-resolved.
-- Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, or formula-driven.
+- Backend-owned combat/turn tracking, including action-point reset timing, initiative, reactions, opportunity attacks, AOE positioning, and cross-sheet damage application.
+- App-side physical/spell attack resolvers, including criticals, Dodge/Block/Parry reductions, counterattacks, and augmentation-derived modifiers.
+- Overload mode automation and overload explosion resolution.
+- Mastery unlock enforcement and visibility for disabled/hidden content.
+- Frontend formula previews for formulas that remain Roll20-resolved.
+- Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, formula-driven, or rule-specific.
 
 ## 14. Completion History Summary
 

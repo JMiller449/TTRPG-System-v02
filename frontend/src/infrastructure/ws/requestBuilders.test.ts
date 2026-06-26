@@ -47,6 +47,7 @@ import {
   buildSetSheetNotesRequest,
   buildSetSheetSlayedCountRequest,
   buildSpawnEncounterPresetRequest,
+  buildUndoLastStateChangeRequest,
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
   buildUpdateFormulaRequest,
@@ -241,6 +242,7 @@ const requestBuilderByType = {
   set_sheet_notes: buildSetSheetNotesRequest,
   set_sheet_slayed_count: buildSetSheetSlayedCountRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
+  undo_last_state_change: buildUndoLastStateChangeRequest,
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
   update_formula: buildUpdateFormulaRequest,
@@ -313,6 +315,10 @@ describe("requestBuilders", () => {
       request_id: "req-resync",
       type: "resync_state",
       last_seen_version: 12
+    });
+    expect(buildUndoLastStateChangeRequest({ requestId: "req-undo" })).toEqual({
+      request_id: "req-undo",
+      type: "undo_last_state_change"
     });
   });
 

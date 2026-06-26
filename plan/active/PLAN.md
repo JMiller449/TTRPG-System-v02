@@ -711,7 +711,11 @@ Frontend augmentation UX boundary:
   - The context is reset in a `finally` block to prevent metadata leaking between concurrent or subsequent websocket requests.
   - Mutation provenance stays backend-internal so player patches do not expose GM/debug metadata or expand the authoritative transport contract.
   - Added coverage for context scoping, action provenance, and direct internal mutations.
-- [ ] Add DM-only undo later; MVP uses manual DM correction for duplicate/incorrect mutations.
+- [x] Add DM-only undo later; MVP uses manual DM correction for duplicate/incorrect mutations.
+  - Added a DM-only `undo_last_state_change` typed websocket route that applies the last internally captured inverse patch and broadcasts it as a new authoritative `state_patch`.
+  - Undo history is bounded, cleared on reset/import/full-state replacement, and errors clearly when there are no changes to undo.
+  - Added a GM-facing State Safety panel with an Undo Last Change control in the main GM console tools and the Alt+G quick controls.
+  - Added backend service, websocket contract, registry, permission, and codegen coverage; frontend generated protocol/request-helper coverage was updated.
 
 ## 11. MVP Acceptance Criteria
 
@@ -985,7 +989,10 @@ MVP is done when:
   - Added a compact app shell and single-column mobile grids for player resources, core stats, equipment, encounter roster entries, and template editor fields.
   - Added horizontally scrollable sheet/navigation tabs, 44px touch targets, wrapping/full-width action controls, and stacked encounter/template list cards.
   - Converted the GM quick console to a mobile bottom sheet while preserving its dialog, focus, and keyboard behavior.
-- [ ] DM-only undo.
+- [x] DM-only undo.
+  - Added a bounded backend inverse-patch stack and DM-only typed undo request.
+  - Added a GM-facing Undo Last Change visual control.
+  - Undo emits normal authoritative patches; it is not a replay system and does not duplicate side-effect state.
 
 ## 13. Deferred Rule Decisions
 

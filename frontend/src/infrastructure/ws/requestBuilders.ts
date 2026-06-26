@@ -844,3 +844,12 @@ export function buildResyncStateRequest({
     ...(lastSeenVersion === undefined ? {} : { last_seen_version: lastSeenVersion })
   };
 }
+
+export function buildUndoLastStateChangeRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"undo_last_state_change"> {
+  return {
+    ...requestIdField(requestId),
+    type: "undo_last_state_change"
+  };
+}

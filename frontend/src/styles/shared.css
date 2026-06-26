@@ -144,6 +144,18 @@ textarea:disabled {
   background: #e7ecea;
 }
 
+.button--danger {
+  background: #8d332f;
+}
+
+.button--danger:hover {
+  background: #702522;
+}
+
+.button--danger:disabled:hover {
+  background: #8d332f;
+}
+
 .tab-row {
   display: flex;
   gap: 0.5rem;

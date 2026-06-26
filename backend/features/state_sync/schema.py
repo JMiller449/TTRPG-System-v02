@@ -11,6 +11,10 @@ class ResyncState(RequestModel):
     type: Literal["resync_state"]
 
 
+class UndoLastStateChange(RequestModel):
+    type: Literal["undo_last_state_change"]
+
+
 @dataclass
 class StateSnapshot(ResponseModel):
     state: dict[str, Any]

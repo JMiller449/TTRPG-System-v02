@@ -22,6 +22,7 @@ from backend.state.store import StateSingleton
 MutationResultT = TypeVar("MutationResultT")
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
+_MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class StateSyncService:
         *,
         patch_history_limit: int = 256,
         mutation_history_limit: int = 256,
+        undo_history_limit: int = 50,
     ) -> None:
         self._lock = asyncio.Lock()
         self._state_version = 0
@@ -85,6 +87,7 @@ class StateSyncService:
         self._mutation_history: deque[MutationAuditRecord] = deque(
             maxlen=mutation_history_limit
         )
+        self._undo_history: deque[list[PatchOp]] = deque(maxlen=undo_history_limit)
 
     @property
     def current_version(self) -> int:
@@ -93,6 +96,10 @@ class StateSyncService:
     @property
     def mutation_history(self) -> tuple[MutationAuditRecord, ...]:
         return tuple(self._mutation_history)
+
+    @property
+    def undo_depth(self) -> int:
+        return len(self._undo_history)
 
     def _redact_item_payload(self, value: Any) -> Any:
         if is_dataclass(value):
@@ -225,6 +232,7 @@ class StateSyncService:
             self._state_version = 0
             self._patch_history.clear()
             self._mutation_history.clear()
+            self._undo_history.clear()
 
     async def replace_state_and_broadcast_snapshots(
         self,
@@ -238,6 +246,7 @@ class StateSyncService:
             self._state_version += 1
             self._patch_history.clear()
             self._mutation_history.clear()
+            self._undo_history.clear()
             sessions = await websocket_sessions.authenticated_sessions()
             snapshots = tuple(
                 (
@@ -386,6 +395,82 @@ class StateSyncService:
     def _clone_value(self, value: Any) -> Any:
         return deepcopy(value)
 
+    def _resolve_value(self, root: Any, path: str) -> Any:
+        try:
+            container, leaf = self._resolve_container(root, path)
+        except ValueError:
+            return _MISSING
+
+        if isinstance(container, dict):
+            if leaf not in container:
+                return _MISSING
+            return self._clone_value(container[leaf])
+
+        if isinstance(container, list):
+            try:
+                return self._clone_value(container[self._list_index(leaf)])
+            except (IndexError, ValueError):
+                return _MISSING
+
+        if hasattr(container, leaf):
+            return self._clone_value(getattr(container, leaf))
+
+        return _MISSING
+
+    def _build_inverse_ops(
+        self,
+        previous_state: State,
+        ops: list[PatchOp],
+    ) -> list[PatchOp]:
+        inverse_ops: list[PatchOp] = []
+        for op in reversed(ops):
+            if op.op == "add":
+                inverse_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if op.op == "remove":
+                previous_value = self._resolve_value(previous_state, op.path)
+                if previous_value is _MISSING:
+                    raise ValueError(f"Cannot undo remove for missing path {op.path}.")
+                inverse_ops.append(
+                    PatchOp(op="add", path=op.path, value=previous_value)
+                )
+                continue
+
+            if op.op == "set":
+                previous_value = self._resolve_value(previous_state, op.path)
+                if previous_value is _MISSING:
+                    inverse_ops.append(PatchOp(op="remove", path=op.path))
+                else:
+                    inverse_ops.append(
+                        PatchOp(op="set", path=op.path, value=previous_value)
+                    )
+                continue
+
+            if op.op == "inc":
+                if not isinstance(op.value, int | float):
+                    raise ValueError(f"Cannot undo non-numeric increment at {op.path}.")
+                inverse_ops.append(PatchOp(op="inc", path=op.path, value=-op.value))
+                continue
+
+            raise ValueError(f"Cannot undo unsupported operation {op.op}.")
+
+        return inverse_ops
+
+    def _apply_patch_op(self, state: State, op: PatchOp) -> PatchOp:
+        if op.op == "add":
+            return self.add_mutation(state, op.path, op.value)
+        if op.op == "set":
+            return self.set_mutation(state, op.path, op.value)
+        if op.op == "remove":
+            _, applied = self.remove_mutation(state, op.path)
+            return applied
+        if op.op == "inc":
+            if not isinstance(op.value, int | float):
+                raise ValueError(f"State path {op.path} increment is not numeric.")
+            return self.increment_mutation(state, op.path, op.value)
+        raise ValueError(f"Unsupported patch operation {op.op}.")
+
     def add_mutation(self, state: State, path: str, value: Any) -> PatchOp:
         container, leaf = self._resolve_container(state, path)
         value_copy = self._clone_value(value)
@@ -496,8 +581,11 @@ class StateSyncService:
     ) -> MutationResultT:
         async with self._lock:
             state = StateSingleton.getState()
+            previous_state = deepcopy(state)
             result, ops = mutation(state)
             if ops:
+                inverse_ops = self._build_inverse_ops(previous_state, ops)
+                self._undo_history.append(inverse_ops)
                 StateSingleton.dumpState()
                 patch = self._next_patch(ops, request_id=request_id)
                 await websocket_sessions.broadcast_by_role(
@@ -505,6 +593,22 @@ class StateSyncService:
                     dm_payload=self._redact_patch_for_role(patch, role="dm"),
                 )
             return result
+
+    async def undo_last_change(self, *, request_id: str | None = None) -> bool:
+        async with self._lock:
+            if not self._undo_history:
+                return False
+
+            state = StateSingleton.getState()
+            inverse_ops = self._undo_history.pop()
+            applied_ops = [self._apply_patch_op(state, op) for op in inverse_ops]
+            StateSingleton.dumpState()
+            patch = self._next_patch(applied_ops, request_id=request_id)
+            await websocket_sessions.broadcast_by_role(
+                player_payload=self._redact_patch_for_role(patch, role="player"),
+                dm_payload=self._redact_patch_for_role(patch, role="dm"),
+            )
+            return True
 
     async def apply_private_mutation(
         self,

@@ -70,7 +70,7 @@ from backend.features.sheet_access.schema import (
 )
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.state_backup.schema import ExportStateBackup, ImportStateBackup
-from backend.features.state_sync.schema import ResyncState
+from backend.features.state_sync.schema import ResyncState, UndoLastStateChange
 from backend.features.variable_registry.schema import (
     GetActionFormulaAuthoringMetadata,
     GetAugmentationTargetMetadata,
@@ -267,6 +267,7 @@ class StateBackupExportedEvent(ProtocolModel):
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
+    | UndoLastStateChange
     | ExportStateBackup
     | ImportStateBackup
     | SendRoll20ChatMessage

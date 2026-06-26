@@ -77,6 +77,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "SaveEncounterPreset",
         "DeleteEncounterPreset",
         "SpawnEncounterPreset",
+        "UndoLastStateChange",
     }.issubset(model_names)
 
 
@@ -217,6 +218,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["resync_state"].client_generation == ClientGenerationMetadata(
         namespace="stateSync",
         method_name="resyncState",
+    )
+    assert contracts["undo_last_state_change"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="stateSync",
+            method_name="undoLastStateChange",
+        )
+    )
+    assert contracts["undo_last_state_change"].minimum_role == "dm"
+    assert contracts["undo_last_state_change"].emitted_event_models == (
+        StatePatchEvent,
     )
     assert contracts["perform_action"].client_generation == ClientGenerationMetadata(
         namespace="sheetRuntime",

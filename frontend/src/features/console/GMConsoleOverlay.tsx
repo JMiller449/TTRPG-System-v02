@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { useAppStore } from "@/app/state/useAppStore";
 import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { GM_NAV_ITEMS, isGMOverlayShortcut } from "@/features/console/gmNavigation";
+import { StateSafetyPanel } from "@/features/stateSync/StateSafetyPanel";
 import type { GameClient } from "@/hooks/useGameClient";
 
 export function GMConsoleOverlay({ client }: { client: GameClient }): JSX.Element {
@@ -125,6 +126,7 @@ export function GMConsoleOverlay({ client }: { client: GameClient }): JSX.Elemen
             </nav>
 
             <EncounterQuickSelectPanel client={client} />
+            <StateSafetyPanel client={client} />
           </section>
         </div>
       ) : null}

@@ -17,6 +17,7 @@ import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
+import { StateSafetyPanel } from "@/features/stateSync/StateSafetyPanel";
 import { StateBackupPage } from "@/features/stateBackup/StateBackupPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { SheetTabs } from "@/features/sheets/SheetTabs";
@@ -119,6 +120,7 @@ export function App(): JSX.Element {
         <>
           <section className="gm-console-tools">
             <AuthPanel client={client} />
+            <StateSafetyPanel client={client} />
             <SheetTabs />
             <EncounterQuickSelectPanel client={client} />
           </section>

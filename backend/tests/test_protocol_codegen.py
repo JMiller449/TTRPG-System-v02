@@ -81,6 +81,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"connected": boolean;' in output
     assert '"type": "resync_state"' in output
     assert '"minimumRole": "player"' in output
+    assert "export type UndoLastStateChange = {" in output
+    assert '"type": "undo_last_state_change";' in output
+    assert '"clientNamespace": "stateSync"' in output
+    assert '"clientMethodName": "undoLastStateChange"' in output
+    assert '"minimumRole": "dm"' in output
     assert '"type": "perform_action"' in output
     assert '"type": "create_action"' in output
     assert '"clientNamespace": "sheetAdminActions"' in output

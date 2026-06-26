@@ -805,6 +805,113 @@ def test_websocket_contract_resource_mutation_broadcasts_state_patch(
     asyncio.run(scenario())
 
 
+def test_websocket_contract_undo_last_state_change_is_dm_only(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await _connect_assigned_player(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "undo_last_state_change",
+            },
+        )
+
+        assert state.instanced_sheets["mage_instance"].health == 90
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Only a DM can undo state changes.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_undo_last_state_change_errors_when_empty() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "undo_last_state_change",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "There are no state changes to undo.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_undo_last_state_change_broadcasts_inverse_patch(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "adjust_instanced_sheet_resource",
+                "instance_id": "mage_instance",
+                "resource": "health",
+                "delta": -5,
+            },
+        )
+        dm_socket.sent_messages.clear()
+        player_socket.sent_messages.clear()
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "undo_last_state_change",
+                "request_id": "req-undo",
+            },
+        )
+
+        expected_patch = {
+            "response_id": None,
+            "ops": [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 90,
+                }
+            ],
+            "state_version": 2,
+            "type": "state_patch",
+            "request_id": "req-undo",
+        }
+        assert state.instanced_sheets["mage_instance"].health == 90
+        assert dm_socket.sent_messages == [expected_patch]
+        assert player_socket.sent_messages == [expected_patch]
+
+    asyncio.run(scenario())
+
+
 def test_websocket_contract_resync_replays_missing_patch(monkeypatch) -> None:
     async def scenario() -> None:
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)

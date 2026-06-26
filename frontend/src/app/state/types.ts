@@ -1,7 +1,8 @@
 import type {
   ActionFormulaAuthoringMetadata,
   AppSnapshot,
-  AugmentationTargetMetadata
+  AugmentationTargetMetadata,
+  SheetAccessCode
 } from "@/domain/ipc";
 import type {
   ActionDefinition,
@@ -85,6 +86,7 @@ export interface UIState {
   intentFeedback: IntentFeedbackItem[];
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
+  sheetAccessCodes: SheetAccessCode[];
 }
 
 export interface AppState {
@@ -103,6 +105,7 @@ export type AppAction =
   | { type: "connection_status"; status: ConnectionStatus }
   | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
+  | { type: "clear_connection_error_matching"; text: string }
   | {
       type: "set_roll20_bridge_status";
       status: Roll20BridgeConnectionStatus;
@@ -115,4 +118,5 @@ export type AppAction =
   | { type: "dismiss_intent_feedback"; id: string }
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
+  | { type: "set_sheet_access_codes"; codes: SheetAccessCode[] }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

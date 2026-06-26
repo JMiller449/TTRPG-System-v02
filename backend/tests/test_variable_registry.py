@@ -225,7 +225,7 @@ def test_player_can_request_variable_registry() -> None:
         )
 
         assert websocket.sent_messages[0]["type"] == "variable_registry"
-        assert websocket.sent_messages[0]["request_id"] == "req-1"
+        assert websocket.sent_messages[0]["request_id"] == "client-id-ignored"
         variables = {
             variable["key"]: variable
             for variable in websocket.sent_messages[0]["variables"]
@@ -255,7 +255,7 @@ def test_player_can_request_augmentation_target_metadata() -> None:
 
         assert websocket.sent_messages[0]["type"] == "augmentation_target_metadata"
         assert websocket.sent_messages[0]["context"] == "item_template"
-        assert websocket.sent_messages[0]["request_id"] == "req-1"
+        assert websocket.sent_messages[0]["request_id"] == "client-id-ignored"
         targets = {
             target["key"]: target for target in websocket.sent_messages[0]["targets"]
         }
@@ -288,7 +288,7 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
         assert websocket.sent_messages[0]["type"] == (
             "action_formula_authoring_metadata"
         )
-        assert websocket.sent_messages[0]["request_id"] == "req-1"
+        assert websocket.sent_messages[0]["request_id"] == "client-id-ignored"
         variables = {
             variable["key"]: variable
             for variable in websocket.sent_messages[0]["variables"]

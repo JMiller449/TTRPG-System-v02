@@ -9,6 +9,7 @@ import type {
   ProtocolApplicationRequest,
   ProtocolServerEvent,
   Roll20BridgeStatusEvent as ProtocolRoll20BridgeStatusEvent,
+  SheetAccessCodesEvent as ProtocolSheetAccessCodesEvent,
   StatePatchEvent as ProtocolStatePatchEvent,
   StateSnapshotEvent as ProtocolStateSnapshotEvent
 } from "@/generated/backendProtocol";
@@ -23,6 +24,7 @@ export type {
   ProtocolErrorEvent,
   ProtocolPatchOperation,
   ProtocolRoll20BridgeStatusEvent,
+  ProtocolSheetAccessCodesEvent,
   ProtocolServerEvent,
   ProtocolStatePatchEvent,
   ProtocolStateSnapshotEvent
@@ -190,6 +192,33 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           connected: payload.connected,
           type: "roll20_bridge_status",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "sheet_access_codes":
+      if (
+        Array.isArray(payload.codes) &&
+        payload.codes.every(
+          (entry) =>
+            isRecord(entry) &&
+            typeof entry.code === "string" &&
+            typeof entry.sheet_id === "string" &&
+            isNullableString(entry.instance_id) &&
+            typeof entry.active === "boolean"
+        )
+      ) {
+        return {
+          response_id:
+            typeof payload.response_id === "string" || payload.response_id === null
+              ? payload.response_id
+              : null,
+          codes: payload.codes as ProtocolSheetAccessCodesEvent["codes"],
+          type: "sheet_access_codes",
+          request_id:
+            typeof payload.request_id === "string" || payload.request_id === null
+              ? payload.request_id
+              : undefined
         };
       }
       return null;

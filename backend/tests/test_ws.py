@@ -13,6 +13,7 @@ from backend.features.state_sync import handler as state_sync_handler
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import (
     AUTH_CLOSE_CODE,
+    _assign_request_id,
     authenticate_application_websocket,
     authenticate_service_websocket,
     handle_client_payload,
@@ -46,6 +47,49 @@ class FakeWebSocket:
 def reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
     asyncio.run(state_sync_service.reset())
+
+
+def test_assign_request_id_preserves_valid_client_id_and_generates_missing_id() -> None:
+    payload, request_id = _assign_request_id(
+        {"type": "resync_state", "request_id": "client-request-1"}
+    )
+    assert request_id == "client-request-1"
+    assert payload["request_id"] == "client-request-1"
+
+    generated_payload, generated_request_id = _assign_request_id(
+        {"type": "resync_state"}
+    )
+    assert generated_request_id == "req-1"
+    assert generated_payload["request_id"] == "req-1"
+
+
+def test_roll20_bridge_connect_and_disconnect_broadcast_status() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        app_socket = FakeWebSocket()
+        bridge_socket = FakeWebSocket()
+        await websocket_sessions.connect(app_socket, role="player")
+
+        await chat_service.broadcast_bridge_status(connected=True)
+        await chat_service.broadcast_bridge_status(connected=False)
+
+        assert app_socket.sent_messages == [
+            {
+                "response_id": None,
+                "connected": True,
+                "type": "roll20_bridge_status",
+                "request_id": None,
+            },
+            {
+                "response_id": None,
+                "connected": False,
+                "type": "roll20_bridge_status",
+                "request_id": None,
+            },
+        ]
+
+    asyncio.run(scenario())
 
 
 def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
@@ -206,7 +250,7 @@ def test_authenticate_application_websocket_accepts_dm_code() -> None:
                 "role": "dm",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-supplied-id",
             }
         ]
 
@@ -255,7 +299,7 @@ def test_authenticate_service_websocket_accepts_service_code() -> None:
             {
                 "type": "authenticate",
                 "token": SERVICE_AUTH_CODE,
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
         )
 
@@ -267,7 +311,7 @@ def test_authenticate_service_websocket_accepts_service_code() -> None:
                 "role": "service",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -323,7 +367,7 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
                 "response_id": None,
                 "reason": "Roll20 chat bridge is not connected.",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "ignored-client-id",
             }
         ]
 
@@ -350,7 +394,7 @@ def test_get_roll20_bridge_status_reports_disconnected() -> None:
                 "response_id": None,
                 "connected": False,
                 "type": "roll20_bridge_status",
-                "request_id": "req-1",
+                "request_id": "req-status",
             }
         ]
 
@@ -379,7 +423,7 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
                 "response_id": None,
                 "connected": True,
                 "type": "roll20_bridge_status",
-                "request_id": "req-1",
+                "request_id": "req-status",
             }
         ]
 
@@ -405,7 +449,7 @@ def test_unauthenticated_socket_must_authenticate_before_other_requests() -> Non
                 "response_id": None,
                 "reason": "Authenticate first.",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -475,7 +519,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "role": None,
                 "reason": "Invalid player or DM code.",
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -483,7 +527,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "role": "player",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-2",
+                "request_id": "another-client-id",
             },
             {
                 "response_id": None,
@@ -530,7 +574,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                 "role": "player",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -577,7 +621,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                 "role": "dm",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -617,7 +661,7 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
             {
                 "type": "send_roll20_chat_message",
                 "message": "bridge update",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
         )
 
@@ -627,7 +671,7 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
                 "message_id": bridge_socket.sent_messages[0]["message_id"],
                 "message": "bridge update",
                 "type": "chat_message",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -677,7 +721,7 @@ def test_unknown_request_type_returns_error() -> None:
                 "response_id": None,
                 "reason": "Unknown request type: unknown_message",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -886,7 +930,16 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
                 "state_version": 1,
                 "type": "state_patch",
                 "request_id": "req-1",
-            }
+            },
+            {
+                "response_id": None,
+                "sheet_id": "mage_instance",
+                "action_id": "spend_mana",
+                "applied_mutations": ["mana-=4"],
+                "emitted_messages": [],
+                "type": "action_executed",
+                "request_id": "req-1",
+            },
         ]
 
     asyncio.run(scenario())

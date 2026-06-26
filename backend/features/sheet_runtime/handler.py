@@ -23,5 +23,4 @@ async def handle_request(session: WebSocketSession, request: PerformAction) -> N
         )
         return
 
-    if response is not None:
-        await websocket_sessions.send(session, response)
+    await websocket_sessions.send(session, response)

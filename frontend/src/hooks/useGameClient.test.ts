@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIntentErrorMessage,
-  buildIntentSuccessMessage
+  buildIntentSuccessMessage,
+  requestResolvesOnSnapshot
 } from "@/hooks/useGameClient";
 
 describe("useGameClient feedback messages", () => {
@@ -39,5 +40,33 @@ describe("useGameClient feedback messages", () => {
     ).toBe(
       "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded before trying again."
     );
+  });
+
+  it("waits for terminal action and generated-code events instead of resolving from patches", () => {
+    expect(
+      requestResolvesOnSnapshot({
+        type: "perform_action",
+        sheet_id: "instance-1",
+        action_id: "attack"
+      })
+    ).toBe(false);
+    expect(
+      requestResolvesOnSnapshot({
+        type: "create_instanced_sheet",
+        instance_id: "instance-1",
+        parent_sheet_id: "sheet-1",
+        health: 10,
+        mana: 5,
+        generate_access_code: true
+      })
+    ).toBe(false);
+    expect(
+      requestResolvesOnSnapshot({
+        type: "set_instanced_sheet_resource",
+        instance_id: "instance-1",
+        resource: "health",
+        value: 8
+      })
+    ).toBe(true);
   });
 });

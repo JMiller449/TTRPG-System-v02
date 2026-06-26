@@ -7,6 +7,7 @@ import pytest
 from backend.features.chat import service as chat_service
 from backend.features.sheet_runtime import service as runtime_service
 from backend.features.sheet_runtime.schema import PerformAction
+from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.action import Action
@@ -44,9 +45,13 @@ def test_roll20_action_output_wraps_roll_modes_and_gm_visibility() -> None:
         roll_mode="advantage",
         visibility="public",
     ) == (
-        "Attack: /r "
-        "{(1d100 / 100) * 10, (1d100 / 100) * 10}kh1"
+        "Attack: [[{(1d100 / 100) * 10, (1d100 / 100) * 10}kh1]]"
     )
+    assert runtime_service.format_roll20_message(
+        "/r 1d100",
+        roll_mode="normal",
+        visibility="public",
+    ) == "/r 1d100"
     assert runtime_service.format_roll20_message(
         message,
         roll_mode="disadvantage",
@@ -326,8 +331,7 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
             )
 
             assert StateSingleton.getState().sheets["mage_template"].stats.strength == 8
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "ops": [
                         {
@@ -338,20 +342,22 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
-                },
-            ]
+                    "request_id": "req-4",
+                }
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "battle_cry"
+            assert websocket.sent_messages[1]["request_id"] == "req-4"
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
                     "message": "Strength now (8)",
                     "type": "chat_message",
-                    "request_id": "req-1",
+                    "request_id": "req-4",
                 }
             ]
             mutation_audit = state_sync_service.mutation_history[-1]
             assert mutation_audit.state_version == 1
-            assert mutation_audit.request_id == "req-1"
+            assert mutation_audit.request_id == "req-4"
             assert mutation_audit.request_type == "perform_action"
             assert mutation_audit.action_id == "battle_cry"
             assert mutation_audit.sheet_id == "mage_template"
@@ -453,8 +459,7 @@ def test_player_cannot_perform_action_with_target_sheet(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].mana == 30
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": (
                         "Target sheet execution is not supported for MVP; "
@@ -463,7 +468,6 @@ def test_player_cannot_perform_action_with_target_sheet(monkeypatch) -> None:
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -508,8 +512,7 @@ def test_dm_cannot_perform_action_with_target_sheet(monkeypatch) -> None:
             )
 
             assert state.sheets["mage_template"].stats.strength == 10
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": (
                         "Target sheet execution is not supported for MVP; "
@@ -518,7 +521,6 @@ def test_dm_cannot_perform_action_with_target_sheet(monkeypatch) -> None:
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -737,7 +739,8 @@ def test_dm_can_admin_execute_unassigned_action(monkeypatch) -> None:
                     "value": -1,
                 }
             ]
-            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "unassigned"
         finally:
             StateSingleton._state = original_state
 
@@ -802,8 +805,7 @@ def test_perform_action_can_increment_and_decrement_instance_values(
 
             assert state.instanced_sheets["mage_instance"].mana == 23
             assert state.instanced_sheets["mage_instance"].health == 97
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "ops": [
                         {
@@ -820,8 +822,9 @@ def test_perform_action_can_increment_and_decrement_instance_values(
                     "state_version": 1,
                     "type": "state_patch",
                     "request_id": "req-1",
-                },
-            ]
+                }
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "cast_spell"
         finally:
             StateSingleton._state = original_state
 
@@ -874,14 +877,12 @@ def test_perform_action_rejects_incrementing_nonnumeric_instance_path(
             )
 
             assert state.instanced_sheets["mage_instance"].parent_id == "mage_template"
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": "State path /instanced_sheets/mage_instance/parent_id is not numeric.",
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -954,8 +955,7 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
 
             assert state.instanced_sheets["mage_instance"].mana == 22
             assert state.sheets["mage_template"].proficiencies["magic"].use_count == 3
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "ops": [
                         {
@@ -972,8 +972,9 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                     "state_version": 1,
                     "type": "state_patch",
                     "request_id": "req-1",
-                },
-            ]
+                }
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "focused_cast"
         finally:
             StateSingleton._state = original_state
 
@@ -1044,7 +1045,8 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
                     "value": "mage_instance",
                 },
             ]
-            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "ward"
         finally:
             StateSingleton._state = original_state
 
@@ -1108,7 +1110,8 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
                 f"/augmentations/{concrete_id}/applied",
                 f"/augmentations/{concrete_id}/applied_target_id",
             ]
-            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "poison"
         finally:
             StateSingleton._state = original_state
 
@@ -1157,8 +1160,7 @@ def test_apply_condition_step_requires_instance(monkeypatch) -> None:
                 },
             )
 
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": (
                         "Apply condition preset steps require an instanced sheet."
@@ -1166,7 +1168,6 @@ def test_apply_condition_step_requires_instance(monkeypatch) -> None:
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -1215,14 +1216,12 @@ def test_apply_semantic_steps_reject_missing_records(monkeypatch) -> None:
                 },
             )
 
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": "Augmentation 'missing' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
 
             state.actions["ward"] = Action.from_dict(
                 {
@@ -1249,14 +1248,12 @@ def test_apply_semantic_steps_reject_missing_records(monkeypatch) -> None:
                 },
             )
 
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": "Condition preset 'missing' does not exist.",
                     "type": "error",
                     "request_id": "req-2",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -1431,8 +1428,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
             )
 
             assert state.instanced_sheets["mage_instance"].health == 80
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "ops": [
                         {
@@ -1444,8 +1440,9 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
                     "state_version": 1,
                     "type": "state_patch",
                     "request_id": "req-1",
-                },
-            ]
+                }
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "take_damage"
         finally:
             StateSingleton._state = original_state
 
@@ -1505,7 +1502,8 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
                     "value": 90,
                 }
             ]
-            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "blocked_damage"
         finally:
             StateSingleton._state = original_state
 
@@ -1563,7 +1561,8 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
                     "value": 0,
                 }
             ]
-            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "massive_damage"
         finally:
             StateSingleton._state = original_state
 
@@ -1612,14 +1611,12 @@ def test_resolve_damage_step_requires_instance(monkeypatch) -> None:
                 },
             )
 
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "reason": "Resolve damage steps require an instanced sheet.",
                     "type": "error",
                     "request_id": "req-1",
                 }
-            ]
         finally:
             StateSingleton._state = original_state
 
@@ -1794,8 +1791,7 @@ def test_perform_action_can_apply_bounded_decrement_against_base_sheet(
             )
 
             assert state.sheets["mage_template"].stats.strength == 0
-            assert websocket.sent_messages == [
-                {
+            assert websocket.sent_messages[0] == {
                     "response_id": None,
                     "ops": [
                         {
@@ -1807,8 +1803,9 @@ def test_perform_action_can_apply_bounded_decrement_against_base_sheet(
                     "state_version": 1,
                     "type": "state_patch",
                     "request_id": "req-1",
-                },
-            ]
+                }
+            assert websocket.sent_messages[1]["type"] == "action_executed"
+            assert websocket.sent_messages[1]["action_id"] == "take_damage"
         finally:
             StateSingleton._state = original_state
 

@@ -331,14 +331,14 @@ def test_default_baseline_check_executes_as_sheet_action(monkeypatch) -> None:
                 "sheet_id": "mage_template",
                 "action_id": "baseline_check_strength",
                 "applied_mutations": [],
-                "emitted_messages": ["Strength Check: /r (1d100 / 100) * (10)"],
+            "emitted_messages": ["Strength Check: [[(1d100 / 100) * (10)]]"],
                 "type": "action_executed",
                 "request_id": "req-2",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                    "message": "Strength Check: /r (1d100 / 100) * (10)",
+            "message": "Strength Check: [[(1d100 / 100) * (10)]]",
                     "type": "chat_message",
                     "request_id": "req-2",
                 }
@@ -383,14 +383,14 @@ def test_default_attack_preset_executes_as_sheet_action(monkeypatch) -> None:
                 "sheet_id": "mage_template",
                 "action_id": "attack",
                 "applied_mutations": [],
-                "emitted_messages": ["Attack: /r (1d100 / 100) * (10)"],
+            "emitted_messages": ["Attack: [[(1d100 / 100) * (10)]]"],
                 "type": "action_executed",
                 "request_id": "req-2",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                    "message": "Attack: /r (1d100 / 100) * (10)",
+            "message": "Attack: [[(1d100 / 100) * (10)]]",
                     "type": "chat_message",
                     "request_id": "req-2",
                 }

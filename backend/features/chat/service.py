@@ -14,6 +14,7 @@ from backend.features.chat.schema import (
     Roll20ChatMessage,
     SendRoll20ChatMessage,
 )
+from backend.protocol.socket import Roll20BridgeStatusEvent
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,19 @@ class Roll20ChatBridge:
         async with self._lock:
             return bool(self._connections)
 
-
 roll20_chat_bridge = Roll20ChatBridge()
+
+
+async def broadcast_bridge_status(*, connected: bool) -> None:
+    from backend.features.session.service import websocket_sessions
+
+    await websocket_sessions.broadcast(
+        Roll20BridgeStatusEvent(
+            response_id=None,
+            connected=connected,
+            request_id=None,
+        )
+    )
 
 
 def build_chat_message(request: SendRoll20ChatMessage) -> Roll20ChatMessage:

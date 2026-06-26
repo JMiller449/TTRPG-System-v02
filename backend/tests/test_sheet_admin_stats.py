@@ -151,7 +151,7 @@ def test_dm_can_set_sheet_base_stat(monkeypatch) -> None:
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
+                    "request_id": "client-id-ignored",
                 }
             ]
         finally:
@@ -216,7 +216,7 @@ def test_dm_can_set_sheet_formula_stat(monkeypatch) -> None:
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
+                    "request_id": "client-id-ignored",
                 }
             ]
         finally:

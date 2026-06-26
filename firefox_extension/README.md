@@ -24,3 +24,12 @@ After loading the extension, open its preferences/options page and configure:
 
 Reload the Roll20 editor tab after saving. The service code is stored in Firefox extension
 storage and is not committed in the content script.
+
+### URL Smoke Test
+
+After reloading the temporary extension, verify the content script activates on both:
+
+- `https://app.roll20.net/editor`
+- `https://app.roll20.net/editor/<game-path>`
+
+The browser console should show the `[ttrpg-roll20-bridge]` connection message on either URL.

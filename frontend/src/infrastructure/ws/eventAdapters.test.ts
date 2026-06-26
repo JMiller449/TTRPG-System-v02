@@ -64,6 +64,42 @@ describe("parseProtocolServerEvent", () => {
     });
   });
 
+  it("parses and adapts sheet access-code events", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      codes: [
+        {
+          code: "MAGE2026",
+          sheet_id: "mage-template",
+          instance_id: "mage-instance",
+          active: true
+        }
+      ],
+      type: "sheet_access_codes",
+      request_id: "req-code"
+    });
+
+    expect(event?.type).toBe("sheet_access_codes");
+    if (!event || event.type !== "sheet_access_codes") {
+      throw new Error("Expected sheet_access_codes event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, event).events).toEqual([
+      {
+        type: "sheet_access_codes",
+        codes: [
+          {
+            code: "MAGE2026",
+            sheetId: "mage-template",
+            instanceId: "mage-instance",
+            active: true
+          }
+        ],
+        requestId: "req-code"
+      }
+    ]);
+  });
+
   it("parses backend error and action execution events", () => {
     expect(
       parseProtocolServerEvent({

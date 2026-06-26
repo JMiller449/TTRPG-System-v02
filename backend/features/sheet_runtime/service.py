@@ -367,7 +367,9 @@ def format_roll20_message(
     if visibility == "gm_only":
         return f"/w gm {label_prefix}[[{expression}]]"
 
-    return f"{label_prefix}{match.group('command')}{expression}"
+    if label:
+        return f"{label} [[{expression}]]"
+    return f"/r {expression}"
 
 
 def validate_action_runtime_parameters(
@@ -667,9 +669,9 @@ async def perform_action(
                 f"Unsupported runtime action step '{step.__class__.__name__}'."
             )
 
-        return (applied_mutations, emitted_messages, bool(ops)), ops
+        return (applied_mutations, emitted_messages), ops
 
-    applied_mutations, emitted_messages, emitted_state_patch = (
+    applied_mutations, emitted_messages = (
         await state_sync_service.apply_mutation(
             mutation,
             request_id=request.request_id,
@@ -684,9 +686,6 @@ async def perform_action(
                 request_id=request.request_id,
             )
         )
-
-    if emitted_state_patch:
-        return None
 
     return ActionExecuted(
         response_id=None,

@@ -42,7 +42,8 @@ export const initialUiState: UIState = {
   pendingIntentIds: [],
   intentFeedback: [],
   actionFormulaAuthoringMetadata: null,
-  augmentationTargetMetadata: null
+  augmentationTargetMetadata: null,
+  sheetAccessCodes: []
 };
 
 export const initialState: AppState = {

@@ -1,5 +1,8 @@
 import type { ActionDefinition, Sheet } from "@/domain/models";
-import { buildPerformActionRequest } from "@/infrastructure/ws/requestBuilders";
+import {
+  buildPerformActionRequest,
+  type ActionRollMode
+} from "@/infrastructure/ws/requestBuilders";
 
 export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
 
@@ -8,6 +11,12 @@ export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
   "dodge",
   "parry",
   "block"
+];
+
+export const ACTION_ROLL_MODES: readonly ActionRollMode[] = [
+  "normal",
+  "advantage",
+  "disadvantage"
 ];
 
 export interface ResolvedQuickRollAction {
@@ -76,15 +85,18 @@ export function getQuickRollLabel(action: QuickRollAction, activeWeapon?: string
 
 export function buildQuickRollExecutionRequest({
   sheetId,
-  resolution
+  resolution,
+  rollMode
 }: {
   sheetId: string;
   resolution: ResolvedQuickRollAction;
+  rollMode: ActionRollMode;
 }): QuickRollExecutionRequest {
   return {
     request: buildPerformActionRequest({
       sheetId,
-      actionId: resolution.actionId
+      actionId: resolution.actionId,
+      rollMode
     }),
     label: `Perform action: ${resolution.actionName}`
   };

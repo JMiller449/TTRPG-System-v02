@@ -3,7 +3,11 @@ import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
 import { Panel } from "@/shared/ui/Panel";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildGetRoll20BridgeStatusRequest } from "@/infrastructure/ws/requestBuilders";
+import {
+  buildGetRoll20BridgeStatusRequest,
+  type ActionRollMode
+} from "@/infrastructure/ws/requestBuilders";
+import { RollModeControl } from "@/features/rolls/RollModeControl";
 import {
   buildQuickRollExecutionRequest,
   getQuickRollLabel,
@@ -26,6 +30,7 @@ export function RollPanel({
   const { actions } = state.serverState;
 
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
+  const [rollMode, setRollMode] = useState<ActionRollMode>("normal");
 
   const activeSheetView = useMemo(() => {
     if (!activeSheetId) {
@@ -62,7 +67,8 @@ export function RollPanel({
 
     const execution = buildQuickRollExecutionRequest({
       sheetId: activeSheetId,
-      resolution: selectedQuickActionResolution
+      resolution: selectedQuickActionResolution,
+      rollMode
     });
     client.sendProtocolRequest(execution.request, execution.label);
   };
@@ -107,12 +113,13 @@ export function RollPanel({
             </button>
           ))}
         </div>
+        <RollModeControl value={rollMode} onChange={setRollMode} />
         <div className="roll-panel__footer">
           <div className="equation-preview">
             <span className="muted">Action Request</span>
             {selectedQuickActionResolution ? (
               <code>
-                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId}
+                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId} / {rollMode}
               </code>
             ) : selectedQuickAction ? (
               <code>Selected quick action is not assigned to this sheet.</code>

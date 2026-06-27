@@ -199,6 +199,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"sheet_id": string;' in output
     assert '"action_id": string;' in output
     assert '"target_sheet_id"?: string | null;' in output
+    assert '"roll_mode"?: "normal" | "advantage" | "disadvantage";' in output
     assert '"type": "perform_action";' in output
     assert "export type ActionExecutedEvent = {" in output
     assert '"applied_mutations": string[];' in output
@@ -210,6 +211,12 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "generate_sheet_access_code"' in output
     assert '"clientNamespace": "sheetAccess"' in output
     assert '"clientMethodName": "getSheetAccessCodes"' in output
+    assert '"type": "get_xp_tracker";' in output
+    assert '"type": "set_sheet_xp_required";' in output
+    assert '"type": "set_mob_xp_value";' in output
+    assert '"type": "set_sheet_mob_kill_count";' in output
+    assert "export type XpTrackerEvent = {" in output
+    assert '"can_view_progress": boolean;' in output
     assert "export type ClaimSheetAccessCode = {" in output
     assert '"type": "claim_sheet_access_code";' in output
     assert '"clientMethodName": "claimSheetAccessCode"' in output

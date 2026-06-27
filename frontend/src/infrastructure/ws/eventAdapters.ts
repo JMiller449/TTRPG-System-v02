@@ -278,6 +278,21 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "xp_tracker":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "xp_tracker",
+            tracker: {
+              can_view_progress: event.can_view_progress,
+              sheets: event.sheets
+            },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "roll20_bridge_status":
       return {
         nextProtocolState: protocolState,

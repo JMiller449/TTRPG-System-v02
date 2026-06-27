@@ -6,6 +6,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
+from backend.core.request_context import build_request_source, request_source_context
 from backend.features.session.models import SessionRole, WebSocketSession
 
 RequestT = TypeVar("RequestT", bound=BaseModel)
@@ -157,7 +158,9 @@ class RequestRegistry:
 
     async def dispatch(self, session: WebSocketSession, payload: Any) -> BaseModel:
         match = self.resolve(payload)
-        await match.route.run(session, match.request)
+        source = build_request_source(match.request, actor_role=session.role)
+        with request_source_context(source):
+            await match.route.run(session, match.request)
         return match.request
 
 
@@ -200,6 +203,9 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.variable_registry.route import (
         register_routes as register_variable_registry_routes,
     )
+    from backend.features.xp_tracker.route import (
+        register_routes as register_xp_tracker_routes,
+    )
 
     register_auth_routes(registry)
     register_chat_routes(registry)
@@ -215,6 +221,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_state_sync_routes(registry)
     register_sheet_runtime_routes(registry)
     register_variable_registry_routes(registry)
+    register_xp_tracker_routes(registry)
 
 
 request_registry = RequestRegistry()

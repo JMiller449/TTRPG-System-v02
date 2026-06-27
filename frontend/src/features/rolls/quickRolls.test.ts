@@ -65,11 +65,18 @@ describe("quickRolls", () => {
       throw new Error("Expected attack quick action to resolve.");
     }
 
-    expect(buildQuickRollExecutionRequest({ sheetId: "instance_1", resolution })).toEqual({
+    expect(
+      buildQuickRollExecutionRequest({
+        sheetId: "instance_1",
+        resolution,
+        rollMode: "advantage"
+      })
+    ).toEqual({
       request: {
         type: "perform_action",
         sheet_id: "instance_1",
-        action_id: "attack"
+        action_id: "attack",
+        roll_mode: "advantage"
       },
       label: "Perform action: Attack"
     });

@@ -74,6 +74,12 @@ from backend.features.variable_registry.schema import (
     GetAugmentationTargetMetadata,
     GetVariableRegistry,
 )
+from backend.features.xp_tracker.schema import (
+    GetXpTracker,
+    SetMobXpValue,
+    SetSheetMobKillCount,
+    SetSheetXpRequired,
+)
 from backend.protocol.state_schema import ActionStepPayload, BackendStateSnapshotPayload
 
 
@@ -254,6 +260,31 @@ class SheetAccessClaimedEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class XpTrackerMobEvent(ProtocolModel):
+    sheet_id: str
+    name: str
+    count: int
+    xp_value: int | None = None
+    xp_earned: int | None = None
+
+
+class XpTrackerSheetEvent(ProtocolModel):
+    sheet_id: str
+    name: str
+    mobs: list[XpTrackerMobEvent]
+    current_xp: int | None = None
+    xp_required: int | None = None
+    ready_to_level: bool | None = None
+
+
+class XpTrackerEvent(ProtocolModel):
+    response_id: str | None = None
+    can_view_progress: bool
+    sheets: list[XpTrackerSheetEvent]
+    type: Literal["xp_tracker"] = "xp_tracker"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
@@ -304,7 +335,11 @@ ApplicationRequest = Annotated[
     | GetActionFormulaAuthoringMetadata
     | GetAugmentationTargetMetadata
     | GetVariableRegistry
-    | PerformAction,
+    | PerformAction
+    | GetXpTracker
+    | SetSheetXpRequired
+    | SetMobXpValue
+    | SetSheetMobKillCount,
     Field(discriminator="type"),
 ]
 
@@ -319,7 +354,8 @@ ServerEvent = Annotated[
     | AugmentationTargetMetadataEvent
     | VariableRegistryEvent
     | SheetAccessCodesEvent
-    | SheetAccessClaimedEvent,
+    | SheetAccessClaimedEvent
+    | XpTrackerEvent,
     Field(discriminator="type"),
 ]
 

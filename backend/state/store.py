@@ -1,15 +1,147 @@
 from __future__ import annotations
 
-import logging
 import json
+import logging
+import os
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from backend.state.models.action_history import prune_action_history
 from backend.state.models.state import State
 
 logger = logging.getLogger(__name__)
 STATE_PATH = Path(__file__).resolve().parents[2] / "state_dumpy.json"
+CURRENT_STATE_SCHEMA_VERSION = 1
 DEFAULT_STATE = State()
+
+StateMigration = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+def _migrate_legacy_state(state: dict[str, Any]) -> dict[str, Any]:
+    return state
+
+
+STATE_MIGRATIONS: dict[int, StateMigration] = {
+    0: _migrate_legacy_state,
+}
+
+
+def _backup_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.bak")
+
+
+def _temporary_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.tmp")
+
+
+def _migrate_state(
+    state: dict[str, Any],
+    *,
+    schema_version: int,
+) -> dict[str, Any]:
+    if schema_version < 0:
+        raise ValueError("State schema version cannot be negative.")
+    if schema_version > CURRENT_STATE_SCHEMA_VERSION:
+        raise ValueError(
+            f"State schema version {schema_version} is newer than supported version "
+            f"{CURRENT_STATE_SCHEMA_VERSION}."
+        )
+
+    migrated = state
+    version = schema_version
+    while version < CURRENT_STATE_SCHEMA_VERSION:
+        migration = STATE_MIGRATIONS.get(version)
+        if migration is None:
+            raise ValueError(f"No state migration exists for schema version {version}.")
+        migrated = migration(migrated)
+        if not isinstance(migrated, dict):
+            raise ValueError(
+                f"State migration for schema version {version} returned invalid data."
+            )
+        version += 1
+    return migrated
+
+
+def _decode_checkpoint(document: Any) -> State:
+    if not isinstance(document, dict):
+        raise ValueError("Persisted state was not a JSON object.")
+
+    if "schema_version" not in document:
+        schema_version = 0
+        state_data = document
+    else:
+        schema_version = document["schema_version"]
+        state_data = document.get("state")
+        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
+            raise ValueError("State schema version must be an integer.")
+        if not isinstance(state_data, dict):
+            raise ValueError("Versioned state checkpoint is missing its state object.")
+
+    migrated_state = _migrate_state(
+        state_data,
+        schema_version=schema_version,
+    )
+    return State.from_dict(migrated_state)
+
+
+def _load_checkpoint(path: Path) -> State | None:
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            return _decode_checkpoint(json.load(file))
+    except FileNotFoundError:
+        return None
+    except (
+        AttributeError,
+        json.JSONDecodeError,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        logger.warning("Failed to load state checkpoint %s: %s", path, exc)
+        return None
+
+
+def _checkpoint_document(state: State) -> dict[str, Any]:
+    return {
+        "schema_version": CURRENT_STATE_SCHEMA_VERSION,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "state": state.to_dict(include_private=True),
+    }
+
+
+def _fsync_directory(path: Path) -> None:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    directory_fd = os.open(path, flags)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _write_checkpoint(path: Path, state: State) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = _temporary_path(path)
+    backup_path = _backup_path(path)
+
+    try:
+        with temporary_path.open("w", encoding="utf-8") as file:
+            json.dump(_checkpoint_document(state), file)
+            file.flush()
+            os.fsync(file.fileno())
+
+        if path.exists() and _load_checkpoint(path) is not None:
+            os.replace(path, backup_path)
+            _fsync_directory(path.parent)
+
+        os.replace(temporary_path, path)
+        _fsync_directory(path.parent)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 class StateSingleton:
@@ -17,20 +149,17 @@ class StateSingleton:
 
     @classmethod
     def initializeState(cls) -> State:
-        try:
-            with STATE_PATH.open("r", encoding="utf-8") as file:
-                data = json.load(file)
-        except FileNotFoundError:
-            logger.warning("Failed to load state: file not found")
-            data = {}
-
-        if not isinstance(data, dict):
-            logger.warning(
-                "Failed to load state: persisted state was not a JSON object"
-            )
-            data = {}
-
-        cls._state = State.from_dict(data)
+        cls._state = _load_checkpoint(STATE_PATH)
+        if cls._state is None:
+            cls._state = _load_checkpoint(_backup_path(STATE_PATH))
+            if cls._state is not None:
+                logger.warning(
+                    "Recovered state from backup checkpoint %s.",
+                    _backup_path(STATE_PATH),
+                )
+        if cls._state is None:
+            logger.warning("No valid state checkpoint found; using empty state.")
+            cls._state = State()
         return cls._state
 
     @classmethod
@@ -45,8 +174,7 @@ class StateSingleton:
         if cls._state is None:
             cls._state = State()
         cls._state.action_history = prune_action_history(cls._state.action_history)
-        with STATE_PATH.open("w", encoding="utf-8") as file:
-            json.dump(cls._state.to_dict(include_private=True), file)
+        _write_checkpoint(STATE_PATH, cls._state)
 
     @classmethod
     def restartState(cls) -> None:

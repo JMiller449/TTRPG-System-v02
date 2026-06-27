@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, TypeVar
 
+from backend.core.request_context import RequestSource, current_request_source
 from backend.core.transport import PatchOp
 from backend.features.action_history.service import serialize_action_history
 from backend.features.session.models import SessionRole, WebSocketSession
@@ -19,8 +21,23 @@ from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
+logger = logging.getLogger(__name__)
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
+PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
+
+
+class DuplicateRequestError(ValueError):
+    """Raised when a completed state-changing request is submitted again."""
+
+
+@dataclass(frozen=True)
+class MutationAuditEntry:
+    state_version: int
+    request_id: str | None
+    source: RequestSource | None
+    operations: tuple[str, ...]
+    paths: tuple[str, ...]
 
 
 def build_state_snapshot(
@@ -62,10 +79,27 @@ async def send_bootstrap(session: WebSocketSession) -> None:
 
 
 class StateSyncService:
-    def __init__(self, *, patch_history_limit: int = 256) -> None:
+    def __init__(
+        self,
+        *,
+        patch_history_limit: int = 256,
+        processed_request_limit: int = 512,
+        mutation_audit_limit: int = 256,
+    ) -> None:
+        if processed_request_limit < 1:
+            raise ValueError("processed_request_limit must be at least 1.")
+        if mutation_audit_limit < 1:
+            raise ValueError("mutation_audit_limit must be at least 1.")
         self._lock = asyncio.Lock()
         self._state_version = 0
         self._patch_history: deque[StatePatch] = deque(maxlen=patch_history_limit)
+        self._processed_request_ids: deque[str] = deque(
+            maxlen=processed_request_limit
+        )
+        self._processed_request_id_set: set[str] = set()
+        self._mutation_audit: deque[MutationAuditEntry] = deque(
+            maxlen=mutation_audit_limit
+        )
 
     @property
     def current_version(self) -> int:
@@ -93,6 +127,8 @@ class StateSyncService:
 
         for field_name in PRIVATE_SHEET_FIELDS:
             value.pop(field_name, None)
+        value["xp_cap"] = ""
+        value["xp_given_when_slayed"] = 0
         return value
 
     def _redact_state_for_role(
@@ -109,6 +145,8 @@ class StateSyncService:
                 continue
             for field_name in PRIVATE_SHEET_FIELDS:
                 sheet.pop(field_name, None)
+            sheet["xp_cap"] = ""
+            sheet["xp_given_when_slayed"] = 0
 
         for item in state.get("items", {}).values():
             if not isinstance(item, dict):
@@ -136,7 +174,7 @@ class StateSyncService:
             if (
                 len(segments) >= 3
                 and segments[0] == "sheets"
-                and segments[2] in PRIVATE_SHEET_FIELDS
+                and segments[2] in PRIVATE_SHEET_FIELDS | PRIVATE_SHEET_XP_FIELDS
             ):
                 continue
 
@@ -201,6 +239,25 @@ class StateSyncService:
         async with self._lock:
             self._state_version = 0
             self._patch_history.clear()
+            self._processed_request_ids.clear()
+            self._processed_request_id_set.clear()
+            self._mutation_audit.clear()
+
+    async def recent_mutations(self) -> tuple[MutationAuditEntry, ...]:
+        async with self._lock:
+            return tuple(self._mutation_audit)
+
+    def _remember_processed_request(self, request_id: str) -> None:
+        if request_id in self._processed_request_id_set:
+            return
+        if (
+            self._processed_request_ids.maxlen is not None
+            and len(self._processed_request_ids) == self._processed_request_ids.maxlen
+        ):
+            expired_request_id = self._processed_request_ids.popleft()
+            self._processed_request_id_set.remove(expired_request_id)
+        self._processed_request_ids.append(request_id)
+        self._processed_request_id_set.add(request_id)
 
     def _next_patch(
         self,
@@ -216,6 +273,31 @@ class StateSyncService:
         )
         self._patch_history.append(patch)
         return patch
+
+    def _record_mutation(
+        self,
+        patch: StatePatch,
+        *,
+        source: RequestSource | None,
+    ) -> None:
+        ops = patch.ops or []
+        entry = MutationAuditEntry(
+            state_version=patch.state_version,
+            request_id=patch.request_id,
+            source=source,
+            operations=tuple(op.op for op in ops),
+            paths=tuple(op.path for op in ops),
+        )
+        self._mutation_audit.append(entry)
+        logger.debug(
+            "Applied state mutation version=%s request_id=%s request_type=%s "
+            "actor_role=%s paths=%s",
+            entry.state_version,
+            entry.request_id,
+            source.request_type if source is not None else "internal",
+            source.actor_role if source is not None else "internal",
+            entry.paths,
+        )
 
     async def replay_since(
         self,
@@ -415,15 +497,26 @@ class StateSyncService:
         request_id: str | None = None,
     ) -> MutationResultT:
         async with self._lock:
+            if request_id is not None and request_id in self._processed_request_id_set:
+                raise DuplicateRequestError(
+                    f"Duplicate request '{request_id}' was ignored; its state mutation "
+                    "was already processed."
+                )
+
             state = StateSingleton.getState()
             result, ops = mutation(state)
             if ops:
                 StateSingleton.dumpState()
                 patch = self._next_patch(ops, request_id=request_id)
+                self._record_mutation(patch, source=current_request_source())
+                if request_id is not None:
+                    self._remember_processed_request(request_id)
                 await websocket_sessions.broadcast_by_role(
                     player_payload=self._redact_patch_for_role(patch, role="player"),
                     dm_payload=self._redact_patch_for_role(patch, role="dm"),
                 )
+            elif request_id is not None:
+                self._remember_processed_request(request_id)
             return result
 
     async def apply_private_mutation(

@@ -26,6 +26,7 @@ import {
   buildGetRoll20BridgeStatusRequest,
   buildGetSheetAccessCodesRequest,
   buildGetVariableRegistryRequest,
+  buildGetXpTrackerRequest,
   buildSaveEncounterPresetRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetActionBridgeRequest,
@@ -40,6 +41,9 @@ import {
   buildSetSheetBaseStatRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetNotesRequest,
+  buildSetMobXpValueRequest,
+  buildSetSheetMobKillCountRequest,
+  buildSetSheetXpRequiredRequest,
   buildSpawnEncounterPresetRequest,
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
@@ -221,6 +225,7 @@ const requestBuilderByType = {
   get_roll20_bridge_status: buildGetRoll20BridgeStatusRequest,
   get_sheet_access_codes: buildGetSheetAccessCodesRequest,
   get_variable_registry: buildGetVariableRegistryRequest,
+  get_xp_tracker: buildGetXpTrackerRequest,
   perform_action: buildPerformActionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   resync_state: buildResyncStateRequest,
@@ -228,9 +233,12 @@ const requestBuilderByType = {
   send_roll20_chat_message: buildSendRoll20ChatMessageRequest,
   set_instanced_sheet_notes: buildSetInstancedSheetNotesRequest,
   set_instanced_sheet_resource: buildSetInstancedSheetResourceRequest,
+  set_mob_xp_value: buildSetMobXpValueRequest,
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
+  set_sheet_mob_kill_count: buildSetSheetMobKillCountRequest,
+  set_sheet_xp_required: buildSetSheetXpRequiredRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
@@ -263,6 +271,32 @@ describe("requestBuilders", () => {
     expect(buildGetRoll20BridgeStatusRequest({ requestId: "req-status" })).toEqual({
       type: "get_roll20_bridge_status",
       request_id: "req-status"
+    });
+  });
+
+  it("builds XP tracker requests", () => {
+    expect(buildGetXpTrackerRequest()).toEqual({ type: "get_xp_tracker" });
+    expect(buildSetSheetXpRequiredRequest({ sheetId: "hero", xpRequired: 100 })).toEqual({
+      type: "set_sheet_xp_required",
+      sheet_id: "hero",
+      xp_required: 100
+    });
+    expect(buildSetMobXpValueRequest({ mobSheetId: "goblin", xpValue: 25 })).toEqual({
+      type: "set_mob_xp_value",
+      mob_sheet_id: "goblin",
+      xp_value: 25
+    });
+    expect(
+      buildSetSheetMobKillCountRequest({
+        sheetId: "hero_instance",
+        mobSheetId: "goblin",
+        count: 3
+      })
+    ).toEqual({
+      type: "set_sheet_mob_kill_count",
+      sheet_id: "hero_instance",
+      mob_sheet_id: "goblin",
+      count: 3
     });
   });
 
@@ -812,6 +846,21 @@ describe("requestBuilders", () => {
       sheet_id: "instance_1",
       action_id: "heal",
       target_sheet_id: null
+    });
+  });
+
+  it("builds authored action execution requests with a roll mode", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "dodge",
+        rollMode: "disadvantage"
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "dodge",
+      roll_mode: "disadvantage"
     });
   });
 

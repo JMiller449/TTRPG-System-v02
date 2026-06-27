@@ -75,6 +75,40 @@ describe("uiReducer", () => {
     );
   });
 
+  it("stores and resets the XP tracker read model", () => {
+    const tracker = {
+      can_view_progress: false,
+      sheets: [
+        {
+          sheet_id: "hero",
+          name: "Hero",
+          mobs: [
+            {
+              sheet_id: "goblin",
+              name: "Goblin",
+              count: 2,
+              xp_value: null,
+              xp_earned: null
+            }
+          ],
+          current_xp: null,
+          xp_required: null,
+          ready_to_level: null
+        }
+      ]
+    };
+    const stateWithTracker = uiReducer(initialState, {
+      type: "set_xp_tracker",
+      tracker
+    });
+    const resetState = uiReducer(stateWithTracker ?? initialState, {
+      type: "reset_session_ui"
+    });
+
+    expect(stateWithTracker?.uiState.xpTracker).toEqual(tracker);
+    expect(resetState?.uiState.xpTracker).toBeNull();
+  });
+
   it("clears stored authoring metadata on session UI reset", () => {
     const stateWithMetadata = uiReducer(initialState, {
       type: "set_action_formula_authoring_metadata",

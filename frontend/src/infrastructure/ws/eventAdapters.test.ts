@@ -407,6 +407,48 @@ describe("adaptProtocolServerEvent", () => {
     ]);
   });
 
+  it("maps role-redacted XP tracker events into app events", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      can_view_progress: false,
+      sheets: [
+        {
+          sheet_id: "hero",
+          name: "Hero",
+          current_xp: null,
+          xp_required: null,
+          ready_to_level: null,
+          mobs: [
+            {
+              sheet_id: "goblin",
+              name: "Goblin",
+              count: 3,
+              xp_value: null,
+              xp_earned: null
+            }
+          ]
+        }
+      ],
+      type: "xp_tracker",
+      request_id: "req-xp"
+    });
+
+    if (!protocolEvent || protocolEvent.type !== "xp_tracker") {
+      throw new Error("Expected xp_tracker event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent).events).toEqual([
+      {
+        type: "xp_tracker",
+        tracker: {
+          can_view_progress: false,
+          sheets: protocolEvent.sheets
+        },
+        requestId: "req-xp"
+      }
+    ]);
+  });
+
   it("maps backend errors and no-patch action execution into internal request outcomes", () => {
     const errorEvent = parseProtocolServerEvent({
       response_id: null,

@@ -6,6 +6,7 @@ import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSectio
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
+import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
@@ -92,6 +93,7 @@ export function PlayerCharacterSheet({
   const showActionsSection = activeTab === "actions";
   const showEquipmentSection = activeTab === "equipment";
   const showProficienciesSection = activeTab === "proficiencies";
+  const showKillsSection = activeTab === "kills";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
   const canEditEquipment = mode === "gm";
@@ -174,11 +176,12 @@ export function PlayerCharacterSheet({
         {showActionsSection ? (
           <SheetActionsSection
             assignedActions={assignedActions}
-            onPerformAction={(action) => {
+            onPerformAction={(action, rollMode) => {
               client.sendProtocolRequest(
                 buildPerformActionRequest({
                   sheetId: detail.instance.id,
-                  actionId: action.actionId
+                  actionId: action.actionId,
+                  rollMode
                 }),
                 `Perform action: ${action.action.name}`
               );
@@ -199,6 +202,14 @@ export function PlayerCharacterSheet({
                 "Update instance notes"
               )
             }
+          />
+        ) : null}
+
+        {showKillsSection && sheetId ? (
+          <SheetKillsSection
+            client={client}
+            instanceId={detail.instance.id}
+            sheetId={sheetId}
           />
         ) : null}
 

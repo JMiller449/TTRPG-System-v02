@@ -28,6 +28,18 @@ Roll20 remains authoritative/manual for maps, positioning, token movement, full 
 
 The app currently avoids intersheet action execution. Cross-sheet combat effects are manual/Roll20 unless a future rule decision explicitly changes that.
 
+```md
+Q: Should an attack action directly target or mutate another sheet?
+PA: Yes/no plus the boundary between attack output and damage application.
+A: No. There is no cross-sheet attack logic. Hit and damage are separate actions that emit separate public Roll20 chat rolls. The app does not read the result back or automatically mutate a defender.
+```
+
+```md
+Q: How is rolled damage applied to the affected sheet?
+PA: Input fields, permissions, and whether resistance is applied before the health mutation.
+A: The affected player or DM manually enters the raw rolled damage amount and damage type on that sheet. The backend applies that sheet's total/category/type resistance, floors final damage, and updates its health. A player may submit damage only to the assigned instance; a DM may submit it to any instance. The submission has no attacker or source-sheet relationship.
+```
+
 ## High-Priority Decisions
 
 These decisions affect near-term feature work.
@@ -56,13 +68,13 @@ A: The rules describe rolling two of the same check and taking the higher/lower 
 ```md
 Q: What exact Roll20 chat syntax should be emitted for advantage and disadvantage?
 PA: Concrete Roll20 formula examples for normal, advantage, and disadvantage.
-A:
+A: For an authored `1d100` hit/check expression, normal keeps `1d100`, advantage emits `2d100kh1`, and disadvantage emits `2d100kl1`. Advantage/disadvantage does not transform semantic damage steps.
 ```
 
 ```md
 Q: If one source gives advantage and another source gives disadvantage to the same hit/check roll, what should happen?
 PA: One of: cancel to normal, GM chooses which applies, strongest source wins, or another conflict rule.
-A:
+A: Project default: one or more advantage sources and one or more disadvantage sources cancel to a normal roll. Multiple sources on only one side do not stack into super advantage/disadvantage.
 ```
 
 ```md
@@ -165,19 +177,25 @@ A: The rules say critical 100 is a critical success that doubles total damage. A
 ```md
 Q: Does critical 1 always fail, even if modifiers would otherwise succeed?
 PA: Critical failure rule and exceptions.
-A: The rules state `1 -> Critical Failure` and that the effect is determined by the GM, usually no damage. No exception is specified.
+A: Project default: a natural hit-roll result of 1 is manually treated as a miss and deals no damage regardless of modifiers. Any additional critical-failure consequence is narrated/applied manually by the GM and is not invented by the app.
 ```
 
 ```md
 Q: How do defensive actions and active augmentation effects interact with attack resolution?
 PA: Step-by-step order of operations for hit roll, defender response, active augmentations, criticals, and damage.
-A: Attack flow from the rules: attacker declares weapon attack and target; if defender has no reaction, attacker rolls to hit against AC, then on success rolls damage and applies resistance. If defender has a reaction, defender chooses block, parry, or dodge and resolves the opposed roll. Parry success lets defender immediately roll damage against attacker; parry failure lets attacker roll damage normally. Block success prevents damage; block failure causes half damage. Dodge success prevents damage and moves defender 5 feet; dodge failure causes full damage and still moves defender 5 feet. AOE dodge can produce 0 damage if out of radius or half damage if still inside radius. Active augmentation effects should be applied where their target stat/effect participates in this flow.
+A: Attack flow remains manual in Roll20. Active augmentations affect the source sheet values used when expanding authored hit and damage formulas. Hit and damage are emitted separately; a critical damage mode doubles total composed pre-resistance damage. Defensive outcomes such as block/dodge/parry are adjudicated manually. When raw damage and type are later submitted on the affected sheet, its active resistance augmentations contribute to total/category/type resistance before final damage is floored and health is updated.
 ```
 
 ```md
 Q: Are attack and damage separate rolls or derived from one d100 roll?
 PA: Roll-count rule with examples.
 A: Attack/hit and damage are separate rolls. The hit roll determines whether the attack connects. The damage roll is resolved separately after a hit and is modified by critical-hit rules when applicable.
+```
+
+```md
+Q: How does a separate damage action know that the hit was critical?
+PA: One of: automatic Roll20 result ingestion, explicit runtime mode, separate action, or manual formula edit.
+A: Project default: the user explicitly selects normal or critical mode when running the damage action. Critical mode doubles the total composed damage expression. The app does not infer critical state from Roll20 and damage actions do not offer advantage/disadvantage.
 ```
 
 ### Damage And Resistance
@@ -200,7 +218,7 @@ A: Resistance is additive. Example: 20% resistance plus 20% armor resistance bec
 ```md
 Q: Can resistance go below 0 percent as vulnerability?
 PA: Yes/no plus vulnerability formula if yes.
-A:
+A: Project default: no. Effective resistance is clamped to a minimum of 0 percent and a maximum of 100 percent. Vulnerability requires a future explicit effect rather than negative resistance.
 ```
 
 ```md
@@ -218,19 +236,19 @@ A: The rules list armor, shields, level, skills, and items as sources that incre
 ```md
 Q: Does damage round down, round up, round nearest, or keep decimals?
 PA: Rounding rule and when it applies.
-A: The longsword example produces `34.05 -> 34 damage`, which implies rounding down/truncating final damage. The exact general rounding rule should still be confirmed.
+A: Project default: keep full precision through raw damage, critical/defense multipliers, and resistance, then floor the final post-resistance damage once.
 ```
 
 ```md
 Q: Is there a minimum damage rule after resistance?
 PA: Minimum damage number or no-minimum rule.
-A:
+A: Project default: no positive minimum. Final damage may be 0 after resistance or defensive outcomes.
 ```
 
 ```md
 Q: Should healing use negative damage, a separate semantic healing step, or generic bounded mutation only?
 PA: Healing model and whether resistance can ever affect healing.
-A:
+A: Project default: healing is a separate semantic healing/bounded-resource mutation and is never processed through damage resistance. Do not represent healing as negative damage.
 ```
 
 ### Armor Rules
@@ -392,13 +410,13 @@ Current understanding:
 ```md
 Q: What fields define a spell?
 PA: Required and optional spell fields.
-A: The supplied rules imply spell fields for rank, base mana cost/minimum mana requirement, base spell damage, damage type, spell proficiency, and overload behavior. Exact required fields are not fully specified.
+A: Project default: an attack spell requires rank, base mana cost/minimum mana requirement, authored base damage, damage type, spell proficiency reference, and authored hit/damage actions. Overload configuration is optional/later.
 ```
 
 ```md
 Q: How is base spell damage derived from rank?
 PA: Rank-to-damage table or formula.
-A: The supplied rules provide rank-based overload percentage increases, but not a base spell damage table or formula.
+A: Project default: base spell damage is authored per spell because the supplied rules provide no rank-to-base-damage formula. Rank affects only mechanics with an explicit rank table, such as future overload handling.
 ```
 
 ```md
@@ -422,13 +440,13 @@ A: Spells require mana. A caster must have at least the spell's minimum base man
 ```md
 Q: Do spell critical rules differ from physical attacks?
 PA: Spell critical rule.
-A: The supplied rules do not define spell critical behavior.
+A: Project default: spell damage uses the same manually selected critical damage mode as weapon damage. Critical doubles total composed pre-resistance damage. Damage rolls do not use advantage/disadvantage.
 ```
 
 ```md
 Q: How do spell damage type, resistance, and armor interact?
 PA: Damage/resistance/armor order of operations.
-A: Magical attacks use magical damage types, and resistance includes magical, total, and specific damage-type resistance. The supplied rules do not provide a spell-specific resistance/armor order beyond the general resistance formula.
+A: Project default: submitted spell damage adds the affected sheet's total, magical-category, and specific magical damage-type resistance; clamps the sum to `0..1`; applies it to raw damage; then floors final damage once. Armor matters only through augmentations that contribute to those resistance values.
 ```
 
 ### Overload
@@ -480,24 +498,24 @@ A: Overload consumes mana: each tier doubles the normal mana cost. Failure waste
 Current understanding:
 
 - Physical attack critical 1 and 100 have partial rules.
-- Critical behavior outside physical weapon attacks is unresolved.
+- Project defaults extend the same manually selected critical-damage behavior to magical attacks; other roll types have no automatic critical effect.
 
 ```md
 Q: Do skill checks, spells, defenses, downtime rolls, and overload rolls use critical 1/100?
 PA: Critical applicability list by roll type.
-A: Critical 1/100 is explicitly described for physical weapon attacks. An unconscious target is automatically critically hit. The supplied text does not clearly define critical rules for skill checks, spells, defenses, downtime, or overload.
+A: Project default: physical and magical attack hit rolls use natural 1/100 critical rules during manual Roll20 adjudication. Skill checks, defensive opposed rolls, downtime rolls, and overload rolls have no automatic critical effect unless an authored action or future explicit rule defines one. Damage rolls do not independently trigger criticals; critical damage is selected from the hit outcome.
 ```
 
 ```md
 Q: Does critical 100 always double output, or does it depend on action type?
 PA: Critical success effect by roll/action type.
-A: For physical weapon attacks, critical 100 doubles total damage. Attacks on unconscious targets cause maximum damage doubled. Other action types are not specified.
+A: Project default: critical mode doubles total composed pre-resistance physical or magical attack damage. Attacks on unconscious targets use maximum damage doubled. Other checks/actions receive no automatic doubled output.
 ```
 
 ```md
 Q: Does critical 1 always fail?
 PA: Critical failure rule and exceptions.
-A: For physical weapon attacks, a roll of 1 is a critical failure with effect determined by the GM, usually no damage. Other action types are not specified.
+A: Project default: a natural 1 on a physical or magical attack hit roll is manually treated as a miss and no damage action should be applied. Additional consequences remain manual GM decisions. Other roll types do not gain an automatic critical-failure rule.
 ```
 
 ```md

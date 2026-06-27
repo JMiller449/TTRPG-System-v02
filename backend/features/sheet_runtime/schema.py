@@ -10,6 +10,7 @@ class PerformAction(RequestModel):
     sheet_id: str = Field(min_length=1)
     action_id: str = Field(min_length=1)
     target_sheet_id: str | None = Field(default=None, min_length=1)
+    roll_mode: Literal["normal", "advantage", "disadvantage"] = "normal"
     type: Literal["perform_action"]
 
 

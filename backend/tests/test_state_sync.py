@@ -2,10 +2,16 @@ import asyncio
 from copy import deepcopy
 from dataclasses import asdict
 
+import pytest
+
 from backend.features.state_sync import handler as state_sync_handler
-from backend.features.state_sync.schema import ResyncState
+from backend.features.state_sync.schema import PatchOp, ResyncState
 from backend.features.session.service import websocket_sessions
-from backend.features.state_sync.service import state_sync_service
+from backend.features.state_sync.service import (
+    DuplicateRequestError,
+    StateSyncService,
+    state_sync_service,
+)
 from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
@@ -32,6 +38,90 @@ class FakeWebSocket:
 
 def _reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
+
+
+def test_duplicate_request_id_does_not_repeat_state_mutation(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/strength",
+                2,
+                request_id="retry-1",
+            )
+            with pytest.raises(DuplicateRequestError, match="already processed"):
+                await state_sync_service.increment(
+                    "/sheets/mage_template/stats/strength",
+                    2,
+                    request_id="retry-1",
+                )
+
+            assert StateSingleton.getState().sheets["mage_template"].stats.strength == 12
+            assert state_sync_service.current_version == 1
+            assert len(websocket.sent_messages) == 1
+            assert websocket.sent_messages[0]["request_id"] == "retry-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_processed_request_cache_evicts_oldest_id_at_its_limit() -> None:
+    async def scenario() -> None:
+        service = StateSyncService(processed_request_limit=2)
+        mutation_count = 0
+
+        def mutation(state: State) -> tuple[None, list[PatchOp]]:
+            nonlocal mutation_count
+            mutation_count += 1
+            return None, []
+
+        await service.apply_mutation(mutation, request_id="request-1")
+        await service.apply_mutation(mutation, request_id="request-2")
+        with pytest.raises(DuplicateRequestError):
+            await service.apply_mutation(mutation, request_id="request-1")
+
+        await service.apply_mutation(mutation, request_id="request-3")
+        await service.apply_mutation(mutation, request_id="request-1")
+
+        assert mutation_count == 4
+
+    asyncio.run(scenario())
+
+
+def test_mutation_audit_evicts_oldest_entry_at_its_limit(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        await websocket_sessions.reset()
+        service = StateSyncService(mutation_audit_limit=2)
+
+        for index in range(3):
+            op = PatchOp(op="set", path=f"/audit/{index}", value=index)
+            await service.apply_mutation(
+                lambda state, op=op: (None, [op]),
+                request_id=f"request-{index}",
+            )
+
+        audit_entries = await service.recent_mutations()
+        assert [entry.state_version for entry in audit_entries] == [2, 3]
+        assert [entry.request_id for entry in audit_entries] == [
+            "request-1",
+            "request-2",
+        ]
+        assert [entry.paths for entry in audit_entries] == [
+            ("/audit/1",),
+            ("/audit/2",),
+        ]
+
+    asyncio.run(scenario())
 
 
 def _build_sheet_state() -> Sheet:
@@ -573,10 +663,13 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
                 ),
             )
 
+            expected_state = StateSingleton.getState().to_dict()
+            expected_state["sheets"]["mage_template"]["xp_given_when_slayed"] = 0
+            expected_state["sheets"]["mage_template"]["xp_cap"] = ""
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
-                    "state": StateSingleton.getState().to_dict(),
+                    "state": expected_state,
                     "state_version": 1,
                     "type": "state_snapshot",
                     "request_id": "req-2",

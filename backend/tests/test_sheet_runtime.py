@@ -3,6 +3,8 @@ from copy import deepcopy
 from dataclasses import asdict
 
 from backend.features.chat import service as chat_service
+from backend.features.sheet_runtime.service import _apply_roll_mode_to_message
+from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.action import Action
@@ -51,6 +53,25 @@ def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
         "aliases": aliases,
         "text": text,
     }
+
+
+def test_roll_mode_transforms_only_standalone_d100_check_expressions() -> None:
+    assert _apply_roll_mode_to_message(
+        "Attack: /r (1d100 / 100) * 20",
+        "advantage",
+    ) == ("[Advantage] Attack: /r (2d100kh1 / 100) * 20", True)
+    assert _apply_roll_mode_to_message(
+        "Dodge: /r (1D100 / 100) * 15",
+        "disadvantage",
+    ) == ("[Disadvantage] Dodge: /r (2d100kl1 / 100) * 15", True)
+    assert _apply_roll_mode_to_message("Damage: /r 2d8 + 4", "advantage") == (
+        "Damage: /r 2d8 + 4",
+        False,
+    )
+    assert _apply_roll_mode_to_message("Roll 11d100", "advantage") == (
+        "Roll 11d100",
+        False,
+    )
 
 
 def _build_sheet_state() -> Sheet:
@@ -268,7 +289,7 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     ],
                     "state_version": 1,
                     "type": "state_patch",
-                    "request_id": "req-1",
+                    "request_id": "req-4",
                 },
             ]
             assert bridge_socket.sent_messages == [
@@ -276,9 +297,124 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
                     "message": "Strength now (8)",
                     "type": "chat_message",
-                    "request_id": "req-1",
+                    "request_id": "req-4",
                 }
             ]
+            audit_entry = (await state_sync_service.recent_mutations())[-1]
+            assert audit_entry.request_id == "req-4"
+            assert audit_entry.source is not None
+            assert audit_entry.source.request_type == "perform_action"
+            assert audit_entry.source.actor_role == "dm"
+            assert audit_entry.source.entity_id("action_id") == "battle_cry"
+            assert audit_entry.source.entity_id("sheet_id") == "mage_template"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_applies_advantage_to_roll20_d100_output(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            StateSingleton.getState().actions["arcane_check"] = Action.from_dict(
+                {
+                    "id": "arcane_check",
+                    "name": "Arcane Check",
+                    "steps": [
+                        {
+                            "step_id": "roll",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Arcane Check: /r (1d100 / 100) * @arcane",
+                                [
+                                    {
+                                        "name": "arcane",
+                                        "path": ["stats", "arcane"],
+                                    }
+                                ],
+                            ),
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "arcane_check",
+                    "roll_mode": "advantage",
+                },
+            )
+
+            expected_message = (
+                "[Advantage] Arcane Check: /r (2d100kh1 / 100) * (14)"
+            )
+            assert websocket.sent_messages[0]["type"] == "action_executed"
+            assert websocket.sent_messages[0]["emitted_messages"] == [
+                expected_message
+            ]
+            assert bridge_socket.sent_messages[0]["message"] == expected_message
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_rejects_roll_mode_without_d100_output(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            StateSingleton.getState().actions["damage_only"] = Action.from_dict(
+                {
+                    "id": "damage_only",
+                    "name": "Damage Only",
+                    "steps": [
+                        {
+                            "step_id": "roll",
+                            "type": "send_message",
+                            "message": _formula_payload("Damage: /r 2d8 + 4"),
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "damage_only",
+                    "roll_mode": "disadvantage",
+                },
+            )
+
+            assert websocket.sent_messages[0]["type"] == "error"
+            assert websocket.sent_messages[0]["reason"] == (
+                "Roll mode 'disadvantage' requires an authored 1d100 "
+                "Roll20 check expression."
+            )
+            assert bridge_socket.sent_messages == []
         finally:
             StateSingleton._state = original_state
 

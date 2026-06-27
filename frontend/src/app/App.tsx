@@ -2,22 +2,20 @@ import { useEffect } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
-import { AuthPanel } from "@/features/auth/AuthPanel";
-import { GMPageNavPanel } from "@/features/auth/GMPageNavPanel";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
+import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
-import { EncounterQuickSelectPanel } from "@/features/encounters/EncounterQuickSelectPanel";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
-import { SheetTabs } from "@/features/sheets/SheetTabs";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
+import { XpTrackerPage } from "@/features/xp/XpTrackerPage";
 import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 
 export function App(): JSX.Element {
@@ -65,7 +63,7 @@ export function App(): JSX.Element {
         </div>
       </header>
       <IntentFeedbackBanners />
-      {role === "gm" ? <GMPageNavPanel /> : null}
+      {role === "gm" ? <GMConsoleToolbar client={client} /> : null}
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />
@@ -84,6 +82,10 @@ export function App(): JSX.Element {
       ) : gmView === "encounter_presets" ? (
         <main className="app-grid-player">
           <EncounterPanel client={client} />
+        </main>
+      ) : gmView === "xp_tracker" ? (
+        <main className="app-grid-player">
+          <XpTrackerPage client={client} />
         </main>
       ) : gmView === "item_maker" ? (
         <main className="app-grid-player">
@@ -106,14 +108,7 @@ export function App(): JSX.Element {
           <ActionAuthoringPage client={client} />
         </main>
       ) : (
-        <>
-          <section className="gm-console-tools">
-            <AuthPanel client={client} />
-            <SheetTabs />
-            <EncounterQuickSelectPanel client={client} />
-          </section>
-          <ConsolePage role="gm" client={client} />
-        </>
+        <ConsolePage role="gm" client={client} />
       )}
     </div>
   );

@@ -29,6 +29,7 @@ export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"]
 export type ProficiencyDefinitionPayload = ProtocolRequest<"create_proficiency">["proficiency"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
 export type EncounterPresetPayload = ProtocolRequest<"save_encounter_preset">["encounter"];
+export type ActionRollMode = NonNullable<ProtocolRequest<"perform_action">["roll_mode"]>;
 export type AugmentationTargetContext = NonNullable<
   ProtocolRequest<"get_augmentation_target_metadata">["context"]
 >;
@@ -52,6 +53,66 @@ export function buildGetRoll20BridgeStatusRequest({
   return {
     ...requestIdField(requestId),
     type: "get_roll20_bridge_status"
+  };
+}
+
+export function buildGetXpTrackerRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_xp_tracker"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_xp_tracker"
+  };
+}
+
+export function buildSetSheetXpRequiredRequest({
+  sheetId,
+  xpRequired,
+  requestId
+}: {
+  sheetId: string;
+  xpRequired: number;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_xp_required"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_xp_required",
+    sheet_id: sheetId,
+    xp_required: xpRequired
+  };
+}
+
+export function buildSetMobXpValueRequest({
+  mobSheetId,
+  xpValue,
+  requestId
+}: {
+  mobSheetId: string;
+  xpValue: number;
+} & OptionalRequestId): ProtocolRequest<"set_mob_xp_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_mob_xp_value",
+    mob_sheet_id: mobSheetId,
+    xp_value: xpValue
+  };
+}
+
+export function buildSetSheetMobKillCountRequest({
+  sheetId,
+  mobSheetId,
+  count,
+  requestId
+}: {
+  sheetId: string;
+  mobSheetId: string;
+  count: number;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_mob_kill_count"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_mob_kill_count",
+    sheet_id: sheetId,
+    mob_sheet_id: mobSheetId,
+    count
   };
 }
 
@@ -756,18 +817,21 @@ export function buildPerformActionRequest({
   sheetId,
   actionId,
   targetSheetId,
+  rollMode,
   requestId
 }: {
   sheetId: string;
   actionId: string;
   targetSheetId?: string | null;
+  rollMode?: ActionRollMode;
 } & OptionalRequestId): ProtocolRequest<"perform_action"> {
   return {
     ...requestIdField(requestId),
     type: "perform_action",
     sheet_id: sheetId,
     action_id: actionId,
-    ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId })
+    ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId }),
+    ...(rollMode === undefined ? {} : { roll_mode: rollMode })
   };
 }
 

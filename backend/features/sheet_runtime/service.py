@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -36,8 +37,26 @@ from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
 
+_D100_CHECK_PATTERN = re.compile(r"(?<![A-Za-z0-9_])1d100(?![A-Za-z0-9_])", re.IGNORECASE)
+_ROLL_MODE_OUTPUT = {
+    "advantage": ("2d100kh1", "Advantage"),
+    "disadvantage": ("2d100kl1", "Disadvantage"),
+}
+
+
 def _state() -> State:
     return StateSingleton.getState()
+
+
+def _apply_roll_mode_to_message(message: str, roll_mode: str) -> tuple[str, bool]:
+    if roll_mode == "normal":
+        return message, False
+
+    replacement, label = _ROLL_MODE_OUTPUT[roll_mode]
+    transformed, replacement_count = _D100_CHECK_PATTERN.subn(replacement, message)
+    if replacement_count == 0:
+        return message, False
+    return f"[{label}] {transformed}", True
 
 
 def get_sheet(sheet_id: str, state: State | None = None) -> Sheet:
@@ -372,10 +391,16 @@ async def perform_action(
         applied_mutations: list[str] = []
         emitted_messages: list[str] = []
         ops: list[Any] = []
+        roll_mode_applied = False
 
         for step in current_steps:
             if isinstance(step, SendMessageStep):
                 message = step.message.expand_formula(formula_root)
+                message, mode_applied = _apply_roll_mode_to_message(
+                    message,
+                    request.roll_mode,
+                )
+                roll_mode_applied = roll_mode_applied or mode_applied
                 emitted_messages.append(message)
                 continue
 
@@ -595,6 +620,12 @@ async def perform_action(
 
             raise ValueError(
                 f"Unsupported runtime action step '{step.__class__.__name__}'."
+            )
+
+        if request.roll_mode != "normal" and not roll_mode_applied:
+            raise ValueError(
+                f"Roll mode '{request.roll_mode}' requires an authored 1d100 "
+                "Roll20 check expression."
             )
 
         return (applied_mutations, emitted_messages, bool(ops)), ops

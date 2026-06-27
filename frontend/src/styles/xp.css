@@ -1,0 +1,122 @@
+.xp-tracker-layout,
+.xp-tracker-section,
+.xp-progress-list,
+.xp-config-list,
+.xp-kill-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.xp-tracker-section h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.xp-progress-row,
+.xp-config-row,
+.xp-kill-row {
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.xp-progress-row__header,
+.xp-config-row,
+.xp-kill-row,
+.xp-number-editor,
+.xp-kill-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.xp-progress-row__header,
+.xp-config-row,
+.xp-kill-row {
+  justify-content: space-between;
+}
+
+.xp-progress-row progress {
+  width: 100%;
+  height: 0.65rem;
+  margin-top: 0.55rem;
+}
+
+.xp-mob-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.status-badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.status-badge--ready {
+  border-color: #9ec7aa;
+  background: #e4f1e8;
+  color: #1f5b33;
+}
+
+.xp-number-editor {
+  justify-content: flex-end;
+}
+
+.xp-number-editor .field {
+  max-width: 150px;
+}
+
+.xp-kill-stepper {
+  display: grid;
+  grid-template-columns: 2rem 3rem 2rem;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.xp-kill-stepper button,
+.xp-kill-stepper output {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 2rem;
+  border: 0;
+  background: #fff;
+  color: var(--text);
+}
+
+.xp-kill-stepper button {
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.xp-kill-stepper button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: #f4f1ea;
+}
+
+.xp-kill-stepper output {
+  border-right: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .xp-config-row,
+  .xp-number-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .xp-number-editor .field {
+    max-width: none;
+  }
+}

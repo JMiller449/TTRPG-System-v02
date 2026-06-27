@@ -32,9 +32,14 @@ def _assign_request_id(payload: Any) -> tuple[Any, str | None]:
         return payload, None
 
     normalized_payload = dict(payload)
-    request_id = generate_request_id()
-    normalized_payload["request_id"] = request_id
-    return normalized_payload, request_id
+    supplied_request_id = normalized_payload.get("request_id")
+    if supplied_request_id is None:
+        request_id = generate_request_id()
+        normalized_payload["request_id"] = request_id
+        return normalized_payload, request_id
+    if isinstance(supplied_request_id, str):
+        return normalized_payload, supplied_request_id
+    return normalized_payload, None
 
 
 def _error_payload(reason: str, request_id: str | None = None) -> dict[str, Any]:

@@ -96,11 +96,70 @@
   overflow-x: hidden;
 }
 
-.gm-console-tools {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+.gm-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   margin-bottom: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 5px 16px rgba(31, 29, 24, 0.1);
+}
+
+.gm-toolbar__header {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.gm-toolbar__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.gm-toolbar__collapse {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.gm-toolbar__controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 0.55rem;
+  padding: 0 0.55rem 0.55rem;
+}
+
+.gm-toolbar__field {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.gm-toolbar__field span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.gm-toolbar__field select {
+  width: 100%;
+}
+
+.gm-toolbar__spawn {
+  min-width: 88px;
 }
 
 .app-grid-player-shell--gm {
@@ -229,8 +288,12 @@
     height: auto;
   }
 
-  .gm-console-tools {
-    grid-template-columns: 1fr;
+  .gm-toolbar__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gm-toolbar__spawn {
+    width: 100%;
   }
 
   .player-console-main,
@@ -254,5 +317,15 @@
 
   .header-row {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .gm-toolbar__status .pill:last-child {
+    display: none;
+  }
+
+  .gm-toolbar__controls {
+    grid-template-columns: 1fr;
   }
 }

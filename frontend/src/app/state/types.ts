@@ -1,7 +1,8 @@
 import type {
   ActionFormulaAuthoringMetadata,
   AppSnapshot,
-  AugmentationTargetMetadata
+  AugmentationTargetMetadata,
+  XpTrackerView
 } from "@/domain/ipc";
 import type {
   ActionDefinition,
@@ -31,7 +32,8 @@ export type GMView =
   | "formula_authoring"
   | "proficiency_authoring"
   | "condition_authoring"
-  | "action_authoring";
+  | "action_authoring"
+  | "xp_tracker";
 
 export interface IntentFeedbackItem {
   id: string;
@@ -85,6 +87,7 @@ export interface UIState {
   intentFeedback: IntentFeedbackItem[];
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
+  xpTracker: XpTrackerView | null;
 }
 
 export interface AppState {
@@ -115,4 +118,5 @@ export type AppAction =
   | { type: "dismiss_intent_feedback"; id: string }
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
+  | { type: "set_xp_tracker"; tracker: XpTrackerView }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

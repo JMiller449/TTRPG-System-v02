@@ -38,6 +38,11 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         ...uiState,
         augmentationTargetMetadata: action.metadata
       }));
+    case "set_xp_tracker":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        xpTracker: action.tracker
+      }));
     case "set_roll20_bridge_status":
       return updateUiState(state, (uiState) => ({
         ...uiState,
@@ -58,6 +63,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         intentFeedback: initialUiState.intentFeedback,
         actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,
         augmentationTargetMetadata: initialUiState.augmentationTargetMetadata,
+        xpTracker: initialUiState.xpTracker,
         roll20Bridge: initialUiState.roll20Bridge
       }));
     default:

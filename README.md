@@ -84,6 +84,12 @@ The extension only runs on `https://app.roll20.net/editor/*`.
   - later changes arrive as ordered `state_patch` diffs
   - snapshots and patches include `state_version`
   - clients should resync if they detect a version gap
+  - the backend retains bounded runtime mutation-audit metadata linking patch versions and paths to their originating request, actor role, and relevant entity IDs; mutation values are not duplicated in this trail
+- Backend state remains authoritative in memory; `state_dumpy.json` is a recovery checkpoint rather than a queryable database.
+  - Checkpoints use a versioned envelope and load legacy unversioned state as schema version `0`.
+  - Writes are flushed to a temporary file and atomically replace the primary checkpoint.
+  - The previous validated primary is retained as `state_dumpy.json.bak`; startup falls back to it when the primary is corrupt or unsupported.
+  - State-shape upgrades are registered in `backend/state/store.py` as sequential version migrations.
 - Frontend state ownership is split:
   - backend-authoritative server state comes from auth/snapshot/patch events
   - active sheet selection, page/view state, drafts, and pending UX stay frontend-local

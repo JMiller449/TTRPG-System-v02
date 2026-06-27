@@ -74,6 +74,37 @@
   opacity: 0.75;
 }
 
+.roll-mode-control {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(100%, 360px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.roll-mode-control__option {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.roll-mode-control__option:last-child {
+  border-right: 0;
+}
+
+.roll-mode-control__option--active {
+  background: #d8e8e9;
+  color: #173f43;
+  font-weight: 700;
+}
+
 .equation-preview {
   border: 1px dashed var(--line);
   border-radius: 8px;

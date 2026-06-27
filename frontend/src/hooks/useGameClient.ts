@@ -178,6 +178,25 @@ export function useGameClient(): GameClient {
         }
         return;
       }
+      if (event.type === "xp_tracker") {
+        dispatch({ type: "set_xp_tracker", tracker: event.tracker });
+        if (event.requestId) {
+          const label = intentLabelMapRef.current[event.requestId] ?? "XP tracker";
+          delete intentLabelMapRef.current[event.requestId];
+          dispatch({
+            type: "push_intent_feedback",
+            item: {
+              id: makeId("feedback"),
+              intentId: event.requestId,
+              status: "success",
+              message: buildIntentSuccessMessage(label),
+              createdAt: new Date().toISOString()
+            }
+          });
+          dispatch({ type: "clear_intent", intentId: event.requestId });
+        }
+        return;
+      }
       if (event.type === "roll20_bridge_status") {
         dispatch({
           type: "set_roll20_bridge_status",

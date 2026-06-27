@@ -5,6 +5,7 @@ const CHARACTER_SHEET_TABS: Array<{ id: PlayerSheetTab; label: string }> = [
   { id: "actions", label: "Actions" },
   { id: "equipment", label: "Equipment" },
   { id: "proficiencies", label: "Proficiencies" },
+  { id: "kills", label: "Kills" },
   { id: "notes", label: "Notes" }
 ];
 

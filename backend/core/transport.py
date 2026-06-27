@@ -3,13 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 SocketGroup = Literal["dms", "players"]
 
 
 class RequestModel(BaseModel):
-    request_id: str | None = None
+    request_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 @dataclass

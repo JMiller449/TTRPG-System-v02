@@ -79,6 +79,10 @@ Application websocket requests are discriminated by `type`.
 - `set_sheet_base_stat`
 - `set_sheet_formula_stat`
 - `perform_action`
+- `get_xp_tracker`
+- `set_sheet_xp_required`
+- `set_mob_xp_value`
+- `set_sheet_mob_kill_count`
 
 Only the typed sheet-admin routes listed above are public websocket contracts.
 The old generic entity CRUD requests were removed so future admin APIs can be
@@ -94,6 +98,7 @@ Application websocket responses/events are discriminated by `type`.
 - `action_executed`
 - `variable_registry`
 - `sheet_access_codes`
+- `xp_tracker`
 - `error`
 
 ## Bootstrap Flow

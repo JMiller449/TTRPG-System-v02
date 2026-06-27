@@ -156,7 +156,7 @@ def test_authenticate_application_websocket_accepts_player_code() -> None:
             {
                 "type": "authenticate",
                 "token": PLAYER_JOIN_CODE,
-                "request_id": "req-1",
+                "request_id": "client-supplied-id",
             },
         )
 
@@ -170,7 +170,7 @@ def test_authenticate_application_websocket_accepts_player_code() -> None:
                 "role": "player",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-supplied-id",
             }
         ]
 
@@ -206,7 +206,7 @@ def test_authenticate_application_websocket_accepts_dm_code() -> None:
                 "role": "dm",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-supplied-id",
             }
         ]
 
@@ -225,7 +225,7 @@ def test_authenticate_application_websocket_rejects_invalid_code() -> None:
             {
                 "type": "authenticate",
                 "token": "wrong-code",
-                "request_id": "req-1",
+                "request_id": "req-status",
             },
         )
 
@@ -238,7 +238,7 @@ def test_authenticate_application_websocket_rejects_invalid_code() -> None:
                 "role": None,
                 "reason": "Invalid player or DM code.",
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "req-status",
             }
         ]
 
@@ -255,7 +255,7 @@ def test_authenticate_service_websocket_accepts_service_code() -> None:
             {
                 "type": "authenticate",
                 "token": SERVICE_AUTH_CODE,
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
         )
 
@@ -267,7 +267,7 @@ def test_authenticate_service_websocket_accepts_service_code() -> None:
                 "role": "service",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -323,7 +323,7 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
                 "response_id": None,
                 "reason": "Roll20 chat bridge is not connected.",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "ignored-client-id",
             }
         ]
 
@@ -350,7 +350,7 @@ def test_get_roll20_bridge_status_reports_disconnected() -> None:
                 "response_id": None,
                 "connected": False,
                 "type": "roll20_bridge_status",
-                "request_id": "req-1",
+                "request_id": "req-status",
             }
         ]
 
@@ -379,7 +379,7 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
                 "response_id": None,
                 "connected": True,
                 "type": "roll20_bridge_status",
-                "request_id": "req-1",
+                "request_id": "req-status",
             }
         ]
 
@@ -405,7 +405,7 @@ def test_unauthenticated_socket_must_authenticate_before_other_requests() -> Non
                 "response_id": None,
                 "reason": "Authenticate first.",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -475,7 +475,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "role": None,
                 "reason": "Invalid player or DM code.",
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -483,7 +483,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "role": "player",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-2",
+                "request_id": "another-client-id",
             },
             {
                 "response_id": None,
@@ -530,7 +530,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                 "role": "player",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -577,7 +577,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                 "role": "dm",
                 "reason": None,
                 "type": "authenticate_response",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
             {
                 "response_id": None,
@@ -617,7 +617,7 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
             {
                 "type": "send_roll20_chat_message",
                 "message": "bridge update",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             },
         )
 
@@ -627,7 +627,7 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
                 "message_id": bridge_socket.sent_messages[0]["message_id"],
                 "message": "bridge update",
                 "type": "chat_message",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 
@@ -677,7 +677,7 @@ def test_unknown_request_type_returns_error() -> None:
                 "response_id": None,
                 "reason": "Unknown request type: unknown_message",
                 "type": "error",
-                "request_id": "req-1",
+                "request_id": "client-id-ignored",
             }
         ]
 

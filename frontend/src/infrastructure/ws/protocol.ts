@@ -10,7 +10,8 @@ import type {
   ProtocolServerEvent,
   Roll20BridgeStatusEvent as ProtocolRoll20BridgeStatusEvent,
   StatePatchEvent as ProtocolStatePatchEvent,
-  StateSnapshotEvent as ProtocolStateSnapshotEvent
+  StateSnapshotEvent as ProtocolStateSnapshotEvent,
+  XpTrackerEvent as ProtocolXpTrackerEvent
 } from "@/generated/backendProtocol";
 
 export type {
@@ -25,7 +26,8 @@ export type {
   ProtocolRoll20BridgeStatusEvent,
   ProtocolServerEvent,
   ProtocolStatePatchEvent,
-  ProtocolStateSnapshotEvent
+  ProtocolStateSnapshotEvent,
+  ProtocolXpTrackerEvent
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -189,6 +191,18 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
           connected: payload.connected,
           type: "roll20_bridge_status",
+          request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "xp_tracker":
+      if (typeof payload.can_view_progress === "boolean" && Array.isArray(payload.sheets)) {
+        return {
+          response_id: typeof payload.response_id === "string" || payload.response_id === null ? payload.response_id : null,
+          can_view_progress: payload.can_view_progress,
+          sheets: payload.sheets as ProtocolXpTrackerEvent["sheets"],
+          type: "xp_tracker",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
         };
       }

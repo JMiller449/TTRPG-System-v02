@@ -58,7 +58,7 @@ The MVP is a character builder and sheet instancer where:
 - Registry routes declare request model, emitted event models, role requirements, and client-generation metadata.
 - Shared event/output models should be reused when routes emit the same shape; semantically different outputs need distinct named event models and `type` discriminants.
 - Frontend transport types and future request helpers should be generated from backend route contracts.
-- Mock transport may remain for UI work only if it matches the real protocol instead of inventing a separate app contract.
+- Do not retain a frontend mock transport that owns mutable game state or acts as a parallel backend. Transport tests may use injected inert fakes, but application runtime state must come from backend snapshots and patches.
 
 ## 4. Current Implemented Baseline
 
@@ -80,6 +80,7 @@ Backend:
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
 - Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
+- XP tracker routes reuse sheet XP thresholds, enemy XP values, and slay records; backend-derived tracker responses expose full X/Y progress only to DMs.
 - Formula expansion is relative to one root object, supports dataclass/dict traversal, and guards against cycles.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
@@ -92,10 +93,10 @@ Frontend:
 - Auth/session state is server-derived.
 - Backend-native patch applier is the canonical frontend state sync path.
 - Player and GM sheet views share UI paths with role-based visibility.
-- Template library/create/edit/spawn scaffolding exists for name, notes, tags, core stats, and template spawning; these sheet flows now use typed backend routes.
+- Template library/create/edit/spawn UI exists for name, notes, kind, core stats, and template spawning; these sheet flows now use typed backend routes.
 - Encounter preset builder scaffolding exists with multi-entry rosters and uses typed backend routes for save/spawn.
 - Local intent lifecycle feedback banners exist for pending/success/error states.
-- Player notes UI and manual level-up UX exist as local scaffolding; equipment inventory, active weapon display, current-resource adjustment, and GM core base stat edits now use backend-authoritative routes/state.
+- Player notes use a local edit draft backed by an authoritative save route; equipment inventory, active weapon display, current-resource adjustment, and GM core base stat edits use backend-authoritative routes/state.
 - Shared sheet selectors, resource/stat editor hooks, and feature reducer modules exist to keep the main sheet component smaller.
 - Stat metadata is centralized under frontend domain stats and reused by sheet and roll composer UI.
 - Frontend styles are split into feature-scoped files with shared tokens/utilities.
@@ -103,14 +104,16 @@ Frontend:
 - Generated protocol types/contracts exist. Centralized request helpers cover the already-live frontend route set; fully generated request helpers for all registered backend routes remain future work.
 - Live websocket requests use generated protocol for auth/resync and centralized typed helpers for sheet creation/update/instancing, sheet access claims, sheet item bridge equipment mutations, current-resource adjustment, GM core base stat edits, item maker CRUD, item augmentation template CRUD, action/formula authoring, quick authored action execution, and encounter preset save/spawn.
 - Normal live mode no longer falls back from websocket to mock transport on connection failure; mock transport is explicit dev-only selection.
-- Frontend-local state still owns note edit drafts and mock-only manual level-up drafts; sheet equipment, active weapon selection, current-resource values, and displayed sheet stats are no longer local sources of truth.
-- Item maker create/edit/delete now sends backend `ItemDefinition` CRUD requests and reconciles through authoritative item state, with backend-only item metadata fields still needing dedicated editor inputs.
-- Formula/action authoring UI exists. Broad assigned-action execution UI is still pending, but roll composer quick actions now select assigned default editable action presets and submit them through `perform_action`.
+- Frontend-local state owns note edit drafts and other transient UI controls; sheet equipment, active weapon selection, current-resource values, displayed sheet stats, and level-up changes are not local sources of truth.
+- Item maker create/edit/delete sends backend `ItemDefinition` CRUD requests, reconciles through authoritative item state, and exposes World Anvil URL plus GM-only notes/special-properties inputs.
+- Formula/action authoring UI and broad assigned-action execution UI exist; roll composer quick actions select assigned default editable action presets and submit them through `perform_action`.
 - Player entry now claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
-- The existing Roll Log panel is intentionally an empty Roll20 handoff surface. If retained, it should become a redacted backend action-history/status panel, not a frontend-local roll history.
+- The former Roll Log panel renders the backend-owned redacted action-history/status stream; it is not a frontend-local roll history.
 - Encounter preset UI uses typed backend route helpers for lightweight planned encounter collections.
+- GM navigation includes an XP Tracker page for thresholds, mob XP values, and backend-calculated level readiness; character sheets include a Kills tab for tracked mob counts.
+- GM navigation, active-sheet switching, connection/pending status, and encounter quick-spawn are consolidated into a persistent collapsible toolbar across every GM page.
 - Direct health/resource adjustment is a current-value HP/mana edit without damage semantics; damage type belongs to semantic damage action steps.
-- Frontend build and tests pass, but lint currently fails on existing unused symbols, explicit `any` in websocket tests, and fast-refresh warnings with `--max-warnings 0`.
+- Frontend build, tests, and lint pass.
 
 ## 5. MVP Data Model Direction
 
@@ -285,6 +288,8 @@ Skill check:
 - `d100` is an integer roll from 1 to 100.
 - Advantage: roll two of the same check and take the higher.
 - Disadvantage: roll two of the same check and take the lower.
+- Runtime roll modes apply only to authored Roll20 messages containing a standalone `1d100` check expression: normal keeps `1d100`, advantage emits `2d100kh1`, and disadvantage emits `2d100kl1`.
+- Advantage/disadvantage output is publicly prefixed with `[Advantage]` or `[Disadvantage]`; semantic damage steps are not transformed.
 
 Proficiency:
 
@@ -341,7 +346,8 @@ Combat automation:
 
 - Turn order, action point reset, reactions, contested reactions, opportunity attacks, flanking, grappling, AOE positioning, and cross-sheet damage application are Roll20/manual.
 - The app should not automate cross-sheet combat workflows.
-- `slayed_record` remains part of full sheet state for history/bookkeeping, but dedicated semantic slay-record routes are deferred until combat/history automation becomes MVP-relevant.
+- Hit and damage remain separate Roll20 chat actions. Damage is applied only through a later manual amount/type submission on the affected sheet, never through an attacker-to-defender relationship.
+- `slayed_record` stores manually reported per-mob kill counts for XP tracking. Combat does not increment it automatically.
 
 XP and level-up:
 
@@ -438,9 +444,6 @@ Frontend augmentation UX boundary:
   - Documented lifecycle fields as inert descriptive notes for MVP, not executable predicates, formulas, raw paths, or scripts.
   - Added backend regression tests proving `duration`, `expires_at`, and `removal_condition` do not automatically apply, remove, or recompute augmentations.
   - Future automatic conditional logic remains deferred until there is a validated backend-owned condition/effect expression model.
-- [x] Add frontend augmentation builder scaffold.
-- [x] Add UI flow to attach augmentations to gear and weapons.
-
 ### Phase 8: Intent And Runtime Migration
 
 - [x] Migrate roll/action submission onto typed backend route/helper paths with backend-authoritative reconciliation only.
@@ -521,13 +524,15 @@ Frontend augmentation UX boundary:
 - [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
-- [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
 - [x] Implement action execution against explicit sheet/instance IDs.
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
-- [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
-- [ ] Implement advantage/disadvantage as predefined runtime action parameters.
-- [ ] Add public Roll20 chat prefix wrapping for advantage/disadvantage output.
+- [x] Implement advantage/disadvantage as predefined runtime action parameters.
+  - `perform_action.roll_mode` accepts `normal`, `advantage`, or `disadvantage`, defaulting to normal for existing callers.
+  - Quick Actions and assigned sheet Actions expose the same segmented mode control and submit the generated backend contract.
+  - The backend transforms standalone authored `1d100` Roll20 check expressions to `2d100kh1` or `2d100kl1`; non-normal mode requests without an eligible expression are rejected.
+- [x] Add public Roll20 chat prefix wrapping for advantage/disadvantage output.
+  - Transformed messages are prefixed with `[Advantage]` or `[Disadvantage]`; normal messages remain unchanged.
 - [x] Add validation/error responses for invalid action execution payloads and unauthorized actions.
 - [x] Finalize websocket request/response types for action execution requests.
 - [x] Finalize websocket request/response types for typed template edits, sheet updates, and bridge operations.
@@ -549,7 +554,10 @@ Frontend augmentation UX boundary:
 - [x] Add optional World Anvil link field to item schema and backend protocol/update payloads.
 - [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
 - [x] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
-- [ ] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
+- [x] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
+  - Alternative completion: removed the legacy `submit_roll` path instead of adding backend roll resolution for plain/mock rolls.
+  - Quick actions now submit typed `perform_action` requests, and authored `send_message` steps emit Roll20 chat through the backend bridge.
+  - Explicit mock mode only acknowledges `perform_action`; it does not calculate rolls or present placeholder roll output as authoritative state.
 - [x] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
   - Removed silent websocket-to-mock fallback from `ManagedGameClient`; failed websocket connects now remain disconnected with an error.
   - Mock transport is still available only when explicitly selected through mock transport mode.
@@ -592,9 +600,10 @@ Frontend augmentation UX boundary:
 
 ### Phase 9: Remove Remaining Frontend Fake Authority
 
-- [x] Remove or isolate mock transport behavior that acts authoritative.
+- [ ] Complete the remaining frontend fake-authority cleanup through the slices below.
   - Removed the legacy frontend-only `ClientIntent` path so app transports now submit only generated/backend-owned protocol requests.
-  - Mock transport remains available only through explicit mock mode and now stays out of active-sheet ownership; active sheet selection remains frontend-local.
+  - Remaining gap: `MockGameTransport` still owns a mutable `AppSnapshot`, handles sheet/instance mutations locally, and can be selected at runtime with `VITE_TRANSPORT=mock`.
+  - Final local-state boundary: only active selection, current tab/page, editor/input drafts, search filters, display preferences, connection status, and request feedback/pending status remain frontend-owned.
 - [x] Remove local sheet equipment mutations as source of truth.
 - [x] Remove local sheet stat overrides as source of truth.
 - [x] Remove local runtime values that masquerade as persisted domain state.
@@ -603,8 +612,30 @@ Frontend augmentation UX boundary:
 - [x] Ensure optimistic UI is always pending and overwritten by authoritative patches.
   - Instance notes now use a local draft with explicit backend save; authoritative backend notes remain the rendered source of truth and overwrite the draft when patches land.
   - Frontend authoritative snapshots no longer carry backend-owned `activeSheetId`; active selection stays local and is not projected from transport snapshots.
-- [x] Keep only drafts, filters, tabs, active selection, and pending UX local.
-  - Remaining frontend-local state for sheets is now limited to active selection, current tab, editor/input drafts, search filters, and request feedback/pending status.
+
+#### Frontend Legacy-Authority Cleanup Slices
+
+- [x] Audit production frontend state ownership and classify remaining local state.
+  - Authoritative application roots are replaced from backend snapshot/patch projection; no production reducer directly mutates sheet, instance, item, proficiency, action, formula, condition, encounter, or action-history records.
+  - Editor drafts and navigation state are frontend-owned by design and are not cleanup targets.
+  - The remaining parallel-authority path is the explicit mock transport and its mock-only projection model.
+- [ ] Slice 1: remove the runtime mock backend.
+  - Delete `MockGameTransport` and its mutable seeded snapshot behavior.
+  - Remove `VITE_TRANSPORT=mock`, mock transport mode unions, runtime mode selection, and the transport badge that can only report websocket after cleanup.
+  - Keep managed-client tests isolated with injected non-authoritative fake transports.
+- [ ] Slice 2: remove mock-only sheet presentation state.
+  - Delete `sheetPresentation` and `persistentSheetPresentation` from frontend snapshots, normalized server state, selectors, and domain models; real websocket projection always emits both collections empty.
+  - Derive template kind from backend `dm_only`, and read names/notes/resources only from authoritative `Sheet` and `PersistentSheet` records.
+  - Remove mock-only tags and timestamps plus dead conversion helpers that manufacture presentation metadata locally.
+- [ ] Slice 3: remove misleading gameplay and scaffold UI.
+  - Remove the health damage-type selector until the planned typed-damage backend route exists; current resource adjustment sends only an authoritative numeric delta.
+  - This removes an ignored control only; the later manual typed-damage intake item adds the real backend route, resistance calculation, health mutation, and backend-backed UI.
+  - Remove visible developer TODO/scaffold copy from template and item authoring screens.
+  - Correct template search copy to name-only until backend-owned tags exist.
+- [ ] Slice 4: finish the dead-code pass and verify the boundary.
+  - Remove stale mock/presentation tests, exports, imports, README transport documentation, and generated build artifacts that are no longer referenced.
+  - Re-run repository searches for mock authority, local domain mutations, visible TODO/scaffold text, and unused legacy model names.
+  - Run frontend typecheck/build, lint, and the full frontend test suite.
 
 ### Phase 10: Verification And Hardening
 
@@ -612,7 +643,11 @@ Frontend augmentation UX boundary:
   - Socket close events now surface as managed connection-loss signals instead of generic payload errors.
   - Managed websocket clients schedule bounded reconnect/backoff attempts after unexpected disconnects, re-authenticate when an auth token is available, and reset state-version tracking so the next backend snapshot becomes authoritative.
   - Added focused frontend tests for dropped websocket reconnect scheduling, retry backoff after reconnect failure, re-authentication, fresh snapshot/version handling, and intentional disconnect behavior.
-- [ ] Add idempotency/ordering handling for intent replay or duplicate messages after MVP, unless DM manual correction remains sufficient.
+- [x] Add idempotency and ordering handling for replayed or duplicate mutation intents.
+  - Client-supplied request IDs are now preserved end to end; the backend generates an ID only when the client omits one.
+  - State-changing requests remain serialized by the state-sync lock and successful request IDs, including no-op mutations, are retained in a bounded newest-512 in-memory cache.
+  - Replaying a retained request ID returns an explicit duplicate-request error without repeating the mutation, incrementing the state version, or broadcasting another patch.
+  - The cache intentionally resets with the backend process/state-sync service. Retries after restart or after an ID ages out of the bounded cache are not deduplicated; persisted replay semantics remain out of MVP scope.
 - [x] Decide whether to keep the HTTP chat debug endpoint long-term.
   - Decision: do not keep or reintroduce an HTTP chat debug endpoint for MVP.
   - Roll20 chat delivery remains websocket-only through app `send_roll20_chat_message` requests and the `/ws/chat` Firefox-extension bridge.
@@ -641,10 +676,21 @@ Frontend augmentation UX boundary:
   - Added tablist semantics and arrow/Home/End keyboard handling for character sheet sections, plus explicit active-sheet quick-switch tab states.
   - Added accessible names, expanded states, described hints/errors, alert roles, and visible focus styling for resource/stat editor controls.
   - Fixed a Vite env typing issue surfaced by frontend build verification.
-- [ ] Add integration tests for rapid intent sequences and snapshot/patch consistency.
-- [ ] Add schema versions and migration support before serious data entry.
-- [ ] Add source request/action metadata to mutations for audit/debugging.
-- [ ] Add DM-only undo later; MVP uses manual DM correction for duplicate/incorrect mutations.
+- [x] Add integration tests for rapid intent sequences and snapshot/patch consistency.
+  - Added real websocket-dispatch coverage for 24 concurrent resource intents submitted across four DM sessions, proving one ordered patch stream with monotonic versions and a final snapshot matching canonical state.
+  - Added reconnect coverage proving a client can resume from its last seen version and receive every missing patch in order.
+  - Added replay-window exhaustion coverage proving gaps older than the bounded 256-patch history return one authoritative snapshot at the current version.
+- [x] Harden state-dump crash recovery with schema versions and migrations.
+  - `state_dumpy.json` now uses a versioned checkpoint envelope while treating the existing raw state shape as legacy schema version `0`.
+  - Sequential migration registration lives beside the state store so future state-shape changes can upgrade older checkpoints before domain-model loading.
+  - Checkpoint writes flush and fsync a temporary file before atomic replacement; only a validated prior primary is rotated to `state_dumpy.json.bak`.
+  - Startup falls back to the backup for malformed JSON, structurally invalid state, or unsupported newer schema versions, and defaults to empty state only when neither checkpoint is valid.
+  - Recovery artifacts are ignored because persisted private sheet access codes may be present.
+- [x] Add source request/action metadata to mutations for audit/debugging.
+  - The request registry now establishes a task-local source context from every validated request, including request ID/type, authenticated actor role, and direct or nested entity IDs such as action, sheet, instance, and target IDs.
+  - Every successful state-changing patch records its state version, request ID, operation types, paths, and request source in a bounded newest-256 runtime audit trail.
+  - Mutation values are intentionally excluded so audit metadata does not duplicate authoritative state or expose hidden values; the trail is backend-runtime diagnostics rather than a player-facing protocol stream.
+  - Context isolation, nested action ID extraction, action-execution attribution, concurrent-client attribution, and bounded audit eviction have focused backend coverage.
 
 ## 11. MVP Acceptance Criteria
 
@@ -666,36 +712,9 @@ MVP is done when:
 - State persists across restart through `state_dumpy.json`.
 - Required backend and frontend contract/reconciliation tests pass.
 
-## 12. Active Task List
+## 12. Implementation And Remaining Work
 
-### Backend Now
-
-- [x] Introduce general augmentation model.
-- [x] Define backend-evaluable augmentation formula/effect payload shape.
-- [x] Reserve duration/expiry/removal-condition fields for later augmentation lifecycle support.
-- [x] Implement augmentation application/removal/recomputation.
-- [x] Add augmentation sync shape.
-- [x] Implement stats/variable authoring route surface.
-- [x] Add variable registry and valid path metadata.
-- [x] Define condition/status backend shape as records or augmentation presets.
-- [x] Implement current-instance condition/status augmentation hooks.
-- [x] Finalize augmentation attach/update intents for gear and weapon items.
-- [x] Expand action step execution.
-- [x] Implement proficiency gain as a backend-authoritative step.
-- [x] Replace hardcoded resource/healing action steps with bounded generic mutation options.
-- [x] Define role/permission rules for notes, equipment, stat edits, resource edits, and action execution.
-- [x] Add generated sheet access codes and DM code visibility to sheet creation/assignment flows.
-- [x] Add typed sheet create/update/delete route contracts.
-- [x] Add typed action/formula create/update/delete route contracts.
-- [x] Add typed item create/update/delete route contracts.
-- [x] Add typed sheet action bridge create/update/delete route contracts.
-- [x] Add typed sheet item bridge create/update/delete route contracts.
-- [x] Add typed sheet proficiency bridge create/update/delete route contracts.
-- [x] Add typed route contracts for remaining sheet admin features and semantic bridge operations.
-- [x] Add World Anvil item link field.
-- [x] Add GM-only item notes/special properties.
-
-### Frontend Now
+### Frontend Implementation Record
 
 - [x] Separate GM creation flows for sheets, items, formulas, and actions.
   - GM navigation exposes separate template creation, item authoring, formula authoring, and action authoring views.
@@ -798,8 +817,7 @@ MVP is done when:
     - Generated frontend protocol types and route metadata already include those CRUD routes under `sheetAdminFormulas` and `sheetAdminActions`.
     - Authoring metadata route exists as `get_action_formula_authoring_metadata`; it is player-accessible and returns formula alias/path metadata, action step metadata, and default action preset templates for authoring UI.
     - Frontend authoritative state already stores backend `formulas` / `formulaOrder` and `actions` / `actionOrder` from snapshots and patches.
-    - Frontend does not currently have dedicated formula or action authoring pages; GM navigation only exposes console, template library/create, encounter presets, and item maker.
-    - Current roll quick controls are still UI-only preview controls and are separate from global action authoring; execution through `perform_action` remains a later roll/action submission slice.
+    - Before this migration, the frontend had no dedicated formula/action authoring pages and quick controls were UI-only previews; the completed work below replaced both gaps.
   - [x] Add centralized request helpers and focused tests for formula create/update/delete and action create/update/delete.
   - [x] Add formula authoring value mappers for `FormulaDefinition` payloads, including alias/path preservation.
   - [x] Add formula authoring page/list/editor that reads authoritative `serverState.formulas` and submits typed formula CRUD requests.
@@ -854,16 +872,6 @@ MVP is done when:
     - Frontend app state now carries backend `action_history` snapshot payloads as read-only authoritative state.
     - The former empty Roll Log panel now renders backend-provided action summaries, status, messages, and DM audit details when present.
     - Mock/local roll submission no longer creates frontend-local roll history entries.
-- [x] Add bridge status and send-failure UX.
-  - Added backend-owned Roll20 bridge status query and frontend status indicator.
-  - Existing fail-fast Roll20 send errors now produce clear bridge-disconnected UX.
-- [x] Add sync conflict/recovery UX for resyncs and rejected intents.
-  - State-version gap recovery is surfaced through pending/success feedback.
-  - Rejected backend intents use clearer rejection wording while transport and Roll20 bridge failures remain failures.
-- [x] Add World Anvil item link entry/display.
-  - Item authoring includes `World Anvil URL`, maps it to `world_anvil_url`, preserves it through create/update payloads, and displays a card link when present.
-- [x] Add GM-only item notes/special properties entry/display.
-  - Item authoring includes GM notes and GM special properties, maps them to backend item metadata fields, and displays them in GM item cards.
 - [x] Fix frontend lint errors and warnings so `npm run lint` passes with `--max-warnings 0`.
   - Removed unused frontend imports/variables and explicit `any` in websocket tests.
   - Split fast-refresh-sensitive hooks/constants out of component files.
@@ -873,20 +881,58 @@ MVP is done when:
   - Existing transport tests cover websocket parsing/adaptation, socket client behavior, managed client behavior, request builders, and mock transport events.
   - Added dedicated sheet selector tests for template/instance view projection, active sheet detail, current resource display, equipment bridge lookup, active weapon labels, available items, and player instance filtering.
 
-### Later
+### Frontend Backend-Access Gaps
 
-- [ ] GM console overlay mode for fast page switching and encounter spawn actions.
-- [ ] Combat/turn tracking.
-- [ ] Overload selected mode/alternative handling.
-- [x] Keep downtime training manual for MVP.
-  - Decision: DM manually adjudicates downtime practice/activation counts and awards proficiency/XP as appropriate; no downtime automation is needed for MVP.
-- [ ] Mastery unlock enforcement.
-- [ ] Add XP tracker for level-up readiness.
+- [ ] Add GM sheet-access management UI that consumes `sheet_access_codes`, lists active codes, and supports generating/replacing a code for a selected player instance.
+  - Stop discarding `sheet_access_codes` events in the frontend adapter and keep codes in DM-only UI state; never project them into player-visible snapshots or views.
+- [ ] Add GM action assignment controls to the active sheet Actions tab using sheet action bridge create/update/delete routes.
+  - Allow selection from authoritative global actions, preserve stable relationship IDs, and keep player mode execution-only.
+- [ ] Complete sheet definition editing for backend formula stats and resistance values.
+  - Add validated formula text/alias editing through `set_sheet_formula_stat` or full sheet update and expose total/category/specific resistance inputs already supported by sheet payloads.
+- [ ] Make global formula definitions reusable from action-step authoring through stable formula ID selection/reference rather than leaving Formula Authoring as an isolated CRUD catalog.
+- [ ] Complete Action Authoring controls for backend-supported `set_value`, `increment_value`, `decrement_value`, `apply_augmentation`, and `apply_condition_preset` steps.
+  - Use backend metadata pickers for paths/records and do not expose unrestricted raw mutation paths.
+- [ ] Add template deletion controls to Template Library using the existing typed `delete_sheet` route, with dependency errors surfaced through normal intent feedback.
+- [ ] Add encounter preset edit and delete controls using stable encounter IDs plus the existing save/delete routes.
+- [ ] Add equipment quantity editing through sheet item bridge updates instead of limiting inventory changes to add-one, active toggle, and remove.
+
+Manual amount/type damage intake is already tracked in the later hit/damage checklist and is intentionally not duplicated here.
+
+### Recently Completed
+
+- [x] Add GM console overlay mode for fast page switching and encounter spawn actions.
+  - Added a persistent sticky GM toolbar across every GM page with compact page navigation, active-sheet selection, connection/pending status, and encounter preset spawning.
+  - The toolbar is collapsible and responsive; it reuses frontend-local page/sheet selection and the existing typed encounter spawn request.
+  - Removed the redundant GM navigation, session-status, active-sheet tabs, and encounter quick-select panels from the console and Sheet Viewer.
+- [x] Add XP tracker for level-up readiness.
   - DM defines XP needed for next level and mob/enemy XP values.
   - Players can mark/count how many tracked mobs they killed.
   - Aggregate XP tracker/progression is DM-facing only; players do not see XP progress.
   - DM UI shows current XP versus XP needed; DM reviews at end of session.
   - Level-up application remains manual DM sheet edits for MVP.
+  - Backend reuses `xp_cap`, `xp_given_when_slayed`, and `slayed_record`, calculates totals authoritatively, and restricts player updates to the claimed sheet instance.
+  - Player snapshots and tracker responses redact XP thresholds, mob XP values, earned XP, totals, and readiness while retaining tracked mob names and editable kill counts.
+
+### Later
+
+- [ ] Add separate Roll20 hit/damage composition and manual typed damage intake.
+  - [ ] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
+  - [ ] Extend the existing GM Formula Authoring screen with controlled/common tag suggestions, normalized custom tag entry, tag display, and create/update preservation.
+  - [ ] Add the same tag controls to inline formulas authored inside action steps so middleware is not limited to global formula definitions.
+  - [ ] Add formula-modifier selectors for required/excluded tags and optional direct action/formula/step IDs; every populated selector constraint must match.
+  - [ ] Extend augmentation authoring with metadata-backed controls for tag and direct-ID selectors.
+  - [ ] Add typed evaluation-time modifier effects, initially numeric formula operations and advantage/disadvantage grants, without rewriting authored formulas or duplicating state.
+  - [ ] Add formula-execution context carrying stable `action_id`, `step_id`, optional `formula_id`, and normalized semantic tags, then apply matching active/equipped modifiers during evaluation.
+    - Tags are the default for category-wide effects, such as `damage + fire` or `check + perspective`; direct IDs handle deliberate one-action/one-roll exceptions.
+    - Example: a helmet requiring `damage + fire` adds `2` only to matching fire-damage formulas, while a hat requiring `check + perspective` modifies all matching perspective checks.
+  - [ ] Add separate Roll20 hit and damage action behavior: hit uses normal/advantage/disadvantage, while composed weapon/spell damage uses normal/critical.
+    - Weapon/spell inputs and source-sheet augmentations contribute only to emitted formulas; an attack never targets or mutates another sheet.
+  - [ ] Add manual typed damage intake on an affected sheet: raw amount plus damage type, backend resistance calculation, one final floor operation, and authoritative health patch.
+    - Players may submit damage only to their assigned instance; DMs may submit it to any instance. No attacker/source relationship is stored or required.
+  - Conservative project defaults are recorded for criticals, resistance bounds, rounding, minimum damage, spell composition, and augmentation order; rule-author response is no longer a blocker.
+- [ ] Combat/turn tracking.
+- [ ] Overload selected mode/alternative handling.
+- [ ] Mastery unlock enforcement.
 - [ ] Export/import JSON.
 - [ ] Multi-campaign support.
 - [ ] Mobile layout refinement for player character sheet and GM encounter/template panels.
@@ -908,42 +954,8 @@ These are not MVP blockers:
 - Exact frontend roll composer preview terms for formulas that remain Roll20-resolved.
 - Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, or formula-driven.
 
-## 14. Completion History Summary
+## 14. Historical Sources
 
-Completed project/workflow work includes:
-
-- contributor/policy documentation baseline.
-- split task tracking into frontend/backend task files before consolidation.
-- consolidated active planning into this `plan/active/PLAN.md`; archived source docs remain preserved.
-
-Completed frontend work includes:
-
-- React/Vite scaffolding.
-- typed app state, transport abstractions, and mock/ws adapters.
-- GM/player console scaffolding.
-- session landing, GM/password entry gate, and player entry flow.
-- template create/edit library scaffolding.
-- encounter preset builder scaffolding.
-- shared sheet UI path.
-- player notes notepad, original equipment inventory scaffold, active weapon controls, and manual level-up override scaffold; equipment/active weapon state has since been migrated to backend sheet item bridges.
-- roll composer scaffold and quick-roll prefill.
-- advantage/disadvantage controls and explicit TODO roll-equation previews.
-- local intent lifecycle feedback banners.
-- server-state/UI-state split.
-- reducer, selector, hook, component, and style decomposition.
-- websocket wrapper and backend-native patch applier.
-- wrapper/sync tests for snapshot, patch, invalid payload handling, incremental patch, and forced resync.
-- frontend lint/format scaffolding.
-
-Completed backend work includes:
-
-- canonical websocket protocol envelope/events.
-- backend-generated TypeScript protocol types.
-- generated route-contract manifest for future frontend helper generation.
-- registry-backed route metadata and app-role hierarchy.
-- registry-backed authentication.
-- backend role/auth bootstrap tests.
-- state snapshot/patch/resync/error contract tests.
-- removal of the old public generic sheet-admin websocket CRUD surface.
-
-The legacy `plan/archived/Completed.md` is archived; new completion updates should be recorded in this active plan unless the project adopts a separate completion log again.
+- Section 4 is the authoritative current implementation baseline.
+- Sections 10 and 12 hold detailed completion records and remaining work; do not duplicate completed tasks in a separate summary.
+- Earlier completion history remains archived in `plan/archived/Completed.md` and the source plans listed at the top of this document.

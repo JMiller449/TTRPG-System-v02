@@ -7,8 +7,6 @@ import {
 } from "@/infrastructure/ws/SocketProtocolClient";
 
 export class WebSocketGameTransport implements GameTransport {
-  public readonly mode = "ws" as const;
-
   private readonly client: SocketProtocolClient;
 
   constructor(url: string) {

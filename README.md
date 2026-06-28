@@ -77,7 +77,7 @@ The extension only runs on `https://app.roll20.net/editor/*`.
   - `PLAYER_JOIN_CODE` for app player auth, defaulting to `player` for local development.
   - `DM_ADMIN_CODE` for app GM auth, defaulting to `dm` for local development.
   - `SERVICE_AUTH_CODE` for the Roll20 bridge, defaulting to `service` for local development.
-  - Frontend helper/mock tokens use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN`; keep them aligned with backend codes when using those helper paths.
+  - Frontend helper tokens use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN`; keep them aligned with backend codes when using those helper paths.
 - Backend state sync is patch-first:
   - clients get a full snapshot on connect
   - later changes arrive as ordered `state_patch` diffs

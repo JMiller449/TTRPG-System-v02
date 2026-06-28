@@ -104,7 +104,7 @@ Frontend:
 - Roll composer scaffolding exists, including advantage/disadvantage controls and quick-roll controls that select assigned default authored actions when available.
 - Generated protocol types/contracts exist. Centralized request helpers cover the already-live frontend route set; fully generated request helpers for all registered backend routes remain future work.
 - Live websocket requests use generated protocol for auth/resync and centralized typed helpers for sheet creation/update/instancing, sheet access claims, sheet item bridge equipment mutations, current-resource adjustment, GM core base stat edits, item maker CRUD, item augmentation template CRUD, action/formula authoring, quick authored action execution, and encounter preset save/spawn.
-- Normal live mode no longer falls back from websocket to mock transport on connection failure; mock transport is explicit dev-only selection.
+- The frontend runtime always uses the authoritative websocket backend; connection failure remains disconnected and reports an error.
 - Frontend-local state owns note edit drafts and other transient UI controls; sheet equipment, active weapon selection, current-resource values, displayed sheet stats, and level-up changes are not local sources of truth.
 - Item maker create/edit/delete sends backend `ItemDefinition` CRUD requests, reconciles through authoritative item state, and exposes World Anvil URL plus GM-only notes/special-properties inputs.
 - Formula/action authoring UI and broad assigned-action execution UI exist; roll composer quick actions select assigned default editable action presets and submit them through `perform_action`.
@@ -478,7 +478,7 @@ Frontend augmentation UX boundary:
   - [x] Audit current roll/action submission paths before changing behavior.
     - Authored quick actions in `frontend/src/features/rolls/RollPanel.tsx` already submit through the typed `perform_action` request helper.
     - Legacy plain stat/dice rolls still call `client.submitRoll`, which emits a `submit_roll` `ClientIntent` from `frontend/src/hooks/useGameClient.ts`.
-    - Mock `submit_roll` currently only emits an authoritative snapshot ack, but the UI path still presents it as an app roll flow despite the MVP boundary that one-off dice rolls belong in Roll20.
+    - The former mock `submit_roll` path only emitted a snapshot acknowledgement while presenting itself as an app roll flow, despite the MVP boundary that one-off dice rolls belong in Roll20.
   - [x] Remove or gate legacy `submit_roll` so the frontend no longer exposes a local/app-authoritative plain roll path.
     - Fully removed the frontend `submit_roll` intent variant, `GameClient.submitRoll`, mock transport branch, and plain stat/dice roll request model types.
   - [x] Keep authored action execution on the normal editable action path by using `perform_action`; do not add quick-action-only routes or hardcoded action execution shortcuts.
@@ -575,7 +575,7 @@ Frontend augmentation UX boundary:
 - [x] Add backend instance notes for assigned player/DM editing.
 - [x] Replace frontend-local equipment inventory mutations with backend sheet item bridge create/update/delete requests and authoritative patch reconciliation.
 - [x] Add backend direct current instance resource edit routes for health and mana using `resource_edit` permissions, with backend validation and patch-only success: `set_instanced_sheet_resource` and `adjust_instanced_sheet_resource`.
-- [x] Replace frontend-local stat override behavior with backend-authoritative stat requests or explicitly gate remaining override UI as mock-only: GM core base stat edits submit `set_sheet_base_stat`, formula/substat edits stay read-only here, and manual level-up overrides are mock-only.
+- [x] Replace frontend-local stat override behavior with backend-authoritative stat requests: GM core base stat edits submit `set_sheet_base_stat`, formula/substat edits stay read-only here, and the unused manual level-up override UI was removed.
 - [x] Ensure backend role/permission model supports shared GM/player sheet rendering with restricted player-visible controls: player snapshots/patches redact GM template notes and GM-only item fields, while player-visible controls remain limited to authenticated instance notes/resources/actions.
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
@@ -591,12 +591,11 @@ Frontend augmentation UX boundary:
 - [x] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
 - [x] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
   - Live action execution already uses typed backend `perform_action` handling and the Roll20 bridge.
-  - Explicit mock mode no longer acknowledges action execution as successful; it returns a clear backend-required error instead of inventing roll/chat outcomes.
-  - Added mock transport regression coverage for the authority boundary.
-- [x] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
+  - The runtime mock backend and its mock-only action behavior were removed in Phase 9 Slice 1.
+- [x] Remove websocket-to-mock fallback and runtime mock selection.
   - Removed silent websocket-to-mock fallback from `ManagedGameClient`; failed websocket connects now remain disconnected with an error.
-  - Mock transport is still available only when explicitly selected through mock transport mode.
-  - Added focused frontend tests for websocket failure and explicit mock mode.
+  - The application runtime now constructs only `WebSocketGameTransport`; tests use injected inert transports without domain state.
+  - Added focused frontend coverage for websocket failure and reconnect behavior.
 - [x] Migrate encounter preset save/spawn UI to typed backend routes as MVP.
   - Encounter presets are lightweight planned encounter collections: sheet template IDs plus counts, not combat automation.
   - Spawning an encounter creates backend-owned sheet instances from the saved collection and emits authoritative patches.
@@ -616,7 +615,7 @@ Frontend augmentation UX boundary:
     - Registry/codegen contract metadata remains covered by `test_request_registry.py` and `test_protocol_codegen.py`.
     - No missing backend route-family coverage was found in this audit; next testing gap is frontend snapshot/patch reconciliation coverage by migrated family.
   - [x] Audit remaining migrated typed-route families for missing frontend snapshot/patch reconciliation tests.
-    - Covered by frontend reconciliation tests today: protocol snapshot/patch projection (`eventAdapters.test.ts`, `SocketProtocolClient.test.ts`), reducer snapshot hydration for primary roots (`syncReducer.test.ts`), item CRUD patches, formula CRUD patches, action CRUD patches, encounter preset patches, sheet item bridge add/equipment projection, current instance resource patches, base stat patches, forced resync overwrite, Roll20 bridge status events, sheet access claim events, and mock transport sheet create/update/instance snapshots.
+    - Covered by frontend reconciliation tests today: protocol snapshot/patch projection (`eventAdapters.test.ts`, `SocketProtocolClient.test.ts`), reducer snapshot hydration for primary roots (`syncReducer.test.ts`), item CRUD patches, formula CRUD patches, action CRUD patches, encounter preset patches, sheet item bridge add/equipment projection, current instance resource patches, base stat patches, forced resync overwrite, Roll20 bridge status events, and sheet access claim events.
     - Added focused frontend snapshot/patch reconciliation tests for sheet action bridge create/update/delete patches, sheet item bridge update/delete patches, sheet proficiency bridge create/update/delete patches, condition preset create/update/delete patches, item augmentation template upsert/remove patches, and action-history append/prune patch reconciliation.
     - Request-construction tests still cover request payloads separately; these reducer tests prove authoritative snapshots/patches overwrite frontend state.
   - [x] Add focused frontend reconciliation coverage for sheet root and instanced sheet patches.
@@ -637,7 +636,7 @@ Frontend augmentation UX boundary:
 
 - [ ] Complete the remaining frontend fake-authority cleanup through the slices below.
   - Removed the legacy frontend-only `ClientIntent` path so app transports now submit only generated/backend-owned protocol requests.
-  - Remaining gap: `MockGameTransport` still owns a mutable `AppSnapshot`, handles sheet/instance mutations locally, and can be selected at runtime with `VITE_TRANSPORT=mock`.
+  - Removed the runtime mock backend; remaining work is mock-era presentation state, misleading scaffold UI, and the final dead-code verification pass.
   - Final local-state boundary: only active selection, current tab/page, editor/input drafts, search filters, display preferences, connection status, and request feedback/pending status remain frontend-owned.
 - [x] Remove local sheet equipment mutations as source of truth.
 - [x] Remove local sheet stat overrides as source of truth.
@@ -653,11 +652,12 @@ Frontend augmentation UX boundary:
 - [x] Audit production frontend state ownership and classify remaining local state.
   - Authoritative application roots are replaced from backend snapshot/patch projection; no production reducer directly mutates sheet, instance, item, proficiency, action, formula, condition, encounter, or action-history records.
   - Editor drafts and navigation state are frontend-owned by design and are not cleanup targets.
-  - The remaining parallel-authority path is the explicit mock transport and its mock-only projection model.
-- [ ] Slice 1: remove the runtime mock backend.
-  - Delete `MockGameTransport` and its mutable seeded snapshot behavior.
-  - Remove `VITE_TRANSPORT=mock`, mock transport mode unions, runtime mode selection, and the transport badge that can only report websocket after cleanup.
-  - Keep managed-client tests isolated with injected non-authoritative fake transports.
+  - The audit identified the explicit mock transport and its mock-only projection model; Slice 1 removed the transport, leaving presentation cleanup in Slice 2.
+- [x] Slice 1: remove the runtime mock backend.
+  - Deleted `MockGameTransport`, its mutable seeded snapshot behavior, and its mock-only test suite.
+  - Removed `VITE_TRANSPORT`, transport mode unions, runtime mode selection, and the redundant transport badge/state.
+  - Managed-client tests remain isolated with injected non-authoritative request/event fakes.
+  - Verified with 224 frontend tests, ESLint, and the production TypeScript/Vite build.
 - [ ] Slice 2: remove mock-only sheet presentation state.
   - Delete `sheetPresentation` and `persistentSheetPresentation` from frontend snapshots, normalized server state, selectors, and domain models; real websocket projection always emits both collections empty.
   - Derive template kind from backend `dm_only`, and read names/notes/resources only from authoritative `Sheet` and `PersistentSheet` records.
@@ -668,12 +668,14 @@ Frontend augmentation UX boundary:
   - Remove visible developer TODO/scaffold copy from template and item authoring screens.
   - Correct template search copy to name-only until backend-owned tags exist.
 - [ ] Slice 4: finish the dead-code pass and verify the boundary.
-  - Remove stale mock/presentation tests, exports, imports, README transport documentation, and generated build artifacts that are no longer referenced.
+  - Remove stale presentation tests, exports, imports, and generated build artifacts that are no longer referenced.
   - Re-run repository searches for mock authority, local domain mutations, visible TODO/scaffold text, and unused legacy model names.
   - Run frontend typecheck/build, lint, and the full frontend test suite.
 
 ### Phase 10: Verification And Hardening
 
+- [x] Make backend test discovery independent of the invocation directory.
+  - Root pytest configuration establishes the repository import path and backend test path, so the complete suite can run from either the repository root or `backend/`.
 - [x] Add websocket reliability behavior for reconnect/backoff and explicit snapshot resync recovery.
   - Socket close events now surface as managed connection-loss signals instead of generic payload errors.
   - Managed websocket clients schedule bounded reconnect/backoff attempts after unexpected disconnects, re-authenticate when an auth token is available, and reset state-version tracking so the next backend snapshot becomes authoritative.
@@ -707,12 +709,12 @@ Frontend augmentation UX boundary:
 - [x] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
   - Added dynamic checks that every public registry route declares client-generation metadata, every registered request/event model is exported, and every generated route-manifest entry exactly matches its registry contract.
   - Verified by the complete backend suite, including current generated TypeScript output: 285 tests pass.
-- [x] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
+- [x] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, and core sheet interactions.
   - Socket protocol/event-adapter tests cover parsing, invalid payloads, snapshots, and patches.
   - Managed-client tests cover reconnect/backoff, re-authentication, deliberate disconnect, and version-gap resync.
   - Sync reducer tests cover backend-authoritative snapshots/patches, forced-snapshot overwrite, resources, notes, equipment, stats, and migrated entity families.
-  - Reducer, mock transport, sheet selector, quick-action, and request/editor-value suites cover local lifecycle behavior and core sheet workflows.
-  - The complete frontend set passes: 32 files and 227 tests; TypeScript build and ESLint also pass.
+  - Reducer, managed-client, sheet selector, quick-action, and request/editor-value suites cover local lifecycle behavior and core sheet workflows.
+  - The complete frontend set passes: 32 files and 224 tests; TypeScript build and ESLint also pass.
 - [x] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
   - Added tablist semantics and arrow/Home/End keyboard handling for character sheet sections, plus explicit active-sheet quick-switch tab states.
   - Added accessible names, expanded states, described hints/errors, alert roles, and visible focus styling for resource/stat editor controls.
@@ -890,7 +892,7 @@ MVP is done when:
   - [x] Runtime/applied augmentation state is display-only in item authoring and remains backend-authoritative.
   - [x] Player-facing augmentation changes must go through backend-approved actions/intents.
   - [x] Raw mutation paths, state-root targets, intersheet targets, and cross-sheet automation remain deferred until validated backend picker UX exists.
-- [x] Wire current HP/mana resource adjustment and GM core base stat edits to backend-authoritative requests; formula/substat editing remains read-only here, and manual level-up drafts remain mock-only.
+- [x] Wire current HP/mana resource adjustment and GM core base stat edits to backend-authoritative requests; formula/substat editing remains read-only here, and unused manual level-up drafts were removed.
 - [x] Use roll composer quick controls to prefill or select default editable actions, then submit through the normal backend-authored action/Roll20 flow.
   - [x] Resolve quick controls through the active sheet's `default_attack`, `default_dodge`, `default_parry`, and `default_block` action bridges.
   - [x] Disable quick controls when the active sheet has removed or lacks that assigned action.
@@ -915,14 +917,14 @@ MVP is done when:
   - [x] Update frontend panel to render redacted action status/history only after backend shape exists.
     - Frontend app state now carries backend `action_history` snapshot payloads as read-only authoritative state.
     - The former empty Roll Log panel now renders backend-provided action summaries, status, messages, and DM audit details when present.
-    - Mock/local roll submission no longer creates frontend-local roll history entries.
+    - Frontend-local roll submission no longer exists or creates local roll history entries.
 - [x] Fix frontend lint errors and warnings so `npm run lint` passes with `--max-warnings 0`.
   - Removed unused frontend imports/variables and explicit `any` in websocket tests.
   - Split fast-refresh-sensitive hooks/constants out of component files.
   - `npm run lint` now passes with `--max-warnings 0`.
 - [x] Add tests for reducer, transport event handling, and core sheet interactions.
   - Existing reducer tests cover intent, UI, and authoritative sync reducers.
-  - Existing transport tests cover websocket parsing/adaptation, socket client behavior, managed client behavior, request builders, and mock transport events.
+  - Existing transport tests cover websocket parsing/adaptation, socket client behavior, managed client behavior through injected inert transports, and request builders.
   - Added dedicated sheet selector tests for template/instance view projection, active sheet detail, current resource display, equipment bridge lookup, active weapon labels, available items, and player instance filtering.
 
 ### Frontend Backend-Access Gaps

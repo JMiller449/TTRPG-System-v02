@@ -68,7 +68,6 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
 
             <div className="status-row">
               <span className={`pill pill--${connection.status}`}>{connection.status}</span>
-              <span className="pill">transport: {connection.transport}</span>
               {isConnecting ? <span className="pill pill--connecting">connecting...</span> : null}
             </div>
 

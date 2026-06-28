@@ -18,18 +18,16 @@ This frontend is intentionally scaffolded for backend-authoritative integration.
 - `npm run lint`
 - `npm run format`
 
-## Transport Modes
+## Backend Connection
 
-- `VITE_TRANSPORT=ws` (default): try the real websocket backend using `VITE_WS_URL`.
-- `VITE_TRANSPORT=mock`: force local scaffold mode for UI development.
-- If websocket connect fails while running in default `ws` mode, the frontend stays on websocket mode and reports the connection error.
-- Websocket mode retries failed or interrupted connections with bounded backoff and
-  re-authenticates the prior session after reconnecting. It never falls back to mock transport.
+- `VITE_WS_URL` configures the authoritative backend websocket URL.
+- Failed or interrupted connections retry with bounded backoff and re-authenticate the prior session after reconnecting.
+- Tests isolate client behavior with injected inert transports; the application runtime always uses the websocket backend.
 
 ## Auth Configuration
 - `VITE_PLAYER_AUTH_TOKEN`: optional player token used by role-based helper auth.
 - `VITE_DM_AUTH_TOKEN`: optional GM token used by role-based helper auth.
-- Normal login uses the code entered by the player or GM; these env values are only for helper paths and mock/dev flows.
+- Normal login uses the code entered by the player or GM; these env values are only for helper paths.
 
 ## Integration Boundary
 

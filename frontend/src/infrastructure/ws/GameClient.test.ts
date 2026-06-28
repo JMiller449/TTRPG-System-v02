@@ -25,10 +25,7 @@ class FakeTransport implements GameTransport {
   public disconnectCount = 0;
   private handler: ((event: ServerEvent) => void) | null = null;
 
-  constructor(
-    public readonly mode: "mock" | "ws" = "ws",
-    private readonly connectError: Error | null = null
-  ) {}
+  constructor(private readonly connectError: Error | null = null) {}
 
   async connect(): Promise<void> {
     if (this.connectError) {
@@ -59,14 +56,13 @@ class FakeTransport implements GameTransport {
 }
 
 describe("ManagedGameClient", () => {
-  it("does not fall back to mock transport when websocket connection fails", async () => {
-    const requestedModes: string[] = [];
+  it("stays disconnected when the websocket transport fails", async () => {
+    let factoryCalls = 0;
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       autoReconnect: false,
-      transportFactory: (mode) => {
-        requestedModes.push(mode);
-        return new FakeTransport(mode, new Error("ws failed"));
+      transportFactory: () => {
+        factoryCalls += 1;
+        return new FakeTransport(new Error("ws failed"));
       }
     });
     const events: ServerEvent[] = [];
@@ -74,10 +70,9 @@ describe("ManagedGameClient", () => {
 
     await client.connect();
 
-    expect(requestedModes).toEqual(["ws"]);
+    expect(factoryCalls).toBe(1);
     expect(client.getConnectionState()).toEqual({
       status: "disconnected",
-      transport: "ws",
       error: "Failed to connect transport"
     });
 
@@ -95,30 +90,9 @@ describe("ManagedGameClient", () => {
     ]);
   });
 
-  it("uses mock transport only when explicitly requested", async () => {
-    const requestedModes: string[] = [];
-    const mockTransport = new FakeTransport("mock");
-    const client = new ManagedGameClient({
-      preferredMode: "mock",
-      transportFactory: (mode) => {
-        requestedModes.push(mode);
-        return mockTransport;
-      }
-    });
-
-    await client.connect();
-
-    expect(requestedModes).toEqual(["mock"]);
-    expect(client.getConnectionState()).toMatchObject({
-      status: "connected",
-      transport: "mock"
-    });
-  });
-
   it("sends authenticate requests through the wrapper", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
 
@@ -137,7 +111,6 @@ describe("ManagedGameClient", () => {
   it("reports missing role auth configuration instead of using a compiled fallback code", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
     const events: ServerEvent[] = [];
@@ -157,7 +130,6 @@ describe("ManagedGameClient", () => {
   it("sends protocol requests through the active transport", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
 
@@ -179,7 +151,6 @@ describe("ManagedGameClient", () => {
 
   it("emits an error when protocol requests are sent while disconnected", () => {
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => new FakeTransport()
     });
     const events: ServerEvent[] = [];
@@ -204,7 +175,6 @@ describe("ManagedGameClient", () => {
   it("requests resync when an incremental state version skips ahead", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
     const events: ServerEvent[] = [];
@@ -260,7 +230,6 @@ describe("ManagedGameClient", () => {
     const connectionStates: unknown[] = [];
     const events: ServerEvent[] = [];
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       reconnectDelaysMs: [10, 25],
       reconnectScheduler: (callback, delayMs) => {
         const scheduled = { delayMs, callback, canceled: false };
@@ -270,7 +239,7 @@ describe("ManagedGameClient", () => {
         };
       },
       transportFactory: () => {
-        const transport = new FakeTransport("ws");
+        const transport = new FakeTransport();
         transports.push(transport);
         return transport;
       }
@@ -292,7 +261,6 @@ describe("ManagedGameClient", () => {
     expect(scheduledReconnects[0]).toMatchObject({ delayMs: 10, canceled: false });
     expect(client.getConnectionState()).toEqual({
       status: "connecting",
-      transport: "ws",
       error: "Connection closed. Reconnecting in 10ms..."
     });
 
@@ -303,7 +271,6 @@ describe("ManagedGameClient", () => {
     expect(transports).toHaveLength(2);
     expect(client.getConnectionState()).toMatchObject({
       status: "connected",
-      transport: "ws",
       error: undefined
     });
     expect(transports[1]?.protocolRequests).toHaveLength(1);
@@ -328,7 +295,6 @@ describe("ManagedGameClient", () => {
     expect(events.filter((event) => event.type === "sync_recovery")).toHaveLength(0);
     expect(connectionStates).toContainEqual({
       status: "connecting",
-      transport: "ws",
       error: "Connection closed. Reconnecting in 10ms..."
     });
   });
@@ -338,7 +304,6 @@ describe("ManagedGameClient", () => {
     const transports: FakeTransport[] = [];
     let factoryCalls = 0;
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       reconnectDelaysMs: [5, 15],
       reconnectScheduler: (callback, delayMs) => {
         scheduledReconnects.push({ delayMs, callback });
@@ -347,11 +312,11 @@ describe("ManagedGameClient", () => {
       transportFactory: () => {
         factoryCalls += 1;
         if (factoryCalls === 2) {
-          const transport = new FakeTransport("ws", new Error("retry failed"));
+          const transport = new FakeTransport(new Error("retry failed"));
           transports.push(transport);
           return transport;
         }
-        const transport = new FakeTransport("ws");
+        const transport = new FakeTransport();
         transports.push(transport);
         return transport;
       }
@@ -371,7 +336,6 @@ describe("ManagedGameClient", () => {
     expect(scheduledReconnects[1]?.delayMs).toBe(15);
     expect(client.getConnectionState()).toEqual({
       status: "connecting",
-      transport: "ws",
       error: "Failed to reconnect transport. Reconnecting in 15ms..."
     });
 
@@ -382,7 +346,6 @@ describe("ManagedGameClient", () => {
     expect(factoryCalls).toBe(3);
     expect(client.getConnectionState()).toMatchObject({
       status: "connected",
-      transport: "ws",
       error: undefined
     });
   });
@@ -390,7 +353,6 @@ describe("ManagedGameClient", () => {
   it("re-authenticates on reconnect after a successful auth attempt", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
 
@@ -413,7 +375,6 @@ describe("ManagedGameClient", () => {
   it("clears stored auth when auth fails or the session ends", async () => {
     const transport = new FakeTransport();
     const client = new ManagedGameClient({
-      preferredMode: "ws",
       transportFactory: () => transport
     });
     const events: ServerEvent[] = [];

@@ -8,11 +8,6 @@ export function connectionReducer(state: AppState, action: AppAction): AppState 
         ...uiState,
         connection: { ...uiState.connection, status: action.status }
       }));
-    case "connection_transport":
-      return updateUiState(state, (uiState) => ({
-        ...uiState,
-        connection: { ...uiState.connection, transport: action.transport }
-      }));
     case "connection_error":
       return updateUiState(state, (uiState) => ({
         ...uiState,

@@ -33,10 +33,6 @@ export function requestResolvesOnSnapshot(request: ProtocolApplicationRequest): 
   return true;
 }
 
-function getPreferredTransportMode(): "mock" | "ws" {
-  return import.meta.env.VITE_TRANSPORT === "mock" ? "mock" : "ws";
-}
-
 function isRoll20BridgeUnavailableError(message: string): boolean {
   return message.toLowerCase().includes("roll20 chat bridge is not connected");
 }
@@ -74,7 +70,6 @@ export function useGameClient(): GameClient {
   const pendingIntentMapRef = useRef<Record<string, PendingIntentMetadata>>({});
   if (!clientRef.current) {
     const options: ManagedGameClientOptions = {
-      preferredMode: getPreferredTransportMode(),
       wsUrl: import.meta.env.VITE_WS_URL
     };
     clientRef.current = new ManagedGameClient(options);
@@ -103,7 +98,6 @@ export function useGameClient(): GameClient {
     };
 
     const unsubscribeConnection = client.onConnectionState((connection) => {
-      dispatch({ type: "connection_transport", transport: connection.transport });
       dispatch({ type: "connection_status", status: connection.status });
       dispatch({ type: "connection_error", error: connection.error });
     });

@@ -28,10 +28,7 @@ export const initialServerState: ServerState = {
 export const initialUiState: UIState = {
   playerSheetSelectionComplete: false,
   connection: {
-    status: "disconnected",
-    transport: (import.meta.env.VITE_TRANSPORT === "mock" ? "mock" : "ws") as
-      | "mock"
-      | "ws"
+    status: "disconnected"
   },
   roll20Bridge: {
     status: "unknown"

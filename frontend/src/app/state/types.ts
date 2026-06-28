@@ -75,7 +75,6 @@ export interface UIState {
   playerSheetSelectionComplete: boolean;
   connection: {
     status: ConnectionStatus;
-    transport: "mock" | "ws";
     error?: string;
   };
   roll20Bridge: {
@@ -109,7 +108,6 @@ export type AppAction =
   | { type: "set_template_search"; value: string }
   | { type: "reset_session_ui" }
   | { type: "connection_status"; status: ConnectionStatus }
-  | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
   | { type: "clear_connection_error_matching"; text: string }
   | {

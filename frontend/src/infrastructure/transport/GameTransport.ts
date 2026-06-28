@@ -8,5 +8,4 @@ export interface GameTransport {
   disconnect(): void;
   sendProtocolRequest(request: ProtocolApplicationRequest): void;
   onEvent(handler: (event: ServerEvent) => void): TransportUnsubscribe;
-  mode: "mock" | "ws";
 }

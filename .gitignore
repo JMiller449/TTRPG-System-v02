@@ -241,3 +241,4 @@ state_dumpy.json
 # auto generated
 frontend/src/generated/backendProtocol.ts
 node_modules/
+state_dumpy.json

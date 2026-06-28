@@ -9,17 +9,22 @@ import {
   type ResourceKey,
   type SheetStatKey
 } from "@/domain/stats";
+import { DAMAGE_TYPES, type DamageType } from "@/domain/models";
 
-export type PlayerSheetTab = "stats" | "actions" | "equipment" | "proficiencies" | "kills" | "notes";
+export type PlayerSheetTab =
+  | "stats"
+  | "actions"
+  | "equipment"
+  | "proficiencies"
+  | "kills"
+  | "notes";
 
-export const PLAYER_HEALTH_DAMAGE_TYPES = [
-  { value: "untyped", label: "Untyped" },
-  { value: "physical", label: "Physical" },
-  { value: "fire", label: "Fire" },
-  { value: "magic", label: "Magic" }
-] as const;
+export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({
+  value: damageType,
+  label: damageType
+}));
 
-export type HealthDamageType = (typeof PLAYER_HEALTH_DAMAGE_TYPES)[number]["value"];
+export type HealthDamageType = DamageType | "";
 
 export function parseModifierInput(raw: string): number | null {
   const trimmed = raw.trim();

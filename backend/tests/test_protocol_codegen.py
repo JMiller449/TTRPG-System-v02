@@ -93,6 +93,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "create_formula"' in output
     assert '"clientNamespace": "sheetAdminFormulas"' in output
     assert '"clientMethodName": "deleteFormula"' in output
+    assert '"tags"?: string[];' in output
     assert '"type": "create_item"' in output
     assert '"clientNamespace": "sheetAdminItems"' in output
     assert '"clientMethodName": "deleteItem"' in output
@@ -144,9 +145,13 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert "export type AdjustInstancedSheetResource = {" in output
     assert '"delta": number;' in output
     assert '"type": "adjust_instanced_sheet_resource";' in output
+    assert "export type ApplyInstancedSheetDamage = {" in output
+    assert '"amount": number;' in output
+    assert '"type": "apply_instanced_sheet_damage";' in output
     assert '"clientNamespace": "sheetInstanceResources"' in output
     assert '"clientMethodName": "setInstancedSheetResource"' in output
     assert '"clientMethodName": "adjustInstancedSheetResource"' in output
+    assert '"clientMethodName": "applyInstancedSheetDamage"' in output
     assert '"type": "create_sheet_action_bridge"' in output
     assert '"clientNamespace": "sheetActionBridges"' in output
     assert '"clientMethodName": "detachAction"' in output
@@ -236,6 +241,16 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "removeItemAugmentationTemplate"' in output
     assert "export type ApplyAugmentationActionStepPayload" in output
     assert "export type ApplyConditionPresetActionStepPayload" in output
+    assert "export type CalculateValueActionStepPayload" in output
+    assert "export type CalculatedValueReferencePayload" in output
+    assert '"type": "calculate_value"' in output
+    assert '"type": "calculated_value"' in output
+    assert "export type FormulaModifierSelectorPayload" in output
+    assert '"required_tags"?: string[];' in output
+    assert '"excluded_tags"?: string[];' in output
+    assert '"action_id"?: string | null;' in output
+    assert '"formula_id"?: string | null;' in output
+    assert '"step_id"?: string | null;' in output
     assert "export type ResolveDamageActionStepPayload" in output
     assert "export type ResolveDamageStepPayload" in output
     assert '"type": "resolve_damage"' in output

@@ -13,8 +13,6 @@ function emptySnapshot() {
     actions: [],
     formulas: [],
     conditionPresets: [],
-    sheetPresentation: [],
-    persistentSheetPresentation: [],
     encounters: [],
     actionHistory: []
   };

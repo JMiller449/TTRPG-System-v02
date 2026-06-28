@@ -18,7 +18,8 @@ function testFormula(overrides: Partial<FormulaDefinition> = {}): FormulaDefinit
           path: ["sheet", "stats", "arcane"]
         }
       ],
-      text: "@arcane * 8"
+      text: "@arcane * 8",
+      tags: ["check"]
     },
     ...overrides
   };
@@ -43,6 +44,7 @@ describe("formulaAuthoringRequests", () => {
   it("builds create submissions from editor values", () => {
     const values = createEmptyFormulaEditorValues();
     values.formulaText = "  @arcane * 10  ";
+    values.tags = [" Check ", "ARCANE"];
 
     expect(buildCreateFormulaSubmission(values, "formula_created")).toEqual({
       request: {
@@ -51,7 +53,8 @@ describe("formulaAuthoringRequests", () => {
           id: "formula_created",
           formula: {
             aliases: null,
-            text: "@arcane * 10"
+            text: "@arcane * 10",
+            tags: ["check", "arcane"]
           }
         }
       },
@@ -76,6 +79,7 @@ describe("formulaAuthoringRequests", () => {
         path: ["sheet", "stats", "arcane"]
       }
     ];
+    values.tags = [" Check ", "ARCANE", "check"];
 
     expect(buildUpdateFormulaSubmission(testFormula(), values)).toEqual({
       request: {
@@ -90,7 +94,8 @@ describe("formulaAuthoringRequests", () => {
                 path: ["sheet", "stats", "arcane"]
               }
             ],
-            text: "@arcane * 12"
+            text: "@arcane * 12",
+            tags: ["check", "arcane"]
           }
         }
       },

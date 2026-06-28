@@ -4,6 +4,8 @@ function stepSummary(step: ActionStep): string {
   switch (step.type) {
     case "send_message":
       return `${step.step_id}: send message`;
+    case "calculate_value":
+      return `${step.step_id}: calculate ${step.variable_id}`;
     case "set_value":
       return `${step.step_id}: set ${step.path.join(".")}`;
     case "increment_value":

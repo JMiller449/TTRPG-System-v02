@@ -154,8 +154,6 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
     conditionPresets: Object.values(state.condition_presets ?? {}),
-    sheetPresentation: [],
-    persistentSheetPresentation: [],
     encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),
     actionHistory: Object.values(state.action_history ?? {})
   };

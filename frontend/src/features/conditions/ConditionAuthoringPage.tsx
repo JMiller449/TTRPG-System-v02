@@ -9,6 +9,7 @@ import {
   toAugmentationEditorValues,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
+import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
@@ -29,7 +30,14 @@ import { makeId } from "@/shared/utils/id";
 export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { conditionPresets, conditionPresetOrder },
+      serverState: {
+        conditionPresets,
+        conditionPresetOrder,
+        actions: actionRecords,
+        actionOrder,
+        formulas: formulaRecords,
+        formulaOrder
+      },
       uiState: { augmentationTargetMetadata }
     }
   } = useAppStore();
@@ -46,6 +54,16 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   const conditions = useMemo(
     () => selectOrderedConditionPresets(conditionPresets, conditionPresetOrder),
     [conditionPresetOrder, conditionPresets]
+  );
+  const selectorOptions = useMemo(
+    () =>
+      buildAugmentationSelectorOptions({
+        actionRecords,
+        actionOrder,
+        formulaRecords,
+        formulaOrder
+      }),
+    [actionOrder, actionRecords, formulaOrder, formulaRecords]
   );
   const selectedCondition = editingConditionId ? conditionPresets[editingConditionId] : undefined;
   const targetOptions =
@@ -86,7 +104,10 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   };
 
   const deleteCondition = (conditionId: string): void => {
-    const submission = buildDeleteConditionPresetSubmission(conditionId, conditionPresets[conditionId]);
+    const submission = buildDeleteConditionPresetSubmission(
+      conditionId,
+      conditionPresets[conditionId]
+    );
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingConditionId === conditionId) {
       startNewCondition();
@@ -148,6 +169,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
             editingAugmentationId={editingAugmentationId}
             templates={selectedCondition.augmentation_templates ?? []}
             targetOptions={targetOptions}
+            selectorOptions={selectorOptions}
             values={augmentationValues}
             onChange={setAugmentationValues}
             onSubmit={submitAugmentation}

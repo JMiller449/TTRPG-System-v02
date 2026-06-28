@@ -1,6 +1,9 @@
 import asyncio
 from copy import deepcopy
 
+import pytest
+
+from backend.features.sheet_admin.actions.schema import ActionDefinitionPayload
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
 from backend.state.models.proficiency import Proficiency
@@ -311,6 +314,114 @@ def test_dm_can_create_action_with_resolve_damage_step(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_dm_can_create_action_with_calculated_value_reuse(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "calculate-healing",
+                    "type": "calculate_value",
+                    "variable_id": "healing_amount",
+                    "value": _formula_payload("1d8 + 2"),
+                },
+                {
+                    "step_id": "apply-healing",
+                    "type": "increment_value",
+                    "target": "caster",
+                    "path": ["health"],
+                    "amount": {
+                        "type": "calculated_value",
+                        "variable_id": "healing_amount",
+                    },
+                },
+                {
+                    "step_id": "announce-healing",
+                    "type": "send_message",
+                    "message": _formula_payload(
+                        "Restored @healing HP.",
+                        [
+                            {
+                                "name": "healing",
+                                "path": ["action_values", "healing_amount"],
+                            }
+                        ],
+                    ),
+                },
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            steps = StateSingleton.getState().actions["battle_cry"].steps
+            assert steps[0].type == "calculate_value"
+            assert steps[0].variable_id == "healing_amount"
+            assert steps[1].amount.type == "calculated_value"
+            assert steps[1].amount.variable_id == "healing_amount"
+            assert steps[2].message.aliases[0].path == [
+                "action_values",
+                "healing_amount",
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_authoring_rejects_forward_calculated_value_reference() -> None:
+    action = _action_payload()
+    action["steps"] = [
+        {
+            "step_id": "apply-healing",
+            "type": "increment_value",
+            "target": "caster",
+            "path": ["health"],
+            "amount": {
+                "type": "calculated_value",
+                "variable_id": "healing_amount",
+            },
+        },
+        {
+            "step_id": "calculate-healing",
+            "type": "calculate_value",
+            "variable_id": "healing_amount",
+            "value": _formula_payload("5"),
+        },
+    ]
+
+    with pytest.raises(ValueError, match="must refer to an earlier calculate_value step"):
+        ActionDefinitionPayload.model_validate(action)
+
+
+def test_action_authoring_rejects_duplicate_calculated_variable_id() -> None:
+    action = _action_payload()
+    action["steps"] = [
+        {
+            "step_id": "calculate-one",
+            "type": "calculate_value",
+            "variable_id": "healing_amount",
+            "value": _formula_payload("5"),
+        },
+        {
+            "step_id": "calculate-two",
+            "type": "calculate_value",
+            "variable_id": "healing_amount",
+            "value": _formula_payload("6"),
+        },
+    ]
+
+    with pytest.raises(ValueError, match="variable IDs must be unique"):
+        ActionDefinitionPayload.model_validate(action)
 
 
 def test_dm_can_update_action(monkeypatch) -> None:

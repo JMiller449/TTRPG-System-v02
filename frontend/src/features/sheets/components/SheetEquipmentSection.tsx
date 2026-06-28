@@ -1,6 +1,7 @@
 import type { ItemBridge, ItemDefinition } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
 
 function describeAugmentations(item: ItemDefinition): string {
   const augmentations = item.augmentation_templates ?? [];
@@ -10,7 +11,7 @@ function describeAugmentations(item: ItemDefinition): string {
   return augmentations
     .map((augmentation) => {
       const target = [augmentation.target.root, ...augmentation.target.path].join(".");
-      return `${augmentation.name}: ${augmentation.effect.operation} ${augmentation.effect.value.text} to ${target}`;
+      return `${augmentation.name}: ${formatAugmentationEffect(augmentation)} to ${target}`;
     })
     .join("; ");
 }

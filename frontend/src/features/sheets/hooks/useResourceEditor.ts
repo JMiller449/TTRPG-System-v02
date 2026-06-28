@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { HealthDamageType } from "@/features/sheets/sheetDisplay";
 import { parseModifierInput, type ResourceKey } from "@/features/sheets/sheetDisplay";
+import { buildResourceModifierSubmission } from "@/features/sheets/resourceEditorRequests";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildAdjustInstancedSheetResourceRequest } from "@/infrastructure/ws/requestBuilders";
 
 interface UseResourceEditorOptions {
   resetToken: string | undefined;
@@ -37,13 +37,13 @@ export function useResourceEditor({
   const [editingResource, setEditingResource] = useState<ResourceKey | null>(null);
   const [resourceDraftModifier, setResourceDraftModifier] = useState("");
   const [resourceEditorError, setResourceEditorError] = useState<string | null>(null);
-  const [healthDamageType, setHealthDamageType] = useState<HealthDamageType>("untyped");
+  const [healthDamageType, setHealthDamageType] = useState<HealthDamageType>("");
 
   useEffect(() => {
     setEditingResource(null);
     setResourceDraftModifier("");
     setResourceEditorError(null);
-    setHealthDamageType("untyped");
+    setHealthDamageType("");
   }, [baseHealth, baseMana, resetToken]);
 
   const beginResourceEdit = (key: ResourceKey): void => {
@@ -70,19 +70,25 @@ export function useResourceEditor({
       return;
     }
 
-    client.sendProtocolRequest(
-      buildAdjustInstancedSheetResourceRequest({
-        instanceId,
-        resource: key,
-        delta: parsed
-      }),
-      `Adjust ${key}`
-    );
+    const submission = buildResourceModifierSubmission({
+      instanceId,
+      resource: key,
+      delta: parsed,
+      damageType: healthDamageType
+    });
+    if ("error" in submission) {
+      setResourceEditorError(submission.error);
+      return;
+    }
+    client.sendProtocolRequest(submission.request, submission.label);
 
     cancelResourceEdit();
   };
 
-  const onResourceEditorKeyDown = (event: KeyboardEvent<HTMLInputElement>, key: ResourceKey): void => {
+  const onResourceEditorKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    key: ResourceKey
+  ): void => {
     if (event.key === "Enter") {
       event.preventDefault();
       applyResourceModifier(key);

@@ -35,6 +35,7 @@ export interface FormulaAlias {
 export interface Formula {
   aliases: FormulaAlias[] | null;
   text: string;
+  tags?: string[];
 }
 
 export interface FormulaDefinition {
@@ -42,19 +43,33 @@ export interface FormulaDefinition {
   formula: Formula;
 }
 
+export interface CalculatedValueReference {
+  variable_id: string;
+  type: "calculated_value";
+}
+
+export type NumericValueSource = Formula | CalculatedValueReference;
+
 export interface SendMessageActionStep {
   step_id: string;
   message: Formula;
   type: "send_message";
 }
 
+export interface CalculateValueActionStep {
+  step_id: string;
+  variable_id: string;
+  value: Formula;
+  type: "calculate_value";
+}
+
 export interface SetValueActionStep {
   step_id: string;
   path: string[];
-  value: Formula;
+  value: NumericValueSource;
   target?: "caster" | "target";
-  min_value?: Formula | null;
-  max_value?: Formula | null;
+  min_value?: NumericValueSource | null;
+  max_value?: NumericValueSource | null;
   on_min_violation?: "clamp" | "reject";
   on_max_violation?: "clamp" | "reject";
   type: "set_value";
@@ -63,10 +78,10 @@ export interface SetValueActionStep {
 interface BoundedActionStep {
   step_id: string;
   path: string[];
-  amount: Formula;
+  amount: NumericValueSource;
   target?: "caster" | "target";
-  min_value?: Formula | null;
-  max_value?: Formula | null;
+  min_value?: NumericValueSource | null;
+  max_value?: NumericValueSource | null;
   on_min_violation?: "clamp" | "reject";
   on_max_violation?: "clamp" | "reject";
 }
@@ -117,7 +132,7 @@ export const DAMAGE_TYPES: readonly DamageType[] = [
 export interface ResolveDamageActionStep {
   step_id: string;
   damage_type: DamageType;
-  amount: Formula;
+  amount: NumericValueSource;
   target?: "caster" | "target";
   type: "resolve_damage";
 }
@@ -125,7 +140,7 @@ export interface ResolveDamageActionStep {
 export interface GainProficiencyUseActionStep {
   step_id: string;
   proficiency_id: string;
-  amount: Formula;
+  amount: NumericValueSource;
   target?: "caster" | "target";
   type: "gain_proficiency_use";
 }
@@ -148,6 +163,7 @@ export interface ApplyConditionPresetActionStep {
 
 export type ActionStep =
   | SendMessageActionStep
+  | CalculateValueActionStep
   | SetValueActionStep
   | IncrementValueActionStep
   | DecrementValueActionStep
@@ -178,6 +194,13 @@ export type AugmentationTargetRoot = "state" | "sheet" | "instance";
 
 export type AugmentationOperation = "add" | "subtract" | "multiply" | "divide" | "set";
 
+export type AugmentationEffectType =
+  | "formula_modifier"
+  | "evaluation_formula_modifier"
+  | "roll_mode_modifier";
+
+export type RollModeModifier = "advantage" | "disadvantage";
+
 export interface AugmentationSource {
   type: AugmentationSourceType;
   id?: string | null;
@@ -189,11 +212,38 @@ export interface AugmentationTarget {
   path: string[];
 }
 
+export interface FormulaModifierSelector {
+  required_tags?: string[];
+  excluded_tags?: string[];
+  action_id?: string | null;
+  formula_id?: string | null;
+  step_id?: string | null;
+}
+
 export interface FormulaModifierEffect {
   operation: AugmentationOperation;
   value: Formula;
+  selector?: FormulaModifierSelector;
   type: "formula_modifier";
 }
+
+export interface EvaluationFormulaModifierEffect {
+  operation: AugmentationOperation;
+  value: Formula;
+  selector?: FormulaModifierSelector;
+  type: "evaluation_formula_modifier";
+}
+
+export interface RollModeModifierEffect {
+  roll_mode: RollModeModifier;
+  selector?: FormulaModifierSelector;
+  type: "roll_mode_modifier";
+}
+
+export type AugmentationEffect =
+  | FormulaModifierEffect
+  | EvaluationFormulaModifierEffect
+  | RollModeModifierEffect;
 
 export interface AugmentationLifecycle {
   duration?: string | null;
@@ -208,7 +258,7 @@ export interface Augmentation {
   source: AugmentationSource;
   scope: AugmentationScope;
   target: AugmentationTarget;
-  effect: FormulaModifierEffect;
+  effect: AugmentationEffect;
   active?: boolean;
   applied?: boolean;
   applied_target_id?: string | null;
@@ -333,28 +383,6 @@ export interface CombatSheetRecord {
   value: CombatSheet;
 }
 
-export interface SheetPresentation {
-  kind: SheetKind;
-  notes: string;
-  tags: string[];
-  updatedAt: string;
-}
-
-export interface PersistentSheetPresentation {
-  name?: string;
-  updatedAt: string;
-}
-
-export interface SheetPresentationRecord {
-  sheetId: string;
-  value: SheetPresentation;
-}
-
-export interface PersistentSheetPresentationRecord {
-  persistentSheetId: string;
-  value: PersistentSheetPresentation;
-}
-
 export interface SheetTemplateView {
   id: string;
   sheet: Sheet;
@@ -362,7 +390,6 @@ export interface SheetTemplateView {
   name: string;
   notes: string;
   stats: Partial<Record<StatKey, number>>;
-  updatedAt: string;
 }
 
 export interface SheetInstanceView {
@@ -372,7 +399,6 @@ export interface SheetInstanceView {
   kind: SheetKind;
   name: string;
   notes: string;
-  updatedAt: string;
 }
 
 export interface EncounterEntry {

@@ -187,7 +187,12 @@ class FormulaAliasMetadataEvent(ProtocolModel):
 class ActionStepAuthoringMetadataEvent(ProtocolModel):
     type: str
     label: str
-    category: Literal["roll20_output", "bounded_mutation", "semantic_mutation"]
+    category: Literal[
+        "calculation",
+        "roll20_output",
+        "bounded_mutation",
+        "semantic_mutation",
+    ]
     allowed_targets: list[Literal["caster", "target"]]
     formula_fields: list[str]
     path_catalog: Literal[

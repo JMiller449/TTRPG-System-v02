@@ -105,6 +105,9 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "max_value",
     ]
     assert action_steps["send_message"].path_catalog == "none"
+    assert action_steps["calculate_value"].category == "calculation"
+    assert action_steps["calculate_value"].formula_fields == ["value"]
+    assert action_steps["calculate_value"].path_catalog == "none"
     assert action_steps["resolve_damage"].category == "semantic_mutation"
     assert action_steps["resolve_damage"].formula_fields == ["amount"]
     assert action_steps["resolve_damage"].path_catalog == "none"

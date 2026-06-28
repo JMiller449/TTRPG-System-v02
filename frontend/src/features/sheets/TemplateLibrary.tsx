@@ -43,9 +43,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const beginEditTemplate = (template: SheetTemplateView): void => {
     setEditingTemplateId(template.id);
-    setEditValues(
-      toTemplateEditorValues(template.sheet, state.serverState.sheetPresentation[template.id])
-    );
+    setEditValues(toTemplateEditorValues(template.sheet));
   };
 
   const saveTemplateEdit = (): void => {

@@ -9,6 +9,7 @@ from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.action import Action
 from backend.state.models.condition import ConditionPreset
+from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.shared import Bridge
@@ -48,11 +49,18 @@ async def _connect_assigned_player(
     )
 
 
-def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
-    return {
+def _formula_payload(
+    text: str,
+    aliases: list[dict] | None = None,
+    tags: list[str] | None = None,
+) -> dict:
+    payload = {
         "aliases": aliases,
         "text": text,
     }
+    if tags is not None:
+        payload["tags"] = tags
+    return payload
 
 
 def test_roll_mode_transforms_only_standalone_d100_check_expressions() -> None:
@@ -174,6 +182,93 @@ def _build_instance_state() -> InstancedSheet:
     )
 
 
+def test_player_can_apply_typed_damage_with_resistance_and_final_floor(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].resistances.resistance = 0.1
+            state.sheets["mage_template"].resistances.magical = 0.1
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"].resistances.fire = 0.05
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "apply_instanced_sheet_damage",
+                    "instance_id": "mage_instance",
+                    "amount": 11.9,
+                    "damage_type": "Fire",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 82
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "set",
+                            "path": "/instanced_sheets/mage_instance/health",
+                            "value": 82,
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_apply_typed_damage_to_any_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "apply_instanced_sheet_damage",
+                    "instance_id": "mage_instance",
+                    "amount": 200,
+                    "damage_type": "Slashing",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 0
+            assert websocket.sent_messages[0]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 0,
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def _build_augmentation_state(
     augmentation_id: str = "shielded",
     *,
@@ -223,6 +318,39 @@ def _build_condition_preset_state(condition_id: str = "poisoned") -> ConditionPr
             "augmentation_templates": [asdict(payload)],
         }
     )
+
+
+def _evaluation_augmentation_payload(
+    *,
+    augmentation_id: str,
+    effect: dict,
+    source_type: str = "item",
+    source_id: str = "item-1",
+    active: bool = True,
+    applied: bool = False,
+    applied_target_id: str | None = None,
+) -> dict:
+    return {
+        "id": augmentation_id,
+        "name": augmentation_id,
+        "description": "Evaluation-time test effect.",
+        "source": {
+            "type": source_type,
+            "id": source_id,
+            "label": source_id,
+        },
+        "scope": "instance",
+        "target": {"root": "instance", "path": ["health"]},
+        "effect": effect,
+        "active": active,
+        "applied": applied,
+        "applied_target_id": applied_target_id,
+        "lifecycle": {
+            "duration": None,
+            "expires_at": None,
+            "removal_condition": None,
+        },
+    }
 
 
 def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None:
@@ -313,6 +441,108 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
     asyncio.run(scenario())
 
 
+def test_perform_action_reuses_calculated_value_once_and_isolates_executions(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        rolls = iter([5, 2])
+        monkeypatch.setattr(
+            "backend.features.formula_runtime.service.random.randint",
+            lambda _minimum, _maximum: next(rolls),
+        )
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["drink_potion"] = Action.from_dict(
+                {
+                    "id": "drink_potion",
+                    "name": "Drink Potion",
+                    "steps": [
+                        {
+                            "step_id": "calculate-healing",
+                            "type": "calculate_value",
+                            "variable_id": "healing_amount",
+                            "value": _formula_payload("1d8 + 2", tags=["healing"]),
+                        },
+                        {
+                            "step_id": "apply-healing",
+                            "type": "increment_value",
+                            "target": "caster",
+                            "path": ["health"],
+                            "amount": {
+                                "type": "calculated_value",
+                                "variable_id": "healing_amount",
+                            },
+                        },
+                        {
+                            "step_id": "announce-healing",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Restored @healing HP. Health is now @health.",
+                                [
+                                    {
+                                        "name": "healing",
+                                        "path": [
+                                            "action_values",
+                                            "healing_amount",
+                                        ],
+                                    },
+                                    {"name": "health", "path": ["health"]},
+                                ],
+                            ),
+                        },
+                    ],
+                }
+            )
+            state.augmentations["healing-bonus"] = Augmentation.from_dict(
+                _evaluation_augmentation_payload(
+                    augmentation_id="healing-bonus",
+                    effect={
+                        "type": "evaluation_formula_modifier",
+                        "operation": "add",
+                        "value": _formula_payload("3"),
+                        "selector": {
+                            "required_tags": ["healing"],
+                            "action_id": "drink_potion",
+                            "step_id": "calculate-healing",
+                        },
+                    },
+                    source_type="condition",
+                    source_id="blessed",
+                    applied=True,
+                    applied_target_id="mage_instance",
+                )
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            request = {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "drink_potion",
+            }
+            await handle_client_payload(websocket, request)
+            await handle_client_payload(websocket, request)
+
+            assert state.instanced_sheets["mage_instance"].health == 107
+            assert [message["message"] for message in bridge_socket.sent_messages] == [
+                "Restored (10) HP. Health is now (100).",
+                "Restored (7) HP. Health is now (107).",
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_perform_action_applies_advantage_to_roll20_d100_output(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -366,6 +596,298 @@ def test_perform_action_applies_advantage_to_roll20_d100_output(monkeypatch) -> 
                 expected_message
             ]
             assert bridge_socket.sent_messages[0]["message"] == expected_message
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_applies_matching_equipped_item_numeric_modifier(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["fire_damage"] = Action.from_dict(
+                {
+                    "id": "fire_damage",
+                    "name": "Fire Damage",
+                    "steps": [
+                        {
+                            "step_id": "damage-step",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Fire",
+                            "amount": _formula_payload("10"),
+                        }
+                    ],
+                }
+            )
+            matching_template = _evaluation_augmentation_payload(
+                augmentation_id="flame-focus",
+                effect={
+                    "type": "evaluation_formula_modifier",
+                    "operation": "add",
+                    "value": _formula_payload("5"),
+                    "selector": {
+                        "required_tags": ["damage", "fire"],
+                        "action_id": "fire_damage",
+                        "step_id": "damage-step",
+                    },
+                },
+                source_id="focus",
+            )
+            mismatched_template = _evaluation_augmentation_payload(
+                augmentation_id="cold-focus",
+                effect={
+                    "type": "evaluation_formula_modifier",
+                    "operation": "add",
+                    "value": _formula_payload("50"),
+                    "selector": {"required_tags": ["damage", "ice"]},
+                },
+                source_id="focus",
+            )
+            inactive_template = _evaluation_augmentation_payload(
+                augmentation_id="inactive-focus",
+                effect={
+                    "type": "evaluation_formula_modifier",
+                    "operation": "add",
+                    "value": _formula_payload("100"),
+                    "selector": {"required_tags": ["damage", "fire"]},
+                },
+                source_id="inactive-focus",
+            )
+            state.items["focus"] = Item.from_dict(
+                {
+                    "id": "focus",
+                    "name": "Flame Focus",
+                    "description": "Adds fire damage.",
+                    "price": "0",
+                    "weight": "0",
+                    "augmentation_templates": [
+                        matching_template,
+                        mismatched_template,
+                    ],
+                }
+            )
+            state.items["inactive-focus"] = Item.from_dict(
+                {
+                    "id": "inactive-focus",
+                    "name": "Inactive Focus",
+                    "description": "Must not apply while unequipped.",
+                    "price": "0",
+                    "weight": "0",
+                    "augmentation_templates": [inactive_template],
+                }
+            )
+            state.sheets["mage_template"].items = {
+                "focus": ItemBridge(
+                    relationship_id="focus",
+                    count=1,
+                    active=True,
+                    item_id="focus",
+                ),
+                "inactive-focus": ItemBridge(
+                    relationship_id="inactive-focus",
+                    count=1,
+                    active=False,
+                    item_id="inactive-focus",
+                ),
+            }
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "fire_damage",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 75
+            assert state.actions["fire_damage"].steps[0].amount.text == "10"
+            assert state.items["focus"].augmentation_templates[0].applied is False
+            assert state.augmentations == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_applies_matching_concrete_instance_modifier(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["spend_mana"] = Action.from_dict(
+                {
+                    "id": "spend_mana",
+                    "name": "Spend Mana",
+                    "steps": [
+                        {
+                            "step_id": "mana-cost",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("5", tags=["cost"]),
+                        }
+                    ],
+                }
+            )
+            state.augmentations["double-cost"] = Augmentation.from_dict(
+                _evaluation_augmentation_payload(
+                    augmentation_id="double-cost",
+                    effect={
+                        "type": "evaluation_formula_modifier",
+                        "operation": "multiply",
+                        "value": _formula_payload("2"),
+                        "selector": {
+                            "required_tags": ["cost"],
+                            "action_id": "spend_mana",
+                            "step_id": "mana-cost",
+                        },
+                    },
+                    source_type="condition",
+                    source_id="mana-sickness",
+                    applied=True,
+                    applied_target_id="mage_instance",
+                )
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "spend_mana",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 20
+            assert state.augmentations["double-cost"].applied is True
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["block"] = Action.from_dict(
+                {
+                    "id": "block",
+                    "name": "Block",
+                    "steps": [
+                        {
+                            "step_id": "block-roll",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Block: /r (1d100 / 100) * 10",
+                                tags=["check", "block"],
+                            ),
+                        }
+                    ],
+                }
+            )
+            shield_template = _evaluation_augmentation_payload(
+                augmentation_id="shield-block-advantage",
+                effect={
+                    "type": "roll_mode_modifier",
+                    "roll_mode": "advantage",
+                    "selector": {
+                        "required_tags": ["check", "block"],
+                        "action_id": "block",
+                        "step_id": "block-roll",
+                    },
+                },
+                source_id="shield",
+            )
+            shield_check_bonus = _evaluation_augmentation_payload(
+                augmentation_id="shield-block-bonus",
+                effect={
+                    "type": "evaluation_formula_modifier",
+                    "operation": "add",
+                    "value": _formula_payload("2"),
+                    "selector": {
+                        "required_tags": ["check", "block"],
+                        "action_id": "block",
+                        "step_id": "block-roll",
+                    },
+                },
+                source_id="shield",
+            )
+            state.items["shield"] = Item.from_dict(
+                {
+                    "id": "shield",
+                    "name": "Shield",
+                    "description": "Grants Block advantage.",
+                    "price": "0",
+                    "weight": "0",
+                    "augmentation_templates": [shield_template, shield_check_bonus],
+                }
+            )
+            state.sheets["mage_template"].items["shield"] = ItemBridge(
+                relationship_id="shield",
+                count=1,
+                active=True,
+                item_id="shield",
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "block",
+                    "roll_mode": "normal",
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "block",
+                    "roll_mode": "disadvantage",
+                },
+            )
+
+            assert [message["message"] for message in bridge_socket.sent_messages] == [
+                "[Advantage] Block: /r ((2d100kh1 / 100) * 10) + (2)",
+                "Block: /r ((1d100 / 100) * 10) + (2)",
+            ]
         finally:
             StateSingleton._state = original_state
 

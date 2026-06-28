@@ -6,18 +6,26 @@ import type {
   ResolveDamageActionStep
 } from "@/domain/models";
 import {
+  addCalculateValueActionStep,
   addGainProficiencyUseActionStep,
+  addIncrementValueActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  calculatedValuesBeforeStep,
+  createCalculateValueActionStep,
   createGainProficiencyUseActionStep,
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
+  isCalculatedValueReference,
+  moveActionStep,
   moveGainProficiencyUseActionStep,
   moveResolveDamageActionStep,
   moveSendMessageActionStep,
   removeGainProficiencyUseActionStep,
+  removeCalculateValueActionStep,
   removeResolveDamageActionStep,
   removeSendMessageActionStep,
+  setNumericStepCalculatedValue,
   toActionDefinitionPayload,
   toActionEditorValues,
   toUpdatedActionDefinitionPayload,
@@ -25,6 +33,7 @@ import {
   updateResolveDamageActionStepFormula,
   updateGainProficiencyUseActionStep,
   updateGainProficiencyUseActionStepFormula,
+  updateCalculateValueActionStep,
   updateSendMessageActionStepFormula,
   updateSendMessageActionStepText
 } from "@/features/actions/actionEditorValues";
@@ -248,7 +257,11 @@ describe("actionEditorValues", () => {
 
   it("updates only send message step text and preserves aliases", () => {
     const values = toActionEditorValues(testAction());
-    const result = updateSendMessageActionStepText(values, "step_message", "  /em edited message  ");
+    const result = updateSendMessageActionStepText(
+      values,
+      "step_message",
+      "  /em edited message  "
+    );
 
     expect(result.steps[0]).toEqual({
       step_id: "step_message",
@@ -275,7 +288,8 @@ describe("actionEditorValues", () => {
           name: "mana",
           path: ["instance", "mana"]
         }
-      ]
+      ],
+      tags: [" Message ", "CHECK", "message"]
     });
 
     expect(result.steps[0]).toEqual({
@@ -288,7 +302,8 @@ describe("actionEditorValues", () => {
             path: ["instance", "mana"]
           }
         ],
-        text: "/em uses @mana"
+        text: "/em uses @mana",
+        tags: ["message", "check"]
       }
     });
     expect(result.steps[1]).toEqual(values.steps[1]);
@@ -363,7 +378,8 @@ describe("actionEditorValues", () => {
             name: "arc",
             path: ["sheet", "stats", "arcane"]
           }
-        ]
+        ],
+        tags: [" Damage ", "FIRE", "damage"]
       }).steps[0]
     ).toEqual({
       step_id: "damage",
@@ -377,7 +393,8 @@ describe("actionEditorValues", () => {
             path: ["sheet", "stats", "arcane"]
           }
         ],
-        text: "@arc * 2"
+        text: "@arc * 2",
+        tags: ["damage", "fire"]
       }
     });
   });
@@ -439,7 +456,8 @@ describe("actionEditorValues", () => {
             name: "focus",
             path: ["sheet", "stats", "will"]
           }
-        ]
+        ],
+        tags: [" Progression ", "CHECK", "progression"]
       }).steps[0]
     ).toEqual({
       step_id: "prof",
@@ -453,9 +471,52 @@ describe("actionEditorValues", () => {
             path: ["sheet", "stats", "will"]
           }
         ],
-        text: "@focus"
+        text: "@focus",
+        tags: ["progression", "check"]
       }
     });
+  });
+
+  it("preserves inline formula tags when editing non-tag fields", () => {
+    const values = toActionEditorValues(
+      testAction({
+        steps: [
+          {
+            step_id: "message",
+            type: "send_message",
+            message: { aliases: null, text: "message", tags: ["check"] }
+          },
+          {
+            ...testResolveDamageStep("damage", "5", "Fire"),
+            amount: { aliases: null, text: "5", tags: ["damage", "fire"] }
+          },
+          {
+            ...testGainProficiencyUseStep("prof", "longsword"),
+            amount: { aliases: null, text: "1", tags: ["progression"] }
+          }
+        ]
+      })
+    );
+
+    const messageResult = updateSendMessageActionStepText(values, "message", "updated");
+    const damageResult = updateResolveDamageActionStep(values, "damage", { amountText: "10" });
+    const proficiencyResult = updateGainProficiencyUseActionStep(values, "prof", {
+      amountText: "2"
+    });
+
+    expect(
+      messageResult.steps[0]?.type === "send_message" && messageResult.steps[0].message.tags
+    ).toEqual(["check"]);
+    expect(
+      damageResult.steps[1]?.type === "resolve_damage" &&
+        !isCalculatedValueReference(damageResult.steps[1].amount) &&
+        damageResult.steps[1].amount.tags
+    ).toEqual(["damage", "fire"]);
+    expect(
+      proficiencyResult.steps[2]?.type === "gain_proficiency_use" &&
+        !isCalculatedValueReference(proficiencyResult.steps[2].amount) &&
+        proficiencyResult.steps[2].amount.tags
+    ).toEqual(["progression"]);
   });
 
   it("removes only send message steps", () => {
@@ -599,5 +660,50 @@ describe("actionEditorValues", () => {
       values.steps[0]
     ]);
     expect(moveGainProficiencyUseActionStep(values, "prof_1", "up").steps).toEqual(values.steps);
+  });
+
+  it("authors immutable calculated values and exposes only earlier declarations", () => {
+    let values = createEmptyActionEditorValues();
+    values = addCalculateValueActionStep(values, "calculate_healing", "healing_amount");
+    values = updateCalculateValueActionStep(values, "calculate_healing", {
+      formulaText: "1d8 + 2",
+      tags: [" Healing "]
+    });
+    values = addIncrementValueActionStep(values, "apply_healing", ["health"]);
+    values = setNumericStepCalculatedValue(values, "apply_healing", "healing_amount");
+    values = addCalculateValueActionStep(values, "calculate_total", "total_amount");
+
+    expect(createCalculateValueActionStep("calculate", "amount", "5")).toEqual({
+      step_id: "calculate",
+      variable_id: "amount",
+      value: { aliases: null, text: "5" },
+      type: "calculate_value"
+    });
+    expect(calculatedValuesBeforeStep(values, "apply_healing")).toEqual([
+      { stepId: "calculate_healing", variableId: "healing_amount" }
+    ]);
+    expect(calculatedValuesBeforeStep(values, "calculate_healing")).toEqual([]);
+    expect(values.steps[0]).toMatchObject({
+      variable_id: "healing_amount",
+      value: { text: "1d8 + 2", tags: ["healing"] }
+    });
+    expect(values.steps[1]).toMatchObject({
+      type: "increment_value",
+      amount: { type: "calculated_value", variable_id: "healing_amount" }
+    });
+  });
+
+  it("moves and removes calculate steps without creating implicit mutation outputs", () => {
+    let values = createEmptyActionEditorValues();
+    values = addSendMessageActionStep(values, "message");
+    values = addCalculateValueActionStep(values, "calculate", "amount");
+
+    expect(moveActionStep(values, "calculate", "up").steps.map((step) => step.step_id)).toEqual([
+      "calculate",
+      "message"
+    ]);
+    expect(removeCalculateValueActionStep(values, "calculate").steps).toEqual([
+      values.steps[0]
+    ]);
   });
 });

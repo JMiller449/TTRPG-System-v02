@@ -21,7 +21,8 @@ function testFormula(overrides: Partial<FormulaDefinition> = {}): FormulaDefinit
           path: ["instance", "mana"]
         }
       ],
-      text: "@arcane * 8 + @mana"
+      text: "@arcane * 8 + @mana",
+      tags: ["damage", "fire"]
     },
     ...overrides
   };
@@ -31,7 +32,8 @@ describe("formulaEditorValues", () => {
   it("creates empty formula editor values", () => {
     expect(createEmptyFormulaEditorValues()).toEqual({
       formulaText: "",
-      aliases: null
+      aliases: null,
+      tags: []
     });
   });
 
@@ -47,19 +49,22 @@ describe("formulaEditorValues", () => {
           name: "mana",
           path: ["instance", "mana"]
         }
-      ]
+      ],
+      tags: ["damage", "fire"]
     });
   });
 
   it("maps new editor values to backend formula payloads", () => {
     const values = createEmptyFormulaEditorValues();
     values.formulaText = "  @arcane * 10  ";
+    values.tags = [" Damage ", "FIRE", "damage"];
 
     expect(toFormulaDefinitionPayload(values, "formula_created")).toEqual({
       id: "formula_created",
       formula: {
         aliases: null,
-        text: "@arcane * 10"
+        text: "@arcane * 10",
+        tags: ["damage", "fire"]
       }
     });
   });
@@ -82,7 +87,8 @@ describe("formulaEditorValues", () => {
             path: ["instance", "mana"]
           }
         ],
-        text: "@arcane * 12 + @mana"
+        text: "@arcane * 12 + @mana",
+        tags: ["damage", "fire"]
       }
     });
   });
@@ -93,5 +99,13 @@ describe("formulaEditorValues", () => {
     values.aliases?.[0]?.path.push("mutated");
 
     expect(formula.formula.aliases?.[0]?.path).toEqual(["sheet", "stats", "arcane"]);
+  });
+
+  it("clones tags so editor mutations do not mutate the authoritative formula record", () => {
+    const formula = testFormula();
+    const values = toFormulaEditorValues(formula);
+    values.tags.push("critical");
+
+    expect(formula.formula.tags).toEqual(["damage", "fire"]);
   });
 });

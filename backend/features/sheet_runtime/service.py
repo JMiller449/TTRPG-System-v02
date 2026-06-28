@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from math import floor
 from typing import Any
 from uuid import uuid4
 
@@ -9,19 +11,30 @@ from backend.features.augmentations import service as augmentation_service
 from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
 from backend.features.formula_runtime.service import (
+    EvaluationTimeEffect,
+    FormulaExecutionContext,
+    compose_roll20_message,
     evaluate_numeric_formula,
     normalize_numeric_result,
+    resolve_roll_mode,
 )
 from backend.features.session.models import SessionRole
-from backend.features.sheet_runtime.schema import ActionExecuted, PerformAction
+from backend.features.sheet_runtime.schema import (
+    ActionExecuted,
+    ApplyInstancedSheetDamage,
+    PerformAction,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
     Action,
     ApplyAugmentationStep,
     ApplyConditionPresetStep,
+    CalculateValueStep,
+    CalculatedValueReference,
     DecrementValueStep,
     GainProficiencyUseStep,
     IncrementValueStep,
+    NumericValueSource,
     ResolveDamageStep,
     SendMessageStep,
     SetValueStep,
@@ -82,14 +95,101 @@ class RuntimeActor:
 
 
 class RuntimeFormulaContext:
-    def __init__(self, sheet: Sheet, instance: InstancedSheet | None) -> None:
+    def __init__(
+        self,
+        sheet: Sheet,
+        instance: InstancedSheet | None,
+        action_values: dict[str, float | int] | None = None,
+    ) -> None:
         self._sheet = sheet
         self._instance = instance
+        self.action_values = action_values if action_values is not None else {}
 
     def __getattr__(self, name: str) -> Any:
         if self._instance is not None and hasattr(self._instance, name):
             return getattr(self._instance, name)
         return getattr(self._sheet, name)
+
+
+def _formula_execution_context(
+    formula: Formula,
+    *,
+    action_id: str,
+    step_id: str,
+    semantic_tags: tuple[str, ...] = (),
+) -> FormulaExecutionContext:
+    return FormulaExecutionContext.for_formula(
+        formula,
+        action_id=action_id,
+        step_id=step_id,
+        semantic_tags=semantic_tags,
+    )
+
+
+def _matching_formula_effects(
+    state: State,
+    actor: RuntimeActor,
+    context: FormulaExecutionContext,
+) -> tuple[EvaluationTimeEffect, ...]:
+    return augmentation_service.matching_evaluation_effects(
+        state,
+        sheet_id=actor.sheet_id,
+        instance_id=actor.actor_id if actor.instance is not None else None,
+        context=context,
+    )
+
+
+def _evaluate_action_formula(
+    *,
+    state: State,
+    actor: RuntimeActor,
+    formula_root: RuntimeFormulaContext,
+    formula: Formula,
+    action_id: str,
+    step_id: str,
+    semantic_tags: tuple[str, ...] = (),
+) -> float | int:
+    context = _formula_execution_context(
+        formula,
+        action_id=action_id,
+        step_id=step_id,
+        semantic_tags=semantic_tags,
+    )
+    return evaluate_numeric_formula(
+        formula_root,
+        formula,
+        execution_context=context,
+        modifiers=_matching_formula_effects(state, actor, context),
+    )
+
+
+def _resolve_action_numeric_value(
+    *,
+    state: State,
+    actor: RuntimeActor,
+    formula_root: RuntimeFormulaContext,
+    value: NumericValueSource,
+    action_id: str,
+    step_id: str,
+    action_values: dict[str, float | int],
+    semantic_tags: tuple[str, ...] = (),
+) -> float | int:
+    if isinstance(value, CalculatedValueReference):
+        if value.variable_id not in action_values:
+            raise ValueError(
+                f"Calculated value '{value.variable_id}' is not available in step "
+                f"'{step_id}'."
+            )
+        return action_values[value.variable_id]
+    return _evaluate_action_formula(
+        state=state,
+        actor=actor,
+        formula_root=formula_root,
+        formula=value,
+        action_id=action_id,
+        step_id=step_id,
+        semantic_tags=semantic_tags,
+    )
 
 
 def resolve_runtime_actor(sheet_id: str, state: State | None = None) -> RuntimeActor:
@@ -257,7 +357,7 @@ def _target_root(actor: RuntimeActor) -> Sheet | InstancedSheet:
     return actor.instance
 
 
-def _effective_damage_resistance(
+def effective_damage_resistance(
     actor: RuntimeActor,
     damage_type: DamageType,
 ) -> float:
@@ -277,34 +377,69 @@ def _effective_damage_resistance(
     return min(resistance, 1.0)
 
 
+def calculate_damage_taken(
+    *,
+    actor: RuntimeActor,
+    damage_type: DamageType,
+    raw_damage: float | int,
+) -> int:
+    if raw_damage < 0:
+        raise ValueError("Damage amount must be greater than or equal to 0.")
+    resistance = effective_damage_resistance(actor, damage_type)
+    damage_taken = raw_damage - (raw_damage * resistance)
+    return floor(max(0, damage_taken))
+
+
 def _resolve_damage_amount(
     *,
     actor: RuntimeActor,
-    formula_root: Any,
     damage_type: DamageType,
-    amount: Formula,
-) -> float | int:
-    raw_damage = evaluate_numeric_formula(formula_root, amount)
-    if raw_damage < 0:
-        raise ValueError("Damage amount must be greater than or equal to 0.")
-    resistance = _effective_damage_resistance(actor, damage_type)
-    damage_taken = raw_damage - (raw_damage * resistance)
-    return normalize_numeric_result(max(0, damage_taken))
+    raw_damage: float | int,
+) -> int:
+    return calculate_damage_taken(
+        actor=actor,
+        damage_type=damage_type,
+        raw_damage=raw_damage,
+    )
+
+
+async def apply_instanced_sheet_damage(
+    request: ApplyInstancedSheetDamage,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        actor = resolve_runtime_actor(request.instance_id, state)
+        _required_instance_id(actor, "Apply damage")
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "health",
+        )
+        damage_taken = calculate_damage_taken(
+            actor=actor,
+            damage_type=request.damage_type,
+            raw_damage=request.amount,
+        )
+        current_health = _numeric_path_value(actor.instance, ["health"], path)
+        next_health = normalize_numeric_result(max(0, current_health - damage_taken))
+        op = state_sync_service.set_mutation(state, path, next_health)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
 def _bounded_numeric_result(
     value: float | int,
     *,
-    formula_root: Any,
-    min_value: Formula | None,
-    max_value: Formula | None,
+    min_value: NumericValueSource | None,
+    max_value: NumericValueSource | None,
+    evaluate_bound: Callable[[NumericValueSource], float | int],
     on_min_violation: str,
     on_max_violation: str,
     state_path: str,
 ) -> float | int:
     result = value
     if min_value is not None:
-        minimum = evaluate_numeric_formula(formula_root, min_value)
+        minimum = evaluate_bound(min_value)
         if result < minimum:
             if on_min_violation == "reject":
                 raise ValueError(
@@ -313,7 +448,7 @@ def _bounded_numeric_result(
             result = minimum
 
     if max_value is not None:
-        maximum = evaluate_numeric_formula(formula_root, max_value)
+        maximum = evaluate_bound(max_value)
         if result > maximum:
             if on_max_violation == "reject":
                 raise ValueError(
@@ -384,37 +519,96 @@ async def perform_action(
             state=state,
         )
         current_steps = current_action.steps
+        action_values: dict[str, float | int] = {}
         formula_root = RuntimeFormulaContext(
-            current_actor.sheet, current_actor.instance
+            current_actor.sheet,
+            current_actor.instance,
+            action_values,
         )
 
         applied_mutations: list[str] = []
         emitted_messages: list[str] = []
         ops: list[Any] = []
+        roll_mode_requires_check = False
         roll_mode_applied = False
+        unresolved_roll_mode = request.roll_mode
 
         for step in current_steps:
             if isinstance(step, SendMessageStep):
-                message = step.message.expand_formula(formula_root)
+                execution_context = _formula_execution_context(
+                    step.message,
+                    action_id=current_action.id,
+                    step_id=step.step_id,
+                )
+                modifiers = _matching_formula_effects(
+                    state,
+                    current_actor,
+                    execution_context,
+                )
+                message = compose_roll20_message(
+                    formula_root,
+                    step.message,
+                    execution_context=execution_context,
+                    modifiers=modifiers,
+                )
+                effective_roll_mode = resolve_roll_mode(
+                    request.roll_mode,
+                    execution_context=execution_context,
+                    modifiers=modifiers,
+                )
+                if effective_roll_mode != "normal":
+                    roll_mode_requires_check = True
+                    unresolved_roll_mode = effective_roll_mode
                 message, mode_applied = _apply_roll_mode_to_message(
                     message,
-                    request.roll_mode,
+                    effective_roll_mode,
                 )
                 roll_mode_applied = roll_mode_applied or mode_applied
                 emitted_messages.append(message)
                 continue
 
+            if isinstance(step, CalculateValueStep):
+                if step.variable_id in action_values:
+                    raise ValueError(
+                        f"Calculated value '{step.variable_id}' is already defined."
+                    )
+                action_values[step.variable_id] = _evaluate_action_formula(
+                    state=state,
+                    actor=current_actor,
+                    formula_root=formula_root,
+                    formula=step.value,
+                    action_id=current_action.id,
+                    step_id=step.step_id,
+                )
+                continue
+
             if isinstance(step, SetValueStep):
                 _validate_caster_target(step.target)
-                result = evaluate_numeric_formula(formula_root, step.value)
+                result = _resolve_action_numeric_value(
+                    state=state,
+                    actor=current_actor,
+                    formula_root=formula_root,
+                    value=step.value,
+                    action_id=current_action.id,
+                    step_id=step.step_id,
+                    action_values=action_values,
+                )
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
                 result = _bounded_numeric_result(
                     result,
-                    formula_root=formula_root,
                     min_value=step.min_value,
                     max_value=step.max_value,
+                    evaluate_bound=lambda value: _resolve_action_numeric_value(
+                        state=state,
+                        actor=current_actor,
+                        formula_root=formula_root,
+                        value=value,
+                        action_id=current_action.id,
+                        step_id=step.step_id,
+                        action_values=action_values,
+                    ),
                     on_min_violation=step.on_min_violation,
                     on_max_violation=step.on_max_violation,
                     state_path=path,
@@ -426,7 +620,15 @@ async def perform_action(
 
             if isinstance(step, IncrementValueStep):
                 _validate_caster_target(step.target)
-                amount = evaluate_numeric_formula(formula_root, step.amount)
+                amount = _resolve_action_numeric_value(
+                    state=state,
+                    actor=current_actor,
+                    formula_root=formula_root,
+                    value=step.amount,
+                    action_id=current_action.id,
+                    step_id=step.step_id,
+                    action_values=action_values,
+                )
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
@@ -438,9 +640,17 @@ async def perform_action(
                     )
                     result = _bounded_numeric_result(
                         current_value + amount,
-                        formula_root=formula_root,
                         min_value=step.min_value,
                         max_value=step.max_value,
+                        evaluate_bound=lambda value: _resolve_action_numeric_value(
+                            state=state,
+                            actor=current_actor,
+                            formula_root=formula_root,
+                            value=value,
+                            action_id=current_action.id,
+                            step_id=step.step_id,
+                            action_values=action_values,
+                        ),
                         on_min_violation=step.on_min_violation,
                         on_max_violation=step.on_max_violation,
                         state_path=path,
@@ -457,7 +667,15 @@ async def perform_action(
 
             if isinstance(step, DecrementValueStep):
                 _validate_caster_target(step.target)
-                amount = evaluate_numeric_formula(formula_root, step.amount)
+                amount = _resolve_action_numeric_value(
+                    state=state,
+                    actor=current_actor,
+                    formula_root=formula_root,
+                    value=step.amount,
+                    action_id=current_action.id,
+                    step_id=step.step_id,
+                    action_values=action_values,
+                )
                 path = state_sync_service.join_path(
                     current_actor.mutation_root, current_actor.actor_id, *step.path
                 )
@@ -469,9 +687,17 @@ async def perform_action(
                     )
                     result = _bounded_numeric_result(
                         current_value - amount,
-                        formula_root=formula_root,
                         min_value=step.min_value,
                         max_value=step.max_value,
+                        evaluate_bound=lambda value: _resolve_action_numeric_value(
+                            state=state,
+                            actor=current_actor,
+                            formula_root=formula_root,
+                            value=value,
+                            action_id=current_action.id,
+                            step_id=step.step_id,
+                            action_values=action_values,
+                        ),
                         on_min_violation=step.on_min_violation,
                         on_max_violation=step.on_max_violation,
                         state_path=path,
@@ -501,16 +727,24 @@ async def perform_action(
                 )
                 damage_taken = _resolve_damage_amount(
                     actor=current_actor,
-                    formula_root=formula_root,
                     damage_type=step.damage_type,
-                    amount=step.amount,
+                    raw_damage=_resolve_action_numeric_value(
+                        state=state,
+                        actor=current_actor,
+                        formula_root=formula_root,
+                        value=step.amount,
+                        action_id=current_action.id,
+                        step_id=step.step_id,
+                        action_values=action_values,
+                        semantic_tags=("damage", step.damage_type),
+                    ),
                 )
                 result = normalize_numeric_result(
                     max(0, current_health - damage_taken)
                 )
                 op = state_sync_service.set_mutation(state, path, result)
                 ops.append(op)
-                resistance = _effective_damage_resistance(
+                resistance = effective_damage_resistance(
                     current_actor,
                     step.damage_type,
                 )
@@ -523,7 +757,15 @@ async def perform_action(
             if isinstance(step, GainProficiencyUseStep):
                 _validate_caster_target(step.target)
                 amount = _positive_int_amount(
-                    evaluate_numeric_formula(formula_root, step.amount),
+                    _resolve_action_numeric_value(
+                        state=state,
+                        actor=current_actor,
+                        formula_root=formula_root,
+                        value=step.amount,
+                        action_id=current_action.id,
+                        step_id=step.step_id,
+                        action_values=action_values,
+                    ),
                     label="Proficiency use gain amount",
                 )
                 bridge_key = _proficiency_bridge_key(
@@ -622,9 +864,9 @@ async def perform_action(
                 f"Unsupported runtime action step '{step.__class__.__name__}'."
             )
 
-        if request.roll_mode != "normal" and not roll_mode_applied:
+        if roll_mode_requires_check and not roll_mode_applied:
             raise ValueError(
-                f"Roll mode '{request.roll_mode}' requires an authored 1d100 "
+                f"Roll mode '{unresolved_roll_mode}' requires an authored 1d100 "
                 "Roll20 check expression."
             )
 

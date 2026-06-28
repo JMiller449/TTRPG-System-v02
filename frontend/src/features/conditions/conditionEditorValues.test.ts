@@ -126,6 +126,13 @@ describe("conditionEditorValues", () => {
           aliases: null,
           text: "2"
         },
+        selector: {
+          required_tags: [],
+          excluded_tags: [],
+          action_id: null,
+          formula_id: null,
+          step_id: null
+        },
         type: "formula_modifier"
       },
       active: true,
@@ -152,10 +159,11 @@ describe("conditionEditorValues", () => {
       conditionName: "Poisoned"
     });
 
-    expect(upsertConditionAugmentationTemplate(condition(), augmentation)?.augmentation_ids).toEqual([
-      "poison-drain",
-      "poison-pain"
-    ]);
-    expect(removeConditionAugmentationTemplate(condition(), "poison-drain")?.augmentation_ids).toEqual([]);
+    expect(
+      upsertConditionAugmentationTemplate(condition(), augmentation)?.augmentation_ids
+    ).toEqual(["poison-drain", "poison-pain"]);
+    expect(
+      removeConditionAugmentationTemplate(condition(), "poison-drain")?.augmentation_ids
+    ).toEqual([]);
   });
 });

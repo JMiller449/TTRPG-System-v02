@@ -10,7 +10,9 @@ from backend.state.models.augmentation import (
     AugmentationLifecycle,
     AugmentationSource,
     AugmentationTarget,
+    EvaluationFormulaModifierEffect,
     FormulaModifierEffect,
+    RollModeModifierEffect,
 )
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import Formula, FormulaAliases
@@ -245,6 +247,54 @@ def test_apply_augmentation_mutates_target_and_marks_record(monkeypatch) -> None
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "effect",
+    [
+        EvaluationFormulaModifierEffect(
+            operation="add",
+            value=Formula(aliases=None, text="5"),
+        ),
+        RollModeModifierEffect(roll_mode="advantage"),
+    ],
+)
+def test_evaluation_time_effect_lifecycle_does_not_mutate_target(effect) -> None:
+    state = deepcopy(DEFAULT_STATE)
+    state.instanced_sheets["inst-1"] = _build_instance()
+    augmentation = _build_augmentation()
+    augmentation.effect = effect
+    state.augmentations[augmentation.id] = augmentation
+
+    applied, apply_ops = augmentation_service.apply_augmentation_mutation(
+        state,
+        augmentation.id,
+        instance_id="inst-1",
+    )
+
+    assert applied.operation == "applied"
+    assert applied.reason == "evaluation_time_effect_activated"
+    assert applied.target_path is None
+    assert applied.value is None
+    assert state.instanced_sheets["inst-1"].health == 10
+    assert [op.path for op in apply_ops] == [
+        "/augmentations/aug-1/applied",
+        "/augmentations/aug-1/applied_target_id",
+    ]
+
+    removed, remove_ops = augmentation_service.remove_augmentation_mutation(
+        state,
+        augmentation.id,
+        instance_id="inst-1",
+    )
+
+    assert removed.operation == "removed"
+    assert removed.reason == "evaluation_time_effect_deactivated"
+    assert state.instanced_sheets["inst-1"].health == 10
+    assert [op.path for op in remove_ops] == [
+        "/augmentations/aug-1/applied",
+        "/augmentations/aug-1/applied_target_id",
+    ]
 
 
 def test_apply_augmentation_accepts_sheet_catalog_target(monkeypatch) -> None:

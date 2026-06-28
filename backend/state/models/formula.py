@@ -1,12 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from typing import Any, List, Optional, TYPE_CHECKING
 
 from backend.state.models.proficiency import ProficiencyBridge
 
 if TYPE_CHECKING:
     from backend.state.models.sheet import Sheet
+
+
+def normalize_formula_tags(tags: Iterable[str] | None) -> list[str]:
+    normalized_tags: list[str] = []
+    seen: set[str] = set()
+    for tag in tags or []:
+        if not isinstance(tag, str):
+            raise ValueError("Formula tags must be strings.")
+        normalized = " ".join(tag.split()).casefold()
+        if not normalized:
+            raise ValueError("Formula tags must not be empty.")
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        normalized_tags.append(normalized)
+    return normalized_tags
 
 
 @dataclass
@@ -28,6 +45,11 @@ class Formula:
     """Aliases resolved relative to the provided root object."""
     text: str
     """Formula text using @alias placeholders, for example '@strength * 2'."""
+    tags: list[str] = field(default_factory=list)
+    """Normalized semantic labels used for evaluation-time modifier matching."""
+
+    def __post_init__(self) -> None:
+        self.tags = normalize_formula_tags(self.tags)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Formula":
@@ -37,6 +59,7 @@ class Formula:
             if aliases is None
             else [FormulaAliases.from_dict(alias) for alias in aliases],
             text=raw["text"],
+            tags=normalize_formula_tags(raw.get("tags")),
         )
 
     def _resolve_path_value(

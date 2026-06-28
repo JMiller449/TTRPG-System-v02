@@ -23,6 +23,17 @@ export function FormulaDefinitionCard({
       </div>
       <div className="muted">Formula: {formula.formula.text}</div>
       <div className="muted">Aliases: {formulaAliasSummary(formula)}</div>
+      <div className="formula-tag-list" aria-label={`Tags for ${formula.id}`}>
+        {(formula.formula.tags ?? []).length > 0 ? (
+          (formula.formula.tags ?? []).map((tag) => (
+            <span className="formula-tag formula-tag--display" key={tag}>
+              {tag}
+            </span>
+          ))
+        ) : (
+          <span className="muted">Tags: (none)</span>
+        )}
+      </div>
       <div className="inline-actions">
         <button className="button button--secondary" onClick={onEdit}>
           Edit

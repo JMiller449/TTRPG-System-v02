@@ -37,6 +37,13 @@ const testAugmentation: Augmentation = {
       ],
       text: "@arcane + 2"
     },
+    selector: {
+      required_tags: ["damage", "arcane"],
+      excluded_tags: ["healing"],
+      action_id: "action_1",
+      formula_id: "formula_1",
+      step_id: "step_1"
+    },
     type: "formula_modifier"
   },
   active: true,
@@ -57,7 +64,9 @@ describe("augmentationEditorValues", () => {
       active: true,
       targetRoot: "instance",
       targetPath: ["resistances", "arcane", "resistance"],
+      effectType: "formula_modifier",
       operation: "add",
+      rollMode: "advantage",
       formulaText: "@arcane + 2",
       formulaAliases: [
         {
@@ -65,9 +74,68 @@ describe("augmentationEditorValues", () => {
           path: ["sheet", "stats", "arcane"]
         }
       ],
+      selectorRequiredTags: ["damage", "arcane"],
+      selectorExcludedTags: ["healing"],
+      selectorActionId: "action_1",
+      selectorFormulaId: "formula_1",
+      selectorStepId: "step_1",
       duration: "encounter",
       expiresAt: "",
       removalCondition: "item removed"
+    });
+  });
+
+  it("builds evaluation-time numeric and roll-mode effects without mutating formulas", () => {
+    const values = createEmptyAugmentationEditorValues();
+    values.name = "Focused Strike";
+    values.targetPath = ["health"];
+    values.effectType = "evaluation_formula_modifier";
+    values.operation = "add";
+    values.formulaText = "2";
+    values.selectorRequiredTags = ["damage"];
+
+    expect(
+      toItemAugmentationTemplatePayload({
+        values,
+        augmentationId: "focused-strike",
+        itemId: "item_1",
+        itemName: "Focus"
+      }).effect
+    ).toEqual({
+      operation: "add",
+      value: { aliases: null, text: "2" },
+      selector: {
+        required_tags: ["damage"],
+        excluded_tags: [],
+        action_id: null,
+        formula_id: null,
+        step_id: null
+      },
+      type: "evaluation_formula_modifier"
+    });
+
+    values.effectType = "roll_mode_modifier";
+    values.rollMode = "disadvantage";
+    values.formulaText = "";
+
+    expect(hasValidAugmentationEditorValues(values)).toBe(true);
+    expect(
+      toItemAugmentationTemplatePayload({
+        values,
+        augmentationId: "hampered",
+        itemId: "item_1",
+        itemName: "Focus"
+      }).effect
+    ).toEqual({
+      roll_mode: "disadvantage",
+      selector: {
+        required_tags: ["damage"],
+        excluded_tags: [],
+        action_id: null,
+        formula_id: null,
+        step_id: null
+      },
+      type: "roll_mode_modifier"
     });
   });
 
@@ -85,6 +153,11 @@ describe("augmentationEditorValues", () => {
         path: ["sheet", "stats", "arcane"]
       }
     ];
+    values.selectorRequiredTags = [" Damage ", "ARCANE", "damage"];
+    values.selectorExcludedTags = [" Healing "];
+    values.selectorActionId = " action_1 ";
+    values.selectorFormulaId = " formula_1 ";
+    values.selectorStepId = " step_1 ";
     values.duration = " encounter ";
     values.removalCondition = " item removed ";
 
@@ -119,6 +192,13 @@ describe("augmentationEditorValues", () => {
             }
           ],
           text: "@arcane + 2"
+        },
+        selector: {
+          required_tags: ["damage", "arcane"],
+          excluded_tags: ["healing"],
+          action_id: "action_1",
+          formula_id: "formula_1",
+          step_id: "step_1"
         },
         type: "formula_modifier"
       },
@@ -171,6 +251,10 @@ describe("augmentationEditorValues", () => {
 
     values.targetPath = ["stats", "arcane"];
     expect(hasValidAugmentationEditorValues(values)).toBe(true);
+
+    values.selectorRequiredTags = ["damage"];
+    values.selectorExcludedTags = ["DAMAGE"];
+    expect(hasValidAugmentationEditorValues(values)).toBe(false);
   });
 
   it("maps metadata target selections into editor target values", () => {

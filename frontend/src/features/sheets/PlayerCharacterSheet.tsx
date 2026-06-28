@@ -73,14 +73,6 @@ export function PlayerCharacterSheet({
     setActiveTab("stats");
   }, [detail?.instance.id]);
 
-  const formattedUpdatedAt =
-    detail && detail.instance.updatedAt
-      ? (() => {
-          const parsed = new Date(detail.instance.updatedAt);
-          return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString();
-        })()
-      : null;
-
   if (!detail) {
     return (
       <Panel title="Character Sheet">
@@ -127,7 +119,6 @@ export function PlayerCharacterSheet({
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
       <p className="character-sheet__panel-subtext muted">
         Sheet ID: {detail.instance.id}
-        {formattedUpdatedAt ? ` · Updated: ${formattedUpdatedAt}` : ""}
       </p>
       <article className="character-sheet">
         <header className="character-sheet__header">
@@ -136,7 +127,6 @@ export function PlayerCharacterSheet({
           </div>
           <div className="character-sheet__header-right">
             <SheetResourceHeader
-              mode={mode}
               stats={detail.stats}
               resources={resourceEditor.resources}
               editingResource={resourceEditor.editingResource}

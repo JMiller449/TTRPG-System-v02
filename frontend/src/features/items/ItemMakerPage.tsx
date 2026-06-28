@@ -7,6 +7,7 @@ import {
   toAugmentationEditorValues,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
+import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import {
   buildLoadItemAugmentationTargetMetadataSubmission,
   buildRemoveItemAugmentationTemplateSubmission,
@@ -32,7 +33,14 @@ import { makeId } from "@/shared/utils/id";
 export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { items: itemRecords, itemOrder },
+      serverState: {
+        items: itemRecords,
+        itemOrder,
+        actions: actionRecords,
+        actionOrder,
+        formulas: formulaRecords,
+        formulaOrder
+      },
       uiState: { augmentationTargetMetadata }
     }
   } = useAppStore();
@@ -47,6 +55,16 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const items = useMemo(
     () => selectOrderedItemDefinitions(itemRecords, itemOrder),
     [itemOrder, itemRecords]
+  );
+  const selectorOptions = useMemo(
+    () =>
+      buildAugmentationSelectorOptions({
+        actionRecords,
+        actionOrder,
+        formulaRecords,
+        formulaOrder
+      }),
+    [actionOrder, actionRecords, formulaOrder, formulaRecords]
   );
   const selectedItem = editingItemId ? itemRecords[editingItemId] : undefined;
   const targetOptions =
@@ -140,12 +158,12 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     >
       <div className="stack">
         <p className="muted">
-          Split item effects into two fields: immediate effects that impact wearer stats vs non-immediate effects used
-          for other systems (for example, enchanting).
+          Split item effects into two fields: immediate effects that impact wearer stats vs
+          non-immediate effects used for other systems (for example, enchanting).
         </p>
         <p className="muted">
-          TODO: validate seeded reference-item effect splits against final rules authority where classification is
-          ambiguous.
+          TODO: validate seeded reference-item effect splits against final rules authority where
+          classification is ambiguous.
         </p>
 
         <ItemEditorForm
@@ -162,6 +180,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
             editingAugmentationId={editingAugmentationId}
             templates={selectItemAugmentationTemplates(selectedItem)}
             targetOptions={targetOptions}
+            selectorOptions={selectorOptions}
             values={augmentationValues}
             onChange={setAugmentationValues}
             onSubmit={submitAugmentation}

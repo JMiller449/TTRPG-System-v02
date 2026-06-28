@@ -14,6 +14,7 @@ from backend.features.session.models import SessionRole, WebSocketSession
 
 EXPECTED_ROUTE_MINIMUM_ROLES = {
     "adjust_instanced_sheet_resource": "player",
+    "apply_instanced_sheet_damage": "player",
     "authenticate": "unauthenticated",
     "claim_sheet_access_code": "player",
     "create_action": "dm",
@@ -75,6 +76,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
 
 EXPECTED_CUSTOM_DENIAL_REASONS = {
     "adjust_instanced_sheet_resource": "Authenticate first to edit current resources.",
+    "apply_instanced_sheet_damage": "Authenticate first to edit current resources.",
     "claim_sheet_access_code": "Authenticate first to claim a sheet access code.",
     "create_item": "Only a DM can edit equipment.",
     "create_proficiency": "Only a DM can edit proficiencies.",

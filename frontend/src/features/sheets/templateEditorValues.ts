@@ -1,4 +1,4 @@
-import type { Sheet, SheetKind, SheetPresentation, Stats } from "@/domain/models";
+import type { Sheet, SheetKind, Stats } from "@/domain/models";
 import {
   CORE_TEMPLATE_STATS,
   type CoreTemplateStatKey,
@@ -80,20 +80,18 @@ function parseNonnegativeInteger(raw: string): number {
   return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-export function toTemplateEditorValues(
-  sheet: Sheet,
-  presentation?: SheetPresentation
-): TemplateEditorValues {
-  const base = createEmptyTemplateEditorValues(presentation?.kind ?? (sheet.dm_only ? "enemy" : "player"));
+export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
+  const kind = sheet.dm_only ? "enemy" : "player";
+  const base = createEmptyTemplateEditorValues(kind);
   CORE_TEMPLATE_STATS.forEach((key) => {
     base.coreStats[key] = String(sheet.stats[key] ?? "");
   });
 
   return {
     ...base,
-    kind: presentation?.kind ?? (sheet.dm_only ? "enemy" : "player"),
+    kind,
     name: sheet.name,
-    notes: presentation?.notes ?? sheet.notes ?? "",
+    notes: sheet.notes ?? "",
     xpGivenWhenSlayed: sheet.xp_given_when_slayed
       ? String(sheet.xp_given_when_slayed)
       : "",
@@ -174,14 +172,5 @@ export function toSheetChanges(values: TemplateEditorValues): Partial<Sheet> {
       ...createDefaultStats(),
       ...coreStats
     }
-  };
-}
-
-export function toSheetPresentation(values: TemplateEditorValues): SheetPresentation {
-  return {
-    kind: values.kind,
-    notes: values.notes.trim(),
-    tags: [],
-    updatedAt: new Date().toISOString()
   };
 }

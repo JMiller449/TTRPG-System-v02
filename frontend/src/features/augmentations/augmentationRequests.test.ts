@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemDefinition } from "@/domain/models";
-import {
-  createEmptyAugmentationEditorValues
-} from "@/features/augmentations/augmentationEditorValues";
+import { createEmptyAugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
 import {
   buildLoadItemAugmentationTargetMetadataSubmission,
   buildRemoveItemAugmentationTemplateSubmission,
@@ -39,7 +37,9 @@ describe("augmentationRequests", () => {
       }
     ];
 
-    expect(selectItemAugmentationTemplates(testItem({ augmentation_templates: templates }))).toEqual(templates);
+    expect(
+      selectItemAugmentationTemplates(testItem({ augmentation_templates: templates }))
+    ).toEqual(templates);
     expect(selectItemAugmentationTemplates(undefined)).toEqual([]);
   });
 
@@ -91,6 +91,13 @@ describe("augmentationRequests", () => {
             value: {
               aliases: null,
               text: "2"
+            },
+            selector: {
+              required_tags: [],
+              excluded_tags: [],
+              action_id: null,
+              formula_id: null,
+              step_id: null
             },
             type: "formula_modifier"
           },

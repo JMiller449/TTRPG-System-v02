@@ -6,6 +6,9 @@ from typing import Any, Literal
 
 from backend.core.transport import PatchOp
 from backend.features.formula_runtime.service import (
+    FormulaExecutionContext,
+    EvaluationTimeEffect,
+    apply_numeric_operation,
     evaluate_numeric_formula,
     normalize_numeric_result,
 )
@@ -42,7 +45,73 @@ class _ResolvedTarget:
 
 
 def _evaluate_formula(root: Any, augmentation: Augmentation) -> float | int:
+    if augmentation.effect.type == "roll_mode_modifier":
+        raise ValueError("Roll-mode modifier effects do not contain numeric formulas.")
     return evaluate_numeric_formula(root, augmentation.effect.value)
+
+
+def _is_evaluation_time_effect(augmentation: Augmentation) -> bool:
+    return augmentation.effect.type in {
+        "evaluation_formula_modifier",
+        "roll_mode_modifier",
+    }
+
+
+def _effect_matches_context(
+    effect: EvaluationTimeEffect,
+    context: FormulaExecutionContext,
+) -> bool:
+    return effect.selector.matches(
+        tags=list(context.tags),
+        action_id=context.action_id,
+        formula_id=context.formula_id,
+        step_id=context.step_id,
+    )
+
+
+def matching_evaluation_effects(
+    state: State,
+    *,
+    sheet_id: str,
+    instance_id: str | None,
+    context: FormulaExecutionContext,
+) -> tuple[EvaluationTimeEffect, ...]:
+    effects: list[EvaluationTimeEffect] = []
+
+    for augmentation in state.augmentations.values():
+        if (
+            not augmentation.active
+            or not augmentation.applied
+            or not _is_evaluation_time_effect(augmentation)
+        ):
+            continue
+        expected_target_id = sheet_id if augmentation.scope == "sheet" else instance_id
+        if expected_target_id is None:
+            continue
+        if augmentation.applied_target_id != expected_target_id:
+            continue
+        if _effect_matches_context(augmentation.effect, context):
+            effects.append(augmentation.effect)
+
+    sheet = state.sheets.get(sheet_id)
+    if sheet is None:
+        return tuple(effects)
+
+    for bridge in sheet.items.values():
+        if not bridge.active or bridge.count <= 0:
+            continue
+        item = state.items.get(bridge.item_id)
+        if item is None:
+            continue
+        for template in item.augmentation_templates:
+            if not template.active or not _is_evaluation_time_effect(template):
+                continue
+            if template.scope == "instance" and instance_id is None:
+                continue
+            if _effect_matches_context(template.effect, context):
+                effects.append(template.effect)
+
+    return tuple(effects)
 
 
 def _target_label(augmentation: Augmentation) -> str:
@@ -138,26 +207,6 @@ def _current_numeric_value(state: State, state_path: str) -> int | float:
     return value
 
 
-def _apply_operation(
-    current_value: int | float,
-    modifier: int | float,
-    operation: str,
-) -> int | float:
-    if operation == "add":
-        return normalize_numeric_result(current_value + modifier)
-    if operation == "subtract":
-        return normalize_numeric_result(current_value - modifier)
-    if operation == "multiply":
-        return normalize_numeric_result(current_value * modifier)
-    if operation == "divide":
-        if modifier == 0:
-            raise ValueError("Augmentation divide operation cannot use zero.")
-        return normalize_numeric_result(current_value / modifier)
-    if operation == "set":
-        return modifier
-    raise ValueError(f"Unsupported augmentation operation '{operation}'.")
-
-
 def _remove_operation(
     current_value: int | float,
     modifier: int | float,
@@ -238,9 +287,25 @@ def _apply_augmentation_mutation(
         sheet_id=sheet_id,
         instance_id=instance_id,
     )
+    if _is_evaluation_time_effect(augmentation):
+        ops = _set_application_state_ops(
+            state,
+            augmentation_id,
+            applied=True,
+            applied_target_id=target.target_id,
+        )
+        return (
+            AugmentationMutationResult(
+                augmentation_id=augmentation_id,
+                operation="applied",
+                reason="evaluation_time_effect_activated",
+            ),
+            ops,
+        )
+
     current_value = _current_numeric_value(state, target.state_path)
     modifier = _evaluate_formula(target.root, augmentation)
-    next_value = _apply_operation(
+    next_value = apply_numeric_operation(
         current_value,
         modifier,
         augmentation.effect.operation,
@@ -312,6 +377,22 @@ def _remove_augmentation_mutation(
         raise ValueError(
             f"Augmentation '{augmentation_id}' is applied to "
             f"'{augmentation.applied_target_id}', not '{target.target_id}'."
+        )
+
+    if _is_evaluation_time_effect(augmentation):
+        ops = _set_application_state_ops(
+            state,
+            augmentation_id,
+            applied=False,
+            applied_target_id=None,
+        )
+        return (
+            AugmentationMutationResult(
+                augmentation_id=augmentation_id,
+                operation="removed",
+                reason="evaluation_time_effect_deactivated",
+            ),
+            ops,
         )
 
     current_value = _current_numeric_value(state, target.state_path)

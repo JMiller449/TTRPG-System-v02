@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from backend.state.models.formula import normalize_formula_tags
 
 
 class ProtocolModel(BaseModel):
@@ -42,6 +51,7 @@ class FormulaAliasPayload(ProtocolModel):
 class FormulaPayload(ProtocolModel):
     aliases: list[FormulaAliasPayload] | None
     text: str
+    tags: list[str] = Field(default_factory=list)
 
 
 class ProficiencyBridgePayload(ProtocolModel):
@@ -164,9 +174,24 @@ class SendMessageStepPayload(ProtocolModel):
     type: Literal["send_message"]
 
 
+class CalculateValueStepPayload(ProtocolModel):
+    step_id: str
+    variable_id: str
+    value: FormulaPayload
+    type: Literal["calculate_value"]
+
+
+class CalculatedValueReferencePayload(ProtocolModel):
+    variable_id: str
+    type: Literal["calculated_value"]
+
+
+NumericValuePayload = FormulaPayload | CalculatedValueReferencePayload
+
+
 class NumericBoundsPayload(ProtocolModel):
-    min_value: FormulaPayload | None = None
-    max_value: FormulaPayload | None = None
+    min_value: NumericValuePayload | None = None
+    max_value: NumericValuePayload | None = None
     on_min_violation: Literal["clamp", "reject"] = "clamp"
     on_max_violation: Literal["clamp", "reject"] = "clamp"
 
@@ -174,7 +199,7 @@ class NumericBoundsPayload(ProtocolModel):
 class SetValueStepPayload(NumericBoundsPayload):
     step_id: str
     path: list[str]
-    value: FormulaPayload
+    value: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["set_value"]
 
@@ -182,7 +207,7 @@ class SetValueStepPayload(NumericBoundsPayload):
 class IncrementValueStepPayload(NumericBoundsPayload):
     step_id: str
     path: list[str]
-    amount: FormulaPayload
+    amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["increment_value"]
 
@@ -190,7 +215,7 @@ class IncrementValueStepPayload(NumericBoundsPayload):
 class DecrementValueStepPayload(NumericBoundsPayload):
     step_id: str
     path: list[str]
-    amount: FormulaPayload
+    amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["decrement_value"]
 
@@ -198,7 +223,7 @@ class DecrementValueStepPayload(NumericBoundsPayload):
 class ResolveDamageStepPayload(ProtocolModel):
     step_id: str
     damage_type: DamageTypePayload
-    amount: FormulaPayload
+    amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["resolve_damage"]
 
@@ -206,7 +231,7 @@ class ResolveDamageStepPayload(ProtocolModel):
 class GainProficiencyUseStepPayload(ProtocolModel):
     step_id: str
     proficiency_id: str
-    amount: FormulaPayload
+    amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["gain_proficiency_use"]
 
@@ -229,6 +254,7 @@ class ApplyConditionPresetStepPayload(ProtocolModel):
 
 ActionStepPayload = Annotated[
     SendMessageStepPayload
+    | CalculateValueStepPayload
     | SetValueStepPayload
     | IncrementValueStepPayload
     | DecrementValueStepPayload
@@ -272,14 +298,70 @@ class AugmentationTargetPayload(ProtocolModel):
     path: list[str]
 
 
+class FormulaModifierSelectorPayload(ProtocolModel):
+    required_tags: list[str] = Field(default_factory=list)
+    excluded_tags: list[str] = Field(default_factory=list)
+    action_id: str | None = None
+    formula_id: str | None = None
+    step_id: str | None = None
+
+    @field_validator("required_tags", "excluded_tags")
+    @classmethod
+    def normalize_tags(cls, value: list[str]) -> list[str]:
+        return normalize_formula_tags(value)
+
+    @field_validator("action_id", "formula_id", "step_id")
+    @classmethod
+    def normalize_id(cls, value: str | None, info: ValidationInfo) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError(f"{info.field_name} must not be empty.")
+        return normalized
+
+    @model_validator(mode="after")
+    def reject_conflicting_tags(self) -> "FormulaModifierSelectorPayload":
+        overlap = set(self.required_tags) & set(self.excluded_tags)
+        if overlap:
+            tags = ", ".join(sorted(overlap))
+            raise ValueError(
+                "Formula modifier selector tags cannot be both required and "
+                f"excluded: {tags}."
+            )
+        return self
+
+
 class FormulaModifierEffectPayload(ProtocolModel):
     operation: Literal["add", "subtract", "multiply", "divide", "set"]
     value: FormulaPayload
+    selector: FormulaModifierSelectorPayload = Field(
+        default_factory=FormulaModifierSelectorPayload
+    )
     type: Literal["formula_modifier"] = "formula_modifier"
 
 
+class EvaluationFormulaModifierEffectPayload(ProtocolModel):
+    operation: Literal["add", "subtract", "multiply", "divide", "set"]
+    value: FormulaPayload
+    selector: FormulaModifierSelectorPayload = Field(
+        default_factory=FormulaModifierSelectorPayload
+    )
+    type: Literal["evaluation_formula_modifier"] = "evaluation_formula_modifier"
+
+
+class RollModeModifierEffectPayload(ProtocolModel):
+    roll_mode: Literal["advantage", "disadvantage"]
+    selector: FormulaModifierSelectorPayload = Field(
+        default_factory=FormulaModifierSelectorPayload
+    )
+    type: Literal["roll_mode_modifier"] = "roll_mode_modifier"
+
+
 AugmentationEffectPayload = Annotated[
-    FormulaModifierEffectPayload,
+    FormulaModifierEffectPayload
+    | EvaluationFormulaModifierEffectPayload
+    | RollModeModifierEffectPayload,
     Field(discriminator="type"),
 ]
 

@@ -417,6 +417,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["adjust_instanced_sheet_resource"].emitted_event_models == (
         StatePatchEvent,
     )
+    assert contracts["apply_instanced_sheet_damage"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceResources",
+            method_name="applyInstancedSheetDamage",
+        )
+    )
+    assert contracts["apply_instanced_sheet_damage"].minimum_role == "player"
+    assert contracts["apply_instanced_sheet_damage"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["create_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",

@@ -77,6 +77,42 @@ def test_dm_can_create_formula(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_dm_formula_create_normalizes_semantic_tags(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _formula_definition_payload()
+            payload["formula"]["tags"] = [
+                " Damage ",
+                "FIRE",
+                "damage",
+                "  spell   attack ",
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_formula",
+                    "formula": payload,
+                },
+            )
+
+            formula = StateSingleton.getState().formulas["max_health"].formula
+            assert formula.tags == ["damage", "fire", "spell attack"]
+            assert websocket.sent_messages[0]["ops"][0]["value"]["formula"][
+                "tags"
+            ] == ["damage", "fire", "spell attack"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_update_formula(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

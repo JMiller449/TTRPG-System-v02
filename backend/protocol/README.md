@@ -39,6 +39,11 @@ npm run generate:protocol
 - App-route auth availability is part of that registry-backed contract surface via
   the generated `minimumRole` metadata.
 
+Formula payloads include optional semantic `tags`. The backend normalizes tags by
+trimming and collapsing whitespace, case-folding, and removing duplicates while
+preserving first-seen order. Missing tags remain backward compatible and load as
+an empty list.
+
 ## Canonical Application Requests
 
 Application websocket requests are discriminated by `type`.
@@ -62,6 +67,10 @@ Application websocket requests are discriminated by `type`.
 - `update_sheet`
 - `delete_sheet`
 - `create_instanced_sheet`
+- `set_instanced_sheet_notes`
+- `set_instanced_sheet_resource`
+- `adjust_instanced_sheet_resource`
+- `apply_instanced_sheet_damage`
 - `create_sheet_action_bridge`
 - `update_sheet_action_bridge`
 - `delete_sheet_action_bridge`

@@ -28,12 +28,11 @@ export interface AssignedSheetAction {
   bridge: Bridge;
 }
 
-function getSheetKind(state: AppState, sheet: Sheet | null): SheetKind {
-  const { serverState } = state;
+function getSheetKind(sheet: Sheet | null): SheetKind {
   if (!sheet) {
     return "player";
   }
-  return serverState.sheetPresentation[sheet.id]?.kind ?? (sheet.dm_only ? "enemy" : "player");
+  return sheet.dm_only ? "enemy" : "player";
 }
 
 function readFormulaNumber(text: string): number {
@@ -86,15 +85,13 @@ export function selectSheetTemplateView(
     return null;
   }
 
-  const presentation = serverState.sheetPresentation[sheet.id];
   return {
     id: sheet.id,
     sheet,
-    kind: getSheetKind(state, sheet),
+    kind: getSheetKind(sheet),
     name: sheet.name,
-    notes: sheet.notes ?? presentation?.notes ?? "",
-    stats: buildBaseStatValues(sheet),
-    updatedAt: presentation?.updatedAt ?? ""
+    notes: sheet.notes ?? "",
+    stats: buildBaseStatValues(sheet)
   };
 }
 
@@ -115,17 +112,14 @@ export function selectSheetInstanceView(
   }
 
   const sheet = serverState.sheets[persistentSheet.parent_id] ?? null;
-  const sheetPresentation = sheet ? serverState.sheetPresentation[sheet.id] : undefined;
-  const persistentPresentation = serverState.persistentSheetPresentation[persistentSheetId];
 
   return {
     id: persistentSheetId,
     persistentSheet,
     parentSheet: sheet,
-    kind: getSheetKind(state, sheet),
-    name: persistentPresentation?.name ?? sheet?.name ?? persistentSheetId,
-    notes: persistentSheet.notes ?? sheet?.notes ?? sheetPresentation?.notes ?? "",
-    updatedAt: persistentPresentation?.updatedAt ?? sheetPresentation?.updatedAt ?? ""
+    kind: getSheetKind(sheet),
+    name: sheet?.name ?? persistentSheetId,
+    notes: persistentSheet.notes ?? sheet?.notes ?? ""
   };
 }
 

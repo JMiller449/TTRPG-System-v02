@@ -492,6 +492,14 @@ def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
                                     "value": {
                                         "aliases": None,
                                         "text": "5",
+                                        "tags": [],
+                                    },
+                                    "selector": {
+                                        "required_tags": [],
+                                        "excluded_tags": [],
+                                        "action_id": None,
+                                        "formula_id": None,
+                                        "step_id": None,
                                     },
                                     "type": "formula_modifier",
                                 },

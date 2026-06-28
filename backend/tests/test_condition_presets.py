@@ -52,6 +52,14 @@ def _augmentation_template(
             "value": {
                 "aliases": None,
                 "text": "2",
+                "tags": [],
+            },
+            "selector": {
+                "required_tags": [],
+                "excluded_tags": [],
+                "action_id": None,
+                "formula_id": None,
+                "step_id": None,
             },
         },
         "active": True,

@@ -1,5 +1,6 @@
 import { Field } from "@/shared/ui/Field";
 import type { FormulaEditorValues } from "@/features/formulas/formulaEditorValues";
+import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
 
 export function FormulaEditorForm({
   editingFormulaId,
@@ -16,7 +17,9 @@ export function FormulaEditorForm({
 }): JSX.Element {
   return (
     <div className="template-editor formula-editor">
-      <p className="template-editor__title">{editingFormulaId ? "Edit Formula" : "Create Formula"}</p>
+      <p className="template-editor__title">
+        {editingFormulaId ? "Edit Formula" : "Create Formula"}
+      </p>
       <div className="stack">
         <Field label="Formula">
           <textarea
@@ -26,6 +29,8 @@ export function FormulaEditorForm({
             placeholder="@arcane * 8"
           />
         </Field>
+
+        <FormulaTagEditor tags={values.tags} onChange={(tags) => onChange({ ...values, tags })} />
 
         {values.aliases && values.aliases.length > 0 ? (
           <div className="list">

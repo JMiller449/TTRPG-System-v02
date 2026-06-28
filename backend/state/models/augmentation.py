@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from backend.state.models.formula import Formula
+from backend.state.models.formula import Formula, normalize_formula_tags
 
 AugmentationSourceType = Literal[
     "item",
@@ -17,6 +17,7 @@ AugmentationSourceType = Literal[
 AugmentationScope = Literal["sheet", "instance"]
 AugmentationTargetRoot = Literal["state", "sheet", "instance"]
 AugmentationOperation = Literal["add", "subtract", "multiply", "divide", "set"]
+RollMode = Literal["advantage", "disadvantage"]
 
 
 @dataclass
@@ -47,10 +48,77 @@ class AugmentationTarget:
         )
 
 
+def _normalize_selector_id(value: str | None, *, label: str) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"Formula modifier selector {label} must not be empty.")
+    return normalized
+
+
+@dataclass
+class FormulaModifierSelector:
+    required_tags: list[str] = field(default_factory=list)
+    excluded_tags: list[str] = field(default_factory=list)
+    action_id: str | None = None
+    formula_id: str | None = None
+    step_id: str | None = None
+
+    def __post_init__(self) -> None:
+        self.required_tags = normalize_formula_tags(self.required_tags)
+        self.excluded_tags = normalize_formula_tags(self.excluded_tags)
+        overlap = set(self.required_tags) & set(self.excluded_tags)
+        if overlap:
+            tags = ", ".join(sorted(overlap))
+            raise ValueError(
+                "Formula modifier selector tags cannot be both required and "
+                f"excluded: {tags}."
+            )
+        self.action_id = _normalize_selector_id(self.action_id, label="action_id")
+        self.formula_id = _normalize_selector_id(self.formula_id, label="formula_id")
+        self.step_id = _normalize_selector_id(self.step_id, label="step_id")
+
+    @classmethod
+    def from_dict(cls, raw: dict | None) -> "FormulaModifierSelector":
+        if raw is None:
+            return cls()
+        return cls(
+            required_tags=list(raw.get("required_tags", [])),
+            excluded_tags=list(raw.get("excluded_tags", [])),
+            action_id=raw.get("action_id"),
+            formula_id=raw.get("formula_id"),
+            step_id=raw.get("step_id"),
+        )
+
+    def matches(
+        self,
+        *,
+        tags: list[str],
+        action_id: str | None = None,
+        formula_id: str | None = None,
+        step_id: str | None = None,
+    ) -> bool:
+        context_tags = set(normalize_formula_tags(tags))
+        if not set(self.required_tags).issubset(context_tags):
+            return False
+        if set(self.excluded_tags) & context_tags:
+            return False
+        return all(
+            expected is None or expected == actual
+            for expected, actual in (
+                (self.action_id, action_id),
+                (self.formula_id, formula_id),
+                (self.step_id, step_id),
+            )
+        )
+
+
 @dataclass
 class FormulaModifierEffect:
     operation: AugmentationOperation
     value: Formula
+    selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
     type: Literal["formula_modifier"] = "formula_modifier"
 
     @classmethod
@@ -58,10 +126,43 @@ class FormulaModifierEffect:
         return cls(
             operation=raw["operation"],
             value=Formula.from_dict(raw["value"]),
+            selector=FormulaModifierSelector.from_dict(raw.get("selector")),
         )
 
 
-AugmentationEffect = FormulaModifierEffect
+@dataclass
+class EvaluationFormulaModifierEffect:
+    operation: AugmentationOperation
+    value: Formula
+    selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
+    type: Literal["evaluation_formula_modifier"] = "evaluation_formula_modifier"
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "EvaluationFormulaModifierEffect":
+        return cls(
+            operation=raw["operation"],
+            value=Formula.from_dict(raw["value"]),
+            selector=FormulaModifierSelector.from_dict(raw.get("selector")),
+        )
+
+
+@dataclass
+class RollModeModifierEffect:
+    roll_mode: RollMode
+    selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
+    type: Literal["roll_mode_modifier"] = "roll_mode_modifier"
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "RollModeModifierEffect":
+        return cls(
+            roll_mode=raw["roll_mode"],
+            selector=FormulaModifierSelector.from_dict(raw.get("selector")),
+        )
+
+
+AugmentationEffect = (
+    FormulaModifierEffect | EvaluationFormulaModifierEffect | RollModeModifierEffect
+)
 
 
 @dataclass
@@ -100,7 +201,13 @@ class Augmentation:
     def from_dict(cls, raw: dict) -> "Augmentation":
         raw_effect = raw["effect"]
         effect_type = raw_effect["type"]
-        if effect_type != "formula_modifier":
+        effect_types = {
+            "formula_modifier": FormulaModifierEffect,
+            "evaluation_formula_modifier": EvaluationFormulaModifierEffect,
+            "roll_mode_modifier": RollModeModifierEffect,
+        }
+        effect_model = effect_types.get(effect_type)
+        if effect_model is None:
             raise ValueError(f"Unsupported augmentation effect type '{effect_type}'.")
 
         return cls(
@@ -110,7 +217,7 @@ class Augmentation:
             source=AugmentationSource.from_dict(raw["source"]),
             scope=raw["scope"],
             target=AugmentationTarget.from_dict(raw["target"]),
-            effect=FormulaModifierEffect.from_dict(raw_effect),
+            effect=effect_model.from_dict(raw_effect),
             active=raw.get("active", True),
             applied=raw.get("applied", False),
             applied_target_id=raw.get("applied_target_id"),

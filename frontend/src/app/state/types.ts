@@ -14,11 +14,9 @@ import type {
   FormulaDefinition,
   ItemDefinition,
   PersistentSheet,
-  PersistentSheetPresentation,
   ProficiencyDefinition,
   Role,
   Sheet,
-  SheetPresentation,
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -63,8 +61,6 @@ export interface ServerState {
   formulaOrder: string[];
   conditionPresets: Record<string, ConditionPreset>;
   conditionPresetOrder: string[];
-  sheetPresentation: Record<string, SheetPresentation>;
-  persistentSheetPresentation: Record<string, PersistentSheetPresentation>;
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
   actionHistory: Record<string, ActionHistoryEntry>;

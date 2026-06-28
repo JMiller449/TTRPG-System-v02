@@ -9,9 +9,17 @@ from backend.features.sheet_admin.formulas.schema import FormulaPayload
 from backend.state.models.damage import DamageType
 
 
+class CalculatedValueReferencePayload(BaseModel):
+    variable_id: str = Field(min_length=1, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    type: Literal["calculated_value"]
+
+
+NumericValuePayload = FormulaPayload | CalculatedValueReferencePayload
+
+
 class NumericBoundsPayload(BaseModel):
-    min_value: FormulaPayload | None = None
-    max_value: FormulaPayload | None = None
+    min_value: NumericValuePayload | None = None
+    max_value: NumericValuePayload | None = None
     on_min_violation: Literal["clamp", "reject"] = "clamp"
     on_max_violation: Literal["clamp", "reject"] = "clamp"
 
@@ -22,12 +30,19 @@ class SendMessageActionStepPayload(BaseModel):
     message: FormulaPayload
 
 
+class CalculateValueActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    variable_id: str = Field(min_length=1, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    value: FormulaPayload
+    type: Literal["calculate_value"]
+
+
 class SetValueActionStepPayload(NumericBoundsPayload):
     step_id: str = Field(min_length=1)
     type: Literal["set_value"]
     target: Literal["caster", "target"] = "caster"
     path: list[str] = Field(min_length=1)
-    value: FormulaPayload
+    value: NumericValuePayload
 
 
 class IncrementValueActionStepPayload(NumericBoundsPayload):
@@ -35,7 +50,7 @@ class IncrementValueActionStepPayload(NumericBoundsPayload):
     type: Literal["increment_value"]
     target: Literal["caster", "target"] = "caster"
     path: list[str] = Field(min_length=1)
-    amount: FormulaPayload
+    amount: NumericValuePayload
 
 
 class DecrementValueActionStepPayload(NumericBoundsPayload):
@@ -43,7 +58,7 @@ class DecrementValueActionStepPayload(NumericBoundsPayload):
     type: Literal["decrement_value"]
     target: Literal["caster", "target"] = "caster"
     path: list[str] = Field(min_length=1)
-    amount: FormulaPayload
+    amount: NumericValuePayload
 
 
 class ResolveDamageActionStepPayload(BaseModel):
@@ -51,7 +66,7 @@ class ResolveDamageActionStepPayload(BaseModel):
     type: Literal["resolve_damage"]
     target: Literal["caster", "target"] = "caster"
     damage_type: DamageType
-    amount: FormulaPayload
+    amount: NumericValuePayload
 
 
 class GainProficiencyUseActionStepPayload(BaseModel):
@@ -59,7 +74,7 @@ class GainProficiencyUseActionStepPayload(BaseModel):
     type: Literal["gain_proficiency_use"]
     target: Literal["caster", "target"] = "caster"
     proficiency_id: str = Field(min_length=1)
-    amount: FormulaPayload
+    amount: NumericValuePayload
 
 
 class ApplyAugmentationActionStepPayload(BaseModel):
@@ -80,6 +95,7 @@ class ApplyConditionPresetActionStepPayload(BaseModel):
 
 ActionStepPayload = Annotated[
     SendMessageActionStepPayload
+    | CalculateValueActionStepPayload
     | SetValueActionStepPayload
     | IncrementValueActionStepPayload
     | DecrementValueActionStepPayload
@@ -98,14 +114,71 @@ class ActionDefinitionPayload(BaseModel):
     steps: list[ActionStepPayload] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_unique_step_ids(self) -> "ActionDefinitionPayload":
+    def validate_step_ids_and_calculated_value_references(
+        self,
+    ) -> "ActionDefinitionPayload":
         seen_step_ids: set[str] = set()
         duplicate_step_ids: list[str] = []
+        available_variables: set[str] = set()
         for step in self.steps:
             if step.step_id in seen_step_ids:
                 duplicate_step_ids.append(step.step_id)
                 continue
             seen_step_ids.add(step.step_id)
+
+            formulas: list[FormulaPayload] = []
+            numeric_values: list[NumericValuePayload | None] = []
+            if isinstance(step, SendMessageActionStepPayload):
+                formulas.append(step.message)
+            if isinstance(step, CalculateValueActionStepPayload):
+                formulas.append(step.value)
+            if isinstance(step, SetValueActionStepPayload):
+                numeric_values.append(step.value)
+            if isinstance(
+                step,
+                (
+                    IncrementValueActionStepPayload,
+                    DecrementValueActionStepPayload,
+                    ResolveDamageActionStepPayload,
+                    GainProficiencyUseActionStepPayload,
+                ),
+            ):
+                numeric_values.append(step.amount)
+            if isinstance(step, NumericBoundsPayload):
+                numeric_values.extend((step.min_value, step.max_value))
+
+            for value in numeric_values:
+                if isinstance(value, FormulaPayload):
+                    formulas.append(value)
+                elif (
+                    isinstance(value, CalculatedValueReferencePayload)
+                    and value.variable_id not in available_variables
+                ):
+                    raise ValueError(
+                        "Calculated value reference "
+                        f"'{value.variable_id}' in step '{step.step_id}' must refer "
+                        "to an earlier calculate_value step."
+                    )
+
+            for formula in formulas:
+                for alias in formula.aliases or []:
+                    if not alias.path or alias.path[0] != "action_values":
+                        continue
+                    if len(alias.path) != 2 or alias.path[1] not in available_variables:
+                        variable_id = alias.path[1] if len(alias.path) > 1 else ""
+                        raise ValueError(
+                            "Action-value formula alias "
+                            f"'{alias.name}' in step '{step.step_id}' references "
+                            f"unavailable variable '{variable_id}'."
+                        )
+
+            if isinstance(step, CalculateValueActionStepPayload):
+                if step.variable_id in available_variables:
+                    raise ValueError(
+                        "Calculate value variable IDs must be unique. Duplicate "
+                        f"variable ID: {step.variable_id}"
+                    )
+                available_variables.add(step.variable_id)
 
         if duplicate_step_ids:
             duplicates = ", ".join(sorted(set(duplicate_step_ids)))

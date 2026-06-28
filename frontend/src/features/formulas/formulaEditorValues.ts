@@ -1,15 +1,18 @@
 import type { FormulaAlias, FormulaDefinition } from "@/domain/models";
+import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import type { FormulaDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
 export interface FormulaEditorValues {
   formulaText: string;
   aliases: FormulaAlias[] | null;
+  tags: string[];
 }
 
 export function createEmptyFormulaEditorValues(): FormulaEditorValues {
   return {
     formulaText: "",
-    aliases: null
+    aliases: null,
+    tags: []
   };
 }
 
@@ -20,7 +23,8 @@ function cloneAliases(aliases: FormulaAlias[] | null | undefined): FormulaAlias[
 export function toFormulaEditorValues(formula: FormulaDefinition): FormulaEditorValues {
   return {
     formulaText: formula.formula.text,
-    aliases: cloneAliases(formula.formula.aliases)
+    aliases: cloneAliases(formula.formula.aliases),
+    tags: normalizeFormulaTags(formula.formula.tags ?? [])
   };
 }
 
@@ -32,7 +36,8 @@ export function toFormulaDefinitionPayload(
     id: formulaId,
     formula: {
       aliases: cloneAliases(values.aliases),
-      text: values.formulaText.trim()
+      text: values.formulaText.trim(),
+      tags: normalizeFormulaTags(values.tags)
     }
   };
 }
@@ -45,7 +50,8 @@ export function toUpdatedFormulaDefinitionPayload(
     id: formula.id,
     formula: {
       aliases: cloneAliases(values.aliases),
-      text: values.formulaText.trim()
+      text: values.formulaText.trim(),
+      tags: normalizeFormulaTags(values.tags)
     }
   };
 }

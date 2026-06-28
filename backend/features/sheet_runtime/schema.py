@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import Field
 
 from backend.core.transport import RequestModel
+from backend.state.models.damage import DamageType
 
 
 class PerformAction(RequestModel):
@@ -12,6 +13,13 @@ class PerformAction(RequestModel):
     target_sheet_id: str | None = Field(default=None, min_length=1)
     roll_mode: Literal["normal", "advantage", "disadvantage"] = "normal"
     type: Literal["perform_action"]
+
+
+class ApplyInstancedSheetDamage(RequestModel):
+    instance_id: str = Field(min_length=1)
+    amount: float = Field(ge=0, allow_inf_nan=False)
+    damage_type: DamageType
+    type: Literal["apply_instanced_sheet_damage"]
 
 
 @dataclass

@@ -1,8 +1,7 @@
 import type {
   Augmentation,
   ConditionPreset,
-  ConditionVisibility,
-  FormulaAlias
+  ConditionVisibility
 } from "@/domain/models";
 import type {
   AugmentationPayload,
@@ -10,6 +9,7 @@ import type {
 } from "@/infrastructure/ws/requestBuilders";
 import {
   hasValidAugmentationEditorValues,
+  toAugmentationEffectPayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 
@@ -25,10 +25,6 @@ export function createEmptyConditionPresetEditorValues(): ConditionPresetEditorV
     description: "",
     visibility: "public"
   };
-}
-
-function cloneAliases(aliases: FormulaAlias[] | null | undefined): FormulaAlias[] | null {
-  return aliases?.map((alias) => ({ ...alias, path: [...alias.path] })) ?? null;
 }
 
 function cleanPath(path: string[]): string[] {
@@ -121,14 +117,7 @@ export function toConditionAugmentationTemplatePayload({
       root: "instance",
       path: cleanPath(values.targetPath)
     },
-    effect: {
-      operation: values.operation,
-      value: {
-        aliases: cloneAliases(values.formulaAliases),
-        text: values.formulaText.trim()
-      },
-      type: "formula_modifier"
-    },
+    effect: toAugmentationEffectPayload(values),
     active: values.active,
     applied: false,
     applied_target_id: null,

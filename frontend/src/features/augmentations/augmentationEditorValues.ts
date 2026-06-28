@@ -1,8 +1,11 @@
 import type {
   Augmentation,
+  AugmentationEffectType,
   AugmentationOperation,
-  FormulaAlias
+  FormulaAlias,
+  RollModeModifier
 } from "@/domain/models";
+import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import type { AugmentationTargetMetadata } from "@/domain/ipc";
 import type { AugmentationPayload } from "@/infrastructure/ws/requestBuilders";
 
@@ -15,9 +18,16 @@ export interface AugmentationEditorValues {
   active: boolean;
   targetRoot: ItemAugmentationTargetRoot;
   targetPath: string[];
+  effectType: AugmentationEffectType;
   operation: AugmentationOperation;
+  rollMode: RollModeModifier;
   formulaText: string;
   formulaAliases: FormulaAlias[] | null;
+  selectorRequiredTags: string[];
+  selectorExcludedTags: string[];
+  selectorActionId: string;
+  selectorFormulaId: string;
+  selectorStepId: string;
   duration: string;
   expiresAt: string;
   removalCondition: string;
@@ -30,9 +40,16 @@ export function createEmptyAugmentationEditorValues(): AugmentationEditorValues 
     active: true,
     targetRoot: "instance",
     targetPath: [],
+    effectType: "formula_modifier",
     operation: "add",
+    rollMode: "advantage",
     formulaText: "",
     formulaAliases: null,
+    selectorRequiredTags: [],
+    selectorExcludedTags: [],
+    selectorActionId: "",
+    selectorFormulaId: "",
+    selectorStepId: "",
     duration: "",
     expiresAt: "",
     removalCondition: ""
@@ -65,6 +82,30 @@ export function augmentationEditorTargetKey(values: AugmentationEditorValues): s
 
 export function formatAugmentationTargetOption(target: AugmentationTargetOption): string {
   return `${target.label} (${target.key})`;
+}
+
+export function formatFormulaModifierSelector(augmentation: Augmentation): string {
+  const selector = augmentation.effect.selector;
+  if (!selector) {
+    return "all formulas";
+  }
+  const constraints = [
+    ...(selector.required_tags?.length ? [`requires ${selector.required_tags.join(" + ")}`] : []),
+    ...(selector.excluded_tags?.length ? [`excludes ${selector.excluded_tags.join(" + ")}`] : []),
+    ...(selector.action_id ? [`action ${selector.action_id}`] : []),
+    ...(selector.formula_id ? [`formula ${selector.formula_id}`] : []),
+    ...(selector.step_id ? [`step ${selector.step_id}`] : [])
+  ];
+  return constraints.length > 0 ? constraints.join("; ") : "all formulas";
+}
+
+export function formatAugmentationEffect(augmentation: Augmentation): string {
+  if (augmentation.effect.type === "roll_mode_modifier") {
+    return `grant ${augmentation.effect.roll_mode}`;
+  }
+  const prefix =
+    augmentation.effect.type === "evaluation_formula_modifier" ? "evaluate" : "mutate";
+  return `${prefix}: ${augmentation.effect.operation} ${augmentation.effect.value.text || "(blank)"}`;
 }
 
 export function isKnownAugmentationEditorTarget(
@@ -105,15 +146,27 @@ function readItemTargetRoot(augmentation: Augmentation): ItemAugmentationTargetR
 }
 
 export function toAugmentationEditorValues(augmentation: Augmentation): AugmentationEditorValues {
+  const numericEffect =
+    augmentation.effect.type === "roll_mode_modifier" ? null : augmentation.effect;
   return {
     name: augmentation.name,
     description: augmentation.description ?? "",
     active: augmentation.active ?? true,
     targetRoot: readItemTargetRoot(augmentation),
     targetPath: [...augmentation.target.path],
-    operation: augmentation.effect.operation,
-    formulaText: augmentation.effect.value.text,
-    formulaAliases: cloneAliases(augmentation.effect.value.aliases),
+    effectType: augmentation.effect.type,
+    operation: numericEffect?.operation ?? "add",
+    rollMode:
+      augmentation.effect.type === "roll_mode_modifier"
+        ? augmentation.effect.roll_mode
+        : "advantage",
+    formulaText: numericEffect?.value.text ?? "",
+    formulaAliases: cloneAliases(numericEffect?.value.aliases),
+    selectorRequiredTags: normalizeFormulaTags(augmentation.effect.selector?.required_tags ?? []),
+    selectorExcludedTags: normalizeFormulaTags(augmentation.effect.selector?.excluded_tags ?? []),
+    selectorActionId: augmentation.effect.selector?.action_id ?? "",
+    selectorFormulaId: augmentation.effect.selector?.formula_id ?? "",
+    selectorStepId: augmentation.effect.selector?.step_id ?? "",
     duration: augmentation.lifecycle?.duration ?? "",
     expiresAt: augmentation.lifecycle?.expires_at ?? "",
     removalCondition: augmentation.lifecycle?.removal_condition ?? ""
@@ -121,11 +174,46 @@ export function toAugmentationEditorValues(augmentation: Augmentation): Augmenta
 }
 
 export function hasValidAugmentationEditorValues(values: AugmentationEditorValues): boolean {
+  const requiredTags = new Set(normalizeFormulaTags(values.selectorRequiredTags));
+  const hasSelectorConflict = normalizeFormulaTags(values.selectorExcludedTags).some((tag) =>
+    requiredTags.has(tag)
+  );
   return (
     values.name.trim().length > 0 &&
-    values.formulaText.trim().length > 0 &&
-    cleanPath(values.targetPath).length > 0
+    (values.effectType === "roll_mode_modifier" || values.formulaText.trim().length > 0) &&
+    cleanPath(values.targetPath).length > 0 &&
+    !hasSelectorConflict
   );
+}
+
+export function toAugmentationEffectPayload(
+  values: AugmentationEditorValues
+): AugmentationPayload["effect"] {
+  const selector = {
+    required_tags: normalizeFormulaTags(values.selectorRequiredTags),
+    excluded_tags: normalizeFormulaTags(values.selectorExcludedTags),
+    action_id: optionalText(values.selectorActionId),
+    formula_id: optionalText(values.selectorFormulaId),
+    step_id: optionalText(values.selectorStepId)
+  };
+
+  if (values.effectType === "roll_mode_modifier") {
+    return {
+      roll_mode: values.rollMode,
+      selector,
+      type: "roll_mode_modifier"
+    };
+  }
+
+  return {
+    operation: values.operation,
+    value: {
+      aliases: cloneAliases(values.formulaAliases),
+      text: values.formulaText.trim()
+    },
+    selector,
+    type: values.effectType
+  };
 }
 
 export function toItemAugmentationTemplatePayload({
@@ -153,14 +241,7 @@ export function toItemAugmentationTemplatePayload({
       root: values.targetRoot,
       path: cleanPath(values.targetPath)
     },
-    effect: {
-      operation: values.operation,
-      value: {
-        aliases: cloneAliases(values.formulaAliases),
-        text: values.formulaText.trim()
-      },
-      type: "formula_modifier"
-    },
+    effect: toAugmentationEffectPayload(values),
     active: values.active,
     applied: false,
     applied_target_id: null,

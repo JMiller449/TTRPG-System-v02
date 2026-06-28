@@ -75,6 +75,14 @@ _ROOT_ORDER: tuple[VariableRoot, ...] = ("state", "sheet", "instance")
 
 _ACTION_STEPS: tuple[ActionStepAuthoringMetadata, ...] = (
     ActionStepAuthoringMetadata(
+        type="calculate_value",
+        label="Calculate reusable action value",
+        category="calculation",
+        allowed_targets=["caster"],
+        formula_fields=["value"],
+        path_catalog="none",
+    ),
+    ActionStepAuthoringMetadata(
         type="send_message",
         label="Send Roll20 message",
         category="roll20_output",

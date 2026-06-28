@@ -34,8 +34,12 @@ def _valid_formula_paths() -> set[tuple[str, ...]]:
     }
 
 
-def validate_formula_payload_paths(formula: FormulaPayload) -> None:
-    valid_paths = _valid_formula_paths()
+def validate_formula_payload_paths(
+    formula: FormulaPayload,
+    *,
+    additional_paths: set[tuple[str, ...]] | None = None,
+) -> None:
+    valid_paths = _valid_formula_paths() | (additional_paths or set())
     for alias in formula.aliases or []:
         alias_path = tuple(alias.path)
         if alias_path not in valid_paths:
@@ -46,15 +50,19 @@ def validate_formula_payload_paths(formula: FormulaPayload) -> None:
             )
 
 
-def build_formula(payload: FormulaPayload) -> Formula:
-    validate_formula_payload_paths(payload)
+def build_formula(
+    payload: FormulaPayload,
+    *,
+    additional_paths: set[tuple[str, ...]] | None = None,
+) -> Formula:
+    validate_formula_payload_paths(payload, additional_paths=additional_paths)
     aliases = None
     if payload.aliases is not None:
         aliases = [
             FormulaAliases(name=alias.name, path=list(alias.path))
             for alias in payload.aliases
         ]
-    return Formula(aliases=aliases, text=payload.text)
+    return Formula(aliases=aliases, text=payload.text, tags=list(payload.tags))
 
 
 def _build_formula_definition(payload: FormulaDefinitionPayload) -> FormulaDefinition:

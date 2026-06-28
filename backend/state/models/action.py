@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -6,13 +7,44 @@ from backend.state.models.formula import Formula
 
 ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
+_VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def _formula_or_none(raw: dict, key: str) -> Formula | None:
+def _validate_variable_id(variable_id: str) -> None:
+    if not _VARIABLE_ID_PATTERN.fullmatch(variable_id):
+        raise ValueError(
+            "Calculated value variable IDs must start with a letter or underscore "
+            "and contain only letters, numbers, and underscores."
+        )
+
+
+@dataclass(frozen=True)
+class CalculatedValueReference:
+    variable_id: str
+    type: Literal["calculated_value"] = "calculated_value"
+
+    def __post_init__(self) -> None:
+        _validate_variable_id(self.variable_id)
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "CalculatedValueReference":
+        return cls(variable_id=raw["variable_id"])
+
+
+NumericValueSource = Formula | CalculatedValueReference
+
+
+def _numeric_value_source(raw: dict) -> NumericValueSource:
+    if raw.get("type") == "calculated_value":
+        return CalculatedValueReference.from_dict(raw)
+    return Formula.from_dict(raw)
+
+
+def _numeric_value_or_none(raw: dict, key: str) -> NumericValueSource | None:
     value = raw.get(key)
     if value is None:
         return None
-    return Formula.from_dict(value)
+    return _numeric_value_source(value)
 
 
 @dataclass
@@ -30,12 +62,31 @@ class SendMessageStep:
 
 
 @dataclass
+class CalculateValueStep:
+    step_id: str
+    variable_id: str
+    value: Formula
+    type: Literal["calculate_value"] = "calculate_value"
+
+    def __post_init__(self) -> None:
+        _validate_variable_id(self.variable_id)
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "CalculateValueStep":
+        return cls(
+            step_id=raw["step_id"],
+            variable_id=raw["variable_id"],
+            value=Formula.from_dict(raw["value"]),
+        )
+
+
+@dataclass
 class SetValueStep:
     step_id: str
     path: list[str]
-    value: Formula
-    min_value: Formula | None = None
-    max_value: Formula | None = None
+    value: NumericValueSource
+    min_value: NumericValueSource | None = None
+    max_value: NumericValueSource | None = None
     on_min_violation: BoundsViolationMode = "clamp"
     on_max_violation: BoundsViolationMode = "clamp"
     target: ActionStepTarget = "caster"
@@ -46,9 +97,9 @@ class SetValueStep:
         return cls(
             step_id=raw["step_id"],
             path=list(raw["path"]),
-            value=Formula.from_dict(raw["value"]),
-            min_value=_formula_or_none(raw, "min_value"),
-            max_value=_formula_or_none(raw, "max_value"),
+            value=_numeric_value_source(raw["value"]),
+            min_value=_numeric_value_or_none(raw, "min_value"),
+            max_value=_numeric_value_or_none(raw, "max_value"),
             on_min_violation=raw.get("on_min_violation", "clamp"),
             on_max_violation=raw.get("on_max_violation", "clamp"),
             target=raw.get("target", "caster"),
@@ -59,9 +110,9 @@ class SetValueStep:
 class IncrementValueStep:
     step_id: str
     path: list[str]
-    amount: Formula
-    min_value: Formula | None = None
-    max_value: Formula | None = None
+    amount: NumericValueSource
+    min_value: NumericValueSource | None = None
+    max_value: NumericValueSource | None = None
     on_min_violation: BoundsViolationMode = "clamp"
     on_max_violation: BoundsViolationMode = "clamp"
     target: ActionStepTarget = "caster"
@@ -72,9 +123,9 @@ class IncrementValueStep:
         return cls(
             step_id=raw["step_id"],
             path=list(raw["path"]),
-            amount=Formula.from_dict(raw["amount"]),
-            min_value=_formula_or_none(raw, "min_value"),
-            max_value=_formula_or_none(raw, "max_value"),
+            amount=_numeric_value_source(raw["amount"]),
+            min_value=_numeric_value_or_none(raw, "min_value"),
+            max_value=_numeric_value_or_none(raw, "max_value"),
             on_min_violation=raw.get("on_min_violation", "clamp"),
             on_max_violation=raw.get("on_max_violation", "clamp"),
             target=raw.get("target", "caster"),
@@ -85,9 +136,9 @@ class IncrementValueStep:
 class DecrementValueStep:
     step_id: str
     path: list[str]
-    amount: Formula
-    min_value: Formula | None = None
-    max_value: Formula | None = None
+    amount: NumericValueSource
+    min_value: NumericValueSource | None = None
+    max_value: NumericValueSource | None = None
     on_min_violation: BoundsViolationMode = "clamp"
     on_max_violation: BoundsViolationMode = "clamp"
     target: ActionStepTarget = "caster"
@@ -98,9 +149,9 @@ class DecrementValueStep:
         return cls(
             step_id=raw["step_id"],
             path=list(raw["path"]),
-            amount=Formula.from_dict(raw["amount"]),
-            min_value=_formula_or_none(raw, "min_value"),
-            max_value=_formula_or_none(raw, "max_value"),
+            amount=_numeric_value_source(raw["amount"]),
+            min_value=_numeric_value_or_none(raw, "min_value"),
+            max_value=_numeric_value_or_none(raw, "max_value"),
             on_min_violation=raw.get("on_min_violation", "clamp"),
             on_max_violation=raw.get("on_max_violation", "clamp"),
             target=raw.get("target", "caster"),
@@ -111,7 +162,7 @@ class DecrementValueStep:
 class ResolveDamageStep:
     step_id: str
     damage_type: DamageType
-    amount: Formula
+    amount: NumericValueSource
     target: ActionStepTarget = "caster"
     type: Literal["resolve_damage"] = "resolve_damage"
 
@@ -120,7 +171,7 @@ class ResolveDamageStep:
         return cls(
             step_id=raw["step_id"],
             damage_type=ensure_damage_type(raw["damage_type"]),
-            amount=Formula.from_dict(raw["amount"]),
+            amount=_numeric_value_source(raw["amount"]),
             target=raw.get("target", "caster"),
         )
 
@@ -129,7 +180,7 @@ class ResolveDamageStep:
 class GainProficiencyUseStep:
     step_id: str
     proficiency_id: str
-    amount: Formula
+    amount: NumericValueSource
     target: ActionStepTarget = "caster"
     type: Literal["gain_proficiency_use"] = "gain_proficiency_use"
 
@@ -138,7 +189,7 @@ class GainProficiencyUseStep:
         return cls(
             step_id=raw["step_id"],
             proficiency_id=raw["proficiency_id"],
-            amount=Formula.from_dict(raw["amount"]),
+            amount=_numeric_value_source(raw["amount"]),
             target=raw.get("target", "caster"),
         )
 
@@ -181,6 +232,7 @@ class ApplyConditionPresetStep:
 
 ActionStep = (
     SendMessageStep
+    | CalculateValueStep
     | SetValueStep
     | IncrementValueStep
     | DecrementValueStep
@@ -198,6 +250,65 @@ class Action:
     notes: str = ""
     steps: list[ActionStep] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        seen_step_ids: set[str] = set()
+        available_variables: set[str] = set()
+        for step in self.steps:
+            if step.step_id in seen_step_ids:
+                raise ValueError(f"Duplicate action step ID '{step.step_id}'.")
+            seen_step_ids.add(step.step_id)
+
+            formulas: list[Formula] = []
+            numeric_values: list[NumericValueSource | None] = []
+            if isinstance(step, SendMessageStep):
+                formulas.append(step.message)
+            elif isinstance(step, CalculateValueStep):
+                formulas.append(step.value)
+            elif isinstance(step, SetValueStep):
+                numeric_values.append(step.value)
+            elif isinstance(
+                step,
+                (
+                    IncrementValueStep,
+                    DecrementValueStep,
+                    ResolveDamageStep,
+                    GainProficiencyUseStep,
+                ),
+            ):
+                numeric_values.append(step.amount)
+            if isinstance(step, SetValueStep | IncrementValueStep | DecrementValueStep):
+                numeric_values.extend((step.min_value, step.max_value))
+
+            for value in numeric_values:
+                if isinstance(value, Formula):
+                    formulas.append(value)
+                elif (
+                    isinstance(value, CalculatedValueReference)
+                    and value.variable_id not in available_variables
+                ):
+                    raise ValueError(
+                        f"Calculated value '{value.variable_id}' in step "
+                        f"'{step.step_id}' is not defined by an earlier step."
+                    )
+
+            for formula in formulas:
+                for alias in formula.aliases or []:
+                    if not alias.path or alias.path[0] != "action_values":
+                        continue
+                    if len(alias.path) != 2 or alias.path[1] not in available_variables:
+                        variable_id = alias.path[1] if len(alias.path) > 1 else ""
+                        raise ValueError(
+                            f"Action value '{variable_id}' in step '{step.step_id}' "
+                            "is not defined by an earlier step."
+                        )
+
+            if isinstance(step, CalculateValueStep):
+                if step.variable_id in available_variables:
+                    raise ValueError(
+                        f"Duplicate calculated value variable ID '{step.variable_id}'."
+                    )
+                available_variables.add(step.variable_id)
+
     @classmethod
     def from_dict(cls, raw: dict) -> "Action":
         steps: list[ActionStep] = []
@@ -205,6 +316,9 @@ class Action:
             step_type = raw_step["type"]
             if step_type == "send_message":
                 steps.append(SendMessageStep.from_dict(raw_step))
+                continue
+            if step_type == "calculate_value":
+                steps.append(CalculateValueStep.from_dict(raw_step))
                 continue
             if step_type == "set_value":
                 steps.append(SetValueStep.from_dict(raw_step))

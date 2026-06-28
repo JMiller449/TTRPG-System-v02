@@ -234,6 +234,64 @@ textarea:disabled {
   font-size: 0.87rem;
 }
 
+.formula-tag-editor__input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.formula-tag-editor__input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.formula-tag-list,
+.formula-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.formula-tag,
+.formula-tag-suggestion {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f1f3ef;
+  color: var(--text);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+button.formula-tag,
+button.formula-tag-suggestion {
+  cursor: pointer;
+}
+
+.formula-tag--display {
+  display: inline-block;
+}
+
+.formula-tag-suggestion--selected {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
+.formula-tag-editor__empty,
+.formula-tag-editor__suggestion-label {
+  margin: 0 0 0.35rem;
+}
+
+.formula-selector-editor {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: #f8f7f2;
+}
+
+.formula-selector-editor__hint {
+  margin: 0.25rem 0 0;
+}
+
 .error-text {
   color: var(--error);
   margin: 0;

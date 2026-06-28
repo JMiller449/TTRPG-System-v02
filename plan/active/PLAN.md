@@ -79,10 +79,11 @@ Backend:
 - Sheet, action, formula, and item admin CRUD flows are registered as public typed websocket routes.
 - Internal sheet-admin mutations route through state sync, broadcast patches, use patch-only success responses, and use `error` responses for failures.
 - Runtime `perform_action` exists for authored action steps.
-- Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
+- Current action step kinds include `calculate_value`, `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
 - XP tracker routes reuse sheet XP thresholds, enemy XP values, and slay records; backend-derived tracker responses expose full X/Y progress only to DMs.
 - Formula expansion is relative to one root object, supports dataclass/dict traversal, guards against cycles, and backend numeric evaluation supports arithmetic, dice expressions, `min`, `max`, `floor`, `ceil`, and `round` for authoritative action/stat calculations.
 - Semantic damage action steps evaluate authored formulas, apply typed resistance, and mutate instance health through state sync.
+- Manual typed damage intake uses `apply_instanced_sheet_damage` to validate a raw amount and canonical damage type, apply backend resistance with one final floor, and patch instance health.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
 Frontend:
@@ -113,7 +114,7 @@ Frontend:
 - Encounter preset UI uses typed backend route helpers for lightweight planned encounter collections.
 - GM navigation includes an XP Tracker page for thresholds, mob XP values, and backend-calculated level readiness; character sheets include a Kills tab for tracked mob counts.
 - GM navigation, active-sheet switching, connection/pending status, and encounter quick-spawn are consolidated into a persistent collapsible toolbar across every GM page.
-- Direct health/resource adjustment is a current-value HP/mana edit without damage semantics; damage type belongs to semantic damage action steps.
+- Negative health adjustments use backend-authoritative typed damage intake; positive health restoration and mana changes remain direct current-resource adjustments.
 - Frontend build, tests, and lint pass.
 
 ## 5. MVP Data Model Direction
@@ -180,6 +181,7 @@ Formulas:
 - GM-authored only.
 - Reference variables by stable and relative paths.
 - Can be reusable named records and inline action fields.
+- Carry ordered semantic tags normalized by trimming/collapsing whitespace, case-folding, and removing duplicates; legacy formulas default to no tags.
 - Produce values only; they do not mutate state directly.
 - Conditionals are not MVP formula syntax.
 - Direct references to equipped item values are not MVP; formulas can reference derived stats/effects caused by items if needed.
@@ -215,7 +217,7 @@ Actions:
 - Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
 - Healing is a separate semantic healing model or bounded HP mutation pattern, not negative damage; resistance does not affect healing unless a specific effect says so.
 - Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
-- Full attack-specific damage composition, critical rules, and augmentation-derived combat modifiers remain later resolver work.
+- Damage-action formula composition, critical rules, and augmentation-derived combat modifiers remain later resolver work; hit and damage stay independent authored actions.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
 - Roll/check variants should be modeled as action steps or sheet presets, not as separate roll-type records.
 - Freeform situational modifiers are not MVP; common modifiers should become GM-authored actions/conditions, and one-off adjustments can be manual in Roll20.
@@ -552,6 +554,10 @@ Frontend augmentation UX boundary:
 - [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
+- [x] Add manual typed damage intake for an affected instance.
+  - `apply_instanced_sheet_damage` accepts raw amount plus canonical damage type, applies template and instance resistance with one final floor, clamps health at zero, and emits an authoritative patch.
+  - Players may submit damage only to their assigned instance; DMs may submit it to any instance.
+  - Backend route, permission, generated-contract, resistance/floor, and health-patch behavior are covered; frontend request routing distinguishes typed damage from healing and mana edits.
 - [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
   - Critical damage order is defined: calculate damage, double total damage for qualifying natural 100 outcomes, then apply defense-based reductions and resistance.
   - Physical and spell attacks roll hit and damage separately; advantage/disadvantage affects hit/check rolls only, not damage.
@@ -658,13 +664,13 @@ Frontend augmentation UX boundary:
   - Removed `VITE_TRANSPORT`, transport mode unions, runtime mode selection, and the redundant transport badge/state.
   - Managed-client tests remain isolated with injected non-authoritative request/event fakes.
   - Verified with 224 frontend tests, ESLint, and the production TypeScript/Vite build.
-- [ ] Slice 2: remove mock-only sheet presentation state.
-  - Delete `sheetPresentation` and `persistentSheetPresentation` from frontend snapshots, normalized server state, selectors, and domain models; real websocket projection always emits both collections empty.
-  - Derive template kind from backend `dm_only`, and read names/notes/resources only from authoritative `Sheet` and `PersistentSheet` records.
-  - Remove mock-only tags and timestamps plus dead conversion helpers that manufacture presentation metadata locally.
+- [x] Slice 2: remove mock-only sheet presentation state.
+  - Deleted `sheetPresentation` and `persistentSheetPresentation` from frontend snapshots, normalized server state, selectors, domain models, and transport tests.
+  - Template kind now derives from backend `dm_only`; names, notes, and resources come only from authoritative `Sheet` and `PersistentSheet` records.
+  - Removed mock-only tags, names, timestamps, fallback logic, and the dead presentation conversion helper.
+  - Verified with 224 frontend tests, ESLint, and the production TypeScript/Vite build.
 - [ ] Slice 3: remove misleading gameplay and scaffold UI.
-  - Remove the health damage-type selector until the planned typed-damage backend route exists; current resource adjustment sends only an authoritative numeric delta.
-  - This removes an ignored control only; the later manual typed-damage intake item adds the real backend route, resistance calculation, health mutation, and backend-backed UI.
+  - [x] Replace the placeholder health damage-type selector with canonical backend damage types and wire negative health modifiers through `apply_instanced_sheet_damage`; positive health and mana modifiers continue through direct resource adjustment.
   - Remove visible developer TODO/scaffold copy from template and item authoring screens.
   - Correct template search copy to name-only until backend-owned tags exist.
 - [ ] Slice 4: finish the dead-code pass and verify the boundary.
@@ -876,7 +882,7 @@ MVP is done when:
   - [x] Add frontend reconciliation tests for formula/action create/edit/delete snapshots or patches.
   - [x] Update GM navigation once formula/action authoring pages are live.
     - GM navigation now includes Formula Authoring and Action Authoring pages.
-    - Current action step editing intentionally supports only safe `send_message` steps; raw mutation/path step editing remains deferred until validated picker UX exists.
+    - Action step editing now supports safe message, calculation, instance-resource increment, damage, and proficiency steps; other raw mutation/path step editing remains deferred until validated picker UX exists.
 - [x] Add augmentation builder scaffold.
   - [x] Add frontend augmentation domain typing for authoritative `augmentation_templates` on item definitions.
   - [x] Add item augmentation template editor value mapping to/from backend `AugmentationPayload`.
@@ -943,7 +949,69 @@ MVP is done when:
 - [ ] Add encounter preset edit and delete controls using stable encounter IDs plus the existing save/delete routes.
 - [ ] Add equipment quantity editing through sheet item bridge updates instead of limiting inventory changes to add-one, active toggle, and remove.
 
-Manual amount/type damage intake is already tracked in the later hit/damage checklist and is intentionally not duplicated here.
+Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
+
+### Active TODO
+
+- [ ] Add formula-tag augmentation matching and independent Roll20 hit/damage actions.
+  - [x] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
+    - Shared `Formula` values now normalize ordered tags by trimming/collapsing whitespace, case-folding, and removing duplicates, so global, stat, action-step, and augmentation formulas use one representation.
+    - Missing tags deserialize as `[]`; persisted state and generated authoring/snapshot payloads carry the tag list without requiring a schema migration.
+    - Verified with 328 backend tests, 229 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Extend the existing GM Formula Authoring screen with controlled/common tag suggestions, normalized custom tag entry, tag display, and create/update preservation.
+    - Formula drafts support removable selected-tag chips, toggleable semantic/damage-type suggestions, and comma-separated custom tags.
+    - Create/update payloads normalize and preserve tags, and authoritative formula cards display the stored tag set.
+    - Verified with 233 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Add the same tag controls to inline formulas authored inside action steps so middleware is not limited to global formula definitions.
+    - Message, damage-amount, and proficiency-use formulas reuse the shared removable chips, common suggestions, and custom tag input.
+    - Text, alias, damage-type, and proficiency edits preserve existing formula tags; tag edits normalize before submission.
+    - Verified with 234 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Add formula-modifier selectors for required/excluded tags and optional direct action/formula/step IDs; every populated selector constraint must match.
+    - Selectors normalize required/excluded tags, reject overlap, and support optional exact `action_id`, `formula_id`, and `step_id` constraints.
+    - Matching requires all required tags, no excluded tags, and equality for every populated direct-ID constraint; legacy effects default to an unconstrained selector.
+    - Selector metadata is persisted and generated through authoring/snapshot contracts and is consumed by the completed evaluation-time modifier runtime below.
+    - Verified with 333 backend tests, 234 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Extend augmentation authoring with metadata-backed controls for tag and direct-ID selectors.
+    - Item and condition augmentation editors share required/excluded tag controls plus exact action/formula/step ID inputs.
+    - Suggestions derive from authoritative global actions/formulas, their steps, common semantic tags, and tags already present on authored formulas; free exact IDs remain preservable through datalist inputs.
+    - Conflicting required/excluded tags block submission, and saved augmentation cards summarize selector constraints; the editor now distinguishes runtime evaluation selectors from direct-state modifiers that ignore them.
+    - Verified with 235 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Add typed evaluation-time modifier effects, initially numeric formula operations and advantage/disadvantage grants, without rewriting authored formulas or duplicating state.
+    - Added discriminated `evaluation_formula_modifier` and `roll_mode_modifier` effects beside the existing direct-state `formula_modifier`; numeric evaluation effects carry an operation/formula/selector, while roll-mode effects carry advantage or disadvantage plus a selector.
+    - Applying or removing either evaluation-time effect updates only the augmentation lifecycle marker and target association. It does not rewrite the authored formula or mutate the selected numeric target; the execution-context runtime below consumes it only when a matching formula runs.
+    - Item and condition augmentation authoring now expose the effect type, numeric operation/formula or roll-mode grant as appropriate, and preserve the shared selector metadata through typed generated protocol payloads.
+    - Verified with 339 backend tests, 236 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
+  - [x] Add formula-execution context carrying stable `action_id`, `step_id`, optional `formula_id`, and normalized semantic tags, then apply matching active/equipped modifiers during evaluation.
+    - Tags are the default for category-wide effects, such as `damage + fire` or `check + perspective`; direct IDs handle deliberate one-action/one-roll exceptions.
+    - Example: a helmet requiring `damage + fire` adds `2` only to matching fire-damage formulas, while a hat requiring `check + perspective` modifies all matching perspective checks.
+    - Action formula contexts combine normalized authored tags with stable action/step IDs; semantic damage steps also contribute `damage` plus their canonical damage type. The context supports an optional global formula ID for formula-definition execution paths.
+    - Matching concrete effects must be active, applied, and associated with the acting sheet/instance. Matching item templates are read directly from active sheet-item bridges, so equipped effects work without creating duplicate augmentation records.
+    - Numeric operations apply in deterministic resolved order to backend-evaluated formulas and compose around emitted Roll20 `/r` expressions without changing their authored text. Non-roll chat text is left untouched.
+    - Matching roll-mode grants combine with the requested action mode; opposing advantage/disadvantage sources cancel to normal and multiple same-side sources do not stack.
+    - Verified with 350 backend tests, 236 frontend tests, ESLint, and the production TypeScript/Vite build.
+  - [x] Add immutable action-local calculated values for reuse across later action steps.
+    - Add a typed `calculate_value` action step containing a stable `step_id`, unique action-local `variable_id`, and authored formula. Evaluate it exactly once when reached in the ordered action pipeline.
+    - Keep calculated values in an ephemeral execution map for the current `perform_action` call only. Do not persist them, emit them as authoritative state, or make them available to later action executions.
+    - Only `calculate_value` steps create referenceable action-local values. Mutation, damage, proficiency, augmentation, and message steps must not expose implicit result variables.
+    - Variables are immutable: reject duplicate `variable_id` declarations, reassignment, forward references, unknown references, and nonnumeric values where a numeric input is required.
+    - Downstream numeric step inputs may explicitly choose an authored formula or a previously calculated value reference. A calculated reference consumes the stored value directly without rerunning its formula or applying evaluation-time modifiers a second time.
+    - Message formulas may safely interpolate previously calculated values alongside authoritative sheet/instance aliases, allowing one backend-calculated value to drive both a mutation and its Roll20 message.
+    - Extend action authoring with a Calculate Value step editor, safe instance-resource Increase controls, formula-or-calculated-value source selectors, and metadata-backed previous-variable pickers; do not expose raw execution-map paths.
+    - Cover dice evaluation-once behavior, ordered availability, selector/tag modifiers at the calculation step, mutation reuse, message reuse, and execution-to-execution isolation.
+    - Implemented through generated authoring/snapshot protocol unions while preserving legacy formula-shaped numeric inputs. Verified with 354 backend tests, 238 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
+  - [ ] Add item-granted action availability before mode-specific action controls.
+    - Item definitions may reference authored actions through grant records containing `action_id`, an availability policy (`carried` for inventory actions such as drinking a potion or `equipped` for active gear), and optional authoritative quantity consumption on successful use.
+    - Resolve effective actions dynamically from explicit sheet-action bridges plus qualifying item grants. Do not copy item-granted actions into the sheet action map or leave stale action bridges behind when equipment changes.
+    - Backend action execution must validate the source item bridge, positive quantity, and carried/equipped policy. Include the source item relationship in the request when multiple inventory entries could grant the same action.
+    - Consumable actions must decrement the authoritative item-bridge quantity through state sync and become unavailable at zero; carrying a consumable does not require marking it equipped.
+    - Ordinary weapon hit/damage actions should remain reusable actions that consume the explicitly selected active weapon as resolver input. Item-specific attacks or special abilities may instead be granted by that equipped item.
+    - Frontend action lists and quick controls render the backend-valid effective action set and identify the granting item; unavailable item actions must not remain executable after inventory/equipment changes.
+  - [ ] Add independent authored Roll20 hit and damage action behavior: hit/check actions use normal/advantage/disadvantage, while damage actions use normal/critical.
+    - Hit and damage are invoked separately. Do not add a combined attack composer, automatic hit-to-damage chaining, or inferred hit resolution.
+    - Weapon/spell inputs and source-sheet augmentations contribute only to the emitted formula for the independently invoked action; neither action targets or mutates another sheet.
+  - [x] Add manual typed damage intake on an affected sheet: raw amount plus damage type, backend resistance calculation, one final floor operation, and authoritative health patch.
+    - Players may submit damage only to their assigned instance; DMs may submit it to any instance. No attacker/source relationship is stored or required.
+  - Conservative project defaults are recorded for criticals, resistance bounds, rounding, minimum damage, spell composition, and augmentation order; rule-author response is no longer a blocker.
 
 ### Recently Completed
 
@@ -965,28 +1033,6 @@ Manual amount/type damage intake is already tracked in the later hit/damage chec
   - DM-only export returns the backend private persisted-state envelope, including fields omitted from role-redacted snapshots.
   - Import validates through schema migration and domain loading, atomically replaces state, clears replay/undo history, bumps state version, and broadcasts full role-redacted snapshots.
   - The GM State Backup page supports export/download and paste/file import.
-
-### Later
-
-- [ ] Add separate Roll20 hit/damage composition and manual typed damage intake.
-  - [ ] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
-  - [ ] Extend the existing GM Formula Authoring screen with controlled/common tag suggestions, normalized custom tag entry, tag display, and create/update preservation.
-  - [ ] Add the same tag controls to inline formulas authored inside action steps so middleware is not limited to global formula definitions.
-  - [ ] Add formula-modifier selectors for required/excluded tags and optional direct action/formula/step IDs; every populated selector constraint must match.
-  - [ ] Extend augmentation authoring with metadata-backed controls for tag and direct-ID selectors.
-  - [ ] Add typed evaluation-time modifier effects, initially numeric formula operations and advantage/disadvantage grants, without rewriting authored formulas or duplicating state.
-  - [ ] Add formula-execution context carrying stable `action_id`, `step_id`, optional `formula_id`, and normalized semantic tags, then apply matching active/equipped modifiers during evaluation.
-    - Tags are the default for category-wide effects, such as `damage + fire` or `check + perspective`; direct IDs handle deliberate one-action/one-roll exceptions.
-    - Example: a helmet requiring `damage + fire` adds `2` only to matching fire-damage formulas, while a hat requiring `check + perspective` modifies all matching perspective checks.
-  - [ ] Add separate Roll20 hit and damage action behavior: hit uses normal/advantage/disadvantage, while composed weapon/spell damage uses normal/critical.
-    - Weapon/spell inputs and source-sheet augmentations contribute only to emitted formulas; an attack never targets or mutates another sheet.
-  - [ ] Add manual typed damage intake on an affected sheet: raw amount plus damage type, backend resistance calculation, one final floor operation, and authoritative health patch.
-    - Players may submit damage only to their assigned instance; DMs may submit it to any instance. No attacker/source relationship is stored or required.
-  - Conservative project defaults are recorded for criticals, resistance bounds, rounding, minimum damage, spell composition, and augmentation order; rule-author response is no longer a blocker.
-- [ ] Combat/turn tracking.
-- [ ] Overload selected mode/alternative handling.
-- [ ] Mastery unlock enforcement.
-- [ ] Multi-campaign support.
 - [x] Mobile layout refinement for player character sheet and GM encounter/template panels.
   - Added a compact app shell and single-column mobile grids for player resources, core stats, equipment, encounter roster entries, and template editor fields.
   - Added horizontally scrollable sheet/navigation tabs, 44px touch targets, wrapping/full-width action controls, and stacked encounter/template list cards.
@@ -995,6 +1041,13 @@ Manual amount/type damage intake is already tracked in the later hit/damage chec
   - Added a bounded backend inverse-patch stack and DM-only typed undo request.
   - Added a GM-facing Undo Last Change visual control.
   - Undo emits normal authoritative patches; it is not a replay system and does not duplicate side-effect state.
+
+### Later
+
+- [ ] Combat/turn tracking.
+- [ ] Overload selected mode/alternative handling.
+- [ ] Mastery unlock enforcement.
+- [ ] Multi-campaign support.
 
 ## 13. Deferred Rule Decisions
 

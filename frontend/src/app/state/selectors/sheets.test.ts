@@ -155,21 +155,7 @@ function stateFixture(): AppState {
           steps: []
         }
       },
-      actionOrder: ["action_attack"],
-      sheetPresentation: {
-        sheet_player: {
-          kind: "player",
-          notes: "Presentation notes",
-          tags: ["caster", "starter"],
-          updatedAt: "2026-06-18T01:00:00Z"
-        }
-      },
-      persistentSheetPresentation: {
-        instance_player: {
-          name: "Ari",
-          updatedAt: "2026-06-18T02:00:00Z"
-        }
-      }
+      actionOrder: ["action_attack"]
     },
     uiState: {
       ...initialState.uiState,
@@ -179,7 +165,7 @@ function stateFixture(): AppState {
 }
 
 describe("sheet selectors", () => {
-  it("projects template views from authoritative sheet state and presentation metadata", () => {
+  it("projects template views from authoritative sheet state", () => {
     const state = stateFixture();
 
     expect(selectSheetTemplateViews(state).map((entry) => entry.id)).toEqual([
@@ -192,8 +178,7 @@ describe("sheet selectors", () => {
       id: "sheet_player",
       kind: "player",
       name: "Mage",
-      notes: "Mage template notes",
-      updatedAt: "2026-06-18T01:00:00Z"
+      notes: "Mage template notes"
     });
     expect(playerTemplate?.stats.health).toBe(45);
     expect(playerTemplate?.stats.acrobatics).toBe(0);
@@ -209,9 +194,8 @@ describe("sheet selectors", () => {
     expect(detail?.instance).toMatchObject({
       id: "instance_player",
       kind: "player",
-      name: "Ari",
-      notes: "Instance notes",
-      updatedAt: "2026-06-18T02:00:00Z"
+      name: "Mage",
+      notes: "Instance notes"
     });
     expect(detail?.sheet?.id).toBe("sheet_player");
     expect(detail?.stats.health).toBe(37);

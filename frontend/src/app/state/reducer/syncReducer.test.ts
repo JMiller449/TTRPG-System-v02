@@ -1386,7 +1386,9 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(created.state.serverState.items.item_1?.augmentation_templates).toHaveLength(1);
-    expect(created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect.value.text).toBe("2");
+    expect(created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect).toMatchObject({
+      value: { text: "2" }
+    });
 
     const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
       response_id: null,
@@ -1402,7 +1404,9 @@ describe("authoritative server-state sync", () => {
       request_id: "req-update-augmentation"
     });
 
-    expect(edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect.value.text).toBe("4");
+    expect(edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect).toMatchObject({
+      value: { text: "4" }
+    });
 
     const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
       response_id: null,

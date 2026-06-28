@@ -14,6 +14,8 @@ function requestIdField(requestId: string | null | undefined): { request_id?: st
 }
 
 export type SheetResourceName = ProtocolRequest<"adjust_instanced_sheet_resource">["resource"];
+export type InstancedSheetDamageType =
+  ProtocolRequest<"apply_instanced_sheet_damage">["damage_type"];
 export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_name"];
 export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
 export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">["bridge"];
@@ -291,6 +293,25 @@ export function buildAdjustInstancedSheetResourceRequest({
     instance_id: instanceId,
     resource,
     delta
+  };
+}
+
+export function buildApplyInstancedSheetDamageRequest({
+  instanceId,
+  amount,
+  damageType,
+  requestId
+}: {
+  instanceId: string;
+  amount: number;
+  damageType: InstancedSheetDamageType;
+} & OptionalRequestId): ProtocolRequest<"apply_instanced_sheet_damage"> {
+  return {
+    ...requestIdField(requestId),
+    type: "apply_instanced_sheet_damage",
+    instance_id: instanceId,
+    amount,
+    damage_type: damageType
   };
 }
 

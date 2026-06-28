@@ -9,7 +9,12 @@ VariableRoot = Literal["state", "sheet", "instance"]
 VariableValueType = Literal["number", "percent", "formula", "resource"]
 VariableEditableRole = Literal["unauthenticated", "player", "dm"]
 ActionStepTarget = Literal["caster", "target"]
-ActionStepCategory = Literal["roll20_output", "bounded_mutation", "semantic_mutation"]
+ActionStepCategory = Literal[
+    "calculation",
+    "roll20_output",
+    "bounded_mutation",
+    "semantic_mutation",
+]
 ActionPresetTemplateCategory = Literal["healing", "resource"]
 AugmentationTargetContext = Literal["item_template", "condition_template", "runtime"]
 ActionPathCatalog = Literal[

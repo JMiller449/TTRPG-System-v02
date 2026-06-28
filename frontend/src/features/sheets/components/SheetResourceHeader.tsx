@@ -11,7 +11,6 @@ import {
 } from "@/features/sheets/sheetDisplay";
 
 export function SheetResourceHeader({
-  mode,
   stats,
   resources,
   editingResource,
@@ -25,7 +24,6 @@ export function SheetResourceHeader({
   onCancelResourceEdit,
   onResourceEditorKeyDown
 }: {
-  mode: "player" | "gm";
   stats: Partial<Record<SheetStatKey, number>>;
   resources: Record<ResourceKey, number>;
   editingResource: ResourceKey | null;
@@ -97,7 +95,7 @@ export function SheetResourceHeader({
                     autoFocus
                   />
                 </Field>
-                {mode === "player" && key === "health" ? (
+                {key === "health" ? (
                   <Field label="Damage Type">
                     <select
                       value={healthDamageType}
@@ -106,6 +104,7 @@ export function SheetResourceHeader({
                       }
                       aria-label="Health adjustment damage type"
                     >
+                      <option value="">Select damage type</option>
                       {PLAYER_HEALTH_DAMAGE_TYPES.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -132,10 +131,10 @@ export function SheetResourceHeader({
                   <p className="error-text stat-editor__error" id={errorId} role="alert">
                     {resourceEditorError}
                   </p>
-                ) : mode === "player" && key === "health" ? (
+                ) : key === "health" ? (
                   <p className="muted stat-editor__hint" id={hintId}>
-                    Damage type is UI-only scaffolding until backend health-update schema is
-                    finalized.
+                    Negative modifiers apply typed damage after backend resistance; positive
+                    modifiers restore health directly.
                   </p>
                 ) : (
                   <p className="muted stat-editor__hint" id={hintId}>

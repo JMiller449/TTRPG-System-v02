@@ -3,11 +3,25 @@ from dataclasses import dataclass
 import pytest
 
 from backend.features.formula_runtime.service import (
+    FormulaExecutionContext,
+    compose_roll20_message,
     evaluate_numeric_expression,
     evaluate_numeric_formula,
+    resolve_roll_mode,
 )
-from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.augmentation import (
+    EvaluationFormulaModifierEffect,
+    FormulaModifierSelector,
+    RollModeModifierEffect,
+)
+from backend.state.models.formula import (
+    Formula,
+    FormulaAliases,
+    FormulaDefinition,
+    normalize_formula_tags,
+)
 from backend.state.models.proficiency import ProficiencyBridge
+from backend.state.models.state import State
 
 
 @dataclass
@@ -22,6 +36,48 @@ class DummySheet:
     stats: DummyStats
     proficiencies: dict[str, ProficiencyBridge]
     variables: dict[str, object]
+
+
+def test_formula_tags_are_normalized_deduplicated_and_ordered() -> None:
+    assert normalize_formula_tags(
+        [" Damage ", "FIRE", "damage", "  ranged   attack  "]
+    ) == ["damage", "fire", "ranged attack"]
+
+    formula = Formula(aliases=None, text="1d6", tags=[" FIRE ", "fire"])
+    assert formula.tags == ["fire"]
+
+
+def test_formula_tags_reject_empty_values() -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        Formula(aliases=None, text="1d6", tags=["  "])
+
+
+def test_formula_deserialization_defaults_legacy_tags_and_persists_them() -> None:
+    legacy = FormulaDefinition.from_dict(
+        {
+            "id": "legacy_formula",
+            "formula": {"aliases": None, "text": "1d6"},
+        }
+    )
+    tagged = FormulaDefinition.from_dict(
+        {
+            "id": "tagged_formula",
+            "formula": {
+                "aliases": None,
+                "text": "1d6",
+                "tags": [" Damage ", "FIRE"],
+            },
+        }
+    )
+
+    assert legacy.formula.tags == []
+    assert tagged.formula.tags == ["damage", "fire"]
+
+    state = State(formulas={"tagged_formula": tagged})
+    assert state.to_dict()["formulas"]["tagged_formula"]["formula"]["tags"] == [
+        "damage",
+        "fire",
+    ]
 
 
 def test_expand_formula_resolves_attribute_paths_relative_to_root() -> None:
@@ -172,6 +228,158 @@ def test_formula_runtime_evaluates_formula_against_root() -> None:
     )
 
     assert evaluate_numeric_formula(root, formula) == 8
+
+
+def test_formula_execution_context_normalizes_formula_and_semantic_tags() -> None:
+    context = FormulaExecutionContext.for_formula(
+        Formula(aliases=None, text="10", tags=[" Damage ", "FIRE"]),
+        action_id="attack",
+        step_id="damage-step",
+        formula_id="damage-formula",
+        semantic_tags=("fire", " Magical "),
+    )
+
+    assert context == FormulaExecutionContext(
+        action_id="attack",
+        step_id="damage-step",
+        formula_id="damage-formula",
+        tags=("damage", "fire", "magical"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("operation", "expected"),
+    [
+        ("add", 12),
+        ("subtract", 8),
+        ("multiply", 20),
+        ("divide", 5),
+        ("set", 2),
+    ],
+)
+def test_formula_runtime_applies_matching_numeric_modifiers(
+    operation: str,
+    expected: int,
+) -> None:
+    root = DummySheet(
+        stats=DummyStats(
+            strength=12,
+            mana=20,
+            derived=Formula(aliases=None, text="1"),
+        ),
+        proficiencies={},
+        variables={},
+    )
+    formula = Formula(aliases=None, text="10", tags=["damage"])
+    context = FormulaExecutionContext.for_formula(
+        formula,
+        action_id="attack",
+        step_id="damage-step",
+        formula_id="damage-formula",
+        semantic_tags=("fire",),
+    )
+    modifier = EvaluationFormulaModifierEffect(
+        operation=operation,
+        value=Formula(aliases=None, text="2"),
+        selector=FormulaModifierSelector(
+            required_tags=["damage", "fire"],
+            action_id="attack",
+            step_id="damage-step",
+            formula_id="damage-formula",
+        ),
+    )
+
+    assert evaluate_numeric_formula(
+        root,
+        formula,
+        execution_context=context,
+        modifiers=(modifier,),
+    ) == expected
+
+    mismatch = FormulaExecutionContext.for_formula(
+        formula,
+        action_id="other-action",
+        step_id="damage-step",
+        formula_id="damage-formula",
+        semantic_tags=("fire",),
+    )
+    assert evaluate_numeric_formula(
+        root,
+        formula,
+        execution_context=mismatch,
+        modifiers=(modifier,),
+    ) == 10
+
+
+def test_roll_mode_modifiers_match_context_and_cancel_opposing_sources() -> None:
+    formula = Formula(aliases=None, text="1d100", tags=["check", "block"])
+    context = FormulaExecutionContext.for_formula(
+        formula,
+        action_id="block",
+        step_id="roll",
+    )
+    advantage = RollModeModifierEffect(
+        roll_mode="advantage",
+        selector=FormulaModifierSelector(required_tags=["check", "block"]),
+    )
+
+    assert resolve_roll_mode(
+        "normal",
+        execution_context=context,
+        modifiers=(advantage,),
+    ) == "advantage"
+    assert resolve_roll_mode(
+        "disadvantage",
+        execution_context=context,
+        modifiers=(advantage,),
+    ) == "normal"
+
+
+def test_roll20_composition_applies_numeric_modifier_without_rewriting_formula() -> None:
+    root = DummySheet(
+        stats=DummyStats(
+            strength=12,
+            mana=20,
+            derived=Formula(aliases=None, text="1"),
+        ),
+        proficiencies={},
+        variables={},
+    )
+    formula = Formula(
+        aliases=[FormulaAliases(name="strength", path=["stats", "strength"])],
+        text="Check: /roll (1d100 / 100) * @strength",
+        tags=["check", "strength"],
+    )
+    context = FormulaExecutionContext.for_formula(
+        formula,
+        action_id="strength-check",
+        step_id="roll",
+    )
+    modifier = EvaluationFormulaModifierEffect(
+        operation="add",
+        value=Formula(aliases=None, text="2"),
+        selector=FormulaModifierSelector(required_tags=["check", "strength"]),
+    )
+
+    assert compose_roll20_message(
+        root,
+        formula,
+        execution_context=context,
+        modifiers=(modifier,),
+    ) == "Check: /roll ((1d100 / 100) * (12)) + (2)"
+    assert formula.text == "Check: /roll (1d100 / 100) * @strength"
+
+    plain_message = Formula(
+        aliases=None,
+        text="Strength check complete",
+        tags=["check", "strength"],
+    )
+    assert compose_roll20_message(
+        root,
+        plain_message,
+        execution_context=FormulaExecutionContext.for_formula(plain_message),
+        modifiers=(modifier,),
+    ) == "Strength check complete"
 
 
 def test_formula_runtime_rejects_unsupported_function() -> None:

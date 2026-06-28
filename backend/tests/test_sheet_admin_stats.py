@@ -211,6 +211,7 @@ def test_dm_can_set_sheet_formula_stat(monkeypatch) -> None:
                                     }
                                 ],
                                 "text": "@constitution * 12",
+                                "tags": [],
                             },
                         }
                     ],

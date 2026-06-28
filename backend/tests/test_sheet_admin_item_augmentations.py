@@ -47,8 +47,9 @@ def _augmentation_payload(
     scope: str = "instance",
     path: list[str] | None = None,
     value: str = "2",
+    selector: dict | None = None,
 ) -> dict:
-    return {
+    payload = {
         "id": augmentation_id,
         "name": "Sword Health Bonus",
         "description": "Template applied by this item.",
@@ -79,6 +80,9 @@ def _augmentation_payload(
             "removal_condition": None,
         },
     }
+    if selector is not None:
+        payload["effect"]["selector"] = selector
+    return payload
 
 
 def test_item_round_trips_augmentation_templates() -> None:
@@ -119,6 +123,154 @@ def test_state_snapshot_protocol_accepts_item_augmentation_templates() -> None:
     assert normalized["state"]["items"]["sword"]["augmentation_templates"][0][
         "id"
     ] == "sword-health-bonus"
+
+
+def test_dm_upsert_normalizes_formula_modifier_selector(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.items["sword"] = Item.from_dict(_item_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "upsert_item_augmentation_template",
+                    "item_id": "sword",
+                    "augmentation": _augmentation_payload(
+                        selector={
+                            "required_tags": [" Damage ", "FIRE", "damage"],
+                            "excluded_tags": [" Healing "],
+                            "action_id": " action-1 ",
+                            "formula_id": " formula-1 ",
+                            "step_id": " step-1 ",
+                        }
+                    ),
+                },
+            )
+
+            selector = state.items["sword"].augmentation_templates[0].effect.selector
+            assert selector.required_tags == ["damage", "fire"]
+            assert selector.excluded_tags == ["healing"]
+            assert selector.action_id == "action-1"
+            assert selector.formula_id == "formula-1"
+            assert selector.step_id == "step-1"
+            patch_selector = websocket.sent_messages[0]["ops"][0]["value"]["effect"][
+                "selector"
+            ]
+            assert patch_selector == {
+                "required_tags": ["damage", "fire"],
+                "excluded_tags": ["healing"],
+                "action_id": "action-1",
+                "formula_id": "formula-1",
+                "step_id": "step-1",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "effect",
+    [
+        {
+            "type": "evaluation_formula_modifier",
+            "operation": "add",
+            "value": {"aliases": None, "text": "2", "tags": []},
+            "selector": {"required_tags": ["damage"]},
+        },
+        {
+            "type": "roll_mode_modifier",
+            "roll_mode": "disadvantage",
+            "selector": {"required_tags": ["check"]},
+        },
+    ],
+)
+def test_dm_can_upsert_evaluation_time_effect_variants(monkeypatch, effect: dict) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.items["sword"] = Item.from_dict(_item_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            augmentation = _augmentation_payload()
+            augmentation["effect"] = effect
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "upsert_item_augmentation_template",
+                    "item_id": "sword",
+                    "augmentation": augmentation,
+                },
+            )
+
+            stored = state.items["sword"].augmentation_templates[0].effect
+            assert stored.type == effect["type"]
+            assert websocket.sent_messages[0]["ops"][0]["value"]["effect"][
+                "type"
+            ] == effect["type"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_upsert_rejects_conflicting_formula_modifier_selector_tags(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.items["sword"] = Item.from_dict(_item_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "upsert_item_augmentation_template",
+                    "item_id": "sword",
+                    "augmentation": _augmentation_payload(
+                        selector={
+                            "required_tags": ["damage"],
+                            "excluded_tags": ["DAMAGE"],
+                        }
+                    ),
+                },
+            )
+
+            assert state.items["sword"].augmentation_templates == []
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "augmentation.effect.formula_modifier.selector: Value error, "
+                        "Formula modifier selector tags cannot be both required and "
+                        "excluded: damage."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_dm_can_upsert_update_and_remove_item_augmentation_template(

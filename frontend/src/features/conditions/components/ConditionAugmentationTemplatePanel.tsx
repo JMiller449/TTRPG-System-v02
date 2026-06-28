@@ -4,12 +4,16 @@ import {
   applyAugmentationTargetOption,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
+  formatAugmentationEffect,
+  formatFormulaModifierSelector,
   formatAugmentationTargetOption,
   hasValidAugmentationEditorValues,
   isKnownAugmentationEditorTarget,
   type AugmentationEditorValues,
   type AugmentationTargetOption
 } from "@/features/augmentations/augmentationEditorValues";
+import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
+import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
 
 const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
   "add",
@@ -18,6 +22,11 @@ const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
   "divide",
   "set"
 ];
+const AUGMENTATION_EFFECT_TYPES = [
+  ["formula_modifier", "Direct state modifier"],
+  ["evaluation_formula_modifier", "Formula evaluation modifier"],
+  ["roll_mode_modifier", "Advantage / disadvantage"]
+] as const;
 
 function formatTarget(augmentation: Augmentation): string {
   const path = augmentation.target.path.length > 0 ? augmentation.target.path.join(".") : "(none)";
@@ -29,6 +38,7 @@ export function ConditionAugmentationTemplatePanel({
   editingAugmentationId,
   templates,
   targetOptions,
+  selectorOptions,
   values,
   onChange,
   onSubmit,
@@ -40,6 +50,7 @@ export function ConditionAugmentationTemplatePanel({
   editingAugmentationId: string | null;
   templates: Augmentation[];
   targetOptions: AugmentationTargetOption[];
+  selectorOptions: AugmentationSelectorOptions;
   values: AugmentationEditorValues;
   onChange: (values: AugmentationEditorValues) => void;
   onSubmit: () => void;
@@ -90,29 +101,66 @@ export function ConditionAugmentationTemplatePanel({
                 </option>
               ) : null}
               {targetOptions.map((target) => (
-                <option key={augmentationTargetOptionKey(target)} value={augmentationTargetOptionKey(target)}>
+                <option
+                  key={augmentationTargetOptionKey(target)}
+                  value={augmentationTargetOptionKey(target)}
+                >
                   {formatAugmentationTargetOption(target)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Operation">
+          <Field label="Effect Type">
             <select
-              value={values.operation}
+              value={values.effectType}
               onChange={(event) =>
                 onChange({
                   ...values,
-                  operation: event.target.value as AugmentationOperation
+                  effectType: event.target.value as AugmentationEditorValues["effectType"]
                 })
               }
             >
-              {AUGMENTATION_OPERATIONS.map((operation) => (
-                <option key={operation} value={operation}>
-                  {operation}
+              {AUGMENTATION_EFFECT_TYPES.map(([effectType, label]) => (
+                <option key={effectType} value={effectType}>
+                  {label}
                 </option>
               ))}
             </select>
           </Field>
+          {values.effectType === "roll_mode_modifier" ? (
+            <Field label="Roll Mode">
+              <select
+                value={values.rollMode}
+                onChange={(event) =>
+                  onChange({
+                    ...values,
+                    rollMode: event.target.value as AugmentationEditorValues["rollMode"]
+                  })
+                }
+              >
+                <option value="advantage">advantage</option>
+                <option value="disadvantage">disadvantage</option>
+              </select>
+            </Field>
+          ) : (
+            <Field label="Operation">
+              <select
+                value={values.operation}
+                onChange={(event) =>
+                  onChange({
+                    ...values,
+                    operation: event.target.value as AugmentationOperation
+                  })
+                }
+              >
+                {AUGMENTATION_OPERATIONS.map((operation) => (
+                  <option key={operation} value={operation}>
+                    {operation}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
         </div>
 
         <Field label="Description">
@@ -124,14 +172,23 @@ export function ConditionAugmentationTemplatePanel({
           />
         </Field>
 
-        <Field label="Formula">
-          <textarea
-            rows={2}
-            value={values.formulaText}
-            onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-            placeholder="@arcane - 2"
-          />
-        </Field>
+        {values.effectType !== "roll_mode_modifier" ? (
+          <Field label="Formula">
+            <textarea
+              rows={2}
+              value={values.formulaText}
+              onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
+              placeholder="@arcane - 2"
+            />
+          </Field>
+        ) : null}
+
+        <FormulaModifierSelectorEditor
+          idPrefix="condition-augmentation-selector"
+          values={values}
+          options={selectorOptions}
+          onChange={onChange}
+        />
 
         <div className="inline-group">
           <Field label="Duration">
@@ -180,21 +237,32 @@ export function ConditionAugmentationTemplatePanel({
         <div className="list">
           {templates.length === 0 ? <p className="muted">No condition augmentations.</p> : null}
           {templates.map((augmentation) => (
-            <article className="list-item list-item--block augmentation-template-card" key={augmentation.id}>
+            <article
+              className="list-item list-item--block augmentation-template-card"
+              key={augmentation.id}
+            >
               <div className="list-item__top">
                 <strong>{augmentation.name}</strong>
-                <span className="muted">{augmentation.active ?? true ? "active" : "inactive"}</span>
+                <span className="muted">
+                  {(augmentation.active ?? true) ? "active" : "inactive"}
+                </span>
               </div>
               <div className="muted">Target: {formatTarget(augmentation)}</div>
               <div className="muted">
-                Effect: {augmentation.effect.operation} {augmentation.effect.value.text || "(blank)"}
+                Effect: {formatAugmentationEffect(augmentation)}
               </div>
-              {augmentation.description ? <div className="muted">{augmentation.description}</div> : null}
+              <div className="muted">Selector: {formatFormulaModifierSelector(augmentation)}</div>
+              {augmentation.description ? (
+                <div className="muted">{augmentation.description}</div>
+              ) : null}
               <div className="inline-actions">
                 <button className="button button--secondary" onClick={() => onEdit(augmentation)}>
                   Edit
                 </button>
-                <button className="button button--secondary" onClick={() => onRemove(augmentation.id)}>
+                <button
+                  className="button button--secondary"
+                  onClick={() => onRemove(augmentation.id)}
+                >
                   Remove
                 </button>
               </div>

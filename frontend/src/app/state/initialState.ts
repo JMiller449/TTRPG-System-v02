@@ -17,8 +17,6 @@ export const initialServerState: ServerState = {
   formulaOrder: [],
   conditionPresets: {},
   conditionPresetOrder: [],
-  sheetPresentation: {},
-  persistentSheetPresentation: {},
   encounters: {},
   encounterOrder: [],
   actionHistory: {},

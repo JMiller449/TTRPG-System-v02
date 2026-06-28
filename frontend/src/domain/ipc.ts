@@ -5,12 +5,10 @@ import type {
   EncounterPreset,
   FormulaDefinition,
   ItemDefinition,
-  PersistentSheetPresentationRecord,
   PersistentSheetRecord,
   ProficiencyDefinition,
   Role,
-  Sheet,
-  SheetPresentationRecord
+  Sheet
 } from "@/domain/models";
 import type {
   ProtocolActionFormulaAuthoringMetadataEvent,
@@ -53,8 +51,6 @@ export interface AppSnapshot {
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];
   conditionPresets: ConditionPreset[];
-  sheetPresentation: SheetPresentationRecord[];
-  persistentSheetPresentation: PersistentSheetPresentationRecord[];
   encounters: EncounterPreset[];
   actionHistory: ActionHistoryEntry[];
 }

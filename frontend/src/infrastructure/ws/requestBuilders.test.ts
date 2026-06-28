@@ -5,6 +5,7 @@ import {
 } from "@/generated/backendProtocol";
 import {
   buildAuthenticateRequest,
+  buildApplyInstancedSheetDamageRequest,
   buildCreateActionRequest,
   buildCreateConditionPresetRequest,
   buildCreateFormulaRequest,
@@ -204,6 +205,7 @@ const testSheet: SheetDefinitionPayload = {
 
 const requestBuilderByType = {
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
+  apply_instanced_sheet_damage: buildApplyInstancedSheetDamageRequest,
   authenticate: buildAuthenticateRequest,
   claim_sheet_access_code: buildClaimSheetAccessCodeRequest,
   create_action: buildCreateActionRequest,
@@ -423,6 +425,23 @@ describe("requestBuilders", () => {
       instance_id: "instance_1",
       resource: "mana",
       delta: -5
+    });
+  });
+
+  it("builds typed damage requests", () => {
+    expect(
+      buildApplyInstancedSheetDamageRequest({
+        requestId: "req-damage",
+        instanceId: "instance_1",
+        amount: 12,
+        damageType: "Fire"
+      })
+    ).toEqual({
+      request_id: "req-damage",
+      type: "apply_instanced_sheet_damage",
+      instance_id: "instance_1",
+      amount: 12,
+      damage_type: "Fire"
     });
   });
 

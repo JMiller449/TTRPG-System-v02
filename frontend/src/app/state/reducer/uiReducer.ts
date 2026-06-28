@@ -43,6 +43,16 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         ...uiState,
         xpTracker: action.tracker
       }));
+    case "set_sheet_access_codes":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        sheetAccessCodes: action.codes
+      }));
+    case "set_state_backup_export":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        stateBackupExport: action.backup
+      }));
     case "set_roll20_bridge_status":
       return updateUiState(state, (uiState) => ({
         ...uiState,
@@ -64,6 +74,8 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,
         augmentationTargetMetadata: initialUiState.augmentationTargetMetadata,
         xpTracker: initialUiState.xpTracker,
+        sheetAccessCodes: initialUiState.sheetAccessCodes,
+        stateBackupExport: initialUiState.stateBackupExport,
         roll20Bridge: initialUiState.roll20Bridge
       }));
     default:

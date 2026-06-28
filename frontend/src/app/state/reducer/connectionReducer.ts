@@ -18,6 +18,18 @@ export function connectionReducer(state: AppState, action: AppAction): AppState 
         ...uiState,
         connection: { ...uiState.connection, error: action.error }
       }));
+    case "clear_connection_error_matching":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        connection: {
+          ...uiState.connection,
+          error: uiState.connection.error
+            ?.toLowerCase()
+            .includes(action.text.toLowerCase())
+            ? undefined
+            : uiState.connection.error
+        }
+      }));
     default:
       return undefined;
   }

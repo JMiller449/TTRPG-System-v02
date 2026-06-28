@@ -68,6 +68,28 @@ export function TemplateEditorForm({
           />
         </Field>
 
+        <div className="inline-group">
+          <Field label="XP Given When Slayed">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={values.xpGivenWhenSlayed}
+              onChange={(event) =>
+                onChange({ ...values, xpGivenWhenSlayed: event.target.value })
+              }
+              placeholder="0"
+            />
+          </Field>
+          <Field label="XP Needed For Next Level">
+            <input
+              value={values.xpCap}
+              onChange={(event) => onChange({ ...values, xpCap: event.target.value })}
+              placeholder="e.g. 100"
+            />
+          </Field>
+        </div>
+
         <div className="template-editor__stats">
           {CORE_TEMPLATE_STATS.map((key) => (
             <Field key={key} label={CORE_STAT_LABELS[key]}>

@@ -1,19 +1,14 @@
 (function () {
-  const BACKEND_WS_URL = "ws://127.0.0.1:6767/ws/chat";
-  const LOCAL_DEV_SERVICE_AUTH_CODE = "service";
+  const DEFAULT_BACKEND_WS_URL = "ws://127.0.0.1:6767/ws/chat";
   const CHAT_INPUT_SELECTOR = 'textarea[title="Text Chat Input"]';
   const SEND_BUTTON_SELECTOR = "#chatSendBtn";
   const RECONNECT_DELAY_MS = 3000;
-  const SERVICE_AUTH_CODE_STORAGE_KEY = "TTRPG_SERVICE_AUTH_CODE";
 
   let socket = null;
   let reconnectTimer = null;
   let isAuthenticated = false;
-
-  function readServiceAuthCode() {
-    const configuredCode = window.localStorage.getItem(SERVICE_AUTH_CODE_STORAGE_KEY);
-    return configuredCode && configuredCode.trim() ? configuredCode.trim() : LOCAL_DEV_SERVICE_AUTH_CODE;
-  }
+  let backendWsUrl = DEFAULT_BACKEND_WS_URL;
+  let serviceAuthCode = "";
 
   function log(message, extra) {
     if (extra === undefined) {
@@ -83,11 +78,13 @@
         isAuthenticated = true;
         log(`Authenticated as ${payload.role}`);
         if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: "hello",
-            source: "roll20_firefox_extension",
-            page_url: window.location.href
-          }));
+          socket.send(
+            JSON.stringify({
+              type: "hello",
+              source: "roll20_firefox_extension",
+              page_url: window.location.href,
+            }),
+          );
         }
         return;
       }
@@ -103,48 +100,69 @@
       return;
     }
 
-    if (!payload || payload.type !== "chat_message" || typeof payload.message !== "string") {
+    if (
+      !payload ||
+      payload.type !== "chat_message" ||
+      typeof payload.message !== "string"
+    ) {
       return;
     }
 
     sendChatMessage(payload.message)
       .then(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: "chat_delivery",
-            message_id: payload.message_id,
-            success: true
-          }));
+          socket.send(
+            JSON.stringify({
+              type: "chat_delivery",
+              message_id: payload.message_id,
+              success: true,
+            }),
+          );
         }
       })
       .catch((error) => {
         log("Failed to send chat message", error);
         if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: "chat_delivery",
-            message_id: payload.message_id,
-            success: false,
-            error: String(error)
-          }));
+          socket.send(
+            JSON.stringify({
+              type: "chat_delivery",
+              message_id: payload.message_id,
+              success: false,
+              error: String(error),
+            }),
+          );
         }
       });
   }
 
   function connect() {
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    if (
+      socket &&
+      (socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+
+    if (!serviceAuthCode) {
+      log(
+        "Service authentication code is not configured. Open the extension options.",
+      );
       return;
     }
 
     isAuthenticated = false;
-    log(`Connecting to backend at ${BACKEND_WS_URL}`);
-    socket = new WebSocket(BACKEND_WS_URL);
+    log(`Connecting to backend at ${backendWsUrl}`);
+    socket = new WebSocket(backendWsUrl);
 
     socket.addEventListener("open", () => {
       log("Connected to backend chat socket");
-      socket.send(JSON.stringify({
-        type: "authenticate",
-        token: readServiceAuthCode()
-      }));
+      socket.send(
+        JSON.stringify({
+          type: "authenticate",
+          token: serviceAuthCode,
+        }),
+      );
     });
 
     socket.addEventListener("message", handleMessage);
@@ -162,5 +180,15 @@
     });
   }
 
-  connect();
+  async function start() {
+    const settings = await browser.storage.local.get({
+      backendWsUrl: DEFAULT_BACKEND_WS_URL,
+      serviceAuthCode: "",
+    });
+    backendWsUrl = settings.backendWsUrl.trim() || DEFAULT_BACKEND_WS_URL;
+    serviceAuthCode = settings.serviceAuthCode.trim();
+    connect();
+  }
+
+  void start();
 })();

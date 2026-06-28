@@ -52,6 +52,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheet,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
+    SetSheetSlayedCount,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -68,7 +69,8 @@ from backend.features.sheet_access.schema import (
     GetSheetAccessCodes,
 )
 from backend.features.sheet_runtime.schema import PerformAction
-from backend.features.state_sync.schema import ResyncState
+from backend.features.state_backup.schema import ExportStateBackup, ImportStateBackup
+from backend.features.state_sync.schema import ResyncState, UndoLastStateChange
 from backend.features.variable_registry.schema import (
     GetActionFormulaAuthoringMetadata,
     GetAugmentationTargetMetadata,
@@ -285,9 +287,20 @@ class XpTrackerEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class StateBackupExportedEvent(ProtocolModel):
+    response_id: str | None = None
+    persisted_state_json: str
+    schema_version: int
+    type: Literal["state_backup_exported"] = "state_backup_exported"
+    request_id: str | None = None
+
+
 ApplicationRequest = Annotated[
     Authenticate
     | ResyncState
+    | UndoLastStateChange
+    | ExportStateBackup
+    | ImportStateBackup
     | SendRoll20ChatMessage
     | GetRoll20BridgeStatus
     | SaveEncounterPreset
@@ -315,6 +328,7 @@ ApplicationRequest = Annotated[
     | UpdateSheet
     | DeleteSheet
     | SetSheetNotes
+    | SetSheetSlayedCount
     | SetInstancedSheetNotes
     | SetInstancedSheetResource
     | AdjustInstancedSheetResource
@@ -355,7 +369,8 @@ ServerEvent = Annotated[
     | VariableRegistryEvent
     | SheetAccessCodesEvent
     | SheetAccessClaimedEvent
-    | XpTrackerEvent,
+    | XpTrackerEvent
+    | StateBackupExportedEvent,
     Field(discriminator="type"),
 ]
 

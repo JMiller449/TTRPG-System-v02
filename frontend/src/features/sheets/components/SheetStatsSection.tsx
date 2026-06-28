@@ -52,8 +52,9 @@ export function SheetStatsSection({
           const baseValue = stats[key] ?? 0;
           const modifier = getModifier(key);
           const currentValue = getCurrentValue(key, baseValue);
-          const descriptionId = `stat-${key}-editor-description`;
-          const errorId = `stat-${key}-editor-error`;
+          const editorId = `stat-editor-${key}`;
+          const errorId = `${editorId}-error`;
+          const hintId = `${editorId}-hint`;
           return (
             <section key={key} className="core-block">
               <header className="core-block__header">
@@ -63,11 +64,12 @@ export function SheetStatsSection({
                 <div className="core-block__value-wrap">
                   {canEditStats ? (
                     <button
-                      className="core-block__value-button"
                       type="button"
+                      className="core-block__value-button"
+                      onClick={() => onBeginEditing(key)}
                       aria-label={`Edit ${DISPLAY_NAMES[key]}. Current value ${currentValue}.`}
                       aria-expanded={editingKey === key}
-                      onClick={() => onBeginEditing(key)}
+                      aria-controls={editorId}
                     >
                       <strong
                         className={`core-block__value ${
@@ -88,7 +90,12 @@ export function SheetStatsSection({
                         >
                           {formatModifier(modifier)}
                         </span>
-                        <button className="link-button" type="button" onClick={() => onResetModifier(key)}>
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => onResetModifier(key)}
+                          aria-label={`Reset ${DISPLAY_NAMES[key]} modifier`}
+                        >
                           Reset
                         </button>
                       </>
@@ -98,7 +105,12 @@ export function SheetStatsSection({
               </header>
 
               {canEditStats && editingKey === key ? (
-                <div className="stat-editor">
+                <div
+                  className="stat-editor"
+                  id={editorId}
+                  role="group"
+                  aria-label={`Edit ${DISPLAY_NAMES[key]}`}
+                >
                   <Field label={`${DISPLAY_NAMES[key]} Modifier`}>
                     <input
                       value={draftModifier}
@@ -107,27 +119,30 @@ export function SheetStatsSection({
                       inputMode="numeric"
                       placeholder="+10 or -10"
                       aria-label={`${DISPLAY_NAMES[key]} modifier`}
-                      aria-describedby={editorError ? errorId : descriptionId}
+                      aria-describedby={editorError ? errorId : hintId}
                       aria-invalid={Boolean(editorError)}
                       autoFocus
                     />
                   </Field>
-                  <button className="button" type="button" onClick={() => onApplyModifier(key)}>
+                  <button type="button" className="button" onClick={() => onApplyModifier(key)}>
                     Apply
                   </button>
-                  <button className="button button--secondary" type="button" onClick={onCancelEditing}>
+                  <button
+                    type="button"
+                    className="button button--secondary"
+                    onClick={onCancelEditing}
+                  >
                     Cancel
                   </button>
                   {editorError ? (
                     <p className="error-text stat-editor__error" id={errorId} role="alert">
                       {editorError}
                     </p>
-                  ) : null}
-                  {!editorError ? (
-                    <p className="muted stat-editor__hint" id={descriptionId}>
+                  ) : (
+                    <p className="muted stat-editor__hint" id={hintId}>
                       Updates template base stat.
                     </p>
-                  ) : null}
+                  )}
                 </div>
               ) : null}
 
@@ -151,23 +166,29 @@ export function SheetStatsSection({
                   const canEditSubStat = canEditStats && isCoreStatKey(subKey);
                   const subModifier = getModifier(subKey);
                   const subCurrent = getCurrentValue(subKey, subBase);
-                  const subDescriptionId = `stat-${subKey}-editor-description`;
-                  const subErrorId = `stat-${subKey}-editor-error`;
+                  const subEditorId = `stat-editor-${subKey}`;
+                  const subErrorId = `${subEditorId}-error`;
+                  const subHintId = `${subEditorId}-hint`;
                   return (
                     <div key={subKey} className="core-sub-row">
                       <div className="core-sub-row__top">
                         {canEditSubStat ? (
                           <button
-                            className="core-sub-row__main"
                             type="button"
+                            className="core-sub-row__main"
+                            onClick={() => onBeginEditing(subKey)}
                             aria-label={`Edit ${DISPLAY_NAMES[subKey]}. Current value ${subCurrent}.`}
                             aria-expanded={editingKey === subKey}
-                            onClick={() => onBeginEditing(subKey)}
+                            aria-controls={subEditorId}
                           >
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
                             <span
                               className={`core-sub-row__value ${
-                                subModifier > 0 ? "stat-value--up" : subModifier < 0 ? "stat-value--down" : ""
+                                subModifier > 0
+                                  ? "stat-value--up"
+                                  : subModifier < 0
+                                    ? "stat-value--down"
+                                    : ""
                               }`}
                             >
                               {subCurrent}
@@ -189,7 +210,12 @@ export function SheetStatsSection({
                               >
                                 {formatModifier(subModifier)}
                               </span>
-                              <button className="link-button" type="button" onClick={() => onResetModifier(subKey)}>
+                              <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => onResetModifier(subKey)}
+                                aria-label={`Reset ${DISPLAY_NAMES[subKey]} modifier`}
+                              >
                                 Reset
                               </button>
                             </>
@@ -198,7 +224,12 @@ export function SheetStatsSection({
                       </div>
 
                       {canEditSubStat && editingKey === subKey ? (
-                        <div className="stat-editor stat-editor--sub">
+                        <div
+                          className="stat-editor stat-editor--sub"
+                          id={subEditorId}
+                          role="group"
+                          aria-label={`Edit ${DISPLAY_NAMES[subKey]}`}
+                        >
                           <Field label={`${DISPLAY_NAMES[subKey]} Modifier`}>
                             <input
                               value={draftModifier}
@@ -207,27 +238,38 @@ export function SheetStatsSection({
                               inputMode="numeric"
                               placeholder="+10 or -10"
                               aria-label={`${DISPLAY_NAMES[subKey]} modifier`}
-                              aria-describedby={editorError ? subErrorId : subDescriptionId}
+                              aria-describedby={editorError ? subErrorId : subHintId}
                               aria-invalid={Boolean(editorError)}
                               autoFocus
                             />
                           </Field>
-                          <button className="button" type="button" onClick={() => onApplyModifier(subKey)}>
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={() => onApplyModifier(subKey)}
+                          >
                             Apply
                           </button>
-                          <button className="button button--secondary" type="button" onClick={onCancelEditing}>
+                          <button
+                            type="button"
+                            className="button button--secondary"
+                            onClick={onCancelEditing}
+                          >
                             Cancel
                           </button>
                           {editorError ? (
-                            <p className="error-text stat-editor__error" id={subErrorId} role="alert">
+                            <p
+                              className="error-text stat-editor__error"
+                              id={subErrorId}
+                              role="alert"
+                            >
                               {editorError}
                             </p>
-                          ) : null}
-                          {!editorError ? (
-                            <p className="muted stat-editor__hint" id={subDescriptionId}>
+                          ) : (
+                            <p className="muted stat-editor__hint" id={subHintId}>
                               Updates template base stat.
                             </p>
-                          ) : null}
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -238,7 +280,9 @@ export function SheetStatsSection({
           );
         })}
       </div>
-      {canEditStats ? <p className="muted">Formula stat editing stays in formula authoring.</p> : null}
+      {canEditStats ? (
+        <p className="muted">Formula stat editing stays in formula authoring.</p>
+      ) : null}
     </section>
   );
 }

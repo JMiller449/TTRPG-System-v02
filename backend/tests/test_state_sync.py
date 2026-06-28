@@ -570,10 +570,130 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                 },
             ]
             assert player_socket.sent_messages == dm_socket.sent_messages
+            assert [
+                (
+                    record.state_version,
+                    record.request_id,
+                    record.request_type,
+                    record.operation_paths,
+                )
+                for record in state_sync_service.mutation_history
+            ] == [
+                (
+                    1,
+                    "req-1",
+                    None,
+                    ("/sheets/mage_template/stats/strength",),
+                ),
+                (
+                    2,
+                    "req-2",
+                    None,
+                    ("/sheets/mage_template/stats/strength",),
+                ),
+            ]
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_state_sync_undo_reverses_last_mutation_and_broadcasts_patch(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/strength", 2, request_id="req-1"
+            )
+            undone = await state_sync_service.undo_last_change(request_id="req-undo")
+
+            assert undone is True
+            assert (
+                StateSingleton.getState().sheets["mage_template"].stats.strength == 10
+            )
+            assert state_sync_service.undo_depth == 0
+            assert dm_socket.sent_messages == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "inc",
+                            "path": "/sheets/mage_template/stats/strength",
+                            "value": 2,
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
+                    "request_id": "req-1",
+                },
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "inc",
+                            "path": "/sheets/mage_template/stats/strength",
+                            "value": -2,
+                        }
+                    ],
+                    "state_version": 2,
+                    "type": "state_patch",
+                    "request_id": "req-undo",
+                },
+            ]
+            assert player_socket.sent_messages == dm_socket.sent_messages
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_state_sync_undo_restores_set_remove_and_add_mutations(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+
+            await state_sync_service.set(
+                "/sheets/mage_template/name", "Renamed Mage", request_id="req-set"
+            )
+            await state_sync_service.undo_last_change(request_id="req-undo-set")
+            assert state.sheets["mage_template"].name == "Mage Template"
+
+            await state_sync_service.remove(
+                "/sheets/mage_template", request_id="req-remove"
+            )
+            assert "mage_template" not in state.sheets
+            await state_sync_service.undo_last_change(request_id="req-undo-remove")
+            assert state.sheets["mage_template"].name == "Mage Template"
+
+            await state_sync_service.add(
+                "/sheets/temporary_template",
+                _build_sheet_state(),
+                request_id="req-add",
+            )
+            assert "temporary_template" in state.sheets
+            await state_sync_service.undo_last_change(request_id="req-undo-add")
+            assert "temporary_template" not in state.sheets
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_state_sync_undo_returns_false_when_history_is_empty() -> None:
+    assert asyncio.run(state_sync_service.undo_last_change(request_id="req-undo")) is False
 
 
 def test_resync_state_replays_missing_patches(monkeypatch) -> None:

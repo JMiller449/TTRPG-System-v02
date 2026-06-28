@@ -17,8 +17,8 @@ describe("authConfig", () => {
     ).toBe("custom-dm");
   });
 
-  it("uses local development auth tokens when env values are missing", () => {
-    expect(resolveDefaultAuthToken("player", {})).toBe("player");
-    expect(resolveDefaultAuthToken("gm", {})).toBe("dm");
+  it("does not compile fallback auth tokens when env values are missing", () => {
+    expect(resolveDefaultAuthToken("player", {})).toBeNull();
+    expect(resolveDefaultAuthToken("gm", {})).toBeNull();
   });
 });

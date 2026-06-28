@@ -9,6 +9,8 @@ import type {
   ProtocolApplicationRequest,
   ProtocolServerEvent,
   Roll20BridgeStatusEvent as ProtocolRoll20BridgeStatusEvent,
+  SheetAccessCodesEvent as ProtocolSheetAccessCodesEvent,
+  StateBackupExportedEvent as ProtocolStateBackupExportedEvent,
   StatePatchEvent as ProtocolStatePatchEvent,
   StateSnapshotEvent as ProtocolStateSnapshotEvent,
   XpTrackerEvent as ProtocolXpTrackerEvent
@@ -24,7 +26,9 @@ export type {
   ProtocolErrorEvent,
   ProtocolPatchOperation,
   ProtocolRoll20BridgeStatusEvent,
+  ProtocolSheetAccessCodesEvent,
   ProtocolServerEvent,
+  ProtocolStateBackupExportedEvent,
   ProtocolStatePatchEvent,
   ProtocolStateSnapshotEvent,
   ProtocolXpTrackerEvent
@@ -204,6 +208,54 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           sheets: payload.sheets as ProtocolXpTrackerEvent["sheets"],
           type: "xp_tracker",
           request_id: typeof payload.request_id === "string" || payload.request_id === null ? payload.request_id : undefined
+        };
+      }
+      return null;
+
+    case "sheet_access_codes":
+      if (
+        Array.isArray(payload.codes) &&
+        payload.codes.every(
+          (entry) =>
+            isRecord(entry) &&
+            typeof entry.code === "string" &&
+            typeof entry.sheet_id === "string" &&
+            isNullableString(entry.instance_id) &&
+            typeof entry.active === "boolean"
+        )
+      ) {
+        return {
+          response_id:
+            typeof payload.response_id === "string" || payload.response_id === null
+              ? payload.response_id
+              : null,
+          codes: payload.codes as ProtocolSheetAccessCodesEvent["codes"],
+          type: "sheet_access_codes",
+          request_id:
+            typeof payload.request_id === "string" || payload.request_id === null
+              ? payload.request_id
+              : undefined
+        };
+      }
+      return null;
+
+    case "state_backup_exported":
+      if (
+        typeof payload.persisted_state_json === "string" &&
+        typeof payload.schema_version === "number"
+      ) {
+        return {
+          response_id:
+            typeof payload.response_id === "string" || payload.response_id === null
+              ? payload.response_id
+              : null,
+          persisted_state_json: payload.persisted_state_json,
+          schema_version: payload.schema_version,
+          type: "state_backup_exported",
+          request_id:
+            typeof payload.request_id === "string" || payload.request_id === null
+              ? payload.request_id
+              : undefined
         };
       }
       return null;

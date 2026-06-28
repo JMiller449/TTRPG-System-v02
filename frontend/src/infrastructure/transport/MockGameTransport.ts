@@ -5,10 +5,6 @@ import type {
   PersistentSheetRecord,
   Sheet
 } from "@/domain/models";
-import {
-  LOCAL_DEV_DM_AUTH_TOKEN,
-  LOCAL_DEV_PLAYER_AUTH_TOKEN
-} from "@/infrastructure/config/authConfig";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
@@ -27,7 +23,10 @@ function createPersistentSheet(parent_id: string, health: number, mana: number):
   };
 }
 
-type SheetDefinitionRequest = Extract<ProtocolApplicationRequest, { type: "create_sheet" | "update_sheet" }>;
+type SheetDefinitionRequest = Extract<
+  ProtocolApplicationRequest,
+  { type: "create_sheet" | "update_sheet" }
+>;
 
 function createSheetFromDefinition(sheet: SheetDefinitionRequest["sheet"]): Sheet {
   return {
@@ -151,10 +150,12 @@ export class MockGameTransport implements GameTransport {
   sendProtocolRequest(request: ProtocolApplicationRequest): void {
     switch (request.type) {
       case "authenticate": {
+        const dmToken = import.meta.env.VITE_DM_AUTH_TOKEN?.trim();
+        const playerToken = import.meta.env.VITE_PLAYER_AUTH_TOKEN?.trim();
         const role =
-          request.token === LOCAL_DEV_DM_AUTH_TOKEN
+          dmToken && request.token === dmToken
             ? "gm"
-            : request.token === LOCAL_DEV_PLAYER_AUTH_TOKEN
+            : playerToken && request.token === playerToken
               ? "player"
               : null;
         if (!role) {
@@ -188,7 +189,10 @@ export class MockGameTransport implements GameTransport {
         return;
       case "create_sheet": {
         const sheet = createSheetFromDefinition(request.sheet);
-        this.snapshot.sheets = [sheet, ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)];
+        this.snapshot.sheets = [
+          sheet,
+          ...this.snapshot.sheets.filter((entry) => entry.id !== sheet.id)
+        ];
         this.emitIncrementalSnapshot(request.request_id ?? makeId("request"));
         return;
       }
@@ -210,7 +214,9 @@ export class MockGameTransport implements GameTransport {
         return;
       }
       case "delete_sheet": {
-        this.snapshot.sheets = this.snapshot.sheets.filter((entry) => entry.id !== request.sheet_id);
+        this.snapshot.sheets = this.snapshot.sheets.filter(
+          (entry) => entry.id !== request.sheet_id
+        );
         this.snapshot.persistentSheets = this.snapshot.persistentSheets.filter(
           (entry) => entry.value.parent_id !== request.sheet_id
         );
@@ -218,7 +224,9 @@ export class MockGameTransport implements GameTransport {
         return;
       }
       case "create_instanced_sheet": {
-        const parentSheet = this.snapshot.sheets.find((entry) => entry.id === request.parent_sheet_id);
+        const parentSheet = this.snapshot.sheets.find(
+          (entry) => entry.id === request.parent_sheet_id
+        );
         if (!parentSheet) {
           this.emit({
             type: "error",
@@ -251,7 +259,9 @@ export class MockGameTransport implements GameTransport {
       }
       case "claim_sheet_access_code": {
         const firstPlayerInstance = this.snapshot.persistentSheets.find((record) => {
-          const parentSheet = this.snapshot.sheets.find((sheet) => sheet.id === record.value.parent_id);
+          const parentSheet = this.snapshot.sheets.find(
+            (sheet) => sheet.id === record.value.parent_id
+          );
           return parentSheet && !parentSheet.dm_only;
         });
         if (!firstPlayerInstance) {
@@ -271,7 +281,12 @@ export class MockGameTransport implements GameTransport {
         return;
       }
       case "perform_action":
-        this.emit({ type: "ack", requestId: request.request_id ?? makeId("request") });
+        this.emit({
+          type: "error",
+          requestId: request.request_id ?? undefined,
+          message:
+            "Action execution requires the live backend and Roll20 bridge; mock transport cannot resolve actions."
+        });
         return;
       default:
         this.emit({
@@ -289,10 +304,16 @@ export class MockGameTransport implements GameTransport {
     };
   }
 
-  private createPersistentSheetRecord(sheetId: string, name: string, index: number | null): PersistentSheetRecord {
+  private createPersistentSheetRecord(
+    sheetId: string,
+    name: string,
+    index: number | null
+  ): PersistentSheetRecord {
     const id = makeId("instance");
     const baseSheet = this.snapshot.sheets.find((entry) => entry.id === sheetId);
-    const health = baseSheet ? Number(baseSheet.stats.health.text) || baseSheet.stats.constitution : 0;
+    const health = baseSheet
+      ? Number(baseSheet.stats.health.text) || baseSheet.stats.constitution
+      : 0;
     const mana = baseSheet ? Number(baseSheet.stats.mana.text) || baseSheet.stats.arcane : 0;
     const record = {
       id,
@@ -309,8 +330,9 @@ export class MockGameTransport implements GameTransport {
 
   private getPersistentSheetPresentation(persistentSheetId: string): PersistentSheetPresentation {
     return (
-      this.snapshot.persistentSheetPresentation.find((entry) => entry.persistentSheetId === persistentSheetId)
-        ?.value ?? { updatedAt: now() }
+      this.snapshot.persistentSheetPresentation.find(
+        (entry) => entry.persistentSheetId === persistentSheetId
+      )?.value ?? { updatedAt: now() }
     );
   }
 
@@ -320,7 +342,9 @@ export class MockGameTransport implements GameTransport {
   ): void {
     this.snapshot.persistentSheetPresentation = [
       { persistentSheetId, value: presentation },
-      ...this.snapshot.persistentSheetPresentation.filter((entry) => entry.persistentSheetId !== persistentSheetId)
+      ...this.snapshot.persistentSheetPresentation.filter(
+        (entry) => entry.persistentSheetId !== persistentSheetId
+      )
     ];
   }
 

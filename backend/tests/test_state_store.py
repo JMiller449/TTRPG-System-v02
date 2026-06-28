@@ -6,6 +6,12 @@ from pathlib import Path
 import pytest
 
 from backend.state import store as store_module
+from backend.state.migrations import (
+    PersistedStateError,
+    build_persisted_state,
+    migrate_persisted_state,
+)
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.state import State
 from backend.state.store import CURRENT_STATE_SCHEMA_VERSION, StateSingleton
 
@@ -190,3 +196,58 @@ def test_newer_primary_schema_falls_back_to_supported_backup(
     loaded = StateSingleton.initializeState()
 
     assert set(loaded.actions) == {"supported"}
+
+
+def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
+    legacy = migrate_persisted_state({"sheets": {}, "items": {}})
+    current = migrate_persisted_state(build_persisted_state({"actions": {}}))
+
+    assert legacy.source_version == 0
+    assert legacy.migrated is True
+    assert legacy.state == {"sheets": {}, "items": {}}
+    assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
+    assert current.migrated is False
+    assert current.state == {"actions": {}}
+
+
+def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:
+    with pytest.raises(PersistedStateError, match="must be a JSON object"):
+        migrate_persisted_state([])
+    with pytest.raises(PersistedStateError, match="schema_version must be an integer"):
+        migrate_persisted_state({"schema_version": "1", "state": {}})
+    with pytest.raises(PersistedStateError, match="newer than supported"):
+        migrate_persisted_state(
+            {
+                "schema_version": CURRENT_STATE_SCHEMA_VERSION + 1,
+                "state": {},
+            }
+        )
+
+
+def test_export_and_replace_state_preserve_private_data(isolate_state: Path) -> None:
+    state_path = isolate_state
+    state = StateSingleton.getState()
+    state.sheet_access_codes["ACCESS-1"] = SheetAccessCode(
+        code="ACCESS-1",
+        sheet_id="sheet_1",
+        instance_id="instance_1",
+    )
+
+    exported = StateSingleton.exportPersistedState()
+
+    assert exported["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+    assert exported["state"]["sheet_access_codes"]["ACCESS-1"] == {
+        "active": True,
+        "code": "ACCESS-1",
+        "instance_id": "instance_1",
+        "sheet_id": "sheet_1",
+    }
+
+    replacement = StateSingleton.getState()
+    replacement.sheet_access_codes = {}
+    StateSingleton.replaceState(replacement)
+
+    persisted = json.loads(state_path.read_text(encoding="utf-8"))
+    assert persisted["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+    assert persisted["state"]["sheet_access_codes"] == {}
+    assert not store_module._temporary_path(state_path).exists()

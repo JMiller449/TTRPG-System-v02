@@ -104,6 +104,23 @@ def ensure_session_can_access_instance(
         raise PermissionError("You can only edit your assigned sheet instance.")
 
 
+def ensure_session_can_access_sheet(
+    session: WebSocketSession,
+    sheet_id: str,
+) -> None:
+    if session.is_dm:
+        return
+
+    if sheet_id not in StateSingleton.getState().sheets:
+        raise ValueError(f"Sheet '{sheet_id}' does not exist.")
+
+    if session.assigned_sheet_id is None:
+        raise PermissionError("Claim a sheet access code before editing a player sheet.")
+
+    if session.assigned_sheet_id != sheet_id:
+        raise PermissionError("You can only edit your assigned sheet.")
+
+
 async def claim_sheet_access_code(
     session: WebSocketSession,
     *,

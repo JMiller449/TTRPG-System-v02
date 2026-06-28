@@ -20,6 +20,18 @@ class RequestSource:
     def entity_id(self, name: str) -> str | None:
         return dict(self.entity_ids).get(name)
 
+    @property
+    def action_id(self) -> str | None:
+        return self.entity_id("action_id")
+
+    @property
+    def sheet_id(self) -> str | None:
+        return (
+            self.entity_id("sheet_id")
+            or self.entity_id("instance_id")
+            or self.entity_id("parent_sheet_id")
+        )
+
 
 _current_request_source: ContextVar[RequestSource | None] = ContextVar(
     "current_request_source",
@@ -75,6 +87,11 @@ def build_request_source(
 
 def current_request_source() -> RequestSource | None:
     return _current_request_source.get()
+
+
+def get_request_context() -> RequestSource | None:
+    """Compatibility name for callers that treat request source as context."""
+    return current_request_source()
 
 
 @contextmanager

@@ -18,11 +18,14 @@ export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_nam
 export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
 export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">["bridge"];
 export type SheetActionBridgePayload = ProtocolRequest<"create_sheet_action_bridge">["bridge"];
-export type SheetProficiencyBridgePayload = ProtocolRequest<"create_sheet_proficiency_bridge">["bridge"];
+export type SheetProficiencyBridgePayload =
+  ProtocolRequest<"create_sheet_proficiency_bridge">["bridge"];
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
-export type InstancedSheetResistancesPayload = ProtocolRequest<"create_instanced_sheet">["resistances"];
+export type InstancedSheetResistancesPayload =
+  ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
-export type AugmentationPayload = ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
+export type AugmentationPayload =
+  ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
 export type FormulaPayload = ProtocolRequest<"set_sheet_formula_stat">["formula"];
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
@@ -176,6 +179,28 @@ export function buildGetVariableRegistryRequest({
   };
 }
 
+export function buildExportStateBackupRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"export_state_backup"> {
+  return {
+    ...requestIdField(requestId),
+    type: "export_state_backup"
+  };
+}
+
+export function buildImportStateBackupRequest({
+  persistedStateJson,
+  requestId
+}: {
+  persistedStateJson: string;
+} & OptionalRequestId): ProtocolRequest<"import_state_backup"> {
+  return {
+    ...requestIdField(requestId),
+    type: "import_state_backup",
+    persisted_state_json: persistedStateJson
+  };
+}
+
 export function buildSaveEncounterPresetRequest({
   encounter,
   requestId
@@ -323,7 +348,26 @@ export function buildSetSheetNotesRequest({
   };
 }
 
-export function buildCreateSheetActionBridgeRequest({
+export function buildSetSheetSlayedCountRequest({
+  sheetId,
+  slayedSheetId,
+  count,
+  requestId
+}: {
+  sheetId: string;
+  slayedSheetId: string;
+  count: number;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_slayed_count"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_slayed_count",
+    sheet_id: sheetId,
+    slayed_sheet_id: slayedSheetId,
+    count
+  };
+}
+
+export function buildAttachSheetActionRequest({
   sheetId,
   bridge,
   requestId
@@ -339,7 +383,7 @@ export function buildCreateSheetActionBridgeRequest({
   };
 }
 
-export function buildUpdateSheetActionBridgeRequest({
+export function buildRelinkSheetActionRequest({
   sheetId,
   relationshipId,
   bridge,
@@ -358,7 +402,7 @@ export function buildUpdateSheetActionBridgeRequest({
   };
 }
 
-export function buildDeleteSheetActionBridgeRequest({
+export function buildDetachSheetActionRequest({
   sheetId,
   relationshipId,
   requestId
@@ -374,7 +418,7 @@ export function buildDeleteSheetActionBridgeRequest({
   };
 }
 
-export function buildCreateSheetItemBridgeRequest({
+export function buildAttachSheetItemRequest({
   sheetId,
   bridge,
   requestId
@@ -390,7 +434,7 @@ export function buildCreateSheetItemBridgeRequest({
   };
 }
 
-export function buildUpdateSheetItemBridgeRequest({
+export function buildUpdateAttachedSheetItemRequest({
   sheetId,
   relationshipId,
   bridge,
@@ -409,7 +453,7 @@ export function buildUpdateSheetItemBridgeRequest({
   };
 }
 
-export function buildDeleteSheetItemBridgeRequest({
+export function buildDetachSheetItemRequest({
   sheetId,
   relationshipId,
   requestId
@@ -425,7 +469,7 @@ export function buildDeleteSheetItemBridgeRequest({
   };
 }
 
-export function buildCreateSheetProficiencyBridgeRequest({
+export function buildLinkSheetProficiencyRequest({
   sheetId,
   bridge,
   requestId
@@ -441,7 +485,7 @@ export function buildCreateSheetProficiencyBridgeRequest({
   };
 }
 
-export function buildUpdateSheetProficiencyBridgeRequest({
+export function buildUpdateLinkedSheetProficiencyRequest({
   sheetId,
   relationshipId,
   bridge,
@@ -460,7 +504,7 @@ export function buildUpdateSheetProficiencyBridgeRequest({
   };
 }
 
-export function buildDeleteSheetProficiencyBridgeRequest({
+export function buildUnlinkSheetProficiencyRequest({
   sheetId,
   relationshipId,
   requestId
@@ -518,7 +562,7 @@ export function buildDeleteSheetRequest({
   };
 }
 
-export function buildCreateInstancedSheetRequest({
+export function buildInstantiateSheetRequest({
   instanceId,
   parentSheetId,
   health,
@@ -548,6 +592,17 @@ export function buildCreateInstancedSheetRequest({
     ...(generateAccessCode === undefined ? {} : { generate_access_code: generateAccessCode })
   };
 }
+
+export const buildCreateSheetActionBridgeRequest = buildAttachSheetActionRequest;
+export const buildUpdateSheetActionBridgeRequest = buildRelinkSheetActionRequest;
+export const buildDeleteSheetActionBridgeRequest = buildDetachSheetActionRequest;
+export const buildCreateSheetItemBridgeRequest = buildAttachSheetItemRequest;
+export const buildUpdateSheetItemBridgeRequest = buildUpdateAttachedSheetItemRequest;
+export const buildDeleteSheetItemBridgeRequest = buildDetachSheetItemRequest;
+export const buildCreateSheetProficiencyBridgeRequest = buildLinkSheetProficiencyRequest;
+export const buildUpdateSheetProficiencyBridgeRequest = buildUpdateLinkedSheetProficiencyRequest;
+export const buildDeleteSheetProficiencyBridgeRequest = buildUnlinkSheetProficiencyRequest;
+export const buildCreateInstancedSheetRequest = buildInstantiateSheetRequest;
 
 export function buildCreateItemRequest({
   item,
@@ -845,5 +900,14 @@ export function buildResyncStateRequest({
     ...requestIdField(requestId),
     type: "resync_state",
     ...(lastSeenVersion === undefined ? {} : { last_seen_version: lastSeenVersion })
+  };
+}
+
+export function buildUndoLastStateChangeRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"undo_last_state_change"> {
+  return {
+    ...requestIdField(requestId),
+    type: "undo_last_state_change"
   };
 }

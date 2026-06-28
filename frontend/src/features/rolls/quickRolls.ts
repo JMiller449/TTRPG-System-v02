@@ -6,18 +6,9 @@ import {
 
 export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
 
-export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
-  "attack",
-  "dodge",
-  "parry",
-  "block"
-];
+export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = ["attack", "dodge", "parry", "block"];
 
-export const ACTION_ROLL_MODES: readonly ActionRollMode[] = [
-  "normal",
-  "advantage",
-  "disadvantage"
-];
+export const ACTION_ROLL_MODES: readonly ActionRollMode[] = ["normal", "advantage", "disadvantage"];
 
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
@@ -98,6 +89,8 @@ export function buildQuickRollExecutionRequest({
       actionId: resolution.actionId,
       rollMode
     }),
-    label: `Perform action: ${resolution.actionName}`
+    label: `Perform action: ${resolution.actionName}${
+      rollMode === "normal" ? "" : ` (${rollMode})`
+    }`
   };
 }

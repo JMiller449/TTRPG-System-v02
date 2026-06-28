@@ -121,6 +121,13 @@ class SetSheetNotes(RequestModel):
     type: Literal["set_sheet_notes"]
 
 
+class SetSheetSlayedCount(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    slayed_sheet_id: str = Field(min_length=1)
+    count: int = Field(ge=0)
+    type: Literal["set_sheet_slayed_count"]
+
+
 class CreateInstancedSheet(RequestModel):
     instance_id: str = Field(min_length=1)
     parent_sheet_id: str = Field(min_length=1)

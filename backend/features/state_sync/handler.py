@@ -1,6 +1,6 @@
 from backend.features.session.models import WebSocketSession
 from backend.features.session.service import websocket_sessions
-from backend.features.state_sync.schema import ResyncState
+from backend.features.state_sync.schema import ResyncState, UndoLastStateChange
 from backend.features.state_sync import service
 
 
@@ -38,3 +38,11 @@ async def handle_request(session: WebSocketSession, request: ResyncState) -> Non
     for patch in replay:
         patch.request_id = request.request_id
         await websocket_sessions.send(session, patch)
+
+
+async def handle_undo_last_state_change(request: UndoLastStateChange) -> None:
+    undone = await service.state_sync_service.undo_last_change(
+        request_id=request.request_id,
+    )
+    if not undone:
+        raise ValueError("There are no state changes to undo.")

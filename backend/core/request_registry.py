@@ -200,6 +200,9 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.state_sync.route import (
         register_routes as register_state_sync_routes,
     )
+    from backend.features.state_backup.route import (
+        register_routes as register_state_backup_routes,
+    )
     from backend.features.variable_registry.route import (
         register_routes as register_variable_registry_routes,
     )
@@ -218,6 +221,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_sheet_admin_sheets_routes(registry)
     register_sheet_admin_stats_routes(registry)
     register_sheet_access_routes(registry)
+    register_state_backup_routes(registry)
     register_state_sync_routes(registry)
     register_sheet_runtime_routes(registry)
     register_variable_registry_routes(registry)

@@ -17,7 +17,7 @@ export function ConsolePage({
         <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
       </section>
       <section className="player-console-side">
-        <RollPanel client={client} mode={role} />
+        <RollPanel client={client} />
         <RollLog />
       </section>
     </main>

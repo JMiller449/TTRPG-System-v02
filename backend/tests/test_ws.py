@@ -1,4 +1,5 @@
 import asyncio
+import json
 from copy import deepcopy
 
 import pytest
@@ -13,13 +14,16 @@ from backend.features.state_sync import handler as state_sync_handler
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import (
     AUTH_CLOSE_CODE,
+    _assign_request_id,
     authenticate_application_websocket,
     authenticate_service_websocket,
     handle_client_payload,
     websocket_sessions,
 )
 from backend.state.models.action import Action
+from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.migrations import CURRENT_STATE_SCHEMA_VERSION, build_persisted_state
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -46,6 +50,49 @@ class FakeWebSocket:
 def reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
     asyncio.run(state_sync_service.reset())
+
+
+def test_assign_request_id_preserves_valid_client_id_and_generates_missing_id() -> None:
+    payload, request_id = _assign_request_id(
+        {"type": "resync_state", "request_id": "client-request-1"}
+    )
+    assert request_id == "client-request-1"
+    assert payload["request_id"] == "client-request-1"
+
+    generated_payload, generated_request_id = _assign_request_id(
+        {"type": "resync_state"}
+    )
+    assert generated_request_id == "req-1"
+    assert generated_payload["request_id"] == "req-1"
+
+
+def test_roll20_bridge_connect_and_disconnect_broadcast_status() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        app_socket = FakeWebSocket()
+        bridge_socket = FakeWebSocket()
+        await websocket_sessions.connect(app_socket, role="player")
+
+        await chat_service.broadcast_bridge_status(connected=True)
+        await chat_service.broadcast_bridge_status(connected=False)
+
+        assert app_socket.sent_messages == [
+            {
+                "response_id": None,
+                "connected": True,
+                "type": "roll20_bridge_status",
+                "request_id": None,
+            },
+            {
+                "response_id": None,
+                "connected": False,
+                "type": "roll20_bridge_status",
+                "request_id": None,
+            },
+        ]
+
+    asyncio.run(scenario())
 
 
 def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
@@ -758,6 +805,113 @@ def test_websocket_contract_resource_mutation_broadcasts_state_patch(
     asyncio.run(scenario())
 
 
+def test_websocket_contract_undo_last_state_change_is_dm_only(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await _connect_assigned_player(websocket)
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "undo_last_state_change",
+            },
+        )
+
+        assert state.instanced_sheets["mage_instance"].health == 90
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Only a DM can undo state changes.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_undo_last_state_change_errors_when_empty() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "undo_last_state_change",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "There are no state changes to undo.",
+                "type": "error",
+                "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_websocket_contract_undo_last_state_change_broadcasts_inverse_patch(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "adjust_instanced_sheet_resource",
+                "instance_id": "mage_instance",
+                "resource": "health",
+                "delta": -5,
+            },
+        )
+        dm_socket.sent_messages.clear()
+        player_socket.sent_messages.clear()
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "undo_last_state_change",
+                "request_id": "req-undo",
+            },
+        )
+
+        expected_patch = {
+            "response_id": None,
+            "ops": [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/health",
+                    "value": 90,
+                }
+            ],
+            "state_version": 2,
+            "type": "state_patch",
+            "request_id": "req-undo",
+        }
+        assert state.instanced_sheets["mage_instance"].health == 90
+        assert dm_socket.sent_messages == [expected_patch]
+        assert player_socket.sent_messages == [expected_patch]
+
+    asyncio.run(scenario())
+
+
 def test_websocket_contract_resync_replays_missing_patch(monkeypatch) -> None:
     async def scenario() -> None:
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -886,7 +1040,7 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
                 "state_version": 1,
                 "type": "state_patch",
                 "request_id": "req-1",
-            }
+            },
         ]
 
     asyncio.run(scenario())
@@ -1017,6 +1171,112 @@ def test_resync_state_returns_state_snapshot() -> None:
                 "state_version": 0,
                 "type": "state_snapshot",
                 "request_id": "req-1",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_export_private_persisted_state_backup() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+        StateSingleton.getState().sheet_access_codes["ACCESS-1"] = SheetAccessCode(
+            code="ACCESS-1",
+            sheet_id="sheet_1",
+            instance_id="instance_1",
+        )
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "export_state_backup",
+                "request_id": "backup-1",
+            },
+        )
+
+        assert len(websocket.sent_messages) == 1
+        event = websocket.sent_messages[0]
+        assert event["type"] == "state_backup_exported"
+        assert event["request_id"] == "backup-1"
+        assert event["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
+        exported = json.loads(event["persisted_state_json"])
+        assert exported["state"]["sheet_access_codes"]["ACCESS-1"]["code"] == "ACCESS-1"
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        persisted_state_json = json.dumps(
+            build_persisted_state(
+                {
+                    "sheet_access_codes": {
+                        "ACCESS-1": {
+                            "code": "ACCESS-1",
+                            "sheet_id": "sheet_1",
+                            "instance_id": "instance_1",
+                            "active": True,
+                        }
+                    },
+                    "sheets": {},
+                }
+            )
+        )
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "import_state_backup",
+                "persisted_state_json": persisted_state_json,
+                "request_id": "import-1",
+            },
+        )
+
+        assert StateSingleton.getState().sheet_access_codes["ACCESS-1"].sheet_id == "sheet_1"
+        assert dm_socket.sent_messages[-1]["type"] == "state_snapshot"
+        assert dm_socket.sent_messages[-1]["request_id"] == "import-1"
+        assert dm_socket.sent_messages[-1]["state_version"] == 1
+        assert player_socket.sent_messages[-1]["type"] == "state_snapshot"
+        assert player_socket.sent_messages[-1]["request_id"] is None
+        assert player_socket.sent_messages[-1]["state_version"] == 1
+        assert "sheet_access_codes" not in dm_socket.sent_messages[-1]["state"]
+        assert "sheet_access_codes" not in player_socket.sent_messages[-1]["state"]
+
+    asyncio.run(scenario())
+
+
+def test_import_state_backup_rejects_invalid_json() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket_sessions.connect(websocket, role="dm")
+
+        await handle_client_payload(
+            websocket,
+            {
+                "type": "import_state_backup",
+                "persisted_state_json": "{not-json",
+                "request_id": "import-bad",
+            },
+        )
+
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Imported state backup is not valid JSON.",
+                "type": "error",
+                "request_id": "import-bad",
             }
         ]
 

@@ -78,7 +78,7 @@ describe("quickRolls", () => {
         action_id: "attack",
         roll_mode: "advantage"
       },
-      label: "Perform action: Attack"
+      label: "Perform action: Attack (advantage)"
     });
   });
 

@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+import { shouldConnectApp } from "@/app/appConnection";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
+import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
@@ -12,6 +14,8 @@ import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
+import { StateSafetyPanel } from "@/features/stateSync/StateSafetyPanel";
+import { StateBackupPage } from "@/features/stateBackup/StateBackupPage";
 import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
@@ -26,11 +30,11 @@ export function App(): JSX.Element {
   const activeDetail = selectActiveSheetDetail(state);
 
   useEffect(() => {
-    if (!role || connection.status !== "disconnected") {
+    if (!shouldConnectApp(connection.status)) {
       return;
     }
     void client.connect();
-  }, [client, connection.status, role]);
+  }, [client, connection.status]);
 
   if (!role) {
     return <SessionLanding client={client} />;
@@ -107,8 +111,16 @@ export function App(): JSX.Element {
         <main className="app-grid-player">
           <ActionAuthoringPage client={client} />
         </main>
+      ) : gmView === "state_backup" ? (
+        <main className="app-grid-player">
+          <StateSafetyPanel client={client} />
+          <StateBackupPage client={client} />
+        </main>
       ) : (
-        <ConsolePage role="gm" client={client} />
+        <>
+          <SheetAccessCodesPanel client={client} />
+          <ConsolePage role="gm" client={client} />
+        </>
       )}
     </div>
   );

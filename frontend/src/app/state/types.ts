@@ -2,6 +2,8 @@ import type {
   ActionFormulaAuthoringMetadata,
   AppSnapshot,
   AugmentationTargetMetadata,
+  SheetAccessCode,
+  StateBackupExport,
   XpTrackerView
 } from "@/domain/ipc";
 import type {
@@ -33,7 +35,8 @@ export type GMView =
   | "proficiency_authoring"
   | "condition_authoring"
   | "action_authoring"
-  | "xp_tracker";
+  | "xp_tracker"
+  | "state_backup";
 
 export interface IntentFeedbackItem {
   id: string;
@@ -88,6 +91,8 @@ export interface UIState {
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
   xpTracker: XpTrackerView | null;
+  sheetAccessCodes: SheetAccessCode[];
+  stateBackupExport: StateBackupExport | null;
 }
 
 export interface AppState {
@@ -106,6 +111,7 @@ export type AppAction =
   | { type: "connection_status"; status: ConnectionStatus }
   | { type: "connection_transport"; transport: "mock" | "ws" }
   | { type: "connection_error"; error?: string }
+  | { type: "clear_connection_error_matching"; text: string }
   | {
       type: "set_roll20_bridge_status";
       status: Roll20BridgeConnectionStatus;
@@ -119,4 +125,6 @@ export type AppAction =
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
   | { type: "set_xp_tracker"; tracker: XpTrackerView }
+  | { type: "set_sheet_access_codes"; codes: SheetAccessCode[] }
+  | { type: "set_state_backup_export"; backup: StateBackupExport | null }
   | { type: "apply_snapshot"; snapshot: AppSnapshot };

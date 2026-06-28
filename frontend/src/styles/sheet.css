@@ -44,6 +44,51 @@
   margin-top: 0.55rem;
 }
 
+.sheet-xp-section__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sheet-xp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.55rem;
+}
+
+.sheet-xp-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(76px, 96px) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.55rem;
+}
+
+.sheet-xp-card p {
+  margin: 0.15rem 0 0;
+}
+
+.sheet-xp-card__count {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.sheet-xp-card__count input {
+  width: 100%;
+}
+
+.sheet-xp-card__xp {
+  min-width: 64px;
+  text-align: right;
+  font-weight: 700;
+}
+
 .level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -421,5 +466,67 @@
   .sheet-proficiency-card__metrics {
     flex-direction: column;
     gap: 0.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .equipment-add-row,
+  .level-grid,
+  .stats-grid,
+  .resource-grid,
+  .character-sheet__core-blocks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .equipment-add-row > .button {
+    width: 100%;
+  }
+
+  .character-sheet {
+    padding: 0.6rem;
+  }
+
+  .character-sheet__tabs {
+    flex-wrap: nowrap;
+    margin-inline: -0.6rem;
+    overflow-x: auto;
+    padding-inline: 0.6rem;
+    scrollbar-width: thin;
+  }
+
+  .character-sheet__tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .core-block__header {
+    flex-direction: column;
+  }
+
+  .core-block__value-wrap {
+    text-align: left;
+    width: 100%;
+  }
+
+  .core-block__actions,
+  .core-sub-row__actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .core-block__actions > *,
+  .core-sub-row__actions > * {
+    min-height: 44px;
+  }
+
+  .stat-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stat-editor input,
+  .stat-editor .field,
+  .stat-editor .button {
+    width: 100%;
   }
 }

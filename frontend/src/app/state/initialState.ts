@@ -43,7 +43,9 @@ export const initialUiState: UIState = {
   intentFeedback: [],
   actionFormulaAuthoringMetadata: null,
   augmentationTargetMetadata: null,
-  xpTracker: null
+  xpTracker: null,
+  sheetAccessCodes: [],
+  stateBackupExport: null
 };
 
 export const initialState: AppState = {

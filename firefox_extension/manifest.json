@@ -3,9 +3,17 @@
   "name": "TTRPG Roll20 Chat Bridge",
   "version": "0.1.0",
   "description": "Connects a Roll20 editor tab to the local TTRPG backend chat socket.",
+  "permissions": ["storage"],
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
-      "matches": ["https://app.roll20.net/editor/*"],
+      "matches": [
+        "https://app.roll20.net/editor",
+        "https://app.roll20.net/editor/*"
+      ],
       "js": ["content/roll20-chat-bridge.js"],
       "run_at": "document_idle"
     }

@@ -177,6 +177,19 @@ class StateSingleton:
         _write_checkpoint(STATE_PATH, cls._state)
 
     @classmethod
+    def exportPersistedState(cls) -> dict[str, Any]:
+        if cls._state is None:
+            cls._state = State()
+        cls._state.action_history = prune_action_history(cls._state.action_history)
+        return _checkpoint_document(cls._state)
+
+    @classmethod
+    def replaceState(cls, state: State) -> None:
+        state.action_history = prune_action_history(state.action_history)
+        _write_checkpoint(STATE_PATH, state)
+        cls._state = state
+
+    @classmethod
     def restartState(cls) -> None:
         cls._state = State()
         cls.dumpState()

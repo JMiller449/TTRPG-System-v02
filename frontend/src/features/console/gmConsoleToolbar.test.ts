@@ -20,7 +20,8 @@ describe("gmConsoleToolbar", () => {
       "formula_authoring",
       "proficiency_authoring",
       "condition_authoring",
-      "action_authoring"
+      "action_authoring",
+      "state_backup"
     ]);
   });
 

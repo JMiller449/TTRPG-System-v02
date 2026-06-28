@@ -6,3 +6,17 @@
   display: flex;
   align-items: flex-end;
 }
+
+@media (max-width: 640px) {
+  .encounter-entry-row {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 0.65rem;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .encounter-entry-row__actions,
+  .encounter-entry-row__actions .button {
+    width: 100%;
+  }
+}

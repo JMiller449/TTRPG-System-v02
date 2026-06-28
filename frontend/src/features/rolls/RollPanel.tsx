@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
-import { Panel } from "@/shared/ui/Panel";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildGetRoll20BridgeStatusRequest,
@@ -15,16 +14,10 @@ import {
   resolveQuickRollAction,
   type QuickRollAction
 } from "@/features/rolls/quickRolls";
+import { Panel } from "@/shared/ui/Panel";
 
-export function RollPanel({
-  client
-}: {
-  client: GameClient;
-  mode?: "gm" | "player";
-}): JSX.Element {
-  const {
-    state
-  } = useAppStore();
+export function RollPanel({ client }: { client: GameClient }): JSX.Element {
+  const { state } = useAppStore();
   const { activeSheetId } = state.uiState;
   const { roll20Bridge } = state.uiState;
   const { actions } = state.serverState;
@@ -119,7 +112,8 @@ export function RollPanel({
             <span className="muted">Action Request</span>
             {selectedQuickActionResolution ? (
               <code>
-                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId} / {rollMode}
+                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId} /{" "}
+                {rollMode}
               </code>
             ) : selectedQuickAction ? (
               <code>Selected quick action is not assigned to this sheet.</code>

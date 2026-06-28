@@ -15,6 +15,7 @@ import type {
 import type {
   ProtocolActionFormulaAuthoringMetadataEvent,
   ProtocolAugmentationTargetMetadataEvent,
+  ProtocolStateBackupExportedEvent,
   ProtocolXpTrackerEvent
 } from "@/infrastructure/ws/protocol";
 
@@ -33,6 +34,17 @@ export type XpTrackerView = Omit<
   "response_id" | "request_id" | "type"
 >;
 
+export type StateBackupExport = Omit<
+  ProtocolStateBackupExportedEvent,
+  "response_id" | "request_id" | "type"
+>;
+
+export interface SheetAccessCode {
+  code: string;
+  sheetId: string;
+  instanceId: string | null;
+  active: boolean;
+}
 export interface AppSnapshot {
   sheets: Sheet[];
   persistentSheets: PersistentSheetRecord[];
@@ -50,6 +62,8 @@ export interface AppSnapshot {
 export type ServerEvent =
   | { type: "authenticated"; authenticated: boolean; role: Role | null; requestId?: string; reason?: string }
   | { type: "sheet_access_claimed"; sheetId: string; instanceId: string; requestId?: string }
+  | { type: "sheet_access_codes"; codes: SheetAccessCode[]; requestId?: string }
+  | { type: "state_backup_exported"; backup: StateBackupExport; requestId?: string }
   | { type: "action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata; requestId?: string }
   | { type: "augmentation_target_metadata"; metadata: AugmentationTargetMetadata; requestId?: string }
   | { type: "xp_tracker"; tracker: XpTrackerView; requestId?: string }

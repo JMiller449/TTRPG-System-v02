@@ -305,6 +305,38 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "sheet_access_codes":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "sheet_access_codes",
+            codes: event.codes.map((entry) => ({
+              code: entry.code,
+              sheetId: entry.sheet_id,
+              instanceId: entry.instance_id ?? null,
+              active: entry.active ?? true
+            })),
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
+    case "state_backup_exported":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "state_backup_exported",
+            backup: {
+              persisted_state_json: event.persisted_state_json,
+              schema_version: event.schema_version
+            },
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "error":
       return {
         nextProtocolState: protocolState,
@@ -317,7 +349,6 @@ export function adaptProtocolServerEvent(
         ]
       };
 
-    case "sheet_access_codes":
     case "variable_registry":
       return {
         nextProtocolState: protocolState,

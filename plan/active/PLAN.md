@@ -13,7 +13,7 @@ This is the consolidated working plan for the project. It combines the active pl
 - `plan/archived/frontend_completed.md`
 - `plan/archived/Completed.md`
 
-Do not delete the source documents just because this file exists. Keep AGENTS, README files, policy docs, and rules/reference documents as source material. The highest rules authority remains `reference-docs/Chip TTRPG System_2-20-26.pdf`; `temp/Chip TTRPG System.md` is useful extracted reference text and should also be preserved.
+Do not delete the source documents just because this file exists. Keep AGENTS, README files, policy docs, and rules/reference documents as source material. The highest rules authority for the active rules text is `reference-docs/Chip_TTRPG_System.md`; answered implementation rulings live in `reference-docs/rule-decisions-needed-answered.md`. Archived PDFs remain preserved for history.
 
 ## 1. Product Goal
 
@@ -81,7 +81,8 @@ Backend:
 - Runtime `perform_action` exists for authored action steps.
 - Current action step kinds include `send_message`, `set_value`, `increment_value`, `decrement_value`, `resolve_damage`, `gain_proficiency_use`, `apply_augmentation`, and `apply_condition_preset`.
 - XP tracker routes reuse sheet XP thresholds, enemy XP values, and slay records; backend-derived tracker responses expose full X/Y progress only to DMs.
-- Formula expansion is relative to one root object, supports dataclass/dict traversal, and guards against cycles.
+- Formula expansion is relative to one root object, supports dataclass/dict traversal, guards against cycles, and backend numeric evaluation supports arithmetic, dice expressions, `min`, `max`, `floor`, `ceil`, and `round` for authoritative action/stat calculations.
+- Semantic damage action steps evaluate authored formulas, apply typed resistance, and mutate instance health through state sync.
 - Roll20 chat bridge is fail-fast, does not queue disconnected messages, and consumes bridge `hello` / `chat_delivery` events for logging.
 
 Frontend:
@@ -169,8 +170,8 @@ Known derived/rule values:
 - Action points: Reaction Time threshold table
 - Movement: Dexterity threshold table
 - Resistance totals: additive by damage type, capped at 100 percent
-- Carry weight: Strength-derived, but exact formula is not settled
-- HP max: GM-authored/configurable for now; doc examples use `stat * 50` style values but exact governing stat/race behavior is not settled
+- Carry weight: `FLOOR(Strength)`
+- HP max: `Health * Racial HP Multiplier`, with the multiplier authored on the race or creature template approved by the GM
 
 ## 6. Formula And Action Model
 
@@ -209,8 +210,10 @@ Actions:
 - Actions execute against an explicit owning/current sheet instance; cross-sheet targets are not an app workflow.
 - Runtime parameters are allowed for predefined GM-configured options, currently just advantage/disadvantage.
 - Selected mode and overload alternatives are later work.
+- Advantage/disadvantage applies to hit/check rolls, not damage rolls. If both advantage and disadvantage apply, they cancel to a normal roll; multiples do not stack.
 - Current-value changes such as resource costs, resource restores, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
 - Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
+- Healing is a separate semantic healing model or bounded HP mutation pattern, not negative damage; resistance does not affect healing unless a specific effect says so.
 - Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
 - Full attack-specific damage composition, critical rules, and augmentation-derived combat modifiers remain later resolver work.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
@@ -284,22 +287,27 @@ Default redaction:
 
 Skill check:
 
-- `(d100 / 100) * Governing Stat`
+- `FLOOR((1 + Skill Proficiency) * (d100 / 100) * Governing Stat)`
 - `d100` is an integer roll from 1 to 100.
-- Advantage: roll two of the same check and take the higher.
-- Disadvantage: roll two of the same check and take the lower.
 - Runtime roll modes apply only to authored Roll20 messages containing a standalone `1d100` check expression: normal keeps `1d100`, advantage emits `2d100kh1`, and disadvantage emits `2d100kl1`.
 - Advantage/disadvantage output is publicly prefixed with `[Advantage]` or `[Disadvantage]`; semantic damage steps are not transformed.
+- Advantage: replace the `1d100` check die with `2d100kh1` and take the higher kept die.
+- Disadvantage: replace the `1d100` check die with `2d100kl1` and take the lower kept die.
+- Only the kept die determines natural 1 or natural 100.
+- Advantage/disadvantage applies to hit/check rolls, not damage rolls. Opposing advantage and disadvantage cancel to normal; multiple sources do not stack.
 
 Proficiency:
 
 - First-class model separate from stats.
 - Categories: weapon type, specific weapon, skill, spell.
-- Range: 0 to 100 percent.
+- Display range: 0 to 100 percent; formula value: `0.00` to `1.00`.
 - 100 percent is mastery.
-- Increments happen on approved use and are configurable per weapon/spell/skill.
+- Increments happen on meaningful approved use even if the action fails.
+- Per-use formula: `New Proficiency = MIN(1.00, Current Proficiency + Growth Rate)`.
+- Growth rate is the configured per-use increase for that weapon, skill, or spell, such as `0.01` for 1 percent or `0.001` for 0.1 percent.
 - Downtime training is manual DM adjudication for MVP; the DM may decide that a character practiced/activated something a number of times and award a specific proficiency/XP amount.
-- Mastery can unlock actions/items/spells later; backend enforcement can wait unless easy to model.
+- Mastery can unlock higher-ranked spells, higher-ranked skills, powerful weapons, and authored modifiers such as lower mana cost, more damage, range, or secondary features.
+- Unlock prerequisites can require one or multiple proficiency thresholds using explicit `all`/AND or `any`/OR grouping; do not infer grouping.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
 - DM-authored global proficiency definitions are the registry of available proficiencies.
 - Sheet proficiency bridges are per-sheet progress records that point at a global proficiency definition.
@@ -310,9 +318,15 @@ Equipment and items:
 
 - Equipped/active weapon selection exists for attack rolls.
 - Equipment is an inventory-list model, not a slot-based layout for MVP; records can still mark active/equipped gear where rules need it.
-- Weapons define damage, governing stat, reach, damage type, and proficiency reference.
+- Each attack action selects exactly one active weapon for the resolution; dual-wield or multi-weapon actions must be authored explicitly.
+- Weapons require name, weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate.
+- Optional weapon fields include stat bonuses, attached skills, traits, special effects, prerequisites, tags, and notes.
+- Weapon reach is stored/shown for Roll20/manual reference only and does not affect app-side mechanics, formulas, targeting, or positioning.
+- Offhand, two-handed, thrown, ranged, and improvised weapon modes are represented as tags/reference metadata unless a future resolver requires first-class fields.
 - Equipment mechanical effects should use generic augmentation templates wherever possible instead of bespoke per-equipment-type rules.
 - Armor, shields, and other gear can provide resistance, penalties, advantage/disadvantage sources, or other modifiers through augmentations or authored actions unless a future core resolver requires a first-class field.
+- Armor grants resistance rather than AC. Heavy armor must impose disadvantage on Dodge, ideally through a standard attached augmentation/template.
+- Shields normally grant advantage on Block attempts, do not automatically increase AC or resistance, and may be required for some Block actions.
 - Consumables are items and using one in battle costs an action point.
 - Item records should support World Anvil links.
 - Item records should support GM-only notes/special properties for campaign-specific effects that are not player-visible.
@@ -320,27 +334,36 @@ Equipment and items:
 Damage and resistance:
 
 - Physical damage types: Piercing, Slashing, Bludgeoning.
-- Magical damage types: Arcane, Fire, Water, Earth, Wind, Light, Dark, Lightning, Ice, Time, Gravity, Psychic.
+- Magical damage types: Fire, Water, Earth, Wind, Light, Dark, Lightning, Ice, Time, Gravity, Psychic; spells may define additional types.
 - Resistance is additive and capped at 100 percent.
 - Resistance should use a consistent internal numeric convention; prefer fractions where `0.25` means 25 percent.
 - Effective resistance should combine total resistance, physical/magical category resistance, and specific damage-type resistance, then cap at 100 percent.
-- Damage taken: `Damage Inflicted - (Damage Inflicted * Resistance)`.
-- Stacking rules beyond additive resistance are unresolved and deferred.
+- Damage taken: `FLOOR(Damage Inflicted * (1 - Resistance))`.
+- Damage may be reduced to 0; 100 percent resistance means immunity unless a special rule bypasses it.
+- Resistance is clamped to `0.00..1.00`; vulnerability or bonus damage must be modeled as a separate explicit effect unless future rules define negative resistance.
+- When an effect halves damage, halve the damage first, then apply resistance.
 
 Physical attacks:
 
-- To hit: `Proficiency * (1d100 / 100) * Attack Stat`
-- Damage: `Weapon Damage + Proficiency * (d100 / 100) * Governing Stat`
-- Critical 1: GM-determined failure, usually no damage.
-- Critical 100: double total damage.
-- Critical behavior outside physical attacks is unresolved and deferred.
+- To hit: `FLOOR((1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)`.
+- If the defender has no reaction available or chooses not to react, compare the attack roll against AC.
+- If the defender chooses a reaction, compare against Dodge, Block, or Parry; the defender wins ties.
+- Damage is a separate roll: `FLOOR(Weapon Base Damage + (1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)`.
+- Critical 1: automatic miss regardless of modifiers; any additional physical-attack consequence is GM-determined.
+- Critical 100: roll damage normally, double total damage, then apply defense-based reductions and resistance.
+- Attack and damage are separate rolls.
 
 Magical attacks:
 
-- To hit: `Proficiency * (d100 / 100) * Arcane`
-- Damage: `Proficiency * (d100 / 100) * Base Spell Damage`
+- To hit: `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane)`.
+- Damage: `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane + Base Spell Damage)`.
+- Spell damage is a separate roll from spell to-hit.
+- Spell to-hit natural 1 automatically misses, requires no defense roll, and still spends mana unless the spell says otherwise.
+- Spell to-hit natural 100 is critical; if not successfully defended, roll damage normally and double total damage before defense reduction and resistance.
+- Each individual spell has its own proficiency.
 - Spell ranks: F, F+, E, E+, D, D+, C, C+, B, B+, A, A+, S, S+, SS, SS+.
-- Overload is not MVP; exact DC formula is deferred.
+- Base spell damage is authored per spell, not derived from rank by a universal formula.
+- Overload is not MVP; it is a selectable spell-cast mode with known data requirements and GM-assigned DCs.
 
 Combat automation:
 
@@ -348,6 +371,10 @@ Combat automation:
 - The app should not automate cross-sheet combat workflows.
 - Hit and damage remain separate Roll20 chat actions. Damage is applied only through a later manual amount/type submission on the affected sheet, never through an attacker-to-defender relationship.
 - `slayed_record` stores manually reported per-mob kill counts for XP tracking. Combat does not increment it automatically.
+- Action points use the Reaction Time threshold table from `reference-docs/Chip_TTRPG_System.md`.
+- There is no separate reaction pool; reactions spend normal action points outside the character's turn.
+- Action points reset at the start of that character's own turn and do not carry over.
+- Consumable use in combat normally costs one action point.
 
 XP and level-up:
 
@@ -444,6 +471,7 @@ Frontend augmentation UX boundary:
   - Documented lifecycle fields as inert descriptive notes for MVP, not executable predicates, formulas, raw paths, or scripts.
   - Added backend regression tests proving `duration`, `expires_at`, and `removal_condition` do not automatically apply, remove, or recompute augmentations.
   - Future automatic conditional logic remains deferred until there is a validated backend-owned condition/effect expression model.
+
 ### Phase 8: Intent And Runtime Migration
 
 - [x] Migrate roll/action submission onto typed backend route/helper paths with backend-authoritative reconciliation only.
@@ -524,6 +552,12 @@ Frontend augmentation UX boundary:
 - [x] Centralize backend formula evaluation so action steps, augmentation formulas, and damage resolution use one shared evaluator.
 - [x] Add resistance state/metadata for total, physical, magical, and per-damage-type resistance using the shared percent convention.
 - [x] Add a semantic damage action step that evaluates an authored damage formula, validates canonical damage type, applies target resistance capped at 100 percent, and mutates current health.
+- [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
+  - Critical damage order is defined: calculate damage, double total damage for qualifying natural 100 outcomes, then apply defense-based reductions and resistance.
+  - Physical and spell attacks roll hit and damage separately; advantage/disadvantage affects hit/check rolls only, not damage.
+- [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
+  - Required weapon resolver fields: weapon type, base damage, governing stat, damage type(s), reach, proficiency reference, and proficiency growth rate.
+  - Reach remains stored/displayed reference metadata unless a specific future resolver rule needs it.
 - [x] Implement action execution against explicit sheet/instance IDs.
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
@@ -546,7 +580,8 @@ Frontend augmentation UX boundary:
 - [x] Generate and persist sheet access codes for player sheet assignment/access, with DM visibility over all codes.
 - [x] Implement player sheet access-code claim/assignment flow and enforce ownership: `claim_sheet_access_code` binds the player websocket session to one instance; notes, resources, and action execution enforce that assignment.
 - [x] Keep relationship/bridge operations as simple explicit add/update/remove flows.
-  - Decision: do not introduce a separate semantic command vocabulary such as `attach`, `detach`, `link`, or `unlink` for MVP; sheet actions, equipment, and proficiencies use direct bridge create/update/delete operations.
+  - The stable websocket contract continues to use direct bridge create/update/delete operations for sheet actions, equipment, and proficiencies.
+  - Internal service/helper names may describe intent, but do not create a second transport command vocabulary for MVP.
 - [x] Add Roll20 bridge status/send-failure UX.
   - Added a typed backend `get_roll20_bridge_status` request and `roll20_bridge_status` event.
   - Frontend roll/action panel can refresh and display Roll20 bridge connected/disconnected/unknown state.
@@ -555,9 +590,9 @@ Frontend augmentation UX boundary:
 - [x] Add GM-only item notes/special properties to item schema, sync payloads, and role-based redaction.
 - [x] Wire frontend resource adjustment controls to backend resource routes once those route contracts exist.
 - [x] Replace mock transport placeholder roll outputs with backend-authoritative roll/chat handling.
-  - Alternative completion: removed the legacy `submit_roll` path instead of adding backend roll resolution for plain/mock rolls.
-  - Quick actions now submit typed `perform_action` requests, and authored `send_message` steps emit Roll20 chat through the backend bridge.
-  - Explicit mock mode only acknowledges `perform_action`; it does not calculate rolls or present placeholder roll output as authoritative state.
+  - Live action execution already uses typed backend `perform_action` handling and the Roll20 bridge.
+  - Explicit mock mode no longer acknowledges action execution as successful; it returns a clear backend-required error instead of inventing roll/chat outcomes.
+  - Added mock transport regression coverage for the authority boundary.
 - [x] Make websocket-to-mock fallback explicit dev-only behavior or remove fallback from normal live mode.
   - Removed silent websocket-to-mock fallback from `ManagedGameClient`; failed websocket connects now remain disconnected with an error.
   - Mock transport is still available only when explicitly selected through mock transport mode.
@@ -649,29 +684,35 @@ Frontend augmentation UX boundary:
   - Replaying a retained request ID returns an explicit duplicate-request error without repeating the mutation, incrementing the state version, or broadcasting another patch.
   - The cache intentionally resets with the backend process/state-sync service. Retries after restart or after an ID ages out of the bounded cache are not deduplicated; persisted replay semantics remain out of MVP scope.
 - [x] Decide whether to keep the HTTP chat debug endpoint long-term.
-  - Decision: do not keep or reintroduce an HTTP chat debug endpoint for MVP.
-  - Roll20 chat delivery remains websocket-only through app `send_roll20_chat_message` requests and the `/ws/chat` Firefox-extension bridge.
-  - Added backend route regression coverage proving no Roll20/chat HTTP route is registered.
+  - No HTTP chat debug endpoint remains in the FastAPI app; Roll20 delivery uses the authenticated `/ws/chat` service bridge and app chat intents use the registered `/ws` contract.
 - [x] Move auth codes into explicit environment/config management before deployment needs tighten.
-  - Backend auth token resolution now goes through `backend.core.config`, with documented env vars for player, DM, and Roll20 service codes plus explicit local-development defaults.
-  - Frontend helper/mock auth token defaults now go through a shared auth config module and `.env.example` documents the matching Vite env vars.
-  - Roll20 extension service auth uses an explicit `TTRPG_SERVICE_AUTH_CODE` localStorage override with a documented local-development fallback.
-  - Added focused backend/frontend config tests and refreshed stale websocket snapshot expectations for the current `encounter_presets` state root.
+  - Backend auth settings now load through `backend/core/config.py`, allow documented defaults only for development/test, require explicit non-empty codes outside those environments, and reject duplicate role codes.
+  - Added root and frontend environment examples; `just` loads the root `.env` when present.
+  - Removed compiled frontend fallback auth codes. Optional role shortcuts now require Vite environment configuration, while normal code entry continues to submit the user-provided code.
+  - Replaced the Firefox bridge's hardcoded service code with an extension options page backed by Firefox local extension storage.
+  - Added backend settings tests and frontend coverage for missing auth configuration.
 - [x] Continue trimming redundant websocket success payloads where authoritative patches already prove success.
-  - Mutating `perform_action` requests now complete through their authoritative `state_patch`; `action_executed` remains only for action executions that produce no state patch.
-  - Updated backend runtime tests to assert patch-only success for mutating action execution while preserving explicit success for no-op/Roll20-only action execution.
+  - Audited registered route contracts and handlers; sheet, item, formula, action, condition, stat, bridge, encounter, and resource mutations are already patch-only.
+  - Retained authentication, metadata/status queries, sheet access-code/claim results, and other private/non-state responses because an authoritative patch cannot carry those semantics.
+  - Retained `action_executed` because valid actions may emit Roll20 messages without mutating state and therefore produce no `state_patch`; the result event is the request completion signal in that case.
 - [x] Backend websocket contract tests cover auth, snapshot, patch, error, resync, permission failures, action execution, variable mutation, and Roll20 bridge failure.
-  - Added focused websocket contract coverage for DM-only permission denial, patch broadcast, replay resync, variable-registry mutation metadata, mutating action execution, and no-patch Roll20-only action success.
-  - Reset state-sync version/history in websocket tests so snapshot, patch, and replay assertions remain isolated.
+  - `test_ws.py` covers player/DM/service auth, bootstrap snapshots, unknown-request and auth errors, explicit resync, bridge status, successful delivery, and disconnected bridge failure.
+  - `test_state_sync.py` covers ordered patch broadcast, increment/decrement mutations, patch replay, redaction during replay, and full-snapshot fallback.
+  - `test_sheet_runtime.py` covers action execution plus set/increment/decrement, bounded resources, proficiency, augmentation, condition, damage, healing, and authorization failures.
+  - Sheet-admin contract suites cover DM-only mutation rejection and patch-only success across each typed admin family.
 - [x] Backend role-based access tests cover DM-only and future typed admin mutations.
-  - Added a registry-wide access matrix that classifies every public websocket route as unauthenticated, player-accessible, or DM-only.
-  - Exercised route authorization for unauthenticated, player, and DM sessions, and locked expected custom denial reasons so new typed admin mutations must make their access boundary explicit.
+  - Added a registry-level invariant that every current and future `minimum_role = "dm"` route rejects player sessions and accepts DM sessions.
+  - Existing feature-family suites continue to cover representative DM success and player rejection through the full transport path.
+  - Verified by the complete backend suite: 285 tests pass.
 - [x] Backend tests cover generated-helper metadata and typed route/export consistency once generation expands beyond types.
-  - Added structured codegen tests that compare generated route-helper metadata against the live request registry.
-  - Added checked-in generated protocol freshness coverage and verified every registered request/event model is exported and included in the generated TypeScript unions.
+  - Added dynamic checks that every public registry route declares client-generation metadata, every registered request/event model is exported, and every generated route-manifest entry exactly matches its registry contract.
+  - Verified by the complete backend suite, including current generated TypeScript output: 285 tests pass.
 - [x] Frontend tests cover wrapper parsing, reconnect/resync, state patch reconciliation, optimistic overwrite, reducer behavior, mock transport event handling, and core sheet interactions.
-  - Existing frontend suites cover websocket wrapper parsing, reconnect/backoff, resync recovery, authoritative snapshot/patch reconciliation, optimistic pending feedback, reducers, request builders, selectors, and mock-mode sheet flows.
-  - Added focused coverage for backend error/action-executed parsing and adaptation, unsupported typed mock transport requests, and sheet modifier parsing/formatting used by resource/stat edit controls.
+  - Socket protocol/event-adapter tests cover parsing, invalid payloads, snapshots, and patches.
+  - Managed-client tests cover reconnect/backoff, re-authentication, deliberate disconnect, and version-gap resync.
+  - Sync reducer tests cover backend-authoritative snapshots/patches, forced-snapshot overwrite, resources, notes, equipment, stats, and migrated entity families.
+  - Reducer, mock transport, sheet selector, quick-action, and request/editor-value suites cover local lifecycle behavior and core sheet workflows.
+  - The complete frontend set passes: 32 files and 227 tests; TypeScript build and ESLint also pass.
 - [x] Add accessibility pass for focus states, labels, and keyboard navigation, especially sheet/resource editors.
   - Added tablist semantics and arrow/Home/End keyboard handling for character sheet sections, plus explicit active-sheet quick-switch tab states.
   - Added accessible names, expanded states, described hints/errors, alert roles, and visible focus styling for resource/stat editor controls.
@@ -691,6 +732,9 @@ Frontend augmentation UX boundary:
   - Every successful state-changing patch records its state version, request ID, operation types, paths, and request source in a bounded newest-256 runtime audit trail.
   - Mutation values are intentionally excluded so audit metadata does not duplicate authoritative state or expose hidden values; the trail is backend-runtime diagnostics rather than a player-facing protocol stream.
   - Context isolation, nested action ID extraction, action-execution attribution, concurrent-client attribution, and bounded audit eviction have focused backend coverage.
+- [x] Add DM-only undo.
+  - `undo_last_state_change` applies the last bounded inverse patch and broadcasts it as a new authoritative patch.
+  - Undo history clears on reset or full-state import and the GM control lives on the State Backup page.
 
 ## 11. MVP Acceptance Criteria
 
@@ -884,7 +928,8 @@ MVP is done when:
 ### Frontend Backend-Access Gaps
 
 - [ ] Add GM sheet-access management UI that consumes `sheet_access_codes`, lists active codes, and supports generating/replacing a code for a selected player instance.
-  - Stop discarding `sheet_access_codes` events in the frontend adapter and keep codes in DM-only UI state; never project them into player-visible snapshots or views.
+  - Completed: frontend adapter and DM-only UI state retain private code responses, and the GM console lists/copies active codes.
+  - Remaining: add selected-instance generation/replacement controls.
 - [ ] Add GM action assignment controls to the active sheet Actions tab using sheet action bridge create/update/delete routes.
   - Allow selection from authoritative global actions, preserve stable relationship IDs, and keep player mode execution-only.
 - [ ] Complete sheet definition editing for backend formula stats and resistance values.
@@ -912,6 +957,12 @@ Manual amount/type damage intake is already tracked in the later hit/damage chec
   - Level-up application remains manual DM sheet edits for MVP.
   - Backend reuses `xp_cap`, `xp_given_when_slayed`, and `slayed_record`, calculates totals authoritatively, and restricts player updates to the claimed sheet instance.
   - Player snapshots and tracker responses redact XP thresholds, mob XP values, earned XP, totals, and readiness while retaining tracked mob names and editable kill counts.
+  - Both the dedicated tracker route and the compatible sheet slay-count route mutate authoritative `slayed_record` values with ownership checks.
+
+- [x] Export/import JSON.
+  - DM-only export returns the backend private persisted-state envelope, including fields omitted from role-redacted snapshots.
+  - Import validates through schema migration and domain loading, atomically replaces state, clears replay/undo history, bumps state version, and broadcasts full role-redacted snapshots.
+  - The GM State Backup page supports export/download and paste/file import.
 
 ### Later
 
@@ -933,29 +984,42 @@ Manual amount/type damage intake is already tracked in the later hit/damage chec
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode/alternative handling.
 - [ ] Mastery unlock enforcement.
-- [ ] Export/import JSON.
 - [ ] Multi-campaign support.
-- [ ] Mobile layout refinement for player character sheet and GM encounter/template panels.
-- [ ] DM-only undo.
+- [x] Mobile layout refinement for player character sheet and GM encounter/template panels.
+  - Added a compact app shell and single-column mobile grids for player resources, core stats, equipment, encounter roster entries, and template editor fields.
+  - Added horizontally scrollable sheet/navigation tabs, 44px touch targets, wrapping/full-width action controls, and stacked encounter/template list cards.
+  - The persistent GM toolbar collapses and stacks its controls on narrow viewports.
+- [x] DM-only undo.
+  - Added a bounded backend inverse-patch stack and DM-only typed undo request.
+  - Added a GM-facing Undo Last Change visual control.
+  - Undo emits normal authoritative patches; it is not a replay system and does not duplicate side-effect state.
 
 ## 13. Deferred Rule Decisions
 
-Expanded DM/common rules author handoff: `reference-docs/rule-decisions-needed.md`.
+Expanded answered rules and future-automation handoff: `reference-docs/rule-decisions-needed-answered.md`.
 
-These are not MVP blockers:
+Answered rulings now captured in this plan:
 
-- Exact HP max formula and race modifier behavior. Use GM-authored/configurable formula for now.
-- Exact Strength-to-carry-weight formula.
-- Critical behavior outside physical weapon attacks.
-- Exact heavy armor penalty augmentation behavior.
-- Exact overload DC formula.
-- Stacking rules beyond additive resistance capped at 100 percent.
+- HP max is `Health * Racial HP Multiplier`; the multiplier is authored by race or creature template.
+- Carry weight is `FLOOR(Strength)`.
+- Resistance is additive, clamped to `0.00..1.00`, capped at 100 percent, and applied as `FLOOR(Damage * (1 - Resistance))`.
+- Heavy armor imposes disadvantage on Dodge; shields normally grant advantage on Block.
+- Critical behavior is defined for physical attacks, spell to-hit, Dodge, Block, Parry, skill checks, grapple checks, and overload checks.
+- Overload has defined tiers, mana costs, check formula, and failure outline; only the DC remains GM-assigned rather than formula-derived.
+
+These remain future implementation or campaign-adjudication boundaries, not MVP blockers:
+
 - Automated level-up stat distribution beyond XP readiness tracking and manual GM edits.
-- Exact frontend roll composer preview terms for formulas that remain Roll20-resolved.
-- Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, or formula-driven.
+- Backend-owned combat/turn tracking, including action-point reset timing, initiative, reactions, opportunity attacks, AOE positioning, and cross-sheet damage application.
+- App-side physical/spell attack resolvers, including criticals, Dodge/Block/Parry reductions, counterattacks, and augmentation-derived modifiers.
+- Overload mode automation and overload explosion resolution.
+- Mastery unlock enforcement and visibility for disabled/hidden content.
+- Frontend formula previews for formulas that remain Roll20-resolved.
+- Stat/resource adjustment semantics where the answer is not a direct current HP/mana edit: additive, replace-value, formula-driven, or rule-specific.
 
 ## 14. Historical Sources
 
 - Section 4 is the authoritative current implementation baseline.
 - Sections 10 and 12 hold detailed completion records and remaining work; do not duplicate completed tasks in a separate summary.
 - Earlier completion history remains archived in `plan/archived/Completed.md` and the source plans listed at the top of this document.
+- BUG-001 through BUG-009 were resolved and archived in `plan/archived/resolved_bugs_2026-06-25.md`.

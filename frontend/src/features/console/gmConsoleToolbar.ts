@@ -12,7 +12,8 @@ export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<{ view: GMView; label: string }
   { view: "formula_authoring", label: "Formula Authoring" },
   { view: "proficiency_authoring", label: "Proficiency Authoring" },
   { view: "condition_authoring", label: "Condition Authoring" },
-  { view: "action_authoring", label: "Action Authoring" }
+  { view: "action_authoring", label: "Action Authoring" },
+  { view: "state_backup", label: "State Backup" }
 ];
 
 export function orderedEncounterPresets(

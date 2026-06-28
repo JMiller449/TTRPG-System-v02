@@ -55,6 +55,8 @@ export function createEmptyTemplateEditorValues(kind: SheetKind = "player"): Tem
     kind,
     name: "",
     notes: "",
+    xpGivenWhenSlayed: "",
+    xpCap: "",
     coreStats: CORE_TEMPLATE_STATS.reduce(
       (acc, key) => ({ ...acc, [key]: "" }),
       {} as TemplateEditorValues["coreStats"]
@@ -73,6 +75,11 @@ export function parseTemplateCoreStats(
   ) as Partial<Record<CoreTemplateStatKey, number>>;
 }
 
+function parseNonnegativeInteger(raw: string): number {
+  const parsed = Number(raw.trim());
+  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 export function toTemplateEditorValues(
   sheet: Sheet,
   presentation?: SheetPresentation
@@ -86,7 +93,11 @@ export function toTemplateEditorValues(
     ...base,
     kind: presentation?.kind ?? (sheet.dm_only ? "enemy" : "player"),
     name: sheet.name,
-    notes: presentation?.notes ?? sheet.notes ?? ""
+    notes: presentation?.notes ?? sheet.notes ?? "",
+    xpGivenWhenSlayed: sheet.xp_given_when_slayed
+      ? String(sheet.xp_given_when_slayed)
+      : "",
+    xpCap: sheet.xp_cap ?? ""
   };
 }
 
@@ -97,8 +108,8 @@ export function toSheetDefinitionPayload(values: TemplateEditorValues, sheetId: 
     name: values.name.trim(),
     notes: values.notes.trim(),
     dm_only: values.kind === "enemy",
-    xp_given_when_slayed: 0,
-    xp_cap: "",
+    xp_given_when_slayed: parseNonnegativeInteger(values.xpGivenWhenSlayed),
+    xp_cap: values.xpCap.trim(),
     proficiencies: {},
     items: {},
     stats: {
@@ -120,6 +131,8 @@ export function toUpdatedSheetDefinitionPayload(
     name: values.name.trim(),
     notes: values.notes.trim(),
     dm_only: values.kind === "enemy",
+    xp_given_when_slayed: parseNonnegativeInteger(values.xpGivenWhenSlayed),
+    xp_cap: values.xpCap.trim(),
     stats: {
       ...sheet.stats,
       ...coreStats

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { protocolRouteContracts, type ProtocolApplicationRequest } from "@/generated/backendProtocol";
+import {
+  protocolRouteContracts,
+  type ProtocolApplicationRequest
+} from "@/generated/backendProtocol";
 import {
   buildAuthenticateRequest,
   buildCreateActionRequest,
@@ -20,6 +23,7 @@ import {
   buildDeleteFormulaRequest,
   buildDeleteItemRequest,
   buildDeleteProficiencyRequest,
+  buildExportStateBackupRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
@@ -27,6 +31,7 @@ import {
   buildGetSheetAccessCodesRequest,
   buildGetVariableRegistryRequest,
   buildGetXpTrackerRequest,
+  buildImportStateBackupRequest,
   buildSaveEncounterPresetRequest,
   buildDeleteSheetRequest,
   buildDeleteSheetActionBridgeRequest,
@@ -44,7 +49,9 @@ import {
   buildSetMobXpValueRequest,
   buildSetSheetMobKillCountRequest,
   buildSetSheetXpRequiredRequest,
+  buildSetSheetSlayedCountRequest,
   buildSpawnEncounterPresetRequest,
+  buildUndoLastStateChangeRequest,
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
   buildUpdateFormulaRequest,
@@ -219,6 +226,7 @@ const requestBuilderByType = {
   delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
   delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
+  export_state_backup: buildExportStateBackupRequest,
   generate_sheet_access_code: buildGenerateSheetAccessCodeRequest,
   get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
   get_augmentation_target_metadata: buildGetAugmentationTargetMetadataRequest,
@@ -226,6 +234,7 @@ const requestBuilderByType = {
   get_sheet_access_codes: buildGetSheetAccessCodesRequest,
   get_variable_registry: buildGetVariableRegistryRequest,
   get_xp_tracker: buildGetXpTrackerRequest,
+  import_state_backup: buildImportStateBackupRequest,
   perform_action: buildPerformActionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   resync_state: buildResyncStateRequest,
@@ -239,7 +248,9 @@ const requestBuilderByType = {
   set_sheet_notes: buildSetSheetNotesRequest,
   set_sheet_mob_kill_count: buildSetSheetMobKillCountRequest,
   set_sheet_xp_required: buildSetSheetXpRequiredRequest,
+  set_sheet_slayed_count: buildSetSheetSlayedCountRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
+  undo_last_state_change: buildUndoLastStateChangeRequest,
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
   update_formula: buildUpdateFormulaRequest,
@@ -339,6 +350,27 @@ describe("requestBuilders", () => {
       type: "resync_state",
       last_seen_version: 12
     });
+    expect(buildUndoLastStateChangeRequest({ requestId: "req-undo" })).toEqual({
+      request_id: "req-undo",
+      type: "undo_last_state_change"
+    });
+  });
+
+  it("builds state backup requests", () => {
+    expect(buildExportStateBackupRequest({ requestId: "req-export" })).toEqual({
+      request_id: "req-export",
+      type: "export_state_backup"
+    });
+    expect(
+      buildImportStateBackupRequest({
+        requestId: "req-import",
+        persistedStateJson: '{"schema_version":1,"state":{}}'
+      })
+    ).toEqual({
+      request_id: "req-import",
+      type: "import_state_backup",
+      persisted_state_json: '{"schema_version":1,"state":{}}'
+    });
   });
 
   it("builds encounter preset requests", () => {
@@ -429,6 +461,20 @@ describe("requestBuilders", () => {
       type: "set_sheet_notes",
       sheet_id: "sheet_1",
       notes: "GM template note."
+    });
+    expect(
+      buildSetSheetSlayedCountRequest({
+        requestId: "req-xp",
+        sheetId: "sheet_1",
+        slayedSheetId: "enemy_1",
+        count: 3
+      })
+    ).toEqual({
+      request_id: "req-xp",
+      type: "set_sheet_slayed_count",
+      sheet_id: "sheet_1",
+      slayed_sheet_id: "enemy_1",
+      count: 3
     });
     expect(
       buildSetSheetFormulaStatRequest({

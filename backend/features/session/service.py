@@ -73,6 +73,14 @@ class WebSocketSessionService:
             raise ValueError("WebSocket is not connected.")
         return session
 
+    async def authenticated_sessions(self) -> tuple[WebSocketSession, ...]:
+        async with self._lock:
+            return tuple(
+                session
+                for session in self._sessions.values()
+                if session.is_authenticated
+            )
+
     async def is_dm(self, websocket: WebSocket) -> bool:
         return (await self.get_session(websocket)).is_dm
 

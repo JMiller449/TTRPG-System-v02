@@ -13,14 +13,14 @@ import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEd
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
-  buildCreateSheetItemBridgeRequest,
-  buildCreateSheetProficiencyBridgeRequest,
-  buildDeleteSheetItemBridgeRequest,
-  buildDeleteSheetProficiencyBridgeRequest,
+  buildAttachSheetItemRequest,
+  buildDetachSheetItemRequest,
+  buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
   buildSetInstancedSheetNotesRequest,
-  buildUpdateSheetItemBridgeRequest,
-  buildUpdateSheetProficiencyBridgeRequest
+  buildUnlinkSheetProficiencyRequest,
+  buildUpdateAttachedSheetItemRequest,
+  buildUpdateLinkedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
@@ -111,7 +111,7 @@ export function PlayerCharacterSheet({
     }
 
     client.sendProtocolRequest(
-      buildUpdateSheetItemBridgeRequest({
+      buildUpdateAttachedSheetItemRequest({
         sheetId,
         relationshipId,
         bridge: {
@@ -156,6 +156,12 @@ export function PlayerCharacterSheet({
         <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {showStatsSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-stats"
+            aria-labelledby="sheet-tab-stats"
+            tabIndex={0}
+          >
           <SheetStatsSection
             canEditStats={canEditStats}
             stats={detail.stats}
@@ -171,9 +177,16 @@ export function PlayerCharacterSheet({
             onCancelEditing={statEditor.cancelEditing}
             onEditorKeyDown={statEditor.onEditorKeyDown}
           />
+          </div>
         ) : null}
 
         {showActionsSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-actions"
+            aria-labelledby="sheet-tab-actions"
+            tabIndex={0}
+          >
           <SheetActionsSection
             assignedActions={assignedActions}
             onPerformAction={(action, rollMode) => {
@@ -187,9 +200,16 @@ export function PlayerCharacterSheet({
               );
             }}
           />
+          </div>
         ) : null}
 
         {showNotesSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-notes"
+            aria-labelledby="sheet-tab-notes"
+            tabIndex={0}
+          >
           <SheetNotesSection
             sheetId={detail.instance.id}
             note={runtimeNote}
@@ -203,6 +223,7 @@ export function PlayerCharacterSheet({
               )
             }
           />
+          </div>
         ) : null}
 
         {showKillsSection && sheetId ? (
@@ -214,6 +235,12 @@ export function PlayerCharacterSheet({
         ) : null}
 
         {showProficienciesSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-proficiencies"
+            aria-labelledby="sheet-tab-proficiencies"
+            tabIndex={0}
+          >
           <SheetProficienciesSection
             proficiencyDefinitions={proficiencyDefinitions}
             proficiencyOrder={proficiencyOrder}
@@ -224,7 +251,7 @@ export function PlayerCharacterSheet({
                 return;
               }
               client.sendProtocolRequest(
-                buildCreateSheetProficiencyBridgeRequest({
+                  buildLinkSheetProficiencyRequest({
                   sheetId,
                   bridge
                 }),
@@ -236,7 +263,7 @@ export function PlayerCharacterSheet({
                 return;
               }
               client.sendProtocolRequest(
-                buildUpdateSheetProficiencyBridgeRequest({
+                  buildUpdateLinkedSheetProficiencyRequest({
                   sheetId,
                   relationshipId,
                   bridge
@@ -249,7 +276,7 @@ export function PlayerCharacterSheet({
                 return;
               }
               client.sendProtocolRequest(
-                buildDeleteSheetProficiencyBridgeRequest({
+                  buildUnlinkSheetProficiencyRequest({
                   sheetId,
                   relationshipId
                 }),
@@ -257,9 +284,16 @@ export function PlayerCharacterSheet({
               );
             }}
           />
+          </div>
         ) : null}
 
         {showEquipmentSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-equipment"
+            aria-labelledby="sheet-tab-equipment"
+            tabIndex={0}
+          >
           <SheetEquipmentSection
             items={items}
             itemOrder={itemOrder}
@@ -277,7 +311,7 @@ export function PlayerCharacterSheet({
 
               const relationshipId = makeId("item_bridge");
               client.sendProtocolRequest(
-                buildCreateSheetItemBridgeRequest({
+                  buildAttachSheetItemRequest({
                   sheetId,
                   bridge: {
                     relationship_id: relationshipId,
@@ -305,7 +339,7 @@ export function PlayerCharacterSheet({
                 return;
               }
               client.sendProtocolRequest(
-                buildDeleteSheetItemBridgeRequest({
+                  buildDetachSheetItemRequest({
                   sheetId,
                   relationshipId
                 }),
@@ -313,6 +347,7 @@ export function PlayerCharacterSheet({
               );
             }}
           />
+          </div>
         ) : null}
       </article>
     </Panel>

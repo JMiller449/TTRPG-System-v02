@@ -14,11 +14,14 @@ import type {
   ItemBridge,
   ItemDefinition,
   ProficiencyBridge,
-  ProficiencyDefinition
+  ProficiencyDefinition,
+  Sheet
 } from "@/domain/models";
 
 interface UseSheetDetailStateResult {
   detail: ReturnType<typeof selectActiveSheetDetail>;
+  sheets: Record<string, Sheet>;
+  sheetOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
   proficiencyDefinitions: Record<string, ProficiencyDefinition>;
@@ -40,7 +43,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     items,
     itemOrder,
     proficiencies: proficiencyDefinitions,
-    proficiencyOrder
+    proficiencyOrder,
+    sheets,
+    sheetOrder
   } = state.serverState;
 
   const detail = selectActiveSheetDetail(state);
@@ -60,6 +65,8 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
   if (!detail) {
     return {
       detail: null,
+      sheets,
+      sheetOrder,
       items,
       itemOrder,
       proficiencyDefinitions,
@@ -78,6 +85,8 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
 
   return {
     detail,
+    sheets,
+    sheetOrder,
     items,
     itemOrder,
     proficiencyDefinitions,

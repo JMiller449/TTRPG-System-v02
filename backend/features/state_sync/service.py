@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
+_MISSING = object()
 
 
 class DuplicateRequestError(ValueError):
@@ -38,6 +39,22 @@ class MutationAuditEntry:
     source: RequestSource | None
     operations: tuple[str, ...]
     paths: tuple[str, ...]
+
+    @property
+    def request_type(self) -> str | None:
+        return self.source.request_type if self.source is not None else None
+
+    @property
+    def action_id(self) -> str | None:
+        return self.source.action_id if self.source is not None else None
+
+    @property
+    def sheet_id(self) -> str | None:
+        return self.source.sheet_id if self.source is not None else None
+
+    @property
+    def operation_paths(self) -> tuple[str, ...]:
+        return self.paths
 
 
 def build_state_snapshot(
@@ -85,6 +102,7 @@ class StateSyncService:
         patch_history_limit: int = 256,
         processed_request_limit: int = 512,
         mutation_audit_limit: int = 256,
+        undo_history_limit: int = 50,
     ) -> None:
         if processed_request_limit < 1:
             raise ValueError("processed_request_limit must be at least 1.")
@@ -100,10 +118,19 @@ class StateSyncService:
         self._mutation_audit: deque[MutationAuditEntry] = deque(
             maxlen=mutation_audit_limit
         )
+        self._undo_history: deque[list[PatchOp]] = deque(maxlen=undo_history_limit)
 
     @property
     def current_version(self) -> int:
         return self._state_version
+
+    @property
+    def undo_depth(self) -> int:
+        return len(self._undo_history)
+
+    @property
+    def mutation_history(self) -> tuple[MutationAuditEntry, ...]:
+        return tuple(self._mutation_audit)
 
     def _redact_item_payload(self, value: Any) -> Any:
         if is_dataclass(value):
@@ -242,6 +269,38 @@ class StateSyncService:
             self._processed_request_ids.clear()
             self._processed_request_id_set.clear()
             self._mutation_audit.clear()
+            self._undo_history.clear()
+
+    async def replace_state_and_broadcast_snapshots(
+        self,
+        state: State,
+        *,
+        requesting_session: WebSocketSession,
+        request_id: str | None = None,
+    ) -> None:
+        async with self._lock:
+            StateSingleton.replaceState(state)
+            self._state_version += 1
+            self._patch_history.clear()
+            self._processed_request_ids.clear()
+            self._processed_request_id_set.clear()
+            self._mutation_audit.clear()
+            self._undo_history.clear()
+            sessions = await websocket_sessions.authenticated_sessions()
+            snapshots = tuple(
+                (
+                    session,
+                    self._build_snapshot_locked(
+                        role=session.role,
+                        assigned_instance_id=session.assigned_instance_id,
+                        request_id=request_id if session is requesting_session else None,
+                    ),
+                )
+                for session in sessions
+            )
+
+        for session, snapshot in snapshots:
+            await websocket_sessions.send(session, snapshot)
 
     async def recent_mutations(self) -> tuple[MutationAuditEntry, ...]:
         async with self._lock:
@@ -388,6 +447,73 @@ class StateSyncService:
     def _clone_value(self, value: Any) -> Any:
         return deepcopy(value)
 
+    def _resolve_value(self, root: Any, path: str) -> Any:
+        try:
+            container, leaf = self._resolve_container(root, path)
+        except ValueError:
+            return _MISSING
+
+        if isinstance(container, dict):
+            return (
+                self._clone_value(container[leaf])
+                if leaf in container
+                else _MISSING
+            )
+        if isinstance(container, list):
+            try:
+                return self._clone_value(container[self._list_index(leaf)])
+            except (IndexError, ValueError):
+                return _MISSING
+        if hasattr(container, leaf):
+            return self._clone_value(getattr(container, leaf))
+        return _MISSING
+
+    def _build_inverse_ops(
+        self,
+        previous_state: State,
+        ops: list[PatchOp],
+    ) -> list[PatchOp]:
+        inverse_ops: list[PatchOp] = []
+        for op in reversed(ops):
+            if op.op == "add":
+                inverse_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+            if op.op == "remove":
+                previous_value = self._resolve_value(previous_state, op.path)
+                if previous_value is _MISSING:
+                    raise ValueError(f"Cannot undo remove for missing path {op.path}.")
+                inverse_ops.append(PatchOp(op="add", path=op.path, value=previous_value))
+                continue
+            if op.op == "set":
+                previous_value = self._resolve_value(previous_state, op.path)
+                inverse_ops.append(
+                    PatchOp(op="remove", path=op.path)
+                    if previous_value is _MISSING
+                    else PatchOp(op="set", path=op.path, value=previous_value)
+                )
+                continue
+            if op.op == "inc":
+                if not isinstance(op.value, int | float):
+                    raise ValueError(f"Cannot undo non-numeric increment at {op.path}.")
+                inverse_ops.append(PatchOp(op="inc", path=op.path, value=-op.value))
+                continue
+            raise ValueError(f"Cannot undo unsupported operation {op.op}.")
+        return inverse_ops
+
+    def _apply_patch_op(self, state: State, op: PatchOp) -> PatchOp:
+        if op.op == "add":
+            return self.add_mutation(state, op.path, op.value)
+        if op.op == "set":
+            return self.set_mutation(state, op.path, op.value)
+        if op.op == "remove":
+            _, applied = self.remove_mutation(state, op.path)
+            return applied
+        if op.op == "inc":
+            if not isinstance(op.value, int | float):
+                raise ValueError(f"State path {op.path} increment is not numeric.")
+            return self.increment_mutation(state, op.path, op.value)
+        raise ValueError(f"Unsupported patch operation {op.op}.")
+
     def add_mutation(self, state: State, path: str, value: Any) -> PatchOp:
         container, leaf = self._resolve_container(state, path)
         value_copy = self._clone_value(value)
@@ -504,8 +630,11 @@ class StateSyncService:
                 )
 
             state = StateSingleton.getState()
+            previous_state = deepcopy(state)
             result, ops = mutation(state)
             if ops:
+                inverse_ops = self._build_inverse_ops(previous_state, ops)
+                self._undo_history.append(inverse_ops)
                 StateSingleton.dumpState()
                 patch = self._next_patch(ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
@@ -518,6 +647,25 @@ class StateSyncService:
             elif request_id is not None:
                 self._remember_processed_request(request_id)
             return result
+
+    async def undo_last_change(self, *, request_id: str | None = None) -> bool:
+        async with self._lock:
+            if not self._undo_history:
+                return False
+
+            state = StateSingleton.getState()
+            inverse_ops = self._undo_history.pop()
+            applied_ops = [self._apply_patch_op(state, op) for op in inverse_ops]
+            StateSingleton.dumpState()
+            patch = self._next_patch(applied_ops, request_id=request_id)
+            self._record_mutation(patch, source=current_request_source())
+            if request_id is not None:
+                self._remember_processed_request(request_id)
+            await websocket_sessions.broadcast_by_role(
+                player_payload=self._redact_patch_for_role(patch, role="player"),
+                dm_payload=self._redact_patch_for_role(patch, role="dm"),
+            )
+            return True
 
     async def apply_private_mutation(
         self,

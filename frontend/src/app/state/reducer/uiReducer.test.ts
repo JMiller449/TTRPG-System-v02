@@ -64,6 +64,22 @@ describe("uiReducer", () => {
     expect(state?.uiState.actionFormulaAuthoringMetadata).toEqual(metadata);
   });
 
+  it("stores active sheet access codes for GM provisioning", () => {
+    const state = uiReducer(initialState, {
+      type: "set_sheet_access_codes",
+      codes: [
+        {
+          code: "MAGE2026",
+          sheetId: "mage-template",
+          instanceId: "mage-instance",
+          active: true
+        }
+      ]
+    });
+
+    expect(state?.uiState.sheetAccessCodes[0]?.code).toBe("MAGE2026");
+  });
+
   it("stores augmentation target metadata in UI state", () => {
     const state = uiReducer(initialState, {
       type: "set_augmentation_target_metadata",

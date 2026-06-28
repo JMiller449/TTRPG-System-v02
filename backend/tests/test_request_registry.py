@@ -1,11 +1,16 @@
+import asyncio
+
+import pytest
 from pydantic import BaseModel
 
+from backend.core.request_context import get_request_context
 from backend.core.request_registry import (
     ClientGenerationMetadata,
     RequestRegistry,
     RequestRoute,
     request_registry,
 )
+from backend.features.session.models import WebSocketSession
 from backend.protocol.socket import (
     ActionExecutedEvent,
     ActionFormulaAuthoringMetadataEvent,
@@ -72,6 +77,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "SaveEncounterPreset",
         "DeleteEncounterPreset",
         "SpawnEncounterPreset",
+        "UndoLastStateChange",
     }.issubset(model_names)
 
 
@@ -88,6 +94,78 @@ def test_request_registry_exposes_deduplicated_emitted_event_models() -> None:
     assert SheetAccessCodesEvent in emitted_models
     assert SheetAccessClaimedEvent in emitted_models
     assert emitted_models.count(StatePatchEvent) == 1
+
+
+def test_every_registered_dm_route_rejects_players_and_accepts_dms() -> None:
+    player_session = WebSocketSession(websocket=object(), role="player")
+    dm_session = WebSocketSession(websocket=object(), role="dm")
+    dm_routes = [
+        route for route in request_registry.routes() if route.minimum_role == "dm"
+    ]
+
+    assert dm_routes
+    for route in dm_routes:
+        with pytest.raises(PermissionError):
+            route.authorize(player_session)
+        route.authorize(dm_session)
+
+
+def test_every_registered_public_route_declares_client_generation_metadata() -> None:
+    missing_metadata = [
+        route.type_name
+        for route in request_registry.routes()
+        if route.client_generation is None
+    ]
+
+    assert missing_metadata == []
+
+
+def test_request_registry_scopes_source_context_to_dispatch() -> None:
+    observed_contexts = []
+
+    class ContextRequest(BaseModel):
+        type: str = "context_request"
+        request_id: str | None = None
+        action_id: str | None = None
+        sheet_id: str | None = None
+
+    class ContextRoute(RequestRoute[ContextRequest]):
+        type_name = "context_request"
+        request_model = ContextRequest
+        minimum_role = "player"
+
+        async def handle(
+            self,
+            session: WebSocketSession,
+            request: ContextRequest,
+        ) -> None:
+            observed_contexts.append(get_request_context())
+
+    async def scenario() -> None:
+        registry = RequestRegistry()
+        registry.register(ContextRoute())
+        session = WebSocketSession(websocket=object(), role="player")
+
+        await registry.dispatch(
+            session,
+            {
+                "type": "context_request",
+                "request_id": "request-1",
+                "action_id": "action-1",
+                "sheet_id": "sheet-1",
+            },
+        )
+
+    asyncio.run(scenario())
+
+    assert len(observed_contexts) == 1
+    context = observed_contexts[0]
+    assert context is not None
+    assert context.request_id == "request-1"
+    assert context.request_type == "context_request"
+    assert context.action_id == "action-1"
+    assert context.sheet_id == "sheet-1"
+    assert get_request_context() is None
 
 
 def test_request_registry_exposes_route_contracts_with_client_generation_metadata() -> None:
@@ -140,6 +218,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["resync_state"].client_generation == ClientGenerationMetadata(
         namespace="stateSync",
         method_name="resyncState",
+    )
+    assert contracts["undo_last_state_change"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="stateSync",
+            method_name="undoLastStateChange",
+        )
+    )
+    assert contracts["undo_last_state_change"].minimum_role == "dm"
+    assert contracts["undo_last_state_change"].emitted_event_models == (
+        StatePatchEvent,
     )
     assert contracts["perform_action"].client_generation == ClientGenerationMetadata(
         namespace="sheetRuntime",
@@ -291,7 +379,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["create_instanced_sheet"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAdminSheets",
-            method_name="createInstancedSheet",
+            method_name="instantiateSheet",
         )
     )
     assert contracts["create_instanced_sheet"].minimum_role == "dm"
@@ -332,7 +420,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["create_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
-            method_name="createSheetActionBridge",
+            method_name="attachAction",
         )
     )
     assert contracts["create_sheet_action_bridge"].minimum_role == "dm"
@@ -342,7 +430,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["update_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
-            method_name="updateSheetActionBridge",
+            method_name="relinkAction",
         )
     )
     assert contracts["update_sheet_action_bridge"].minimum_role == "dm"
@@ -352,7 +440,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["delete_sheet_action_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetActionBridges",
-            method_name="deleteSheetActionBridge",
+            method_name="detachAction",
         )
     )
     assert contracts["delete_sheet_action_bridge"].minimum_role == "dm"
@@ -362,7 +450,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["create_sheet_item_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetItemBridges",
-            method_name="createSheetItemBridge",
+            method_name="attachItem",
         )
     )
     assert contracts["create_sheet_item_bridge"].minimum_role == "dm"
@@ -372,7 +460,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["update_sheet_item_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetItemBridges",
-            method_name="updateSheetItemBridge",
+            method_name="updateAttachedItem",
         )
     )
     assert contracts["update_sheet_item_bridge"].minimum_role == "dm"
@@ -382,7 +470,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["delete_sheet_item_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetItemBridges",
-            method_name="deleteSheetItemBridge",
+            method_name="detachItem",
         )
     )
     assert contracts["delete_sheet_item_bridge"].minimum_role == "dm"
@@ -392,7 +480,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["create_sheet_proficiency_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetProficiencyBridges",
-            method_name="createSheetProficiencyBridge",
+            method_name="linkProficiency",
         )
     )
     assert contracts["create_sheet_proficiency_bridge"].minimum_role == "dm"
@@ -402,7 +490,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["update_sheet_proficiency_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetProficiencyBridges",
-            method_name="updateSheetProficiencyBridge",
+            method_name="updateLinkedProficiency",
         )
     )
     assert contracts["update_sheet_proficiency_bridge"].minimum_role == "dm"
@@ -412,7 +500,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["delete_sheet_proficiency_bridge"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetProficiencyBridges",
-            method_name="deleteSheetProficiencyBridge",
+            method_name="unlinkProficiency",
         )
     )
     assert contracts["delete_sheet_proficiency_bridge"].minimum_role == "dm"

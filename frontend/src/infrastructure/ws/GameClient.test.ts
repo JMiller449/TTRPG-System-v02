@@ -63,6 +63,7 @@ describe("ManagedGameClient", () => {
     const requestedModes: string[] = [];
     const client = new ManagedGameClient({
       preferredMode: "ws",
+      autoReconnect: false,
       transportFactory: (mode) => {
         requestedModes.push(mode);
         return new FakeTransport(mode, new Error("ws failed"));
@@ -131,6 +132,26 @@ describe("ManagedGameClient", () => {
         request_id: transport.protocolRequests[0]?.request_id
       }
     ]);
+  });
+
+  it("reports missing role auth configuration instead of using a compiled fallback code", async () => {
+    const transport = new FakeTransport();
+    const client = new ManagedGameClient({
+      preferredMode: "ws",
+      transportFactory: () => transport
+    });
+    const events: ServerEvent[] = [];
+    client.onEvent((event) => events.push(event));
+
+    await client.connect();
+    client.authenticate("gm");
+
+    expect(transport.protocolRequests).toEqual([]);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "error",
+      message: "No DM authentication code is configured"
+    });
   });
 
   it("sends protocol requests through the active transport", async () => {
@@ -234,7 +255,8 @@ describe("ManagedGameClient", () => {
 
   it("schedules websocket reconnects with backoff and re-authenticates after a dropped connection", async () => {
     const transports: FakeTransport[] = [];
-    const scheduledReconnects: Array<{ delayMs: number; callback: () => void; canceled: boolean }> = [];
+    const scheduledReconnects: Array<{ delayMs: number; callback: () => void; canceled: boolean }> =
+      [];
     const connectionStates: unknown[] = [];
     const events: ServerEvent[] = [];
     const client = new ManagedGameClient({

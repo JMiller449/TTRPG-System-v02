@@ -135,6 +135,24 @@ def test_formula_runtime_evaluates_supported_numeric_expression() -> None:
     assert evaluate_numeric_expression("-4 + +6") == 2
 
 
+def test_formula_runtime_evaluates_mvp_helper_functions() -> None:
+    assert evaluate_numeric_expression("min(12, 8)") == 8
+    assert evaluate_numeric_expression("max(0, -4)") == 0
+    assert evaluate_numeric_expression("floor(4.9) + ceil(4.1)") == 9
+    assert evaluate_numeric_expression("round(2.6)") == 3
+    assert evaluate_numeric_expression("round(2.25, 1)") == 2.2
+
+
+def test_formula_runtime_evaluates_dice_expressions(monkeypatch) -> None:
+    rolls = iter([4, 2, 90, 12])
+    monkeypatch.setattr(
+        "backend.features.formula_runtime.service.random.randint",
+        lambda _minimum, _maximum: next(rolls),
+    )
+
+    assert evaluate_numeric_expression("1d6 + 2d100kh1") == 94
+
+
 def test_formula_runtime_evaluates_formula_against_root() -> None:
     root = DummySheet(
         stats=DummyStats(
@@ -156,11 +174,16 @@ def test_formula_runtime_evaluates_formula_against_root() -> None:
     assert evaluate_numeric_formula(root, formula) == 8
 
 
-def test_formula_runtime_rejects_unsupported_expression() -> None:
-    with pytest.raises(ValueError, match="Unsupported formula expression: Call"):
-        evaluate_numeric_expression("round(1.2)")
+def test_formula_runtime_rejects_unsupported_function() -> None:
+    with pytest.raises(ValueError, match="Unsupported formula function: abs"):
+        evaluate_numeric_expression("abs(-1)")
 
 
 def test_formula_runtime_rejects_unsupported_operator() -> None:
     with pytest.raises(ValueError, match="Unsupported formula operator: BitAnd"):
         evaluate_numeric_expression("1 & 1")
+
+
+def test_formula_runtime_rejects_invalid_dice_expressions() -> None:
+    with pytest.raises(ValueError, match="Dice keep count cannot exceed dice count."):
+        evaluate_numeric_expression("1d20kh2")

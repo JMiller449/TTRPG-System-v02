@@ -274,6 +274,43 @@ describe("sheet selectors", () => {
     expect(selectSheetAssignedActions(state, "missing")).toEqual([]);
   });
 
+  it("resolves only eligible item-granted actions and preserves their source", () => {
+    const state = stateFixture();
+    state.serverState.actions.drink_potion = {
+      id: "drink_potion",
+      name: "Drink Potion",
+      steps: []
+    };
+    state.serverState.actions.lantern_burst = {
+      id: "lantern_burst",
+      name: "Lantern Burst",
+      steps: []
+    };
+    state.serverState.items.item_staff.action_grants = [
+      { action_id: "drink_potion", availability: "carried", consume_quantity: 1 }
+    ];
+    state.serverState.items.item_lantern.action_grants = [
+      { action_id: "lantern_burst", availability: "equipped", consume_quantity: 0 }
+    ];
+
+    expect(selectSheetAssignedActions(state, "instance_player").slice(1)).toEqual([
+      {
+        relationshipId: "item:bridge_staff:drink_potion",
+        actionId: "drink_potion",
+        action: state.serverState.actions.drink_potion,
+        sourceItemRelationshipId: "bridge_staff",
+        sourceItemName: "Arc Staff",
+        sourceItemAvailability: "carried",
+        consumeQuantity: 1
+      }
+    ]);
+
+    state.serverState.sheets.sheet_player.items.bridge_staff.count = 0;
+    expect(selectSheetAssignedActions(state, "instance_player").map((entry) => entry.actionId)).toEqual([
+      "action_attack"
+    ]);
+  });
+
   it("lists available items and filters player instances for player-only sheet selection", () => {
     const state = stateFixture();
 

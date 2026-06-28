@@ -62,6 +62,7 @@ from backend.features.sheet_admin.sheets.schema import (
 from backend.features.sheet_admin.stats.schema import (
     SetSheetBaseStat,
     SetSheetFormulaStat,
+    SetSheetResistances,
 )
 from backend.features.sheet_access.schema import (
     ClaimSheetAccessCode,
@@ -351,6 +352,7 @@ ApplicationRequest = Annotated[
     | RemoveItemAugmentationTemplate
     | SetSheetBaseStat
     | SetSheetFormulaStat
+    | SetSheetResistances
     | GetActionFormulaAuthoringMetadata
     | GetAugmentationTargetMetadata
     | GetVariableRegistry

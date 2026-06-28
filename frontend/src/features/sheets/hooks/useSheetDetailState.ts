@@ -10,7 +10,9 @@ import {
   selectSheetProficiencies
 } from "@/app/state/selectors";
 import type { AssignedSheetAction } from "@/app/state/selectors";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
+  ActionDefinition,
   ItemBridge,
   ItemDefinition,
   ProficiencyBridge,
@@ -22,6 +24,9 @@ interface UseSheetDetailStateResult {
   detail: ReturnType<typeof selectActiveSheetDetail>;
   sheets: Record<string, Sheet>;
   sheetOrder: string[];
+  actionDefinitions: Record<string, ActionDefinition>;
+  actionOrder: string[];
+  actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
   proficiencyDefinitions: Record<string, ProficiencyDefinition>;
@@ -45,8 +50,11 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     proficiencies: proficiencyDefinitions,
     proficiencyOrder,
     sheets,
-    sheetOrder
+    sheetOrder,
+    actions: actionDefinitions,
+    actionOrder
   } = state.serverState;
+  const { actionFormulaAuthoringMetadata } = state.uiState;
 
   const detail = selectActiveSheetDetail(state);
   const availableItems = selectAvailableItems(state);
@@ -67,6 +75,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       detail: null,
       sheets,
       sheetOrder,
+      actionDefinitions,
+      actionOrder,
+      actionFormulaAuthoringMetadata,
       items,
       itemOrder,
       proficiencyDefinitions,
@@ -87,6 +98,9 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     detail,
     sheets,
     sheetOrder,
+    actionDefinitions,
+    actionOrder,
+    actionFormulaAuthoringMetadata,
     items,
     itemOrder,
     proficiencyDefinitions,

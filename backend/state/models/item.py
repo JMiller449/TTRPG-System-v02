@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Literal
 
 from backend.state.models.augmentation import Augmentation
 
@@ -21,6 +21,21 @@ class ItemBridge:
         )
 
 
+@dataclass(frozen=True)
+class ItemActionGrant:
+    action_id: str
+    availability: Literal["carried", "equipped"]
+    consume_quantity: int = 0
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ItemActionGrant":
+        return cls(
+            action_id=raw["action_id"],
+            availability=raw["availability"],
+            consume_quantity=raw.get("consume_quantity", 0),
+        )
+
+
 @dataclass
 class Item:
     id: str
@@ -32,6 +47,7 @@ class Item:
     price: str
     weight: str
     augmentation_templates: List[Augmentation]
+    action_grants: List[ItemActionGrant] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Item":
@@ -47,5 +63,9 @@ class Item:
             augmentation_templates=[
                 Augmentation.from_dict(augmentation)
                 for augmentation in raw.get("augmentation_templates", [])
+            ],
+            action_grants=[
+                ItemActionGrant.from_dict(grant)
+                for grant in raw.get("action_grants", [])
             ],
         )

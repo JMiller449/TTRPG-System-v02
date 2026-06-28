@@ -12,6 +12,13 @@ export type ItemEditorValues = {
   gmSpecialProperties: string;
   immediateEffects: string;
   nonImmediateEffects: string;
+  actionGrants: ItemActionGrantEditorValues[];
+};
+
+export type ItemActionGrantEditorValues = {
+  actionId: string;
+  availability: "carried" | "equipped";
+  consumeQuantity: string;
 };
 
 export const ITEM_RANK_OPTIONS = [
@@ -44,7 +51,8 @@ export function createEmptyItemValues(): ItemEditorValues {
     gmNotes: "",
     gmSpecialProperties: "",
     immediateEffects: "",
-    nonImmediateEffects: ""
+    nonImmediateEffects: "",
+    actionGrants: []
   };
 }
 
@@ -88,8 +96,23 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     gmNotes: item.gm_notes ?? "",
     gmSpecialProperties: item.gm_special_properties ?? "",
     immediateEffects: labeledDescription ? readDescriptionField(description, "Immediate Effects") : description,
-    nonImmediateEffects: readDescriptionField(description, "Non-Immediate Effects")
+    nonImmediateEffects: readDescriptionField(description, "Non-Immediate Effects"),
+    actionGrants: (item.action_grants ?? []).map((grant) => ({
+      actionId: grant.action_id,
+      availability: grant.availability,
+      consumeQuantity: String(grant.consume_quantity ?? 0)
+    }))
   };
+}
+
+function toActionGrantPayloads(values: ItemEditorValues): ItemDefinitionPayload["action_grants"] {
+  return values.actionGrants
+    .filter((grant) => grant.actionId.trim())
+    .map((grant) => ({
+      action_id: grant.actionId.trim(),
+      availability: grant.availability,
+      consume_quantity: grant.consumeQuantity.trim() ? Number(grant.consumeQuantity) : 0
+    }));
 }
 
 export function toItemDefinitionPayload(values: ItemEditorValues, itemId: string): ItemDefinitionPayload {
@@ -102,7 +125,8 @@ export function toItemDefinitionPayload(values: ItemEditorValues, itemId: string
     gm_special_properties: values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
-    augmentation_templates: []
+    augmentation_templates: [],
+    action_grants: toActionGrantPayloads(values)
   };
 }
 
@@ -118,6 +142,7 @@ export function toUpdatedItemDefinitionPayload(
     gm_notes: values.gmNotes.trim(),
     gm_special_properties: values.gmSpecialProperties.trim(),
     price: values.value.trim(),
-    weight: values.weight.trim()
+    weight: values.weight.trim(),
+    action_grants: toActionGrantPayloads(values)
   };
 }

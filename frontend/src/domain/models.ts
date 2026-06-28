@@ -175,9 +175,12 @@ export type ActionStep =
 export interface ActionDefinition {
   id: string;
   name: string;
+  roll_mode_kind?: ActionRollModeKind;
   notes?: string;
   steps?: ActionStep[];
 }
+
+export type ActionRollModeKind = "none" | "check" | "damage";
 
 export type AugmentationSourceType =
   | "item"
@@ -286,6 +289,13 @@ export interface ItemDefinition {
   price: string;
   weight: string;
   augmentation_templates?: Augmentation[];
+  action_grants?: ItemActionGrant[];
+}
+
+export interface ItemActionGrant {
+  action_id: string;
+  availability: "carried" | "equipped";
+  consume_quantity?: number;
 }
 
 export interface Bridge {
@@ -344,6 +354,27 @@ export interface Stats {
   courage: Formula;
 }
 
+export interface Resistances {
+  resistance?: number;
+  physical?: number;
+  magical?: number;
+  slashing?: number;
+  bludgeoning?: number;
+  piercing?: number;
+  arcane?: number;
+  fire?: number;
+  water?: number;
+  earth?: number;
+  wind?: number;
+  light?: number;
+  dark?: number;
+  lightning?: number;
+  ice?: number;
+  time?: number;
+  gravity?: number;
+  psychic?: number;
+}
+
 export interface Sheet {
   id: string;
   name: string;
@@ -354,6 +385,7 @@ export interface Sheet {
   proficiencies: Record<string, ProficiencyBridge>;
   items: Record<string, ItemBridge>;
   stats: Stats;
+  resistances?: Resistances;
   slayed_record: Record<string, SheetSlayedBridge>;
   actions: Record<string, Bridge>;
 }
@@ -363,6 +395,7 @@ export interface PersistentSheet {
   notes?: string;
   health: number;
   mana: number;
+  resistances?: Resistances;
   augments: Record<string, Bridge>;
 }
 

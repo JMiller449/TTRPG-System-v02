@@ -15,6 +15,7 @@ export type GainProficiencyUseEditorStep = Extract<
 
 export interface ActionEditorValues {
   name: string;
+  rollModeKind: NonNullable<ActionDefinitionPayload["roll_mode_kind"]>;
   notes: string;
   steps: ActionEditorSteps;
 }
@@ -22,6 +23,7 @@ export interface ActionEditorValues {
 export function createEmptyActionEditorValues(): ActionEditorValues {
   return {
     name: "",
+    rollModeKind: "none",
     notes: "",
     steps: []
   };
@@ -647,6 +649,7 @@ export function moveGainProficiencyUseActionStep(
 export function toActionEditorValues(action: ActionDefinition): ActionEditorValues {
   return {
     name: action.name,
+    rollModeKind: action.roll_mode_kind ?? "none",
     notes: action.notes ?? "",
     steps: cloneActionSteps(action.steps)
   };
@@ -659,6 +662,7 @@ export function toActionDefinitionPayload(
   return {
     id: actionId,
     name: values.name.trim(),
+    roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps)
   };
@@ -671,6 +675,7 @@ export function toUpdatedActionDefinitionPayload(
   return {
     id: action.id,
     name: values.name.trim(),
+    roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps)
   };

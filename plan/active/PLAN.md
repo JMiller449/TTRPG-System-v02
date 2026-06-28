@@ -210,14 +210,14 @@ Actions:
 - Actions attach to sheets through explicit bridges.
 - Actions are ordered step pipelines.
 - Actions execute against an explicit owning/current sheet instance; cross-sheet targets are not an app workflow.
-- Runtime parameters are allowed for predefined GM-configured options, currently just advantage/disadvantage.
-- Selected mode and overload alternatives are later work.
+- Runtime parameters are allowed for predefined GM-configured options. Actions explicitly choose `none`, `check`, or `damage` mode behavior: checks allow normal/advantage/disadvantage, damage allows normal/critical, and other actions allow normal only.
+- Overload alternatives are later work.
 - Advantage/disadvantage applies to hit/check rolls, not damage rolls. If both advantage and disadvantage apply, they cancel to a normal roll; multiples do not stack.
 - Current-value changes such as resource costs, resource restores, and healing should be authored through generic bounded mutation steps or reusable action presets, not one hardcoded action step type per resource/stat.
 - Damage is not a raw current-value decrement preset; it should use a semantic damage action step that evaluates an authored damage formula, validates damage type, applies target resistance, and then mutates current health.
 - Healing is a separate semantic healing model or bounded HP mutation pattern, not negative damage; resistance does not affect healing unless a specific effect says so.
 - Damage/resistance work should land in order: shared formula evaluator, resistance state/metadata, then the semantic damage action step.
-- Damage-action formula composition, critical rules, and augmentation-derived combat modifiers remain later resolver work; hit and damage stay independent authored actions.
+- Weapon/spell-specific damage composition remains later resolver work; hit and damage stay independent authored actions. Authored Roll20 damage actions already support explicit critical mode after formula and augmentation composition.
 - Proficiency gain and status/augmentation application may remain semantic action steps where they mutate relationship state or lifecycle state rather than a simple numeric path.
 - Roll/check variants should be modeled as action steps or sheet presets, not as separate roll-type records.
 - Freeform situational modifiers are not MVP; common modifiers should become GM-authored actions/conditions, and one-off adjustments can be manual in Roll20.
@@ -558,7 +558,7 @@ Frontend augmentation UX boundary:
   - `apply_instanced_sheet_damage` accepts raw amount plus canonical damage type, applies template and instance resistance with one final floor, clamps health at zero, and emits an authoritative patch.
   - Players may submit damage only to their assigned instance; DMs may submit it to any instance.
   - Backend route, permission, generated-contract, resistance/floor, and health-patch behavior are covered; frontend request routing distinguishes typed damage from healing and mana edits.
-- [ ] Extend damage resolution later for critical rules, weapon/spell-specific damage composition, and augmentation-derived combat modifiers.
+- [ ] Extend damage resolution later for weapon/spell-specific damage composition and defense-derived reductions.
   - Critical damage order is defined: calculate damage, double total damage for qualifying natural 100 outcomes, then apply defense-based reductions and resistance.
   - Physical and spell attacks roll hit and damage separately; advantage/disadvantage affects hit/check rolls only, not damage.
 - [ ] Implement weapon resolver inputs and augmentation-derived attack modifiers on the backend when attack support is added.
@@ -568,8 +568,8 @@ Frontend augmentation UX boundary:
 - [x] Do not implement backend roll resolution for default `attack`, `dodge`, `parry`, and `block` presets.
   - Decision: these remain editable authored actions that emit Roll20 chat roll commands through normal `perform_action`; backend-authoritative dice/combat roll resolution is out of scope.
 - [x] Implement advantage/disadvantage as predefined runtime action parameters.
-  - `perform_action.roll_mode` accepts `normal`, `advantage`, or `disadvantage`, defaulting to normal for existing callers.
-  - Quick Actions and assigned sheet Actions expose the same segmented mode control and submit the generated backend contract.
+  - Check-mode actions accept `normal`, `advantage`, or `disadvantage`, defaulting to normal for existing callers.
+  - Quick Actions and assigned sheet Actions expose action-specific segmented controls and submit the generated backend contract.
   - The backend transforms standalone authored `1d100` Roll20 check expressions to `2d100kh1` or `2d100kl1`; non-normal mode requests without an eligible expression are rejected.
 - [x] Add public Roll20 chat prefix wrapping for advantage/disadvantage output.
   - Transformed messages are prefixed with `[Advantage]` or `[Disadvantage]`; normal messages remain unchanged.
@@ -935,13 +935,18 @@ MVP is done when:
 
 ### Frontend Backend-Access Gaps
 
-- [ ] Add GM sheet-access management UI that consumes `sheet_access_codes`, lists active codes, and supports generating/replacing a code for a selected player instance.
-  - Completed: frontend adapter and DM-only UI state retain private code responses, and the GM console lists/copies active codes.
-  - Remaining: add selected-instance generation/replacement controls.
-- [ ] Add GM action assignment controls to the active sheet Actions tab using sheet action bridge create/update/delete routes.
-  - Allow selection from authoritative global actions, preserve stable relationship IDs, and keep player mode execution-only.
-- [ ] Complete sheet definition editing for backend formula stats and resistance values.
-  - Add validated formula text/alias editing through `set_sheet_formula_stat` or full sheet update and expose total/category/specific resistance inputs already supported by sheet payloads.
+- [x] Add GM sheet-access management UI that consumes `sheet_access_codes`, lists active codes, and supports generating/replacing a code for a selected player instance.
+  - The GM panel automatically loads the private code list, offers authoritative player instances only, shows the current active code for the selection, and submits the existing typed generation request with the matching template and instance IDs.
+  - Generating for an instance now rotates its code: the backend creates a unique replacement, deactivates prior active codes for that instance, preserves unrelated/template-only codes, persists privately, and returns the complete private list without broadcasting codes in public state.
+  - Existing list/copy and manual refresh controls remain available. Verified with 361 backend tests, 244 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Add GM action assignment controls to the active sheet Actions tab using sheet action bridge create/update/delete routes.
+  - The GM Actions tab can attach unassigned authoritative global actions with generated stable relationship IDs, replace an explicit assignment without changing its relationship ID, and remove explicit bridges through the existing typed requests.
+  - Add/replacement options prevent duplicate explicit assignments while still allowing an item-granted action to be assigned explicitly. Item-granted entries remain inventory-owned and therefore are not editable from action assignment controls.
+  - Player mode remains execution-only. Focused selector/payload tests cover ordered options, explicit-vs-item ownership, and stable replacement IDs. Verified with 361 backend tests, 247 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Complete sheet definition editing for backend formula stats and resistance values.
+  - The GM Stats tab now edits every backend formula stat with formula text, normalized tags, and metadata-driven sheet-variable aliases. Alias paths are stored relative to the sheet root, and the backend rejects unsupported instance paths and direct self-references.
+  - Added the typed, DM-only `set_sheet_resistances` route so total, category, and specific resistance values are validated as fractional values and replaced atomically. The UI presents these values as percentages and converts them at the request boundary.
+  - Verified with 364 backend tests, 250 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
 - [ ] Make global formula definitions reusable from action-step authoring through stable formula ID selection/reference rather than leaving Formula Authoring as an isolated CRUD catalog.
 - [ ] Complete Action Authoring controls for backend-supported `set_value`, `increment_value`, `decrement_value`, `apply_augmentation`, and `apply_condition_preset` steps.
   - Use backend metadata pickers for paths/records and do not expose unrestricted raw mutation paths.
@@ -953,7 +958,7 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
 
 ### Active TODO
 
-- [ ] Add formula-tag augmentation matching and independent Roll20 hit/damage actions.
+- [x] Add formula-tag augmentation matching and independent Roll20 hit/damage actions.
   - [x] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
     - Shared `Formula` values now normalize ordered tags by trimming/collapsing whitespace, case-folding, and removing duplicates, so global, stat, action-step, and augmentation formulas use one representation.
     - Missing tags deserialize as `[]`; persisted state and generated authoring/snapshot payloads carry the tag list without requiring a schema migration.
@@ -999,16 +1004,24 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
     - Extend action authoring with a Calculate Value step editor, safe instance-resource Increase controls, formula-or-calculated-value source selectors, and metadata-backed previous-variable pickers; do not expose raw execution-map paths.
     - Cover dice evaluation-once behavior, ordered availability, selector/tag modifiers at the calculation step, mutation reuse, message reuse, and execution-to-execution isolation.
     - Implemented through generated authoring/snapshot protocol unions while preserving legacy formula-shaped numeric inputs. Verified with 354 backend tests, 238 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
-  - [ ] Add item-granted action availability before mode-specific action controls.
+  - [x] Add item-granted action availability before mode-specific action controls.
     - Item definitions may reference authored actions through grant records containing `action_id`, an availability policy (`carried` for inventory actions such as drinking a potion or `equipped` for active gear), and optional authoritative quantity consumption on successful use.
     - Resolve effective actions dynamically from explicit sheet-action bridges plus qualifying item grants. Do not copy item-granted actions into the sheet action map or leave stale action bridges behind when equipment changes.
     - Backend action execution must validate the source item bridge, positive quantity, and carried/equipped policy. Include the source item relationship in the request when multiple inventory entries could grant the same action.
     - Consumable actions must decrement the authoritative item-bridge quantity through state sync and become unavailable at zero; carrying a consumable does not require marking it equipped.
     - Ordinary weapon hit/damage actions should remain reusable actions that consume the explicitly selected active weapon as resolver input. Item-specific attacks or special abilities may instead be granted by that equipped item.
     - Frontend action lists and quick controls render the backend-valid effective action set and identify the granting item; unavailable item actions must not remain executable after inventory/equipment changes.
-  - [ ] Add independent authored Roll20 hit and damage action behavior: hit/check actions use normal/advantage/disadvantage, while damage actions use normal/critical.
+    - Implemented typed item action grants through the domain, authoring, snapshot, and generated request contracts. Item Maker can select an authored action, carried/equipped availability, and a nonnegative quantity consumed per successful execution.
+    - Runtime resolution combines explicit sheet bridges with currently eligible item bridges without copying actions. It revalidates source relationship, quantity, equipment state, and consumption inside the authoritative mutation; ambiguous inventory grants require an explicit source relationship.
+    - Player action lists identify the granting item and send its relationship ID. Canonical quick actions can also resolve through one eligible item source, while ambiguous sources remain disabled for explicit selection in the action list.
+    - Verified with 358 backend tests, 242 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
+  - [x] Add independent authored Roll20 hit and damage action behavior: hit/check actions use normal/advantage/disadvantage, while damage actions use normal/critical.
     - Hit and damage are invoked separately. Do not add a combined attack composer, automatic hit-to-damage chaining, or inferred hit resolution.
     - Weapon/spell inputs and source-sheet augmentations contribute only to the emitted formula for the independently invoked action; neither action targets or mutates another sheet.
+    - Actions now author an explicit roll-mode kind: `none`, `check`, or `damage`. Backend execution rejects modes outside that policy; legacy actions default to `none`, while seeded baseline/default check actions are explicitly `check`.
+    - Critical mode is selected manually on damage actions and publicly prefixes the Roll20 message with `[Critical]`. It doubles the entire composed damage expression after aliases and matching numeric augmentation modifiers, without inferring state from a preceding hit action.
+    - Assigned-action cards render their own valid mode controls, and Quick Actions reconcile their control to the selected action policy. Normal-only actions do not expose irrelevant mode choices.
+    - Implemented through generated authoring, snapshot, and execution contracts. Verified with 360 backend tests, 244 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
   - [x] Add manual typed damage intake on an affected sheet: raw amount plus damage type, backend resistance calculation, one final floor operation, and authoritative health patch.
     - Players may submit damage only to their assigned instance; DMs may submit it to any instance. No attacker/source relationship is stored or required.
   - Conservative project defaults are recorded for criticals, resistance bounds, rounding, minimum damage, spell composition, and augmentation order; rule-author response is no longer a blocker.

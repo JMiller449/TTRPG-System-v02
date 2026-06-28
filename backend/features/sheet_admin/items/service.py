@@ -19,7 +19,7 @@ from backend.features.sheet_admin.shared.schema import (
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation
-from backend.state.models.item import Item
+from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.state import State
 
 
@@ -70,7 +70,21 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         price=payload.price,
         weight=payload.weight,
         augmentation_templates=_build_item_augmentation_templates(payload),
+        action_grants=[
+            ItemActionGrant(
+                action_id=grant.action_id,
+                availability=grant.availability,
+                consume_quantity=grant.consume_quantity,
+            )
+            for grant in payload.action_grants
+        ],
     )
+
+
+def _validate_item_action_grants(item: Item, state: State) -> None:
+    for grant in item.action_grants:
+        if grant.action_id not in state.actions:
+            raise ValueError(f"Action '{grant.action_id}' does not exist.")
 
 
 def _items_state(state: State) -> dict[str, dict]:
@@ -108,6 +122,7 @@ async def _create_item(
         items = _items_state(state)
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
+        _validate_item_action_grants(item, state)
         path = state_sync_service.join_path("items", payload.id)
         op = state_sync_service.add_mutation(state, path, item)
         return None, [op]
@@ -131,6 +146,7 @@ async def _update_item(
         if item_id not in items:
             raise ValueError(f"Item '{item_id}' does not exist.")
 
+        _validate_item_action_grants(item, state)
         path = state_sync_service.join_path("items", item_id)
         op = state_sync_service.set_mutation(state, path, item)
         return None, [op]

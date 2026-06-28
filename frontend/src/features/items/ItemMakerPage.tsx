@@ -56,6 +56,10 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     () => selectOrderedItemDefinitions(itemRecords, itemOrder),
     [itemOrder, itemRecords]
   );
+  const actions = useMemo(
+    () => actionOrder.map((id) => actionRecords[id]).filter(Boolean),
+    [actionOrder, actionRecords]
+  );
   const selectorOptions = useMemo(
     () =>
       buildAugmentationSelectorOptions({
@@ -170,6 +174,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           editingItemId={editingItemId}
           values={values}
           onChange={setValues}
+          actions={actions}
           onSubmit={onSubmit}
           onCancel={startNewItem}
         />

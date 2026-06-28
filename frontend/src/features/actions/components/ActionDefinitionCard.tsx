@@ -41,6 +41,7 @@ export function ActionDefinitionCard({
         <span className="muted">{action.id}</span>
       </div>
       {action.notes ? <div className="muted">Notes: {action.notes}</div> : null}
+      <div className="muted">Roll mode: {action.roll_mode_kind ?? "none"}</div>
       <div className="muted">Steps: {steps.length}</div>
       {steps.length > 0 ? (
         <div className="list">

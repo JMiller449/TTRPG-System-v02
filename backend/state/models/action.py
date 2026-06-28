@@ -7,6 +7,7 @@ from backend.state.models.formula import Formula
 
 ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
+ActionRollModeKind = Literal["none", "check", "damage"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -247,6 +248,7 @@ ActionStep = (
 class Action:
     id: str
     name: str
+    roll_mode_kind: ActionRollModeKind = "none"
     notes: str = ""
     steps: list[ActionStep] = field(default_factory=list)
 
@@ -346,6 +348,7 @@ class Action:
         return cls(
             id=raw["id"],
             name=raw["name"],
+            roll_mode_kind=raw.get("roll_mode_kind", "none"),
             notes=raw.get("notes", ""),
             steps=steps,
         )

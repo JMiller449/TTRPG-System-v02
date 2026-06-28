@@ -269,6 +269,7 @@ ActionStepPayload = Annotated[
 class ActionPayload(ProtocolModel):
     id: str
     name: str
+    roll_mode_kind: Literal["none", "check", "damage"] = "none"
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
 
@@ -388,6 +389,12 @@ class AugmentationPayload(ProtocolModel):
     )
 
 
+class ItemActionGrantPayload(ProtocolModel):
+    action_id: str
+    availability: Literal["carried", "equipped"]
+    consume_quantity: int = 0
+
+
 class ItemPayload(ProtocolModel):
     id: str
     name: str
@@ -398,6 +405,7 @@ class ItemPayload(ProtocolModel):
     price: str
     weight: str
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
+    action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
 
 
 class ConditionPresetPayload(ProtocolModel):

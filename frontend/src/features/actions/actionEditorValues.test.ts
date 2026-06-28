@@ -42,6 +42,7 @@ function testAction(overrides: Partial<ActionDefinition> = {}): ActionDefinition
   return {
     id: "action_1",
     name: "Mana Burst",
+    roll_mode_kind: "check",
     notes: "Roll20 output and mana spend.",
     steps: [
       {
@@ -117,6 +118,7 @@ describe("actionEditorValues", () => {
   it("creates empty action editor values", () => {
     expect(createEmptyActionEditorValues()).toEqual({
       name: "",
+      rollModeKind: "none",
       notes: "",
       steps: []
     });
@@ -125,6 +127,7 @@ describe("actionEditorValues", () => {
   it("maps backend action definitions into editor values with ordered steps preserved", () => {
     expect(toActionEditorValues(testAction())).toEqual({
       name: "Mana Burst",
+      rollModeKind: "check",
       notes: "Roll20 output and mana spend.",
       steps: testAction().steps
     });
@@ -138,6 +141,7 @@ describe("actionEditorValues", () => {
     expect(toActionDefinitionPayload(values, "action_created")).toEqual({
       id: "action_created",
       name: "Mana Burst",
+      roll_mode_kind: "none",
       notes: "Roll20 output only.",
       steps: []
     });
@@ -152,6 +156,7 @@ describe("actionEditorValues", () => {
     expect(toUpdatedActionDefinitionPayload(action, values)).toEqual({
       id: "action_1",
       name: "Edited Mana Burst",
+      roll_mode_kind: "check",
       notes: "Updated notes.",
       steps: action.steps
     });
@@ -177,6 +182,7 @@ describe("actionEditorValues", () => {
 
     expect(addSendMessageActionStep(values, "step_created")).toEqual({
       name: "",
+      rollModeKind: "none",
       notes: "",
       steps: [
         {
@@ -196,6 +202,7 @@ describe("actionEditorValues", () => {
 
     expect(addResolveDamageActionStep(values, "damage_created")).toEqual({
       name: "",
+      rollModeKind: "none",
       notes: "",
       steps: [
         {
@@ -228,6 +235,7 @@ describe("actionEditorValues", () => {
 
     expect(addGainProficiencyUseActionStep(values, "prof_created", "longsword")).toEqual({
       name: "",
+      rollModeKind: "none",
       notes: "",
       steps: [
         {

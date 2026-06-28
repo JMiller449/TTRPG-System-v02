@@ -150,6 +150,11 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             assert sheet.notes == "GM-only template notes."
             assert "baseline_check_strength" in StateSingleton.getState().actions
             assert "attack" in StateSingleton.getState().actions
+            assert (
+                StateSingleton.getState().actions["baseline_check_strength"].roll_mode_kind
+                == "check"
+            )
+            assert StateSingleton.getState().actions["attack"].roll_mode_kind == "check"
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
                 "baseline_check_strength"
             )

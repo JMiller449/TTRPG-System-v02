@@ -76,6 +76,11 @@ async def generate_sheet_access_code(
         while code in state.sheet_access_codes:
             code = _generate_access_code()
 
+        if instance_id is not None:
+            for existing_code in state.sheet_access_codes.values():
+                if existing_code.instance_id == instance_id and existing_code.active:
+                    existing_code.active = False
+
         state.sheet_access_codes[code] = SheetAccessCode(
             code=code,
             sheet_id=sheet_id,

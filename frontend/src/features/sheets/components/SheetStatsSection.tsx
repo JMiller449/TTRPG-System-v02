@@ -43,7 +43,7 @@ export function SheetStatsSection({
       <h4>Core Stats and Related Substats</h4>
       <p className="muted character-sheet__hint">
         {canEditStats
-          ? "GM can click core stats to submit backend base stat edits. Formula stats are read-only here."
+          ? "GM can click core stats to submit backend base stat edits and use the editors below for formulas and resistances."
           : "Player view is read-only for stats and substats."}
       </p>
       <div className="character-sheet__core-blocks">
@@ -280,9 +280,6 @@ export function SheetStatsSection({
           );
         })}
       </div>
-      {canEditStats ? (
-        <p className="muted">Formula stat editing stays in formula authoring.</p>
-      ) : null}
     </section>
   );
 }

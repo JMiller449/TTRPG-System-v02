@@ -1,4 +1,4 @@
-import type { ActionDefinition, Sheet } from "@/domain/models";
+import type { ActionDefinition, ItemDefinition, Sheet } from "@/domain/models";
 import {
   buildPerformActionRequest,
   type ActionRollMode
@@ -8,13 +8,12 @@ export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
 
 export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = ["attack", "dodge", "parry", "block"];
 
-export const ACTION_ROLL_MODES: readonly ActionRollMode[] = ["normal", "advantage", "disadvantage"];
-
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
   actionId: string;
   actionName: string;
   relationshipId: string;
+  sourceItemRelationshipId?: string;
 }
 
 export interface QuickRollExecutionRequest {
@@ -33,7 +32,8 @@ export function getQuickRollRelationshipId(action: QuickRollAction): string {
 export function resolveQuickRollAction(
   sheet: Sheet | null | undefined,
   actions: Record<string, ActionDefinition>,
-  action: QuickRollAction
+  action: QuickRollAction,
+  items: Record<string, ItemDefinition> = {}
 ): ResolvedQuickRollAction | null {
   if (!sheet) {
     return null;
@@ -43,20 +43,44 @@ export function resolveQuickRollAction(
   const bridge =
     sheet.actions[relationshipId] ??
     Object.values(sheet.actions).find((entry) => entry.entry_id === action);
-  if (!bridge) {
-    return null;
+  if (bridge) {
+    const actionDefinition = actions[bridge.entry_id];
+    if (actionDefinition) {
+      return {
+        action,
+        actionId: actionDefinition.id,
+        actionName: actionDefinition.name,
+        relationshipId: bridge.relationship_id
+      };
+    }
   }
 
-  const actionDefinition = actions[bridge.entry_id];
-  if (!actionDefinition) {
+  const itemSources = Object.values(sheet.items).flatMap((itemBridge) => {
+    if (itemBridge.count <= 0) {
+      return [];
+    }
+    const item = items[itemBridge.item_id];
+    const grant = item?.action_grants?.find((entry) => entry.action_id === action);
+    if (
+      !grant ||
+      (grant.availability === "equipped" && !itemBridge.active) ||
+      (grant.consume_quantity ?? 0) > itemBridge.count
+    ) {
+      return [];
+    }
+    return [itemBridge];
+  });
+  const actionDefinition = actions[action];
+  if (itemSources.length !== 1 || !actionDefinition) {
     return null;
   }
-
+  const itemSource = itemSources[0];
   return {
     action,
     actionId: actionDefinition.id,
     actionName: actionDefinition.name,
-    relationshipId: bridge.relationship_id
+    relationshipId: `item:${itemSource.relationship_id}:${action}`,
+    sourceItemRelationshipId: itemSource.relationship_id
   };
 }
 
@@ -87,6 +111,7 @@ export function buildQuickRollExecutionRequest({
     request: buildPerformActionRequest({
       sheetId,
       actionId: resolution.actionId,
+      sourceItemRelationshipId: resolution.sourceItemRelationshipId,
       rollMode
     }),
     label: `Perform action: ${resolution.actionName}${

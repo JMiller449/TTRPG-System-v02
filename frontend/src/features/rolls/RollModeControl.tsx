@@ -1,22 +1,30 @@
 import type { ActionRollMode } from "@/infrastructure/ws/requestBuilders";
-import { ACTION_ROLL_MODES } from "@/features/rolls/quickRolls";
+import type { ActionRollModeKind } from "@/domain/models";
+import { actionRollModes } from "@/features/rolls/actionRollModes";
 
 const ROLL_MODE_LABELS: Record<ActionRollMode, string> = {
   normal: "Normal",
   advantage: "Advantage",
-  disadvantage: "Disadvantage"
+  disadvantage: "Disadvantage",
+  critical: "Critical"
 };
 
 export function RollModeControl({
   value,
+  modeKind,
   onChange
 }: {
   value: ActionRollMode;
+  modeKind: ActionRollModeKind;
   onChange: (mode: ActionRollMode) => void;
-}): JSX.Element {
+}): JSX.Element | null {
+  const modes = actionRollModes(modeKind);
+  if (modes.length === 1) {
+    return null;
+  }
   return (
     <div className="roll-mode-control" role="group" aria-label="Roll mode">
-      {ACTION_ROLL_MODES.map((mode) => (
+      {modes.map((mode) => (
         <button
           className={`roll-mode-control__option ${value === mode ? "roll-mode-control__option--active" : ""}`}
           type="button"

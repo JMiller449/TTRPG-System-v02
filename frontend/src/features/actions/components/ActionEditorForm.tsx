@@ -268,6 +268,22 @@ export function ActionEditorForm({
           />
         </Field>
 
+        <Field label="Roll Mode">
+          <select
+            value={values.rollModeKind}
+            onChange={(event) =>
+              onChange({
+                ...values,
+                rollModeKind: event.target.value as ActionEditorValues["rollModeKind"]
+              })
+            }
+          >
+            <option value="none">None (normal only)</option>
+            <option value="check">Check (normal / advantage / disadvantage)</option>
+            <option value="damage">Damage (normal / critical)</option>
+          </select>
+        </Field>
+
         <Field label="Notes">
           <textarea
             rows={3}

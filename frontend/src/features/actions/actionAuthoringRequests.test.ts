@@ -13,6 +13,7 @@ function testAction(overrides: Partial<ActionDefinition> = {}): ActionDefinition
   return {
     id: "action_1",
     name: "Mana Burst",
+    roll_mode_kind: "check",
     notes: "Roll20 output and mana spend.",
     steps: [
       {
@@ -55,6 +56,7 @@ describe("actionAuthoringRequests", () => {
         action: {
           id: "action_created",
           name: "Mana Burst",
+          roll_mode_kind: "none",
           notes: "Roll20 output only.",
           steps: []
         }
@@ -84,6 +86,7 @@ describe("actionAuthoringRequests", () => {
         action: {
           id: "action_1",
           name: "Edited Mana Burst",
+          roll_mode_kind: "check",
           notes: "Updated notes.",
           steps: action.steps
         }

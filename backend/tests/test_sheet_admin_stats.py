@@ -226,6 +226,116 @@ def test_dm_can_set_sheet_formula_stat(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_sheet_formula_stat_rejects_instance_and_self_aliases(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            for alias in (
+                {"name": "current_health", "path": ["health"]},
+                {"name": "health", "path": ["stats", "health"]},
+            ):
+                await handle_client_payload(
+                    websocket,
+                    {
+                        "type": "set_sheet_formula_stat",
+                        "sheet_id": "mage_template",
+                        "stat_name": "health",
+                        "formula": {"aliases": [alias], "text": f"@{alias['name']}"},
+                    },
+                )
+
+            assert state.sheets["mage_template"].stats.health.text == (
+                "@constitution * 10"
+            )
+            assert "unsupported path 'health'" in websocket.sent_messages[0]["reason"]
+            assert "cannot reference itself" in websocket.sent_messages[1]["reason"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_sheet_resistances_atomically(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_resistances",
+                    "sheet_id": "mage_template",
+                    "resistances": {
+                        "resistance": 0.1,
+                        "physical": 0.2,
+                        "magical": 0.3,
+                        "fire": 0.4,
+                    },
+                },
+            )
+
+            resistances = state.sheets["mage_template"].resistances
+            assert resistances.resistance == 0.1
+            assert resistances.physical == 0.2
+            assert resistances.magical == 0.3
+            assert resistances.fire == 0.4
+            op = websocket.sent_messages[0]["ops"][0]
+            assert op["op"] == "set"
+            assert op["path"] == "/sheets/mage_template/resistances"
+            assert op["value"]["fire"] == 0.4
+            assert op["value"]["ice"] == 0.0
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_sheet_resistance_update_rejects_values_outside_fraction_range(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_resistances",
+                    "sheet_id": "mage_template",
+                    "resistances": {"fire": 1.01},
+                },
+            )
+
+            assert state.sheets["mage_template"].resistances.fire == 0.0
+            assert "finite fraction from 0 to 1" in websocket.sent_messages[0]["reason"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_player_cannot_set_sheet_base_stat(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

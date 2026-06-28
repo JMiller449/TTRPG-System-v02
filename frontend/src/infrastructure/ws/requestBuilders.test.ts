@@ -46,6 +46,7 @@ import {
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
   buildSetSheetFormulaStatRequest,
+  buildSetSheetResistancesRequest,
   buildSetSheetNotesRequest,
   buildSetMobXpValueRequest,
   buildSetSheetMobKillCountRequest,
@@ -247,6 +248,7 @@ const requestBuilderByType = {
   set_mob_xp_value: buildSetMobXpValueRequest,
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
+  set_sheet_resistances: buildSetSheetResistancesRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
   set_sheet_mob_kill_count: buildSetSheetMobKillCountRequest,
   set_sheet_xp_required: buildSetSheetXpRequiredRequest,
@@ -511,6 +513,26 @@ describe("requestBuilders", () => {
       formula: {
         aliases: null,
         text: "30 + @constitution"
+      }
+    });
+    expect(
+      buildSetSheetResistancesRequest({
+        sheetId: "sheet_1",
+        resistances: {
+          resistance: 0.1,
+          physical: 0.2,
+          magical: 0.3,
+          fire: 0.4
+        }
+      })
+    ).toEqual({
+      type: "set_sheet_resistances",
+      sheet_id: "sheet_1",
+      resistances: {
+        resistance: 0.1,
+        physical: 0.2,
+        magical: 0.3,
+        fire: 0.4
       }
     });
   });
@@ -926,6 +948,36 @@ describe("requestBuilders", () => {
       sheet_id: "instance_1",
       action_id: "dodge",
       roll_mode: "disadvantage"
+    });
+  });
+
+  it("builds critical damage action execution requests", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "sword_damage",
+        rollMode: "critical"
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "sword_damage",
+      roll_mode: "critical"
+    });
+  });
+
+  it("builds item-granted action execution requests with a source relationship", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "drink_potion",
+        sourceItemRelationshipId: "inventory_potion_2"
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "drink_potion",
+      source_item_relationship_id: "inventory_potion_2"
     });
   });
 

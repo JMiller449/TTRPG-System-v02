@@ -12,6 +12,7 @@ from backend.features.sheet_admin.stats import service
 from backend.features.sheet_admin.stats.schema import (
     SetSheetBaseStat,
     SetSheetFormulaStat,
+    SetSheetResistances,
 )
 from backend.protocol.socket import StatePatchEvent
 
@@ -54,6 +55,26 @@ class SetSheetFormulaStatRoute(RequestRoute[SetSheetFormulaStat]):
         await service.set_formula_stat(request)
 
 
+class SetSheetResistancesRoute(RequestRoute[SetSheetResistances]):
+    type_name = "set_sheet_resistances"
+    request_model = SetSheetResistances
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminStats",
+        method_name="setSheetResistances",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetSheetResistances,
+    ) -> None:
+        await service.set_resistances(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetSheetBaseStatRoute())
     registry.register(SetSheetFormulaStatRoute())
+    registry.register(SetSheetResistancesRoute())

@@ -25,7 +25,11 @@ export interface AssignedSheetAction {
   relationshipId: string;
   actionId: string;
   action: ActionDefinition;
-  bridge: Bridge;
+  bridge?: Bridge;
+  sourceItemRelationshipId?: string;
+  sourceItemName?: string;
+  sourceItemAvailability?: "carried" | "equipped";
+  consumeQuantity?: number;
 }
 
 function getSheetKind(sheet: Sheet | null): SheetKind {
@@ -181,8 +185,12 @@ export function selectSheetAssignedActions(
   sheetOrInstanceId: string
 ): AssignedSheetAction[] {
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
-  return Object.values(sheet?.actions ?? {})
-    .map((bridge) => {
+  if (!sheet) {
+    return [];
+  }
+
+  const assignedActions = Object.values(sheet.actions ?? {})
+    .map((bridge): AssignedSheetAction | null => {
       const action = state.serverState.actions[bridge.entry_id];
       if (!action) {
         return null;
@@ -196,6 +204,39 @@ export function selectSheetAssignedActions(
       };
     })
     .filter((entry): entry is AssignedSheetAction => Boolean(entry));
+
+  const itemGrantedActions = Object.values(sheet.items ?? {}).flatMap((itemBridge) => {
+    if (itemBridge.count <= 0) {
+      return [];
+    }
+    const item = state.serverState.items[itemBridge.item_id];
+    if (!item) {
+      return [];
+    }
+    return (item.action_grants ?? []).flatMap((grant) => {
+      if (grant.availability === "equipped" && !itemBridge.active) {
+        return [];
+      }
+      if ((grant.consume_quantity ?? 0) > itemBridge.count) {
+        return [];
+      }
+      const action = state.serverState.actions[grant.action_id];
+      if (!action) {
+        return [];
+      }
+      return [{
+        relationshipId: `item:${itemBridge.relationship_id}:${grant.action_id}`,
+        actionId: action.id,
+        action,
+        sourceItemRelationshipId: itemBridge.relationship_id,
+        sourceItemName: item.name,
+        sourceItemAvailability: grant.availability,
+        consumeQuantity: grant.consume_quantity ?? 0
+      }];
+    });
+  });
+
+  return [...assignedActions, ...itemGrantedActions];
 }
 
 export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {

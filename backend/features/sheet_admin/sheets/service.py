@@ -182,6 +182,7 @@ def _build_baseline_check_action(stat_name: str, label: str) -> Action:
     return Action(
         id=_baseline_check_action_id(stat_name),
         name=f"{label} Check",
+        roll_mode_kind="check",
         notes="Default baseline sheet check. Emits a Roll20 d100 stat check.",
         steps=[
             SendMessageStep(
@@ -218,6 +219,7 @@ def _build_default_action_preset(
     return Action(
         id=action_id,
         name=label,
+        roll_mode_kind="check",
         notes=(
             "Default editable action preset. This is intentionally authored as a "
             "normal action so sheets can customize, replace, or remove it."

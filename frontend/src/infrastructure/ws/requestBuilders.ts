@@ -18,6 +18,7 @@ export type InstancedSheetDamageType =
   ProtocolRequest<"apply_instanced_sheet_damage">["damage_type"];
 export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_name"];
 export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
+export type SheetResistancesPayload = ProtocolRequest<"set_sheet_resistances">["resistances"];
 export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">["bridge"];
 export type SheetActionBridgePayload = ProtocolRequest<"create_sheet_action_bridge">["bridge"];
 export type SheetProficiencyBridgePayload =
@@ -350,6 +351,22 @@ export function buildSetSheetFormulaStatRequest({
     sheet_id: sheetId,
     stat_name: statName,
     formula
+  };
+}
+
+export function buildSetSheetResistancesRequest({
+  sheetId,
+  resistances,
+  requestId
+}: {
+  sheetId: string;
+  resistances: SheetResistancesPayload;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_resistances"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_resistances",
+    sheet_id: sheetId,
+    resistances
   };
 }
 
@@ -892,12 +909,14 @@ export function buildGetAugmentationTargetMetadataRequest({
 export function buildPerformActionRequest({
   sheetId,
   actionId,
+  sourceItemRelationshipId,
   targetSheetId,
   rollMode,
   requestId
 }: {
   sheetId: string;
   actionId: string;
+  sourceItemRelationshipId?: string | null;
   targetSheetId?: string | null;
   rollMode?: ActionRollMode;
 } & OptionalRequestId): ProtocolRequest<"perform_action"> {
@@ -906,6 +925,9 @@ export function buildPerformActionRequest({
     type: "perform_action",
     sheet_id: sheetId,
     action_id: actionId,
+    ...(sourceItemRelationshipId === undefined
+      ? {}
+      : { source_item_relationship_id: sourceItemRelationshipId }),
     ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId }),
     ...(rollMode === undefined ? {} : { roll_mode: rollMode })
   };

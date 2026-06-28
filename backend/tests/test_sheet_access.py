@@ -135,6 +135,61 @@ def test_dm_can_generate_sheet_access_code(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_generating_instance_access_code_replaces_previous_active_code(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        monkeypatch.setattr(
+            sheet_access_service,
+            "_generate_access_code",
+            lambda: "NEWCODE2",
+        )
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            state.sheet_access_codes["OLDCODE1"] = SheetAccessCode(
+                code="OLDCODE1",
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+                active=True,
+            )
+            state.sheet_access_codes["TEMPLATE"] = SheetAccessCode(
+                code="TEMPLATE",
+                sheet_id="mage_template",
+                instance_id=None,
+                active=True,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "generate_sheet_access_code",
+                    "sheet_id": "mage_template",
+                    "instance_id": "mage_instance",
+                },
+            )
+
+            assert state.sheet_access_codes["OLDCODE1"].active is False
+            assert state.sheet_access_codes["NEWCODE2"].active is True
+            assert state.sheet_access_codes["TEMPLATE"].active is True
+            response_codes = {
+                entry["code"]: entry for entry in websocket.sent_messages[0]["codes"]
+            }
+            assert response_codes["OLDCODE1"]["active"] is False
+            assert response_codes["NEWCODE2"]["active"] is True
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_list_sheet_access_codes(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

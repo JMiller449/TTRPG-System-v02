@@ -5,6 +5,7 @@ import {
   getQuickRollRelationshipId,
   resolveQuickRollAction
 } from "@/features/rolls/quickRolls";
+import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
 
 function testSheet(overrides: Partial<Sheet> = {}): Sheet {
@@ -44,6 +45,12 @@ const actions: Record<string, ActionDefinition> = {
 };
 
 describe("quickRolls", () => {
+  it("exposes only modes supported by each authored action kind", () => {
+    expect(actionRollModes("none")).toEqual(["normal"]);
+    expect(actionRollModes("check")).toEqual(["normal", "advantage", "disadvantage"]);
+    expect(actionRollModes("damage")).toEqual(["normal", "critical"]);
+  });
+
   it("returns stable default action relationship ids", () => {
     expect(getQuickRollRelationshipId("attack")).toBe("default_attack");
     expect(getQuickRollRelationshipId("block")).toBe("default_block");
@@ -88,6 +95,40 @@ describe("quickRolls", () => {
       actionId: "custom_dodge",
       actionName: "Sidestep",
       relationshipId: "default_dodge"
+    });
+  });
+
+  it("resolves an eligible canonical quick action from an item grant", () => {
+    const sheet = testSheet();
+    sheet.actions = {};
+    sheet.items = {
+      potion_2: {
+        relationship_id: "potion_2",
+        item_id: "potion",
+        count: 2,
+        active: false
+      }
+    };
+
+    expect(
+      resolveQuickRollAction(sheet, actions, "attack", {
+        potion: {
+          id: "potion",
+          name: "Attack Potion",
+          description: "",
+          price: "",
+          weight: "",
+          action_grants: [
+            { action_id: "attack", availability: "carried", consume_quantity: 1 }
+          ]
+        }
+      })
+    ).toEqual({
+      action: "attack",
+      actionId: "attack",
+      actionName: "Attack",
+      relationshipId: "item:potion_2:attack",
+      sourceItemRelationshipId: "potion_2"
     });
   });
 

@@ -192,6 +192,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "set_sheet_base_stat"' in output
     assert '"clientNamespace": "sheetAdminStats"' in output
     assert '"clientMethodName": "setSheetFormulaStat"' in output
+    assert '"type": "set_sheet_resistances"' in output
+    assert '"clientMethodName": "setSheetResistances"' in output
     assert '"type": "get_variable_registry"' in output
     assert '"clientNamespace": "variableRegistry"' in output
     assert '"clientMethodName": "getVariableRegistry"' in output
@@ -209,7 +211,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"sheet_id": string;' in output
     assert '"action_id": string;' in output
     assert '"target_sheet_id"?: string | null;' in output
-    assert '"roll_mode"?: "normal" | "advantage" | "disadvantage";' in output
+    assert '"roll_mode_kind"?: "none" | "check" | "damage";' in output
+    assert (
+        '"roll_mode"?: "normal" | "advantage" | "disadvantage" | "critical";'
+        in output
+    )
     assert '"type": "perform_action";' in output
     assert "export type ActionExecutedEvent = {" in output
     assert '"applied_mutations": string[];' in output

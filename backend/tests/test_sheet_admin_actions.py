@@ -73,11 +73,18 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 websocket,
                 {
                     "type": "create_action",
-                    "action": _action_payload(),
+                    "action": {
+                        **_action_payload(),
+                        "roll_mode_kind": "check",
+                    },
                 },
             )
 
             assert StateSingleton.getState().actions["battle_cry"].name == "Battle Cry"
+            assert (
+                StateSingleton.getState().actions["battle_cry"].roll_mode_kind
+                == "check"
+            )
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][0]["path"] == (
                 "/actions/battle_cry"

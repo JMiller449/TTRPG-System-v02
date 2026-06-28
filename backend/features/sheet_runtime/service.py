@@ -45,12 +45,17 @@ from backend.state.models.damage import (
     damage_type_resistance_key,
 )
 from backend.state.models.formula import Formula
+from backend.state.models.item import ItemActionGrant
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
 
 
 _D100_CHECK_PATTERN = re.compile(r"(?<![A-Za-z0-9_])1d100(?![A-Za-z0-9_])", re.IGNORECASE)
+_ROLL20_COMMAND_PATTERN = re.compile(
+    r"(?P<prefix>.*?/(?:roll|r)\s+)(?P<expression>.+)$",
+    re.IGNORECASE,
+)
 _ROLL_MODE_OUTPUT = {
     "advantage": ("2d100kh1", "Advantage"),
     "disadvantage": ("2d100kl1", "Disadvantage"),
@@ -64,6 +69,15 @@ def _state() -> State:
 def _apply_roll_mode_to_message(message: str, roll_mode: str) -> tuple[str, bool]:
     if roll_mode == "normal":
         return message, False
+    if roll_mode == "critical":
+        match = _ROLL20_COMMAND_PATTERN.fullmatch(message)
+        if match is None:
+            return message, False
+        return (
+            f'[Critical] {match.group("prefix")}'
+            f'(2 * ({match.group("expression")}))',
+            True,
+        )
 
     replacement, label = _ROLL_MODE_OUTPUT[roll_mode]
     transformed, replacement_count = _D100_CHECK_PATTERN.subn(replacement, message)
@@ -92,6 +106,13 @@ class RuntimeActor:
         if self.instance is None:
             return "sheets"
         return "instanced_sheets"
+
+
+@dataclass(frozen=True)
+class ResolvedAction:
+    action: Action
+    source_item_bridge_key: str | None = None
+    source_item_grant: ItemActionGrant | None = None
 
 
 class RuntimeFormulaContext:
@@ -252,27 +273,113 @@ def _apply_set_value(
     setattr(container, leaf, value)
 
 
+def _resolve_item_action_source(
+    sheet: Sheet,
+    action_id: str,
+    *,
+    state: State,
+    relationship_id: str,
+) -> tuple[str, ItemActionGrant]:
+    matches = [
+        (bridge_key, bridge)
+        for bridge_key, bridge in sheet.items.items()
+        if bridge_key == relationship_id or bridge.relationship_id == relationship_id
+    ]
+    if not matches:
+        raise ValueError(
+            f"Sheet item bridge '{relationship_id}' does not exist on sheet "
+            f"'{sheet.id}'."
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"Sheet item relationship '{relationship_id}' is ambiguous on sheet "
+            f"'{sheet.id}'."
+        )
+
+    bridge_key, bridge = matches[0]
+    item = state.items.get(bridge.item_id)
+    if item is None:
+        raise ValueError(f"Item '{bridge.item_id}' does not exist.")
+    grant = next(
+        (grant for grant in item.action_grants if grant.action_id == action_id),
+        None,
+    )
+    if grant is None:
+        raise ValueError(
+            f"Item '{item.id}' does not grant action '{action_id}'."
+        )
+    if bridge.count <= 0:
+        raise ValueError(f"Item '{item.name}' has no remaining quantity.")
+    if grant.availability == "equipped" and not bridge.active:
+        raise ValueError(
+            f"Item '{item.name}' must be equipped to use action '{action_id}'."
+        )
+    if grant.consume_quantity > bridge.count:
+        raise ValueError(
+            f"Item '{item.name}' requires {grant.consume_quantity} quantity to use "
+            f"action '{action_id}', but only {bridge.count} remains."
+        )
+    return bridge_key, grant
+
+
 def _resolve_action(
     sheet: Sheet,
     action_id: str,
     *,
     actor_role: SessionRole,
+    source_item_relationship_id: str | None = None,
     state: State | None = None,
-) -> Action:
+) -> ResolvedAction:
     current_state = _state() if state is None else state
     action = current_state.actions.get(action_id)
     if action is None:
         raise ValueError(f"Action '{action_id}' does not exist.")
 
-    if actor_role == "dm":
-        return action
+    if source_item_relationship_id is not None:
+        bridge_key, grant = _resolve_item_action_source(
+            sheet,
+            action_id,
+            state=current_state,
+            relationship_id=source_item_relationship_id,
+        )
+        return ResolvedAction(
+            action=action,
+            source_item_bridge_key=bridge_key,
+            source_item_grant=grant,
+        )
 
-    sheet_action_bridges = sheet.actions
-    if sheet_action_bridges:
-        for bridge in sheet_action_bridges.values():
-            if bridge.entry_id == action_id:
-                return action
-        raise ValueError(f"Sheet '{sheet.id}' does not reference action '{action_id}'.")
+    if actor_role == "dm":
+        return ResolvedAction(action=action)
+
+    if any(bridge.entry_id == action_id for bridge in sheet.actions.values()):
+        return ResolvedAction(action=action)
+
+    eligible_sources: list[tuple[str, ItemActionGrant]] = []
+    for bridge_key in sheet.items:
+        try:
+            eligible_sources.append(
+                _resolve_item_action_source(
+                    sheet,
+                    action_id,
+                    state=current_state,
+                    relationship_id=bridge_key,
+                )
+            )
+        except ValueError:
+            continue
+
+    if len(eligible_sources) == 1:
+        bridge_key, grant = eligible_sources[0]
+        return ResolvedAction(
+            action=action,
+            source_item_bridge_key=bridge_key,
+            source_item_grant=grant,
+        )
+    if len(eligible_sources) > 1:
+        raise ValueError(
+            f"Multiple items grant action '{action_id}'; provide a source item "
+            "relationship ID."
+        )
 
     raise ValueError(
         f"Sheet '{sheet.id}' does not reference action '{action_id}'."
@@ -282,6 +389,20 @@ def _resolve_action(
 def _validate_caster_target(target: str) -> None:
     if target != "caster":
         raise ValueError(f"Unsupported runtime action target '{target}'.")
+
+
+def _validate_action_roll_mode(action: Action, roll_mode: str) -> None:
+    allowed_modes = {
+        "none": {"normal"},
+        "check": {"normal", "advantage", "disadvantage"},
+        "damage": {"normal", "critical"},
+    }[action.roll_mode_kind]
+    if roll_mode not in allowed_modes:
+        allowed = ", ".join(sorted(allowed_modes))
+        raise ValueError(
+            f"Action '{action.id}' uses '{action.roll_mode_kind}' roll modes and "
+            f"does not allow '{roll_mode}'. Allowed modes: {allowed}."
+        )
 
 
 def _positive_int_amount(amount: float | int, *, label: str) -> int:
@@ -499,11 +620,14 @@ async def perform_action(
         actor_role=actor_role,
         assigned_instance_id=assigned_instance_id,
     )
-    action = _resolve_action(
+    resolution = _resolve_action(
         actor.sheet,
         request.action_id,
         actor_role=actor_role,
+        source_item_relationship_id=request.source_item_relationship_id,
     )
+    action = resolution.action
+    _validate_action_roll_mode(action, request.roll_mode)
     steps = action.steps
 
     if any(isinstance(step, SendMessageStep) for step in steps):
@@ -512,12 +636,15 @@ async def perform_action(
 
     def mutation(state: State) -> tuple[tuple[list[str], list[str], bool], list[Any]]:
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
-        current_action = _resolve_action(
+        current_resolution = _resolve_action(
             current_actor.sheet,
             request.action_id,
             actor_role=actor_role,
+            source_item_relationship_id=request.source_item_relationship_id,
             state=state,
         )
+        current_action = current_resolution.action
+        _validate_action_roll_mode(current_action, request.roll_mode)
         current_steps = current_action.steps
         action_values: dict[str, float | int] = {}
         formula_root = RuntimeFormulaContext(
@@ -529,7 +656,7 @@ async def perform_action(
         applied_mutations: list[str] = []
         emitted_messages: list[str] = []
         ops: list[Any] = []
-        roll_mode_requires_check = False
+        roll_mode_requires_transform = False
         roll_mode_applied = False
         unresolved_roll_mode = request.roll_mode
 
@@ -551,13 +678,17 @@ async def perform_action(
                     execution_context=execution_context,
                     modifiers=modifiers,
                 )
-                effective_roll_mode = resolve_roll_mode(
-                    request.roll_mode,
-                    execution_context=execution_context,
-                    modifiers=modifiers,
+                effective_roll_mode = (
+                    resolve_roll_mode(
+                        request.roll_mode,
+                        execution_context=execution_context,
+                        modifiers=modifiers,
+                    )
+                    if current_action.roll_mode_kind == "check"
+                    else request.roll_mode
                 )
                 if effective_roll_mode != "normal":
-                    roll_mode_requires_check = True
+                    roll_mode_requires_transform = True
                     unresolved_roll_mode = effective_roll_mode
                 message, mode_applied = _apply_roll_mode_to_message(
                     message,
@@ -864,10 +995,38 @@ async def perform_action(
                 f"Unsupported runtime action step '{step.__class__.__name__}'."
             )
 
-        if roll_mode_requires_check and not roll_mode_applied:
+        if roll_mode_requires_transform and not roll_mode_applied:
+            if unresolved_roll_mode == "critical":
+                raise ValueError(
+                    "Critical mode requires an authored Roll20 damage expression."
+                )
             raise ValueError(
                 f"Roll mode '{unresolved_roll_mode}' requires an authored 1d100 "
                 "Roll20 check expression."
+            )
+
+        if (
+            current_resolution.source_item_grant is not None
+            and current_resolution.source_item_bridge_key is not None
+            and current_resolution.source_item_grant.consume_quantity > 0
+        ):
+            consume_quantity = current_resolution.source_item_grant.consume_quantity
+            path = state_sync_service.join_path(
+                "sheets",
+                current_actor.sheet_id,
+                "items",
+                current_resolution.source_item_bridge_key,
+                "count",
+            )
+            op = state_sync_service.decrement_mutation(
+                state,
+                path,
+                consume_quantity,
+            )
+            ops.append(op)
+            applied_mutations.append(
+                f"items.{current_resolution.source_item_bridge_key}.count"
+                f"-={consume_quantity}"
             )
 
         return (applied_mutations, emitted_messages, bool(ops)), ops

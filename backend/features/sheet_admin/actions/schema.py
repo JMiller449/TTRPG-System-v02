@@ -110,6 +110,7 @@ ActionStepPayload = Annotated[
 class ActionDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
+    roll_mode_kind: Literal["none", "check", "damage"] = "none"
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
 

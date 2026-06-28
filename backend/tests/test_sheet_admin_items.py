@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.action import Action
 from backend.state.models.item import Item
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -88,6 +89,85 @@ def test_item_from_dict_defaults_missing_optional_item_fields() -> None:
     assert item.world_anvil_url == ""
     assert item.gm_notes == ""
     assert item.gm_special_properties == ""
+    assert item.action_grants == []
+
+
+def test_dm_can_author_item_action_grants(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.actions["drink_potion"] = Action.from_dict(
+                {"id": "drink_potion", "name": "Drink Potion", "steps": []}
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload("potion", "Potion")
+            payload["action_grants"] = [
+                {
+                    "action_id": "drink_potion",
+                    "availability": "carried",
+                    "consume_quantity": 1,
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            grant = state.items["potion"].action_grants[0]
+            assert grant.action_id == "drink_potion"
+            assert grant.availability == "carried"
+            assert grant.consume_quantity == 1
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_action_grants_reject_unknown_and_duplicate_actions(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload("potion", "Potion")
+            payload["action_grants"] = [
+                {"action_id": "missing", "availability": "carried"},
+                {"action_id": "missing", "availability": "equipped"},
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            assert "potion" not in StateSingleton.getState().items
+            assert "unique action IDs" in websocket.sent_messages[0]["reason"]
+
+            websocket.sent_messages.clear()
+            payload["action_grants"] = [
+                {"action_id": "missing", "availability": "carried"}
+            ]
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+            assert "potion" not in StateSingleton.getState().items
+            assert websocket.sent_messages[0]["reason"] == (
+                "Action 'missing' does not exist."
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:

@@ -87,6 +87,7 @@ Application websocket requests are discriminated by `type`.
 - `remove_item_augmentation_template`
 - `set_sheet_base_stat`
 - `set_sheet_formula_stat`
+- `set_sheet_resistances`
 - `perform_action`
 - `get_xp_tracker`
 - `set_sheet_xp_required`

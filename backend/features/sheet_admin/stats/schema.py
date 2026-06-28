@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
+from backend.features.sheet_admin.sheets.schema import ResistancesPayload
 
 BaseStatName = Literal[
     "strength",
@@ -49,3 +51,18 @@ class SetSheetFormulaStat(RequestModel):
     stat_name: FormulaStatName
     formula: FormulaPayload
     type: Literal["set_sheet_formula_stat"]
+
+
+class SetSheetResistances(RequestModel):
+    sheet_id: str = Field(min_length=1)
+    resistances: ResistancesPayload
+    type: Literal["set_sheet_resistances"]
+
+    @model_validator(mode="after")
+    def validate_resistance_range(self) -> "SetSheetResistances":
+        for name, value in self.resistances.model_dump(mode="python").items():
+            if not isfinite(value) or value < 0 or value > 1:
+                raise ValueError(
+                    f"Resistance '{name}' must be a finite fraction from 0 to 1."
+                )
+        return self

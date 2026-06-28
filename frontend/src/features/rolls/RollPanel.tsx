@@ -6,6 +6,7 @@ import {
   buildGetRoll20BridgeStatusRequest,
   type ActionRollMode
 } from "@/infrastructure/ws/requestBuilders";
+import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { RollModeControl } from "@/features/rolls/RollModeControl";
 import {
   buildQuickRollExecutionRequest,
@@ -20,7 +21,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const { activeSheetId } = state.uiState;
   const { roll20Bridge } = state.uiState;
-  const { actions } = state.serverState;
+  const { actions, items } = state.serverState;
 
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
   const [rollMode, setRollMode] = useState<ActionRollMode>("normal");
@@ -44,14 +45,19 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
       Object.fromEntries(
         QUICK_ROLL_ACTIONS.map((action) => [
           action,
-          resolveQuickRollAction(activeSheetView?.parentSheet, actions, action)
+          resolveQuickRollAction(activeSheetView?.parentSheet, actions, action, items)
         ])
       ) as Record<QuickRollAction, ReturnType<typeof resolveQuickRollAction>>,
-    [activeSheetView?.parentSheet, actions]
+    [activeSheetView?.parentSheet, actions, items]
   );
   const selectedQuickActionResolution = selectedQuickAction
     ? quickActionResolutions[selectedQuickAction]
     : null;
+  const selectedModeKind = selectedQuickActionResolution
+    ? (actions[selectedQuickActionResolution.actionId]?.roll_mode_kind ?? "none")
+    : "none";
+  const allowedRollModes = actionRollModes(selectedModeKind);
+  const effectiveRollMode = allowedRollModes.includes(rollMode) ? rollMode : "normal";
 
   const submit = (): void => {
     if (!activeSheetId || !selectedQuickActionResolution) {
@@ -61,7 +67,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
     const execution = buildQuickRollExecutionRequest({
       sheetId: activeSheetId,
       resolution: selectedQuickActionResolution,
-      rollMode
+      rollMode: effectiveRollMode
     });
     client.sendProtocolRequest(execution.request, execution.label);
   };
@@ -106,14 +112,18 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
             </button>
           ))}
         </div>
-        <RollModeControl value={rollMode} onChange={setRollMode} />
+        <RollModeControl
+          value={effectiveRollMode}
+          modeKind={selectedModeKind}
+          onChange={setRollMode}
+        />
         <div className="roll-panel__footer">
           <div className="equation-preview">
             <span className="muted">Action Request</span>
             {selectedQuickActionResolution ? (
               <code>
                 perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId} /{" "}
-                {rollMode}
+                {effectiveRollMode}
               </code>
             ) : selectedQuickAction ? (
               <code>Selected quick action is not assigned to this sheet.</code>

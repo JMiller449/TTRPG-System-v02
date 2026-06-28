@@ -55,7 +55,8 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
       weight: "3LBS",
-      augmentation_templates: []
+      augmentation_templates: [],
+      action_grants: []
     });
   });
 
@@ -70,7 +71,8 @@ describe("itemEditorValues", () => {
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
       immediateEffects: "25% increased mana regen.",
-      nonImmediateEffects: "Conducts mana at 100% efficiency."
+      nonImmediateEffects: "Conducts mana at 100% efficiency.",
+      actionGrants: []
     });
   });
 
@@ -122,7 +124,22 @@ describe("itemEditorValues", () => {
       gm_notes: "Updated GM notes.",
       gm_special_properties: "Updated hidden property.",
       price: "1,000CP",
-      weight: "4LBS"
+      weight: "4LBS",
+      action_grants: []
     });
+  });
+
+  it("maps carried and equipped action grants with authoritative consumption", () => {
+    const values = createEmptyItemValues();
+    values.name = "Potion";
+    values.actionGrants = [
+      { actionId: " drink_potion ", availability: "carried", consumeQuantity: "1" },
+      { actionId: "sword_strike", availability: "equipped", consumeQuantity: "0" }
+    ];
+
+    expect(toItemDefinitionPayload(values, "potion").action_grants).toEqual([
+      { action_id: "drink_potion", availability: "carried", consume_quantity: 1 },
+      { action_id: "sword_strike", availability: "equipped", consume_quantity: 0 }
+    ]);
   });
 });

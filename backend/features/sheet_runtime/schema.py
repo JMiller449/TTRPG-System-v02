@@ -10,8 +10,9 @@ from backend.state.models.damage import DamageType
 class PerformAction(RequestModel):
     sheet_id: str = Field(min_length=1)
     action_id: str = Field(min_length=1)
+    source_item_relationship_id: str | None = Field(default=None, min_length=1)
     target_sheet_id: str | None = Field(default=None, min_length=1)
-    roll_mode: Literal["normal", "advantage", "disadvantage"] = "normal"
+    roll_mode: Literal["normal", "advantage", "disadvantage", "critical"] = "normal"
     type: Literal["perform_action"]
 
 

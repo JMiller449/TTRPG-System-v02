@@ -74,7 +74,8 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Adds +50 to sword enchantments.",
           price: "NA",
           weight: "3LBS",
-          augmentation_templates: []
+          augmentation_templates: [],
+          action_grants: []
         }
       },
       label: "Create item: Sword of Mana"
@@ -120,7 +121,8 @@ describe("itemMakerRequests", () => {
           gm_notes: "Updated GM notes.",
           gm_special_properties: "Updated hidden property.",
           price: "1,000CP",
-          weight: "4LBS"
+          weight: "4LBS",
+          action_grants: []
         }
       },
       label: "Update item: Edited Sword of Mana"

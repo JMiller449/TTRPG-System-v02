@@ -320,6 +320,7 @@ def _build_action(payload: ActionDefinitionPayload, state: State | None = None) 
     return Action(
         id=payload.id,
         name=payload.name,
+        roll_mode_kind=payload.roll_mode_kind,
         notes=payload.notes,
         steps=steps,
     )

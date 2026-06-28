@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
+import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
+import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
@@ -13,11 +15,17 @@ import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEd
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
+  buildAttachSheetActionRequest,
   buildAttachSheetItemRequest,
+  buildDetachSheetActionRequest,
   buildDetachSheetItemRequest,
+  buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
+  buildRelinkSheetActionRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetSheetFormulaStatRequest,
+  buildSetSheetResistancesRequest,
   buildUnlinkSheetProficiencyRequest,
   buildUpdateAttachedSheetItemRequest,
   buildUpdateLinkedSheetProficiencyRequest
@@ -37,6 +45,9 @@ export function PlayerCharacterSheet({
 }): JSX.Element {
   const {
     detail,
+    actionDefinitions,
+    actionOrder,
+    actionFormulaAuthoringMetadata,
     items,
     itemOrder,
     proficiencyDefinitions,
@@ -53,6 +64,7 @@ export function PlayerCharacterSheet({
   } = useSheetDetailState();
 
   const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
+  const requestedFormulaMetadataRef = useRef(false);
 
   const statEditor = useStatModifierEditor({
     resetToken: detail?.instance.id,
@@ -73,6 +85,17 @@ export function PlayerCharacterSheet({
     setActiveTab("stats");
   }, [detail?.instance.id]);
 
+  useEffect(() => {
+    if (mode !== "gm" || actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
+      return;
+    }
+    requestedFormulaMetadataRef.current = true;
+    client.sendProtocolRequest(
+      buildGetActionFormulaAuthoringMetadataRequest(),
+      "Load sheet formula metadata"
+    );
+  }, [actionFormulaAuthoringMetadata, client, mode]);
+
   if (!detail) {
     return (
       <Panel title="Character Sheet">
@@ -88,6 +111,7 @@ export function PlayerCharacterSheet({
   const showKillsSection = activeTab === "kills";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
+  const canEditActions = mode === "gm";
   const canEditEquipment = mode === "gm";
   const canEditProficiencies = mode === "gm";
   const sheetId = detail.sheet?.id;
@@ -117,9 +141,7 @@ export function PlayerCharacterSheet({
 
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
-      <p className="character-sheet__panel-subtext muted">
-        Sheet ID: {detail.instance.id}
-      </p>
+      <p className="character-sheet__panel-subtext muted">Sheet ID: {detail.instance.id}</p>
       <article className="character-sheet">
         <header className="character-sheet__header">
           <div className="character-sheet__header-main">
@@ -152,21 +174,51 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-stats"
             tabIndex={0}
           >
-          <SheetStatsSection
-            canEditStats={canEditStats}
-            stats={detail.stats}
-            editingKey={statEditor.editingKey}
-            draftModifier={statEditor.draftModifier}
-            editorError={statEditor.editorError}
-            getModifier={statEditor.getModifier}
-            getCurrentValue={statEditor.getCurrentValue}
-            onBeginEditing={statEditor.beginEditing}
-            onApplyModifier={statEditor.applyModifier}
-            onResetModifier={statEditor.resetModifier}
-            onDraftModifierChange={statEditor.setDraftModifier}
-            onCancelEditing={statEditor.cancelEditing}
-            onEditorKeyDown={statEditor.onEditorKeyDown}
-          />
+            <SheetStatsSection
+              canEditStats={canEditStats}
+              stats={detail.stats}
+              editingKey={statEditor.editingKey}
+              draftModifier={statEditor.draftModifier}
+              editorError={statEditor.editorError}
+              getModifier={statEditor.getModifier}
+              getCurrentValue={statEditor.getCurrentValue}
+              onBeginEditing={statEditor.beginEditing}
+              onApplyModifier={statEditor.applyModifier}
+              onResetModifier={statEditor.resetModifier}
+              onDraftModifierChange={statEditor.setDraftModifier}
+              onCancelEditing={statEditor.cancelEditing}
+              onEditorKeyDown={statEditor.onEditorKeyDown}
+            />
+            {canEditStats && detail.sheet && sheetId ? (
+              <div className="stack">
+                <SheetFormulaStatsEditor
+                  stats={detail.sheet.stats}
+                  metadata={actionFormulaAuthoringMetadata}
+                  onSave={(statName, formula) =>
+                    client.sendProtocolRequest(
+                      buildSetSheetFormulaStatRequest({
+                        sheetId,
+                        statName,
+                        formula
+                      }),
+                      `Update formula stat: ${statName}`
+                    )
+                  }
+                />
+                <SheetResistancesEditor
+                  resistances={detail.sheet.resistances}
+                  onSave={(resistances) =>
+                    client.sendProtocolRequest(
+                      buildSetSheetResistancesRequest({
+                        sheetId,
+                        resistances
+                      }),
+                      "Update template resistances"
+                    )
+                  }
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -177,19 +229,50 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-actions"
             tabIndex={0}
           >
-          <SheetActionsSection
-            assignedActions={assignedActions}
-            onPerformAction={(action, rollMode) => {
-              client.sendProtocolRequest(
-                buildPerformActionRequest({
-                  sheetId: detail.instance.id,
-                  actionId: action.actionId,
-                  rollMode
-                }),
-                `Perform action: ${action.action.name}`
-              );
-            }}
-          />
+            <SheetActionsSection
+              assignedActions={assignedActions}
+              actionDefinitions={actionDefinitions}
+              actionOrder={actionOrder}
+              canEdit={canEditActions}
+              onCreate={(bridge) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildAttachSheetActionRequest({ sheetId, bridge }),
+                  `Assign action: ${actionDefinitions[bridge.action_id]?.name ?? bridge.action_id}`
+                );
+              }}
+              onUpdate={(relationshipId, bridge) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildRelinkSheetActionRequest({ sheetId, relationshipId, bridge }),
+                  `Replace action: ${actionDefinitions[bridge.action_id]?.name ?? bridge.action_id}`
+                );
+              }}
+              onDelete={(relationshipId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildDetachSheetActionRequest({ sheetId, relationshipId }),
+                  "Remove action assignment"
+                );
+              }}
+              onPerformAction={(action, rollMode) => {
+                client.sendProtocolRequest(
+                  buildPerformActionRequest({
+                    sheetId: detail.instance.id,
+                    actionId: action.actionId,
+                    sourceItemRelationshipId: action.sourceItemRelationshipId,
+                    rollMode
+                  }),
+                  `Perform action: ${action.action.name}`
+                );
+              }}
+            />
           </div>
         ) : null}
 
@@ -200,28 +283,24 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-notes"
             tabIndex={0}
           >
-          <SheetNotesSection
-            sheetId={detail.instance.id}
-            note={runtimeNote}
-            onSave={(note) =>
-              client.sendProtocolRequest(
-                buildSetInstancedSheetNotesRequest({
-                  instanceId: detail.instance.id,
-                  notes: note
-                }),
-                "Update instance notes"
-              )
-            }
-          />
+            <SheetNotesSection
+              sheetId={detail.instance.id}
+              note={runtimeNote}
+              onSave={(note) =>
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetNotesRequest({
+                    instanceId: detail.instance.id,
+                    notes: note
+                  }),
+                  "Update instance notes"
+                )
+              }
+            />
           </div>
         ) : null}
 
         {showKillsSection && sheetId ? (
-          <SheetKillsSection
-            client={client}
-            instanceId={detail.instance.id}
-            sheetId={sheetId}
-          />
+          <SheetKillsSection client={client} instanceId={detail.instance.id} sheetId={sheetId} />
         ) : null}
 
         {showProficienciesSection ? (
@@ -231,49 +310,49 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-proficiencies"
             tabIndex={0}
           >
-          <SheetProficienciesSection
-            proficiencyDefinitions={proficiencyDefinitions}
-            proficiencyOrder={proficiencyOrder}
-            sheetProficiencies={sheetProficiencies}
-            canEdit={canEditProficiencies}
-            onCreate={(bridge) => {
-              if (!sheetId) {
-                return;
-              }
-              client.sendProtocolRequest(
+            <SheetProficienciesSection
+              proficiencyDefinitions={proficiencyDefinitions}
+              proficiencyOrder={proficiencyOrder}
+              sheetProficiencies={sheetProficiencies}
+              canEdit={canEditProficiencies}
+              onCreate={(bridge) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
                   buildLinkSheetProficiencyRequest({
-                  sheetId,
-                  bridge
-                }),
-                `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-              );
-            }}
-            onUpdate={(relationshipId, bridge) => {
-              if (!sheetId) {
-                return;
-              }
-              client.sendProtocolRequest(
+                    sheetId,
+                    bridge
+                  }),
+                  `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                );
+              }}
+              onUpdate={(relationshipId, bridge) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
                   buildUpdateLinkedSheetProficiencyRequest({
-                  sheetId,
-                  relationshipId,
-                  bridge
-                }),
-                `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-              );
-            }}
-            onDelete={(relationshipId) => {
-              if (!sheetId) {
-                return;
-              }
-              client.sendProtocolRequest(
+                    sheetId,
+                    relationshipId,
+                    bridge
+                  }),
+                  `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                );
+              }}
+              onDelete={(relationshipId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
                   buildUnlinkSheetProficiencyRequest({
-                  sheetId,
-                  relationshipId
-                }),
-                "Remove proficiency"
-              );
-            }}
-          />
+                    sheetId,
+                    relationshipId
+                  }),
+                  "Remove proficiency"
+                );
+              }}
+            />
           </div>
         ) : null}
 
@@ -284,59 +363,59 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-equipment"
             tabIndex={0}
           >
-          <SheetEquipmentSection
-            items={items}
-            itemOrder={itemOrder}
-            selectedItemId={selectedItemId}
-            selectedItem={selectedItem}
-            activeWeaponLabel={activeWeaponLabel}
-            equipment={equipment}
-            activeWeaponId={activeWeaponId}
-            canEdit={canEditEquipment}
-            onSelectedItemIdChange={setSelectedItemId}
-            onAddSelectedItem={() => {
-              if (!sheetId || !selectedItem) {
-                return;
-              }
+            <SheetEquipmentSection
+              items={items}
+              itemOrder={itemOrder}
+              selectedItemId={selectedItemId}
+              selectedItem={selectedItem}
+              activeWeaponLabel={activeWeaponLabel}
+              equipment={equipment}
+              activeWeaponId={activeWeaponId}
+              canEdit={canEditEquipment}
+              onSelectedItemIdChange={setSelectedItemId}
+              onAddSelectedItem={() => {
+                if (!sheetId || !selectedItem) {
+                  return;
+                }
 
-              const relationshipId = makeId("item_bridge");
-              client.sendProtocolRequest(
+                const relationshipId = makeId("item_bridge");
+                client.sendProtocolRequest(
                   buildAttachSheetItemRequest({
-                  sheetId,
-                  bridge: {
-                    relationship_id: relationshipId,
-                    item_id: selectedItem.id,
-                    count: 1,
-                    active: !activeWeaponId
-                  }
-                }),
-                "Add equipment"
-              );
-            }}
-            onToggleActiveWeapon={(relationshipId) => {
-              if (activeWeaponId === relationshipId) {
-                updateEquipmentBridgeActive(relationshipId, false);
-                return;
-              }
+                    sheetId,
+                    bridge: {
+                      relationship_id: relationshipId,
+                      item_id: selectedItem.id,
+                      count: 1,
+                      active: !activeWeaponId
+                    }
+                  }),
+                  "Add equipment"
+                );
+              }}
+              onToggleActiveWeapon={(relationshipId) => {
+                if (activeWeaponId === relationshipId) {
+                  updateEquipmentBridgeActive(relationshipId, false);
+                  return;
+                }
 
-              if (activeWeaponId) {
-                updateEquipmentBridgeActive(activeWeaponId, false);
-              }
-              updateEquipmentBridgeActive(relationshipId, true);
-            }}
-            onRemoveInventoryItem={(relationshipId) => {
-              if (!sheetId) {
-                return;
-              }
-              client.sendProtocolRequest(
+                if (activeWeaponId) {
+                  updateEquipmentBridgeActive(activeWeaponId, false);
+                }
+                updateEquipmentBridgeActive(relationshipId, true);
+              }}
+              onRemoveInventoryItem={(relationshipId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
                   buildDetachSheetItemRequest({
-                  sheetId,
-                  relationshipId
-                }),
-                "Remove equipment"
-              );
-            }}
-          />
+                    sheetId,
+                    relationshipId
+                  }),
+                  "Remove equipment"
+                );
+              }}
+            />
           </div>
         ) : null}
       </article>

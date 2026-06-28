@@ -64,6 +64,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "DeleteSheetProficiencyBridge",
         "SetSheetBaseStat",
         "SetSheetFormulaStat",
+        "SetSheetResistances",
         "GetActionFormulaAuthoringMetadata",
         "GetVariableRegistry",
         "GenerateSheetAccessCode",
@@ -344,6 +345,14 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["set_sheet_formula_stat"].minimum_role == "dm"
     assert contracts["set_sheet_formula_stat"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["set_sheet_resistances"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminStats",
+            method_name="setSheetResistances",
+        )
+    )
+    assert contracts["set_sheet_resistances"].minimum_role == "dm"
+    assert contracts["set_sheet_resistances"].emitted_event_models == (StatePatchEvent,)
     assert contracts["create_sheet"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAdminSheets",

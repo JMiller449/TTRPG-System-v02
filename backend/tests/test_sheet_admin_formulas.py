@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.action import Action
 from backend.state.models.formula import FormulaDefinition
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -123,6 +124,23 @@ def test_dm_can_update_formula(monkeypatch) -> None:
             state.formulas["max_health"] = FormulaDefinition.from_dict(
                 _formula_definition_payload()
             )
+            state.actions["healing"] = Action.from_dict(
+                {
+                    "id": "healing",
+                    "name": "Healing",
+                    "steps": [
+                        {
+                            "step_id": "calculate",
+                            "type": "calculate_value",
+                            "variable_id": "healing",
+                            "value": {
+                                "type": "formula_reference",
+                                "formula_id": "max_health",
+                            },
+                        }
+                    ],
+                }
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -190,6 +208,52 @@ def test_dm_can_delete_formula(monkeypatch) -> None:
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_formula_rejects_action_references(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.formulas["max_health"] = FormulaDefinition.from_dict(
+                _formula_definition_payload()
+            )
+            state.actions["healing"] = Action.from_dict(
+                {
+                    "id": "healing",
+                    "name": "Healing",
+                    "steps": [
+                        {
+                            "step_id": "calculate",
+                            "type": "calculate_value",
+                            "variable_id": "healing",
+                            "value": {
+                                "type": "formula_reference",
+                                "formula_id": "max_health",
+                            },
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_formula", "formula_id": "max_health"},
+            )
+
+            assert "max_health" in state.formulas
+            assert websocket.sent_messages[0]["reason"] == (
+                "Formula 'max_health' is referenced by actions: healing."
+            )
         finally:
             StateSingleton._state = original_state
 

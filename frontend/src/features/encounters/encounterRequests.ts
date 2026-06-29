@@ -1,5 +1,6 @@
 import type { EncounterPreset } from "@/domain/models";
 import {
+  buildDeleteEncounterPresetRequest,
   buildSaveEncounterPresetRequest,
   buildSpawnEncounterPresetRequest,
   type EncounterPresetPayload
@@ -9,6 +10,10 @@ import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 export interface EncounterSubmission {
   request: ProtocolApplicationRequest;
   label: string;
+}
+
+export interface EncounterDeleteSubmission extends EncounterSubmission {
+  confirmation: string;
 }
 
 export function toEncounterPresetPayload(encounter: EncounterPreset): EncounterPresetPayload {
@@ -23,7 +28,9 @@ export function toEncounterPresetPayload(encounter: EncounterPreset): EncounterP
   };
 }
 
-export function buildSaveEncounterPresetSubmission(encounter: EncounterPreset): EncounterSubmission {
+export function buildSaveEncounterPresetSubmission(
+  encounter: EncounterPreset
+): EncounterSubmission {
   return {
     request: buildSaveEncounterPresetRequest({
       encounter: toEncounterPresetPayload(encounter)
@@ -36,5 +43,15 @@ export function buildSpawnEncounterPresetSubmission(encounterId: string): Encoun
   return {
     request: buildSpawnEncounterPresetRequest({ encounterId }),
     label: "Encounter spawn"
+  };
+}
+
+export function buildDeleteEncounterPresetSubmission(
+  encounter: Pick<EncounterPreset, "id" | "name">
+): EncounterDeleteSubmission {
+  return {
+    request: buildDeleteEncounterPresetRequest({ encounterId: encounter.id }),
+    label: `Encounter delete: ${encounter.name}`,
+    confirmation: `Delete encounter preset "${encounter.name}" (${encounter.id})? This cannot be undone.`
   };
 }

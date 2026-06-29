@@ -105,12 +105,14 @@ describe("SocketProtocolClient", () => {
           proficiencies: [],
           actions: [],
           formulas: [],
+          augmentations: [],
           conditionPresets: [],
           encounters: [],
           actionHistory: []
         },
         stateVersion: 0,
-        incremental: false
+        incremental: false,
+        requestId: undefined
       }
     ]);
   });

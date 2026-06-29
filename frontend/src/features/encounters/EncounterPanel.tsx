@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
+import type { EncounterPreset } from "@/domain/models";
 import { EncounterEntryList } from "@/features/encounters/components/EncounterEntryList";
 import { EncounterPresetList } from "@/features/encounters/components/EncounterPresetList";
 import type { DraftEncounterEntry } from "@/features/encounters/encounterDraft";
 import { newRosterEntry } from "@/features/encounters/encounterDraft";
 import {
+  buildDeleteEncounterPresetSubmission,
   buildSaveEncounterPresetSubmission,
   buildSpawnEncounterPresetSubmission
 } from "@/features/encounters/encounterRequests";
@@ -15,13 +17,12 @@ import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
 export function EncounterPanel({ client }: { client: GameClient }): JSX.Element {
-  const {
-    state
-  } = useAppStore();
+  const { state } = useAppStore();
   const { encounters, encounterOrder, sheets } = state.serverState;
 
   const [name, setName] = useState("");
   const [entries, setEntries] = useState<DraftEncounterEntry[]>([newRosterEntry()]);
+  const [editingEncounterId, setEditingEncounterId] = useState<string | null>(null);
 
   const templateOptions = useMemo(
     () => selectSheetTemplateViews(state).filter((template) => template.kind === "enemy"),
@@ -33,8 +34,28 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
     [encounterOrder, encounters]
   );
 
+  const resetEditor = (): void => {
+    setEditingEncounterId(null);
+    setName("");
+    setEntries([newRosterEntry()]);
+  };
+
+  useEffect(() => {
+    if (editingEncounterId && !encounters[editingEncounterId]) {
+      resetEditor();
+    }
+  }, [editingEncounterId, encounters]);
+
+  const editEncounter = (encounter: EncounterPreset): void => {
+    setEditingEncounterId(encounter.id);
+    setName(encounter.name);
+    setEntries(encounter.entries.map((entry) => newRosterEntry(entry.templateId, entry.count)));
+  };
+
   const updateEntry = (entryId: string, changes: Partial<DraftEncounterEntry>): void => {
-    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, ...changes } : entry)));
+    setEntries((prev) =>
+      prev.map((entry) => (entry.id === entryId ? { ...entry, ...changes } : entry))
+    );
   };
 
   const addEntry = (): void => {
@@ -61,22 +82,32 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
     }
 
     const submission = buildSaveEncounterPresetSubmission({
-      id: makeId("encounter"),
+      id: editingEncounterId ?? makeId("encounter"),
       name: name.trim(),
       entries: validEntries,
       updatedAt: new Date().toISOString()
     });
     client.sendProtocolRequest(submission.request, submission.label);
+    resetEditor();
+  };
 
-    setName("");
-    setEntries([newRosterEntry()]);
+  const deleteEncounter = (encounter: EncounterPreset): void => {
+    const submission = buildDeleteEncounterPresetSubmission(encounter);
+    if (!window.confirm(submission.confirmation)) {
+      return;
+    }
+    client.sendProtocolRequest(submission.request, submission.label);
   };
 
   return (
     <Panel title="Encounter Presets">
       <div className="stack">
         <Field label="Preset Name">
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Cave Ambush" />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Cave Ambush"
+          />
         </Field>
 
         <EncounterEntryList
@@ -87,9 +118,16 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
           onAdd={addEntry}
         />
 
-        <button className="button" onClick={saveEncounter}>
-          Save Encounter
-        </button>
+        <div className="inline-actions">
+          <button className="button" onClick={saveEncounter}>
+            {editingEncounterId ? "Update Encounter" : "Save Encounter"}
+          </button>
+          {editingEncounterId ? (
+            <button className="button button--secondary" onClick={resetEditor}>
+              Cancel Edit
+            </button>
+          ) : null}
+        </div>
 
         <EncounterPresetList
           encounters={savedEncounters}
@@ -98,6 +136,8 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
             const submission = buildSpawnEncounterPresetSubmission(encounterId);
             client.sendProtocolRequest(submission.request, submission.label);
           }}
+          onEdit={editEncounter}
+          onDelete={deleteEncounter}
         />
       </div>
     </Panel>

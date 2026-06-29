@@ -3,6 +3,7 @@ import type {
   ActionStep,
   Formula,
   FormulaDefinition,
+  FormulaValueSource,
   NumericValueSource
 } from "@/domain/models";
 import { COMMON_FORMULA_TAGS, normalizeFormulaTags } from "@/features/formulas/formulaTags";
@@ -30,12 +31,16 @@ function numericSourceFormula(source: NumericValueSource | null | undefined): Fo
   return source;
 }
 
+function formulaSourceFormula(source: FormulaValueSource): Formula | null {
+  return "type" in source ? null : source;
+}
+
 function stepFormulas(step: ActionStep): Array<Formula | null | undefined> {
   switch (step.type) {
     case "send_message":
-      return [step.message];
+      return [formulaSourceFormula(step.message)];
     case "calculate_value":
-      return [step.value];
+      return [formulaSourceFormula(step.value)];
     case "set_value":
       return [
         numericSourceFormula(step.value),

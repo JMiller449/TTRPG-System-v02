@@ -14,7 +14,13 @@ class CalculatedValueReferencePayload(BaseModel):
     type: Literal["calculated_value"]
 
 
-NumericValuePayload = FormulaPayload | CalculatedValueReferencePayload
+class FormulaReferencePayload(BaseModel):
+    formula_id: str = Field(min_length=1)
+    type: Literal["formula_reference"]
+
+
+FormulaValuePayload = FormulaPayload | FormulaReferencePayload
+NumericValuePayload = FormulaValuePayload | CalculatedValueReferencePayload
 
 
 class NumericBoundsPayload(BaseModel):
@@ -27,13 +33,13 @@ class NumericBoundsPayload(BaseModel):
 class SendMessageActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["send_message"]
-    message: FormulaPayload
+    message: FormulaValuePayload
 
 
 class CalculateValueActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     variable_id: str = Field(min_length=1, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
-    value: FormulaPayload
+    value: FormulaValuePayload
     type: Literal["calculate_value"]
 
 
@@ -129,9 +135,13 @@ class ActionDefinitionPayload(BaseModel):
 
             formulas: list[FormulaPayload] = []
             numeric_values: list[NumericValuePayload | None] = []
-            if isinstance(step, SendMessageActionStepPayload):
+            if isinstance(step, SendMessageActionStepPayload) and isinstance(
+                step.message, FormulaPayload
+            ):
                 formulas.append(step.message)
-            if isinstance(step, CalculateValueActionStepPayload):
+            if isinstance(step, CalculateValueActionStepPayload) and isinstance(
+                step.value, FormulaPayload
+            ):
                 formulas.append(step.value)
             if isinstance(step, SetValueActionStepPayload):
                 numeric_values.append(step.value)

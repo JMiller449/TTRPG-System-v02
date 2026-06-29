@@ -4,11 +4,15 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 export function EncounterPresetList({
   encounters,
   templates,
-  onSpawn
+  onSpawn,
+  onEdit,
+  onDelete
 }: {
   encounters: EncounterPreset[];
   templates: Record<string, Sheet>;
   onSpawn: (encounterId: string) => void;
+  onEdit: (encounter: EncounterPreset) => void;
+  onDelete: (encounter: EncounterPreset) => void;
 }): JSX.Element {
   return (
     <div className="list">
@@ -19,13 +23,28 @@ export function EncounterPresetList({
             <strong>{encounter.name}</strong>
             <div className="muted">
               {encounter.entries
-                .map((entry) => `${entry.count}x ${templates[entry.templateId]?.name ?? entry.templateId}`)
+                .map(
+                  (entry) =>
+                    `${entry.count}x ${templates[entry.templateId]?.name ?? entry.templateId}`
+                )
                 .join(", ")}
             </div>
           </div>
-          <button className="button button--secondary" onClick={() => onSpawn(encounter.id)}>
-            Spawn
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={() => onEdit(encounter)}>
+              Edit
+            </button>
+            <button className="button button--secondary" onClick={() => onSpawn(encounter.id)}>
+              Spawn
+            </button>
+            <button
+              className="button button--secondary"
+              aria-label={`Delete encounter preset ${encounter.name}`}
+              onClick={() => onDelete(encounter)}
+            >
+              Delete
+            </button>
+          </div>
         </article>
       ))}
     </div>

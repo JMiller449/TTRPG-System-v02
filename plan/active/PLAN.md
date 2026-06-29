@@ -947,11 +947,22 @@ MVP is done when:
   - The GM Stats tab now edits every backend formula stat with formula text, normalized tags, and metadata-driven sheet-variable aliases. Alias paths are stored relative to the sheet root, and the backend rejects unsupported instance paths and direct self-references.
   - Added the typed, DM-only `set_sheet_resistances` route so total, category, and specific resistance values are validated as fractional values and replaced atomically. The UI presents these values as percentages and converts them at the request boundary.
   - Verified with 364 backend tests, 250 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
-- [ ] Make global formula definitions reusable from action-step authoring through stable formula ID selection/reference rather than leaving Formula Authoring as an isolated CRUD catalog.
-- [ ] Complete Action Authoring controls for backend-supported `set_value`, `increment_value`, `decrement_value`, `apply_augmentation`, and `apply_condition_preset` steps.
-  - Use backend metadata pickers for paths/records and do not expose unrestricted raw mutation paths.
-- [ ] Add template deletion controls to Template Library using the existing typed `delete_sheet` route, with dependency errors surfaced through normal intent feedback.
-- [ ] Add encounter preset edit and delete controls using stable encounter IDs plus the existing save/delete routes.
+- [x] Make global formula definitions reusable from action-step authoring through stable formula ID selection/reference rather than leaving Formula Authoring as an isolated CRUD catalog.
+  - Added a persisted `formula_reference` value source for message, calculation, numeric mutation, damage, proficiency-use, and bound formulas while preserving inline formulas and action-local calculated-value references.
+  - Action creation/update validates referenced IDs, runtime resolution always reads the current global definition, and evaluation contexts retain the global formula ID for selector matching. Referenced formulas can be updated but cannot be deleted until dependent actions are changed.
+  - Action Authoring now offers inline/global/calculated source selection where applicable and clearly identifies the selected global formula. Verified with 368 backend tests, 251 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
+- [x] Complete Action Authoring controls for backend-supported `set_value`, `increment_value`, `decrement_value`, `apply_augmentation`, and `apply_condition_preset` steps.
+  - Set/increment/decrement steps share a metadata-backed instance mutation-path editor with inline/global/calculated primary values, optional minimum and maximum formulas, and independent clamp/reject behavior. No unrestricted mutation-path input is exposed.
+  - Runtime augmentation records are now preserved in authoritative frontend state so augmentation and condition steps use record selectors plus apply/remove controls instead of raw IDs. The backend validates record existence and instance-target compatibility, and condition presets referenced by actions cannot be deleted.
+  - Verified with 371 backend tests, 253 frontend tests, ESLint, protocol code generation, and the production TypeScript/Vite build.
+- [x] Add template deletion controls to Template Library using the existing typed `delete_sheet` route, with dependency errors surfaced through normal intent feedback.
+  - GM template rows now offer a destructive confirmation before submitting the typed delete request. The frontend does not remove or close an edited template until the authoritative sheet-removal patch arrives; backend errors continue through standard intent feedback.
+  - The backend rejects deletion while any live instances or encounter presets reference the template and returns the complete blocking IDs in one deterministic error.
+  - Verified with 372 backend tests, 254 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Add encounter preset edit and delete controls using stable encounter IDs plus the existing save/delete routes.
+  - Saved encounter rows now support editing names and roster entries while resubmitting the original encounter ID through `save_encounter_preset`; backend coverage verifies the existing record is replaced rather than duplicated.
+  - Deletion requires explicit confirmation and uses `delete_encounter_preset`. Lists remain backend-authoritative, and an open editor is cleared only when its preset disappears in an authoritative patch or the user explicitly saves/cancels.
+  - Verified with 373 backend tests, 255 frontend tests, ESLint, and the production TypeScript/Vite build.
 - [ ] Add equipment quantity editing through sheet item bridge updates instead of limiting inventory changes to add-one, active toggle, and remove.
 
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.

@@ -26,10 +26,7 @@ function parsePointer(path: string): string[] {
   if (path === "/") {
     return [];
   }
-  return path
-    .slice(1)
-    .split("/")
-    .map(decodePointerSegment);
+  return path.slice(1).split("/").map(decodePointerSegment);
 }
 
 function readContainer(root: unknown, segments: string[]): { container: unknown; leaf: string } {
@@ -63,7 +60,10 @@ function cloneBackendState(state: ProtocolBackendState): ProtocolBackendState {
   return structuredClone(state);
 }
 
-function applySinglePatch(state: ProtocolBackendState, op: ProtocolPatchOperation): ProtocolBackendState {
+function applySinglePatch(
+  state: ProtocolBackendState,
+  op: ProtocolPatchOperation
+): ProtocolBackendState {
   const nextState = cloneBackendState(state);
   const { container, leaf } = readContainer(nextState, parsePointer(op.path));
 
@@ -116,7 +116,10 @@ function applySinglePatch(state: ProtocolBackendState, op: ProtocolPatchOperatio
   return nextState;
 }
 
-function applyProtocolPatch(state: ProtocolBackendState, ops: ProtocolPatchOperation[] | null): ProtocolBackendState {
+function applyProtocolPatch(
+  state: ProtocolBackendState,
+  ops: ProtocolPatchOperation[] | null
+): ProtocolBackendState {
   if (!ops || ops.length === 0) {
     return state;
   }
@@ -148,11 +151,15 @@ function projectEncounterPreset(value: EncounterPresetPayload): EncounterPreset 
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}),
-    persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({ id, value })),
+    persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({
+      id,
+      value
+    })),
     items: Object.values(state.items ?? {}),
     proficiencies: Object.values(state.proficiencies ?? {}),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
+    augmentations: Object.values(state.augmentations ?? {}),
     conditionPresets: Object.values(state.condition_presets ?? {}),
     encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),
     actionHistory: Object.values(state.action_history ?? {})

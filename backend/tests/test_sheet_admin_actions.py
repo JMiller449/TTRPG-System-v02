@@ -6,6 +6,9 @@ import pytest
 from backend.features.sheet_admin.actions.schema import ActionDefinitionPayload
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
+from backend.state.models.augmentation import Augmentation
+from backend.state.models.condition import ConditionPreset
+from backend.state.models.formula import FormulaDefinition
 from backend.state.models.proficiency import Proficiency
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -59,6 +62,37 @@ def _proficiency_payload(proficiency_id: str = "magic_prof") -> dict:
     }
 
 
+def _augmentation_state(augmentation_id: str = "shielded") -> Augmentation:
+    return Augmentation.from_dict(
+        {
+            "id": augmentation_id,
+            "name": "Shielded",
+            "description": "Temporary shield.",
+            "source": {"type": "action", "id": "ward", "label": "Ward"},
+            "scope": "instance",
+            "target": {"root": "instance", "path": ["health"]},
+            "effect": {
+                "type": "formula_modifier",
+                "operation": "add",
+                "value": _formula_payload("5"),
+            },
+        }
+    )
+
+
+def _condition_state(condition_id: str = "poisoned") -> ConditionPreset:
+    return ConditionPreset.from_dict(
+        {
+            "id": condition_id,
+            "name": "Poisoned",
+            "description": "Ongoing poison.",
+            "visibility": "public",
+            "augmentation_ids": [],
+            "augmentation_templates": [],
+        }
+    )
+
+
 def test_dm_can_create_action(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -90,6 +124,144 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 "/actions/battle_cry"
             )
             assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "battle_cry"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("step", "reason"),
+    [
+        (
+            {
+                "step_id": "missing-augmentation",
+                "type": "apply_augmentation",
+                "target": "caster",
+                "augmentation_id": "missing",
+                "operation": "apply",
+            },
+            "Augmentation 'missing' does not exist.",
+        ),
+        (
+            {
+                "step_id": "missing-condition",
+                "type": "apply_condition_preset",
+                "target": "caster",
+                "condition_id": "missing",
+                "operation": "apply",
+            },
+            "Condition preset 'missing' does not exist.",
+        ),
+    ],
+)
+def test_create_action_rejects_missing_semantic_record_reference(
+    monkeypatch,
+    step: dict,
+    reason: str,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"] = [step]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            assert StateSingleton.getState().actions == {}
+            assert websocket.sent_messages[0]["reason"] == reason
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_create_action_with_global_formula_references(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.formulas["battle_message"] = FormulaDefinition.from_dict(
+                {
+                    "id": "battle_message",
+                    "formula": _formula_payload("For glory"),
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "step-1",
+                    "type": "send_message",
+                    "message": {
+                        "type": "formula_reference",
+                        "formula_id": "battle_message",
+                    },
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            reference = state.actions["battle_cry"].steps[0].message
+            assert reference.type == "formula_reference"
+            assert reference.formula_id == "battle_message"
+            assert websocket.sent_messages[0]["ops"][0]["value"]["steps"][0][
+                "message"
+            ] == {
+                "type": "formula_reference",
+                "formula_id": "battle_message",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_action_rejects_missing_global_formula_reference(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"] = [
+                {
+                    "step_id": "step-1",
+                    "type": "send_message",
+                    "message": {
+                        "type": "formula_reference",
+                        "formula_id": "missing_formula",
+                    },
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            assert StateSingleton.getState().actions == {}
+            assert websocket.sent_messages[0]["reason"] == (
+                "Formula 'missing_formula' does not exist."
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -242,6 +414,9 @@ def test_dm_can_create_action_with_augmentation_and_condition_steps(
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         try:
             _reset_state()
+            state = StateSingleton.getState()
+            state.augmentations["shielded"] = _augmentation_state()
+            state.condition_presets["poisoned"] = _condition_state()
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")

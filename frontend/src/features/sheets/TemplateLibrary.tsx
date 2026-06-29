@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { SheetTemplateView } from "@/domain/models";
@@ -19,6 +19,7 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
+import { buildDeleteTemplateSubmission } from "@/features/sheets/templateLibraryRequests";
 
 export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
@@ -45,6 +46,13 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
     setEditingTemplateId(template.id);
     setEditValues(toTemplateEditorValues(template.sheet));
   };
+
+  useEffect(() => {
+    if (editingTemplateId && !state.serverState.sheets[editingTemplateId]) {
+      setEditingTemplateId(null);
+      setEditValues(createEmptyTemplateEditorValues("player"));
+    }
+  }, [editingTemplateId, state.serverState.sheets]);
 
   const saveTemplateEdit = (): void => {
     if (!editingTemplateId || !editValues.name.trim()) {
@@ -87,6 +95,14 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
     }
   };
 
+  const deleteTemplate = (template: SheetTemplateView): void => {
+    const submission = buildDeleteTemplateSubmission(template);
+    if (!window.confirm(submission.confirmation)) {
+      return;
+    }
+    client.sendProtocolRequest(submission.request, submission.label);
+  };
+
   return (
     <Panel
       title="Template Library"
@@ -111,6 +127,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
           templates={visibleTemplates}
           onEdit={beginEditTemplate}
           onSpawn={spawnTemplate}
+          onDelete={deleteTemplate}
         />
 
         <TemplateEditPanel

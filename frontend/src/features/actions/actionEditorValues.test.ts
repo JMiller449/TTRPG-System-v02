@@ -6,17 +6,23 @@ import type {
   ResolveDamageActionStep
 } from "@/domain/models";
 import {
+  addApplyAugmentationActionStep,
+  addApplyConditionPresetActionStep,
   addCalculateValueActionStep,
+  addDecrementValueActionStep,
   addGainProficiencyUseActionStep,
   addIncrementValueActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  addSetValueActionStep,
+  boundedMutationPrimarySource,
   calculatedValuesBeforeStep,
   createCalculateValueActionStep,
   createGainProficiencyUseActionStep,
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
-  isCalculatedValueReference,
+  isFormulaReference,
+  isInlineFormula,
   moveActionStep,
   moveGainProficiencyUseActionStep,
   moveResolveDamageActionStep,
@@ -25,6 +31,8 @@ import {
   removeCalculateValueActionStep,
   removeResolveDamageActionStep,
   removeSendMessageActionStep,
+  setActionStepFormulaReference,
+  setBoundedMutationSource,
   setNumericStepCalculatedValue,
   toActionDefinitionPayload,
   toActionEditorValues,
@@ -34,6 +42,10 @@ import {
   updateGainProficiencyUseActionStep,
   updateGainProficiencyUseActionStepFormula,
   updateCalculateValueActionStep,
+  updateApplyAugmentationActionStep,
+  updateApplyConditionPresetActionStep,
+  updateBoundedMutationFormula,
+  updateBoundedMutationSettings,
   updateSendMessageActionStepFormula,
   updateSendMessageActionStepText
 } from "@/features/actions/actionEditorValues";
@@ -166,13 +178,13 @@ describe("actionEditorValues", () => {
     const action = testAction();
     const values = toActionEditorValues(action);
     const firstStep = values.steps[0];
-    if (firstStep?.type === "send_message") {
+    if (firstStep?.type === "send_message" && isInlineFormula(firstStep.message)) {
       firstStep.message.aliases?.[0]?.path.push("mutated");
     }
 
     const authoritativeStep = action.steps?.[0];
     expect(authoritativeStep?.type).toBe("send_message");
-    if (authoritativeStep?.type === "send_message") {
+    if (authoritativeStep?.type === "send_message" && isInlineFormula(authoritativeStep.message)) {
       expect(authoritativeStep.message.aliases?.[0]?.path).toEqual(["sheet", "stats", "arcane"]);
     }
   });
@@ -261,6 +273,108 @@ describe("actionEditorValues", () => {
         text: "2"
       }
     });
+  });
+
+  it("authors set, increment, and decrement steps with bounded metadata-backed values", () => {
+    let values = createEmptyActionEditorValues();
+    values = addSetValueActionStep(values, "set_health", ["health"]);
+    values = addIncrementValueActionStep(values, "gain_health", ["health"]);
+    values = addDecrementValueActionStep(values, "spend_mana", ["mana"]);
+    values = updateBoundedMutationFormula(values, "set_health", "primary", { text: "50" });
+    values = setBoundedMutationSource(values, "gain_health", "max_value", {
+      type: "formula_reference",
+      formula_id: "max_health"
+    });
+    values = setBoundedMutationSource(values, "spend_mana", "min_value", {
+      aliases: null,
+      text: "0"
+    });
+    values = updateBoundedMutationSettings(values, "spend_mana", {
+      onMinViolation: "reject"
+    });
+
+    expect(values.steps[0]).toMatchObject({
+      type: "set_value",
+      path: ["health"],
+      value: { text: "50" }
+    });
+    expect(values.steps[1]).toMatchObject({
+      type: "increment_value",
+      max_value: { type: "formula_reference", formula_id: "max_health" }
+    });
+    expect(values.steps[2]).toMatchObject({
+      type: "decrement_value",
+      min_value: { text: "0" },
+      on_min_violation: "reject"
+    });
+    const firstStep = values.steps[0];
+    expect(
+      firstStep?.type === "set_value" && boundedMutationPrimarySource(firstStep)
+    ).toMatchObject({ text: "50" });
+  });
+
+  it("authors augmentation and condition record steps without raw IDs", () => {
+    let values = createEmptyActionEditorValues();
+    values = addApplyAugmentationActionStep(values, "ward", "shielded");
+    values = addApplyConditionPresetActionStep(values, "poison", "poisoned");
+    values = updateApplyAugmentationActionStep(values, "ward", { operation: "remove" });
+    values = updateApplyConditionPresetActionStep(values, "poison", {
+      conditionId: "burning",
+      operation: "apply"
+    });
+
+    expect(values.steps).toEqual([
+      {
+        step_id: "ward",
+        type: "apply_augmentation",
+        target: "caster",
+        augmentation_id: "shielded",
+        operation: "remove"
+      },
+      {
+        step_id: "poison",
+        type: "apply_condition_preset",
+        target: "caster",
+        condition_id: "burning",
+        operation: "apply"
+      }
+    ]);
+  });
+
+  it("selects stable global formula references for formula-bearing steps", () => {
+    let values = createEmptyActionEditorValues();
+    values = addCalculateValueActionStep(values, "calculate", "result");
+    values = addSendMessageActionStep(values, "message");
+    values = addResolveDamageActionStep(values, "damage");
+
+    values = setActionStepFormulaReference(values, "calculate", "shared_roll");
+    values = setActionStepFormulaReference(values, "message", "shared_message");
+    values = setActionStepFormulaReference(values, "damage", "shared_damage");
+
+    const calculate = values.steps[0];
+    const message = values.steps[1];
+    const damage = values.steps[2];
+    expect(
+      calculate?.type === "calculate_value" &&
+        isFormulaReference(calculate.value) &&
+        calculate.value.formula_id
+    ).toBe("shared_roll");
+    expect(
+      message?.type === "send_message" &&
+        isFormulaReference(message.message) &&
+        message.message.formula_id
+    ).toBe("shared_message");
+    expect(
+      damage?.type === "resolve_damage" &&
+        isFormulaReference(damage.amount) &&
+        damage.amount.formula_id
+    ).toBe("shared_damage");
+
+    const inlineValues = setActionStepFormulaReference(values, "damage", null);
+    const inlineDamage = inlineValues.steps[2];
+    expect(inlineDamage?.type === "resolve_damage" && isInlineFormula(inlineDamage.amount)).toBe(
+      true
+    );
   });
 
   it("updates only send message step text and preserves aliases", () => {
@@ -513,16 +627,18 @@ describe("actionEditorValues", () => {
     });
 
     expect(
-      messageResult.steps[0]?.type === "send_message" && messageResult.steps[0].message.tags
+      messageResult.steps[0]?.type === "send_message" &&
+        isInlineFormula(messageResult.steps[0].message) &&
+        messageResult.steps[0].message.tags
     ).toEqual(["check"]);
     expect(
       damageResult.steps[1]?.type === "resolve_damage" &&
-        !isCalculatedValueReference(damageResult.steps[1].amount) &&
+        isInlineFormula(damageResult.steps[1].amount) &&
         damageResult.steps[1].amount.tags
     ).toEqual(["damage", "fire"]);
     expect(
       proficiencyResult.steps[2]?.type === "gain_proficiency_use" &&
-        !isCalculatedValueReference(proficiencyResult.steps[2].amount) &&
+        isInlineFormula(proficiencyResult.steps[2].amount) &&
         proficiencyResult.steps[2].amount.tags
     ).toEqual(["progression"]);
   });
@@ -710,8 +826,6 @@ describe("actionEditorValues", () => {
       "calculate",
       "message"
     ]);
-    expect(removeCalculateValueActionStep(values, "calculate").steps).toEqual([
-      values.steps[0]
-    ]);
+    expect(removeCalculateValueActionStep(values, "calculate").steps).toEqual([values.steps[0]]);
   });
 });

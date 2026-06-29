@@ -12,6 +12,7 @@ from backend.features.sheet_admin.conditions.schema import (
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation
+from backend.state.models.action import ApplyConditionPresetStep
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.state import State
 
@@ -104,6 +105,21 @@ async def delete_condition_preset(request: DeleteConditionPreset) -> None:
         if request.condition_id not in state.condition_presets:
             raise ValueError(
                 f"Condition preset '{request.condition_id}' does not exist."
+            )
+        referencing_actions = sorted(
+            action_id
+            for action_id, action in state.actions.items()
+            if any(
+                isinstance(step, ApplyConditionPresetStep)
+                and step.condition_id == request.condition_id
+                for step in action.steps
+            )
+        )
+        if referencing_actions:
+            action_ids = ", ".join(referencing_actions)
+            raise ValueError(
+                f"Condition preset '{request.condition_id}' is referenced by "
+                f"actions: {action_ids}."
             )
 
         path = state_sync_service.join_path("condition_presets", request.condition_id)

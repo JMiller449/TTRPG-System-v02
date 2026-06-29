@@ -3,11 +3,13 @@ import type { SheetTemplateView } from "@/domain/models";
 export function TemplateListItem({
   template,
   onEdit,
-  onSpawn
+  onSpawn,
+  onDelete
 }: {
   template: SheetTemplateView;
   onEdit: () => void;
   onSpawn: () => void;
+  onDelete: () => void;
 }): JSX.Element {
   return (
     <article className="list-item">
@@ -21,6 +23,13 @@ export function TemplateListItem({
         </button>
         <button className="button button--secondary" onClick={onSpawn}>
           Spawn
+        </button>
+        <button
+          className="button button--secondary"
+          aria-label={`Delete template ${template.name}`}
+          onClick={onDelete}
+        >
+          Delete
         </button>
       </div>
     </article>

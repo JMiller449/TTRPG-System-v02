@@ -127,7 +127,6 @@ async def _update_formula(
         formulas = _formulas_state(state)
         if formula_id not in formulas:
             raise ValueError(f"Formula '{formula_id}' does not exist.")
-
         path = state_sync_service.join_path("formulas", formula_id)
         op = state_sync_service.set_mutation(state, path, formula)
         return None, [op]
@@ -144,6 +143,16 @@ async def _delete_formula(
         formulas = _formulas_state(state)
         if formula_id not in formulas:
             raise ValueError(f"Formula '{formula_id}' does not exist.")
+        referencing_actions = sorted(
+            action_id
+            for action_id, action in state.actions.items()
+            if formula_id in action.referenced_formula_ids()
+        )
+        if referencing_actions:
+            action_ids = ", ".join(referencing_actions)
+            raise ValueError(
+                f"Formula '{formula_id}' is referenced by actions: {action_ids}."
+            )
 
         path = state_sync_service.join_path("formulas", formula_id)
         _, op = state_sync_service.remove_mutation(state, path)

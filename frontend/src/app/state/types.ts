@@ -9,6 +9,7 @@ import type {
 import type {
   ActionDefinition,
   ActionHistoryEntry,
+  Augmentation,
   ConditionPreset,
   EncounterPreset,
   FormulaDefinition,
@@ -16,7 +17,7 @@ import type {
   PersistentSheet,
   ProficiencyDefinition,
   Role,
-  Sheet,
+  Sheet
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -59,6 +60,8 @@ export interface ServerState {
   actionOrder: string[];
   formulas: Record<string, FormulaDefinition>;
   formulaOrder: string[];
+  augmentations: Record<string, Augmentation>;
+  augmentationOrder: string[];
   conditionPresets: Record<string, ConditionPreset>;
   conditionPresetOrder: string[];
   encounters: Record<string, EncounterPreset>;

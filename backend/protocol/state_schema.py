@@ -149,6 +149,14 @@ class FormulaDefinitionPayload(ProtocolModel):
     formula: FormulaPayload
 
 
+class FormulaReferencePayload(ProtocolModel):
+    formula_id: str
+    type: Literal["formula_reference"]
+
+
+FormulaValuePayload = FormulaPayload | FormulaReferencePayload
+
+
 DamageTypePayload = Literal[
     "Arcane",
     "Slashing",
@@ -170,14 +178,14 @@ DamageTypePayload = Literal[
 
 class SendMessageStepPayload(ProtocolModel):
     step_id: str
-    message: FormulaPayload
+    message: FormulaValuePayload
     type: Literal["send_message"]
 
 
 class CalculateValueStepPayload(ProtocolModel):
     step_id: str
     variable_id: str
-    value: FormulaPayload
+    value: FormulaValuePayload
     type: Literal["calculate_value"]
 
 
@@ -186,7 +194,7 @@ class CalculatedValueReferencePayload(ProtocolModel):
     type: Literal["calculated_value"]
 
 
-NumericValuePayload = FormulaPayload | CalculatedValueReferencePayload
+NumericValuePayload = FormulaValuePayload | CalculatedValueReferencePayload
 
 
 class NumericBoundsPayload(ProtocolModel):

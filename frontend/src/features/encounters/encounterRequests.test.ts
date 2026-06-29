@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDeleteEncounterPresetSubmission,
   buildSaveEncounterPresetSubmission,
   buildSpawnEncounterPresetSubmission,
   toEncounterPresetPayload
@@ -59,6 +60,17 @@ describe("encounterRequests", () => {
         encounter_id: "encounter_1"
       },
       label: "Encounter spawn"
+    });
+  });
+
+  it("builds confirmed typed delete encounter preset submissions", () => {
+    expect(buildDeleteEncounterPresetSubmission(encounter)).toEqual({
+      request: {
+        type: "delete_encounter_preset",
+        encounter_id: "encounter_1"
+      },
+      label: "Encounter delete: Two Mages",
+      confirmation: 'Delete encounter preset "Two Mages" (encounter_1)? This cannot be undone.'
     });
   });
 });

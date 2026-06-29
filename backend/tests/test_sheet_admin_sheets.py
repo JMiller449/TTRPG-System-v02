@@ -5,6 +5,7 @@ from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.proficiency import Proficiency
+from backend.state.models.encounter import EncounterPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -631,6 +632,50 @@ def test_dm_can_delete_sheet(monkeypatch) -> None:
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_sheet_rejects_instance_and_encounter_dependencies(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                }
+            )
+            state.encounter_presets["mage_encounter"] = EncounterPreset.from_dict(
+                {
+                    "id": "mage_encounter",
+                    "name": "Mage Encounter",
+                    "entries": [{"template_id": "mage_template", "count": 1}],
+                    "updated_at": "2026-06-28T00:00:00Z",
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_sheet", "sheet_id": "mage_template"},
+            )
+
+            assert "mage_template" in state.sheets
+            assert websocket.sent_messages[0]["reason"] == (
+                "Sheet 'mage_template' cannot be deleted while referenced by "
+                "instances: mage_instance; encounter presets: mage_encounter."
+            )
         finally:
             StateSingleton._state = original_state
 

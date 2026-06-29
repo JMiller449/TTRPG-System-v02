@@ -482,6 +482,27 @@ async def _delete_sheet(
         sheets = _sheets_state(state)
         if sheet_id not in sheets:
             raise ValueError(f"Sheet '{sheet_id}' does not exist.")
+        instance_ids = sorted(
+            instance_id
+            for instance_id, instance in state.instanced_sheets.items()
+            if instance.parent_id == sheet_id
+        )
+        encounter_ids = sorted(
+            encounter_id
+            for encounter_id, encounter in state.encounter_presets.items()
+            if any(entry.template_id == sheet_id for entry in encounter.entries)
+        )
+        dependencies: list[str] = []
+        if instance_ids:
+            dependencies.append(f"instances: {', '.join(instance_ids)}")
+        if encounter_ids:
+            dependencies.append(f"encounter presets: {', '.join(encounter_ids)}")
+        if dependencies:
+            raise ValueError(
+                f"Sheet '{sheet_id}' cannot be deleted while referenced by "
+                + "; ".join(dependencies)
+                + "."
+            )
 
         path = state_sync_service.join_path("sheets", sheet_id)
         _, op = state_sync_service.remove_mutation(state, path)

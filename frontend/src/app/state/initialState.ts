@@ -15,6 +15,8 @@ export const initialServerState: ServerState = {
   actionOrder: [],
   formulas: {},
   formulaOrder: [],
+  augmentations: {},
+  augmentationOrder: [],
   conditionPresets: {},
   conditionPresetOrder: [],
   encounters: {},

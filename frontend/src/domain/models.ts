@@ -43,23 +43,29 @@ export interface FormulaDefinition {
   formula: Formula;
 }
 
+export interface FormulaReference {
+  formula_id: string;
+  type: "formula_reference";
+}
+
 export interface CalculatedValueReference {
   variable_id: string;
   type: "calculated_value";
 }
 
-export type NumericValueSource = Formula | CalculatedValueReference;
+export type FormulaValueSource = Formula | FormulaReference;
+export type NumericValueSource = FormulaValueSource | CalculatedValueReference;
 
 export interface SendMessageActionStep {
   step_id: string;
-  message: Formula;
+  message: FormulaValueSource;
   type: "send_message";
 }
 
 export interface CalculateValueActionStep {
   step_id: string;
   variable_id: string;
-  value: Formula;
+  value: FormulaValueSource;
   type: "calculate_value";
 }
 

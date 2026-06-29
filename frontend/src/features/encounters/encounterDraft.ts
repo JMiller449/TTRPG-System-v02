@@ -6,6 +6,6 @@ export interface DraftEncounterEntry {
   count: number;
 }
 
-export function newRosterEntry(): DraftEncounterEntry {
-  return { id: makeId("entry"), templateId: "", count: 1 };
+export function newRosterEntry(templateId = "", count = 1): DraftEncounterEntry {
+  return { id: makeId("entry"), templateId, count };
 }

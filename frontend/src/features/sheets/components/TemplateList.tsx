@@ -5,11 +5,13 @@ import { TemplateListItem } from "@/features/sheets/components/TemplateListItem"
 export function TemplateList({
   templates,
   onEdit,
-  onSpawn
+  onSpawn,
+  onDelete
 }: {
   templates: SheetTemplateView[];
   onEdit: (template: SheetTemplateView) => void;
   onSpawn: (template: SheetTemplateView) => void;
+  onDelete: (template: SheetTemplateView) => void;
 }): JSX.Element {
   return (
     <div className="list">
@@ -20,6 +22,7 @@ export function TemplateList({
           template={template}
           onEdit={() => onEdit(template)}
           onSpawn={() => onSpawn(template)}
+          onDelete={() => onDelete(template)}
         />
       ))}
     </div>

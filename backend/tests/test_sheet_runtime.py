@@ -9,6 +9,7 @@ from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation
 from backend.state.models.action import Action
 from backend.state.models.condition import ConditionPreset
+from backend.state.models.formula import FormulaDefinition
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -439,6 +440,96 @@ def test_perform_action_executes_steps_and_returns_snapshot(monkeypatch) -> None
             assert audit_entry.source.actor_role == "dm"
             assert audit_entry.source.entity_id("action_id") == "battle_cry"
             assert audit_entry.source.entity_id("sheet_id") == "mage_template"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_resolves_current_global_formula_by_id(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.formulas["battle_message"] = FormulaDefinition.from_dict(
+                {
+                    "id": "battle_message",
+                    "formula": _formula_payload(
+                        "Arcane is @arcane",
+                        [{"name": "arcane", "path": ["stats", "arcane"]}],
+                    ),
+                }
+            )
+            state.formulas["healing_amount"] = FormulaDefinition.from_dict(
+                {
+                    "id": "healing_amount",
+                    "formula": _formula_payload("5"),
+                }
+            )
+            state.actions["battle_cry"] = Action.from_dict(
+                {
+                    "id": "battle_cry",
+                    "name": "Battle Cry",
+                    "steps": [
+                        {
+                            "step_id": "healing",
+                            "type": "increment_value",
+                            "target": "caster",
+                            "path": ["health"],
+                            "amount": {
+                                "type": "formula_reference",
+                                "formula_id": "healing_amount",
+                            },
+                        },
+                        {
+                            "step_id": "message",
+                            "type": "send_message",
+                            "message": {
+                                "type": "formula_reference",
+                                "formula_id": "battle_message",
+                            },
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            request = {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "battle_cry",
+            }
+            await handle_client_payload(websocket, request)
+            state.formulas["healing_amount"] = FormulaDefinition.from_dict(
+                {
+                    "id": "healing_amount",
+                    "formula": _formula_payload("7"),
+                }
+            )
+            state.formulas["battle_message"] = FormulaDefinition.from_dict(
+                {
+                    "id": "battle_message",
+                    "formula": _formula_payload("Updated arcane is @arcane", [
+                        {"name": "arcane", "path": ["stats", "arcane"]}
+                    ]),
+                }
+            )
+            await handle_client_payload(websocket, request)
+
+            assert [message["message"] for message in bridge_socket.sent_messages] == [
+                "Arcane is (14)",
+                "Updated arcane is (14)",
+            ]
+            assert state.instanced_sheets["mage_instance"].health == 102
         finally:
             StateSingleton._state = original_state
 

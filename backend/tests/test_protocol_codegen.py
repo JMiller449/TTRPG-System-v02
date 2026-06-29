@@ -90,6 +90,9 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "create_action"' in output
     assert '"clientNamespace": "sheetAdminActions"' in output
     assert '"clientMethodName": "deleteAction"' in output
+    assert "export type FormulaReferencePayload = {" in output
+    assert '"type": "formula_reference";' in output
+    assert '"formula_id": string;' in output
     assert '"type": "create_formula"' in output
     assert '"clientNamespace": "sheetAdminFormulas"' in output
     assert '"clientMethodName": "deleteFormula"' in output

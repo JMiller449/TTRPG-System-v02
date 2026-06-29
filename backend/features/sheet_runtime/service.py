@@ -32,6 +32,8 @@ from backend.state.models.action import (
     CalculateValueStep,
     CalculatedValueReference,
     DecrementValueStep,
+    FormulaReference,
+    FormulaValueSource,
     GainProficiencyUseStep,
     IncrementValueStep,
     NumericValueSource,
@@ -137,14 +139,28 @@ def _formula_execution_context(
     *,
     action_id: str,
     step_id: str,
+    formula_id: str | None = None,
     semantic_tags: tuple[str, ...] = (),
 ) -> FormulaExecutionContext:
     return FormulaExecutionContext.for_formula(
         formula,
         action_id=action_id,
         step_id=step_id,
+        formula_id=formula_id,
         semantic_tags=semantic_tags,
     )
+
+
+def _resolve_formula_value(
+    state: State,
+    value: FormulaValueSource,
+) -> tuple[Formula, str | None]:
+    if isinstance(value, Formula):
+        return value, None
+    definition = state.formulas.get(value.formula_id)
+    if definition is None:
+        raise ValueError(f"Formula '{value.formula_id}' does not exist.")
+    return definition.formula, value.formula_id
 
 
 def _matching_formula_effects(
@@ -165,20 +181,22 @@ def _evaluate_action_formula(
     state: State,
     actor: RuntimeActor,
     formula_root: RuntimeFormulaContext,
-    formula: Formula,
+    formula: FormulaValueSource,
     action_id: str,
     step_id: str,
     semantic_tags: tuple[str, ...] = (),
 ) -> float | int:
+    resolved_formula, formula_id = _resolve_formula_value(state, formula)
     context = _formula_execution_context(
-        formula,
+        resolved_formula,
         action_id=action_id,
         step_id=step_id,
+        formula_id=formula_id,
         semantic_tags=semantic_tags,
     )
     return evaluate_numeric_formula(
         formula_root,
-        formula,
+        resolved_formula,
         execution_context=context,
         modifiers=_matching_formula_effects(state, actor, context),
     )
@@ -662,10 +680,15 @@ async def perform_action(
 
         for step in current_steps:
             if isinstance(step, SendMessageStep):
-                execution_context = _formula_execution_context(
+                message_formula, formula_id = _resolve_formula_value(
+                    state,
                     step.message,
+                )
+                execution_context = _formula_execution_context(
+                    message_formula,
                     action_id=current_action.id,
                     step_id=step.step_id,
+                    formula_id=formula_id,
                 )
                 modifiers = _matching_formula_effects(
                     state,
@@ -674,7 +697,7 @@ async def perform_action(
                 )
                 message = compose_roll20_message(
                     formula_root,
-                    step.message,
+                    message_formula,
                     execution_context=execution_context,
                     modifiers=modifiers,
                 )

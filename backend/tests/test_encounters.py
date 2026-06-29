@@ -161,6 +161,54 @@ def test_dm_can_save_encounter_preset(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_dm_can_edit_encounter_preset_without_changing_stable_id(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            base_request = {
+                "type": "save_encounter_preset",
+                "encounter": {
+                    "id": "encounter_1",
+                    "name": "Two Mages",
+                    "updated_at": "2026-06-19T00:00:00+00:00",
+                    "entries": [{"template_id": "mage_template", "count": 2}],
+                },
+            }
+            await handle_client_payload(websocket, base_request)
+            websocket.sent_messages.clear()
+
+            await handle_client_payload(
+                websocket,
+                {
+                    **base_request,
+                    "encounter": {
+                        **base_request["encounter"],
+                        "name": "Three Mages",
+                        "entries": [{"template_id": "mage_template", "count": 3}],
+                    },
+                },
+            )
+
+            assert set(state.encounter_presets) == {"encounter_1"}
+            assert state.encounter_presets["encounter_1"].name == "Three Mages"
+            assert state.encounter_presets["encounter_1"].entries[0].count == 3
+            assert websocket.sent_messages[0]["ops"][0]["op"] == "set"
+            assert websocket.sent_messages[0]["ops"][0]["path"] == (
+                "/encounter_presets/encounter_1"
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_spawn_encounter_preset(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

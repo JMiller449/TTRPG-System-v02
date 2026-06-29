@@ -97,7 +97,11 @@ function augmentationTemplate({ id = "aug_1", name = "Arcane Guard", value = "2"
   };
 }
 
-function actionHistoryEntry({ id = "history_1", summary = "Mana Burst succeeded.", version = 1 } = {}) {
+function actionHistoryEntry({
+  id = "history_1",
+  summary = "Mana Burst succeeded.",
+  version = 1
+} = {}) {
   return {
     id,
     request_id: `request_${id}`,
@@ -175,6 +179,9 @@ describe("authoritative server-state sync", () => {
             }
           }
         },
+        augmentations: {
+          aug_1: augmentationTemplate()
+        },
         encounter_presets: {
           encounter_1: {
             id: "encounter_1",
@@ -229,6 +236,8 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.itemOrder).toEqual(["item_1"]);
     expect(result.state.serverState.actionOrder).toEqual(["action_1"]);
     expect(result.state.serverState.formulaOrder).toEqual(["formula_1"]);
+    expect(result.state.serverState.augmentationOrder).toEqual(["aug_1"]);
+    expect(result.state.serverState.augmentations.aug_1?.name).toBe("Arcane Guard");
     expect(result.state.serverState.encounterOrder).toEqual(["encounter_1"]);
     expect(result.state.serverState.encounters.encounter_1).toEqual({
       id: "encounter_1",
@@ -632,7 +641,7 @@ describe("authoritative server-state sync", () => {
     expect(edited.state.serverState.actions.action_1?.name).toBe("Edited Mana Burst");
     const editedStep = edited.state.serverState.actions.action_1?.steps?.[0];
     expect(editedStep?.type).toBe("send_message");
-    if (editedStep?.type === "send_message") {
+    if (editedStep?.type === "send_message" && !("type" in editedStep.message)) {
       expect(editedStep.message.text).toBe("/em releases an edited mana burst.");
     }
     expect(edited.state.serverState.actionOrder).toEqual(["action_1"]);
@@ -869,7 +878,9 @@ describe("authoritative server-state sync", () => {
       request_id: "req-update-instance"
     });
 
-    expect(edited.state.serverState.persistentSheets.instance_1?.notes).toBe("Edited instance notes.");
+    expect(edited.state.serverState.persistentSheets.instance_1?.notes).toBe(
+      "Edited instance notes."
+    );
     expect(edited.state.serverState.persistentSheets.instance_1?.health).toBe(77);
     expect(selectActiveSheetDetail(edited.state)?.instance.notes).toBe("Edited instance notes.");
 
@@ -1091,7 +1102,9 @@ describe("authoritative server-state sync", () => {
       request_id: "req-update-action-bridge"
     });
 
-    expect(selectSheetAssignedActions(edited.state, "instance_1")[0]?.action.name).toBe("Power Attack");
+    expect(selectSheetAssignedActions(edited.state, "instance_1")[0]?.action.name).toBe(
+      "Power Attack"
+    );
 
     const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
       response_id: null,
@@ -1173,7 +1186,9 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(edited.state.serverState.sheets.sheet_1?.proficiencies.longsword?.use_count).toBe(3);
-    expect(edited.state.serverState.sheets.sheet_1?.proficiencies.longsword?.growth_rate).toBe(0.75);
+    expect(edited.state.serverState.sheets.sheet_1?.proficiencies.longsword?.growth_rate).toBe(
+      0.75
+    );
 
     const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
       response_id: null,
@@ -1304,7 +1319,9 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(created.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
-    expect(created.state.serverState.conditionPresets.poisoned?.augmentation_templates?.[0]?.id).toBe("aug_1");
+    expect(
+      created.state.serverState.conditionPresets.poisoned?.augmentation_templates?.[0]?.id
+    ).toBe("aug_1");
 
     const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
       response_id: null,
@@ -1386,7 +1403,9 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(created.state.serverState.items.item_1?.augmentation_templates).toHaveLength(1);
-    expect(created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect).toMatchObject({
+    expect(
+      created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect
+    ).toMatchObject({
       value: { text: "2" }
     });
 
@@ -1404,7 +1423,9 @@ describe("authoritative server-state sync", () => {
       request_id: "req-update-augmentation"
     });
 
-    expect(edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect).toMatchObject({
+    expect(
+      edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect
+    ).toMatchObject({
       value: { text: "4" }
     });
 
@@ -1468,7 +1489,9 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(appended.state.serverState.actionHistoryOrder).toEqual(["history_old", "history_new"]);
-    expect(appended.state.serverState.actionHistory.history_new?.summary).toBe("New action succeeded.");
+    expect(appended.state.serverState.actionHistory.history_new?.summary).toBe(
+      "New action succeeded."
+    );
 
     const pruned = applyAuthoritativeEvent(appended.state, appended.protocolState, {
       response_id: null,
@@ -1579,25 +1602,35 @@ describe("authoritative server-state sync", () => {
       request_id: "req-template-notes"
     });
 
-    expect(withTemplateNotes.state.serverState.sheets.sheet_1?.notes).toBe("GM-visible template notes.");
-    expect(selectActiveSheetDetail(withTemplateNotes.state)?.sheet?.notes).toBe("GM-visible template notes.");
+    expect(withTemplateNotes.state.serverState.sheets.sheet_1?.notes).toBe(
+      "GM-visible template notes."
+    );
+    expect(selectActiveSheetDetail(withTemplateNotes.state)?.sheet?.notes).toBe(
+      "GM-visible template notes."
+    );
 
-    const withInstanceNotes = applyAuthoritativeEvent(withTemplateNotes.state, withTemplateNotes.protocolState, {
-      response_id: null,
-      ops: [
-        {
-          op: "set",
-          path: "/instanced_sheets/instance_1/notes",
-          value: "Edited instance notes."
-        }
-      ],
-      state_version: 2,
-      type: "state_patch",
-      request_id: "req-instance-notes"
-    });
+    const withInstanceNotes = applyAuthoritativeEvent(
+      withTemplateNotes.state,
+      withTemplateNotes.protocolState,
+      {
+        response_id: null,
+        ops: [
+          {
+            op: "set",
+            path: "/instanced_sheets/instance_1/notes",
+            value: "Edited instance notes."
+          }
+        ],
+        state_version: 2,
+        type: "state_patch",
+        request_id: "req-instance-notes"
+      }
+    );
 
     const detail = selectActiveSheetDetail(withInstanceNotes.state);
-    expect(withInstanceNotes.state.serverState.persistentSheets.instance_1?.notes).toBe("Edited instance notes.");
+    expect(withInstanceNotes.state.serverState.persistentSheets.instance_1?.notes).toBe(
+      "Edited instance notes."
+    );
     expect(detail?.sheet?.notes).toBe("GM-visible template notes.");
     expect(detail?.instance.notes).toBe("Edited instance notes.");
   });

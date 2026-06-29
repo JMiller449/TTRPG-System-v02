@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from backend.protocol.socket import normalize_server_event
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.action import Action
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -183,6 +184,50 @@ def test_dm_can_create_update_and_delete_condition_preset(monkeypatch) -> None:
                 "path": "/condition_presets/poisoned",
                 "value": None,
             }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_condition_preset_rejects_action_references(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.condition_presets["poisoned"] = State.from_dict(
+                {"condition_presets": {"poisoned": _condition_payload()}}
+            ).condition_presets["poisoned"]
+            state.actions["poison_strike"] = Action.from_dict(
+                {
+                    "id": "poison_strike",
+                    "name": "Poison Strike",
+                    "steps": [
+                        {
+                            "step_id": "apply-poison",
+                            "type": "apply_condition_preset",
+                            "target": "caster",
+                            "condition_id": "poisoned",
+                            "operation": "apply",
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_condition_preset", "condition_id": "poisoned"},
+            )
+
+            assert "poisoned" in state.condition_presets
+            assert websocket.sent_messages[0]["reason"] == (
+                "Condition preset 'poisoned' is referenced by actions: poison_strike."
+            )
         finally:
             StateSingleton._state = original_state
 

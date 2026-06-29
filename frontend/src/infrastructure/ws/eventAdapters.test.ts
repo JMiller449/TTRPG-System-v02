@@ -655,6 +655,7 @@ describe("adaptProtocolServerEvent", () => {
           proficiencies: [],
           actions: [],
           formulas: [],
+          augmentations: [],
           conditionPresets: [],
           encounters: [],
           actionHistory: [
@@ -677,7 +678,7 @@ describe("adaptProtocolServerEvent", () => {
               error: null,
               redacted: true
             }
-          ],
+          ]
         }
       }
     ]);

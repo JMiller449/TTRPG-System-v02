@@ -32,13 +32,34 @@ class CalculatedValueReference:
         return cls(variable_id=raw["variable_id"])
 
 
-NumericValueSource = Formula | CalculatedValueReference
+@dataclass(frozen=True)
+class FormulaReference:
+    formula_id: str
+    type: Literal["formula_reference"] = "formula_reference"
+
+    def __post_init__(self) -> None:
+        if not self.formula_id:
+            raise ValueError("Formula reference IDs must not be empty.")
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "FormulaReference":
+        return cls(formula_id=raw["formula_id"])
+
+
+FormulaValueSource = Formula | FormulaReference
+NumericValueSource = FormulaValueSource | CalculatedValueReference
+
+
+def _formula_value_source(raw: dict) -> FormulaValueSource:
+    if raw.get("type") == "formula_reference":
+        return FormulaReference.from_dict(raw)
+    return Formula.from_dict(raw)
 
 
 def _numeric_value_source(raw: dict) -> NumericValueSource:
     if raw.get("type") == "calculated_value":
         return CalculatedValueReference.from_dict(raw)
-    return Formula.from_dict(raw)
+    return _formula_value_source(raw)
 
 
 def _numeric_value_or_none(raw: dict, key: str) -> NumericValueSource | None:
@@ -51,14 +72,14 @@ def _numeric_value_or_none(raw: dict, key: str) -> NumericValueSource | None:
 @dataclass
 class SendMessageStep:
     step_id: str
-    message: Formula
+    message: FormulaValueSource
     type: Literal["send_message"] = "send_message"
 
     @classmethod
     def from_dict(cls, raw: dict) -> "SendMessageStep":
         return cls(
             step_id=raw["step_id"],
-            message=Formula.from_dict(raw["message"]),
+            message=_formula_value_source(raw["message"]),
         )
 
 
@@ -66,7 +87,7 @@ class SendMessageStep:
 class CalculateValueStep:
     step_id: str
     variable_id: str
-    value: Formula
+    value: FormulaValueSource
     type: Literal["calculate_value"] = "calculate_value"
 
     def __post_init__(self) -> None:
@@ -77,7 +98,7 @@ class CalculateValueStep:
         return cls(
             step_id=raw["step_id"],
             variable_id=raw["variable_id"],
-            value=Formula.from_dict(raw["value"]),
+            value=_formula_value_source(raw["value"]),
         )
 
 
@@ -263,9 +284,11 @@ class Action:
             formulas: list[Formula] = []
             numeric_values: list[NumericValueSource | None] = []
             if isinstance(step, SendMessageStep):
-                formulas.append(step.message)
+                if isinstance(step.message, Formula):
+                    formulas.append(step.message)
             elif isinstance(step, CalculateValueStep):
-                formulas.append(step.value)
+                if isinstance(step.value, Formula):
+                    formulas.append(step.value)
             elif isinstance(step, SetValueStep):
                 numeric_values.append(step.value)
             elif isinstance(
@@ -310,6 +333,35 @@ class Action:
                         f"Duplicate calculated value variable ID '{step.variable_id}'."
                     )
                 available_variables.add(step.variable_id)
+
+    def referenced_formula_ids(self) -> set[str]:
+        formula_ids: set[str] = set()
+        for step in self.steps:
+            values: list[FormulaValueSource | NumericValueSource | None] = []
+            if isinstance(step, SendMessageStep):
+                values.append(step.message)
+            elif isinstance(step, CalculateValueStep):
+                values.append(step.value)
+            elif isinstance(step, SetValueStep):
+                values.extend((step.value, step.min_value, step.max_value))
+            elif isinstance(
+                step,
+                (
+                    IncrementValueStep,
+                    DecrementValueStep,
+                    ResolveDamageStep,
+                    GainProficiencyUseStep,
+                ),
+            ):
+                values.append(step.amount)
+                if isinstance(step, IncrementValueStep | DecrementValueStep):
+                    values.extend((step.min_value, step.max_value))
+            formula_ids.update(
+                value.formula_id
+                for value in values
+                if isinstance(value, FormulaReference)
+            )
+        return formula_ids
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Action":

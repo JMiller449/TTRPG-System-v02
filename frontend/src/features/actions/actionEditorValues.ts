@@ -8,6 +8,17 @@ export type SendMessageEditorStep = Extract<ActionEditorStep, { type: "send_mess
 export type CalculateValueEditorStep = Extract<ActionEditorStep, { type: "calculate_value" }>;
 export type ResolveDamageEditorStep = Extract<ActionEditorStep, { type: "resolve_damage" }>;
 export type IncrementValueEditorStep = Extract<ActionEditorStep, { type: "increment_value" }>;
+export type SetValueEditorStep = Extract<ActionEditorStep, { type: "set_value" }>;
+export type DecrementValueEditorStep = Extract<ActionEditorStep, { type: "decrement_value" }>;
+export type BoundedMutationEditorStep =
+  | SetValueEditorStep
+  | IncrementValueEditorStep
+  | DecrementValueEditorStep;
+export type ApplyAugmentationEditorStep = Extract<ActionEditorStep, { type: "apply_augmentation" }>;
+export type ApplyConditionPresetEditorStep = Extract<
+  ActionEditorStep,
+  { type: "apply_condition_preset" }
+>;
 export type GainProficiencyUseEditorStep = Extract<
   ActionEditorStep,
   { type: "gain_proficiency_use" }
@@ -29,13 +40,26 @@ export function createEmptyActionEditorValues(): ActionEditorValues {
   };
 }
 
-type EditorNumericValueSource = ResolveDamageEditorStep["amount"];
-type EditorFormulaValue = Exclude<EditorNumericValueSource, { type: "calculated_value" }>;
+export type EditorNumericValueSource = ResolveDamageEditorStep["amount"];
+type EditorFormulaValue = Exclude<
+  EditorNumericValueSource,
+  { type: "calculated_value" } | { type: "formula_reference" }
+>;
 
 export function isCalculatedValueReference(
   value: EditorNumericValueSource
 ): value is Extract<EditorNumericValueSource, { type: "calculated_value" }> {
   return "type" in value && value.type === "calculated_value";
+}
+
+export function isFormulaReference(
+  value: EditorNumericValueSource
+): value is Extract<EditorNumericValueSource, { type: "formula_reference" }> {
+  return "type" in value && value.type === "formula_reference";
+}
+
+export function isInlineFormula(value: EditorNumericValueSource): value is EditorFormulaValue {
+  return !isCalculatedValueReference(value) && !isFormulaReference(value);
 }
 
 function emptyFormulaValue(text = ""): EditorFormulaValue {
@@ -128,6 +152,68 @@ export function createIncrementValueActionStep(
   };
 }
 
+export function createSetValueActionStep(
+  stepId: string,
+  path: string[],
+  valueText = ""
+): SetValueEditorStep {
+  return {
+    step_id: stepId,
+    type: "set_value",
+    target: "caster",
+    path: [...path],
+    value: emptyFormulaValue(valueText),
+    min_value: null,
+    max_value: null,
+    on_min_violation: "clamp",
+    on_max_violation: "clamp"
+  };
+}
+
+export function createDecrementValueActionStep(
+  stepId: string,
+  path: string[],
+  amountText = ""
+): DecrementValueEditorStep {
+  return {
+    step_id: stepId,
+    type: "decrement_value",
+    target: "caster",
+    path: [...path],
+    amount: emptyFormulaValue(amountText),
+    min_value: null,
+    max_value: null,
+    on_min_violation: "clamp",
+    on_max_violation: "clamp"
+  };
+}
+
+export function createApplyAugmentationActionStep(
+  stepId: string,
+  augmentationId: string
+): ApplyAugmentationEditorStep {
+  return {
+    step_id: stepId,
+    type: "apply_augmentation",
+    target: "caster",
+    augmentation_id: augmentationId,
+    operation: "apply"
+  };
+}
+
+export function createApplyConditionPresetActionStep(
+  stepId: string,
+  conditionId: string
+): ApplyConditionPresetEditorStep {
+  return {
+    step_id: stepId,
+    type: "apply_condition_preset",
+    target: "caster",
+    condition_id: conditionId,
+    operation: "apply"
+  };
+}
+
 export function createGainProficiencyUseActionStep(
   stepId: string,
   proficiencyId: string,
@@ -162,10 +248,7 @@ export function addCalculateValueActionStep(
 ): ActionEditorValues {
   return {
     ...values,
-    steps: [
-      ...cloneActionSteps(values.steps),
-      createCalculateValueActionStep(stepId, variableId)
-    ]
+    steps: [...cloneActionSteps(values.steps), createCalculateValueActionStep(stepId, variableId)]
   };
 }
 
@@ -187,15 +270,19 @@ export function updateCalculateValueActionStep(
         ? {
             ...step,
             variable_id: updates.variableId ?? step.variable_id,
-            value: {
-              ...step.value,
-              aliases:
-                updates.aliases === undefined
-                  ? step.value.aliases
-                  : cloneAliases(updates.aliases),
-              text: updates.formulaText ?? step.value.text,
-              ...(updates.tags === undefined ? {} : { tags: normalizeFormulaTags(updates.tags) })
-            }
+            value: isInlineFormula(step.value)
+              ? {
+                  ...step.value,
+                  aliases:
+                    updates.aliases === undefined
+                      ? step.value.aliases
+                      : cloneAliases(updates.aliases),
+                  text: updates.formulaText ?? step.value.text,
+                  ...(updates.tags === undefined
+                    ? {}
+                    : { tags: normalizeFormulaTags(updates.tags) })
+                }
+              : step.value
           }
         : step
     )
@@ -219,9 +306,56 @@ export function addIncrementValueActionStep(
 ): ActionEditorValues {
   return {
     ...values,
+    steps: [...cloneActionSteps(values.steps), createIncrementValueActionStep(stepId, path)]
+  };
+}
+
+export function addSetValueActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  path: string[]
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [...cloneActionSteps(values.steps), createSetValueActionStep(stepId, path)]
+  };
+}
+
+export function addDecrementValueActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  path: string[]
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [...cloneActionSteps(values.steps), createDecrementValueActionStep(stepId, path)]
+  };
+}
+
+export function addApplyAugmentationActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  augmentationId: string
+): ActionEditorValues {
+  return {
+    ...values,
     steps: [
       ...cloneActionSteps(values.steps),
-      createIncrementValueActionStep(stepId, path)
+      createApplyAugmentationActionStep(stepId, augmentationId)
+    ]
+  };
+}
+
+export function addApplyConditionPresetActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  conditionId: string
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [
+      ...cloneActionSteps(values.steps),
+      createApplyConditionPresetActionStep(stepId, conditionId)
     ]
   };
 }
@@ -243,7 +377,7 @@ export function updateIncrementValueActionStep(
       if (step.step_id !== stepId || step.type !== "increment_value") {
         return step;
       }
-      if (isCalculatedValueReference(step.amount)) {
+      if (!isInlineFormula(step.amount)) {
         return {
           ...step,
           path: updates.path ? [...updates.path] : step.path
@@ -261,6 +395,169 @@ export function updateIncrementValueActionStep(
         }
       };
     })
+  };
+}
+
+export type BoundedMutationSourceSlot = "primary" | "min_value" | "max_value";
+
+export function boundedMutationPrimarySource(
+  step: BoundedMutationEditorStep
+): EditorNumericValueSource {
+  return step.type === "set_value" ? step.value : step.amount;
+}
+
+function boundedMutationSlotSource(
+  step: BoundedMutationEditorStep,
+  slot: BoundedMutationSourceSlot
+): EditorNumericValueSource | null | undefined {
+  if (slot === "primary") {
+    return boundedMutationPrimarySource(step);
+  }
+  return step[slot];
+}
+
+export function setBoundedMutationSource(
+  values: ActionEditorValues,
+  stepId: string,
+  slot: BoundedMutationSourceSlot,
+  source: EditorNumericValueSource | null
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) => {
+      if (
+        step.step_id !== stepId ||
+        (step.type !== "set_value" &&
+          step.type !== "increment_value" &&
+          step.type !== "decrement_value")
+      ) {
+        return step;
+      }
+      if (slot === "primary") {
+        if (source === null) {
+          return step;
+        }
+        return step.type === "set_value" ? { ...step, value: source } : { ...step, amount: source };
+      }
+      return { ...step, [slot]: source };
+    })
+  };
+}
+
+export function updateBoundedMutationFormula(
+  values: ActionEditorValues,
+  stepId: string,
+  slot: BoundedMutationSourceSlot,
+  updates: {
+    text?: string;
+    aliases?: FormulaAlias[] | null;
+    tags?: string[];
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) => {
+      if (
+        step.step_id !== stepId ||
+        (step.type !== "set_value" &&
+          step.type !== "increment_value" &&
+          step.type !== "decrement_value")
+      ) {
+        return step;
+      }
+      const source = boundedMutationSlotSource(step, slot);
+      if (!source || !isInlineFormula(source)) {
+        return step;
+      }
+      const updatedSource: EditorFormulaValue = {
+        ...source,
+        aliases: updates.aliases === undefined ? source.aliases : cloneAliases(updates.aliases),
+        text: updates.text ?? source.text,
+        ...(updates.tags === undefined ? {} : { tags: normalizeFormulaTags(updates.tags) })
+      };
+      if (slot === "primary") {
+        return step.type === "set_value"
+          ? { ...step, value: updatedSource }
+          : { ...step, amount: updatedSource };
+      }
+      return { ...step, [slot]: updatedSource };
+    })
+  };
+}
+
+export function updateBoundedMutationSettings(
+  values: ActionEditorValues,
+  stepId: string,
+  updates: {
+    path?: string[];
+    onMinViolation?: "clamp" | "reject";
+    onMaxViolation?: "clamp" | "reject";
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId &&
+      (step.type === "set_value" ||
+        step.type === "increment_value" ||
+        step.type === "decrement_value")
+        ? {
+            ...step,
+            path: updates.path ? [...updates.path] : step.path,
+            on_min_violation: updates.onMinViolation ?? step.on_min_violation,
+            on_max_violation: updates.onMaxViolation ?? step.on_max_violation
+          }
+        : step
+    )
+  };
+}
+
+export function updateApplyAugmentationActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  updates: {
+    augmentationId?: string;
+    operation?: "apply" | "remove";
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "apply_augmentation"
+        ? {
+            ...step,
+            augmentation_id: updates.augmentationId ?? step.augmentation_id,
+            operation: updates.operation ?? step.operation
+          }
+        : step
+    )
+  };
+}
+
+export function updateApplyConditionPresetActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  updates: {
+    conditionId?: string;
+    operation?: "apply" | "remove";
+  }
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "apply_condition_preset"
+        ? {
+            ...step,
+            condition_id: updates.conditionId ?? step.condition_id,
+            operation: updates.operation ?? step.operation
+          }
+        : step
+    )
   };
 }
 
@@ -290,11 +587,13 @@ export function updateSendMessageActionStepText(
       step.step_id === stepId && step.type === "send_message"
         ? {
             ...step,
-            message: {
-              ...step.message,
-              aliases: step.message.aliases,
-              text: messageText
-            }
+            message: isInlineFormula(step.message)
+              ? {
+                  ...step.message,
+                  aliases: step.message.aliases,
+                  text: messageText
+                }
+              : step.message
           }
         : step
     )
@@ -317,15 +616,19 @@ export function updateSendMessageActionStepFormula(
       step.step_id === stepId && step.type === "send_message"
         ? {
             ...step,
-            message: {
-              ...step.message,
-              aliases:
-                updates.aliases === undefined
-                  ? step.message.aliases
-                  : cloneAliases(updates.aliases),
-              text: updates.messageText ?? step.message.text,
-              ...(updates.tags === undefined ? {} : { tags: normalizeFormulaTags(updates.tags) })
-            }
+            message: isInlineFormula(step.message)
+              ? {
+                  ...step.message,
+                  aliases:
+                    updates.aliases === undefined
+                      ? step.message.aliases
+                      : cloneAliases(updates.aliases),
+                  text: updates.messageText ?? step.message.text,
+                  ...(updates.tags === undefined
+                    ? {}
+                    : { tags: normalizeFormulaTags(updates.tags) })
+                }
+              : step.message
           }
         : step
     )
@@ -344,17 +647,17 @@ export function updateResolveDamageActionStep(
   return {
     ...nextValues,
     steps: nextValues.steps.map((step) =>
-      step.step_id === stepId &&
-      step.type === "resolve_damage" &&
-      !isCalculatedValueReference(step.amount)
+      step.step_id === stepId && step.type === "resolve_damage"
         ? {
             ...step,
             damage_type: updates.damageType ?? step.damage_type,
-            amount: {
-              ...step.amount,
-              aliases: step.amount.aliases,
-              text: updates.amountText ?? step.amount.text
-            }
+            amount: isInlineFormula(step.amount)
+              ? {
+                  ...step.amount,
+                  aliases: step.amount.aliases,
+                  text: updates.amountText ?? step.amount.text
+                }
+              : step.amount
           }
         : step
     )
@@ -374,9 +677,7 @@ export function updateResolveDamageActionStepFormula(
   return {
     ...nextValues,
     steps: nextValues.steps.map((step) =>
-      step.step_id === stepId &&
-      step.type === "resolve_damage" &&
-      !isCalculatedValueReference(step.amount)
+      step.step_id === stepId && step.type === "resolve_damage" && isInlineFormula(step.amount)
         ? {
             ...step,
             amount: {
@@ -404,17 +705,17 @@ export function updateGainProficiencyUseActionStep(
   return {
     ...nextValues,
     steps: nextValues.steps.map((step) =>
-      step.step_id === stepId &&
-      step.type === "gain_proficiency_use" &&
-      !isCalculatedValueReference(step.amount)
+      step.step_id === stepId && step.type === "gain_proficiency_use"
         ? {
             ...step,
             proficiency_id: updates.proficiencyId ?? step.proficiency_id,
-            amount: {
-              ...step.amount,
-              aliases: step.amount.aliases,
-              text: updates.amountText ?? step.amount.text
-            }
+            amount: isInlineFormula(step.amount)
+              ? {
+                  ...step.amount,
+                  aliases: step.amount.aliases,
+                  text: updates.amountText ?? step.amount.text
+                }
+              : step.amount
           }
         : step
     )
@@ -436,7 +737,7 @@ export function updateGainProficiencyUseActionStepFormula(
     steps: nextValues.steps.map((step) =>
       step.step_id === stepId &&
       step.type === "gain_proficiency_use" &&
-      !isCalculatedValueReference(step.amount)
+      isInlineFormula(step.amount)
         ? {
             ...step,
             amount: {
@@ -494,6 +795,50 @@ export function moveActionStep(
   return nextValues;
 }
 
+export function removeActionStep(values: ActionEditorValues, stepId: string): ActionEditorValues {
+  return {
+    ...values,
+    steps: cloneActionSteps(values.steps).filter((step) => step.step_id !== stepId)
+  };
+}
+
+export function setActionStepFormulaReference(
+  values: ActionEditorValues,
+  stepId: string,
+  formulaId: string | null
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  const source: EditorFormulaValue | { type: "formula_reference"; formula_id: string } = formulaId
+    ? { type: "formula_reference", formula_id: formulaId }
+    : emptyFormulaValue();
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) => {
+      if (step.step_id !== stepId) {
+        return step;
+      }
+      if (step.type === "send_message") {
+        return { ...step, message: source };
+      }
+      if (step.type === "calculate_value") {
+        return { ...step, value: source };
+      }
+      if (step.type === "set_value") {
+        return { ...step, value: source };
+      }
+      if (
+        step.type === "increment_value" ||
+        step.type === "decrement_value" ||
+        step.type === "resolve_damage" ||
+        step.type === "gain_proficiency_use"
+      ) {
+        return { ...step, amount: source };
+      }
+      return step;
+    })
+  };
+}
+
 export function setNumericStepCalculatedValue(
   values: ActionEditorValues,
   stepId: string,
@@ -505,18 +850,18 @@ export function setNumericStepCalculatedValue(
     steps: nextValues.steps.map((step) => {
       if (
         step.step_id !== stepId ||
-        (step.type !== "increment_value" &&
+        (step.type !== "set_value" &&
+          step.type !== "increment_value" &&
+          step.type !== "decrement_value" &&
           step.type !== "resolve_damage" &&
           step.type !== "gain_proficiency_use")
       ) {
         return step;
       }
-      return {
-        ...step,
-        amount: variableId
-          ? { type: "calculated_value", variable_id: variableId }
-          : emptyFormulaValue()
-      };
+      const source = variableId
+        ? ({ type: "calculated_value", variable_id: variableId } as const)
+        : emptyFormulaValue();
+      return step.type === "set_value" ? { ...step, value: source } : { ...step, amount: source };
     })
   };
 }

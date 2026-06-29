@@ -18,6 +18,7 @@ import {
 } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
+import type { Augmentation, ConditionPreset } from "@/domain/models";
 
 export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -25,6 +26,12 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
       serverState: {
         actions: actionRecords,
         actionOrder,
+        formulas: formulaRecords,
+        formulaOrder,
+        augmentations: augmentationRecords,
+        augmentationOrder,
+        conditionPresets,
+        conditionPresetOrder,
         proficiencies: proficiencyRecords,
         proficiencyOrder
       },
@@ -46,6 +53,29 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         .map((proficiencyId) => proficiencyRecords[proficiencyId])
         .filter((proficiency) => Boolean(proficiency)),
     [proficiencyOrder, proficiencyRecords]
+  );
+  const formulas = useMemo(
+    () =>
+      formulaOrder
+        .map((formulaId) => formulaRecords[formulaId])
+        .filter((formula) => Boolean(formula)),
+    [formulaOrder, formulaRecords]
+  );
+  const augmentations = useMemo(
+    () =>
+      augmentationOrder
+        .map((augmentationId) => augmentationRecords[augmentationId])
+        .filter(
+          (augmentation): augmentation is Augmentation => augmentation?.target.root === "instance"
+        ),
+    [augmentationOrder, augmentationRecords]
+  );
+  const conditions = useMemo(
+    () =>
+      conditionPresetOrder
+        .map((conditionId) => conditionPresets[conditionId])
+        .filter((condition): condition is ConditionPreset => Boolean(condition)),
+    [conditionPresetOrder, conditionPresets]
   );
 
   const startNewAction = (): void => {
@@ -107,6 +137,9 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           onCancel={startNewAction}
           metadata={actionFormulaAuthoringMetadata}
           proficiencies={proficiencies}
+          formulas={formulas}
+          augmentations={augmentations}
+          conditions={conditions}
         />
 
         <ActionStepMetadataPanel metadata={actionFormulaAuthoringMetadata} />

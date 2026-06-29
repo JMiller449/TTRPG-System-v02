@@ -14,6 +14,8 @@ from backend.features.sheet_admin.actions.schema import (
     DeleteAction,
     DecrementValueActionStepPayload,
     GainProficiencyUseActionStepPayload,
+    FormulaReferencePayload,
+    FormulaValuePayload,
     IncrementValueActionStepPayload,
     NumericBoundsPayload,
     NumericValuePayload,
@@ -42,6 +44,8 @@ from backend.state.models.action import (
     CalculatedValueReference,
     DecrementValueStep,
     GainProficiencyUseStep,
+    FormulaReference,
+    FormulaValueSource,
     IncrementValueStep,
     NumericValueSource,
     ResolveDamageStep,
@@ -86,9 +90,27 @@ def _action_value_paths(variable_ids: set[str]) -> set[tuple[str, ...]]:
 def _validate_numeric_value(
     value: NumericValuePayload | None,
     *,
+    state: State | None,
     available_variables: set[str],
 ) -> None:
     if value is None or isinstance(value, CalculatedValueReferencePayload):
+        return
+    _validate_formula_value(
+        value,
+        state=state,
+        available_variables=available_variables,
+    )
+
+
+def _validate_formula_value(
+    value: FormulaValuePayload,
+    *,
+    state: State | None,
+    available_variables: set[str],
+) -> None:
+    if isinstance(value, FormulaReferencePayload):
+        if state is not None and value.formula_id not in state.formulas:
+            raise ValueError(f"Formula '{value.formula_id}' does not exist.")
         return
     validate_formula_payload_paths(
         value,
@@ -104,21 +126,43 @@ def _validate_action_step(
 ) -> None:
     _validate_action_step_target(step)
     if isinstance(step, SendMessageActionStepPayload):
-        validate_formula_payload_paths(
+        _validate_formula_value(
             step.message,
-            additional_paths=_action_value_paths(available_variables),
+            state=state,
+            available_variables=available_variables,
         )
         return
     if isinstance(step, CalculateValueActionStepPayload):
-        validate_formula_payload_paths(
+        _validate_formula_value(
             step.value,
-            additional_paths=_action_value_paths(available_variables),
+            state=state,
+            available_variables=available_variables,
         )
+        return
+    if isinstance(step, ApplyAugmentationActionStepPayload):
+        if state is not None:
+            augmentation = state.augmentations.get(step.augmentation_id)
+            if augmentation is None:
+                raise ValueError(
+                    f"Augmentation '{step.augmentation_id}' does not exist."
+                )
+            if augmentation.target.root != "instance":
+                raise ValueError(
+                    "Action augmentation steps can only use instance-targeted "
+                    "augmentation records."
+                )
+        return
+    if isinstance(step, ApplyConditionPresetActionStepPayload):
+        if state is not None and step.condition_id not in state.condition_presets:
+            raise ValueError(
+                f"Condition preset '{step.condition_id}' does not exist."
+            )
         return
     if isinstance(step, SetValueActionStepPayload):
         _validate_action_mutation_path(step.path)
         _validate_numeric_value(
             step.value,
+            state=state,
             available_variables=available_variables,
         )
     if isinstance(
@@ -128,6 +172,7 @@ def _validate_action_step(
         _validate_action_mutation_path(step.path)
         _validate_numeric_value(
             step.amount,
+            state=state,
             available_variables=available_variables,
         )
     if isinstance(step, GainProficiencyUseActionStepPayload):
@@ -135,20 +180,24 @@ def _validate_action_step(
             raise ValueError(f"Proficiency '{step.proficiency_id}' does not exist.")
         _validate_numeric_value(
             step.amount,
+            state=state,
             available_variables=available_variables,
         )
     if isinstance(step, ResolveDamageActionStepPayload):
         _validate_numeric_value(
             step.amount,
+            state=state,
             available_variables=available_variables,
         )
     if isinstance(step, NumericBoundsPayload):
         _validate_numeric_value(
             step.min_value,
+            state=state,
             available_variables=available_variables,
         )
         _validate_numeric_value(
             step.max_value,
+            state=state,
             available_variables=available_variables,
         )
 
@@ -175,6 +224,19 @@ def _build_numeric_value(
 ) -> NumericValueSource:
     if isinstance(value, CalculatedValueReferencePayload):
         return CalculatedValueReference(variable_id=value.variable_id)
+    return _build_formula_value(
+        value,
+        available_variables=available_variables,
+    )
+
+
+def _build_formula_value(
+    value: FormulaValuePayload,
+    *,
+    available_variables: set[str],
+) -> FormulaValueSource:
+    if isinstance(value, FormulaReferencePayload):
+        return FormulaReference(formula_id=value.formula_id)
     return build_formula(
         value,
         additional_paths=_action_value_paths(available_variables),
@@ -222,18 +284,18 @@ def _build_step(
     if isinstance(step, SendMessageActionStepPayload):
         return SendMessageStep(
             step_id=step.step_id,
-            message=build_formula(
+            message=_build_formula_value(
                 step.message,
-                additional_paths=_action_value_paths(available_variables),
+                available_variables=available_variables,
             ),
         )
     if isinstance(step, CalculateValueActionStepPayload):
         return CalculateValueStep(
             step_id=step.step_id,
             variable_id=step.variable_id,
-            value=build_formula(
+            value=_build_formula_value(
                 step.value,
-                additional_paths=_action_value_paths(available_variables),
+                available_variables=available_variables,
             ),
         )
     if isinstance(step, SetValueActionStepPayload):

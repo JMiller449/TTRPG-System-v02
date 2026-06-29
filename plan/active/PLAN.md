@@ -1065,7 +1065,7 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
   - Added a bounded backend inverse-patch stack and DM-only typed undo request.
   - Added a GM-facing Undo Last Change visual control.
   - Undo emits normal authoritative patches; it is not a replay system and does not duplicate side-effect state.
-
+- [ ] Fix side effect bug explained by `plan/active/side_effect_bug.md` and then delete `plan/active/side_effect_bug.md` after finishing
 ### Later
 
 - [ ] Combat/turn tracking.

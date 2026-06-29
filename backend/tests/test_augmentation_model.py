@@ -16,6 +16,8 @@ def _augmentation_payload() -> dict:
             "type": "item",
             "id": "flame_brand",
             "label": "Flame Brand",
+            "relationship_id": None,
+            "application_id": None,
         },
         "scope": "instance",
         "target": {
@@ -41,6 +43,7 @@ def _augmentation_payload() -> dict:
         "active": True,
         "applied": False,
         "applied_target_id": None,
+        "lifecycle_owner": "manual",
         "lifecycle": {
             "duration": None,
             "expires_at": None,

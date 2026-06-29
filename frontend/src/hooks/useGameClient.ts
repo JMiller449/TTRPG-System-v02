@@ -68,6 +68,7 @@ export function useGameClient(): GameClient {
   const { dispatch } = useAppStore();
   const clientRef = useRef<ManagedGameClient | null>(null);
   const pendingIntentMapRef = useRef<Record<string, PendingIntentMetadata>>({});
+  const facadeRef = useRef<GameClient | null>(null);
   if (!clientRef.current) {
     const options: ManagedGameClientOptions = {
       wsUrl: import.meta.env.VITE_WS_URL
@@ -328,12 +329,16 @@ export function useGameClient(): GameClient {
     client.authenticateWithCode(code);
   };
 
-  return {
-    connect,
-    disconnect,
-    endSession,
-    sendProtocolRequest,
-    authenticate,
-    authenticateWithCode
-  };
+  if (!facadeRef.current) {
+    facadeRef.current = {
+      connect,
+      disconnect,
+      endSession,
+      sendProtocolRequest,
+      authenticate,
+      authenticateWithCode
+    };
+  }
+
+  return facadeRef.current;
 }

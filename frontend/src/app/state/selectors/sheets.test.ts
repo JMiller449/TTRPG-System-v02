@@ -5,8 +5,6 @@ import type { Formula, ItemBridge, ItemDefinition, PersistentSheet, Sheet, Stats
 import {
   selectSheetAssignedActions,
   selectActiveSheetDetail,
-  selectActiveWeaponEntryId,
-  selectActiveWeaponLabel,
   selectAvailableItems,
   selectPlayerInstances,
   selectSheetEquipment,
@@ -52,6 +50,7 @@ function item(id: string, name: string): ItemDefinition {
   return {
     id,
     name,
+    interaction_type: "equippable",
     description: "",
     price: "",
     weight: "",
@@ -62,13 +61,13 @@ function item(id: string, name: string): ItemDefinition {
 function equipmentBridge(
   relationshipId: string,
   itemId: string,
-  active: boolean
+  equipped: boolean
 ): ItemBridge {
   return {
     relationship_id: relationshipId,
     item_id: itemId,
     count: 1,
-    active
+    equipped
   };
 }
 
@@ -224,7 +223,7 @@ describe("sheet selectors", () => {
     expect(selectActiveSheetDetail(state)?.stats).toEqual({});
   });
 
-  it("resolves template equipment and active weapon labels from sheet or instance ids", () => {
+  it("resolves template equipment from sheet or instance ids", () => {
     const state = stateFixture();
 
     expect(selectSheetEquipment(state, "sheet_player")).toEqual([
@@ -232,21 +231,18 @@ describe("sheet selectors", () => {
         relationship_id: "bridge_staff",
         item_id: "item_staff",
         count: 1,
-        active: true
+        equipped: true
       },
       {
         relationship_id: "bridge_lantern",
         item_id: "item_lantern",
         count: 1,
-        active: false
+        equipped: false
       }
     ]);
     expect(selectSheetEquipment(state, "instance_player")).toEqual(
       selectSheetEquipment(state, "sheet_player")
     );
-    expect(selectActiveWeaponEntryId(state, "instance_player")).toBe("bridge_staff");
-    expect(selectActiveWeaponLabel(state, "instance_player")).toBe("Arc Staff");
-    expect(selectActiveWeaponLabel(state, "missing")).toBe("None");
   });
 
   it("resolves assigned actions from sheet or instance ids and filters stale bridges", () => {

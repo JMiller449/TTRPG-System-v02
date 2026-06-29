@@ -6,6 +6,9 @@ from typing import Any
 from backend.features.session.models import WebSocketSession
 from backend.features.state_backup.schema import StateBackupExported
 from backend.features.state_sync.service import state_sync_service
+from backend.features.augmentations.service import (
+    synchronize_equipment_augmentations_mutation,
+)
 from backend.state.migrations import (
     CURRENT_STATE_SCHEMA_VERSION,
     PersistedStateError,
@@ -41,6 +44,7 @@ async def import_state_backup(
     migration = migrate_persisted_state(_parse_import_payload(persisted_state_json))
     try:
         imported_state = State.from_dict(migration.state)
+        synchronize_equipment_augmentations_mutation(imported_state)
     except (TypeError, ValueError, KeyError) as exc:
         raise PersistedStateError("Imported state backup does not match the state schema.") from exc
 

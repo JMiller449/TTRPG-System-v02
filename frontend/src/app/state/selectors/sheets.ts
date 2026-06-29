@@ -210,11 +210,14 @@ export function selectSheetAssignedActions(
       return [];
     }
     const item = state.serverState.items[itemBridge.item_id];
-    if (!item) {
+    if (!item || item.interaction_type === "inventory_only") {
       return [];
     }
     return (item.action_grants ?? []).flatMap((grant) => {
-      if (grant.availability === "equipped" && !itemBridge.active) {
+      if (grant.availability === "equipped" && !itemBridge.equipped) {
+        return [];
+      }
+      if (grant.availability === "equipped" && item.interaction_type !== "equippable") {
         return [];
       }
       if ((grant.consume_quantity ?? 0) > itemBridge.count) {
@@ -237,27 +240,6 @@ export function selectSheetAssignedActions(
   });
 
   return [...assignedActions, ...itemGrantedActions];
-}
-
-export function selectActiveWeaponEntryId(state: AppState, sheetId: string): string | null {
-  return (
-    selectSheetEquipment(state, sheetId).find((entry) => entry.active)?.relationship_id ?? null
-  );
-}
-
-export function selectActiveWeaponLabel(state: AppState, sheetId: string): string {
-  const activeWeaponEntryId = selectActiveWeaponEntryId(state, sheetId);
-  if (!activeWeaponEntryId) {
-    return "None";
-  }
-
-  const equipment = selectSheetEquipment(state, sheetId);
-  const activeEntry = equipment.find((entry) => entry.relationship_id === activeWeaponEntryId);
-  if (!activeEntry) {
-    return "None";
-  }
-
-  return state.serverState.items[activeEntry.item_id]?.name ?? "None";
 }
 
 export function selectPlayerInstances(state: AppState): SheetInstanceView[] {

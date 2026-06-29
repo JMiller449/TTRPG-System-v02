@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -14,7 +17,11 @@ from backend.features.formula_runtime.service import (
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.models.augmentation import Augmentation, AugmentationSource
+from backend.state.models.augmentation import (
+    Augmentation,
+    AugmentationSource,
+    EquipmentEffectProjection,
+)
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
 
@@ -80,7 +87,8 @@ def matching_evaluation_effects(
 
     for augmentation in state.augmentations.values():
         if (
-            not augmentation.active
+            augmentation.lifecycle_owner == "equipment"
+            or not augmentation.active
             or not augmentation.applied
             or not _is_evaluation_time_effect(augmentation)
         ):
@@ -98,10 +106,10 @@ def matching_evaluation_effects(
         return tuple(effects)
 
     for bridge in sheet.items.values():
-        if not bridge.active or bridge.count <= 0:
+        if not bridge.equipped or bridge.count <= 0:
             continue
         item = state.items.get(bridge.item_id)
-        if item is None:
+        if item is None or item.interaction_type != "equippable":
             continue
         for template in item.augmentation_templates:
             if not template.active or not _is_evaluation_time_effect(template):
@@ -112,6 +120,288 @@ def matching_evaluation_effects(
                 effects.append(template.effect)
 
     return tuple(effects)
+
+
+def _equipment_augmentation_id(
+    *,
+    sheet_id: str,
+    relationship_id: str,
+    item_id: str,
+    target_id: str,
+    template_id: str,
+) -> str:
+    identity = json.dumps(
+        [sheet_id, relationship_id, item_id, target_id, template_id],
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+    return f"equipment:{digest}"
+
+
+def _desired_equipment_augmentations(state: State) -> dict[str, Augmentation]:
+    desired: dict[str, Augmentation] = {}
+    instances_by_sheet: dict[str, list[str]] = defaultdict(list)
+    for instance_id, instance in sorted(state.instanced_sheets.items()):
+        instances_by_sheet[instance.parent_id].append(instance_id)
+
+    for sheet_id, sheet in sorted(state.sheets.items()):
+        for bridge_key, bridge in sorted(sheet.items.items()):
+            if not bridge.equipped or bridge.count <= 0:
+                continue
+            item = state.items.get(bridge.item_id)
+            if item is None or item.interaction_type != "equippable":
+                continue
+
+            application_id = f"equipment:{sheet_id}:{bridge.relationship_id}"
+            for template in item.augmentation_templates:
+                if not template.active:
+                    continue
+                _validate_runtime_augmentation_target(template)
+                target_ids = (
+                    [sheet_id]
+                    if template.target.root == "sheet"
+                    else instances_by_sheet.get(sheet_id, [])
+                )
+                for target_id in target_ids:
+                    augmentation = deepcopy(template)
+                    augmentation.id = _equipment_augmentation_id(
+                        sheet_id=sheet_id,
+                        relationship_id=bridge.relationship_id,
+                        item_id=item.id,
+                        target_id=target_id,
+                        template_id=template.id,
+                    )
+                    augmentation.source = AugmentationSource(
+                        type="item",
+                        id=item.id,
+                        label=item.name,
+                        relationship_id=bridge.relationship_id,
+                        application_id=application_id,
+                    )
+                    augmentation.lifecycle_owner = "equipment"
+                    augmentation.active = True
+                    augmentation.applied = True
+                    augmentation.applied_target_id = target_id
+                    desired[augmentation.id] = augmentation
+
+    return desired
+
+
+def _equipment_projection_path(target_path: str) -> str:
+    return state_sync_service.join_path("equipment_effect_projections", target_path)
+
+
+def _set_numeric_value(state: State, state_path: str, value: int | float) -> None:
+    state_sync_service.set_mutation(state, state_path, value)
+
+
+def _adjusted_projection_base(
+    projection: EquipmentEffectProjection,
+    current_value: int | float,
+) -> int | float:
+    external_delta = current_value - projection.effective_value
+    return normalize_numeric_result(projection.base_value + external_delta)
+
+
+def _sync_equipment_direct_effects(
+    state: State,
+    desired: dict[str, Augmentation],
+) -> list[PatchOp]:
+    effects_by_path: dict[str, list[Augmentation]] = defaultdict(list)
+    for augmentation in desired.values():
+        if augmentation.effect.type != "formula_modifier":
+            continue
+        target = _resolve_target(
+            state,
+            augmentation,
+            sheet_id=(
+                augmentation.applied_target_id
+                if augmentation.target.root == "sheet"
+                else None
+            ),
+            instance_id=(
+                augmentation.applied_target_id
+                if augmentation.target.root == "instance"
+                else None
+            ),
+        )
+        effects_by_path[target.state_path].append(augmentation)
+
+    base_values: dict[str, int | float] = {}
+    existing_paths = set(state.equipment_effect_projections)
+    desired_paths = set(effects_by_path)
+    ops: list[PatchOp] = []
+
+    for target_path in sorted(existing_paths | desired_paths):
+        projection = state.equipment_effect_projections.get(target_path)
+        try:
+            current_value = _current_numeric_value(state, target_path)
+        except ValueError:
+            if projection is not None:
+                _, remove_op = state_sync_service.remove_mutation(
+                    state,
+                    _equipment_projection_path(target_path),
+                )
+                ops.append(remove_op)
+            continue
+
+        base_values[target_path] = (
+            current_value
+            if projection is None
+            else _adjusted_projection_base(projection, current_value)
+        )
+
+    working_state = deepcopy(state)
+    for target_path, base_value in base_values.items():
+        _set_numeric_value(working_state, target_path, base_value)
+
+    effective_values: dict[str, int | float] = {}
+    for target_path in sorted(desired_paths):
+        for augmentation in sorted(effects_by_path[target_path], key=lambda entry: entry.id):
+            target = _resolve_target(
+                working_state,
+                augmentation,
+                sheet_id=(
+                    augmentation.applied_target_id
+                    if augmentation.target.root == "sheet"
+                    else None
+                ),
+                instance_id=(
+                    augmentation.applied_target_id
+                    if augmentation.target.root == "instance"
+                    else None
+                ),
+            )
+            current_value = _current_numeric_value(working_state, target_path)
+            modifier = _evaluate_formula(target.root, augmentation)
+            next_value = apply_numeric_operation(
+                current_value,
+                modifier,
+                augmentation.effect.operation,
+            )
+            _set_numeric_value(working_state, target_path, next_value)
+        effective_values[target_path] = _current_numeric_value(
+            working_state,
+            target_path,
+        )
+
+    for target_path in sorted(existing_paths | desired_paths):
+        if target_path not in base_values:
+            continue
+        base_value = base_values[target_path]
+        effective_value = effective_values.get(target_path, base_value)
+        current_value = _current_numeric_value(state, target_path)
+        if current_value != effective_value:
+            ops.append(
+                state_sync_service.set_mutation(
+                    state,
+                    target_path,
+                    effective_value,
+                )
+            )
+
+        projection = state.equipment_effect_projections.get(target_path)
+        if target_path not in desired_paths:
+            if projection is not None:
+                _, remove_op = state_sync_service.remove_mutation(
+                    state,
+                    _equipment_projection_path(target_path),
+                )
+                ops.append(remove_op)
+            continue
+
+        next_projection = EquipmentEffectProjection(
+            target_path=target_path,
+            base_value=base_value,
+            effective_value=effective_value,
+        )
+        projection_path = _equipment_projection_path(target_path)
+        if projection is None:
+            ops.append(
+                state_sync_service.add_mutation(
+                    state,
+                    projection_path,
+                    next_projection,
+                )
+            )
+        elif projection != next_projection:
+            ops.append(
+                state_sync_service.set_mutation(
+                    state,
+                    projection_path,
+                    next_projection,
+                )
+            )
+
+    return ops
+
+
+def synchronize_equipment_augmentations_mutation(state: State) -> list[PatchOp]:
+    desired = _desired_equipment_augmentations(state)
+    existing_ids = {
+        augmentation_id
+        for augmentation_id, augmentation in state.augmentations.items()
+        if augmentation.lifecycle_owner == "equipment"
+    }
+    desired_ids = set(desired)
+    managed_ids = existing_ids | desired_ids
+    ops: list[PatchOp] = []
+
+    for instance_id, instance in sorted(state.instanced_sheets.items()):
+        desired_instance_ids = {
+            augmentation_id
+            for augmentation_id, augmentation in desired.items()
+            if augmentation.target.root == "instance"
+            and augmentation.applied_target_id == instance_id
+        }
+        for bridge_key, bridge in list(instance.augments.items()):
+            if bridge.entry_id in managed_ids and bridge.entry_id not in desired_instance_ids:
+                _, remove_op = state_sync_service.remove_mutation(
+                    state,
+                    state_sync_service.join_path(
+                        "instanced_sheets", instance_id, "augments", bridge_key
+                    ),
+                )
+                ops.append(remove_op)
+
+    for augmentation_id in sorted(existing_ids - desired_ids):
+        _, remove_op = state_sync_service.remove_mutation(
+            state,
+            state_sync_service.join_path("augmentations", augmentation_id),
+        )
+        ops.append(remove_op)
+
+    for augmentation_id, augmentation in sorted(desired.items()):
+        current = state.augmentations.get(augmentation_id)
+        augmentation_path = state_sync_service.join_path(
+            "augmentations", augmentation_id
+        )
+        if current is None:
+            ops.append(
+                state_sync_service.add_mutation(state, augmentation_path, augmentation)
+            )
+        elif current != augmentation:
+            ops.append(
+                state_sync_service.set_mutation(state, augmentation_path, augmentation)
+            )
+
+        if augmentation.target.root != "instance":
+            continue
+        instance_id = augmentation.applied_target_id
+        if instance_id is None:
+            continue
+        bridge = _condition_bridge(augmentation_id)
+        bridge_path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "augments", augmentation_id
+        )
+        current_bridge = state.instanced_sheets[instance_id].augments.get(augmentation_id)
+        if current_bridge is None:
+            ops.append(state_sync_service.add_mutation(state, bridge_path, bridge))
+        elif current_bridge != bridge:
+            ops.append(state_sync_service.set_mutation(state, bridge_path, bridge))
+
+    ops.extend(_sync_equipment_direct_effects(state, desired))
+    return ops
 
 
 def _target_label(augmentation: Augmentation) -> str:
@@ -256,10 +546,16 @@ def _apply_augmentation_mutation(
     *,
     sheet_id: str | None = None,
     instance_id: str | None = None,
+    allow_source_managed: bool = False,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     augmentation = state.augmentations.get(augmentation_id)
     if augmentation is None:
         raise ValueError(f"Augmentation '{augmentation_id}' does not exist.")
+    if augmentation.lifecycle_owner != "manual" and not allow_source_managed:
+        raise ValueError(
+            f"Augmentation '{augmentation_id}' is managed by its "
+            f"{augmentation.lifecycle_owner} source."
+        )
 
     if not augmentation.active:
         return (
@@ -337,12 +633,14 @@ def apply_augmentation_mutation(
     *,
     sheet_id: str | None = None,
     instance_id: str | None = None,
+    allow_source_managed: bool = False,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     return _apply_augmentation_mutation(
         state,
         augmentation_id,
         sheet_id=sheet_id,
         instance_id=instance_id,
+        allow_source_managed=allow_source_managed,
     )
 
 
@@ -352,10 +650,16 @@ def _remove_augmentation_mutation(
     *,
     sheet_id: str | None = None,
     instance_id: str | None = None,
+    allow_source_managed: bool = False,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     augmentation = state.augmentations.get(augmentation_id)
     if augmentation is None:
         raise ValueError(f"Augmentation '{augmentation_id}' does not exist.")
+    if augmentation.lifecycle_owner != "manual" and not allow_source_managed:
+        raise ValueError(
+            f"Augmentation '{augmentation_id}' is managed by its "
+            f"{augmentation.lifecycle_owner} source."
+        )
 
     if not augmentation.applied:
         return (
@@ -429,12 +733,14 @@ def remove_augmentation_mutation(
     *,
     sheet_id: str | None = None,
     instance_id: str | None = None,
+    allow_source_managed: bool = False,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     return _remove_augmentation_mutation(
         state,
         augmentation_id,
         sheet_id=sheet_id,
         instance_id=instance_id,
+        allow_source_managed=allow_source_managed,
     )
 
 
@@ -504,7 +810,9 @@ def _build_condition_augmentation(
         type="condition",
         id=condition_id,
         label=condition_name,
+        application_id=f"condition:{condition_id}:{instance_id}",
     )
+    augmentation.lifecycle_owner = "condition"
     augmentation.applied = False
     augmentation.applied_target_id = None
     return augmentation
@@ -583,6 +891,7 @@ def _apply_condition_preset_mutation(
             state,
             augmentation.id,
             instance_id=instance_id,
+            allow_source_managed=True,
         )
 
         results.append(result)
@@ -671,6 +980,7 @@ def _remove_condition_preset_mutation(
             state,
             augmentation_id,
             instance_id=instance_id,
+            allow_source_managed=True,
         )
         results.append(result)
         ops.extend(remove_ops)

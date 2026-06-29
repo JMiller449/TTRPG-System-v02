@@ -318,6 +318,8 @@ def _resolve_item_action_source(
     item = state.items.get(bridge.item_id)
     if item is None:
         raise ValueError(f"Item '{bridge.item_id}' does not exist.")
+    if item.interaction_type == "inventory_only":
+        raise ValueError(f"Item '{item.name}' does not provide usable actions.")
     grant = next(
         (grant for grant in item.action_grants if grant.action_id == action_id),
         None,
@@ -326,9 +328,11 @@ def _resolve_item_action_source(
         raise ValueError(
             f"Item '{item.id}' does not grant action '{action_id}'."
         )
+    if grant.availability == "equipped" and item.interaction_type != "equippable":
+        raise ValueError(f"Item '{item.name}' cannot provide equipped actions.")
     if bridge.count <= 0:
         raise ValueError(f"Item '{item.name}' has no remaining quantity.")
-    if grant.availability == "equipped" and not bridge.active:
+    if grant.availability == "equipped" and not bridge.equipped:
         raise ValueError(
             f"Item '{item.name}' must be equipped to use action '{action_id}'."
         )
@@ -653,6 +657,9 @@ async def perform_action(
             raise ValueError("Roll20 chat bridge is not connected.")
 
     def mutation(state: State) -> tuple[tuple[list[str], list[str], bool], list[Any]]:
+        ops: list[Any] = augmentation_service.synchronize_equipment_augmentations_mutation(
+            state
+        )
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
         current_resolution = _resolve_action(
             current_actor.sheet,
@@ -673,7 +680,6 @@ async def perform_action(
 
         applied_mutations: list[str] = []
         emitted_messages: list[str] = []
-        ops: list[Any] = []
         roll_mode_requires_transform = False
         roll_mode_applied = False
         unresolved_roll_mode = request.roll_mode
@@ -1051,6 +1057,23 @@ async def perform_action(
                 f"items.{current_resolution.source_item_bridge_key}.count"
                 f"-={consume_quantity}"
             )
+            source_bridge = current_actor.sheet.items[
+                current_resolution.source_item_bridge_key
+            ]
+            if source_bridge.count == 0 and source_bridge.equipped:
+                equipped_path = state_sync_service.join_path(
+                    "sheets",
+                    current_actor.sheet_id,
+                    "items",
+                    current_resolution.source_item_bridge_key,
+                    "equipped",
+                )
+                ops.append(
+                    state_sync_service.set_mutation(state, equipped_path, False)
+                )
+                applied_mutations.append(
+                    f"items.{current_resolution.source_item_bridge_key}.equipped=false"
+                )
 
         return (applied_mutations, emitted_messages, bool(ops)), ops
 

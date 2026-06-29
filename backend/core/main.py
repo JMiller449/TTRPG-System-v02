@@ -17,7 +17,13 @@ async def _periodic_dump(stop_event: asyncio.Event) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    StateSingleton.initializeState()
+    state = StateSingleton.initializeState()
+    from backend.features.augmentations.service import (
+        synchronize_equipment_augmentations_mutation,
+    )
+
+    if synchronize_equipment_augmentations_mutation(state):
+        StateSingleton.dumpState()
     stop_event = asyncio.Event()
     task = asyncio.create_task(_periodic_dump(stop_event))
     try:

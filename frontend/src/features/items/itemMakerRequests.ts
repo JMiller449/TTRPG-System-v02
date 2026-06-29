@@ -6,6 +6,7 @@ import {
   buildUpdateItemRequest
 } from "@/infrastructure/ws/requestBuilders";
 import {
+  getItemEditorValidationError,
   toItemDefinitionPayload,
   toUpdatedItemDefinitionPayload,
   type ItemEditorValues
@@ -20,11 +21,16 @@ export function selectOrderedItemDefinitions(
   itemRecords: Record<string, ItemDefinition>,
   itemOrder: string[]
 ): ItemDefinition[] {
-  return itemOrder.map((id) => itemRecords[id]).filter((item): item is ItemDefinition => Boolean(item));
+  return itemOrder
+    .map((id) => itemRecords[id])
+    .filter((item): item is ItemDefinition => Boolean(item));
 }
 
-export function buildCreateItemSubmission(values: ItemEditorValues, itemId: string): ItemMakerSubmission | null {
-  if (!values.name.trim()) {
+export function buildCreateItemSubmission(
+  values: ItemEditorValues,
+  itemId: string
+): ItemMakerSubmission | null {
+  if (getItemEditorValidationError(values)) {
     return null;
   }
 
@@ -39,7 +45,7 @@ export function buildUpdateItemSubmission(
   item: ItemDefinition | undefined,
   values: ItemEditorValues
 ): ItemMakerSubmission | null {
-  if (!item || !values.name.trim()) {
+  if (!item || getItemEditorValidationError(values)) {
     return null;
   }
 

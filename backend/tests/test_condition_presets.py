@@ -41,6 +41,8 @@ def _augmentation_template(
             "type": "condition",
             "id": "poisoned",
             "label": "Poisoned",
+            "relationship_id": None,
+            "application_id": None,
         },
         "scope": scope,
         "target": {
@@ -66,6 +68,7 @@ def _augmentation_template(
         "active": True,
         "applied": False,
         "applied_target_id": None,
+        "lifecycle_owner": "manual",
         "lifecycle": {
             "duration": None,
             "expires_at": None,

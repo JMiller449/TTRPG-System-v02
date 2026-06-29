@@ -481,6 +481,8 @@ def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
                                     "type": "item",
                                     "id": "flame_brand",
                                     "label": "Flame Brand",
+                                    "relationship_id": None,
+                                    "application_id": None,
                                 },
                                 "scope": "instance",
                                 "target": {
@@ -507,6 +509,7 @@ def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
                                 "active": True,
                                 "applied": False,
                                 "applied_target_id": None,
+                                "lifecycle_owner": "manual",
                                 "lifecycle": {
                                     "duration": None,
                                     "expires_at": None,

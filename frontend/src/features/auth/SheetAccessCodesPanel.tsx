@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { selectPlayerInstances } from "@/app/state/selectors";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
@@ -14,6 +14,7 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
   const { state } = useAppStore();
   const { sheetAccessCodes } = state.uiState;
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const requestedInitialLoadRef = useRef(false);
   const playerInstances = useMemo(() => selectPlayerInstances(state), [state]);
   const [selectedInstanceId, setSelectedInstanceId] = useState("");
   const activeCodes = sheetAccessCodes.filter((entry) => entry.active);
@@ -21,6 +22,10 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
   const selectedCode = activeCodes.find((entry) => entry.instanceId === selectedInstanceId);
 
   useEffect(() => {
+    if (requestedInitialLoadRef.current) {
+      return;
+    }
+    requestedInitialLoadRef.current = true;
     client.sendProtocolRequest(buildGetSheetAccessCodesRequest(), "Load player access codes");
   }, [client]);
 

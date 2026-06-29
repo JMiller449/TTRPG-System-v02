@@ -3,10 +3,10 @@ import { initialState } from "@/app/state/initialState";
 import { reducer } from "@/app/state/reducer";
 import {
   selectActiveSheetDetail,
-  selectActiveWeaponLabel,
   selectSheetAssignedActions,
   selectSheetEquipment
 } from "@/app/state/selectors";
+import { selectActiveEquipmentEffects } from "@/features/sheets/equipmentDisplay";
 import {
   adaptProtocolServerEvent,
   initialSocketProtocolState,
@@ -924,12 +924,14 @@ describe("authoritative server-state sync", () => {
           sword: {
             id: "sword",
             name: "Sword",
+            interaction_type: "equippable",
             description: "",
             price: "10",
             weight: "3",
             augmentation_templates: []
           }
         },
+        augmentations: {},
         actions: {},
         formulas: {},
         proficiencies: {}
@@ -948,8 +950,25 @@ describe("authoritative server-state sync", () => {
           value: {
             relationship_id: "main_hand",
             count: 1,
-            active: true,
+            equipped: true,
             item_id: "sword"
+          }
+        },
+        {
+          op: "add",
+          path: "/augmentations/equipment:main_hand",
+          value: {
+            ...augmentationTemplate({ id: "equipment:main_hand" }),
+            source: {
+              type: "item",
+              id: "sword",
+              label: "Sword",
+              relationship_id: "main_hand",
+              application_id: "equipment:sheet_1:main_hand"
+            },
+            lifecycle_owner: "equipment",
+            applied: true,
+            applied_target_id: "instance_1"
           }
         }
       ],
@@ -962,11 +981,15 @@ describe("authoritative server-state sync", () => {
       {
         relationship_id: "main_hand",
         count: 1,
-        active: true,
+        equipped: true,
         item_id: "sword"
       }
     ]);
-    expect(selectActiveWeaponLabel(created.state, "instance_1")).toBe("Sword");
+    expect(
+      selectActiveEquipmentEffects(created.state.serverState.augmentations, "main_hand").map(
+        (augmentation) => augmentation.id
+      )
+    ).toEqual(["equipment:main_hand"]);
 
     const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
       response_id: null,
@@ -978,8 +1001,12 @@ describe("authoritative server-state sync", () => {
         },
         {
           op: "set",
-          path: "/sheets/sheet_1/items/main_hand/active",
+          path: "/sheets/sheet_1/items/main_hand/equipped",
           value: false
+        },
+        {
+          op: "remove",
+          path: "/augmentations/equipment:main_hand"
         }
       ],
       state_version: 2,
@@ -991,11 +1018,13 @@ describe("authoritative server-state sync", () => {
       {
         relationship_id: "main_hand",
         count: 2,
-        active: false,
+        equipped: false,
         item_id: "sword"
       }
     ]);
-    expect(selectActiveWeaponLabel(edited.state, "instance_1")).toBe("None");
+    expect(
+      selectActiveEquipmentEffects(edited.state.serverState.augmentations, "main_hand")
+    ).toEqual([]);
 
     const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
       response_id: null,
@@ -1011,7 +1040,6 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(selectSheetEquipment(deleted.state, "instance_1")).toEqual([]);
-    expect(selectActiveWeaponLabel(deleted.state, "instance_1")).toBe("None");
   });
 
   it("reconciles assigned actions from authoritative sheet action bridge patches", () => {

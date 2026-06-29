@@ -113,9 +113,6 @@ export function TemplateEditorForm({
             </button>
           ) : null}
         </div>
-        <p className="muted">
-          Core stats are scaffold inputs only. TODO: backend schema will define substat/resource derivation rules.
-        </p>
       </div>
     </section>
   );

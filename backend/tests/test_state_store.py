@@ -83,6 +83,68 @@ def test_initialize_migrates_legacy_unversioned_state(isolate_state) -> None:
     assert loaded.actions["legacy_action"].name == "Legacy Action"
 
 
+def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 1,
+            "state": {
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "name": "Sword",
+                        "description": "Type: Longsword\nRank: B\nImmediate Effects: +2 fire damage",
+                        "gm_notes": "Existing note",
+                        "price": "10g",
+                        "weight": "3",
+                        "augmentation_templates": [],
+                        "action_grants": [],
+                    },
+                    "potion": {
+                        "id": "potion",
+                        "name": "Potion",
+                        "description": "Type: Consumable\nRank: F",
+                        "price": "1g",
+                        "weight": "1",
+                        "augmentation_templates": [],
+                        "action_grants": [
+                            {
+                                "action_id": "drink",
+                                "availability": "carried",
+                                "consume_quantity": 1,
+                            }
+                        ],
+                    },
+                },
+                "sheets": {
+                    "hero": {
+                        "items": {
+                            "sword_bridge": {
+                                "relationship_id": "sword_bridge",
+                                "item_id": "sword",
+                                "count": 1,
+                                "active": True,
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    )
+
+    sword = migrated.state["items"]["sword"]
+    potion = migrated.state["items"]["potion"]
+    bridge = migrated.state["sheets"]["hero"]["items"]["sword_bridge"]
+    assert sword["interaction_type"] == "equippable"
+    assert sword["category"] == "Longsword"
+    assert sword["rank"] == "B"
+    assert sword["description"] == "Immediate Effects: +2 fire damage"
+    assert "Existing note" in sword["gm_notes"]
+    assert "Review the interaction type" in sword["gm_notes"]
+    assert potion["interaction_type"] == "consumable"
+    assert bridge["equipped"] is True
+    assert "active" not in bridge
+
+
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
     isolate_state: Path,
 ) -> None:
@@ -204,7 +266,11 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
 
     assert legacy.source_version == 0
     assert legacy.migrated is True
-    assert legacy.state == {"sheets": {}, "items": {}}
+    assert legacy.state == {
+        "sheets": {},
+        "items": {},
+        "equipment_effect_projections": {},
+    }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False
     assert current.state == {"actions": {}}

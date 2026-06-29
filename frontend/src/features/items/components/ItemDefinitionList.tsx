@@ -1,13 +1,15 @@
-import type { ItemDefinition } from "@/domain/models";
+import type { ActionDefinition, ItemDefinition } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ItemDefinitionCard } from "@/features/items/components/ItemDefinitionCard";
 
 export function ItemDefinitionList({
   items,
+  actions,
   onEdit,
   onDelete
 }: {
   items: ItemDefinition[];
+  actions: Record<string, ActionDefinition>;
   onEdit: (item: ItemDefinition) => void;
   onDelete: (itemId: string) => void;
 }): JSX.Element {
@@ -18,6 +20,7 @@ export function ItemDefinitionList({
         <ItemDefinitionCard
           key={item.id}
           item={item}
+          actions={actions}
           onEdit={() => onEdit(item)}
           onDelete={() => onDelete(item.id)}
         />

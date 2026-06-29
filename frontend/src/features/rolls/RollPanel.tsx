@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
-import { selectActiveWeaponLabel, selectSheetInstanceView } from "@/app/state/selectors";
+import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildGetRoll20BridgeStatusRequest,
@@ -33,13 +33,6 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
     return selectSheetInstanceView(state, activeSheetId);
   }, [activeSheetId, state]);
   const activeSheetName = activeSheetView?.name ?? activeSheetId ?? "None";
-  const activeWeapon = useMemo(() => {
-    if (!activeSheetId) {
-      return null;
-    }
-    const label = selectActiveWeaponLabel(state, activeSheetId);
-    return label === "None" ? null : label;
-  }, [activeSheetId, state]);
   const quickActionResolutions = useMemo(
     () =>
       Object.fromEntries(
@@ -75,7 +68,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
   const selectedActionLabel = selectedQuickActionResolution
     ? selectedQuickActionResolution.actionName
     : selectedQuickAction
-      ? getQuickRollLabel(selectedQuickAction, activeWeapon)
+      ? getQuickRollLabel(selectedQuickAction, null)
       : null;
   const canSubmit = Boolean(activeSheetId && selectedQuickActionResolution);
   const bridgeStatusLabel =
@@ -108,7 +101,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
                   : "This sheet does not have that action assigned"
               }
             >
-              {getQuickRollLabel(action, activeWeapon)}
+              {getQuickRollLabel(action, null)}
             </button>
           ))}
         </div>

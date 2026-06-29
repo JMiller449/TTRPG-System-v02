@@ -5,7 +5,7 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from typing import Any, TypeVar
 
 from backend.core.request_context import RequestSource, current_request_source
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
+PRIVATE_STATE_ROOTS = {"equipment_effect_projections"}
 _MISSING = object()
 
 
@@ -189,12 +190,17 @@ class StateSyncService:
         role: SessionRole,
     ) -> StatePatch:
         redacted_patch = deepcopy(patch)
-        if role == "dm" or not redacted_patch.ops:
+        if not redacted_patch.ops:
             return redacted_patch
 
         redacted_ops: list[PatchOp] = []
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
+            if segments and segments[0] in PRIVATE_STATE_ROOTS:
+                continue
+            if role == "dm":
+                redacted_ops.append(op)
+                continue
             if segments and segments[0] == "action_history":
                 continue
 
@@ -631,7 +637,21 @@ class StateSyncService:
 
             state = StateSingleton.getState()
             previous_state = deepcopy(state)
-            result, ops = mutation(state)
+            try:
+                result, ops = mutation(state)
+                from backend.features.augmentations.service import (
+                    synchronize_equipment_augmentations_mutation,
+                )
+
+                ops.extend(synchronize_equipment_augmentations_mutation(state))
+            except Exception:
+                for state_field in fields(state):
+                    setattr(
+                        state,
+                        state_field.name,
+                        deepcopy(getattr(previous_state, state_field.name)),
+                    )
+                raise
             if ops:
                 inverse_ops = self._build_inverse_ops(previous_state, ops)
                 self._undo_history.append(inverse_ops)

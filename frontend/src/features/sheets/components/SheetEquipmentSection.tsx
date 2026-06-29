@@ -1,52 +1,73 @@
-import type { ItemBridge, ItemDefinition } from "@/domain/models";
+import type { ActionDefinition, Augmentation, ItemBridge, ItemDefinition } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
+import {
+  countItemEffectTypes,
+  itemCarryStatus,
+  ITEM_INTERACTION_LABELS,
+  selectActiveEquipmentEffects,
+  summarizeItemActionGrants
+} from "@/features/sheets/equipmentDisplay";
 
-function describeAugmentations(item: ItemDefinition): string {
-  const augmentations = item.augmentation_templates ?? [];
-  if (augmentations.length === 0) {
-    return "(none)";
+function ItemEffectSummary({
+  item,
+  activeEffects
+}: {
+  item: ItemDefinition;
+  activeEffects: Augmentation[];
+}): JSX.Element | null {
+  if (item.interaction_type !== "equippable") {
+    return null;
   }
-  return augmentations
-    .map((augmentation) => {
-      const target = [augmentation.target.root, ...augmentation.target.path].join(".");
-      return `${augmentation.name}: ${formatAugmentationEffect(augmentation)} to ${target}`;
-    })
-    .join("; ");
+  const counts = countItemEffectTypes(item);
+  return (
+    <div className="equipment-effect-summary">
+      <div className="muted">
+        Wearer Effects {counts.wearer} · Roll / Formula Effects {counts.rollOrFormula} · Active{" "}
+        {activeEffects.length}
+      </div>
+      {activeEffects.map((augmentation) => (
+        <div className="muted" key={augmentation.id}>
+          {augmentation.name}: {formatAugmentationEffect(augmentation)}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function SheetEquipmentSection({
   items,
+  actionDefinitions,
+  augmentations,
   itemOrder,
   selectedItemId,
   selectedItem,
-  activeWeaponLabel,
   equipment,
-  activeWeaponId,
   canEdit,
   onSelectedItemIdChange,
   onAddSelectedItem,
-  onToggleActiveWeapon,
+  onQuantityChange,
+  onToggleEquipped,
   onRemoveInventoryItem
 }: {
   items: Record<string, ItemDefinition>;
+  actionDefinitions: Record<string, ActionDefinition>;
+  augmentations: Record<string, Augmentation>;
   itemOrder: string[];
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
-  activeWeaponLabel: string;
   equipment: ItemBridge[];
-  activeWeaponId: string | null;
   canEdit: boolean;
   onSelectedItemIdChange: (itemId: string) => void;
   onAddSelectedItem: () => void;
-  onToggleActiveWeapon: (inventoryItemId: string) => void;
+  onQuantityChange: (inventoryItemId: string, count: number) => void;
+  onToggleEquipped: (inventoryItemId: string) => void;
   onRemoveInventoryItem: (inventoryItemId: string) => void;
 }): JSX.Element {
   return (
     <section className="character-sheet__section">
-      <h4>Equipment</h4>
-      <p className="muted">Inventory uses GM-defined item classes.</p>
+      <h4>Inventory &amp; Equipment</h4>
       {canEdit ? (
         <div className="equipment-add-row">
           <Field label="Item">
@@ -78,54 +99,116 @@ export function SheetEquipmentSection({
           </button>
         </div>
       ) : null}
-      <p className="muted">Active Weapon: {activeWeaponLabel}</p>
       {canEdit && selectedItem ? (
-        <article className="template-editor">
-          <p className="template-editor__title">Selected Item Preview</p>
+        <div className="equipment-selection-preview">
+          <div className="equipment-card__heading">
+            <strong>{selectedItem.name}</strong>
+            <span className="pill">{ITEM_INTERACTION_LABELS[selectedItem.interaction_type]}</span>
+          </div>
           <div className="muted">
             Weight {selectedItem.weight} · Price {selectedItem.price}
           </div>
           <p className="muted">{selectedItem.description || "(no description)"}</p>
-          <p className="muted">Augmentations: {describeAugmentations(selectedItem)}</p>
-        </article>
+          {selectedItem.interaction_type === "equippable" ? (
+            <ItemEffectSummary item={selectedItem} activeEffects={[]} />
+          ) : null}
+          {selectedItem.interaction_type !== "inventory_only" ? (
+            <div className="muted">Granted Actions {selectedItem.action_grants?.length ?? 0}</div>
+          ) : null}
+        </div>
       ) : null}
       <div className="list">
-        {equipment.length === 0 ? <EmptyState message="No equipment added yet." /> : null}
+        {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
         {equipment.map((entry) => {
           const item = items[entry.item_id];
           if (!item) {
             return null;
           }
+          const actionSummaries = summarizeItemActionGrants(item, entry, actionDefinitions);
+          const activeEffects = selectActiveEquipmentEffects(augmentations, entry.relationship_id);
           return (
-            <article key={entry.relationship_id} className="list-item list-item--block">
-              <div>
-                <strong>{item.name}</strong>
-                <div className="muted">Count {entry.count}</div>
+            <article
+              key={entry.relationship_id}
+              className={`list-item list-item--block equipment-card ${entry.count <= 0 ? "equipment-card--depleted" : ""}`}
+            >
+              <div className="equipment-card__body">
+                <div className="equipment-card__heading">
+                  <strong>{item.name}</strong>
+                  <div className="equipment-card__status">
+                    <span className="pill">{ITEM_INTERACTION_LABELS[item.interaction_type]}</span>
+                    <span className="pill">{itemCarryStatus(item, entry)}</span>
+                    <span className="pill">Quantity {entry.count}</span>
+                  </div>
+                </div>
                 <div className="muted">
                   Weight {item.weight} · Price {item.price}
                 </div>
                 <div className="muted">{item.description || "(no description)"}</div>
-                <div className="muted">Augmentations: {describeAugmentations(item)}</div>
-                {activeWeaponId === entry.relationship_id ? (
-                  <div className="muted">Active weapon</div>
+                <ItemEffectSummary item={item} activeEffects={activeEffects} />
+                {actionSummaries.length > 0 ? (
+                  <div className="equipment-action-list">
+                    {actionSummaries.map((summary) => (
+                      <div
+                        className={`equipment-action-summary ${summary.available ? "" : "equipment-action-summary--unavailable"}`}
+                        key={summary.actionId}
+                      >
+                        <strong>{summary.actionName}</strong>
+                        <span>{summary.availability}</span>
+                        <span>
+                          {summary.consumeQuantity > 0
+                            ? `Consumes ${summary.consumeQuantity}`
+                            : "No consumption"}
+                        </span>
+                        <span>{summary.status}</span>
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
               </div>
               {canEdit ? (
                 <div className="inline-actions">
-                  <button
-                    type="button"
-                    className="button button--secondary"
-                    onClick={() => onToggleActiveWeapon(entry.relationship_id)}
-                    aria-pressed={activeWeaponId === entry.relationship_id}
-                    aria-label={`${activeWeaponId === entry.relationship_id ? "Clear active weapon" : "Set active weapon"}: ${item.name}`}
+                  <div
+                    className="equipment-quantity-stepper"
+                    role="group"
+                    aria-label={`${item.name} quantity`}
                   >
-                    {activeWeaponId === entry.relationship_id ? "Clear Active" : "Set Active"}
-                  </button>
+                    <button
+                      type="button"
+                      title={`Decrease ${item.name} quantity`}
+                      aria-label={`Decrease ${item.name} quantity`}
+                      disabled={entry.count === 0}
+                      onClick={() => onQuantityChange(entry.relationship_id, entry.count - 1)}
+                    >
+                      -
+                    </button>
+                    <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
+                    <button
+                      type="button"
+                      title={`Increase ${item.name} quantity`}
+                      aria-label={`Increase ${item.name} quantity`}
+                      disabled={entry.count >= Number.MAX_SAFE_INTEGER}
+                      onClick={() => onQuantityChange(entry.relationship_id, entry.count + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {item.interaction_type === "equippable" ? (
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => onToggleEquipped(entry.relationship_id)}
+                      aria-pressed={entry.equipped}
+                      disabled={!entry.equipped && entry.count <= 0}
+                      aria-label={`${entry.equipped ? "Unequip" : "Equip"}: ${item.name}`}
+                    >
+                      {entry.equipped ? "Unequip" : "Equip"}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="button button--secondary"
                     onClick={() => onRemoveInventoryItem(entry.relationship_id)}
-                    aria-label={`Remove ${item.name} from equipment`}
+                    aria-label={`Remove ${item.name} from inventory`}
                   >
                     Remove
                   </button>

@@ -21,7 +21,7 @@ class SheetActionBridgePayload(BaseModel):
 class ItemBridgePayload(BaseModel):
     relationship_id: str = Field(min_length=1)
     count: int = Field(ge=0)
-    active: bool
+    equipped: bool
     item_id: str = Field(min_length=1)
 
 

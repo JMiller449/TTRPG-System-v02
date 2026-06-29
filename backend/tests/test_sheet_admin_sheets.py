@@ -1457,7 +1457,7 @@ def test_create_sheet_rejects_missing_embedded_item_reference(monkeypatch) -> No
                 "bridge-1": {
                     "relationship_id": "bridge-1",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "missing_item",
                 }
             }

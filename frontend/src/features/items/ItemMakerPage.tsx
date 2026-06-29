@@ -4,16 +4,14 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
 import {
   createEmptyAugmentationEditorValues,
+  hasValidAugmentationEditorValues,
+  isKnownAugmentationEditorTarget,
   toAugmentationEditorValues,
+  toItemAugmentationTemplatePayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
-import {
-  buildLoadItemAugmentationTargetMetadataSubmission,
-  buildRemoveItemAugmentationTemplateSubmission,
-  buildUpsertItemAugmentationTemplateSubmission,
-  selectItemAugmentationTemplates
-} from "@/features/augmentations/augmentationRequests";
+import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemDefinitionList } from "@/features/items/components/ItemDefinitionList";
 import {
@@ -42,7 +40,8 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         formulaOrder
       },
       uiState: { augmentationTargetMetadata }
-    }
+    },
+    dispatch
   } = useAppStore();
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -70,7 +69,6 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       }),
     [actionOrder, actionRecords, formulaOrder, formulaRecords]
   );
-  const selectedItem = editingItemId ? itemRecords[editingItemId] : undefined;
   const targetOptions =
     augmentationTargetMetadata?.context === "item_template"
       ? augmentationTargetMetadata.targets
@@ -121,29 +119,37 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   };
 
   const submitAugmentation = (): void => {
-    const submission = buildUpsertItemAugmentationTemplateSubmission({
-      item: selectedItem,
-      values: augmentationValues,
-      augmentationId: editingAugmentationId ?? makeId("augmentation")
-    });
-    if (!submission) {
+    if (
+      !hasValidAugmentationEditorValues(augmentationValues) ||
+      !isKnownAugmentationEditorTarget(augmentationValues, targetOptions)
+    ) {
       return;
     }
 
-    client.sendProtocolRequest(submission.request, submission.label);
+    const augmentation = toItemAugmentationTemplatePayload({
+      values: augmentationValues,
+      augmentationId: editingAugmentationId ?? makeId("augmentation"),
+      itemId: editingItemId ?? "draft-item",
+      itemName: values.name
+    });
+    setValues((current) => ({
+      ...current,
+      augmentationTemplates: editingAugmentationId
+        ? current.augmentationTemplates.map((template) =>
+            template.id === editingAugmentationId ? augmentation : template
+          )
+        : [...current.augmentationTemplates, augmentation]
+    }));
     resetAugmentationEditor();
   };
 
   const removeAugmentation = (augmentationId: string): void => {
-    const submission = buildRemoveItemAugmentationTemplateSubmission({
-      item: selectedItem,
-      augmentationId
-    });
-    if (!submission) {
-      return;
-    }
-
-    client.sendProtocolRequest(submission.request, submission.label);
+    setValues((current) => ({
+      ...current,
+      augmentationTemplates: current.augmentationTemplates.filter(
+        (template) => template.id !== augmentationId
+      )
+    }));
     if (editingAugmentationId === augmentationId) {
       resetAugmentationEditor();
     }
@@ -161,45 +167,37 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       }
     >
       <div className="stack">
-        <p className="muted">
-          Split item effects into two fields: immediate effects that impact wearer stats vs
-          non-immediate effects used for other systems (for example, enchanting).
-        </p>
-        <p className="muted">
-          TODO: validate seeded reference-item effect splits against final rules authority where
-          classification is ambiguous.
-        </p>
-
         <ItemEditorForm
           editingItemId={editingItemId}
           values={values}
           onChange={setValues}
           actions={actions}
+          effectEditor={
+            <ItemAugmentationTemplatePanel
+              itemName={values.name.trim() || "New equippable item"}
+              editingAugmentationId={editingAugmentationId}
+              templates={values.augmentationTemplates}
+              targetOptions={targetOptions}
+              selectorOptions={selectorOptions}
+              values={augmentationValues}
+              onChange={setAugmentationValues}
+              onSubmit={submitAugmentation}
+              onCancel={resetAugmentationEditor}
+              onEdit={(augmentation) => {
+                setEditingAugmentationId(augmentation.id);
+                setAugmentationValues(toAugmentationEditorValues(augmentation));
+              }}
+              onRemove={removeAugmentation}
+            />
+          }
           onSubmit={onSubmit}
           onCancel={startNewItem}
+          onOpenActionAuthoring={() => dispatch({ type: "set_gm_view", view: "action_authoring" })}
         />
-
-        {selectedItem ? (
-          <ItemAugmentationTemplatePanel
-            itemName={selectedItem.name}
-            editingAugmentationId={editingAugmentationId}
-            templates={selectItemAugmentationTemplates(selectedItem)}
-            targetOptions={targetOptions}
-            selectorOptions={selectorOptions}
-            values={augmentationValues}
-            onChange={setAugmentationValues}
-            onSubmit={submitAugmentation}
-            onCancel={resetAugmentationEditor}
-            onEdit={(augmentation) => {
-              setEditingAugmentationId(augmentation.id);
-              setAugmentationValues(toAugmentationEditorValues(augmentation));
-            }}
-            onRemove={removeAugmentation}
-          />
-        ) : null}
 
         <ItemDefinitionList
           items={items}
+          actions={actionRecords}
           onEdit={(item) => {
             setEditingItemId(item.id);
             setValues(toItemEditorValues(item));

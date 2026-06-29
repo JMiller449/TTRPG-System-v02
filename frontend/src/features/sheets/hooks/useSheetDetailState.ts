@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import {
   selectActiveSheetDetail,
-  selectActiveWeaponEntryId,
-  selectActiveWeaponLabel,
   selectAvailableItems,
   selectSheetAssignedActions,
   selectSheetEquipment,
@@ -13,6 +11,7 @@ import type { AssignedSheetAction } from "@/app/state/selectors";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
+  Augmentation,
   ItemBridge,
   ItemDefinition,
   ProficiencyBridge,
@@ -26,6 +25,7 @@ interface UseSheetDetailStateResult {
   sheetOrder: string[];
   actionDefinitions: Record<string, ActionDefinition>;
   actionOrder: string[];
+  augmentations: Record<string, Augmentation>;
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
@@ -35,8 +35,6 @@ interface UseSheetDetailStateResult {
   equipment: ItemBridge[];
   sheetProficiencies: ProficiencyBridge[];
   assignedActions: AssignedSheetAction[];
-  activeWeaponId: string | null;
-  activeWeaponLabel: string;
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
   setSelectedItemId: (itemId: string) => void;
@@ -52,7 +50,8 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     sheets,
     sheetOrder,
     actions: actionDefinitions,
-    actionOrder
+    actionOrder,
+    augmentations
   } = state.serverState;
   const { actionFormulaAuthoringMetadata } = state.uiState;
 
@@ -77,6 +76,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       sheetOrder,
       actionDefinitions,
       actionOrder,
+      augmentations,
       actionFormulaAuthoringMetadata,
       items,
       itemOrder,
@@ -86,8 +86,6 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       equipment: [],
       sheetProficiencies: [],
       assignedActions: [],
-      activeWeaponId: null,
-      activeWeaponLabel: "None",
       selectedItemId,
       selectedItem: null,
       setSelectedItemId
@@ -100,6 +98,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     sheetOrder,
     actionDefinitions,
     actionOrder,
+    augmentations,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,
@@ -109,8 +108,6 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
     sheetProficiencies: selectSheetProficiencies(state, detail.sheet?.id ?? detail.instance.id),
     assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
-    activeWeaponId: selectActiveWeaponEntryId(state, detail.sheet?.id ?? detail.instance.id),
-    activeWeaponLabel: selectActiveWeaponLabel(state, detail.sheet?.id ?? detail.instance.id),
     selectedItemId,
     selectedItem: selectedItemId
       ? (availableItems.find((item) => item.id === selectedItemId) ?? null)

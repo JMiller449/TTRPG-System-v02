@@ -64,7 +64,7 @@ class ProficiencyBridgePayload(ProtocolModel):
 class ItemBridgePayload(ProtocolModel):
     relationship_id: str
     count: int
-    active: bool
+    equipped: bool
     item_id: str
 
 
@@ -300,6 +300,8 @@ class AugmentationSourcePayload(ProtocolModel):
     ]
     id: str | None = None
     label: str | None = None
+    relationship_id: str | None = None
+    application_id: str | None = None
 
 
 class AugmentationTargetPayload(ProtocolModel):
@@ -392,6 +394,7 @@ class AugmentationPayload(ProtocolModel):
     active: bool = True
     applied: bool = False
     applied_target_id: str | None = None
+    lifecycle_owner: Literal["manual", "equipment", "condition", "action"] = "manual"
     lifecycle: AugmentationLifecyclePayload = Field(
         default_factory=AugmentationLifecyclePayload
     )
@@ -406,6 +409,9 @@ class ItemActionGrantPayload(ProtocolModel):
 class ItemPayload(ProtocolModel):
     id: str
     name: str
+    interaction_type: Literal["equippable", "consumable", "inventory_only"]
+    category: str = ""
+    rank: str = ""
     description: str
     world_anvil_url: str = ""
     gm_notes: str = ""

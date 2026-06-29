@@ -106,7 +106,7 @@ describe("quickRolls", () => {
         relationship_id: "potion_2",
         item_id: "potion",
         count: 2,
-        active: false
+        equipped: false
       }
     };
 
@@ -115,6 +115,7 @@ describe("quickRolls", () => {
         potion: {
           id: "potion",
           name: "Attack Potion",
+          interaction_type: "consumable",
           description: "",
           price: "",
           weight: "",

@@ -22,6 +22,7 @@ Build a backend-authoritative sheet, variable, formula, and action executor for 
 The MVP is a character builder and sheet instancer where:
 
 - GM authors characters, items, conditions, formulas, and actions/macros.
+- GM authors mechanically complete items whose carried/equipped behavior, granted actions, quantity consumption, and wearer effects are backend-authoritative.
 - GM saves planned encounter presets as lightweight collections of sheet templates plus counts, then spawns them into backend-owned sheet instances.
 - Players use assigned actions from instanced sheets.
 - The app tracks current state such as HP, mana, conditions, overrides, and proficiency changes.
@@ -98,7 +99,7 @@ Frontend:
 - Template library/create/edit/spawn UI exists for name, notes, kind, core stats, and template spawning; these sheet flows now use typed backend routes.
 - Encounter preset builder scaffolding exists with multi-entry rosters and uses typed backend routes for save/spawn.
 - Local intent lifecycle feedback banners exist for pending/success/error states.
-- Player notes use a local edit draft backed by an authoritative save route; equipment inventory, active weapon display, current-resource adjustment, and GM core base stat edits use backend-authoritative routes/state.
+- Player notes use a local edit draft backed by an authoritative save route; equipment inventory, the current legacy single-active-item display, current-resource adjustment, and GM core base stat edits use backend-authoritative routes/state.
 - Shared sheet selectors, resource/stat editor hooks, and feature reducer modules exist to keep the main sheet component smaller.
 - Stat metadata is centralized under frontend domain stats and reused by sheet and roll composer UI.
 - Frontend styles are split into feature-scoped files with shared tokens/utilities.
@@ -106,7 +107,7 @@ Frontend:
 - Generated protocol types/contracts exist. Centralized request helpers cover the already-live frontend route set; fully generated request helpers for all registered backend routes remain future work.
 - Live websocket requests use generated protocol for auth/resync and centralized typed helpers for sheet creation/update/instancing, sheet access claims, sheet item bridge equipment mutations, current-resource adjustment, GM core base stat edits, item maker CRUD, item augmentation template CRUD, action/formula authoring, quick authored action execution, and encounter preset save/spawn.
 - The frontend runtime always uses the authoritative websocket backend; connection failure remains disconnected and reports an error.
-- Frontend-local state owns note edit drafts and other transient UI controls; sheet equipment, active weapon selection, current-resource values, displayed sheet stats, and level-up changes are not local sources of truth.
+- Frontend-local state owns note edit drafts and other transient UI controls; sheet equipment, the current legacy active-item state, current-resource values, displayed sheet stats, and level-up changes are not local sources of truth.
 - Item maker create/edit/delete sends backend `ItemDefinition` CRUD requests, reconciles through authoritative item state, and exposes World Anvil URL plus GM-only notes/special-properties inputs.
 - Formula/action authoring UI and broad assigned-action execution UI exist; roll composer quick actions select assigned default editable action presets and submit them through `perform_action`.
 - Player entry now claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
@@ -318,9 +319,22 @@ Proficiency:
 
 Equipment and items:
 
-- Equipped/active weapon selection exists for attack rolls.
-- Equipment is an inventory-list model, not a slot-based layout for MVP; records can still mark active/equipped gear where rules need it.
-- Each attack action selects exactly one active weapon for the resolution; dual-wield or multi-weapon actions must be authored explicitly.
+- Equipment is an inventory-list model, not a slot-based layout for MVP. Each equippable inventory relationship may independently be equipped or unequipped.
+- Every MVP item has exactly one backend-authoritative interaction type: `equippable`, `consumable`, or `inventory_only`. Hybrid interaction types are outside MVP.
+- `equippable` items may be worn/unworn, grant equipped-only actions, and apply reversible wearer augmentations while equipped and quantity is positive.
+- `consumable` items are used through carried item actions, consume a positive configured quantity only after successful execution, and may produce immediate resource/state effects or apply temporary conditions/augmentations through normal authored action steps.
+- `inventory_only` items represent currency, materials, keys, quest objects, and similar records. They retain quantity and reference/GM metadata but cannot be equipped, used, grant actions, or apply mechanical effects.
+- Reuse existing primitives for every item type: actions are triggers/ordered orchestration, augmentations are mechanical modifiers, and conditions are named status records that bundle augmentations. Do not add separate item-effect, consumable-effect, or equipment-modifier engines.
+- Equippable wearer effects are item-owned augmentation templates tied directly to equip/unequip lifecycle. Ordinary equipment bonuses should not be wrapped in conditions merely to gain lifecycle behavior.
+- Consumables contain no standalone effect payload beyond their granted action references and consumption metadata. Immediate effects are normal action mutation/damage/healing steps; temporary named statuses use `apply_condition_preset`, while non-status mechanical modifiers use `apply_augmentation`.
+- MVP has no global active-weapon selection and no equipped-item count, slot, hand, one-handed/two-handed, or weapon-combination restrictions. Trust players to equip any number of equippable items; those restrictions and effects that change equip capacity remain later rules.
+- Item definitions store interaction type, category/type label, rank, and reference description as first-class fields instead of packing mechanical-looking labels into one description string.
+- Item action grants define whether an action is available while carried or only while equipped and how much authoritative quantity a successful execution consumes.
+- Quantity zero represents a depleted stack: carried/equipped actions and item effects are unavailable, but the bridge remains until explicitly removed.
+- Evaluation-time numeric and roll-mode augmentation templates apply automatically from equipped items when their selectors match.
+- Direct wearer stat/resistance/resource effects require a backend-owned equip/unequip lifecycle with stable source identity and deterministic recomputation from authored base state; repeated equip, reconnect, template edits, quantity changes, and removal must not double-apply or drift values.
+- Direct item effects must be reversible when unequipped or removed. Unsupported irreversible operations, including unsafe `set` removal semantics, must be rejected at authoring/validation time unless the backend stores enough prior/base state to restore deterministically.
+- An item-granted action carries its source item relationship when the backend needs to identify which equipped item supplied it. Reusable attacks that require a specific item must receive an explicit source relationship rather than reading a global active weapon.
 - Weapons require name, weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate.
 - Optional weapon fields include stat bonuses, attached skills, traits, special effects, prerequisites, tags, and notes.
 - Weapon reach is stored/shown for Roll20/manual reference only and does not affect app-side mechanics, formulas, targeting, or positioning.
@@ -329,7 +343,7 @@ Equipment and items:
 - Armor, shields, and other gear can provide resistance, penalties, advantage/disadvantage sources, or other modifiers through augmentations or authored actions unless a future core resolver requires a first-class field.
 - Armor grants resistance rather than AC. Heavy armor must impose disadvantage on Dodge, ideally through a standard attached augmentation/template.
 - Shields normally grant advantage on Block attempts, do not automatically increase AC or resistance, and may be required for some Block actions.
-- Consumables are items and using one in battle costs an action point.
+- Consumables are items and using one in battle costs an action point; action-point enforcement remains tied to the later turn/action-pool implementation, while successful-use quantity consumption is MVP.
 - Item records should support World Anvil links.
 - Item records should support GM-only notes/special properties for campaign-specific effects that are not player-visible.
 
@@ -395,15 +409,16 @@ Augmentations should:
 
 - be applied, reversible effects
 - have stable IDs
-- carry source metadata such as item, action, spell, condition, or other origin
+- carry source metadata such as item, action, spell, condition, or other origin, including the concrete source relationship/application identity needed to distinguish repeated or duplicate sources
+- carry backend-owned lifecycle ownership that distinguishes manually managed effects from source-managed equipment, condition, or action effects; this policy is assigned by the backend rather than trusted as an author-controlled removal bypass
 - indicate base-sheet or instance scope
 - target validated backend-owned paths or references
 - carry formula/effect payloads that the backend can evaluate or apply authoritatively
 - support item buffs, poison/status effects, gear/weapon effects, and future conditional effects
 - keep application, removal, stacking, and recomputation backend-authoritative
-- be directly applied/removed by GM, while players can only apply or adjust them through backend-approved actions for their allowed sheet/instance
+- allow direct GM apply/remove only for manually managed effects. Source-managed effects must be changed through their owning lifecycle: equip/unequip or detach for equipment, whole-condition removal for condition effects, and the corresponding backend-approved action where an action owns removal
 
-MVP leaves duration/expiry manual because turn counting is out of scope. Duration, expiry, and removal-condition fields are descriptive lifecycle notes only; they are not executable predicates, formulas, raw paths, or scripts. Future conditional augmentation logic requires a validated backend-owned condition/effect expression model before any automatic lifecycle evaluation. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
+An augmentation is not inherently permanent or temporary. It is the generic mechanical effect record; its owner determines its lifecycle. Equipment effects last while their source relationship is equipped, condition effects last until that applied condition is removed, and manually/action-applied effects remain until an authorized removal occurs. MVP leaves duration/expiry manual because turn counting is out of scope. Duration, expiry, and removal-condition fields are descriptive lifecycle notes only; they are not executable predicates, formulas, raw paths, or scripts. Future conditional augmentation logic requires a validated backend-owned condition/effect expression model before any automatic lifecycle evaluation. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
 
 Frontend augmentation UX boundary:
 
@@ -640,9 +655,9 @@ Frontend augmentation UX boundary:
 
 ### Phase 9: Remove Remaining Frontend Fake Authority
 
-- [ ] Complete the remaining frontend fake-authority cleanup through the slices below.
+- [x] Complete the remaining frontend fake-authority cleanup through the slices below.
   - Removed the legacy frontend-only `ClientIntent` path so app transports now submit only generated/backend-owned protocol requests.
-  - Removed the runtime mock backend; remaining work is mock-era presentation state, misleading scaffold UI, and the final dead-code verification pass.
+  - Removed the runtime mock backend, mock-era presentation state, misleading scaffold UI, and stale generated build outputs.
   - Final local-state boundary: only active selection, current tab/page, editor/input drafts, search filters, display preferences, connection status, and request feedback/pending status remain frontend-owned.
 - [x] Remove local sheet equipment mutations as source of truth.
 - [x] Remove local sheet stat overrides as source of truth.
@@ -669,14 +684,16 @@ Frontend augmentation UX boundary:
   - Template kind now derives from backend `dm_only`; names, notes, and resources come only from authoritative `Sheet` and `PersistentSheet` records.
   - Removed mock-only tags, names, timestamps, fallback logic, and the dead presentation conversion helper.
   - Verified with 224 frontend tests, ESLint, and the production TypeScript/Vite build.
-- [ ] Slice 3: remove misleading gameplay and scaffold UI.
-  - [x] Replace the placeholder health damage-type selector with canonical backend damage types and wire negative health modifiers through `apply_instanced_sheet_damage`; positive health and mana modifiers continue through direct resource adjustment.
-  - Remove visible developer TODO/scaffold copy from template and item authoring screens.
-  - Correct template search copy to name-only until backend-owned tags exist.
-- [ ] Slice 4: finish the dead-code pass and verify the boundary.
-  - Remove stale presentation tests, exports, imports, and generated build artifacts that are no longer referenced.
-  - Re-run repository searches for mock authority, local domain mutations, visible TODO/scaffold text, and unused legacy model names.
-  - Run frontend typecheck/build, lint, and the full frontend test suite.
+- [x] Slice 3: remove misleading gameplay and scaffold UI.
+  - Replaced the placeholder health damage-type selector with canonical backend damage types and wired negative health modifiers through `apply_instanced_sheet_damage`; positive health and mana modifiers continue through direct resource adjustment.
+  - Removed visible developer TODO/scaffold copy from template and item authoring screens without removing either authoring workflow.
+  - Corrected template search copy to name-only until backend-owned tags exist.
+  - Verified with 255 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Slice 4: finish the dead-code pass and verify the boundary.
+  - Removed the stale presentation-era test label and tracked `vite.config.js`/`vite.config.d.ts` compiler outputs; node-config emissions now stay under ignored `.vite/`.
+  - Found no remaining mock/presentation authority symbols, orphaned production modules, visible TODO/scaffold text, or frontend-owned domain mutations. The remaining legacy item-description reference is tested backward compatibility.
+  - Verified backend-owned state enters reducers only through authentication events and projected snapshots/patches.
+  - Verified with 255 frontend tests, ESLint, and the production TypeScript/Vite build.
 
 ### Phase 10: Verification And Hardening
 
@@ -756,6 +773,11 @@ MVP is done when:
 - GM can instantiate a player/enemy sheet.
 - Player can view a simplified assigned sheet instance.
 - Player can execute assigned actions.
+- Sheet users can see the active conditions they are permitted to view; the GM can explicitly remove an applied condition from that sheet without deleting its reusable preset.
+- GM can create and edit each supported item interaction type in one coherent workflow: equippable wearer effects/actions, consumable immediate/temporary use effects, or inventory-only reference records.
+- GM can attach inventory, change quantity, and independently equip or unequip any number of equippable items through backend-authoritative requests.
+- Carried/equipped item actions and quantity consumption are enforced by the backend, and equipped roll/formula modifiers affect only matching actions.
+- Direct wearer effects apply and reverse deterministically on equip/unequip without corrupting authored base stats or duplicating effects.
 - Action execution can mutate current instance resources/state through backend-authoritative patches.
 - Action execution can emit Roll20 chat through the bridge.
 - Bridge disconnected state fails immediately with visible client feedback.
@@ -781,6 +803,15 @@ MVP is done when:
   - GM navigation includes a Condition Authoring page backed by typed condition preset create/update/delete requests.
   - Condition authoring supports name, description, public/GM-only visibility, and current-instance augmentation templates for backend `apply_condition_preset` action steps.
   - Added focused condition value/request tests and sync coverage for condition preset snapshots.
+- [ ] Add active-condition management to the character sheet.
+  - Render applied conditions from authoritative runtime state, grouped as condition instances rather than exposing their individual concrete augmentation records as unrelated effects.
+  - Respect condition visibility: public conditions are visible to the assigned player and GM, while `gm_only` conditions remain GM-only.
+  - Give the GM an explicit Remove control for each applied condition. Removing an applied condition must reverse/remove all concrete augmentations created by that application without deleting or editing the reusable condition preset.
+  - Preserve the condition preset ID plus a concrete application/source ID on every generated augmentation so the UI and backend can group and remove one applied condition without exposing individual condition-managed augmentations as removable records.
+  - Mark condition-generated augmentations as condition-managed. Generic augmentation removal must reject attempts to remove one generated child independently of its owning condition application.
+  - Do not allow players to arbitrarily remove active conditions. Player-driven removal must execute a backend-approved assigned action whose `apply_condition_preset` step uses the remove operation.
+  - Add or reuse a typed backend intent for direct GM removal, then reconcile the list and affected values exclusively through authoritative patches.
+  - Cover preset deletion versus applied-condition removal, duplicate applications, visibility, permissions, complete augmentation cleanup, and reconnect/snapshot reconciliation in backend and frontend tests.
 - [x] Add variable/path browser and shortcut picker UI for formula/action authoring.
   - Added a reusable metadata-driven variable browser for formula references and backend-approved mutation paths.
   - Formula authoring now loads backend action/formula metadata and inserts selected shortcut tokens while preserving alias path metadata.
@@ -963,7 +994,54 @@ MVP is done when:
   - Saved encounter rows now support editing names and roster entries while resubmitting the original encounter ID through `save_encounter_preset`; backend coverage verifies the existing record is replaced rather than duplicated.
   - Deletion requires explicit confirmation and uses `delete_encounter_preset`. Lists remain backend-authoritative, and an open editor is cleared only when its preset disappears in an authoritative patch or the user explicitly saves/cancels.
   - Verified with 373 backend tests, 255 frontend tests, ESLint, and the production TypeScript/Vite build.
-- [ ] Add equipment quantity editing through sheet item bridge updates instead of limiting inventory changes to add-one, active toggle, and remove.
+- [x] Add equipment quantity editing through sheet item bridge updates instead of limiting inventory changes to add-one, active toggle, and remove.
+  - The GM Equipment tab now provides a stable minus/count/plus stepper for each attached item and submits the existing typed `update_sheet_item_bridge` request.
+  - Quantity updates preserve bridge identity, item reference, and active state; zero is a valid depleted quantity, while removal remains a separate explicit command.
+  - Invalid negative, fractional, infinite, and unsafe-integer quantities are rejected before request submission.
+  - Added focused payload coverage. Verified with 261 frontend tests, ESLint, the production TypeScript/Vite build, and 10 backend item-bridge contract tests.
+
+### MVP Item And Equipment Completion
+
+This is the next MVP implementation track and must be completed before work in `Later`.
+
+- [x] Backend slice 1: add and enforce the three MVP item interaction types.
+  - Added required `interaction_type` values `equippable`, `consumable`, and `inventory_only`, plus first-class category and rank fields; `description` remains the plain reference description.
+  - Enforced cross-type authoring rules: inventory-only items reject actions/augmentations, consumables require a positive-quantity carried action and reject item augmentations/equipped actions, and only equippable items may receive augmentation templates or be equipped.
+  - Replaced item-bridge `active` with independent `equipped` state throughout backend runtime, snapshots, requests, generated protocol compatibility, and frontend consumers. Multiple positive-quantity equippable relationships may remain equipped; no global active weapon exists.
+  - Depleting an equipped item through action consumption now atomically clears its equipped state. Inventory-only records are excluded from runtime and frontend action resolution even if malformed persisted data bypasses authoring validation.
+  - Added persisted-state schema v2 migration. It maps legacy active bridges to equipped, extracts packed Type/Rank metadata, preserves legacy effect text, infers interaction type from structural mechanics, and adds private GM review notes to ambiguous records.
+  - Item updates cannot change an equipped item to a non-equippable type, and item deletion is rejected while any sheet relationship still references it.
+  - Updated frontend contract compatibility and removed the legacy single-active-item selector/UI behavior; quantity zero also submits an unequipped bridge.
+  - Verified with 379 backend tests, 261 frontend tests, ESLint, protocol generation, and the production TypeScript/Vite build.
+- [x] Backend slice 2: complete equipped-item effect and action lifecycle semantics.
+  - Reused the existing augmentation evaluator and action/condition paths; equipment now generates deterministic concrete augmentations with item, relationship, and application source identity.
+  - Added backend-owned lifecycle metadata. Generic augmentation removal rejects equipment- and condition-managed effects, leaving their owning unequip, depletion, detach, template, or condition operation responsible for removal.
+  - Matching roll/formula effects remain limited to equipped, positive-quantity equippable relationships. Consumable and inventory-only records cannot enter equipment effect resolution.
+  - Added a private effective-value projection for direct sheet/instance effects. It preserves externally edited base values, deterministically recomputes stacked effects, and restores the current base without double application or inverse-operation drift.
+  - Equipment effects synchronize after authoritative mutations, before action execution, on startup, and during backup import, covering equipment, quantity, item/template, attachment, and sheet/instance changes with rollback on invalid formulas.
+  - Preserved source-item action disambiguation, successful consumable quantity use, zero-quantity disabling, and unrestricted multiple equipped items.
+  - Verified with 382 backend tests, 261 frontend tests, protocol generation, ESLint, and the production TypeScript/Vite build.
+- [x] Frontend slice 1: replace the misleading Item Maker form with type-driven authoring.
+  - Replaced the `Immediate Effects` and `Non-Immediate Effects` textareas with one plain reference description. Existing packed descriptions migrate into clearly marked legacy-reference text when edited and save back without metadata packing.
+  - Added an explicit Equippable, Consumable, and Inventory Only segmented mode control with backend-valid type-specific payload conversion and validation.
+  - Equippable mode now exposes Details, grouped Wearer Effects and Roll / Formula Effects, and Equipped Actions. It uses the existing augmentation evaluator contract and action definitions.
+  - Consumable mode exposes Use Actions with authoritative quantity consumption and a direct route to normal Action Authoring; it does not duplicate action-step or condition controls.
+  - Inventory Only mode renders reference details without effect, use-action, or hidden mechanical-property controls and strips those mechanics from submitted definitions.
+  - Augmentation templates are held in the editor draft and included in the initial create request, eliminating the save/reselect workflow. Existing items submit the complete authoritative definition on update.
+  - Item summaries distinguish direct wearer effects, roll/formula effects, equipped/use actions, and named conditions reached through those actions.
+  - Verified with 264 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Frontend slice 2: complete inventory and equipment interaction.
+  - The sheet now presents one Inventory & Equipment list with independent GM-only equip/unequip controls for every positive-quantity equippable relationship; it adds no slots, hand limits, or active-weapon selector.
+  - Consumable and equippable action grants show their authored carried/equipped requirement, quantity consumed, and current availability. Eligible actions continue executing through the normal action list with source-item identity; depleted or otherwise ineligible grants remain visibly unavailable in inventory and are not executable.
+  - Inventory-only records show quantity, carried/depleted state, value, weight, and reference description without equip, use-action, or effect controls.
+  - Every inventory record shows interaction type, authoritative quantity, carried/equipped/depleted state, configured effect counts, and concrete active equipment effects where applicable.
+  - Player inventory remains read-only under the backend's DM-only equipment permission, while both roles receive status changes exclusively from snapshots and patches.
+  - Added pure authoritative display projections plus reconciliation coverage for bridge creation, quantity/equip changes, and concrete equipment-effect add/remove patches.
+  - Verified with 267 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [ ] Item/equipment completion verification.
+  - Regenerate protocol output and add migration, backend contract/runtime, frontend request/reconciliation, authoring, and interaction coverage.
+  - Remove obsolete description parsing and migrate the current single-active-item behavior to unrestricted per-bridge equipped state only after persisted state and UI no longer rely on the old meaning.
+  - Run complete backend/frontend tests, frontend lint/build, and focused restart/import recovery checks before marking the MVP item subsystem complete.
 
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
 
@@ -1020,7 +1098,7 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
     - Resolve effective actions dynamically from explicit sheet-action bridges plus qualifying item grants. Do not copy item-granted actions into the sheet action map or leave stale action bridges behind when equipment changes.
     - Backend action execution must validate the source item bridge, positive quantity, and carried/equipped policy. Include the source item relationship in the request when multiple inventory entries could grant the same action.
     - Consumable actions must decrement the authoritative item-bridge quantity through state sync and become unavailable at zero; carrying a consumable does not require marking it equipped.
-    - Ordinary weapon hit/damage actions should remain reusable actions that consume the explicitly selected active weapon as resolver input. Item-specific attacks or special abilities may instead be granted by that equipped item.
+    - Ordinary hit/damage actions may remain reusable, but any execution that needs a particular item must carry that equipped source-item relationship. Item-specific attacks or special abilities may be granted directly by each equipped item; no global active-weapon selection is used.
     - Frontend action lists and quick controls render the backend-valid effective action set and identify the granting item; unavailable item actions must not remain executable after inventory/equipment changes.
     - Implemented typed item action grants through the domain, authoring, snapshot, and generated request contracts. Item Maker can select an authored action, carried/equipped availability, and a nonnegative quantity consumed per successful execution.
     - Runtime resolution combines explicit sheet bridges with currently eligible item bridges without copying actions. It revalidates source relationship, quantity, equipment state, and consumption inside the authoritative mutation; ambiguous inventory grants require an explicit source relationship.
@@ -1065,7 +1143,13 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
   - Added a bounded backend inverse-patch stack and DM-only typed undo request.
   - Added a GM-facing Undo Last Change visual control.
   - Undo emits normal authoritative patches; it is not a replay system and does not duplicate side-effect state.
-- [ ] Fix side effect bug explained by `plan/active/side_effect_bug.md` and then delete `plan/active/side_effect_bug.md` after finishing
+- [x] Fix the sheet-access-code side-effect request loop.
+  - `useGameClient` now retains one facade object for the hook lifetime, so store-driven rerenders do not retrigger effects that depend on the client.
+  - `SheetAccessCodesPanel` independently guards its automatic initial load, preventing duplicate requests under React Strict Mode or a future facade-identity regression while preserving manual refresh.
+  - Added regression coverage for stable client facade identity across rerenders.
+  - Deleted the completed `plan/active/side_effect_bug.md` report.
+  - Verified with 256 frontend tests, ESLint, and the production TypeScript/Vite build.
+
 ### Later
 
 - [ ] Combat/turn tracking.
@@ -1091,6 +1175,7 @@ These remain future implementation or campaign-adjudication boundaries, not MVP 
 - Automated level-up stat distribution beyond XP readiness tracking and manual GM edits.
 - Backend-owned combat/turn tracking, including action-point reset timing, initiative, reactions, opportunity attacks, AOE positioning, and cross-sheet damage application.
 - App-side physical/spell attack resolvers, including criticals, Dodge/Block/Parry reductions, counterattacks, and augmentation-derived modifiers.
+- Equipment-capacity rules, including slots, hand limits, one-handed/two-handed classification, valid weapon combinations, and modifiers that increase how much a character may equip.
 - Overload mode automation and overload explosion resolution.
 - Mastery unlock enforcement and visibility for disabled/hidden content.
 - Frontend formula previews for formulas that remain Roll20-resolved.

@@ -12,6 +12,9 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
   return {
     id: "item_1",
     name: "Sword of Mana",
+    interaction_type: "equippable",
+    category: "Sword",
+    rank: "S",
     description: [
       "Type: Sword",
       "Rank: S",
@@ -54,8 +57,7 @@ describe("itemMakerRequests", () => {
     values.worldAnvilUrl = " https://worldanvil.example/items/sword-of-mana ";
     values.gmNotes = " Award only after the mana trial. ";
     values.gmSpecialProperties = " Adds +50 to sword enchantments. ";
-    values.immediateEffects = " 25% increased mana regen. ";
-    values.nonImmediateEffects = " Conducts mana at 100% efficiency. ";
+    values.description = " A blade that conducts mana. ";
 
     expect(buildCreateItemSubmission(values, "item_created")).toEqual({
       request: {
@@ -63,12 +65,10 @@ describe("itemMakerRequests", () => {
         item: {
           id: "item_created",
           name: "Sword of Mana",
-          description: [
-            "Type: Sword",
-            "Rank: S",
-            "Immediate Effects: 25% increased mana regen.",
-            "Non-Immediate Effects: Conducts mana at 100% efficiency."
-          ].join("\n"),
+          interaction_type: "equippable",
+          category: "Sword",
+          rank: "S",
+          description: "A blade that conducts mana.",
           world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
           gm_notes: "Award only after the mana trial.",
           gm_special_properties: "Adds +50 to sword enchantments.",
@@ -101,8 +101,7 @@ describe("itemMakerRequests", () => {
     values.worldAnvilUrl = " https://worldanvil.example/items/edited-sword ";
     values.gmNotes = " Updated GM notes. ";
     values.gmSpecialProperties = " Updated hidden property. ";
-    values.immediateEffects = " +30% mana regen. ";
-    values.nonImmediateEffects = " Better enchantment channeling. ";
+    values.description = " Better enchantment channeling. ";
 
     expect(buildUpdateItemSubmission(item, values)).toEqual({
       request: {
@@ -111,12 +110,9 @@ describe("itemMakerRequests", () => {
         item: {
           ...item,
           name: "Edited Sword of Mana",
-          description: [
-            "Type: Sword",
-            "Rank: S+",
-            "Immediate Effects: +30% mana regen.",
-            "Non-Immediate Effects: Better enchantment channeling."
-          ].join("\n"),
+          category: "Sword",
+          rank: "S+",
+          description: "Better enchantment channeling.",
           world_anvil_url: "https://worldanvil.example/items/edited-sword",
           gm_notes: "Updated GM notes.",
           gm_special_properties: "Updated hidden property.",

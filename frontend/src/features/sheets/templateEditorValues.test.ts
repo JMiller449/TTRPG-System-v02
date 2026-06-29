@@ -39,7 +39,7 @@ describe("templateEditorValues", () => {
     });
   });
 
-  it("uses backend sheet notes when presentation notes are absent", () => {
+  it("uses backend sheet notes in editor values", () => {
     const sheet: Sheet = {
       id: "template_1",
       name: "Mage",
@@ -82,7 +82,7 @@ describe("templateEditorValues", () => {
           relationship_id: "item_bridge_1",
           item_id: "item_1",
           count: 2,
-          active: true
+          equipped: true
         }
       },
       stats: {

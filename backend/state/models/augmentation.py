@@ -18,6 +18,7 @@ AugmentationScope = Literal["sheet", "instance"]
 AugmentationTargetRoot = Literal["state", "sheet", "instance"]
 AugmentationOperation = Literal["add", "subtract", "multiply", "divide", "set"]
 RollMode = Literal["advantage", "disadvantage"]
+AugmentationLifecycleOwner = Literal["manual", "equipment", "condition", "action"]
 
 
 @dataclass
@@ -25,6 +26,8 @@ class AugmentationSource:
     type: AugmentationSourceType
     id: str | None = None
     label: str | None = None
+    relationship_id: str | None = None
+    application_id: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict) -> "AugmentationSource":
@@ -32,6 +35,8 @@ class AugmentationSource:
             type=raw["type"],
             id=raw.get("id"),
             label=raw.get("label"),
+            relationship_id=raw.get("relationship_id"),
+            application_id=raw.get("application_id"),
         )
 
 
@@ -195,6 +200,7 @@ class Augmentation:
     active: bool = True
     applied: bool = False
     applied_target_id: str | None = None
+    lifecycle_owner: AugmentationLifecycleOwner = "manual"
     lifecycle: AugmentationLifecycle = field(default_factory=AugmentationLifecycle)
 
     @classmethod
@@ -221,5 +227,21 @@ class Augmentation:
             active=raw.get("active", True),
             applied=raw.get("applied", False),
             applied_target_id=raw.get("applied_target_id"),
+            lifecycle_owner=raw.get("lifecycle_owner", "manual"),
             lifecycle=AugmentationLifecycle.from_dict(raw.get("lifecycle")),
+        )
+
+
+@dataclass
+class EquipmentEffectProjection:
+    target_path: str
+    base_value: int | float
+    effective_value: int | float
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "EquipmentEffectProjection":
+        return cls(
+            target_path=raw["target_path"],
+            base_value=raw["base_value"],
+            effective_value=raw["effective_value"],
         )

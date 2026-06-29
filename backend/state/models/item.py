@@ -8,7 +8,7 @@ from backend.state.models.augmentation import Augmentation
 class ItemBridge:
     relationship_id: str
     count: int
-    active: bool
+    equipped: bool
     item_id: str
 
     @classmethod
@@ -16,7 +16,7 @@ class ItemBridge:
         return cls(
             relationship_id=raw["relationship_id"],
             count=raw["count"],
-            active=raw["active"],
+            equipped=raw.get("equipped", raw.get("active", False)),
             item_id=raw["item_id"],
         )
 
@@ -40,6 +40,9 @@ class ItemActionGrant:
 class Item:
     id: str
     name: str
+    interaction_type: Literal["equippable", "consumable", "inventory_only"]
+    category: str
+    rank: str
     description: str
     world_anvil_url: str
     gm_notes: str
@@ -54,6 +57,9 @@ class Item:
         return cls(
             id=raw["id"],
             name=raw["name"],
+            interaction_type=raw.get("interaction_type", "inventory_only"),
+            category=raw.get("category", ""),
+            rank=raw.get("rank", ""),
             description=raw["description"],
             world_anvil_url=raw.get("world_anvil_url", ""),
             gm_notes=raw.get("gm_notes", ""),

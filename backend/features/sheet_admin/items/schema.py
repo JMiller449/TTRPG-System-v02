@@ -17,6 +17,9 @@ class ItemActionGrantPayload(BaseModel):
 class ItemDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
+    interaction_type: Literal["equippable", "consumable", "inventory_only"]
+    category: str = ""
+    rank: str = ""
     description: str = ""
     world_anvil_url: str = ""
     gm_notes: str = ""
@@ -27,10 +30,30 @@ class ItemDefinitionPayload(BaseModel):
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_unique_action_grants(self) -> "ItemDefinitionPayload":
+    def validate_item_type(self) -> "ItemDefinitionPayload":
         action_ids = [grant.action_id for grant in self.action_grants]
         if len(action_ids) != len(set(action_ids)):
             raise ValueError("Item action grants must use unique action IDs.")
+
+        if self.interaction_type == "inventory_only":
+            if self.augmentation_templates:
+                raise ValueError("Inventory-only items cannot have augmentations.")
+            if self.action_grants:
+                raise ValueError("Inventory-only items cannot grant actions.")
+
+        if self.interaction_type == "consumable":
+            if self.augmentation_templates:
+                raise ValueError(
+                    "Consumable items must apply effects through their carried actions, "
+                    "not item augmentation templates."
+                )
+            if any(grant.availability != "carried" for grant in self.action_grants):
+                raise ValueError("Consumable item actions must use carried availability.")
+            if not any(grant.consume_quantity > 0 for grant in self.action_grants):
+                raise ValueError(
+                    "Consumable items require at least one carried action that consumes "
+                    "a positive quantity."
+                )
         return self
 
 

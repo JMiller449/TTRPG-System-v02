@@ -78,6 +78,9 @@ const testFormula = { aliases: null, text: "0" };
 const testItem: ItemDefinitionPayload = {
   id: "item_1",
   name: "Sword of Mana",
+  interaction_type: "equippable",
+  category: "Sword",
+  rank: "S",
   description: "Rank S Sword\nImmediate Effects: 25% increased mana regen.",
   world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
   gm_notes: "Award only after the mana trial.",
@@ -545,7 +548,7 @@ describe("requestBuilders", () => {
           relationship_id: "item_bridge_1",
           item_id: "item_1",
           count: 1,
-          active: true
+          equipped: true
         }
       })
     ).toEqual({
@@ -555,7 +558,7 @@ describe("requestBuilders", () => {
         relationship_id: "item_bridge_1",
         item_id: "item_1",
         count: 1,
-        active: true
+        equipped: true
       }
     });
   });
@@ -569,7 +572,7 @@ describe("requestBuilders", () => {
           relationship_id: "item_bridge_1",
           item_id: "item_1",
           count: 2,
-          active: false
+          equipped: false
         }
       })
     ).toEqual({
@@ -580,7 +583,7 @@ describe("requestBuilders", () => {
         relationship_id: "item_bridge_1",
         item_id: "item_1",
         count: 2,
-        active: false
+        equipped: false
       }
     });
   });

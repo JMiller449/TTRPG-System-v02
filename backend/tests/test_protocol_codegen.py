@@ -171,7 +171,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "detachItem"' in output
     assert "export type ItemBridgePayload = {" in output
     assert '"count": number;' in output
-    assert '"active": boolean;' in output
+    assert '"equipped": boolean;' in output
     assert '"item_id": string;' in output
     assert "export type CreateSheetItemBridge = {" in output
     assert '"bridge": ItemBridgePayload;' in output

@@ -9,7 +9,7 @@ from backend.state.models.action_history import (
 )
 from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
-from backend.state.models.augmentation import Augmentation
+from backend.state.models.augmentation import Augmentation, EquipmentEffectProjection
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
@@ -28,6 +28,9 @@ class State:
     items: dict[str, Item] = field(default_factory=dict)
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
     augmentations: dict[str, Augmentation] = field(default_factory=dict)
+    equipment_effect_projections: dict[str, EquipmentEffectProjection] = field(
+        default_factory=dict
+    )
     condition_presets: dict[str, ConditionPreset] = field(default_factory=dict)
     encounter_presets: dict[str, EncounterPreset] = field(default_factory=dict)
     sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
@@ -68,6 +71,12 @@ class State:
                 key: Augmentation.from_dict(augmentation)
                 for key, augmentation in raw.get("augmentations", {}).items()
             },
+            equipment_effect_projections={
+                key: EquipmentEffectProjection.from_dict(projection)
+                for key, projection in raw.get(
+                    "equipment_effect_projections", {}
+                ).items()
+            },
             condition_presets={
                 key: ConditionPreset.from_dict(condition)
                 for key, condition in raw.get("condition_presets", {}).items()
@@ -86,4 +95,5 @@ class State:
         state = asdict(self)
         if not include_private:
             state.pop("sheet_access_codes", None)
+            state.pop("equipment_effect_projections", None)
         return state

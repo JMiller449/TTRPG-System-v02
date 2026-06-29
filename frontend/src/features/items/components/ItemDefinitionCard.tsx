@@ -1,18 +1,40 @@
-import type { ItemDefinition } from "@/domain/models";
+import type { ActionDefinition, ItemDefinition, ItemInteractionType } from "@/domain/models";
 import { toItemEditorValues } from "@/features/items/itemEditorValues";
+
+const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
+  equippable: "Equippable",
+  consumable: "Consumable",
+  inventory_only: "Inventory Only"
+};
 
 export function ItemDefinitionCard({
   item,
+  actions,
   onEdit,
   onDelete
 }: {
   item: ItemDefinition;
+  actions: Record<string, ActionDefinition>;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
   const preview = toItemEditorValues(item);
-  const augmentationCount = item.augmentation_templates?.length ?? 0;
+  const wearerEffectCount =
+    item.augmentation_templates?.filter(
+      (augmentation) => augmentation.effect.type === "formula_modifier"
+    ).length ?? 0;
+  const rollFormulaEffectCount =
+    item.augmentation_templates?.filter(
+      (augmentation) => augmentation.effect.type !== "formula_modifier"
+    ).length ?? 0;
   const actionGrantCount = item.action_grants?.length ?? 0;
+  const conditionIds = new Set(
+    (item.action_grants ?? []).flatMap((grant) =>
+      (actions[grant.action_id]?.steps ?? [])
+        .filter((step) => step.type === "apply_condition_preset")
+        .map((step) => step.condition_id)
+    )
+  );
 
   return (
     <article className="list-item list-item--block item-definition-card">
@@ -25,21 +47,35 @@ export function ItemDefinitionCard({
         ) : null}
       </div>
       <div className="muted">
-        {preview.type || "Item"} · Rank {preview.rank} · Weight {item.weight || "(none)"} · Price {item.price || "(none)"}
+        {ITEM_TYPE_LABELS[item.interaction_type]} · {preview.type || "Item"} · Rank {preview.rank} ·
+        Weight {item.weight || "(none)"} · Price {item.price || "(none)"}
       </div>
-      <div className="muted">Immediate Effects: {preview.immediateEffects || "(none)"}</div>
-      <div className="muted">Non-Immediate Effects: {preview.nonImmediateEffects || "(none)"}</div>
-      <div className="muted">Augmentations: {augmentationCount}</div>
-      <div className="muted">Granted Actions: {actionGrantCount}</div>
+      {preview.description ? (
+        <div className="muted item-definition-card__description">{preview.description}</div>
+      ) : null}
+      {item.interaction_type === "equippable" ? (
+        <>
+          <div className="muted">Wearer Effects: {wearerEffectCount}</div>
+          <div className="muted">Roll / Formula Effects: {rollFormulaEffectCount}</div>
+          <div className="muted">Equipped Actions: {actionGrantCount}</div>
+          <div className="muted">Named Conditions Through Actions: {conditionIds.size}</div>
+        </>
+      ) : null}
+      {item.interaction_type === "consumable" ? (
+        <>
+          <div className="muted">Use Actions: {actionGrantCount}</div>
+          <div className="muted">Named Conditions Through Actions: {conditionIds.size}</div>
+        </>
+      ) : null}
       {item.gm_notes ? <div className="muted">GM Notes: {item.gm_notes}</div> : null}
       {item.gm_special_properties ? (
         <div className="muted">GM Special Properties: {item.gm_special_properties}</div>
       ) : null}
       <div className="inline-actions">
-        <button className="button button--secondary" onClick={onEdit}>
+        <button className="button button--secondary" type="button" onClick={onEdit}>
           Edit
         </button>
-        <button className="button button--secondary" onClick={onDelete}>
+        <button className="button button--secondary" type="button" onClick={onDelete}>
           Delete
         </button>
       </div>

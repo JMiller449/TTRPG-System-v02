@@ -62,8 +62,10 @@ export function resolveQuickRollAction(
     const item = items[itemBridge.item_id];
     const grant = item?.action_grants?.find((entry) => entry.action_id === action);
     if (
+      item?.interaction_type === "inventory_only" ||
       !grant ||
-      (grant.availability === "equipped" && !itemBridge.active) ||
+      (grant.availability === "equipped" && item?.interaction_type !== "equippable") ||
+      (grant.availability === "equipped" && !itemBridge.equipped) ||
       (grant.consume_quantity ?? 0) > itemBridge.count
     ) {
       return [];

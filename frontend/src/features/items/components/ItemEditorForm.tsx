@@ -1,29 +1,81 @@
+import type { ReactNode } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
+  getItemEditorValidationError,
   ITEM_RANK_OPTIONS,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
-import type { ActionDefinition } from "@/domain/models";
+import type { ActionDefinition, ItemInteractionType } from "@/domain/models";
+import { ItemActionGrantEditor } from "@/features/items/components/ItemActionGrantEditor";
+
+const ITEM_INTERACTION_TYPES: ReadonlyArray<{
+  value: ItemInteractionType;
+  label: string;
+}> = [
+  { value: "equippable", label: "Equippable" },
+  { value: "consumable", label: "Consumable" },
+  { value: "inventory_only", label: "Inventory Only" }
+];
 
 export function ItemEditorForm({
   editingItemId,
   values,
   onChange,
   actions,
+  effectEditor,
   onSubmit,
-  onCancel
+  onCancel,
+  onOpenActionAuthoring
 }: {
   editingItemId: string | null;
   values: ItemEditorValues;
   onChange: (values: ItemEditorValues) => void;
   actions: ActionDefinition[];
+  effectEditor: ReactNode;
   onSubmit: () => void;
   onCancel: () => void;
+  onOpenActionAuthoring: () => void;
 }): JSX.Element {
+  const validationError = getItemEditorValidationError(values);
+
+  const setInteractionType = (interactionType: ItemInteractionType): void => {
+    onChange({
+      ...values,
+      interactionType,
+      actionGrants: values.actionGrants.map((grant) => ({
+        ...grant,
+        availability: interactionType === "consumable" ? "carried" : "equipped",
+        consumeQuantity:
+          interactionType === "consumable" && Number(grant.consumeQuantity) < 1
+            ? "1"
+            : grant.consumeQuantity
+      }))
+    });
+  };
+
   return (
-    <div className="template-editor item-editor">
-      <p className="template-editor__title">{editingItemId ? "Edit Item" : "Create Item"}</p>
-      <div className="stack">
+    <div className="item-editor stack">
+      <div className="item-editor__heading">
+        <h3>{editingItemId ? "Edit Item" : "Create Item"}</h3>
+        <div className="item-type-control" aria-label="Item interaction type">
+          {ITEM_INTERACTION_TYPES.map((option) => (
+            <button
+              className={`item-type-control__option ${
+                values.interactionType === option.value ? "item-type-control__option--active" : ""
+              }`}
+              type="button"
+              aria-pressed={values.interactionType === option.value}
+              key={option.value}
+              onClick={() => setInteractionType(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <section className="item-details-section stack">
+        <h3>Details</h3>
         <Field label="Name">
           <input
             value={values.name}
@@ -33,7 +85,7 @@ export function ItemEditorForm({
         </Field>
 
         <div className="inline-group">
-          <Field label="Type">
+          <Field label="Category">
             <input
               value={values.type}
               onChange={(event) => onChange({ ...values, type: event.target.value })}
@@ -41,7 +93,10 @@ export function ItemEditorForm({
             />
           </Field>
           <Field label="Rank">
-            <select value={values.rank} onChange={(event) => onChange({ ...values, rank: event.target.value })}>
+            <select
+              value={values.rank}
+              onChange={(event) => onChange({ ...values, rank: event.target.value })}
+            >
               {ITEM_RANK_OPTIONS.map((rank) => (
                 <option key={rank} value={rank}>
                   {rank}
@@ -73,21 +128,12 @@ export function ItemEditorForm({
           />
         </Field>
 
-        <Field label="Immediate Effects (applies to wearer stats)">
+        <Field label="Reference Description">
           <textarea
-            rows={3}
-            value={values.immediateEffects}
-            onChange={(event) => onChange({ ...values, immediateEffects: event.target.value })}
-            placeholder="e.g. +25% mana regen"
-          />
-        </Field>
-
-        <Field label="Non-Immediate Effects (not auto-applied to sheet values)">
-          <textarea
-            rows={3}
-            value={values.nonImmediateEffects}
-            onChange={(event) => onChange({ ...values, nonImmediateEffects: event.target.value })}
-            placeholder="e.g. +50 to all effects added to this weapon"
+            rows={4}
+            value={values.description}
+            onChange={(event) => onChange({ ...values, description: event.target.value })}
+            placeholder="Appearance, history, reach, or other table reference"
           />
         </Field>
 
@@ -100,111 +146,39 @@ export function ItemEditorForm({
           />
         </Field>
 
-        <Field label="GM Special Properties">
-          <textarea
-            rows={3}
-            value={values.gmSpecialProperties}
-            onChange={(event) => onChange({ ...values, gmSpecialProperties: event.target.value })}
-            placeholder="Private mechanical notes or hidden properties"
-          />
-        </Field>
+        {values.interactionType !== "inventory_only" ? (
+          <Field label="GM Special Properties">
+            <textarea
+              rows={3}
+              value={values.gmSpecialProperties}
+              onChange={(event) => onChange({ ...values, gmSpecialProperties: event.target.value })}
+              placeholder="Private properties"
+            />
+          </Field>
+        ) : null}
+      </section>
 
-        <div className="stack">
-          <div className="list-item__top">
-            <strong>Granted Actions</strong>
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() =>
-                onChange({
-                  ...values,
-                  actionGrants: [
-                    ...values.actionGrants,
-                    { actionId: "", availability: "carried", consumeQuantity: "0" }
-                  ]
-                })
-              }
-            >
-              Add Action Grant
-            </button>
-          </div>
-          <p className="muted">
-            Carried actions require positive quantity. Equipped actions also require the item to be active.
-          </p>
-          {values.actionGrants.map((grant, index) => (
-            <div className="inline-group" key={`${grant.actionId}-${index}`}>
-              <Field label="Action">
-                <select
-                  value={grant.actionId}
-                  onChange={(event) => {
-                    const actionGrants = [...values.actionGrants];
-                    actionGrants[index] = { ...grant, actionId: event.target.value };
-                    onChange({ ...values, actionGrants });
-                  }}
-                >
-                  <option value="">Select action</option>
-                  {actions.map((action) => (
-                    <option key={action.id} value={action.id}>
-                      {action.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Available while">
-                <select
-                  value={grant.availability}
-                  onChange={(event) => {
-                    const actionGrants = [...values.actionGrants];
-                    actionGrants[index] = {
-                      ...grant,
-                      availability: event.target.value as "carried" | "equipped"
-                    };
-                    onChange({ ...values, actionGrants });
-                  }}
-                >
-                  <option value="carried">Carried</option>
-                  <option value="equipped">Equipped</option>
-                </select>
-              </Field>
-              <Field label="Quantity consumed">
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={grant.consumeQuantity}
-                  onChange={(event) => {
-                    const actionGrants = [...values.actionGrants];
-                    actionGrants[index] = { ...grant, consumeQuantity: event.target.value };
-                    onChange({ ...values, actionGrants });
-                  }}
-                />
-              </Field>
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...values,
-                    actionGrants: values.actionGrants.filter((_, grantIndex) => grantIndex !== index)
-                  })
-                }
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
+      {values.interactionType === "equippable" ? effectEditor : null}
 
-        <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit}>
-            {editingItemId ? "Save Item" : "Create Item"}
+      {values.interactionType !== "inventory_only" ? (
+        <ItemActionGrantEditor
+          values={values}
+          actions={actions}
+          onChange={onChange}
+          onOpenActionAuthoring={onOpenActionAuthoring}
+        />
+      ) : null}
+
+      {validationError ? <p className="error-text">{validationError}</p> : null}
+      <div className="template-editor__actions item-editor__actions">
+        <button className="button" onClick={onSubmit} disabled={Boolean(validationError)}>
+          {editingItemId ? "Save Item" : "Create Item"}
+        </button>
+        {editingItemId ? (
+          <button className="button button--secondary" onClick={onCancel}>
+            Cancel
           </button>
-          {editingItemId ? (
-            <button className="button button--secondary" onClick={onCancel}>
-              Cancel
-            </button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );

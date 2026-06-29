@@ -1,8 +1,12 @@
 import asyncio
 from copy import deepcopy
 
+import pytest
+from pydantic import ValidationError
+
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.features.sheet_admin.items.schema import ItemDefinitionPayload
 from backend.state.models.action import Action
 from backend.state.models.item import Item
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -31,6 +35,9 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
     return {
         "id": item_id,
         "name": name,
+        "interaction_type": "inventory_only",
+        "category": "Weapon",
+        "rank": "F",
         "description": "A test item.",
         "world_anvil_url": "https://www.worldanvil.com/w/test/sword",
         "gm_notes": "Hidden lore.",
@@ -92,6 +99,30 @@ def test_item_from_dict_defaults_missing_optional_item_fields() -> None:
     assert item.action_grants == []
 
 
+def test_item_interaction_type_rejects_invalid_cross_type_mechanics() -> None:
+    inventory_item = _item_payload()
+    inventory_item["action_grants"] = [
+        {"action_id": "inspect", "availability": "carried"}
+    ]
+    with pytest.raises(ValidationError, match="Inventory-only items cannot grant actions"):
+        ItemDefinitionPayload.model_validate(inventory_item)
+
+    consumable = _item_payload("potion", "Potion")
+    consumable["interaction_type"] = "consumable"
+    with pytest.raises(ValidationError, match="require at least one carried action"):
+        ItemDefinitionPayload.model_validate(consumable)
+
+    consumable["action_grants"] = [
+        {
+            "action_id": "drink",
+            "availability": "equipped",
+            "consume_quantity": 1,
+        }
+    ]
+    with pytest.raises(ValidationError, match="must use carried availability"):
+        ItemDefinitionPayload.model_validate(consumable)
+
+
 def test_dm_can_author_item_action_grants(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -106,6 +137,7 @@ def test_dm_can_author_item_action_grants(monkeypatch) -> None:
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             payload = _item_payload("potion", "Potion")
+            payload["interaction_type"] = "consumable"
             payload["action_grants"] = [
                 {
                     "action_id": "drink_potion",
@@ -139,6 +171,7 @@ def test_item_action_grants_reject_unknown_and_duplicate_actions(monkeypatch) ->
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             payload = _item_payload("potion", "Potion")
+            payload["interaction_type"] = "equippable"
             payload["action_grants"] = [
                 {"action_id": "missing", "availability": "carried"},
                 {"action_id": "missing", "availability": "equipped"},

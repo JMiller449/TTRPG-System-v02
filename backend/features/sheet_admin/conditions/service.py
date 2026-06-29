@@ -11,7 +11,7 @@ from backend.features.sheet_admin.conditions.schema import (
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.models.augmentation import Augmentation
+from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.action import ApplyConditionPresetStep
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.state import State
@@ -49,7 +49,17 @@ def _validate_condition_augmentation_templates(
 
 def _build_condition_preset(payload: ConditionPresetPayload) -> ConditionPreset:
     _validate_condition_augmentation_templates(payload)
-    return ConditionPreset.from_dict(payload.model_dump(mode="json"))
+    condition = ConditionPreset.from_dict(payload.model_dump(mode="json"))
+    for augmentation in condition.augmentation_templates:
+        augmentation.source = AugmentationSource(
+            type="condition",
+            id=condition.id,
+            label=condition.name,
+        )
+        augmentation.lifecycle_owner = "condition"
+        augmentation.applied = False
+        augmentation.applied_target_id = None
+    return condition
 
 
 def _merge_condition(current: dict, partial: dict) -> dict:

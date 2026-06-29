@@ -1,10 +1,12 @@
 import asyncio
 from copy import deepcopy
+from dataclasses import asdict
 
 import pytest
 
 from backend.features.augmentations import service as augmentation_service
 from backend.features.session.service import websocket_sessions
+from backend.features.state_sync.service import state_sync_service
 from backend.state.models.augmentation import (
     Augmentation,
     AugmentationLifecycle,
@@ -16,6 +18,7 @@ from backend.state.models.augmentation import (
 )
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.item import Item, ItemBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -133,6 +136,33 @@ def _build_augmentation(
         applied=applied,
         applied_target_id=applied_target_id,
         lifecycle=lifecycle or AugmentationLifecycle(),
+    )
+
+
+def _build_equipment_item(
+    item_id: str,
+    *,
+    value: str,
+    operation: str = "add",
+) -> Item:
+    template = _build_augmentation(
+        augmentation_id=f"{item_id}-health",
+        value=value,
+        operation=operation,
+    )
+    template.source = AugmentationSource(type="item", id=item_id, label=item_id)
+    return Item.from_dict(
+        {
+            "id": item_id,
+            "name": item_id.replace("-", " ").title(),
+            "interaction_type": "equippable",
+            "category": "Test Gear",
+            "rank": "F",
+            "description": "",
+            "price": "",
+            "weight": "",
+            "augmentation_templates": [asdict(template)],
+        }
     )
 
 
@@ -362,6 +392,10 @@ def test_apply_condition_preset_creates_links_and_applies_current_instance_only(
             assert concrete_id in state.augmentations
             assert state.augmentations[concrete_id].source.type == "condition"
             assert state.augmentations[concrete_id].source.id == "poisoned"
+            assert state.augmentations[concrete_id].source.application_id == (
+                "condition:poisoned:inst-1"
+            )
+            assert state.augmentations[concrete_id].lifecycle_owner == "condition"
             assert state.augmentations[concrete_id].applied_target_id == "inst-1"
             assert state.instanced_sheets["inst-1"].augments[concrete_id].entry_id == (
                 concrete_id
@@ -397,6 +431,13 @@ def test_remove_condition_preset_reverses_unlinks_and_removes_concrete_augmentat
                 request_id="req-1",
             )
 
+            concrete_id = "condition:poisoned:inst-1:poison-drain"
+            with pytest.raises(ValueError, match="managed by its condition source"):
+                await augmentation_service.remove_augmentation(
+                    concrete_id,
+                    instance_id="inst-1",
+                )
+
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -407,7 +448,6 @@ def test_remove_condition_preset_reverses_unlinks_and_removes_concrete_augmentat
                 request_id="req-2",
             )
 
-            concrete_id = "condition:poisoned:inst-1:poison-drain"
             assert result.operation == "removed"
             assert [item.operation for item in result.augmentation_results] == [
                 "removed"
@@ -938,6 +978,227 @@ def test_augmentation_formula_can_reference_target_root(monkeypatch) -> None:
 
             assert result.value == 15
             assert state.instanced_sheets["inst-1"].health == 15
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await state_sync_service.reset()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+            state = StateSingleton.getState()
+            sheet = _build_sheet()
+            sheet.items = {
+                "helm": ItemBridge(
+                    relationship_id="helm",
+                    count=1,
+                    equipped=False,
+                    item_id="flame-helm",
+                ),
+                "ring": ItemBridge(
+                    relationship_id="ring",
+                    count=1,
+                    equipped=False,
+                    item_id="health-ring",
+                ),
+            }
+            state.sheets[sheet.id] = sheet
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.items["flame-helm"] = _build_equipment_item(
+                "flame-helm",
+                value="5",
+            )
+            state.items["health-ring"] = _build_equipment_item(
+                "health-ring",
+                value="2",
+            )
+
+            async def set_equipped(relationship_id: str, equipped: bool) -> None:
+                def mutation(current_state):
+                    path = state_sync_service.join_path(
+                        "sheets",
+                        "sheet-1",
+                        "items",
+                        relationship_id,
+                        "equipped",
+                    )
+                    op = state_sync_service.set_mutation(
+                        current_state,
+                        path,
+                        equipped,
+                    )
+                    return None, [op]
+
+                await state_sync_service.apply_mutation(mutation)
+
+            await set_equipped("helm", True)
+            assert state.instanced_sheets["inst-1"].health == 15
+            assert len(state.augmentations) == 1
+            concrete = next(iter(state.augmentations.values()))
+            assert concrete.lifecycle_owner == "equipment"
+            assert concrete.source.id == "flame-helm"
+            assert concrete.source.relationship_id == "helm"
+            assert concrete.source.application_id == "equipment:sheet-1:helm"
+            assert concrete.id in state.instanced_sheets["inst-1"].augments
+            assert all(
+                not op["path"].startswith("/equipment_effect_projections")
+                for socket in (dm_socket, player_socket)
+                for op in socket.sent_messages[-1]["ops"]
+            )
+            assert "equipment_effect_projections" not in (
+                await state_sync_service.snapshot(role="dm")
+            ).state
+
+            await set_equipped("ring", True)
+            assert state.instanced_sheets["inst-1"].health == 17
+
+            def damage_mutation(current_state):
+                path = state_sync_service.join_path(
+                    "instanced_sheets", "inst-1", "health"
+                )
+                op = state_sync_service.decrement_mutation(current_state, path, 3)
+                return None, [op]
+
+            await state_sync_service.apply_mutation(damage_mutation)
+            assert state.instanced_sheets["inst-1"].health == 14
+            projection = next(iter(state.equipment_effect_projections.values()))
+            assert projection.base_value == 7
+            assert projection.effective_value == 14
+
+            def edit_template_mutation(current_state):
+                path = state_sync_service.join_path(
+                    "items",
+                    "flame-helm",
+                    "augmentation_templates",
+                    "0",
+                    "effect",
+                    "value",
+                    "text",
+                )
+                op = state_sync_service.set_mutation(current_state, path, "8")
+                return None, [op]
+
+            await state_sync_service.apply_mutation(edit_template_mutation)
+            assert state.instanced_sheets["inst-1"].health == 17
+
+            reloaded = type(state).from_dict(state.to_dict(include_private=True))
+            StateSingleton._state = reloaded
+            assert augmentation_service.synchronize_equipment_augmentations_mutation(
+                reloaded
+            ) == []
+            assert reloaded.instanced_sheets["inst-1"].health == 17
+
+            equipment_augmentation_id = next(iter(reloaded.augmentations))
+            with pytest.raises(ValueError, match="managed by its equipment source"):
+                await augmentation_service.remove_augmentation(
+                    equipment_augmentation_id,
+                    instance_id="inst-1",
+                )
+
+            state = reloaded
+            await set_equipped("helm", False)
+            assert state.instanced_sheets["inst-1"].health == 9
+            await set_equipped("ring", False)
+            assert state.instanced_sheets["inst-1"].health == 7
+            assert state.equipment_effect_projections == {}
+            assert state.augmentations == {}
+            assert state.instanced_sheets["inst-1"].augments == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipment_effect_applies_when_instance_is_created(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await state_sync_service.reset()
+            state = StateSingleton.getState()
+            sheet = _build_sheet()
+            sheet.items["helm"] = ItemBridge(
+                relationship_id="helm",
+                count=1,
+                equipped=True,
+                item_id="flame-helm",
+            )
+            state.sheets[sheet.id] = sheet
+            state.items["flame-helm"] = _build_equipment_item(
+                "flame-helm",
+                value="5",
+            )
+
+            def mutation(current_state):
+                op = state_sync_service.add_mutation(
+                    current_state,
+                    state_sync_service.join_path("instanced_sheets", "inst-1"),
+                    _build_instance(),
+                )
+                return None, [op]
+
+            await state_sync_service.apply_mutation(mutation)
+
+            assert state.instanced_sheets["inst-1"].health == 15
+            assert len(state.augmentations) == 1
+            assert len(state.equipment_effect_projections) == 1
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await state_sync_service.reset()
+            state = StateSingleton.getState()
+            sheet = _build_sheet()
+            sheet.items["broken"] = ItemBridge(
+                relationship_id="broken",
+                count=1,
+                equipped=False,
+                item_id="broken-ring",
+            )
+            state.sheets[sheet.id] = sheet
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.items["broken-ring"] = _build_equipment_item(
+                "broken-ring",
+                value="0",
+                operation="divide",
+            )
+
+            def mutation(current_state):
+                op = state_sync_service.set_mutation(
+                    current_state,
+                    state_sync_service.join_path(
+                        "sheets", "sheet-1", "items", "broken", "equipped"
+                    ),
+                    True,
+                )
+                return None, [op]
+
+            with pytest.raises(ValueError, match="divide operation cannot use zero"):
+                await state_sync_service.apply_mutation(mutation)
+
+            assert state.sheets["sheet-1"].items["broken"].equipped is False
+            assert state.instanced_sheets["inst-1"].health == 10
+            assert state.augmentations == {}
+            assert state.equipment_effect_projections == {}
         finally:
             StateSingleton._state = original_state
 

@@ -3,29 +3,21 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from backend.state.models.action_history import prune_action_history
+from backend.state.migrations import (
+    CURRENT_STATE_SCHEMA_VERSION,
+    PersistedStateError,
+    migrate_persisted_state,
+)
 from backend.state.models.state import State
 
 logger = logging.getLogger(__name__)
 STATE_PATH = Path(__file__).resolve().parents[2] / "state_dumpy.json"
-CURRENT_STATE_SCHEMA_VERSION = 1
 DEFAULT_STATE = State()
-
-StateMigration = Callable[[dict[str, Any]], dict[str, Any]]
-
-
-def _migrate_legacy_state(state: dict[str, Any]) -> dict[str, Any]:
-    return state
-
-
-STATE_MIGRATIONS: dict[int, StateMigration] = {
-    0: _migrate_legacy_state,
-}
 
 
 def _backup_path(path: Path) -> Path:
@@ -36,54 +28,9 @@ def _temporary_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.tmp")
 
 
-def _migrate_state(
-    state: dict[str, Any],
-    *,
-    schema_version: int,
-) -> dict[str, Any]:
-    if schema_version < 0:
-        raise ValueError("State schema version cannot be negative.")
-    if schema_version > CURRENT_STATE_SCHEMA_VERSION:
-        raise ValueError(
-            f"State schema version {schema_version} is newer than supported version "
-            f"{CURRENT_STATE_SCHEMA_VERSION}."
-        )
-
-    migrated = state
-    version = schema_version
-    while version < CURRENT_STATE_SCHEMA_VERSION:
-        migration = STATE_MIGRATIONS.get(version)
-        if migration is None:
-            raise ValueError(f"No state migration exists for schema version {version}.")
-        migrated = migration(migrated)
-        if not isinstance(migrated, dict):
-            raise ValueError(
-                f"State migration for schema version {version} returned invalid data."
-            )
-        version += 1
-    return migrated
-
-
 def _decode_checkpoint(document: Any) -> State:
-    if not isinstance(document, dict):
-        raise ValueError("Persisted state was not a JSON object.")
-
-    if "schema_version" not in document:
-        schema_version = 0
-        state_data = document
-    else:
-        schema_version = document["schema_version"]
-        state_data = document.get("state")
-        if isinstance(schema_version, bool) or not isinstance(schema_version, int):
-            raise ValueError("State schema version must be an integer.")
-        if not isinstance(state_data, dict):
-            raise ValueError("Versioned state checkpoint is missing its state object.")
-
-    migrated_state = _migrate_state(
-        state_data,
-        schema_version=schema_version,
-    )
-    return State.from_dict(migrated_state)
+    migration = migrate_persisted_state(document)
+    return State.from_dict(migration.state)
 
 
 def _load_checkpoint(path: Path) -> State | None:
@@ -97,6 +44,7 @@ def _load_checkpoint(path: Path) -> State | None:
         json.JSONDecodeError,
         KeyError,
         OSError,
+        PersistedStateError,
         TypeError,
         ValueError,
     ) as exc:

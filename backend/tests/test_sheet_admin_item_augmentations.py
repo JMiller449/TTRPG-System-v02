@@ -33,6 +33,9 @@ def _item_payload() -> dict:
     return {
         "id": "sword",
         "name": "Sword",
+        "interaction_type": "equippable",
+        "category": "Weapon",
+        "rank": "F",
         "description": "A test sword.",
         "price": "10g",
         "weight": "3",
@@ -764,6 +767,39 @@ def test_missing_item_augmentation_template_request_is_rejected(monkeypatch) -> 
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_inventory_only_item_rejects_augmentation_template_upsert(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            payload = _item_payload()
+            payload["interaction_type"] = "inventory_only"
+            state.items["sword"] = Item.from_dict(payload)
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "upsert_item_augmentation_template",
+                    "item_id": "sword",
+                    "augmentation": _augmentation_payload(),
+                },
+            )
+
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Only equippable items can have augmentation templates."
+            )
+            assert state.items["sword"].augmentation_templates == []
         finally:
             StateSingleton._state = original_state
 

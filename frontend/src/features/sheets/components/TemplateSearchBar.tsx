@@ -17,7 +17,7 @@ export function TemplateSearchBar({
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by name or tag"
+          placeholder="Search by template name"
         />
       </Field>
 

@@ -76,6 +76,9 @@ def _item_payload(item_id: str = "sword") -> dict:
     return {
         "id": item_id,
         "name": "Sword",
+        "interaction_type": "equippable",
+        "category": "Weapon",
+        "rank": "F",
         "description": "A test item.",
         "price": "10g",
         "weight": "3",
@@ -88,12 +91,12 @@ def _bridge_payload(
     item_id: str = "sword",
     *,
     count: int = 1,
-    active: bool = True,
+    equipped: bool = True,
 ) -> dict:
     return {
         "relationship_id": relationship_id,
         "count": count,
-        "active": active,
+        "equipped": equipped,
         "item_id": item_id,
     }
 
@@ -124,14 +127,14 @@ def test_dm_can_create_sheet_item_bridge(monkeypatch) -> None:
             assert bridge.relationship_id == "main_hand"
             assert bridge.item_id == "sword"
             assert bridge.count == 1
-            assert bridge.active is True
+            assert bridge.equipped is True
             assert websocket.sent_messages[0]["ops"][0] == {
                 "op": "add",
                 "path": "/sheets/mage_template/items/main_hand",
                 "value": {
                     "relationship_id": "main_hand",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "sword",
                 },
             }
@@ -153,7 +156,7 @@ def test_dm_can_update_sheet_item_bridge(monkeypatch) -> None:
                 {
                     "relationship_id": "main_hand",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "sword",
                 }
             )
@@ -169,21 +172,21 @@ def test_dm_can_update_sheet_item_bridge(monkeypatch) -> None:
                     "type": "update_sheet_item_bridge",
                     "sheet_id": "mage_template",
                     "relationship_id": "main_hand",
-                    "bridge": _bridge_payload(item_id="axe", count=2, active=False),
+                    "bridge": _bridge_payload(item_id="axe", count=2, equipped=False),
                 },
             )
 
             bridge = state.sheets["mage_template"].items["main_hand"]
             assert bridge.item_id == "axe"
             assert bridge.count == 2
-            assert bridge.active is False
+            assert bridge.equipped is False
             assert websocket.sent_messages[0]["ops"][0] == {
                 "op": "set",
                 "path": "/sheets/mage_template/items/main_hand",
                 "value": {
                     "relationship_id": "main_hand",
                     "count": 2,
-                    "active": False,
+                    "equipped": False,
                     "item_id": "axe",
                 },
             }
@@ -205,7 +208,7 @@ def test_dm_can_delete_sheet_item_bridge(monkeypatch) -> None:
                 {
                     "relationship_id": "main_hand",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "sword",
                 }
             )
@@ -403,7 +406,7 @@ def test_create_sheet_item_bridge_rejects_duplicate_relationship(monkeypatch) ->
                 {
                     "relationship_id": "main_hand",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "sword",
                 }
             )
@@ -447,7 +450,7 @@ def test_update_sheet_item_bridge_rejects_id_change(monkeypatch) -> None:
                 {
                     "relationship_id": "main_hand",
                     "count": 1,
-                    "active": True,
+                    "equipped": True,
                     "item_id": "sword",
                 }
             )
@@ -510,6 +513,132 @@ def test_delete_sheet_item_bridge_rejects_missing_relationship(monkeypatch) -> N
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipped_bridge_requires_equippable_item_and_positive_quantity(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            inventory_item = _item_payload("quest_key")
+            inventory_item["interaction_type"] = "inventory_only"
+            state.items["quest_key"] = Item.from_dict(inventory_item)
+            state.items["sword"] = Item.from_dict(_item_payload())
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_item_bridge",
+                    "sheet_id": "mage_template",
+                    "bridge": _bridge_payload(item_id="quest_key", equipped=True),
+                },
+            )
+            assert websocket.sent_messages[-1]["reason"] == "Item 'quest_key' is not equippable."
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_item_bridge",
+                    "sheet_id": "mage_template",
+                    "bridge": _bridge_payload(count=0, equipped=True),
+                },
+            )
+            assert websocket.sent_messages[-1]["reason"] == (
+                "An equipped item must have a positive quantity."
+            )
+            assert state.sheets["mage_template"].items == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_sheet_allows_multiple_equipped_items(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.items["sword"] = Item.from_dict(_item_payload())
+            state.items["shield"] = Item.from_dict(_item_payload("shield"))
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            for relationship_id, item_id in (("sword", "sword"), ("shield", "shield")):
+                await handle_client_payload(
+                    websocket,
+                    {
+                        "type": "create_sheet_item_bridge",
+                        "sheet_id": "mage_template",
+                        "bridge": _bridge_payload(
+                            relationship_id=relationship_id,
+                            item_id=item_id,
+                            equipped=True,
+                        ),
+                    },
+                )
+
+            assert all(
+                bridge.equipped
+                for bridge in state.sheets["mage_template"].items.values()
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_update_and_delete_respect_attached_bridge_dependencies(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.items["sword"] = Item.from_dict(_item_payload())
+            state.sheets["mage_template"].items["sword"] = ItemBridge.from_dict(
+                _bridge_payload(relationship_id="sword", equipped=True)
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            inventory_item = _item_payload()
+            inventory_item["interaction_type"] = "inventory_only"
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_item",
+                    "item_id": "sword",
+                    "item": inventory_item,
+                },
+            )
+            assert "cannot become inventory_only while equipped" in websocket.sent_messages[-1][
+                "reason"
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_item", "item_id": "sword"},
+            )
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Item 'sword' cannot be deleted while attached to sheets: mage_template."
+            )
+            assert "sword" in state.items
         finally:
             StateSingleton._state = original_state
 

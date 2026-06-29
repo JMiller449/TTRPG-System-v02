@@ -12,6 +12,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
   return {
     id: "item_1",
     name: "Ward Ring",
+    interaction_type: "equippable",
     description: "Rank C ring.",
     price: "100CP",
     weight: "1LBS",

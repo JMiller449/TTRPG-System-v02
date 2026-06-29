@@ -12,6 +12,7 @@ import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
+import { buildEquipmentQuantitySubmission } from "@/features/sheets/equipmentQuantity";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
@@ -47,6 +48,7 @@ export function PlayerCharacterSheet({
     detail,
     actionDefinitions,
     actionOrder,
+    augmentations,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,
@@ -56,8 +58,6 @@ export function PlayerCharacterSheet({
     equipment,
     sheetProficiencies,
     assignedActions,
-    activeWeaponId,
-    activeWeaponLabel,
     selectedItemId,
     selectedItem,
     setSelectedItemId
@@ -116,7 +116,7 @@ export function PlayerCharacterSheet({
   const canEditProficiencies = mode === "gm";
   const sheetId = detail.sheet?.id;
 
-  const updateEquipmentBridgeActive = (relationshipId: string, active: boolean): void => {
+  const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
     if (!sheetId) {
       return;
     }
@@ -132,10 +132,10 @@ export function PlayerCharacterSheet({
         relationshipId,
         bridge: {
           ...bridge,
-          active
+          equipped
         }
       }),
-      active ? "Set active equipment" : "Clear active equipment"
+      equipped ? "Equip item" : "Unequip item"
     );
   };
 
@@ -365,12 +365,12 @@ export function PlayerCharacterSheet({
           >
             <SheetEquipmentSection
               items={items}
+              actionDefinitions={actionDefinitions}
+              augmentations={augmentations}
               itemOrder={itemOrder}
               selectedItemId={selectedItemId}
               selectedItem={selectedItem}
-              activeWeaponLabel={activeWeaponLabel}
               equipment={equipment}
-              activeWeaponId={activeWeaponId}
               canEdit={canEditEquipment}
               onSelectedItemIdChange={setSelectedItemId}
               onAddSelectedItem={() => {
@@ -386,22 +386,38 @@ export function PlayerCharacterSheet({
                       relationship_id: relationshipId,
                       item_id: selectedItem.id,
                       count: 1,
-                      active: !activeWeaponId
+                      equipped: false
                     }
                   }),
                   "Add equipment"
                 );
               }}
-              onToggleActiveWeapon={(relationshipId) => {
-                if (activeWeaponId === relationshipId) {
-                  updateEquipmentBridgeActive(relationshipId, false);
+              onQuantityChange={(relationshipId, count) => {
+                if (!sheetId) {
                   return;
                 }
-
-                if (activeWeaponId) {
-                  updateEquipmentBridgeActive(activeWeaponId, false);
+                const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
+                const item = bridge ? items[bridge.item_id] : undefined;
+                if (!bridge || !item) {
+                  return;
                 }
-                updateEquipmentBridgeActive(relationshipId, true);
+                const submission = buildEquipmentQuantitySubmission({
+                  sheetId,
+                  bridge,
+                  count,
+                  itemName: item.name
+                });
+                if (!submission) {
+                  return;
+                }
+                client.sendProtocolRequest(submission.request, submission.label);
+              }}
+              onToggleEquipped={(relationshipId) => {
+                const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
+                if (!bridge) {
+                  return;
+                }
+                updateEquipmentBridgeEquipped(relationshipId, !bridge.equipped);
               }}
               onRemoveInventoryItem={(relationshipId) => {
                 if (!sheetId) {

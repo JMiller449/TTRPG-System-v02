@@ -103,8 +103,7 @@ export function formatAugmentationEffect(augmentation: Augmentation): string {
   if (augmentation.effect.type === "roll_mode_modifier") {
     return `grant ${augmentation.effect.roll_mode}`;
   }
-  const prefix =
-    augmentation.effect.type === "evaluation_formula_modifier" ? "evaluate" : "mutate";
+  const prefix = augmentation.effect.type === "evaluation_formula_modifier" ? "evaluate" : "mutate";
   return `${prefix}: ${augmentation.effect.operation} ${augmentation.effect.value.text || "(blank)"}`;
 }
 
@@ -226,7 +225,7 @@ export function toItemAugmentationTemplatePayload({
   augmentationId: string;
   itemId: string;
   itemName: string;
-}): AugmentationPayload {
+}): Augmentation {
   return {
     id: augmentationId,
     name: values.name.trim(),

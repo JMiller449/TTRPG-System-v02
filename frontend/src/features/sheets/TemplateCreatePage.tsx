@@ -45,7 +45,6 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
       }
     >
       <div className="stack">
-        <p className="muted">Template creation is isolated on this page by design.</p>
         <TemplateEditorForm
           title="New Template"
           submitLabel="Create Template"

@@ -214,6 +214,8 @@ export interface AugmentationSource {
   type: AugmentationSourceType;
   id?: string | null;
   label?: string | null;
+  relationship_id?: string | null;
+  application_id?: string | null;
 }
 
 export interface AugmentationTarget {
@@ -271,6 +273,7 @@ export interface Augmentation {
   active?: boolean;
   applied?: boolean;
   applied_target_id?: string | null;
+  lifecycle_owner?: "manual" | "equipment" | "condition" | "action";
   lifecycle?: AugmentationLifecycle;
 }
 
@@ -288,6 +291,9 @@ export interface ConditionPreset {
 export interface ItemDefinition {
   id: string;
   name: string;
+  interaction_type: ItemInteractionType;
+  category?: string;
+  rank?: string;
   description: string;
   world_anvil_url?: string;
   gm_notes?: string;
@@ -297,6 +303,8 @@ export interface ItemDefinition {
   augmentation_templates?: Augmentation[];
   action_grants?: ItemActionGrant[];
 }
+
+export type ItemInteractionType = "equippable" | "consumable" | "inventory_only";
 
 export interface ItemActionGrant {
   action_id: string;
@@ -312,7 +320,7 @@ export interface Bridge {
 export interface ItemBridge {
   relationship_id: string;
   count: number;
-  active: boolean;
+  equipped: boolean;
   item_id: string;
 }
 

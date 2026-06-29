@@ -891,6 +891,7 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                 {
                     "id": "focus",
                     "name": "Flame Focus",
+                    "interaction_type": "equippable",
                     "description": "Adds fire damage.",
                     "price": "0",
                     "weight": "0",
@@ -904,6 +905,7 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                 {
                     "id": "inactive-focus",
                     "name": "Inactive Focus",
+                    "interaction_type": "equippable",
                     "description": "Must not apply while unequipped.",
                     "price": "0",
                     "weight": "0",
@@ -914,13 +916,13 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                 "focus": ItemBridge(
                     relationship_id="focus",
                     count=1,
-                    active=True,
+                    equipped=True,
                     item_id="focus",
                 ),
                 "inactive-focus": ItemBridge(
                     relationship_id="inactive-focus",
                     count=1,
-                    active=False,
+                    equipped=False,
                     item_id="inactive-focus",
                 ),
             }
@@ -940,7 +942,12 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
             assert state.instanced_sheets["mage_instance"].health == 75
             assert state.actions["fire_damage"].steps[0].amount.text == "10"
             assert state.items["focus"].augmentation_templates[0].applied is False
-            assert state.augmentations == {}
+            assert len(state.augmentations) == 2
+            assert all(
+                augmentation.lifecycle_owner == "equipment"
+                and augmentation.source.relationship_id == "focus"
+                for augmentation in state.augmentations.values()
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -1070,9 +1077,10 @@ def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
             )
             state.items["shield"] = Item.from_dict(
                 {
-                    "id": "shield",
-                    "name": "Shield",
-                    "description": "Grants Block advantage.",
+                        "id": "shield",
+                        "name": "Shield",
+                        "interaction_type": "equippable",
+                        "description": "Grants Block advantage.",
                     "price": "0",
                     "weight": "0",
                     "augmentation_templates": [shield_template, shield_check_bonus],
@@ -1081,7 +1089,7 @@ def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
             state.sheets["mage_template"].items["shield"] = ItemBridge(
                 relationship_id="shield",
                 count=1,
-                active=True,
+                equipped=True,
                 item_id="shield",
             )
             await websocket_sessions.reset()
@@ -1512,13 +1520,13 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                 "potion-a": ItemBridge(
                     relationship_id="potion-a",
                     count=1,
-                    active=False,
+                    equipped=False,
                     item_id="healing-potion",
                 ),
                 "potion-b": ItemBridge(
                     relationship_id="potion-b",
                     count=1,
-                    active=False,
+                    equipped=False,
                     item_id="healing-potion",
                 ),
             }
@@ -1541,9 +1549,10 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
             )
             state.items["healing-potion"] = Item.from_dict(
                 {
-                    "id": "healing-potion",
-                    "name": "Healing Potion",
-                    "description": "",
+                        "id": "healing-potion",
+                        "name": "Healing Potion",
+                        "interaction_type": "consumable",
+                        "description": "",
                     "price": "",
                     "weight": "",
                     "action_grants": [
@@ -1601,7 +1610,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
     asyncio.run(scenario())
 
 
-def test_equipped_item_granted_action_requires_active_bridge(monkeypatch) -> None:
+def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1614,7 +1623,7 @@ def test_equipped_item_granted_action_requires_active_bridge(monkeypatch) -> Non
                 "sword": ItemBridge(
                     relationship_id="sword",
                     count=1,
-                    active=False,
+                    equipped=False,
                     item_id="moon-sword",
                 )
             }
@@ -1627,6 +1636,7 @@ def test_equipped_item_granted_action_requires_active_bridge(monkeypatch) -> Non
                 {
                     "id": "moon-sword",
                     "name": "Moon Sword",
+                    "interaction_type": "equippable",
                     "description": "",
                     "price": "",
                     "weight": "",
@@ -1634,6 +1644,7 @@ def test_equipped_item_granted_action_requires_active_bridge(monkeypatch) -> Non
                         {
                             "action_id": "moon_strike",
                             "availability": "equipped",
+                            "consume_quantity": 1,
                         }
                     ],
                 }
@@ -1651,9 +1662,22 @@ def test_equipped_item_granted_action_requires_active_bridge(monkeypatch) -> Non
             await handle_client_payload(websocket, request)
             assert "must be equipped" in websocket.sent_messages[-1]["reason"]
 
-            sheet.items["sword"].active = True
+            sheet.items["sword"].equipped = True
             await handle_client_payload(websocket, request)
-            assert websocket.sent_messages[-1]["type"] == "action_executed"
+            assert websocket.sent_messages[-1]["ops"] == [
+                {
+                    "op": "inc",
+                    "path": "/sheets/mage_template/items/sword/count",
+                    "value": -1,
+                },
+                {
+                    "op": "set",
+                    "path": "/sheets/mage_template/items/sword/equipped",
+                    "value": False,
+                },
+            ]
+            assert sheet.items["sword"].count == 0
+            assert sheet.items["sword"].equipped is False
         finally:
             StateSingleton._state = original_state
 

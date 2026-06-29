@@ -18,7 +18,7 @@ from backend.features.sheet_admin.shared.schema import (
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.models.augmentation import Augmentation
+from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.state import State
 
@@ -55,6 +55,14 @@ def _build_item_augmentation_templates(
         for augmentation in payload.augmentation_templates
     ]
     for augmentation in augmentations:
+        augmentation.source = AugmentationSource(
+            type="item",
+            id=payload.id,
+            label=payload.name,
+        )
+        augmentation.lifecycle_owner = "equipment"
+        augmentation.applied = False
+        augmentation.applied_target_id = None
         _validate_item_augmentation_template(augmentation)
     return augmentations
 
@@ -63,6 +71,9 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
     return Item(
         id=payload.id,
         name=payload.name,
+        interaction_type=payload.interaction_type,
+        category=payload.category,
+        rank=payload.rank,
         description=payload.description,
         world_anvil_url=payload.world_anvil_url,
         gm_notes=payload.gm_notes,
@@ -85,6 +96,25 @@ def _validate_item_action_grants(item: Item, state: State) -> None:
     for grant in item.action_grants:
         if grant.action_id not in state.actions:
             raise ValueError(f"Action '{grant.action_id}' does not exist.")
+
+
+def _validate_existing_item_bridges(item: Item, state: State) -> None:
+    if item.interaction_type == "equippable":
+        return
+
+    equipped_sheet_ids = sorted(
+        sheet.id
+        for sheet in state.sheets.values()
+        if any(
+            bridge.item_id == item.id and bridge.equipped
+            for bridge in sheet.items.values()
+        )
+    )
+    if equipped_sheet_ids:
+        raise ValueError(
+            f"Item '{item.id}' cannot become {item.interaction_type} while equipped on "
+            f"sheets: {', '.join(equipped_sheet_ids)}."
+        )
 
 
 def _items_state(state: State) -> dict[str, dict]:
@@ -123,6 +153,7 @@ async def _create_item(
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
         _validate_item_action_grants(item, state)
+        _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", payload.id)
         op = state_sync_service.add_mutation(state, path, item)
         return None, [op]
@@ -147,6 +178,7 @@ async def _update_item(
             raise ValueError(f"Item '{item_id}' does not exist.")
 
         _validate_item_action_grants(item, state)
+        _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", item_id)
         op = state_sync_service.set_mutation(state, path, item)
         return None, [op]
@@ -163,6 +195,17 @@ async def _delete_item(
         items = _items_state(state)
         if item_id not in items:
             raise ValueError(f"Item '{item_id}' does not exist.")
+
+        sheet_ids = sorted(
+            sheet.id
+            for sheet in state.sheets.values()
+            if any(bridge.item_id == item_id for bridge in sheet.items.values())
+        )
+        if sheet_ids:
+            raise ValueError(
+                f"Item '{item_id}' cannot be deleted while attached to sheets: "
+                f"{', '.join(sheet_ids)}."
+            )
 
         path = state_sync_service.join_path("items", item_id)
         _, op = state_sync_service.remove_mutation(state, path)
@@ -223,12 +266,19 @@ async def upsert_item_augmentation_template(
     request: UpsertItemAugmentationTemplate,
 ) -> None:
     augmentation = Augmentation.from_dict(request.augmentation.model_dump(mode="json"))
+    augmentation.source = AugmentationSource(type="item", id=request.item_id)
+    augmentation.lifecycle_owner = "equipment"
+    augmentation.applied = False
+    augmentation.applied_target_id = None
     _validate_item_augmentation_template(augmentation)
 
     def mutation(state: State) -> tuple[None, list]:
         item = state.items.get(request.item_id)
         if item is None:
             raise ValueError(f"Item '{request.item_id}' does not exist.")
+        if item.interaction_type != "equippable":
+            raise ValueError("Only equippable items can have augmentation templates.")
+        augmentation.source.label = item.name
 
         for index, current in enumerate(item.augmentation_templates):
             if current.id == augmentation.id:

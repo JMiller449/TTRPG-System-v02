@@ -142,7 +142,7 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
             key: ItemBridge(
                 relationship_id=bridge.relationship_id,
                 count=bridge.count,
-                active=bridge.active,
+                equipped=bridge.equipped,
                 item_id=bridge.item_id,
             )
             for key, bridge in payload.items.items()
@@ -303,6 +303,18 @@ def _validate_proficiency_reference(proficiency_id: str, state: State) -> None:
         raise ValueError(f"Proficiency '{proficiency_id}' does not exist.")
 
 
+def _validate_item_bridge(payload: ItemBridgePayload, state: State) -> None:
+    item = state.items.get(payload.item_id)
+    if item is None:
+        raise ValueError(f"Item '{payload.item_id}' does not exist.")
+    if not payload.equipped:
+        return
+    if item.interaction_type != "equippable":
+        raise ValueError(f"Item '{item.id}' is not equippable.")
+    if payload.count <= 0:
+        raise ValueError("An equipped item must have a positive quantity.")
+
+
 def _validate_stats_formula_paths(payload: StatsPayload) -> None:
     for formula in (
         payload.lifting,
@@ -351,8 +363,7 @@ def _validate_sheet_references(
             key=key,
             relationship_id=bridge.relationship_id,
         )
-        if bridge.item_id not in state.items:
-            raise ValueError(f"Item '{bridge.item_id}' does not exist.")
+        _validate_item_bridge(bridge, state)
 
     for key, bridge in payload.proficiencies.items():
         _validate_relationship_key(
@@ -384,7 +395,7 @@ def _build_sheet_item_bridge(payload: ItemBridgePayload) -> ItemBridge:
     return ItemBridge(
         relationship_id=payload.relationship_id,
         count=payload.count,
-        active=payload.active,
+        equipped=payload.equipped,
         item_id=payload.item_id,
     )
 
@@ -798,8 +809,7 @@ async def attach_sheet_item(request: CreateSheetItemBridge) -> None:
         sheet = state.sheets.get(request.sheet_id)
         if sheet is None:
             raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
-        if request.bridge.item_id not in state.items:
-            raise ValueError(f"Item '{request.bridge.item_id}' does not exist.")
+        _validate_item_bridge(request.bridge, state)
         if request.bridge.relationship_id in sheet.items:
             raise ValueError(
                 f"Sheet item bridge '{request.bridge.relationship_id}' already exists."
@@ -827,8 +837,7 @@ async def update_attached_sheet_item(request: UpdateSheetItemBridge) -> None:
         sheet = state.sheets.get(request.sheet_id)
         if sheet is None:
             raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
-        if request.bridge.item_id not in state.items:
-            raise ValueError(f"Item '{request.bridge.item_id}' does not exist.")
+        _validate_item_bridge(request.bridge, state)
         if request.relationship_id not in sheet.items:
             raise ValueError(
                 f"Sheet item bridge '{request.relationship_id}' does not exist."

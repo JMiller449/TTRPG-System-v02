@@ -2095,6 +2095,7 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
                 concrete_id
             ].entry_id == concrete_id
             assert [op["path"] for op in websocket.sent_messages[0]["ops"]] == [
+                "/active_conditions/condition:poisoned:mage_instance",
                 f"/augmentations/{concrete_id}",
                 f"/instanced_sheets/mage_instance/augments/{concrete_id}",
                 "/instanced_sheets/mage_instance/health",

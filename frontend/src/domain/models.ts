@@ -288,6 +288,16 @@ export interface ConditionPreset {
   augmentation_templates?: Augmentation[];
 }
 
+export interface ActiveCondition {
+  application_id: string;
+  condition_id: string;
+  condition_name: string;
+  description: string;
+  visibility: ConditionVisibility;
+  instance_id: string;
+  augmentation_ids: string[];
+}
+
 export interface ItemDefinition {
   id: string;
   name: string;

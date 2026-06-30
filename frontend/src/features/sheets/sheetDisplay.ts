@@ -14,6 +14,7 @@ import { DAMAGE_TYPES, type DamageType } from "@/domain/models";
 export type PlayerSheetTab =
   | "stats"
   | "actions"
+  | "conditions"
   | "equipment"
   | "proficiencies"
   | "kills"

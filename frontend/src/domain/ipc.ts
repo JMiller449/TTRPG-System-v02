@@ -1,6 +1,7 @@
 import type {
   ActionDefinition,
   ActionHistoryEntry,
+  ActiveCondition,
   Augmentation,
   ConditionPreset,
   EncounterPreset,
@@ -50,6 +51,7 @@ export interface AppSnapshot {
   formulas: FormulaDefinition[];
   augmentations?: Augmentation[];
   conditionPresets: ConditionPreset[];
+  activeConditions?: ActiveCondition[];
   encounters: EncounterPreset[];
   actionHistory: ActionHistoryEntry[];
 }

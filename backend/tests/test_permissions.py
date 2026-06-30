@@ -47,6 +47,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "get_xp_tracker": "player",
     "import_state_backup": "dm",
     "perform_action": "player",
+    "remove_active_condition": "dm",
     "remove_item_augmentation_template": "dm",
     "resync_state": "player",
     "save_encounter_preset": "dm",

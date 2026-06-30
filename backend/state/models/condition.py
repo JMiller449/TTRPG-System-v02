@@ -30,3 +30,26 @@ class ConditionPreset:
                 for augmentation in raw.get("augmentation_templates", [])
             ],
         )
+
+
+@dataclass
+class ActiveCondition:
+    application_id: str
+    condition_id: str
+    condition_name: str
+    description: str
+    visibility: ConditionVisibility
+    instance_id: str
+    augmentation_ids: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ActiveCondition":
+        return cls(
+            application_id=raw["application_id"],
+            condition_id=raw["condition_id"],
+            condition_name=raw["condition_name"],
+            description=raw.get("description", ""),
+            visibility=raw.get("visibility", "public"),
+            instance_id=raw["instance_id"],
+            augmentation_ids=list(raw.get("augmentation_ids", [])),
+        )

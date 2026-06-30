@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-CURRENT_STATE_SCHEMA_VERSION = 3
+CURRENT_STATE_SCHEMA_VERSION = 5
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -44,6 +44,35 @@ def _legacy_description_value(description: str, label: str) -> str:
     return ""
 
 
+def _migrate_legacy_item_description(
+    description: str,
+) -> tuple[str, str, str, bool]:
+    category = _legacy_description_value(description, "Type")
+    rank = _legacy_description_value(description, "Rank")
+    immediate = _legacy_description_value(description, "Immediate Effects")
+    non_immediate = _legacy_description_value(description, "Non-Immediate Effects")
+    labels = ("Type:", "Rank:", "Immediate Effects:", "Non-Immediate Effects:")
+    retained_lines = [
+        line.strip()
+        for line in description.splitlines()
+        if line.strip() and not line.strip().startswith(labels)
+    ]
+    reference_lines = [
+        *retained_lines,
+        *(
+            [f"Immediate effect (legacy reference): {immediate}"]
+            if immediate
+            else []
+        ),
+        *(
+            [f"Non-immediate effect (legacy reference): {non_immediate}"]
+            if non_immediate
+            else []
+        ),
+    ]
+    return "\n".join(reference_lines), category, rank, bool(immediate or non_immediate)
+
+
 def _migrate_v1_to_v2(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
     sheets = state.get("sheets", {})
@@ -74,19 +103,15 @@ def _migrate_v1_to_v2(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description = item.get("description", "")
             if not isinstance(description, str):
                 description = str(description)
-            category = _legacy_description_value(description, "Type")
-            rank = _legacy_description_value(description, "Rank")
-            effect_text_present = any(
-                _legacy_description_value(description, label)
-                for label in ("Immediate Effects", "Non-Immediate Effects")
+            (
+                migrated_description,
+                category,
+                rank,
+                effect_text_present,
+            ) = _migrate_legacy_item_description(
+                description
             )
-
-            retained_lines = [
-                line
-                for line in description.splitlines()
-                if not line.strip().startswith(("Type:", "Rank:"))
-            ]
-            item["description"] = "\n".join(retained_lines).strip()
+            item["description"] = migrated_description
             item["category"] = item.get("category") or category
             item["rank"] = item.get("rank") or rank
 
@@ -156,10 +181,114 @@ def _migrate_v2_to_v3(envelope: PersistedEnvelope) -> PersistedEnvelope:
     }
 
 
+def _migrate_v3_to_v4(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item_id, item in items.items():
+            if not isinstance(item, dict):
+                continue
+
+            description = item.get("description", "")
+            if not isinstance(description, str):
+                description = str(description)
+            migrated_description, category, rank, _ = _migrate_legacy_item_description(
+                description
+            )
+            item["description"] = migrated_description
+            item["category"] = item.get("category") or category
+            item["rank"] = item.get("rank") or rank
+
+            templates = item.get("augmentation_templates", [])
+            if not isinstance(templates, list):
+                continue
+            for template in templates:
+                if not isinstance(template, dict):
+                    continue
+                source = template.get("source")
+                if not isinstance(source, dict):
+                    source = {}
+                    template["source"] = source
+                source.update(
+                    {
+                        "type": "item",
+                        "id": item_id,
+                        "label": item.get("name", ""),
+                        "relationship_id": None,
+                        "application_id": None,
+                    }
+                )
+                template["lifecycle_owner"] = "equipment"
+                template["applied"] = False
+                template["applied_target_id"] = None
+
+    return {
+        "schema_version": 4,
+        "state": state,
+    }
+
+
+def _migrate_v4_to_v5(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    active_conditions = state.setdefault("active_conditions", {})
+    if not isinstance(active_conditions, dict):
+        active_conditions = {}
+        state["active_conditions"] = active_conditions
+
+    presets = state.get("condition_presets", {})
+    augmentations = state.get("augmentations", {})
+    if isinstance(augmentations, dict):
+        grouped: dict[str, list[tuple[str, dict]]] = {}
+        for augmentation_id, augmentation in augmentations.items():
+            if not isinstance(augmentation, dict) or not augmentation.get("applied"):
+                continue
+            source = augmentation.get("source")
+            if not isinstance(source, dict) or source.get("type") != "condition":
+                continue
+            condition_id = source.get("id")
+            instance_id = augmentation.get("applied_target_id")
+            if not isinstance(condition_id, str) or not isinstance(instance_id, str):
+                continue
+            application_id = source.get("application_id")
+            if not isinstance(application_id, str) or not application_id:
+                application_id = f"condition:{condition_id}:{instance_id}"
+                source["application_id"] = application_id
+            grouped.setdefault(application_id, []).append(
+                (augmentation_id, augmentation)
+            )
+
+        for application_id, entries in grouped.items():
+            if application_id in active_conditions:
+                continue
+            _, first = entries[0]
+            source = first["source"]
+            condition_id = source["id"]
+            instance_id = first["applied_target_id"]
+            preset = presets.get(condition_id, {}) if isinstance(presets, dict) else {}
+            if not isinstance(preset, dict):
+                preset = {}
+            active_conditions[application_id] = {
+                "application_id": application_id,
+                "condition_id": condition_id,
+                "condition_name": preset.get("name") or source.get("label") or condition_id,
+                "description": preset.get("description", ""),
+                "visibility": preset.get("visibility", "public"),
+                "instance_id": instance_id,
+                "augmentation_ids": sorted(augmentation_id for augmentation_id, _ in entries),
+            }
+
+    return {
+        "schema_version": 5,
+        "state": state,
+    }
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
     2: _migrate_v2_to_v3,
+    3: _migrate_v3_to_v4,
+    4: _migrate_v4_to_v5,
 }
 
 

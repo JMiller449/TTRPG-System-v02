@@ -431,6 +431,16 @@ class ConditionPresetPayload(ProtocolModel):
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 
+class ActiveConditionPayload(ProtocolModel):
+    application_id: str
+    condition_id: str
+    condition_name: str
+    description: str = ""
+    visibility: Literal["public", "gm_only"] = "public"
+    instance_id: str
+    augmentation_ids: list[str] = Field(default_factory=list)
+
+
 class EncounterEntryPayload(ProtocolModel):
     template_id: str
     count: int
@@ -453,4 +463,5 @@ class BackendStateSnapshotPayload(ProtocolModel):
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)
     augmentations: dict[str, AugmentationPayload] = Field(default_factory=dict)
     condition_presets: dict[str, ConditionPresetPayload] = Field(default_factory=dict)
+    active_conditions: dict[str, ActiveConditionPayload] = Field(default_factory=dict)
     encounter_presets: dict[str, EncounterPresetPayload] = Field(default_factory=dict)

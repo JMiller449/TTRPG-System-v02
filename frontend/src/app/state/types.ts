@@ -9,6 +9,7 @@ import type {
 import type {
   ActionDefinition,
   ActionHistoryEntry,
+  ActiveCondition,
   Augmentation,
   ConditionPreset,
   EncounterPreset,
@@ -64,6 +65,8 @@ export interface ServerState {
   augmentationOrder: string[];
   conditionPresets: Record<string, ConditionPreset>;
   conditionPresetOrder: string[];
+  activeConditions: Record<string, ActiveCondition>;
+  activeConditionOrder: string[];
   encounters: Record<string, EncounterPreset>;
   encounterOrder: string[];
   actionHistory: Record<string, ActionHistoryEntry>;

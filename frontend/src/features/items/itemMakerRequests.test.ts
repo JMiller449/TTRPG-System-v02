@@ -15,12 +15,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     interaction_type: "equippable",
     category: "Sword",
     rank: "S",
-    description: [
-      "Type: Sword",
-      "Rank: S",
-      "Immediate Effects: 25% increased mana regen.",
-      "Non-Immediate Effects: Conducts mana at 100% efficiency."
-    ].join("\n"),
+    description: "A blade that conducts mana.",
     world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
     gm_notes: "Award only after the mana trial.",
     gm_special_properties: "Adds +50 to sword enchantments.",

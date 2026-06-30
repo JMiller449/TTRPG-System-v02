@@ -4,6 +4,7 @@ import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 const SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
   { id: "stats", label: "Stats" },
   { id: "actions", label: "Actions" },
+  { id: "conditions", label: "Conditions" },
   { id: "equipment", label: "Equipment" },
   { id: "proficiencies", label: "Proficiencies" },
   { id: "kills", label: "Kills" },

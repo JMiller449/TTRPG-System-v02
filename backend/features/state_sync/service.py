@@ -164,9 +164,53 @@ class StateSyncService:
         state: dict[str, Any],
         *,
         role: SessionRole,
+        assigned_instance_id: str | None = None,
     ) -> dict[str, Any]:
         if role == "dm":
             return state
+
+        hidden_condition_ids = {
+            condition_id
+            for condition_id, condition in state.get("condition_presets", {}).items()
+            if isinstance(condition, dict) and condition.get("visibility") == "gm_only"
+        }
+        for condition_id in hidden_condition_ids:
+            state.get("condition_presets", {}).pop(condition_id, None)
+
+        visible_applications = {
+            application_id
+            for application_id, condition in state.get("active_conditions", {}).items()
+            if isinstance(condition, dict)
+            and condition.get("visibility") != "gm_only"
+            and condition.get("instance_id") == assigned_instance_id
+        }
+        state["active_conditions"] = {
+            application_id: condition
+            for application_id, condition in state.get("active_conditions", {}).items()
+            if application_id in visible_applications
+        }
+
+        hidden_augmentation_ids: set[str] = set()
+        for augmentation_id, augmentation in list(
+            state.get("augmentations", {}).items()
+        ):
+            if not isinstance(augmentation, dict):
+                continue
+            source = augmentation.get("source")
+            if not isinstance(source, dict) or source.get("type") != "condition":
+                continue
+            if source.get("application_id") not in visible_applications:
+                hidden_augmentation_ids.add(augmentation_id)
+                state["augmentations"].pop(augmentation_id, None)
+
+        for instance in state.get("instanced_sheets", {}).values():
+            if not isinstance(instance, dict):
+                continue
+            augments = instance.get("augments")
+            if not isinstance(augments, dict):
+                continue
+            for augmentation_id in hidden_augmentation_ids:
+                augments.pop(augmentation_id, None)
 
         for sheet in state.get("sheets", {}).values():
             if not isinstance(sheet, dict):
@@ -188,6 +232,7 @@ class StateSyncService:
         patch: StatePatch,
         *,
         role: SessionRole,
+        assigned_instance_id: str | None = None,
     ) -> StatePatch:
         redacted_patch = deepcopy(patch)
         if not redacted_patch.ops:
@@ -201,6 +246,107 @@ class StateSyncService:
             if role == "dm":
                 redacted_ops.append(op)
                 continue
+
+            if len(segments) >= 2 and segments[0] == "active_conditions":
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+                value = asdict(op.value) if is_dataclass(op.value) else op.value
+                visible = (
+                    isinstance(value, dict)
+                    and value.get("visibility") != "gm_only"
+                    and value.get("instance_id") == assigned_instance_id
+                )
+                if visible:
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if len(segments) >= 2 and segments[0] == "condition_presets":
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+                value = asdict(op.value) if is_dataclass(op.value) else op.value
+                visible = not (
+                    isinstance(value, dict) and value.get("visibility") == "gm_only"
+                )
+                if visible:
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if len(segments) >= 2 and segments[0] == "augmentations":
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+                current_augmentation = StateSingleton.getState().augmentations.get(
+                    segments[1]
+                )
+                if (
+                    current_augmentation is None
+                    and segments[1].startswith("condition:")
+                ):
+                    continue
+                if (
+                    current_augmentation is not None
+                    and current_augmentation.source.type == "condition"
+                ):
+                    active_condition = StateSingleton.getState().active_conditions.get(
+                        current_augmentation.source.application_id
+                    )
+                    visible = (
+                        active_condition is not None
+                        and active_condition.visibility != "gm_only"
+                        and active_condition.instance_id == assigned_instance_id
+                    )
+                    if visible:
+                        redacted_ops.append(op)
+                    elif op.op == "set" and len(segments) == 2:
+                        redacted_ops.append(PatchOp(op="remove", path=op.path))
+                    continue
+                value = asdict(op.value) if is_dataclass(op.value) else op.value
+                source = value.get("source") if isinstance(value, dict) else None
+                if isinstance(source, dict) and source.get("type") == "condition":
+                    active_condition = StateSingleton.getState().active_conditions.get(
+                        source.get("application_id")
+                    )
+                    visible = (
+                        active_condition is not None
+                        and active_condition.visibility != "gm_only"
+                        and active_condition.instance_id == assigned_instance_id
+                    )
+                    if visible:
+                        redacted_ops.append(op)
+                    elif op.op == "set":
+                        redacted_ops.append(PatchOp(op="remove", path=op.path))
+                    continue
+
+            if (
+                len(segments) >= 4
+                and segments[0] == "instanced_sheets"
+                and segments[2] == "augments"
+            ):
+                if op.op == "remove":
+                    if segments[1] == assigned_instance_id:
+                        redacted_ops.append(op)
+                    continue
+                augmentation = StateSingleton.getState().augmentations.get(segments[3])
+                if augmentation is not None and augmentation.source.type == "condition":
+                    active_condition = StateSingleton.getState().active_conditions.get(
+                        augmentation.source.application_id
+                    )
+                    visible = (
+                        active_condition is not None
+                        and active_condition.visibility != "gm_only"
+                        and active_condition.instance_id == assigned_instance_id
+                    )
+                    if visible:
+                        redacted_ops.append(op)
+                    elif op.op == "set":
+                        redacted_ops.append(PatchOp(op="remove", path=op.path))
+                    continue
             if segments and segments[0] == "action_history":
                 continue
 
@@ -239,6 +385,7 @@ class StateSyncService:
         state = self._redact_state_for_role(
             state_model.to_dict(),
             role=role,
+            assigned_instance_id=assigned_instance_id,
         )
         state["action_history"] = {
             key: value.model_dump(mode="json")
@@ -369,6 +516,7 @@ class StateSyncService:
         last_seen_version: int,
         *,
         role: SessionRole = "player",
+        assigned_instance_id: str | None = None,
     ) -> list[StatePatch] | None:
         async with self._lock:
             if last_seen_version < 0:
@@ -388,7 +536,11 @@ class StateSyncService:
                 return None
 
             return [
-                self._redact_patch_for_role(patch, role=role)
+                self._redact_patch_for_role(
+                    patch,
+                    role=role,
+                    assigned_instance_id=assigned_instance_id,
+                )
                 for patch in self._patch_history
                 if patch.state_version > last_seen_version
             ]
@@ -660,9 +812,12 @@ class StateSyncService:
                 self._record_mutation(patch, source=current_request_source())
                 if request_id is not None:
                     self._remember_processed_request(request_id)
-                await websocket_sessions.broadcast_by_role(
-                    player_payload=self._redact_patch_for_role(patch, role="player"),
-                    dm_payload=self._redact_patch_for_role(patch, role="dm"),
+                await websocket_sessions.broadcast_per_session(
+                    lambda session: self._redact_patch_for_role(
+                        patch,
+                        role=session.role,
+                        assigned_instance_id=session.assigned_instance_id,
+                    )
                 )
             elif request_id is not None:
                 self._remember_processed_request(request_id)
@@ -681,9 +836,12 @@ class StateSyncService:
             self._record_mutation(patch, source=current_request_source())
             if request_id is not None:
                 self._remember_processed_request(request_id)
-            await websocket_sessions.broadcast_by_role(
-                player_payload=self._redact_patch_for_role(patch, role="player"),
-                dm_payload=self._redact_patch_for_role(patch, role="dm"),
+            await websocket_sessions.broadcast_per_session(
+                lambda session: self._redact_patch_for_role(
+                    patch,
+                    role=session.role,
+                    assigned_instance_id=session.assigned_instance_id,
+                )
             )
             return True
 

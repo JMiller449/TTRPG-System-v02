@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from fastapi import WebSocket
@@ -153,6 +153,27 @@ class WebSocketSessionService:
             payload = dm_payload if session.is_dm else player_payload
             try:
                 await websocket.send_json(normalize_server_event(payload))
+            except RuntimeError:
+                disconnected.append(websocket)
+
+        for websocket in disconnected:
+            await self.disconnect(websocket)
+
+    async def broadcast_per_session(
+        self,
+        payload_for_session: Callable[[WebSocketSession], Any],
+    ) -> None:
+        async with self._lock:
+            targets = tuple(self._sessions.items())
+
+        disconnected: list[WebSocket] = []
+        for websocket, session in targets:
+            if not session.is_authenticated:
+                continue
+            try:
+                await websocket.send_json(
+                    normalize_server_event(payload_for_session(session))
+                )
             except RuntimeError:
                 disconnected.append(websocket)
 

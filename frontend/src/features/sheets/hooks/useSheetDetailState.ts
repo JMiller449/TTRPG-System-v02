@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import {
   selectActiveSheetDetail,
+  selectActiveConditions,
   selectAvailableItems,
   selectSheetAssignedActions,
   selectSheetEquipment,
@@ -11,6 +12,7 @@ import type { AssignedSheetAction } from "@/app/state/selectors";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
+  ActiveCondition,
   Augmentation,
   ItemBridge,
   ItemDefinition,
@@ -35,6 +37,7 @@ interface UseSheetDetailStateResult {
   equipment: ItemBridge[];
   sheetProficiencies: ProficiencyBridge[];
   assignedActions: AssignedSheetAction[];
+  activeConditions: ActiveCondition[];
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
   setSelectedItemId: (itemId: string) => void;
@@ -86,6 +89,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       equipment: [],
       sheetProficiencies: [],
       assignedActions: [],
+      activeConditions: [],
       selectedItemId,
       selectedItem: null,
       setSelectedItemId
@@ -108,6 +112,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
     sheetProficiencies: selectSheetProficiencies(state, detail.sheet?.id ?? detail.instance.id),
     assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
+    activeConditions: selectActiveConditions(state, detail.instance.id),
     selectedItemId,
     selectedItem: selectedItemId
       ? (availableItems.find((item) => item.id === selectedItemId) ?? null)

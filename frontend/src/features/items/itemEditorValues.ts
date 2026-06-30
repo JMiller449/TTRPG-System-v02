@@ -58,58 +58,18 @@ export function createEmptyItemValues(): ItemEditorValues {
   };
 }
 
-function readDescriptionField(description: string, label: string): string {
-  const prefix = `${label}:`;
-  const line = description.split("\n").find((entry) => entry.trim().startsWith(prefix));
-  return line?.slice(prefix.length).trim() ?? "";
-}
-
-function hasLegacyLabeledDescription(description: string): boolean {
-  return ["Type", "Rank", "Immediate Effects", "Non-Immediate Effects"].some((label) =>
-    description.split("\n").some((entry) => entry.trim().startsWith(`${label}:`))
-  );
-}
-
-function migrateLegacyDescription(description: string): string {
-  if (!hasLegacyLabeledDescription(description)) {
-    return description;
-  }
-
-  const legacyImmediate = readDescriptionField(description, "Immediate Effects");
-  const legacyNonImmediate = readDescriptionField(description, "Non-Immediate Effects");
-  const retainedLines = description
-    .split("\n")
-    .filter(
-      (line) =>
-        !["Type", "Rank", "Immediate Effects", "Non-Immediate Effects"].some((label) =>
-          line.trim().startsWith(`${label}:`)
-        )
-    )
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  return [
-    ...retainedLines,
-    legacyImmediate ? `Immediate effect (legacy reference): ${legacyImmediate}` : "",
-    legacyNonImmediate ? `Non-immediate effect (legacy reference): ${legacyNonImmediate}` : ""
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
-  const description = item.description ?? "";
   return {
     name: item.name,
     interactionType: item.interaction_type,
-    type: item.category ?? readDescriptionField(description, "Type"),
-    rank: item.rank || readDescriptionField(description, "Rank") || ITEM_RANK_OPTIONS[0],
+    type: item.category ?? "",
+    rank: item.rank || ITEM_RANK_OPTIONS[0],
     weight: item.weight,
     value: item.price,
     worldAnvilUrl: item.world_anvil_url ?? "",
     gmNotes: item.gm_notes ?? "",
     gmSpecialProperties: item.gm_special_properties ?? "",
-    description: migrateLegacyDescription(description),
+    description: item.description ?? "",
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
     actionGrants: (item.action_grants ?? []).map((grant) => ({
       actionId: grant.action_id,

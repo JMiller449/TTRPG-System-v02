@@ -25,6 +25,7 @@ import {
   buildDeleteItemRequest,
   buildDeleteProficiencyRequest,
   buildExportStateBackupRequest,
+  buildRemoveActiveConditionRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
@@ -81,7 +82,7 @@ const testItem: ItemDefinitionPayload = {
   interaction_type: "equippable",
   category: "Sword",
   rank: "S",
-  description: "Rank S Sword\nImmediate Effects: 25% increased mana regen.",
+  description: "A mana-conducting rank S sword.",
   world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
   gm_notes: "Award only after the mana trial.",
   gm_special_properties: "Conducts mana at 100% efficiency.",
@@ -242,6 +243,7 @@ const requestBuilderByType = {
   get_xp_tracker: buildGetXpTrackerRequest,
   import_state_backup: buildImportStateBackupRequest,
   perform_action: buildPerformActionRequest,
+  remove_active_condition: buildRemoveActiveConditionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   resync_state: buildResyncStateRequest,
   save_encounter_preset: buildSaveEncounterPresetRequest,
@@ -871,6 +873,21 @@ describe("requestBuilders", () => {
     expect(buildDeleteFormulaRequest({ formulaId: "formula_1" })).toEqual({
       type: "delete_formula",
       formula_id: "formula_1"
+    });
+  });
+
+  it("builds active-condition removal requests", () => {
+    expect(
+      buildRemoveActiveConditionRequest({
+        instanceId: "instance_1",
+        applicationId: "condition:poisoned:instance_1",
+        requestId: "req-remove-condition"
+      })
+    ).toEqual({
+      type: "remove_active_condition",
+      instance_id: "instance_1",
+      application_id: "condition:poisoned:instance_1",
+      request_id: "req-remove-condition"
     });
   });
 

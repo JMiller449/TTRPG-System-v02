@@ -1,6 +1,7 @@
 import type { AppState } from "@/app/state/types";
 import type {
   ActionDefinition,
+  ActiveCondition,
   Bridge,
   ItemBridge,
   ItemDefinition,
@@ -166,6 +167,13 @@ export function selectSheetEquipment(state: AppState, sheetOrInstanceId: string)
   return Object.values(sheet?.items ?? {});
 }
 
+export function selectActiveConditions(state: AppState, instanceId: string): ActiveCondition[] {
+  return state.serverState.activeConditionOrder
+    .map((applicationId) => state.serverState.activeConditions[applicationId])
+    .filter((condition): condition is ActiveCondition => Boolean(condition))
+    .filter((condition) => condition.instance_id === instanceId);
+}
+
 export function selectSheetProficiencies(
   state: AppState,
   sheetOrInstanceId: string
@@ -227,15 +235,17 @@ export function selectSheetAssignedActions(
       if (!action) {
         return [];
       }
-      return [{
-        relationshipId: `item:${itemBridge.relationship_id}:${grant.action_id}`,
-        actionId: action.id,
-        action,
-        sourceItemRelationshipId: itemBridge.relationship_id,
-        sourceItemName: item.name,
-        sourceItemAvailability: grant.availability,
-        consumeQuantity: grant.consume_quantity ?? 0
-      }];
+      return [
+        {
+          relationshipId: `item:${itemBridge.relationship_id}:${grant.action_id}`,
+          actionId: action.id,
+          action,
+          sourceItemRelationshipId: itemBridge.relationship_id,
+          sourceItemName: item.name,
+          sourceItemAvailability: grant.availability,
+          consumeQuantity: grant.consume_quantity ?? 0
+        }
+      ];
     });
   });
 

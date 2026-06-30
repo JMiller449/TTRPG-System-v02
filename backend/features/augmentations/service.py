@@ -22,6 +22,7 @@ from backend.state.models.augmentation import (
     AugmentationSource,
     EquipmentEffectProjection,
 )
+from backend.state.models.condition import ActiveCondition
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
 
@@ -788,6 +789,10 @@ def _condition_augmentation_id(
     return f"condition:{condition_id}:{instance_id}:{template_id}"
 
 
+def _condition_application_id(condition_id: str, instance_id: str) -> str:
+    return f"condition:{condition_id}:{instance_id}"
+
+
 def _build_condition_augmentation(
     template: Augmentation,
     *,
@@ -810,7 +815,7 @@ def _build_condition_augmentation(
         type="condition",
         id=condition_id,
         label=condition_name,
-        application_id=f"condition:{condition_id}:{instance_id}",
+        application_id=_condition_application_id(condition_id, instance_id),
     )
     augmentation.lifecycle_owner = "condition"
     augmentation.applied = False
@@ -839,20 +844,40 @@ def _apply_condition_preset_mutation(
     if condition is None:
         raise ValueError(f"Condition preset '{condition_id}' does not exist.")
 
-    if not condition.augmentation_templates:
+    application_id = _condition_application_id(condition_id, instance_id)
+    if application_id in state.active_conditions:
         return (
             ConditionPresetHookResult(
                 condition_id=condition_id,
                 instance_id=instance_id,
                 operation="ignored",
                 augmentation_results=[],
-                reason="no_augmentation_templates",
+                reason="already_applied",
             ),
             [],
         )
 
     results: list[AugmentationMutationResult] = []
-    ops: list[PatchOp] = []
+    augmentation_ids = [
+        _condition_augmentation_id(condition.id, instance_id, template.id)
+        for template in condition.augmentation_templates
+    ]
+    active_condition = ActiveCondition(
+        application_id=application_id,
+        condition_id=condition.id,
+        condition_name=condition.name,
+        description=condition.description,
+        visibility=condition.visibility,
+        instance_id=instance_id,
+        augmentation_ids=augmentation_ids,
+    )
+    ops: list[PatchOp] = [
+        state_sync_service.add_mutation(
+            state,
+            state_sync_service.join_path("active_conditions", application_id),
+            active_condition,
+        )
+    ]
 
     for template in condition.augmentation_templates:
         augmentation = _build_condition_augmentation(
@@ -897,19 +922,12 @@ def _apply_condition_preset_mutation(
         results.append(result)
         ops.extend([add_augmentation_op, add_bridge_op, *apply_ops])
 
-    operation: Literal["applied", "ignored"] = (
-        "applied"
-        if any(result.operation == "applied" for result in results)
-        else "ignored"
-    )
-    reason = None if operation == "applied" else "already_applied"
     return (
         ConditionPresetHookResult(
             condition_id=condition_id,
             instance_id=instance_id,
-            operation=operation,
+            operation="applied",
             augmentation_results=results,
-            reason=reason,
         ),
         ops,
     )
@@ -928,21 +946,6 @@ def apply_condition_preset_mutation(
     )
 
 
-def _condition_augmentation_ids_for_instance(
-    state: State,
-    *,
-    instance_id: str,
-    condition_id: str,
-) -> list[str]:
-    return [
-        augmentation_id
-        for augmentation_id, augmentation in state.augmentations.items()
-        if augmentation.source.type == "condition"
-        and augmentation.source.id == condition_id
-        and augmentation.applied_target_id == instance_id
-    ]
-
-
 def _remove_condition_preset_mutation(
     state: State,
     *,
@@ -955,12 +958,8 @@ def _remove_condition_preset_mutation(
     if condition_id not in state.condition_presets:
         raise ValueError(f"Condition preset '{condition_id}' does not exist.")
 
-    augmentation_ids = _condition_augmentation_ids_for_instance(
-        state,
-        instance_id=instance_id,
-        condition_id=condition_id,
-    )
-    if not augmentation_ids:
+    application_id = _condition_application_id(condition_id, instance_id)
+    if application_id not in state.active_conditions:
         return (
             ConditionPresetHookResult(
                 condition_id=condition_id,
@@ -972,10 +971,39 @@ def _remove_condition_preset_mutation(
             [],
         )
 
+    return _remove_condition_application_mutation(
+        state,
+        instance_id=instance_id,
+        application_id=application_id,
+    )
+
+
+def _remove_condition_application_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    application_id: str,
+) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
+    if instance_id not in state.instanced_sheets:
+        raise ValueError(f"Instanced sheet '{instance_id}' does not exist.")
+
+    active_condition = state.active_conditions.get(application_id)
+    if active_condition is None:
+        raise ValueError(
+            f"Active condition application '{application_id}' does not exist."
+        )
+    if active_condition.instance_id != instance_id:
+        raise ValueError(
+            f"Active condition application '{application_id}' is not applied to "
+            f"instance '{instance_id}'."
+        )
+
     results: list[AugmentationMutationResult] = []
     ops: list[PatchOp] = []
 
-    for augmentation_id in augmentation_ids:
+    for augmentation_id in active_condition.augmentation_ids:
+        if augmentation_id not in state.augmentations:
+            continue
         result, remove_ops = _remove_augmentation_mutation(
             state,
             augmentation_id,
@@ -1001,9 +1029,15 @@ def _remove_condition_preset_mutation(
         )
         ops.append(remove_augmentation_op)
 
+    _, remove_active_condition_op = state_sync_service.remove_mutation(
+        state,
+        state_sync_service.join_path("active_conditions", application_id),
+    )
+    ops.append(remove_active_condition_op)
+
     return (
         ConditionPresetHookResult(
-            condition_id=condition_id,
+            condition_id=active_condition.condition_id,
             instance_id=instance_id,
             operation="removed",
             augmentation_results=results,
@@ -1022,6 +1056,19 @@ def remove_condition_preset_mutation(
         state,
         instance_id=instance_id,
         condition_id=condition_id,
+    )
+
+
+def remove_condition_application_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    application_id: str,
+) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
+    return _remove_condition_application_mutation(
+        state,
+        instance_id=instance_id,
+        application_id=application_id,
     )
 
 
@@ -1052,6 +1099,22 @@ async def remove_condition_preset(
             state,
             instance_id=instance_id,
             condition_id=condition_id,
+        )
+
+    return await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def remove_condition_application(
+    *,
+    instance_id: str,
+    application_id: str,
+    request_id: str | None = None,
+) -> ConditionPresetHookResult:
+    def mutation(state: State) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
+        return _remove_condition_application_mutation(
+            state,
+            instance_id=instance_id,
+            application_id=application_id,
         )
 
     return await state_sync_service.apply_mutation(mutation, request_id=request_id)

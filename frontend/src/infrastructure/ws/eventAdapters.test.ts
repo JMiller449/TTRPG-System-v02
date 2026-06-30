@@ -657,6 +657,7 @@ describe("adaptProtocolServerEvent", () => {
           formulas: [],
           augmentations: [],
           conditionPresets: [],
+          activeConditions: [],
           encounters: [],
           actionHistory: [
             {

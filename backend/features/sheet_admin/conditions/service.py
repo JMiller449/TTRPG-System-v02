@@ -7,6 +7,7 @@ from backend.features.sheet_admin.conditions.schema import (
     ConditionPresetPayload,
     CreateConditionPreset,
     DeleteConditionPreset,
+    RemoveActiveCondition,
     UpdateConditionPreset,
 )
 from backend.features.state_sync.service import state_sync_service
@@ -105,7 +106,53 @@ async def update_condition_preset(request: UpdateConditionPreset) -> None:
         condition = _build_condition_preset(payload)
         path = state_sync_service.join_path("condition_presets", request.condition_id)
         op = state_sync_service.set_mutation(state, path, condition)
-        return None, [op]
+        ops = [op]
+        for application_id, active_condition in list(state.active_conditions.items()):
+            if active_condition.condition_id != request.condition_id:
+                continue
+            active_condition.condition_name = condition.name
+            active_condition.description = condition.description
+            active_condition.visibility = condition.visibility
+            ops.append(
+                state_sync_service.set_mutation(
+                    state,
+                    state_sync_service.join_path(
+                        "active_conditions", application_id
+                    ),
+                    active_condition,
+                )
+            )
+            for augmentation_id in active_condition.augmentation_ids:
+                augmentation = state.augmentations.get(augmentation_id)
+                if augmentation is None:
+                    continue
+                augmentation.source.label = condition.name
+                ops.append(
+                    state_sync_service.set_mutation(
+                        state,
+                        state_sync_service.join_path(
+                            "augmentations", augmentation_id
+                        ),
+                        augmentation,
+                    )
+                )
+                bridge = state.instanced_sheets[
+                    active_condition.instance_id
+                ].augments.get(augmentation_id)
+                if bridge is not None:
+                    ops.append(
+                        state_sync_service.set_mutation(
+                            state,
+                            state_sync_service.join_path(
+                                "instanced_sheets",
+                                active_condition.instance_id,
+                                "augments",
+                                augmentation_id,
+                            ),
+                            bridge,
+                        )
+                    )
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -131,9 +178,29 @@ async def delete_condition_preset(request: DeleteConditionPreset) -> None:
                 f"Condition preset '{request.condition_id}' is referenced by "
                 f"actions: {action_ids}."
             )
+        active_applications = sorted(
+            application_id
+            for application_id, active_condition in state.active_conditions.items()
+            if active_condition.condition_id == request.condition_id
+        )
+        if active_applications:
+            raise ValueError(
+                f"Condition preset '{request.condition_id}' has active applications. "
+                "Remove them before deleting the preset."
+            )
 
         path = state_sync_service.join_path("condition_presets", request.condition_id)
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def remove_active_condition(request: RemoveActiveCondition) -> None:
+    from backend.features.augmentations.service import remove_condition_application
+
+    await remove_condition_application(
+        instance_id=request.instance_id,
+        application_id=request.application_id,
+        request_id=request.request_id,
+    )

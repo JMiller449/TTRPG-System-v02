@@ -15,12 +15,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     interaction_type: "equippable",
     category: "Sword",
     rank: "S",
-    description: [
-      "Type: Sword",
-      "Rank: S",
-      "Immediate Effects: 25% increased mana regen.",
-      "Non-Immediate Effects: Conducts mana at 100% efficiency."
-    ].join("\n"),
+    description: "A blade that conducts mana.",
     world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
     gm_notes: "Award only after the mana trial.",
     gm_special_properties: "Adds +50 to sword enchantments.",
@@ -72,16 +67,13 @@ describe("itemEditorValues", () => {
       worldAnvilUrl: "https://worldanvil.example/items/sword-of-mana",
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
-      description: [
-        "Immediate effect (legacy reference): 25% increased mana regen.",
-        "Non-immediate effect (legacy reference): Conducts mana at 100% efficiency."
-      ].join("\n"),
+      description: "A blade that conducts mana.",
       augmentationTemplates: [],
       actionGrants: []
     });
   });
 
-  it("uses first-class metadata with unlabeled legacy descriptions", () => {
+  it("uses first-class metadata and optional field defaults", () => {
     expect(
       toItemEditorValues(
         testItem({

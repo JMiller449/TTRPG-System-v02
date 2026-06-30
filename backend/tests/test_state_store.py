@@ -137,12 +137,118 @@ def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> Non
     assert sword["interaction_type"] == "equippable"
     assert sword["category"] == "Longsword"
     assert sword["rank"] == "B"
-    assert sword["description"] == "Immediate Effects: +2 fire damage"
+    assert sword["description"] == (
+        "Immediate effect (legacy reference): +2 fire damage"
+    )
     assert "Existing note" in sword["gm_notes"]
     assert "Review the interaction type" in sword["gm_notes"]
     assert potion["interaction_type"] == "consumable"
     assert bridge["equipped"] is True
     assert "active" not in bridge
+
+
+def test_v3_item_migration_normalizes_descriptions_and_template_ownership() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 3,
+            "state": {
+                "items": {
+                    "helm": {
+                        "id": "helm",
+                        "name": "Flame Helm",
+                        "interaction_type": "equippable",
+                        "category": "",
+                        "rank": "",
+                        "description": (
+                            "Type: Helmet\nRank: A\n"
+                            "Immediate Effects: +2 perception\n"
+                            "Non-Immediate Effects: advantage on fire attacks"
+                        ),
+                        "augmentation_templates": [
+                            {
+                                "id": "effect-1",
+                                "name": "Fire Sight",
+                                "source": {"type": "manual"},
+                                "scope": "instance",
+                                "target": {
+                                    "root": "instance",
+                                    "path": ["health"],
+                                },
+                                "effect": {
+                                    "type": "formula_modifier",
+                                    "operation": "add",
+                                    "value": {"aliases": None, "text": "2"},
+                                },
+                            }
+                        ],
+                    }
+                }
+            },
+        }
+    )
+
+    helm = migrated.state["items"]["helm"]
+    template = helm["augmentation_templates"][0]
+    assert helm["category"] == "Helmet"
+    assert helm["rank"] == "A"
+    assert helm["description"] == (
+        "Immediate effect (legacy reference): +2 perception\n"
+        "Non-immediate effect (legacy reference): advantage on fire attacks"
+    )
+    assert template["source"] == {
+        "type": "item",
+        "id": "helm",
+        "label": "Flame Helm",
+        "relationship_id": None,
+        "application_id": None,
+    }
+    assert template["lifecycle_owner"] == "equipment"
+    assert template["applied"] is False
+    assert template["applied_target_id"] is None
+
+
+def test_v4_migration_groups_existing_condition_augmentations() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 4,
+            "state": {
+                "condition_presets": {
+                    "poisoned": {
+                        "id": "poisoned",
+                        "name": "Poisoned",
+                        "description": "Ongoing poison.",
+                        "visibility": "gm_only",
+                    }
+                },
+                "augmentations": {
+                    "condition-child": {
+                        "id": "condition-child",
+                        "applied": True,
+                        "applied_target_id": "instance-1",
+                        "source": {
+                            "type": "condition",
+                            "id": "poisoned",
+                            "label": "Poisoned",
+                        },
+                    }
+                },
+            },
+        }
+    )
+
+    application_id = "condition:poisoned:instance-1"
+    assert migrated.state["active_conditions"][application_id] == {
+        "application_id": application_id,
+        "condition_id": "poisoned",
+        "condition_name": "Poisoned",
+        "description": "Ongoing poison.",
+        "visibility": "gm_only",
+        "instance_id": "instance-1",
+        "augmentation_ids": ["condition-child"],
+    }
+    assert migrated.state["augmentations"]["condition-child"]["source"][
+        "application_id"
+    ] == application_id
 
 
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
@@ -270,6 +376,7 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
         "sheets": {},
         "items": {},
         "equipment_effect_projections": {},
+        "active_conditions": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False

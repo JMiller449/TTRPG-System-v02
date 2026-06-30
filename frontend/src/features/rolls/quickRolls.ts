@@ -86,17 +86,7 @@ export function resolveQuickRollAction(
   };
 }
 
-export function getQuickRollContext(action: QuickRollAction, activeWeapon?: string | null): string {
-  if (action === "attack") {
-    return activeWeapon ? `Attack with ${activeWeapon}` : "Attack";
-  }
-  return capitalize(action);
-}
-
-export function getQuickRollLabel(action: QuickRollAction, activeWeapon?: string | null): string {
-  if (action === "attack" && activeWeapon) {
-    return `Attack (${activeWeapon})`;
-  }
+export function getQuickRollLabel(action: QuickRollAction): string {
   return capitalize(action);
 }
 

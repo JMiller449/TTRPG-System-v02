@@ -37,6 +37,9 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       const conditionPresets = Object.fromEntries(
         action.snapshot.conditionPresets.map((item) => [item.id, item])
       );
+      const activeConditions = Object.fromEntries(
+        (action.snapshot.activeConditions ?? []).map((item) => [item.application_id, item])
+      );
       const encounters = Object.fromEntries(
         action.snapshot.encounters.map((item) => [item.id, item])
       );
@@ -62,6 +65,10 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
           augmentationOrder: (action.snapshot.augmentations ?? []).map((item) => item.id),
           conditionPresets,
           conditionPresetOrder: action.snapshot.conditionPresets.map((item) => item.id),
+          activeConditions,
+          activeConditionOrder: (action.snapshot.activeConditions ?? []).map(
+            (item) => item.application_id
+          ),
           encounters,
           encounterOrder: action.snapshot.encounters.map((item) => item.id),
           actionHistory,

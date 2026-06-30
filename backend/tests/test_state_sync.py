@@ -19,6 +19,7 @@ from backend.state.models.augmentation import (
     FormulaModifierEffect,
 )
 from backend.state.models.formula import Formula
+from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -323,6 +324,129 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
                 dm_snapshot.state["sheets"]["mage_template"]["notes"]
                 == "GM-only template notes."
             )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_active_condition_snapshots_respect_visibility_and_assignment(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.condition_presets = {
+                "public": ConditionPreset(id="public", name="Public"),
+                "hidden": ConditionPreset(
+                    id="hidden",
+                    name="Hidden",
+                    visibility="gm_only",
+                ),
+            }
+            state.active_conditions = {
+                "public-one": ActiveCondition(
+                    application_id="public-one",
+                    condition_id="public",
+                    condition_name="Public",
+                    description="Visible status.",
+                    visibility="public",
+                    instance_id="instance-1",
+                ),
+                "hidden-one": ActiveCondition(
+                    application_id="hidden-one",
+                    condition_id="hidden",
+                    condition_name="Hidden",
+                    description="Secret status.",
+                    visibility="gm_only",
+                    instance_id="instance-1",
+                ),
+                "public-two": ActiveCondition(
+                    application_id="public-two",
+                    condition_id="public",
+                    condition_name="Public",
+                    description="Other player status.",
+                    visibility="public",
+                    instance_id="instance-2",
+                ),
+            }
+
+            player_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="instance-1",
+            )
+            dm_snapshot = await state_sync_service.snapshot(role="dm")
+
+            assert set(player_snapshot.state["condition_presets"]) == {"public"}
+            assert set(player_snapshot.state["active_conditions"]) == {"public-one"}
+            assert set(dm_snapshot.state["active_conditions"]) == {
+                "public-one",
+                "hidden-one",
+                "public-two",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_active_condition_patches_are_filtered_per_player_assignment(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_one_socket = FakeWebSocket()
+            player_two_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_one_socket, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player_one_socket,
+                sheet_id="sheet-1",
+                instance_id="instance-1",
+            )
+            await websocket_sessions.connect(player_two_socket, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player_two_socket,
+                sheet_id="sheet-2",
+                instance_id="instance-2",
+            )
+
+            await state_sync_service.add(
+                "/active_conditions/public-one",
+                ActiveCondition(
+                    application_id="public-one",
+                    condition_id="public",
+                    condition_name="Public",
+                    description="Visible status.",
+                    visibility="public",
+                    instance_id="instance-1",
+                ),
+            )
+            await state_sync_service.add(
+                "/active_conditions/hidden-one",
+                ActiveCondition(
+                    application_id="hidden-one",
+                    condition_id="hidden",
+                    condition_name="Hidden",
+                    description="Secret status.",
+                    visibility="gm_only",
+                    instance_id="instance-1",
+                ),
+            )
+
+            assert dm_socket.sent_messages[0]["ops"][0]["path"] == (
+                "/active_conditions/public-one"
+            )
+            assert player_one_socket.sent_messages[0]["ops"][0]["path"] == (
+                "/active_conditions/public-one"
+            )
+            assert player_two_socket.sent_messages[0]["ops"] == []
+            assert player_one_socket.sent_messages[1]["ops"] == []
+            assert player_two_socket.sent_messages[1]["ops"] == []
         finally:
             StateSingleton._state = original_state
 

@@ -803,15 +803,14 @@ MVP is done when:
   - GM navigation includes a Condition Authoring page backed by typed condition preset create/update/delete requests.
   - Condition authoring supports name, description, public/GM-only visibility, and current-instance augmentation templates for backend `apply_condition_preset` action steps.
   - Added focused condition value/request tests and sync coverage for condition preset snapshots.
-- [ ] Add active-condition management to the character sheet.
-  - Render applied conditions from authoritative runtime state, grouped as condition instances rather than exposing their individual concrete augmentation records as unrelated effects.
-  - Respect condition visibility: public conditions are visible to the assigned player and GM, while `gm_only` conditions remain GM-only.
-  - Give the GM an explicit Remove control for each applied condition. Removing an applied condition must reverse/remove all concrete augmentations created by that application without deleting or editing the reusable condition preset.
-  - Preserve the condition preset ID plus a concrete application/source ID on every generated augmentation so the UI and backend can group and remove one applied condition without exposing individual condition-managed augmentations as removable records.
-  - Mark condition-generated augmentations as condition-managed. Generic augmentation removal must reject attempts to remove one generated child independently of its owning condition application.
-  - Do not allow players to arbitrarily remove active conditions. Player-driven removal must execute a backend-approved assigned action whose `apply_condition_preset` step uses the remove operation.
-  - Add or reuse a typed backend intent for direct GM removal, then reconcile the list and affected values exclusively through authoritative patches.
-  - Cover preset deletion versus applied-condition removal, duplicate applications, visibility, permissions, complete augmentation cleanup, and reconnect/snapshot reconciliation in backend and frontend tests.
+- [x] Add active-condition management to the character sheet.
+  - Added persisted `ActiveCondition` application records with schema-v5 migration, stable application IDs, preset/source metadata, visibility, target instance, and owned concrete augmentation IDs.
+  - Condition application is idempotent per preset/instance, supports conditions with no augmentation templates, and preserves condition ownership on every generated augmentation. Generic augmentation removal continues to reject condition-managed children.
+  - Added DM-only typed `remove_active_condition`; removal reverses and deletes all owned concrete effects and bridges while preserving the reusable preset. Players can only remove conditions through an assigned backend action using the condition step's remove operation.
+  - State snapshots and patches now expose public conditions only to the assigned player and expose `gm_only` conditions only to the GM, including visibility changes and reconnect reconciliation.
+  - Added a Conditions tab to the authoritative instance-sheet view. It groups effects by condition application and gives only the GM a Remove command.
+  - Preset deletion is rejected while applications remain; preset edits propagate display metadata and visibility to active applications.
+  - Covered duplicate and zero-effect applications, visibility and assignment filtering, permissions, cleanup, migration, snapshot/patch reconciliation, preset preservation, and action-driven application. Repository verification passes: 390 backend tests, 270 frontend tests, frontend lint, and production build.
 - [x] Add variable/path browser and shortcut picker UI for formula/action authoring.
   - Added a reusable metadata-driven variable browser for formula references and backend-approved mutation paths.
   - Formula authoring now loads backend action/formula metadata and inserts selected shortcut tokens while preserving alias path metadata.
@@ -1022,7 +1021,7 @@ This is the next MVP implementation track and must be completed before work in `
   - Preserved source-item action disambiguation, successful consumable quantity use, zero-quantity disabling, and unrestricted multiple equipped items.
   - Verified with 382 backend tests, 261 frontend tests, protocol generation, ESLint, and the production TypeScript/Vite build.
 - [x] Frontend slice 1: replace the misleading Item Maker form with type-driven authoring.
-  - Replaced the `Immediate Effects` and `Non-Immediate Effects` textareas with one plain reference description. Existing packed descriptions migrate into clearly marked legacy-reference text when edited and save back without metadata packing.
+  - Replaced the `Immediate Effects` and `Non-Immediate Effects` textareas with one plain reference description. Persisted-state schema v4 migrates packed descriptions into clearly marked legacy-reference text before they reach the frontend.
   - Added an explicit Equippable, Consumable, and Inventory Only segmented mode control with backend-valid type-specific payload conversion and validation.
   - Equippable mode now exposes Details, grouped Wearer Effects and Roll / Formula Effects, and Equipped Actions. It uses the existing augmentation evaluator contract and action definitions.
   - Consumable mode exposes Use Actions with authoritative quantity consumption and a direct route to normal Action Authoring; it does not duplicate action-step or condition controls.
@@ -1038,15 +1037,25 @@ This is the next MVP implementation track and must be completed before work in `
   - Player inventory remains read-only under the backend's DM-only equipment permission, while both roles receive status changes exclusively from snapshots and patches.
   - Added pure authoritative display projections plus reconciliation coverage for bridge creation, quantity/equip changes, and concrete equipment-effect add/remove patches.
   - Verified with 267 frontend tests, ESLint, and the production TypeScript/Vite build.
-- [ ] Item/equipment completion verification.
-  - Regenerate protocol output and add migration, backend contract/runtime, frontend request/reconciliation, authoring, and interaction coverage.
-  - Remove obsolete description parsing and migrate the current single-active-item behavior to unrestricted per-bridge equipped state only after persisted state and UI no longer rely on the old meaning.
-  - Run complete backend/frontend tests, frontend lint/build, and focused restart/import recovery checks before marking the MVP item subsystem complete.
+- [x] Item/equipment completion verification.
+  - Regenerated protocol output with no contract drift and completed migration, backend contract/runtime, frontend request/reconciliation, authoring, and interaction coverage.
+  - Added persisted-state schema v4 to normalize legacy packed item descriptions and item-template source/lifecycle ownership. Removed the obsolete frontend description parser and the final unused active-weapon quick-roll helpers.
+  - Verified reload idempotence and backup import recovery for equipped direct effects, including concrete source identity, private base projection, and no double application. The import test now remains isolated from the repository checkpoint.
+  - Verified with 383 backend tests, 267 frontend tests, protocol generation, ESLint, and the production TypeScript/Vite build.
 
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
 
 ### Active TODO
 
+- [ ] Refine Condition Authoring into a complete effect-authoring workflow.
+  - Keep condition metadata and effect templates in one draft so a GM can create a condition with its effects in one submission; do not require create, list lookup, Edit, then a second save flow.
+  - Keep the newly created or selected condition in context after an authoritative response instead of resetting to an apparently metadata-only blank form.
+  - Present condition mechanics as `Effects`, not `Condition Augmentations`. Offer clear effect categories for direct sheet/resource changes, formula evaluation modifiers, and roll advantage/disadvantage while continuing to use the existing augmentation model and metadata-backed target/selector controls internally.
+  - Make the effect section visible and discoverable during initial creation, with an empty state and an explicit Add Effect command rather than hiding all mechanical controls until an existing condition is selected for editing.
+  - Treat `duration`, `expires_at`, and `removal_condition` honestly as manual lifecycle notes for MVP. Label or group them as non-automated notes; do not imply turn-based expiration or predicate evaluation until that backend lifecycle automation is implemented in `Later`.
+  - Disable invalid submissions and provide visible validation for required condition names and incomplete effect definitions instead of silently ignoring the command.
+  - Preserve stable effect IDs while editing, summarize configured effects in the condition list, and require confirmation before deleting a reusable preset.
+  - Cover create-with-effects, edit preservation, validation, deletion confirmation, authoritative patch reconciliation, and the no-save/reselect workflow in focused frontend tests.
 - [x] Add formula-tag augmentation matching and independent Roll20 hit/damage actions.
   - [x] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
     - Shared `Formula` values now normalize ordered tags by trimming/collapsing whitespace, case-folding, and removing duplicates, so global, stat, action-step, and augmentation formulas use one representation.

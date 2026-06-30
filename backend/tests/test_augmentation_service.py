@@ -209,17 +209,21 @@ def _build_condition_preset(
     *,
     condition_id: str = "poisoned",
     template_root: str = "instance",
+    with_template: bool = True,
+    visibility: str = "public",
 ) -> ConditionPreset:
     return ConditionPreset.from_dict(
         {
             "id": condition_id,
             "name": "Poisoned",
             "description": "Ongoing poison effect.",
-            "visibility": "public",
+            "visibility": visibility,
             "augmentation_ids": [],
-            "augmentation_templates": [
-                _condition_template_payload(root=template_root),
-            ],
+            "augmentation_templates": (
+                [_condition_template_payload(root=template_root)]
+                if with_template
+                else []
+            ),
         }
     )
 
@@ -401,7 +405,12 @@ def test_apply_condition_preset_creates_links_and_applies_current_instance_only(
                 concrete_id
             )
             assert concrete_id not in state.instanced_sheets["inst-2"].augments
+            application_id = "condition:poisoned:inst-1"
+            assert state.active_conditions[application_id].augmentation_ids == [
+                concrete_id
+            ]
             assert [op["path"] for op in websocket.sent_messages[0]["ops"]] == [
+                f"/active_conditions/{application_id}",
                 f"/augmentations/{concrete_id}",
                 f"/instanced_sheets/inst-1/augments/{concrete_id}",
                 "/instanced_sheets/inst-1/health",
@@ -455,7 +464,8 @@ def test_remove_condition_preset_reverses_unlinks_and_removes_concrete_augmentat
             assert state.instanced_sheets["inst-1"].health == 10
             assert concrete_id not in state.instanced_sheets["inst-1"].augments
             assert concrete_id not in state.augmentations
-            assert websocket.sent_messages[0]["ops"][-2:] == [
+            assert state.active_conditions == {}
+            assert websocket.sent_messages[0]["ops"][-3:] == [
                 {
                     "op": "remove",
                     "path": f"/instanced_sheets/inst-1/augments/{concrete_id}",
@@ -464,6 +474,11 @@ def test_remove_condition_preset_reverses_unlinks_and_removes_concrete_augmentat
                 {
                     "op": "remove",
                     "path": f"/augmentations/{concrete_id}",
+                    "value": None,
+                },
+                {
+                    "op": "remove",
+                    "path": "/active_conditions/condition:poisoned:inst-1",
                     "value": None,
                 },
             ]
@@ -502,6 +517,114 @@ def test_condition_preset_hook_rejects_missing_preset_or_instance(monkeypatch) -
                     condition_id="poisoned",
                     request_id="req-2",
                 )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_condition_application_is_idempotent_and_supports_zero_effect_statuses(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.condition_presets["marked"] = _build_condition_preset(
+                condition_id="marked",
+                with_template=False,
+            )
+
+            first = await augmentation_service.apply_condition_preset(
+                instance_id="inst-1",
+                condition_id="marked",
+            )
+            duplicate = await augmentation_service.apply_condition_preset(
+                instance_id="inst-1",
+                condition_id="marked",
+            )
+
+            assert first.operation == "applied"
+            assert first.augmentation_results == []
+            assert duplicate.operation == "ignored"
+            assert duplicate.reason == "already_applied"
+            assert list(state.active_conditions) == ["condition:marked:inst-1"]
+
+            removed = await augmentation_service.remove_condition_application(
+                instance_id="inst-1",
+                application_id="condition:marked:inst-1",
+            )
+            assert removed.operation == "removed"
+            assert state.active_conditions == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_condition_application_patches_respect_visibility_and_player_assignment(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.instanced_sheets["inst-1"] = _build_instance()
+            state.instanced_sheets["inst-2"] = _build_instance()
+            state.condition_presets["public"] = _build_condition_preset(
+                condition_id="public"
+            )
+            state.condition_presets["secret"] = _build_condition_preset(
+                condition_id="secret",
+                visibility="gm_only",
+            )
+            await websocket_sessions.reset()
+            dm = FakeWebSocket()
+            player_one = FakeWebSocket()
+            player_two = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+            await websocket_sessions.connect(player_one, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player_one,
+                sheet_id="sheet-1",
+                instance_id="inst-1",
+            )
+            await websocket_sessions.connect(player_two, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player_two,
+                sheet_id="sheet-2",
+                instance_id="inst-2",
+            )
+
+            await augmentation_service.apply_condition_preset(
+                instance_id="inst-1",
+                condition_id="public",
+            )
+            await augmentation_service.apply_condition_preset(
+                instance_id="inst-1",
+                condition_id="secret",
+            )
+
+            def condition_paths(message: dict) -> list[str]:
+                return [
+                    op["path"]
+                    for op in message["ops"]
+                    if op["path"].startswith("/active_conditions/")
+                    or op["path"].startswith("/augmentations/condition:")
+                    or "/augments/condition:" in op["path"]
+                ]
+
+            assert condition_paths(dm.sent_messages[0])
+            assert condition_paths(player_one.sent_messages[0])
+            assert condition_paths(player_two.sent_messages[0]) == []
+            assert condition_paths(dm.sent_messages[1])
+            assert condition_paths(player_one.sent_messages[1]) == []
+            assert condition_paths(player_two.sent_messages[1]) == []
         finally:
             StateSingleton._state = original_state
 

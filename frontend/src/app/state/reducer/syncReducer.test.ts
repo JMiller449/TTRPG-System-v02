@@ -1391,6 +1391,64 @@ describe("authoritative server-state sync", () => {
     expect(deleted.state.serverState.conditionPresetOrder).toEqual([]);
   });
 
+  it("reconciles active condition applications from snapshots and patches", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {},
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {},
+        condition_presets: {},
+        active_conditions: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const applicationId = "condition:poisoned:instance_1";
+    const applied = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        {
+          op: "add",
+          path: `/active_conditions/${applicationId}`,
+          value: {
+            application_id: applicationId,
+            condition_id: "poisoned",
+            condition_name: "Poisoned",
+            description: "Ongoing poison.",
+            visibility: "public",
+            instance_id: "instance_1",
+            augmentation_ids: ["poison-drain"]
+          }
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "apply-condition"
+    });
+
+    expect(applied.state.serverState.activeConditionOrder).toEqual([applicationId]);
+    expect(applied.state.serverState.activeConditions[applicationId]?.condition_name).toBe(
+      "Poisoned"
+    );
+
+    const removed = applyAuthoritativeEvent(applied.state, applied.protocolState, {
+      response_id: null,
+      ops: [{ op: "remove", path: `/active_conditions/${applicationId}` }],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "remove-condition"
+    });
+
+    expect(removed.state.serverState.activeConditions[applicationId]).toBeUndefined();
+    expect(removed.state.serverState.activeConditionOrder).toEqual([]);
+  });
+
   it("reconciles item augmentation template upsert and remove patches from authoritative backend state", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,

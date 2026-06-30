@@ -8,6 +8,7 @@ from backend.features.sheet_admin.conditions import service
 from backend.features.sheet_admin.conditions.schema import (
     CreateConditionPreset,
     DeleteConditionPreset,
+    RemoveActiveCondition,
     UpdateConditionPreset,
 )
 from backend.protocol.socket import StatePatchEvent
@@ -67,7 +68,26 @@ class DeleteConditionPresetRoute(RequestRoute[DeleteConditionPreset]):
         await service.delete_condition_preset(request)
 
 
+class RemoveActiveConditionRoute(RequestRoute[RemoveActiveCondition]):
+    type_name = "remove_active_condition"
+    request_model = RemoveActiveCondition
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="activeConditions",
+        method_name="removeActiveCondition",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: RemoveActiveCondition,
+    ) -> None:
+        await service.remove_active_condition(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateConditionPresetRoute())
     registry.register(UpdateConditionPresetRoute())
     registry.register(DeleteConditionPresetRoute())
+    registry.register(RemoveActiveConditionRoute())

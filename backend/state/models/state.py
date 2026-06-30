@@ -10,7 +10,7 @@ from backend.state.models.action_history import (
 from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import Augmentation, EquipmentEffectProjection
-from backend.state.models.condition import ConditionPreset
+from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
 from backend.state.models.item import Item
@@ -32,6 +32,7 @@ class State:
         default_factory=dict
     )
     condition_presets: dict[str, ConditionPreset] = field(default_factory=dict)
+    active_conditions: dict[str, ActiveCondition] = field(default_factory=dict)
     encounter_presets: dict[str, EncounterPreset] = field(default_factory=dict)
     sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
 
@@ -80,6 +81,10 @@ class State:
             condition_presets={
                 key: ConditionPreset.from_dict(condition)
                 for key, condition in raw.get("condition_presets", {}).items()
+            },
+            active_conditions={
+                key: ActiveCondition.from_dict(condition)
+                for key, condition in raw.get("active_conditions", {}).items()
             },
             encounter_presets={
                 key: EncounterPreset.from_dict(encounter)

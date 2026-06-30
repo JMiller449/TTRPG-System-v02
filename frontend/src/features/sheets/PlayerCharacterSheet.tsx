@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
+import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
@@ -24,6 +25,7 @@ import {
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
   buildRelinkSheetActionRequest,
+  buildRemoveActiveConditionRequest,
   buildSetInstancedSheetNotesRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetResistancesRequest,
@@ -58,6 +60,7 @@ export function PlayerCharacterSheet({
     equipment,
     sheetProficiencies,
     assignedActions,
+    activeConditions,
     selectedItemId,
     selectedItem,
     setSelectedItemId
@@ -106,6 +109,7 @@ export function PlayerCharacterSheet({
 
   const showStatsSection = activeTab === "stats";
   const showActionsSection = activeTab === "actions";
+  const showConditionsSection = activeTab === "conditions";
   const showEquipmentSection = activeTab === "equipment";
   const showProficienciesSection = activeTab === "proficiencies";
   const showKillsSection = activeTab === "kills";
@@ -272,6 +276,29 @@ export function PlayerCharacterSheet({
                   `Perform action: ${action.action.name}`
                 );
               }}
+            />
+          </div>
+        ) : null}
+
+        {showConditionsSection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-conditions"
+            aria-labelledby="sheet-tab-conditions"
+            tabIndex={0}
+          >
+            <SheetConditionsSection
+              conditions={activeConditions}
+              canRemove={mode === "gm"}
+              onRemove={(applicationId) =>
+                client.sendProtocolRequest(
+                  buildRemoveActiveConditionRequest({
+                    instanceId: detail.instance.id,
+                    applicationId
+                  }),
+                  "Remove active condition"
+                )
+              }
             />
           </div>
         ) : null}

@@ -23,6 +23,7 @@ async def handle_request(session: WebSocketSession, request: ResyncState) -> Non
     replay = await service.state_sync_service.replay_since(
         request.last_seen_version,
         role=session.role,
+        assigned_instance_id=session.assigned_instance_id,
     )
     if replay is None or not replay:
         await websocket_sessions.send(

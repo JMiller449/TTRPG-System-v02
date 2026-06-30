@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import type { AppState } from "@/app/state/types";
-import type { Formula, ItemBridge, ItemDefinition, PersistentSheet, Sheet, Stats } from "@/domain/models";
+import type {
+  Formula,
+  ItemBridge,
+  ItemDefinition,
+  PersistentSheet,
+  Sheet,
+  Stats
+} from "@/domain/models";
 import {
+  selectActiveConditions,
   selectSheetAssignedActions,
   selectActiveSheetDetail,
   selectAvailableItems,
@@ -58,11 +66,7 @@ function item(id: string, name: string): ItemDefinition {
   };
 }
 
-function equipmentBridge(
-  relationshipId: string,
-  itemId: string,
-  equipped: boolean
-): ItemBridge {
+function equipmentBridge(relationshipId: string, itemId: string, equipped: boolean): ItemBridge {
   return {
     relationship_id: relationshipId,
     item_id: itemId,
@@ -113,21 +117,26 @@ function stateFixture(): AppState {
     serverState: {
       ...initialState.serverState,
       sheets: {
-        sheet_player: sheet("sheet_player", "Mage", {
-          [staff.relationship_id]: staff,
-          [lantern.relationship_id]: lantern
-        }, {
-          actions: {
-            action_bridge_attack: {
-              relationship_id: "action_bridge_attack",
-              entry_id: "action_attack"
-            },
-            action_bridge_missing: {
-              relationship_id: "action_bridge_missing",
-              entry_id: "missing_action"
+        sheet_player: sheet(
+          "sheet_player",
+          "Mage",
+          {
+            [staff.relationship_id]: staff,
+            [lantern.relationship_id]: lantern
+          },
+          {
+            actions: {
+              action_bridge_attack: {
+                relationship_id: "action_bridge_attack",
+                entry_id: "action_attack"
+              },
+              action_bridge_missing: {
+                relationship_id: "action_bridge_missing",
+                entry_id: "missing_action"
+              }
             }
           }
-        }),
+        ),
         sheet_enemy: sheet("sheet_enemy", "Ash Warden", {}, { dm_only: true })
       },
       sheetOrder: ["sheet_player", "sheet_enemy"],
@@ -245,6 +254,38 @@ describe("sheet selectors", () => {
     );
   });
 
+  it("selects active condition applications for one instance", () => {
+    const state = stateFixture();
+    state.serverState.activeConditions = {
+      "condition:poisoned:instance_player": {
+        application_id: "condition:poisoned:instance_player",
+        condition_id: "poisoned",
+        condition_name: "Poisoned",
+        description: "Ongoing poison.",
+        visibility: "public",
+        instance_id: "instance_player",
+        augmentation_ids: ["poison-drain"]
+      },
+      "condition:hidden:instance_orphan": {
+        application_id: "condition:hidden:instance_orphan",
+        condition_id: "hidden",
+        condition_name: "Hidden",
+        description: "",
+        visibility: "gm_only",
+        instance_id: "instance_orphan",
+        augmentation_ids: []
+      }
+    };
+    state.serverState.activeConditionOrder = [
+      "condition:hidden:instance_orphan",
+      "condition:poisoned:instance_player"
+    ];
+
+    expect(selectActiveConditions(state, "instance_player")).toEqual([
+      state.serverState.activeConditions["condition:poisoned:instance_player"]
+    ]);
+  });
+
   it("resolves assigned actions from sheet or instance ids and filters stale bridges", () => {
     const state = stateFixture();
 
@@ -264,9 +305,9 @@ describe("sheet selectors", () => {
         }
       }
     ]);
-    expect(selectSheetAssignedActions(state, "instance_player").map((entry) => entry.action.name)).toEqual([
-      "Arc Strike"
-    ]);
+    expect(
+      selectSheetAssignedActions(state, "instance_player").map((entry) => entry.action.name)
+    ).toEqual(["Arc Strike"]);
     expect(selectSheetAssignedActions(state, "missing")).toEqual([]);
   });
 
@@ -302,9 +343,9 @@ describe("sheet selectors", () => {
     ]);
 
     state.serverState.sheets.sheet_player.items.bridge_staff.count = 0;
-    expect(selectSheetAssignedActions(state, "instance_player").map((entry) => entry.actionId)).toEqual([
-      "action_attack"
-    ]);
+    expect(
+      selectSheetAssignedActions(state, "instance_player").map((entry) => entry.actionId)
+    ).toEqual(["action_attack"]);
   });
 
   it("lists available items and filters player instances for player-only sheet selection", () => {

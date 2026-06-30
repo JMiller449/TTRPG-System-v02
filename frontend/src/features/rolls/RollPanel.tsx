@@ -68,7 +68,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
   const selectedActionLabel = selectedQuickActionResolution
     ? selectedQuickActionResolution.actionName
     : selectedQuickAction
-      ? getQuickRollLabel(selectedQuickAction, null)
+      ? getQuickRollLabel(selectedQuickAction)
       : null;
   const canSubmit = Boolean(activeSheetId && selectedQuickActionResolution);
   const bridgeStatusLabel =
@@ -101,7 +101,7 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
                   : "This sheet does not have that action assigned"
               }
             >
-              {getQuickRollLabel(action, null)}
+              {getQuickRollLabel(action)}
             </button>
           ))}
         </div>

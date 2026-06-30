@@ -1,10 +1,12 @@
 import asyncio
 from copy import deepcopy
 
+from backend.features.augmentations import service as augmentation_service
 from backend.protocol.socket import normalize_server_event
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
 from backend.state.models.state import State
+from backend.state.models.sheet import InstancedSheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -504,6 +506,111 @@ def test_missing_condition_update_is_rejected(monkeypatch) -> None:
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_active_condition_removal_is_dm_only_and_preserves_preset(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.condition_presets["poisoned"] = State.from_dict(
+                {"condition_presets": {"poisoned": _condition_payload()}}
+            ).condition_presets["poisoned"]
+            state.instanced_sheets["instance-1"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "sheet-1",
+                    "health": 10,
+                    "mana": 5,
+                    "augments": {},
+                }
+            )
+            await augmentation_service.apply_condition_preset(
+                instance_id="instance-1",
+                condition_id="poisoned",
+            )
+            application_id = "condition:poisoned:instance-1"
+            assert state.instanced_sheets["instance-1"].health == 8
+
+            await websocket_sessions.reset()
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await handle_client_payload(
+                player,
+                {
+                    "type": "remove_active_condition",
+                    "instance_id": "instance-1",
+                    "application_id": application_id,
+                },
+            )
+            assert application_id in state.active_conditions
+            assert player.sent_messages[-1]["reason"] == (
+                "This request requires an authenticated DM session."
+            )
+
+            dm = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "remove_active_condition",
+                    "instance_id": "instance-1",
+                    "application_id": application_id,
+                    "request_id": "remove-condition-1",
+                },
+            )
+
+            assert application_id not in state.active_conditions
+            assert "poisoned" in state.condition_presets
+            assert state.instanced_sheets["instance-1"].health == 10
+            assert dm.sent_messages[-1]["request_id"] == "remove-condition-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_condition_preset_rejects_active_applications(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.condition_presets["poisoned"] = State.from_dict(
+                {"condition_presets": {"poisoned": _condition_payload()}}
+            ).condition_presets["poisoned"]
+            state.instanced_sheets["instance-1"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "sheet-1",
+                    "health": 10,
+                    "mana": 5,
+                    "augments": {},
+                }
+            )
+            await augmentation_service.apply_condition_preset(
+                instance_id="instance-1",
+                condition_id="poisoned",
+            )
+
+            await websocket_sessions.reset()
+            dm = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+            await handle_client_payload(
+                dm,
+                {"type": "delete_condition_preset", "condition_id": "poisoned"},
+            )
+
+            assert "poisoned" in state.condition_presets
+            assert dm.sent_messages[-1]["reason"] == (
+                "Condition preset 'poisoned' has active applications. "
+                "Remove them before deleting the preset."
+            )
         finally:
             StateSingleton._state = original_state
 

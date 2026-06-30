@@ -107,6 +107,7 @@ describe("SocketProtocolClient", () => {
           formulas: [],
           augmentations: [],
           conditionPresets: [],
+          activeConditions: [],
           encounters: [],
           actionHistory: []
         },

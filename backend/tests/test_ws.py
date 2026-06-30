@@ -1,6 +1,7 @@
 import asyncio
 import json
 from copy import deepcopy
+from dataclasses import asdict
 
 import pytest
 
@@ -539,6 +540,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "active_conditions": {},
                     "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
@@ -586,6 +588,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "active_conditions": {},
                     "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
@@ -633,6 +636,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "active_conditions": {},
                     "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
@@ -1123,6 +1127,7 @@ def test_state_sync_bootstrap_sends_snapshot() -> None:
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "active_conditions": {},
                     "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
@@ -1161,6 +1166,7 @@ def test_resync_state_returns_state_snapshot() -> None:
                     "actions": {},
                     "augmentations": {},
                     "condition_presets": {},
+                    "active_conditions": {},
                     "encounter_presets": {},
                     "formulas": {},
                     "instanced_sheets": {},
@@ -1213,10 +1219,26 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
     async def scenario() -> None:
         await websocket_sessions.reset()
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        monkeypatch.setattr(
+            StateSingleton,
+            "replaceState",
+            staticmethod(lambda state: setattr(StateSingleton, "_state", state)),
+        )
         dm_socket = FakeWebSocket()
         player_socket = FakeWebSocket()
         await websocket_sessions.connect(dm_socket, role="dm")
         await websocket_sessions.connect(player_socket, role="player")
+
+        sheet_payload = asdict(_build_sheet_state())
+        sheet_payload["items"] = {
+            "helm_bridge": {
+                "relationship_id": "helm_bridge",
+                "item_id": "helm",
+                "count": 1,
+                "equipped": True,
+            }
+        }
+        instance_payload = asdict(_build_instance_state())
 
         persisted_state_json = json.dumps(
             build_persisted_state(
@@ -1229,7 +1251,46 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
                             "active": True,
                         }
                     },
-                    "sheets": {},
+                    "sheets": {"mage_template": sheet_payload},
+                    "instanced_sheets": {"mage_instance": instance_payload},
+                    "items": {
+                        "helm": {
+                            "id": "helm",
+                            "name": "Flame Helm",
+                            "interaction_type": "equippable",
+                            "category": "Helmet",
+                            "rank": "A",
+                            "description": "A fire-attuned helmet.",
+                            "world_anvil_url": "",
+                            "gm_notes": "",
+                            "gm_special_properties": "",
+                            "price": "",
+                            "weight": "",
+                            "augmentation_templates": [
+                                {
+                                    "id": "health-effect",
+                                    "name": "Burning Vitality",
+                                    "source": {
+                                        "type": "item",
+                                        "id": "helm",
+                                        "label": "Flame Helm",
+                                    },
+                                    "scope": "instance",
+                                    "target": {
+                                        "root": "instance",
+                                        "path": ["health"],
+                                    },
+                                    "effect": {
+                                        "type": "formula_modifier",
+                                        "operation": "add",
+                                        "value": {"aliases": None, "text": "5"},
+                                    },
+                                    "lifecycle_owner": "equipment",
+                                }
+                            ],
+                            "action_grants": [],
+                        }
+                    },
                 }
             )
         )
@@ -1243,7 +1304,13 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
             },
         )
 
-        assert StateSingleton.getState().sheet_access_codes["ACCESS-1"].sheet_id == "sheet_1"
+        imported_state = StateSingleton.getState()
+        assert imported_state.sheet_access_codes["ACCESS-1"].sheet_id == "sheet_1"
+        assert imported_state.instanced_sheets["mage_instance"].health == 95
+        assert len(imported_state.augmentations) == 1
+        concrete_effect = next(iter(imported_state.augmentations.values()))
+        assert concrete_effect.source.relationship_id == "helm_bridge"
+        assert concrete_effect.lifecycle_owner == "equipment"
         assert dm_socket.sent_messages[-1]["type"] == "state_snapshot"
         assert dm_socket.sent_messages[-1]["request_id"] == "import-1"
         assert dm_socket.sent_messages[-1]["state_version"] == 1

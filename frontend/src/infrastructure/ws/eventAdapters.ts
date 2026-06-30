@@ -1,11 +1,11 @@
 import type { AppSnapshot, ServerEvent } from "@/domain/ipc";
-import type { EncounterPreset, Role } from "@/domain/models";
+import type { ActiveCondition, EncounterPreset, Role } from "@/domain/models";
 import type {
   ProtocolBackendState,
   ProtocolPatchOperation,
   ProtocolServerEvent
 } from "@/infrastructure/ws/protocol";
-import type { EncounterPresetPayload } from "@/generated/backendProtocol";
+import type { ActiveConditionPayload, EncounterPresetPayload } from "@/generated/backendProtocol";
 
 export interface SocketProtocolState {
   backendState: ProtocolBackendState | null;
@@ -148,6 +148,18 @@ function projectEncounterPreset(value: EncounterPresetPayload): EncounterPreset 
   };
 }
 
+function projectActiveCondition(value: ActiveConditionPayload): ActiveCondition {
+  return {
+    application_id: value.application_id,
+    condition_id: value.condition_id,
+    condition_name: value.condition_name,
+    description: value.description ?? "",
+    visibility: value.visibility ?? "public",
+    instance_id: value.instance_id,
+    augmentation_ids: value.augmentation_ids ?? []
+  };
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}),
@@ -161,6 +173,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     formulas: Object.values(state.formulas ?? {}),
     augmentations: Object.values(state.augmentations ?? {}),
     conditionPresets: Object.values(state.condition_presets ?? {}),
+    activeConditions: Object.values(state.active_conditions ?? {}).map(projectActiveCondition),
     encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),
     actionHistory: Object.values(state.action_history ?? {})
   };

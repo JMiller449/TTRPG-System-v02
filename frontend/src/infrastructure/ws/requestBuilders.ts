@@ -884,6 +884,22 @@ export function buildDeleteConditionPresetRequest({
   };
 }
 
+export function buildRemoveActiveConditionRequest({
+  instanceId,
+  applicationId,
+  requestId
+}: {
+  instanceId: string;
+  applicationId: string;
+} & OptionalRequestId): ProtocolRequest<"remove_active_condition"> {
+  return {
+    ...requestIdField(requestId),
+    type: "remove_active_condition",
+    instance_id: instanceId,
+    application_id: applicationId
+  };
+}
+
 export function buildGetActionFormulaAuthoringMetadataRequest({
   requestId
 }: OptionalRequestId = {}): ProtocolRequest<"get_action_formula_authoring_metadata"> {

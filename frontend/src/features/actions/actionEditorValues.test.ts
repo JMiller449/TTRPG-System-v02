@@ -21,6 +21,7 @@ import {
   createGainProficiencyUseActionStep,
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
+  duplicateActionStep,
   isFormulaReference,
   isInlineFormula,
   moveActionStep,
@@ -239,6 +240,31 @@ describe("actionEditorValues", () => {
         aliases: null,
         text: "10"
       }
+    });
+  });
+
+  it("duplicates steps after the source with stable new ids and unique calculated variables", () => {
+    const values = addCalculateValueActionStep(
+      addSendMessageActionStep(createEmptyActionEditorValues(), "message_1"),
+      "calculate_1",
+      "damage"
+    );
+    const duplicatedMessage = duplicateActionStep(values, "message_1", "message_2");
+    const duplicatedCalculation = duplicateActionStep(
+      duplicatedMessage,
+      "calculate_1",
+      "calculate_2"
+    );
+
+    expect(duplicatedCalculation.steps.map((step) => step.step_id)).toEqual([
+      "message_1",
+      "message_2",
+      "calculate_1",
+      "calculate_2"
+    ]);
+    expect(duplicatedCalculation.steps[3]).toMatchObject({
+      type: "calculate_value",
+      variable_id: "damage_copy"
     });
   });
 

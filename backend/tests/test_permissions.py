@@ -27,6 +27,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "create_sheet_action_bridge": "dm",
     "create_sheet_item_bridge": "dm",
     "create_sheet_proficiency_bridge": "dm",
+    "create_standalone_effect": "dm",
     "delete_action": "dm",
     "delete_condition_preset": "dm",
     "delete_encounter_preset": "dm",
@@ -37,6 +38,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "delete_sheet_action_bridge": "dm",
     "delete_sheet_item_bridge": "dm",
     "delete_sheet_proficiency_bridge": "dm",
+    "delete_standalone_effect": "dm",
     "export_state_backup": "dm",
     "generate_sheet_access_code": "dm",
     "get_action_formula_authoring_metadata": "player",
@@ -73,6 +75,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "update_sheet_action_bridge": "dm",
     "update_sheet_item_bridge": "dm",
     "update_sheet_proficiency_bridge": "dm",
+    "update_standalone_effect": "dm",
     "upsert_item_augmentation_template": "dm",
 }
 

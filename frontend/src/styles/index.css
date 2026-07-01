@@ -3,5 +3,8 @@
 @import "./sheet.css";
 @import "./rolls.css";
 @import "./items.css";
+@import "./actions.css";
+@import "./search-picker.css";
+@import "./templates.css";
 @import "./encounters.css";
 @import "./xp.css";

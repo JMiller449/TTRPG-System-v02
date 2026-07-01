@@ -9,18 +9,15 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import {
   hasValidConditionPresetValues,
-  removeConditionAugmentationTemplate,
-  toConditionAugmentationTemplatePayload,
   toConditionPresetPayload,
   toUpdatedConditionPresetPayload,
-  upsertConditionAugmentationTemplate,
   type ConditionPresetEditorValues
 } from "@/features/conditions/conditionEditorValues";
-import type { AugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
 
 export interface ConditionPresetSubmission {
   request: ProtocolApplicationRequest;
   label: string;
+  confirmation?: string;
 }
 
 function conditionPartial(condition: ConditionPresetPayload): Record<string, unknown> {
@@ -31,7 +28,9 @@ export function selectOrderedConditionPresets(
   records: Record<string, ConditionPreset>,
   order: string[]
 ): ConditionPreset[] {
-  return order.map((id) => records[id]).filter((condition): condition is ConditionPreset => Boolean(condition));
+  return order
+    .map((id) => records[id])
+    .filter((condition): condition is ConditionPreset => Boolean(condition));
 }
 
 export function buildLoadConditionAugmentationTargetMetadataSubmission(): ConditionPresetSubmission {
@@ -84,64 +83,7 @@ export function buildDeleteConditionPresetSubmission(
 ): ConditionPresetSubmission {
   return {
     request: buildDeleteConditionPresetRequest({ conditionId }),
-    label: `Delete condition: ${condition?.name ?? conditionId}`
-  };
-}
-
-export function buildUpsertConditionAugmentationSubmission({
-  condition,
-  values,
-  augmentationId
-}: {
-  condition: ConditionPreset | undefined;
-  values: AugmentationEditorValues;
-  augmentationId: string;
-}): ConditionPresetSubmission | null {
-  if (!condition) {
-    return null;
-  }
-
-  const augmentation = toConditionAugmentationTemplatePayload({
-    values,
-    augmentationId,
-    conditionId: condition.id,
-    conditionName: condition.name
-  });
-  const updatedCondition = upsertConditionAugmentationTemplate(condition, augmentation);
-  if (!updatedCondition) {
-    return null;
-  }
-
-  return {
-    request: buildUpdateConditionPresetRequest({
-      conditionId: condition.id,
-      conditionPartial: conditionPartial(updatedCondition)
-    }),
-    label: `Save condition augmentation: ${augmentation?.name ?? "augmentation"}`
-  };
-}
-
-export function buildRemoveConditionAugmentationSubmission({
-  condition,
-  augmentationId
-}: {
-  condition: ConditionPreset | undefined;
-  augmentationId: string;
-}): ConditionPresetSubmission | null {
-  const updatedCondition = removeConditionAugmentationTemplate(condition, augmentationId);
-  if (!condition || !updatedCondition) {
-    return null;
-  }
-
-  const augmentation = condition.augmentation_templates?.find(
-    (template) => template.id === augmentationId
-  );
-
-  return {
-    request: buildUpdateConditionPresetRequest({
-      conditionId: condition.id,
-      conditionPartial: conditionPartial(updatedCondition)
-    }),
-    label: `Remove condition augmentation: ${augmentation?.name ?? "augmentation"}`
+    label: `Delete condition: ${condition?.name ?? conditionId}`,
+    confirmation: `Delete condition "${condition?.name ?? conditionId}"?`
   };
 }

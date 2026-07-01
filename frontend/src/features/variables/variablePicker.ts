@@ -1,5 +1,6 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { FormulaAlias } from "@/domain/models";
+import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
 
 type AuthoringVariable = ActionFormulaAuthoringMetadata["variables"][number];
 
@@ -39,7 +40,9 @@ export function buildVariablePickerEntries(
   const variables = metadata?.variables ?? [];
   return variables
     .filter((variable) =>
-      mode === "formula" ? variable.formula_reference_allowed !== false : variable.action_mutation_allowed ?? false
+      mode === "formula"
+        ? variable.formula_reference_allowed !== false
+        : (variable.action_mutation_allowed ?? false)
     )
     .map((variable) => {
       const aliasName = variableAliasName(variable);
@@ -92,6 +95,26 @@ export function filterVariablePickerEntries(
       .toLowerCase();
     return searchable.includes(normalizedQuery);
   });
+}
+
+export function toVariableSearchOptions(
+  entries: VariablePickerEntry[]
+): SearchPopoverOption<VariablePickerEntry>[] {
+  return entries.map((entry) => ({
+    id: entry.key,
+    label: entry.label,
+    secondary: `${entry.token} | ${variablePathLabel(entry)} | ${entry.valueType}`,
+    keywords: [
+      entry.key,
+      entry.root,
+      entry.valueType,
+      variablePathLabel(entry),
+      entry.description,
+      entry.token,
+      ...entry.shortcuts
+    ],
+    value: entry
+  }));
 }
 
 export function appendFormulaToken(text: string, token: string): string {

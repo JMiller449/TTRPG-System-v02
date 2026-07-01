@@ -18,6 +18,7 @@ import {
   buildCreateSheetActionBridgeRequest,
   buildCreateSheetItemBridgeRequest,
   buildCreateSheetProficiencyBridgeRequest,
+  buildCreateStandaloneEffectRequest,
   buildDeleteActionRequest,
   buildDeleteConditionPresetRequest,
   buildDeleteEncounterPresetRequest,
@@ -39,6 +40,7 @@ import {
   buildDeleteSheetActionBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
   buildDeleteSheetProficiencyBridgeRequest,
+  buildDeleteStandaloneEffectRequest,
   buildPerformActionRequest,
   buildGenerateSheetAccessCodeRequest,
   buildResyncStateRequest,
@@ -64,6 +66,7 @@ import {
   buildUpdateSheetItemBridgeRequest,
   buildUpdateSheetProficiencyBridgeRequest,
   buildUpdateSheetRequest,
+  buildUpdateStandaloneEffectRequest,
   buildUpsertItemAugmentationTemplateRequest,
   type AugmentationPayload,
   type ActionDefinitionPayload,
@@ -71,7 +74,8 @@ import {
   type ItemDefinitionPayload,
   type ProficiencyDefinitionPayload,
   type EncounterPresetPayload,
-  type SheetDefinitionPayload
+  type SheetDefinitionPayload,
+  type StandaloneEffectDefinitionPayload
 } from "@/infrastructure/ws/requestBuilders";
 
 const testFormula = { aliases: null, text: "0" };
@@ -127,6 +131,20 @@ const testAugmentation: AugmentationPayload = {
     expires_at: null,
     removal_condition: null
   }
+};
+
+const testStandaloneEffect: StandaloneEffectDefinitionPayload = {
+  id: "effect_1",
+  name: "Arcane Focus",
+  description: "Action-controlled arcane focus.",
+  scope: "instance",
+  target: { root: "instance", path: ["health"] },
+  effect: {
+    type: "formula_modifier",
+    operation: "add",
+    value: { aliases: null, text: "5" }
+  },
+  active: true
 };
 
 const testFormulaDefinition: FormulaDefinitionPayload = {
@@ -223,6 +241,7 @@ const requestBuilderByType = {
   create_sheet_action_bridge: buildCreateSheetActionBridgeRequest,
   create_sheet_item_bridge: buildCreateSheetItemBridgeRequest,
   create_sheet_proficiency_bridge: buildCreateSheetProficiencyBridgeRequest,
+  create_standalone_effect: buildCreateStandaloneEffectRequest,
   delete_action: buildDeleteActionRequest,
   delete_condition_preset: buildDeleteConditionPresetRequest,
   delete_encounter_preset: buildDeleteEncounterPresetRequest,
@@ -233,6 +252,7 @@ const requestBuilderByType = {
   delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
   delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
+  delete_standalone_effect: buildDeleteStandaloneEffectRequest,
   export_state_backup: buildExportStateBackupRequest,
   generate_sheet_access_code: buildGenerateSheetAccessCodeRequest,
   get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
@@ -269,6 +289,7 @@ const requestBuilderByType = {
   update_sheet_action_bridge: buildUpdateSheetActionBridgeRequest,
   update_sheet_item_bridge: buildUpdateSheetItemBridgeRequest,
   update_sheet_proficiency_bridge: buildUpdateSheetProficiencyBridgeRequest,
+  update_standalone_effect: buildUpdateStandaloneEffectRequest,
   upsert_item_augmentation_template: buildUpsertItemAugmentationTemplateRequest
 } satisfies Record<ProtocolApplicationRequest["type"], unknown>;
 
@@ -888,6 +909,33 @@ describe("requestBuilders", () => {
       instance_id: "instance_1",
       application_id: "condition:poisoned:instance_1",
       request_id: "req-remove-condition"
+    });
+  });
+
+  it("builds standalone effect CRUD requests", () => {
+    expect(
+      buildCreateStandaloneEffectRequest({
+        effect: testStandaloneEffect,
+        requestId: "req-effect-create"
+      })
+    ).toEqual({
+      type: "create_standalone_effect",
+      effect: testStandaloneEffect,
+      request_id: "req-effect-create"
+    });
+    expect(
+      buildUpdateStandaloneEffectRequest({
+        effectId: "effect_1",
+        effect: testStandaloneEffect
+      })
+    ).toEqual({
+      type: "update_standalone_effect",
+      effect_id: "effect_1",
+      effect: testStandaloneEffect
+    });
+    expect(buildDeleteStandaloneEffectRequest({ effectId: "effect_1" })).toEqual({
+      type: "delete_standalone_effect",
+      effect_id: "effect_1"
     });
   });
 

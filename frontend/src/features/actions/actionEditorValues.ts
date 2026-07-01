@@ -802,6 +802,40 @@ export function removeActionStep(values: ActionEditorValues, stepId: string): Ac
   };
 }
 
+export function duplicateActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  duplicateStepId: string
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  const currentIndex = nextValues.steps.findIndex((step) => step.step_id === stepId);
+  const currentStep = nextValues.steps[currentIndex];
+  if (!currentStep) {
+    return nextValues;
+  }
+
+  const duplicate = structuredClone(currentStep) as ActionEditorStep;
+  duplicate.step_id = duplicateStepId;
+  if (duplicate.type === "calculate_value") {
+    const variableIds = new Set(
+      nextValues.steps
+        .filter((step) => step.type === "calculate_value")
+        .map((step) => step.variable_id)
+    );
+    const baseVariableId = `${duplicate.variable_id}_copy`;
+    let variableId = baseVariableId;
+    let copyIndex = 2;
+    while (variableIds.has(variableId)) {
+      variableId = `${baseVariableId}_${copyIndex}`;
+      copyIndex += 1;
+    }
+    duplicate.variable_id = variableId;
+  }
+
+  nextValues.steps.splice(currentIndex + 1, 0, duplicate);
+  return nextValues;
+}
+
 export function setActionStepFormulaReference(
   values: ActionEditorValues,
   stepId: string,

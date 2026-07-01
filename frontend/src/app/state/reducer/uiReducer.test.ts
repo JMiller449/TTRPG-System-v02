@@ -40,6 +40,17 @@ const augmentationTargetMetadata: AugmentationTargetMetadata = {
 };
 
 describe("uiReducer", () => {
+  it("keeps the template being edited as local UI navigation state", () => {
+    const editingState = uiReducer(initialState, {
+      type: "set_template_builder_sheet",
+      sheetId: "template_1"
+    });
+    const resetState = uiReducer(editingState ?? initialState, { type: "reset_session_ui" });
+
+    expect(editingState?.uiState.templateBuilderSheetId).toBe("template_1");
+    expect(resetState?.uiState.templateBuilderSheetId).toBeNull();
+  });
+
   it("stores Roll20 bridge status in UI state", () => {
     const state = uiReducer(initialState, {
       type: "set_roll20_bridge_status",

@@ -1,22 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { SheetTemplateView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
-import { TemplateEditPanel } from "@/features/sheets/components/TemplateEditPanel";
 import { TemplateList } from "@/features/sheets/components/TemplateList";
 import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBar";
-import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
-import {
-  createEmptyTemplateEditorValues,
-  toInstancedSheetCreationValues,
-  toTemplateEditorValues,
-  toUpdatedSheetDefinitionPayload
-} from "@/features/sheets/templateEditorValues";
-import {
-  buildInstantiateSheetRequest,
-  buildUpdateSheetRequest
-} from "@/infrastructure/ws/requestBuilders";
+import { toInstancedSheetCreationValues } from "@/features/sheets/templateEditorValues";
+import { buildInstantiateSheetRequest } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 import { buildDeleteTemplateSubmission } from "@/features/sheets/templateLibraryRequests";
@@ -25,10 +15,6 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
   const { state, dispatch } = useAppStore();
   const { templateSearch } = state.uiState;
 
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<TemplateEditorValues>(() =>
-    createEmptyTemplateEditorValues("player")
-  );
   const [spawnCount, setSpawnCount] = useState<number>(1);
 
   const visibleTemplates = useMemo(() => {
@@ -43,36 +29,8 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
   }, [state, templateSearch]);
 
   const beginEditTemplate = (template: SheetTemplateView): void => {
-    setEditingTemplateId(template.id);
-    setEditValues(toTemplateEditorValues(template.sheet));
-  };
-
-  useEffect(() => {
-    if (editingTemplateId && !state.serverState.sheets[editingTemplateId]) {
-      setEditingTemplateId(null);
-      setEditValues(createEmptyTemplateEditorValues("player"));
-    }
-  }, [editingTemplateId, state.serverState.sheets]);
-
-  const saveTemplateEdit = (): void => {
-    if (!editingTemplateId || !editValues.name.trim()) {
-      return;
-    }
-
-    const sheet = state.serverState.sheets[editingTemplateId];
-    if (!sheet) {
-      return;
-    }
-
-    client.sendProtocolRequest(
-      buildUpdateSheetRequest({
-        sheetId: editingTemplateId,
-        sheet: toUpdatedSheetDefinitionPayload(sheet, editValues)
-      }),
-      "Update template"
-    );
-    setEditingTemplateId(null);
-    setEditValues(createEmptyTemplateEditorValues("player"));
+    dispatch({ type: "set_template_builder_sheet", sheetId: template.id });
+    dispatch({ type: "set_gm_view", view: "create_template" });
   };
 
   const spawnTemplate = (template: SheetTemplateView): void => {
@@ -109,9 +67,12 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
       actions={
         <button
           className="button button--secondary"
-          onClick={() => dispatch({ type: "set_gm_view", view: "create_template" })}
+          onClick={() => {
+            dispatch({ type: "set_template_builder_sheet", sheetId: null });
+            dispatch({ type: "set_gm_view", view: "create_template" });
+          }}
         >
-          Create Template Page
+          New Template
         </button>
       }
     >
@@ -128,17 +89,6 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
           onEdit={beginEditTemplate}
           onSpawn={spawnTemplate}
           onDelete={deleteTemplate}
-        />
-
-        <TemplateEditPanel
-          editingTemplateId={editingTemplateId}
-          editingTemplateName={
-            editingTemplateId ? state.serverState.sheets[editingTemplateId]?.name : undefined
-          }
-          values={editValues}
-          onChange={setEditValues}
-          onSubmit={saveTemplateEdit}
-          onCancel={() => setEditingTemplateId(null)}
         />
       </div>
     </Panel>

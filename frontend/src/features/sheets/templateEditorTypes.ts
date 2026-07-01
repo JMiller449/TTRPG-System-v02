@@ -1,4 +1,8 @@
-import type { SheetKind } from "@/domain/models";
+import type { Formula, SheetKind, SheetSlayedBridge } from "@/domain/models";
+import type {
+  ResistancePercentDraft,
+  SheetFormulaStatName
+} from "@/features/sheets/sheetDefinitionEditing";
 
 export type CoreTemplateStatKey =
   | "strength"
@@ -33,4 +37,39 @@ export interface TemplateEditorValues {
   xpGivenWhenSlayed: string;
   xpCap: string;
   coreStats: Record<CoreTemplateStatKey, string>;
+  formulaStats: Record<SheetFormulaStatName, Formula>;
+  resistances: ResistancePercentDraft;
+  actions: TemplateActionAssignment[];
+  proficiencies: TemplateProficiencyAssignment[];
+  items: TemplateItemAssignment[];
+  slayedRecord: Record<string, SheetSlayedBridge>;
 }
+
+export interface TemplateActionAssignment {
+  relationshipId: string;
+  actionId: string;
+}
+
+export interface TemplateProficiencyAssignment {
+  relationshipId: string;
+  proficiencyId: string;
+  useCount: string;
+  growthRate: string;
+}
+
+export interface TemplateItemAssignment {
+  relationshipId: string;
+  itemId: string;
+  count: string;
+  equipped: boolean;
+}
+
+export type TemplateEditorSection =
+  | "details"
+  | "stats"
+  | "resistances"
+  | "actions"
+  | "proficiencies"
+  | "inventory";
+
+export type TemplateEditorErrors = Record<TemplateEditorSection, string[]>;

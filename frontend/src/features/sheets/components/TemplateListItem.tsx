@@ -15,7 +15,9 @@ export function TemplateListItem({
     <article className="list-item">
       <div>
         <strong>{template.name}</strong>
-        <div className="muted">{template.kind} template</div>
+        <div className="muted">
+          {template.kind === "player" ? "Player-controlled" : "GM-controlled"}
+        </div>
       </div>
       <div className="inline-actions">
         <button className="button button--secondary" onClick={onEdit}>

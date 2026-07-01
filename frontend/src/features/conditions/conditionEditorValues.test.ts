@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { ConditionPreset } from "@/domain/models";
 import {
   createEmptyConditionPresetEditorValues,
-  removeConditionAugmentationTemplate,
+  removeConditionEffect,
   toConditionAugmentationTemplatePayload,
   toConditionPresetEditorValues,
   toConditionPresetPayload,
   toUpdatedConditionPresetPayload,
-  upsertConditionAugmentationTemplate
+  upsertConditionEffect
 } from "@/features/conditions/conditionEditorValues";
 import { createEmptyAugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
 
@@ -54,7 +54,8 @@ describe("conditionEditorValues", () => {
     expect(toConditionPresetEditorValues(condition())).toEqual({
       name: "Poisoned",
       description: "Takes poison penalties.",
-      visibility: "gm_only"
+      visibility: "gm_only",
+      augmentationTemplates: condition().augmentation_templates
     });
   });
 
@@ -74,7 +75,7 @@ describe("conditionEditorValues", () => {
   });
 
   it("preserves augmentation templates while updating condition metadata", () => {
-    const values = createEmptyConditionPresetEditorValues();
+    const values = toConditionPresetEditorValues(condition());
     values.name = "  Venomed  ";
     values.description = "  Updated description.  ";
     values.visibility = "public";
@@ -85,7 +86,15 @@ describe("conditionEditorValues", () => {
       description: "Updated description.",
       visibility: "public",
       augmentation_ids: ["poison-drain"],
-      augmentation_templates: condition().augmentation_templates
+      augmentation_templates: condition().augmentation_templates?.map((effect) => ({
+        ...effect,
+        source: {
+          ...effect.source,
+          label: "Venomed"
+        },
+        applied: false,
+        applied_target_id: null
+      }))
     });
   });
 
@@ -146,7 +155,7 @@ describe("conditionEditorValues", () => {
     });
   });
 
-  it("upserts and removes condition augmentation templates", () => {
+  it("upserts and removes draft effects while preserving stable ids", () => {
     const values = createEmptyAugmentationEditorValues();
     values.name = "Poison Pain";
     values.operation = "subtract";
@@ -159,11 +168,47 @@ describe("conditionEditorValues", () => {
       conditionName: "Poisoned"
     });
 
+    if (!augmentation) {
+      throw new Error("Expected a valid condition effect.");
+    }
+
+    const initialValues = toConditionPresetEditorValues(condition());
+    const added = upsertConditionEffect(initialValues, augmentation);
+    expect(added.augmentationTemplates.map((effect) => effect.id)).toEqual([
+      "poison-drain",
+      "poison-pain"
+    ]);
+
+    const replacement = { ...augmentation, name: "Severe Poison Pain" };
+    const replaced = upsertConditionEffect(added, replacement);
+    expect(replaced.augmentationTemplates).toHaveLength(2);
+    expect(replaced.augmentationTemplates[1]?.name).toBe("Severe Poison Pain");
+
     expect(
-      upsertConditionAugmentationTemplate(condition(), augmentation)?.augmentation_ids
-    ).toEqual(["poison-drain", "poison-pain"]);
-    expect(
-      removeConditionAugmentationTemplate(condition(), "poison-drain")?.augmentation_ids
-    ).toEqual([]);
+      removeConditionEffect(replaced, "poison-drain").augmentationTemplates.map(
+        (effect) => effect.id
+      )
+    ).toEqual(["poison-pain"]);
+  });
+
+  it("normalizes draft effect ownership in the final condition payload", () => {
+    const values = toConditionPresetEditorValues(condition());
+    values.name = "Venomed";
+
+    const payload = toConditionPresetPayload({ values, conditionId: "venomed" });
+
+    expect(payload.augmentation_ids).toEqual(["poison-drain"]);
+    expect(payload.augmentation_templates?.[0]).toMatchObject({
+      id: "poison-drain",
+      source: {
+        type: "condition",
+        id: "venomed",
+        label: "Venomed"
+      },
+      scope: "instance",
+      target: { root: "instance" },
+      applied: false,
+      applied_target_id: null
+    });
   });
 });

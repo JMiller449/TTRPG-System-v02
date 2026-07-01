@@ -1,10 +1,9 @@
 import type { FormulaAlias, Resistances } from "@/domain/models";
 import { CORE_SUBSTAT_GROUPS } from "@/domain/stats";
 import type { VariablePickerEntry } from "@/features/variables/variablePicker";
-import type {
-  SheetFormulaStatName,
-  SheetResistancesPayload
-} from "@/infrastructure/ws/requestBuilders";
+import type { SheetResistancesPayload } from "@/infrastructure/ws/requestBuilders";
+
+export type SheetFormulaStatName = (typeof CORE_SUBSTAT_GROUPS)[number]["subs"][number];
 
 export const FORMULA_STAT_KEYS = CORE_SUBSTAT_GROUPS.flatMap((group) => [
   ...group.subs

@@ -21,6 +21,8 @@ from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
     EquipmentEffectProjection,
+    StandaloneEffectApplication,
+    StandaloneEffectDefinition,
 )
 from backend.state.models.condition import ActiveCondition
 from backend.state.models.shared import Bridge
@@ -85,6 +87,21 @@ def matching_evaluation_effects(
     context: FormulaExecutionContext,
 ) -> tuple[EvaluationTimeEffect, ...]:
     effects: list[EvaluationTimeEffect] = []
+
+    if instance_id is not None:
+        for application in state.standalone_effect_applications.values():
+            if not application.active or application.instance_id != instance_id:
+                continue
+            definition = state.standalone_effects.get(application.definition_id)
+            if (
+                definition is None
+                or not definition.active
+                or definition.effect.type
+                not in {"evaluation_formula_modifier", "roll_mode_modifier"}
+            ):
+                continue
+            if _effect_matches_context(definition.effect, context):
+                effects.append(definition.effect)
 
     for augmentation in state.augmentations.values():
         if (
@@ -186,6 +203,57 @@ def _desired_equipment_augmentations(state: State) -> dict[str, Augmentation]:
                     desired[augmentation.id] = augmentation
 
     return desired
+
+
+def standalone_effect_application_id(definition_id: str, instance_id: str) -> str:
+    return f"standalone:{instance_id}:{definition_id}"
+
+
+def _standalone_application_augmentation(
+    definition: StandaloneEffectDefinition,
+    application: StandaloneEffectApplication,
+) -> Augmentation:
+    return Augmentation(
+        id=application.application_id,
+        name=definition.name,
+        description=definition.description,
+        source=deepcopy(application.source),
+        scope=definition.scope,
+        target=deepcopy(definition.target),
+        effect=deepcopy(definition.effect),
+        active=definition.active and application.active,
+        applied=True,
+        applied_target_id=application.instance_id,
+        lifecycle_owner="action",
+        lifecycle=deepcopy(definition.lifecycle),
+    )
+
+
+def _desired_standalone_augmentations(state: State) -> dict[str, Augmentation]:
+    desired: dict[str, Augmentation] = {}
+    for application_id, application in sorted(
+        state.standalone_effect_applications.items()
+    ):
+        if not application.active:
+            continue
+        definition = state.standalone_effects.get(application.definition_id)
+        if definition is None or not definition.active:
+            continue
+        augmentation = _standalone_application_augmentation(definition, application)
+        _validate_runtime_augmentation_target(augmentation)
+        desired[application_id] = augmentation
+    return desired
+
+
+def _desired_projected_augmentations(
+    state: State,
+    *,
+    equipment: dict[str, Augmentation] | None = None,
+) -> dict[str, Augmentation]:
+    return {
+        **(_desired_equipment_augmentations(state) if equipment is None else equipment),
+        **_desired_standalone_augmentations(state),
+    }
 
 
 def _equipment_projection_path(target_path: str) -> str:
@@ -401,8 +469,174 @@ def synchronize_equipment_augmentations_mutation(state: State) -> list[PatchOp]:
         elif current_bridge != bridge:
             ops.append(state_sync_service.set_mutation(state, bridge_path, bridge))
 
-    ops.extend(_sync_equipment_direct_effects(state, desired))
+    ops.extend(
+        _sync_equipment_direct_effects(
+            state,
+            _desired_projected_augmentations(state, equipment=desired),
+        )
+    )
     return ops
+
+
+def synchronize_projected_direct_effects_mutation(state: State) -> list[PatchOp]:
+    return _sync_equipment_direct_effects(
+        state,
+        _desired_projected_augmentations(state),
+    )
+
+
+def validate_standalone_runtime_definition(
+    definition: StandaloneEffectDefinition,
+) -> None:
+    if definition.scope != "instance" or definition.target.root != "instance":
+        raise ValueError(
+            "Standalone action-controlled effects must target an instance."
+        )
+    augmentation = Augmentation(
+        id=definition.id,
+        name=definition.name,
+        description=definition.description,
+        source=AugmentationSource(type="action", id=definition.id),
+        scope=definition.scope,
+        target=deepcopy(definition.target),
+        effect=deepcopy(definition.effect),
+        lifecycle_owner="action",
+        lifecycle=deepcopy(definition.lifecycle),
+    )
+    _validate_runtime_augmentation_target(augmentation)
+
+
+def apply_standalone_effect_mutation(
+    state: State,
+    definition_id: str,
+    *,
+    instance_id: str,
+    action_id: str | None = None,
+    step_id: str | None = None,
+) -> tuple[AugmentationMutationResult, list[PatchOp]]:
+    definition = state.standalone_effects.get(definition_id)
+    if definition is None:
+        raise ValueError(f"Standalone effect '{definition_id}' does not exist.")
+    validate_standalone_runtime_definition(definition)
+    if instance_id not in state.instanced_sheets:
+        raise ValueError(f"Instanced sheet '{instance_id}' does not exist.")
+    if not definition.active:
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition_id,
+                operation="ignored",
+                reason="inactive",
+            ),
+            [],
+        )
+
+    application_id = standalone_effect_application_id(definition_id, instance_id)
+    if application_id in state.standalone_effect_applications:
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition_id,
+                operation="ignored",
+                reason="already_applied",
+            ),
+            [],
+        )
+
+    application = StandaloneEffectApplication(
+        application_id=application_id,
+        definition_id=definition_id,
+        instance_id=instance_id,
+        source=AugmentationSource(
+            type="action" if action_id else "manual",
+            id=action_id or definition_id,
+            label=definition.name,
+            relationship_id=step_id,
+            application_id=application_id,
+        ),
+    )
+    ops = [
+        state_sync_service.add_mutation(
+            state,
+            state_sync_service.join_path(
+                "standalone_effect_applications", application_id
+            ),
+            application,
+        )
+    ]
+    ops.extend(synchronize_projected_direct_effects_mutation(state))
+    augmentation = _standalone_application_augmentation(definition, application)
+    if _is_evaluation_time_effect(augmentation):
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition_id,
+                operation="applied",
+                reason="evaluation_time_effect_activated",
+            ),
+            ops,
+        )
+    target = _resolve_target(state, augmentation, instance_id=instance_id)
+    return (
+        AugmentationMutationResult(
+            augmentation_id=definition_id,
+            operation="applied",
+            target_path=target.state_path,
+            value=_current_numeric_value(state, target.state_path),
+        ),
+        ops,
+    )
+
+
+def remove_standalone_effect_mutation(
+    state: State,
+    definition_id: str,
+    *,
+    instance_id: str,
+) -> tuple[AugmentationMutationResult, list[PatchOp]]:
+    definition = state.standalone_effects.get(definition_id)
+    if definition is None:
+        raise ValueError(f"Standalone effect '{definition_id}' does not exist.")
+    application_id = standalone_effect_application_id(definition_id, instance_id)
+    application = state.standalone_effect_applications.get(application_id)
+    if application is None:
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition_id,
+                operation="ignored",
+                reason="not_applied",
+            ),
+            [],
+        )
+
+    _, remove_op = state_sync_service.remove_mutation(
+        state,
+        state_sync_service.join_path(
+            "standalone_effect_applications", application_id
+        ),
+    )
+    ops = [remove_op]
+    ops.extend(synchronize_projected_direct_effects_mutation(state))
+    if definition.effect.type in {
+        "evaluation_formula_modifier",
+        "roll_mode_modifier",
+    }:
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition_id,
+                operation="removed",
+                reason="evaluation_time_effect_deactivated",
+            ),
+            ops,
+        )
+    augmentation = _standalone_application_augmentation(definition, application)
+    target = _resolve_target(state, augmentation, instance_id=instance_id)
+    return (
+        AugmentationMutationResult(
+            augmentation_id=definition_id,
+            operation="removed",
+            target_path=target.state_path,
+            value=_current_numeric_value(state, target.state_path),
+        ),
+        ops,
+    )
 
 
 def _target_label(augmentation: Augmentation) -> str:

@@ -18,7 +18,9 @@ import type {
   PersistentSheet,
   ProficiencyDefinition,
   Role,
-  Sheet
+  Sheet,
+  StandaloneEffectApplication,
+  StandaloneEffectDefinition
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -34,6 +36,7 @@ export type GMView =
   | "formula_authoring"
   | "proficiency_authoring"
   | "condition_authoring"
+  | "effect_authoring"
   | "action_authoring"
   | "xp_tracker"
   | "state_backup";
@@ -63,6 +66,10 @@ export interface ServerState {
   formulaOrder: string[];
   augmentations: Record<string, Augmentation>;
   augmentationOrder: string[];
+  standaloneEffects: Record<string, StandaloneEffectDefinition>;
+  standaloneEffectOrder: string[];
+  standaloneEffectApplications: Record<string, StandaloneEffectApplication>;
+  standaloneEffectApplicationOrder: string[];
   conditionPresets: Record<string, ConditionPreset>;
   conditionPresetOrder: string[];
   activeConditions: Record<string, ActiveCondition>;
@@ -86,6 +93,7 @@ export interface UIState {
   };
   gmView: GMView;
   activeSheetId: string | null;
+  templateBuilderSheetId: string | null;
   templateSearch: string;
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
@@ -107,6 +115,7 @@ export type AppAction =
   | { type: "set_gm_authenticated"; value: boolean }
   | { type: "set_gm_view"; view: GMView }
   | { type: "set_active_sheet_local"; sheetId: string | null }
+  | { type: "set_template_builder_sheet"; sheetId: string | null }
   | { type: "set_template_search"; value: string }
   | { type: "reset_session_ui" }
   | { type: "connection_status"; status: ConnectionStatus }

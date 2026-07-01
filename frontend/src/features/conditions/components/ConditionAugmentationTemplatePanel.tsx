@@ -22,10 +22,10 @@ const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
   "divide",
   "set"
 ];
-const AUGMENTATION_EFFECT_TYPES = [
-  ["formula_modifier", "Direct state modifier"],
-  ["evaluation_formula_modifier", "Formula evaluation modifier"],
-  ["roll_mode_modifier", "Advantage / disadvantage"]
+const EFFECT_TYPES = [
+  ["formula_modifier", "Direct sheet value"],
+  ["evaluation_formula_modifier", "Matching formula value"],
+  ["roll_mode_modifier", "Matching roll mode"]
 ] as const;
 
 function formatTarget(augmentation: Augmentation): string {
@@ -33,26 +33,52 @@ function formatTarget(augmentation: Augmentation): string {
   return `${augmentation.target.root}.${path}`;
 }
 
+function getEffectValidationError(
+  values: AugmentationEditorValues,
+  targetOptions: AugmentationTargetOption[]
+): string | null {
+  if (!values.name.trim()) {
+    return "Effect name is required.";
+  }
+  if (targetOptions.length === 0) {
+    return "Effect targets are unavailable.";
+  }
+  if (!isKnownAugmentationEditorTarget(values, targetOptions)) {
+    return "Select an effect target.";
+  }
+  if (values.effectType !== "roll_mode_modifier" && !values.formulaText.trim()) {
+    return "Formula is required.";
+  }
+  if (!hasValidAugmentationEditorValues(values)) {
+    return "Required and excluded selector tags cannot overlap.";
+  }
+  return null;
+}
+
 export function ConditionAugmentationTemplatePanel({
   conditionName,
+  editorOpen,
   editingAugmentationId,
   templates,
   targetOptions,
   selectorOptions,
   values,
   onChange,
+  onAdd,
   onSubmit,
   onCancel,
   onEdit,
   onRemove
 }: {
   conditionName: string;
+  editorOpen: boolean;
   editingAugmentationId: string | null;
   templates: Augmentation[];
   targetOptions: AugmentationTargetOption[];
   selectorOptions: AugmentationSelectorOptions;
   values: AugmentationEditorValues;
   onChange: (values: AugmentationEditorValues) => void;
+  onAdd: () => void;
   onSubmit: () => void;
   onCancel: () => void;
   onEdit: (augmentation: Augmentation) => void;
@@ -61,214 +87,254 @@ export function ConditionAugmentationTemplatePanel({
   const selectedTargetKey = augmentationEditorTargetKey(values);
   const hasCurrentTargetPath = values.targetPath.some((segment) => segment.trim().length > 0);
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
-  const canSubmit = hasValidAugmentationEditorValues(values) && targetIsKnown;
+  const validationError = getEffectValidationError(values, targetOptions);
 
   return (
-    <section className="template-editor augmentation-template-panel">
-      <div className="list-item__top">
-        <p className="template-editor__title">Condition Augmentations</p>
-        <span className="muted">{conditionName}</span>
+    <section className="condition-effects-section stack">
+      <div className="item-section-heading">
+        <div>
+          <h3>Effects</h3>
+          <span className="muted">
+            {conditionName} · {templates.length}
+          </span>
+        </div>
+        {!editorOpen ? (
+          <button className="button button--secondary" type="button" onClick={onAdd}>
+            Add Effect
+          </button>
+        ) : null}
       </div>
 
-      <div className="stack">
-        <div className="inline-group">
-          <Field label="Name">
-            <input
-              value={values.name}
-              onChange={(event) => onChange({ ...values, name: event.target.value })}
-              placeholder="e.g. Poison penalty"
-            />
-          </Field>
-          <Field label="Target">
-            <select
-              value={targetIsKnown ? selectedTargetKey : ""}
-              onChange={(event) => {
-                const target = targetOptions.find(
-                  (option) => augmentationTargetOptionKey(option) === event.target.value
-                );
-                if (target) {
-                  onChange(applyAugmentationTargetOption(values, target));
-                }
-              }}
-              disabled={targetOptions.length === 0}
-            >
-              <option value="">
-                {targetOptions.length === 0 ? "Target metadata unavailable" : "Select target"}
-              </option>
-              {!targetIsKnown && hasCurrentTargetPath ? (
-                <option value={selectedTargetKey} disabled>
-                  Unavailable target ({selectedTargetKey})
-                </option>
-              ) : null}
-              {targetOptions.map((target) => (
-                <option
-                  key={augmentationTargetOptionKey(target)}
-                  value={augmentationTargetOptionKey(target)}
-                >
-                  {formatAugmentationTargetOption(target)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Effect Type">
-            <select
-              value={values.effectType}
-              onChange={(event) =>
-                onChange({
-                  ...values,
-                  effectType: event.target.value as AugmentationEditorValues["effectType"]
-                })
-              }
-            >
-              {AUGMENTATION_EFFECT_TYPES.map(([effectType, label]) => (
-                <option key={effectType} value={effectType}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {values.effectType === "roll_mode_modifier" ? (
-            <Field label="Roll Mode">
-              <select
-                value={values.rollMode}
-                onChange={(event) =>
-                  onChange({
-                    ...values,
-                    rollMode: event.target.value as AugmentationEditorValues["rollMode"]
-                  })
-                }
-              >
-                <option value="advantage">advantage</option>
-                <option value="disadvantage">disadvantage</option>
-              </select>
+      {editorOpen ? (
+        <div className="condition-effect-editor stack">
+          <div className="list-item__top">
+            <h4 className="template-editor__title">
+              {editingAugmentationId ? "Edit Effect" : "Add Effect"}
+            </h4>
+            <span className="muted">{conditionName}</span>
+          </div>
+
+          <div className="inline-group">
+            <Field label="Name">
+              <input
+                value={values.name}
+                aria-invalid={!values.name.trim()}
+                onChange={(event) => onChange({ ...values, name: event.target.value })}
+                placeholder="e.g. Poison penalty"
+              />
             </Field>
-          ) : (
-            <Field label="Operation">
+            <Field label={values.effectType === "formula_modifier" ? "Sheet Value" : "Scope"}>
               <select
-                value={values.operation}
-                onChange={(event) =>
-                  onChange({
-                    ...values,
-                    operation: event.target.value as AugmentationOperation
-                  })
-                }
+                value={targetIsKnown ? selectedTargetKey : ""}
+                onChange={(event) => {
+                  const target = targetOptions.find(
+                    (option) => augmentationTargetOptionKey(option) === event.target.value
+                  );
+                  if (target) {
+                    onChange(applyAugmentationTargetOption(values, target));
+                  }
+                }}
+                disabled={targetOptions.length === 0}
               >
-                {AUGMENTATION_OPERATIONS.map((operation) => (
-                  <option key={operation} value={operation}>
-                    {operation}
+                <option value="">
+                  {targetOptions.length === 0 ? "Targets unavailable" : "Select target"}
+                </option>
+                {!targetIsKnown && hasCurrentTargetPath ? (
+                  <option value={selectedTargetKey} disabled>
+                    Unavailable target ({selectedTargetKey})
+                  </option>
+                ) : null}
+                {targetOptions.map((target) => (
+                  <option
+                    key={augmentationTargetOptionKey(target)}
+                    value={augmentationTargetOptionKey(target)}
+                  >
+                    {formatAugmentationTargetOption(target)}
                   </option>
                 ))}
               </select>
             </Field>
-          )}
-        </div>
+            <Field label="Effect Type">
+              <select
+                value={values.effectType}
+                onChange={(event) =>
+                  onChange({
+                    ...values,
+                    effectType: event.target.value as AugmentationEditorValues["effectType"]
+                  })
+                }
+              >
+                {EFFECT_TYPES.map(([effectType, label]) => (
+                  <option key={effectType} value={effectType}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {values.effectType === "roll_mode_modifier" ? (
+              <Field label="Roll Mode">
+                <select
+                  value={values.rollMode}
+                  onChange={(event) =>
+                    onChange({
+                      ...values,
+                      rollMode: event.target.value as AugmentationEditorValues["rollMode"]
+                    })
+                  }
+                >
+                  <option value="advantage">Advantage</option>
+                  <option value="disadvantage">Disadvantage</option>
+                </select>
+              </Field>
+            ) : (
+              <Field label="Operation">
+                <select
+                  value={values.operation}
+                  onChange={(event) =>
+                    onChange({
+                      ...values,
+                      operation: event.target.value as AugmentationOperation
+                    })
+                  }
+                >
+                  {AUGMENTATION_OPERATIONS.map((operation) => (
+                    <option key={operation} value={operation}>
+                      {operation}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+          </div>
 
-        <Field label="Description">
-          <textarea
-            rows={2}
-            value={values.description}
-            onChange={(event) => onChange({ ...values, description: event.target.value })}
-            placeholder="GM-facing augmentation notes"
-          />
-        </Field>
-
-        {values.effectType !== "roll_mode_modifier" ? (
-          <Field label="Formula">
+          <Field label="Description">
             <textarea
               rows={2}
-              value={values.formulaText}
-              onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-              placeholder="@arcane - 2"
+              value={values.description}
+              onChange={(event) => onChange({ ...values, description: event.target.value })}
+              placeholder="Private effect notes"
             />
           </Field>
-        ) : null}
 
-        <FormulaModifierSelectorEditor
-          idPrefix="condition-augmentation-selector"
-          values={values}
-          options={selectorOptions}
-          onChange={onChange}
-        />
+          {values.effectType !== "roll_mode_modifier" ? (
+            <Field label="Formula">
+              <textarea
+                rows={2}
+                value={values.formulaText}
+                aria-invalid={!values.formulaText.trim()}
+                onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
+                placeholder="@arcane - 2"
+              />
+            </Field>
+          ) : null}
 
-        <div className="inline-group">
-          <Field label="Duration">
+          {values.effectType !== "formula_modifier" ? (
+            <FormulaModifierSelectorEditor
+              idPrefix="condition-effect-selector"
+              values={values}
+              options={selectorOptions}
+              onChange={onChange}
+            />
+          ) : null}
+
+          <details className="condition-effect-lifecycle">
+            <summary>Manual lifecycle notes</summary>
+            <div className="inline-group">
+              <Field label="Duration note">
+                <input
+                  value={values.duration}
+                  onChange={(event) => onChange({ ...values, duration: event.target.value })}
+                  placeholder="e.g. encounter"
+                />
+              </Field>
+              <Field label="Expiration note">
+                <input
+                  value={values.expiresAt}
+                  onChange={(event) => onChange({ ...values, expiresAt: event.target.value })}
+                  placeholder="e.g. end of scene"
+                />
+              </Field>
+              <Field label="Removal note">
+                <input
+                  value={values.removalCondition}
+                  onChange={(event) =>
+                    onChange({ ...values, removalCondition: event.target.value })
+                  }
+                  placeholder="e.g. cured"
+                />
+              </Field>
+            </div>
+          </details>
+
+          <label className="augmentation-template-panel__active">
             <input
-              value={values.duration}
-              onChange={(event) => onChange({ ...values, duration: event.target.value })}
-              placeholder="encounter"
+              type="checkbox"
+              checked={values.active}
+              onChange={(event) => onChange({ ...values, active: event.target.checked })}
             />
-          </Field>
-          <Field label="Expires At">
-            <input
-              value={values.expiresAt}
-              onChange={(event) => onChange({ ...values, expiresAt: event.target.value })}
-              placeholder="manual"
-            />
-          </Field>
-          <Field label="Removal Condition">
-            <input
-              value={values.removalCondition}
-              onChange={(event) => onChange({ ...values, removalCondition: event.target.value })}
-              placeholder="condition cleared"
-            />
-          </Field>
-        </div>
+            <span>Enabled</span>
+          </label>
 
-        <label className="augmentation-template-panel__active">
-          <input
-            type="checkbox"
-            checked={values.active}
-            onChange={(event) => onChange({ ...values, active: event.target.checked })}
-          />
-          <span>Active</span>
-        </label>
-
-        <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit} disabled={!canSubmit}>
-            {editingAugmentationId ? "Save Augmentation" : "Attach Augmentation"}
-          </button>
-          {editingAugmentationId ? (
-            <button className="button button--secondary" onClick={onCancel}>
+          {validationError ? (
+            <p className="error-text" role="alert">
+              {validationError}
+            </p>
+          ) : null}
+          <div className="template-editor__actions">
+            <button
+              className="button"
+              type="button"
+              onClick={onSubmit}
+              disabled={Boolean(validationError)}
+            >
+              {editingAugmentationId ? "Save Effect" : "Add Effect"}
+            </button>
+            <button className="button button--secondary" type="button" onClick={onCancel}>
               Cancel
             </button>
-          ) : null}
+          </div>
         </div>
+      ) : null}
 
-        <div className="list">
-          {templates.length === 0 ? <p className="muted">No condition augmentations.</p> : null}
-          {templates.map((augmentation) => (
-            <article
-              className="list-item list-item--block augmentation-template-card"
-              key={augmentation.id}
-            >
-              <div className="list-item__top">
-                <strong>{augmentation.name}</strong>
-                <span className="muted">
-                  {(augmentation.active ?? true) ? "active" : "inactive"}
-                </span>
-              </div>
-              <div className="muted">Target: {formatTarget(augmentation)}</div>
-              <div className="muted">
-                Effect: {formatAugmentationEffect(augmentation)}
-              </div>
+      <div className="list condition-effect-list">
+        {templates.length === 0 ? <p className="muted">No effects configured.</p> : null}
+        {templates.map((augmentation) => (
+          <article
+            className="list-item list-item--block augmentation-template-card"
+            key={augmentation.id}
+          >
+            <div className="list-item__top">
+              <strong>{augmentation.name}</strong>
+              <span className="muted">
+                {(augmentation.active ?? true) ? "enabled" : "disabled"}
+              </span>
+            </div>
+            <div className="muted">Target: {formatTarget(augmentation)}</div>
+            <div className="muted">Effect: {formatAugmentationEffect(augmentation)}</div>
+            {augmentation.effect.type !== "formula_modifier" ? (
               <div className="muted">Selector: {formatFormulaModifierSelector(augmentation)}</div>
-              {augmentation.description ? (
-                <div className="muted">{augmentation.description}</div>
-              ) : null}
-              <div className="inline-actions">
-                <button className="button button--secondary" onClick={() => onEdit(augmentation)}>
-                  Edit
-                </button>
-                <button
-                  className="button button--secondary"
-                  onClick={() => onRemove(augmentation.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+            ) : null}
+            {augmentation.description ? (
+              <div className="muted">{augmentation.description}</div>
+            ) : null}
+            <div className="inline-actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => onEdit(augmentation)}
+              >
+                Edit
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => onRemove(augmentation.id)}
+              >
+                Remove
+              </button>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );

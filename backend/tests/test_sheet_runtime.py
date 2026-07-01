@@ -6,7 +6,7 @@ from backend.features.chat import service as chat_service
 from backend.features.sheet_runtime.service import _apply_roll_mode_to_message
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.augmentation import Augmentation
+from backend.state.models.augmentation import Augmentation, StandaloneEffectDefinition
 from backend.state.models.action import Action
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
@@ -303,6 +303,31 @@ def _build_augmentation_state(
                 "removal_condition": None,
             },
         }
+    )
+
+
+def _build_standalone_effect_state(
+    effect_id: str = "shielded",
+    *,
+    operation: str = "add",
+    value: str = "5",
+    path: list[str] | None = None,
+) -> StandaloneEffectDefinition:
+    augmentation = _build_augmentation_state(
+        effect_id,
+        operation=operation,
+        value=value,
+        path=path,
+    )
+    return StandaloneEffectDefinition(
+        id=augmentation.id,
+        name=augmentation.name,
+        description=augmentation.description,
+        scope=augmentation.scope,
+        target=augmentation.target,
+        effect=augmentation.effect,
+        active=augmentation.active,
+        lifecycle=augmentation.lifecycle,
     )
 
 
@@ -1988,7 +2013,7 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
                 }
             )
             state.instanced_sheets["mage_instance"] = _build_instance_state()
-            state.augmentations["shielded"] = _build_augmentation_state()
+            state.standalone_effects["shielded"] = _build_standalone_effect_state()
             state.actions["ward"] = Action.from_dict(
                 {
                     "id": "ward",
@@ -2018,24 +2043,14 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].health == 95
-            assert state.augmentations["shielded"].applied is True
-            assert state.augmentations["shielded"].applied_target_id == "mage_instance"
-            assert websocket.sent_messages[0]["ops"] == [
-                {
-                    "op": "set",
-                    "path": "/instanced_sheets/mage_instance/health",
-                    "value": 95,
-                },
-                {
-                    "op": "set",
-                    "path": "/augmentations/shielded/applied",
-                    "value": True,
-                },
-                {
-                    "op": "set",
-                    "path": "/augmentations/shielded/applied_target_id",
-                    "value": "mage_instance",
-                },
+            application_id = "standalone:mage_instance:shielded"
+            application = state.standalone_effect_applications[application_id]
+            assert application.definition_id == "shielded"
+            assert application.source.id == "ward"
+            assert application.source.relationship_id == "step-1"
+            assert [op["path"] for op in websocket.sent_messages[0]["ops"]] == [
+                f"/standalone_effect_applications/{application_id}",
+                "/instanced_sheets/mage_instance/health",
             ]
             assert len(websocket.sent_messages) == 1
         finally:
@@ -2212,7 +2227,7 @@ def test_apply_semantic_steps_reject_missing_records(monkeypatch) -> None:
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
-                    "reason": "Augmentation 'missing' does not exist.",
+                        "reason": "Standalone effect 'missing' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }

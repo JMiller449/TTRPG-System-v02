@@ -420,6 +420,8 @@ Augmentations should:
 
 An augmentation is not inherently permanent or temporary. It is the generic mechanical effect record; its owner determines its lifecycle. Equipment effects last while their source relationship is equipped, condition effects last until that applied condition is removed, and manually/action-applied effects remain until an authorized removal occurs. MVP leaves duration/expiry manual because turn counting is out of scope. Duration, expiry, and removal-condition fields are descriptive lifecycle notes only; they are not executable predicates, formulas, raw paths, or scripts. Future conditional augmentation logic requires a validated backend-owned condition/effect expression model before any automatic lifecycle evaluation. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
 
+`manual` is an internal lifecycle-owner value, not appropriate user-facing terminology and not permission for arbitrary player edits. The UI should call these records `Standalone effects` or `Action-controlled effects`: reusable non-condition effects explicitly applied or removed by approved actions or GM commands.
+
 Frontend augmentation UX boundary:
 
 - GM item authoring may edit item augmentation template fields: name, description, active flag, validated metadata-backed target, operation, formula text/aliases when exposed, and explicit lifecycle notes (`duration`, `expires_at`, `removal_condition`).
@@ -1046,16 +1048,62 @@ This is the next MVP implementation track and must be completed before work in `
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
 
 ### Active TODO
-
-- [ ] Refine Condition Authoring into a complete effect-authoring workflow.
-  - Keep condition metadata and effect templates in one draft so a GM can create a condition with its effects in one submission; do not require create, list lookup, Edit, then a second save flow.
-  - Keep the newly created or selected condition in context after an authoritative response instead of resetting to an apparently metadata-only blank form.
-  - Present condition mechanics as `Effects`, not `Condition Augmentations`. Offer clear effect categories for direct sheet/resource changes, formula evaluation modifiers, and roll advantage/disadvantage while continuing to use the existing augmentation model and metadata-backed target/selector controls internally.
-  - Make the effect section visible and discoverable during initial creation, with an empty state and an explicit Add Effect command rather than hiding all mechanical controls until an existing condition is selected for editing.
-  - Treat `duration`, `expires_at`, and `removal_condition` honestly as manual lifecycle notes for MVP. Label or group them as non-automated notes; do not imply turn-based expiration or predicate evaluation until that backend lifecycle automation is implemented in `Later`.
-  - Disable invalid submissions and provide visible validation for required condition names and incomplete effect definitions instead of silently ignoring the command.
-  - Preserve stable effect IDs while editing, summarize configured effects in the condition list, and require confirmation before deleting a reusable preset.
-  - Cover create-with-effects, edit preservation, validation, deletion confirmation, authoritative patch reconciliation, and the no-save/reselect workflow in focused frontend tests.
+- [x] Overhaul Template Builder into the primary complete sheet-authoring workflow.
+  - Replaced the metadata-only create form and inline library editor with one full-width create/edit workspace that does not depend on an active instance.
+  - Added responsive tabs for Details, Stats, Resistances, Actions, Proficiencies, and Starting Inventory/Equipment, with `Player-controlled` and `GM-controlled` labels mapped to the existing shared sheet schema.
+  - The frontend-local draft now contains all core values, every formula/substat and alias/tag, all resistance percentages, stable action/proficiency/item relationships, equipped state, and preserved slay records.
+  - Formula editing reuses backend metadata and the searchable variable picker. Action, proficiency, and item assignment use the same searchable popover control without duplicating global definition authoring.
+  - Create and update each send one complete typed `SheetDefinitionPayload`; existing template edits preserve sheet and relationship IDs. The builder remains pending until the authoritative request feedback resolves and only then returns to the library.
+  - Added section error counts, a compact validation summary, and disabled invalid Save/Create commands for names, XP, core values, formulas, aliases, resistance ranges, missing/duplicate references, proficiency values, quantities, and equipped-item constraints.
+  - Kept backend default-action attachment and item/equipment lifecycle behavior unchanged. No slot, hand-limit, active-weapon, gameplay-calculation, or backend contract was added.
+  - Added draft hydration, complete payload, bridge preservation, control-mode, validation, local edit-selection, and rendered workflow tests. Verified with 288 frontend tests, ESLint, and the production TypeScript/Vite build.
+- [x] Replace expanded variable-card browsers with a reusable searchable popover picker.
+  - Added a generic typed search-popover control accepting stable IDs, labels, compact secondary metadata, keywords, disabled reasons, and a selection callback; variable token/path/alias behavior remains in a thin metadata adapter.
+  - Results render as compact listbox rows in a body portal with a fixed 320px maximum height, internal scrolling, viewport-clamped width/position, above-anchor fallback, and resize/capture-scroll repositioning.
+  - The picker opens from focus, click, or typing and closes after selection, on `Escape`, focus departure, or outside pointer interaction without treating its portal as outside content.
+  - Added combobox/listbox/option semantics with expanded/controls/active-descendant state, disabled state, and visible active-row treatment.
+  - Added `ArrowUp`, `ArrowDown`, `Home`, `End`, and `Enter` handling with disabled-option skipping and wraparound. Keyboard/pointer navigation shares one active index, and active rows use nearest-edge `scrollIntoView` as navigation moves through the popup.
+  - Preserved backend metadata filtering, search across labels/paths/descriptions/shortcuts/types/tokens, inserted formula tokens, alias paths, and formula-versus-mutation availability.
+  - Migrated Formula Authoring plus calculation, message, damage, proficiency, and bounded-mutation Action Authoring consumers. Deleted the expanded `VariablePathBrowser`; large pages no longer render every variable as a card with an Insert button.
+  - The generic picker remains available for later large action, formula, proficiency, item, condition, and template selectors while small fixed sets continue using native controls.
+  - Added focused filtering, compact option adaptation, disabled navigation, wraparound, viewport placement, and semantic rendering coverage. Verified with 284 frontend tests, frontend lint, and the production build.
+- [ ] Replace global single-target manual augmentations with authored standalone-effect definitions and per-instance applications.
+  - [x] Backend definition/application foundation.
+    - Added reusable `standalone_effects` definitions with no global applied state plus idempotent `standalone_effect_applications` keyed per definition and instance, carrying stable action/step source identity.
+    - Added DM-only typed create/update/delete routes and generated frontend request contracts. Deletion rejects action references and active applications; updates authoritatively recompute active direct effects.
+    - Action validation/runtime now resolves `apply_augmentation` steps strictly through standalone definitions. Action Authoring receives and selects only standalone definitions instead of equipment- or condition-managed concrete augmentations.
+    - Direct-value applications share the existing private base/effective projection machinery with equipment, including `set`, multiple instances, definition updates, external base edits, independent removal, and reload-safe persistence. Evaluation-formula and roll-mode effects resolve from the acting instance's active applications.
+    - Added schema-v6 migration for unapplied manual definitions, evaluation-time applications, and safely reversible direct applications. Legacy applied records whose original base cannot be reconstructed remain in compatibility storage rather than being duplicated or destructively guessed.
+    - Added role-redacted application snapshots/patches: DMs receive all applications and players receive only their assigned instance's applications. Definitions and applications now reconcile into dedicated frontend server-state collections.
+    - Covered CRUD permissions/contracts, definition/application round trips, two-instance concurrency, idempotence, direct/evaluation/set behavior, source identity, projection recomputation, migration, action integration, and snapshot redaction. Verified with 401 backend tests, 289 frontend tests, frontend lint, protocol generation, and the production build.
+  - [x] Build the DM Effect Authoring workflow on the new standalone definition CRUD, reusing the existing target, formula, selector, and lifecycle-note controls. Use `Standalone effect` or `Action-controlled effect` in GM-facing UI; keep `manual` internal only.
+    - Added a dedicated GM `Effect Authoring` route backed only by the authoritative standalone-definition collections and typed create/update/delete requests.
+    - Reused the existing augmentation target catalog, formula representation, searchable formula-variable picker, formula/roll selector editor, operation modes, and lifecycle-note fields. Runtime metadata is filtered to instance targets so the UI cannot submit sheet/global definitions rejected by the backend's strict action-controlled contract.
+    - The editor supports direct instance values, matching formula values, and matching roll modes; normalized aliases/tags/selectors and stable IDs round-trip through the same effect model used by actions.
+    - New definitions remain in the draft until their authoritative patch arrives and are then selected from server state. Authoritative removal clears an open editor, while rejected deletes remain visible and surface through normal request feedback.
+    - Added explicit deletion confirmation noting action-reference and active-application constraints, compact authoritative definition summaries, active/disabled state, and a GM navigation entry without exposing legacy global-manual terminology.
+    - Covered strict instance validation, definition hydration, payload normalization, CRUD and metadata submissions, authoritative ordering, and rendered required controls. Verified with 295 frontend tests, frontend lint, and the production TypeScript/Vite build.
+  - [ ] Show permitted active standalone applications and their action/step source on the character sheet; keep them non-removable except through their approved action or a future explicit GM command.
+  - [ ] Add an explicit GM review/conversion path for legacy applied direct records whose original pre-`set` or formula-derived base cannot be reconstructed safely, then remove the old global-manual compatibility behavior.
+- [x] Refine Condition Authoring into a complete effect-authoring workflow.
+  - Condition metadata and effects now share one frontend-local draft. Create and Save submit the complete condition payload through the existing backend contract, eliminating per-effect update requests and the create/reselect/Edit workflow.
+  - The Effects section is visible during initial creation with an explicit Add Effect command. Direct sheet-value, matching-formula, and matching-roll effects continue to reuse the augmentation model and metadata-backed target/selector controls internally.
+  - Effect add/edit/remove operations stay in the draft with stable IDs. Final payload conversion normalizes every effect's condition ID/name ownership, instance scope, and unapplied template state before submission.
+  - A newly created condition remains in context and becomes the selected edit record when its authoritative patch arrives; deletion keeps the selected record until authoritative removal and now requires confirmation.
+  - Lifecycle fields are grouped as `Manual lifecycle notes` with duration, expiration, and removal-note labels; no automatic expiry behavior is implied or added.
+  - Required condition/effect fields show visible validation. Condition Create/Save is disabled while an effect editor has unsaved work so partially entered effects cannot be silently omitted.
+  - Condition summaries report configured effect counts and names, and all user-facing `Condition Augmentations` terminology was replaced with `Effects`.
+  - Covered complete create payloads, stable effect replacement/removal, source normalization, visible creation workflow, lifecycle labels, validation, deletion confirmation, and existing authoritative patch reconciliation. Verified with 273 frontend tests, 19 backend condition/protocol tests, frontend lint, and the production build.
+- [x] Overhaul Action Authoring into a focused step-building workflow.
+  - Removed the visible `Action Step Metadata` diagnostic panel while retaining backend metadata as the internal source for formula fields, variable paths, mutation targets, and request payloads.
+  - Replaced the overflowing nine-button row with one grouped Add Step selector covering calculation/output, state changes, and rules/effects. Dependency-backed options remain visible with concise reasons when proficiencies, standalone effects, conditions, or mutation targets are unavailable.
+  - Added a compact ordered step list with stable type/ID labels and centralized Up, Down, Duplicate, and Remove commands. Only the selected step expands its existing specialized field editor.
+  - Safe duplication assigns a new step ID, inserts immediately after the source, and gives duplicated calculation steps a unique variable ID without changing references or backend semantics.
+  - Action name and roll mode share a compact row, GM notes use less vertical space, and Create/Save is disabled with visible validation until a name is present.
+  - Added scoped responsive layout rules for the picker, step headers, commands, and editors so they remain within the Action Authoring column and reflow to one column on narrow screens.
+  - Made the sticky GM toolbar fully opaque so scrolled authoring fields no longer show through it.
+  - Preserved backend-authoritative action records, generated contracts, metadata-backed paths, formula sources, ordered-step payloads, and every existing specialized step editor.
+  - Added focused step-menu, insertion, dependency, duplication, validation, and rendered-workflow coverage. Verified with 279 frontend tests, frontend lint, and the production build.
 - [x] Add formula-tag augmentation matching and independent Roll20 hit/damage actions.
   - [x] Add normalized tags to backend formula models, typed protocol payloads, persistence, and generated frontend types, defaulting existing formulas to no tags.
     - Shared `Formula` values now normalize ordered tags by trimming/collapsing whitespace, case-folding, and removing duplicates, so global, stat, action-step, and augmentation formulas use one representation.

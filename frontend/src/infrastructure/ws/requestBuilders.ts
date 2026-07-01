@@ -34,6 +34,8 @@ export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formul
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 export type ProficiencyDefinitionPayload = ProtocolRequest<"create_proficiency">["proficiency"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
+export type StandaloneEffectDefinitionPayload =
+  ProtocolRequest<"create_standalone_effect">["effect"];
 export type EncounterPresetPayload = ProtocolRequest<"save_encounter_preset">["encounter"];
 export type ActionRollMode = NonNullable<ProtocolRequest<"perform_action">["roll_mode"]>;
 export type AugmentationTargetContext = NonNullable<
@@ -881,6 +883,48 @@ export function buildDeleteConditionPresetRequest({
     ...requestIdField(requestId),
     type: "delete_condition_preset",
     condition_id: conditionId
+  };
+}
+
+export function buildCreateStandaloneEffectRequest({
+  effect,
+  requestId
+}: {
+  effect: StandaloneEffectDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_standalone_effect"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_standalone_effect",
+    effect
+  };
+}
+
+export function buildUpdateStandaloneEffectRequest({
+  effectId,
+  effect,
+  requestId
+}: {
+  effectId: string;
+  effect: StandaloneEffectDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_standalone_effect"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_standalone_effect",
+    effect_id: effectId,
+    effect
+  };
+}
+
+export function buildDeleteStandaloneEffectRequest({
+  effectId,
+  requestId
+}: {
+  effectId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_standalone_effect"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_standalone_effect",
+    effect_id: effectId
   };
 }
 

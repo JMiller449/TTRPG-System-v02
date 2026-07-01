@@ -6,6 +6,8 @@ import { ConditionPresetEditorForm } from "@/features/conditions/components/Cond
 import { ConditionPresetList } from "@/features/conditions/components/ConditionPresetList";
 import {
   createEmptyAugmentationEditorValues,
+  hasValidAugmentationEditorValues,
+  isKnownAugmentationEditorTarget,
   toAugmentationEditorValues,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
@@ -14,14 +16,15 @@ import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
   buildLoadConditionAugmentationTargetMetadataSubmission,
-  buildRemoveConditionAugmentationSubmission,
   buildUpdateConditionPresetSubmission,
-  buildUpsertConditionAugmentationSubmission,
   selectOrderedConditionPresets
 } from "@/features/conditions/conditionAuthoringRequests";
 import {
   createEmptyConditionPresetEditorValues,
+  removeConditionEffect,
+  toConditionAugmentationTemplatePayload,
   toConditionPresetEditorValues,
+  upsertConditionEffect,
   type ConditionPresetEditorValues
 } from "@/features/conditions/conditionEditorValues";
 import { Panel } from "@/shared/ui/Panel";
@@ -43,10 +46,12 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   } = useAppStore();
 
   const [editingConditionId, setEditingConditionId] = useState<string | null>(null);
+  const [pendingCreatedConditionId, setPendingCreatedConditionId] = useState<string | null>(null);
   const [values, setValues] = useState<ConditionPresetEditorValues>(
     createEmptyConditionPresetEditorValues
   );
   const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
+  const [effectEditorOpen, setEffectEditorOpen] = useState(false);
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
@@ -65,7 +70,6 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
       }),
     [actionOrder, actionRecords, formulaOrder, formulaRecords]
   );
-  const selectedCondition = editingConditionId ? conditionPresets[editingConditionId] : undefined;
   const targetOptions =
     augmentationTargetMetadata?.context === "condition_template"
       ? augmentationTargetMetadata.targets
@@ -80,64 +84,92 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     client.sendProtocolRequest(submission.request, submission.label);
   }, [augmentationTargetMetadata?.context, client]);
 
+  useEffect(() => {
+    if (!pendingCreatedConditionId) {
+      return;
+    }
+    const createdCondition = conditionPresets[pendingCreatedConditionId];
+    if (!createdCondition) {
+      return;
+    }
+
+    setEditingConditionId(createdCondition.id);
+    setValues(toConditionPresetEditorValues(createdCondition));
+    setPendingCreatedConditionId(null);
+  }, [conditionPresets, pendingCreatedConditionId]);
+
+  useEffect(() => {
+    if (!editingConditionId || conditionPresets[editingConditionId]) {
+      return;
+    }
+
+    setEditingConditionId(null);
+    setValues(createEmptyConditionPresetEditorValues());
+    setEditingAugmentationId(null);
+    setAugmentationValues(createEmptyAugmentationEditorValues());
+    setEffectEditorOpen(false);
+  }, [conditionPresets, editingConditionId]);
+
   const resetAugmentationEditor = (): void => {
     setEditingAugmentationId(null);
     setAugmentationValues(createEmptyAugmentationEditorValues());
+    setEffectEditorOpen(false);
   };
 
   const startNewCondition = (): void => {
     setEditingConditionId(null);
+    setPendingCreatedConditionId(null);
     setValues(createEmptyConditionPresetEditorValues());
     resetAugmentationEditor();
   };
 
   const onSubmit = (): void => {
+    const conditionId = editingConditionId ?? makeId("condition");
     const submission = editingConditionId
       ? buildUpdateConditionPresetSubmission(conditionPresets[editingConditionId], values)
-      : buildCreateConditionPresetSubmission(values, makeId("condition"));
+      : buildCreateConditionPresetSubmission(values, conditionId);
     if (!submission) {
       return;
     }
 
     client.sendProtocolRequest(submission.request, submission.label);
-    startNewCondition();
+    if (!editingConditionId) {
+      setPendingCreatedConditionId(conditionId);
+    }
   };
 
   const deleteCondition = (conditionId: string): void => {
-    const submission = buildDeleteConditionPresetSubmission(
-      conditionId,
-      conditionPresets[conditionId]
-    );
-    client.sendProtocolRequest(submission.request, submission.label);
-    if (editingConditionId === conditionId) {
-      startNewCondition();
+    const condition = conditionPresets[conditionId];
+    const submission = buildDeleteConditionPresetSubmission(conditionId, condition);
+    if (!submission.confirmation || !window.confirm(submission.confirmation)) {
+      return;
     }
+    client.sendProtocolRequest(submission.request, submission.label);
   };
 
   const submitAugmentation = (): void => {
-    const submission = buildUpsertConditionAugmentationSubmission({
-      condition: selectedCondition,
+    if (
+      !hasValidAugmentationEditorValues(augmentationValues) ||
+      !isKnownAugmentationEditorTarget(augmentationValues, targetOptions)
+    ) {
+      return;
+    }
+    const augmentation = toConditionAugmentationTemplatePayload({
       values: augmentationValues,
-      augmentationId: editingAugmentationId ?? makeId("condition_augmentation")
+      augmentationId: editingAugmentationId ?? makeId("condition_effect"),
+      conditionId: editingConditionId ?? pendingCreatedConditionId ?? "draft-condition",
+      conditionName: values.name
     });
-    if (!submission) {
+    if (!augmentation) {
       return;
     }
 
-    client.sendProtocolRequest(submission.request, submission.label);
+    setValues((current) => upsertConditionEffect(current, augmentation));
     resetAugmentationEditor();
   };
 
   const removeAugmentation = (augmentationId: string): void => {
-    const submission = buildRemoveConditionAugmentationSubmission({
-      condition: selectedCondition,
-      augmentationId
-    });
-    if (!submission) {
-      return;
-    }
-
-    client.sendProtocolRequest(submission.request, submission.label);
+    setValues((current) => removeConditionEffect(current, augmentationId));
     if (editingAugmentationId === augmentationId) {
       resetAugmentationEditor();
     }
@@ -161,31 +193,39 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
           onChange={setValues}
           onSubmit={onSubmit}
           onCancel={startNewCondition}
+          hasOpenEffectEditor={effectEditorOpen}
+          effectEditor={
+            <ConditionAugmentationTemplatePanel
+              conditionName={values.name.trim() || "New condition"}
+              editorOpen={effectEditorOpen}
+              editingAugmentationId={editingAugmentationId}
+              templates={values.augmentationTemplates}
+              targetOptions={targetOptions}
+              selectorOptions={selectorOptions}
+              values={augmentationValues}
+              onChange={setAugmentationValues}
+              onAdd={() => {
+                setEditingAugmentationId(null);
+                setAugmentationValues(createEmptyAugmentationEditorValues());
+                setEffectEditorOpen(true);
+              }}
+              onSubmit={submitAugmentation}
+              onCancel={resetAugmentationEditor}
+              onEdit={(augmentation) => {
+                setEditingAugmentationId(augmentation.id);
+                setAugmentationValues(toAugmentationEditorValues(augmentation));
+                setEffectEditorOpen(true);
+              }}
+              onRemove={removeAugmentation}
+            />
+          }
         />
-
-        {selectedCondition ? (
-          <ConditionAugmentationTemplatePanel
-            conditionName={selectedCondition.name}
-            editingAugmentationId={editingAugmentationId}
-            templates={selectedCondition.augmentation_templates ?? []}
-            targetOptions={targetOptions}
-            selectorOptions={selectorOptions}
-            values={augmentationValues}
-            onChange={setAugmentationValues}
-            onSubmit={submitAugmentation}
-            onCancel={resetAugmentationEditor}
-            onEdit={(augmentation) => {
-              setEditingAugmentationId(augmentation.id);
-              setAugmentationValues(toAugmentationEditorValues(augmentation));
-            }}
-            onRemove={removeAugmentation}
-          />
-        ) : null}
 
         <ConditionPresetList
           conditions={conditions}
           onEdit={(condition) => {
             setEditingConditionId(condition.id);
+            setPendingCreatedConditionId(null);
             setValues(toConditionPresetEditorValues(condition));
             resetAugmentationEditor();
           }}

@@ -400,6 +400,27 @@ class AugmentationPayload(ProtocolModel):
     )
 
 
+class StandaloneEffectDefinitionPayload(ProtocolModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    description: str = ""
+    scope: Literal["sheet", "instance"] = "instance"
+    target: AugmentationTargetPayload
+    effect: AugmentationEffectPayload
+    active: bool = True
+    lifecycle: AugmentationLifecyclePayload = Field(
+        default_factory=AugmentationLifecyclePayload
+    )
+
+
+class StandaloneEffectApplicationPayload(ProtocolModel):
+    application_id: str
+    definition_id: str
+    instance_id: str
+    source: AugmentationSourcePayload
+    active: bool = True
+
+
 class ItemActionGrantPayload(ProtocolModel):
     action_id: str
     availability: Literal["carried", "equipped"]
@@ -462,6 +483,12 @@ class BackendStateSnapshotPayload(ProtocolModel):
     items: dict[str, ItemPayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)
     augmentations: dict[str, AugmentationPayload] = Field(default_factory=dict)
+    standalone_effects: dict[str, StandaloneEffectDefinitionPayload] = Field(
+        default_factory=dict
+    )
+    standalone_effect_applications: dict[
+        str, StandaloneEffectApplicationPayload
+    ] = Field(default_factory=dict)
     condition_presets: dict[str, ConditionPresetPayload] = Field(default_factory=dict)
     active_conditions: dict[str, ActiveConditionPayload] = Field(default_factory=dict)
     encounter_presets: dict[str, EncounterPresetPayload] = Field(default_factory=dict)

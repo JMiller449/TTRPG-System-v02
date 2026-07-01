@@ -1,7 +1,5 @@
-import type { Augmentation, ConditionPreset } from "@/domain/models";
+import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 import {
-  moveActionStep,
-  removeActionStep,
   updateApplyAugmentationActionStep,
   updateApplyConditionPresetActionStep,
   type ActionEditorValues,
@@ -14,25 +12,25 @@ export function ActionRecordStepEditor({
   step,
   values,
   onChange,
-  augmentations,
+  standaloneEffects,
   conditions
 }: {
   step: ApplyAugmentationEditorStep | ApplyConditionPresetEditorStep;
   values: ActionEditorValues;
   onChange: (values: ActionEditorValues) => void;
-  augmentations: Augmentation[];
+  standaloneEffects: StandaloneEffectDefinition[];
   conditions: ConditionPreset[];
 }): JSX.Element {
   const isAugmentation = step.type === "apply_augmentation";
   const currentId = isAugmentation ? step.augmentation_id : step.condition_id;
   const records = isAugmentation
-    ? augmentations.map((augmentation) => ({ id: augmentation.id, name: augmentation.name }))
+    ? standaloneEffects.map((effect) => ({ id: effect.id, name: effect.name }))
     : conditions.map((condition) => ({ id: condition.id, name: condition.name }));
 
   return (
     <div className="list-item list-item--block">
       <div className="inline-group">
-        <Field label={`${isAugmentation ? "Augmentation" : "Condition"}: ${step.step_id}`}>
+        <Field label={`${isAugmentation ? "Standalone Effect" : "Condition"}: ${step.step_id}`}>
           <select
             value={currentId}
             onChange={(event) =>
@@ -78,26 +76,6 @@ export function ActionRecordStepEditor({
             <option value="remove">Remove</option>
           </select>
         </Field>
-      </div>
-      <div className="inline-actions">
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(moveActionStep(values, step.step_id, "up"))}
-        >
-          Up
-        </button>
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(moveActionStep(values, step.step_id, "down"))}
-        >
-          Down
-        </button>
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(removeActionStep(values, step.step_id))}
-        >
-          Delete
-        </button>
       </div>
     </div>
   );

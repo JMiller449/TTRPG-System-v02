@@ -1,12 +1,5 @@
-import type {
-  Augmentation,
-  ConditionPreset,
-  ConditionVisibility
-} from "@/domain/models";
-import type {
-  AugmentationPayload,
-  ConditionPresetPayload
-} from "@/infrastructure/ws/requestBuilders";
+import type { Augmentation, ConditionPreset, ConditionVisibility } from "@/domain/models";
+import type { ConditionPresetPayload } from "@/infrastructure/ws/requestBuilders";
 import {
   hasValidAugmentationEditorValues,
   toAugmentationEffectPayload,
@@ -17,13 +10,15 @@ export interface ConditionPresetEditorValues {
   name: string;
   description: string;
   visibility: ConditionVisibility;
+  augmentationTemplates: Augmentation[];
 }
 
 export function createEmptyConditionPresetEditorValues(): ConditionPresetEditorValues {
   return {
     name: "",
     description: "",
-    visibility: "public"
+    visibility: "public",
+    augmentationTemplates: []
   };
 }
 
@@ -36,32 +31,44 @@ function optionalText(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function conditionTemplates(condition: ConditionPreset | undefined): Augmentation[] {
-  return condition?.augmentation_templates ?? [];
-}
-
 export function toConditionPresetEditorValues(
   condition: ConditionPreset
 ): ConditionPresetEditorValues {
   return {
     name: condition.name,
     description: condition.description ?? "",
-    visibility: condition.visibility ?? "public"
+    visibility: condition.visibility ?? "public",
+    augmentationTemplates: [...(condition.augmentation_templates ?? [])]
   };
 }
 
 export function toConditionPresetPayload({
   values,
-  conditionId,
-  augmentationTemplates = []
+  conditionId
 }: {
   values: ConditionPresetEditorValues;
   conditionId: string;
-  augmentationTemplates?: Augmentation[];
 }): ConditionPresetPayload {
+  const conditionName = values.name.trim();
+  const augmentationTemplates = values.augmentationTemplates.map((augmentation) => ({
+    ...augmentation,
+    source: {
+      type: "condition" as const,
+      id: conditionId,
+      label: conditionName || null
+    },
+    scope: "instance" as const,
+    target: {
+      ...augmentation.target,
+      root: "instance" as const
+    },
+    applied: false,
+    applied_target_id: null
+  }));
+
   return {
     id: conditionId,
-    name: values.name.trim(),
+    name: conditionName,
     description: values.description.trim(),
     visibility: values.visibility,
     augmentation_ids: augmentationTemplates.map((augmentation) => augmentation.id),
@@ -79,8 +86,7 @@ export function toUpdatedConditionPresetPayload(
 
   return toConditionPresetPayload({
     values,
-    conditionId: condition.id,
-    augmentationTemplates: conditionTemplates(condition)
+    conditionId: condition.id
   });
 }
 
@@ -98,7 +104,7 @@ export function toConditionAugmentationTemplatePayload({
   augmentationId: string;
   conditionId: string;
   conditionName: string;
-}): AugmentationPayload | null {
+}): Augmentation | null {
   if (!hasValidAugmentationEditorValues(values)) {
     return null;
   }
@@ -129,39 +135,36 @@ export function toConditionAugmentationTemplatePayload({
   };
 }
 
-export function upsertConditionAugmentationTemplate(
-  condition: ConditionPreset | undefined,
-  augmentation: AugmentationPayload | null
-): ConditionPresetPayload | null {
-  if (!condition || !augmentation) {
-    return null;
+export function upsertConditionEffect(
+  values: ConditionPresetEditorValues,
+  augmentation: Augmentation
+): ConditionPresetEditorValues {
+  const existingIndex = values.augmentationTemplates.findIndex(
+    (template) => template.id === augmentation.id
+  );
+  if (existingIndex < 0) {
+    return {
+      ...values,
+      augmentationTemplates: [...values.augmentationTemplates, augmentation]
+    };
   }
 
-  const augmentationTemplates = [
-    ...conditionTemplates(condition).filter((template) => template.id !== augmentation.id),
-    augmentation
-  ];
-
-  return toConditionPresetPayload({
-    values: toConditionPresetEditorValues(condition),
-    conditionId: condition.id,
-    augmentationTemplates
-  });
+  return {
+    ...values,
+    augmentationTemplates: values.augmentationTemplates.map((template) =>
+      template.id === augmentation.id ? augmentation : template
+    )
+  };
 }
 
-export function removeConditionAugmentationTemplate(
-  condition: ConditionPreset | undefined,
+export function removeConditionEffect(
+  values: ConditionPresetEditorValues,
   augmentationId: string
-): ConditionPresetPayload | null {
-  if (!condition || !augmentationId.trim()) {
-    return null;
-  }
-
-  return toConditionPresetPayload({
-    values: toConditionPresetEditorValues(condition),
-    conditionId: condition.id,
-    augmentationTemplates: conditionTemplates(condition).filter(
+): ConditionPresetEditorValues {
+  return {
+    ...values,
+    augmentationTemplates: values.augmentationTemplates.filter(
       (template) => template.id !== augmentationId
     )
-  });
+  };
 }

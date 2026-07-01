@@ -26,6 +26,11 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
       return updateUiState(state, (uiState) => ({ ...uiState, gmView: action.view }));
     case "set_active_sheet_local":
       return updateUiState(state, (uiState) => ({ ...uiState, activeSheetId: action.sheetId }));
+    case "set_template_builder_sheet":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        templateBuilderSheetId: action.sheetId
+      }));
     case "set_template_search":
       return updateUiState(state, (uiState) => ({ ...uiState, templateSearch: action.value }));
     case "set_action_formula_authoring_metadata":
@@ -68,6 +73,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         playerSheetSelectionComplete: initialUiState.playerSheetSelectionComplete,
         gmView: initialUiState.gmView,
         activeSheetId: initialUiState.activeSheetId,
+        templateBuilderSheetId: initialUiState.templateBuilderSheetId,
         templateSearch: initialUiState.templateSearch,
         pendingIntentIds: initialUiState.pendingIntentIds,
         intentFeedback: initialUiState.intentFeedback,

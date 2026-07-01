@@ -6,7 +6,7 @@ import pytest
 from backend.features.sheet_admin.actions.schema import ActionDefinitionPayload
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
-from backend.state.models.augmentation import Augmentation
+from backend.state.models.augmentation import Augmentation, StandaloneEffectDefinition
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
 from backend.state.models.proficiency import Proficiency
@@ -80,6 +80,22 @@ def _augmentation_state(augmentation_id: str = "shielded") -> Augmentation:
     )
 
 
+def _standalone_effect_state(
+    effect_id: str = "shielded",
+) -> StandaloneEffectDefinition:
+    augmentation = _augmentation_state(effect_id)
+    return StandaloneEffectDefinition(
+        id=augmentation.id,
+        name=augmentation.name,
+        description=augmentation.description,
+        scope=augmentation.scope,
+        target=augmentation.target,
+        effect=augmentation.effect,
+        active=augmentation.active,
+        lifecycle=augmentation.lifecycle,
+    )
+
+
 def _condition_state(condition_id: str = "poisoned") -> ConditionPreset:
     return ConditionPreset.from_dict(
         {
@@ -141,7 +157,7 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 "augmentation_id": "missing",
                 "operation": "apply",
             },
-            "Augmentation 'missing' does not exist.",
+                "Standalone effect 'missing' does not exist.",
         ),
         (
             {
@@ -415,7 +431,7 @@ def test_dm_can_create_action_with_augmentation_and_condition_steps(
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.augmentations["shielded"] = _augmentation_state()
+            state.standalone_effects["shielded"] = _standalone_effect_state()
             state.condition_presets["poisoned"] = _condition_state()
             await websocket_sessions.reset()
             websocket = FakeWebSocket()

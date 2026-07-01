@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-CURRENT_STATE_SCHEMA_VERSION = 5
+CURRENT_STATE_SCHEMA_VERSION = 6
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -283,12 +283,182 @@ def _migrate_v4_to_v5(envelope: PersistedEnvelope) -> PersistedEnvelope:
     }
 
 
+def _pointer_segment(value: str) -> str:
+    return value.replace("~", "~0").replace("/", "~1")
+
+
+def _raw_path_value(root: Any, path: list[str]) -> int | float | None:
+    current = root
+    for segment in path:
+        if not isinstance(current, dict) or segment not in current:
+            return None
+        current = current[segment]
+    if isinstance(current, bool) or not isinstance(current, int | float):
+        return None
+    return current
+
+
+def _legacy_constant_modifier(effect: dict) -> int | float | None:
+    value = effect.get("value")
+    if not isinstance(value, dict) or value.get("aliases") not in (None, []):
+        return None
+    text = value.get("text")
+    if not isinstance(text, str):
+        return None
+    try:
+        parsed = float(text.strip())
+    except ValueError:
+        return None
+    return int(parsed) if parsed.is_integer() else parsed
+
+
+def _legacy_projection_base(
+    current: int | float,
+    modifier: int | float,
+    operation: str,
+) -> int | float | None:
+    if operation == "add":
+        return current - modifier
+    if operation == "subtract":
+        return current + modifier
+    if operation == "multiply" and modifier != 0:
+        return current / modifier
+    if operation == "divide":
+        return current * modifier
+    return None
+
+
+def _migrate_v5_to_v6(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    definitions = state.setdefault("standalone_effects", {})
+    applications = state.setdefault("standalone_effect_applications", {})
+    projections = state.setdefault("equipment_effect_projections", {})
+    augmentations = state.get("augmentations", {})
+    instances = state.get("instanced_sheets", {})
+
+    if not isinstance(definitions, dict):
+        definitions = {}
+        state["standalone_effects"] = definitions
+    if not isinstance(applications, dict):
+        applications = {}
+        state["standalone_effect_applications"] = applications
+    if not isinstance(projections, dict):
+        projections = {}
+        state["equipment_effect_projections"] = projections
+    if not isinstance(augmentations, dict) or not isinstance(instances, dict):
+        return {"schema_version": 6, "state": state}
+
+    migrated_ids: set[str] = set()
+    for augmentation_id, augmentation in list(augmentations.items()):
+        if not isinstance(augmentation, dict):
+            continue
+        source = augmentation.get("source")
+        source_type = source.get("type") if isinstance(source, dict) else None
+        target = augmentation.get("target")
+        if (
+            augmentation.get("lifecycle_owner", "manual") != "manual"
+            or source_type not in {"manual", "action", "spell", "other"}
+            or not isinstance(target, dict)
+            or target.get("root") != "instance"
+            or augmentation.get("scope") != "instance"
+        ):
+            continue
+
+        definition = {
+            "id": augmentation_id,
+            "name": augmentation.get("name", augmentation_id),
+            "description": augmentation.get("description", ""),
+            "scope": "instance",
+            "target": deepcopy(target),
+            "effect": deepcopy(augmentation.get("effect", {})),
+            "active": augmentation.get("active", True),
+            "lifecycle": deepcopy(augmentation.get("lifecycle", {})),
+        }
+        if not augmentation.get("applied"):
+            definitions.setdefault(augmentation_id, definition)
+            migrated_ids.add(augmentation_id)
+            continue
+
+        instance_id = augmentation.get("applied_target_id")
+        effect = augmentation.get("effect")
+        if not isinstance(instance_id, str) or not isinstance(effect, dict):
+            continue
+
+        if effect.get("type") == "formula_modifier":
+            instance = instances.get(instance_id)
+            path = target.get("path")
+            if not isinstance(instance, dict) or not isinstance(path, list):
+                continue
+            current = _raw_path_value(instance, path)
+            modifier = _legacy_constant_modifier(effect)
+            if current is None or modifier is None:
+                continue
+            target_path = "/" + "/".join(
+                _pointer_segment(segment)
+                for segment in ("instanced_sheets", instance_id, *path)
+            )
+            existing_projection = projections.get(target_path)
+            base_value = (
+                existing_projection.get("base_value")
+                if isinstance(existing_projection, dict)
+                else _legacy_projection_base(
+                    current,
+                    modifier,
+                    str(effect.get("operation", "")),
+                )
+            )
+            if base_value is None:
+                continue
+            projections[target_path] = {
+                "target_path": target_path,
+                "base_value": base_value,
+                "effective_value": current,
+            }
+
+        definitions.setdefault(augmentation_id, definition)
+        application_id = f"standalone:{instance_id}:{augmentation_id}"
+        migrated_source = deepcopy(source) if isinstance(source, dict) else {}
+        migrated_source.setdefault("type", "manual")
+        migrated_source["id"] = migrated_source.get("id") or augmentation_id
+        migrated_source["label"] = (
+            migrated_source.get("label") or definition["name"]
+        )
+        migrated_source.setdefault("relationship_id", None)
+        migrated_source["application_id"] = application_id
+        applications.setdefault(
+            application_id,
+            {
+                "application_id": application_id,
+                "definition_id": augmentation_id,
+                "instance_id": instance_id,
+                "source": migrated_source,
+                "active": True,
+            },
+        )
+        migrated_ids.add(augmentation_id)
+
+    for augmentation_id in migrated_ids:
+        augmentations.pop(augmentation_id, None)
+        for instance in instances.values():
+            if not isinstance(instance, dict):
+                continue
+            bridges = instance.get("augments")
+            if not isinstance(bridges, dict):
+                continue
+            for bridge_key, bridge in list(bridges.items()):
+                if isinstance(bridge, dict) and bridge.get("entry_id") == augmentation_id:
+                    bridges.pop(bridge_key, None)
+
+    return {"schema_version": 6, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
     2: _migrate_v2_to_v3,
     3: _migrate_v3_to_v4,
     4: _migrate_v4_to_v5,
+    5: _migrate_v5_to_v6,
 }
 
 

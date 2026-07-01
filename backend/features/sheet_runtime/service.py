@@ -951,26 +951,28 @@ async def perform_action(
                     current_actor,
                     "Apply augmentation",
                 )
-                augmentation = state.augmentations.get(step.augmentation_id)
-                if augmentation is None:
+                effect = state.standalone_effects.get(step.augmentation_id)
+                if effect is None:
                     raise ValueError(
-                        f"Augmentation '{step.augmentation_id}' does not exist."
+                        f"Standalone effect '{step.augmentation_id}' does not exist."
                     )
-                if augmentation.target.root != "instance":
+                if effect.target.root != "instance" or effect.scope != "instance":
                     raise ValueError(
-                        "Action augmentation steps can only target the acting instance."
+                        "Action effect steps can only target the acting instance."
                     )
                 if step.operation == "apply":
                     result, result_ops = (
-                        augmentation_service.apply_augmentation_mutation(
+                        augmentation_service.apply_standalone_effect_mutation(
                             state,
                             step.augmentation_id,
                             instance_id=instance_id,
+                            action_id=current_action.id,
+                            step_id=step.step_id,
                         )
                     )
                 else:
                     result, result_ops = (
-                        augmentation_service.remove_augmentation_mutation(
+                        augmentation_service.remove_standalone_effect_mutation(
                             state,
                             step.augmentation_id,
                             instance_id=instance_id,

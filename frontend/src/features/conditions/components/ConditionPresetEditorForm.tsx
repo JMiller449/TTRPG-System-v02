@@ -1,29 +1,45 @@
+import type { ReactNode } from "react";
 import { Field } from "@/shared/ui/Field";
-import type { ConditionPresetEditorValues } from "@/features/conditions/conditionEditorValues";
+import {
+  hasValidConditionPresetValues,
+  type ConditionPresetEditorValues
+} from "@/features/conditions/conditionEditorValues";
 
 export function ConditionPresetEditorForm({
   editingConditionId,
   values,
   onChange,
   onSubmit,
-  onCancel
+  onCancel,
+  hasOpenEffectEditor,
+  effectEditor
 }: {
   editingConditionId: string | null;
   values: ConditionPresetEditorValues;
   onChange: (values: ConditionPresetEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  hasOpenEffectEditor: boolean;
+  effectEditor: ReactNode;
 }): JSX.Element {
+  const nameIsValid = hasValidConditionPresetValues(values);
+  const validationError = !nameIsValid
+    ? "Name is required."
+    : hasOpenEffectEditor
+      ? "Save or cancel the open effect before saving the condition."
+      : null;
+
   return (
-    <div className="template-editor condition-editor">
-      <p className="template-editor__title">
+    <div className="template-editor condition-editor stack">
+      <h3 className="template-editor__title">
         {editingConditionId ? "Edit Condition" : "Create Condition"}
-      </p>
+      </h3>
       <div className="stack">
         <div className="inline-group">
           <Field label="Name">
             <input
               value={values.name}
+              aria-invalid={!nameIsValid}
               onChange={(event) => onChange({ ...values, name: event.target.value })}
               placeholder="e.g. Poisoned"
             />
@@ -53,8 +69,15 @@ export function ConditionPresetEditorForm({
           />
         </Field>
 
+        {effectEditor}
+
+        {validationError ? (
+          <p className="error-text" role="alert">
+            {validationError}
+          </p>
+        ) : null}
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit}>
+          <button className="button" onClick={onSubmit} disabled={Boolean(validationError)}>
             {editingConditionId ? "Save Condition" : "Create Condition"}
           </button>
           {editingConditionId ? (

@@ -63,9 +63,13 @@ export function GMConsoleToolbar({ client }: { client: GameClient }): JSX.Elemen
             <span>Page</span>
             <select
               value={gmView}
-              onChange={(event) =>
-                dispatch({ type: "set_gm_view", view: event.target.value as GMView })
-              }
+              onChange={(event) => {
+                const view = event.target.value as GMView;
+                if (view === "create_template") {
+                  dispatch({ type: "set_template_builder_sheet", sheetId: null });
+                }
+                dispatch({ type: "set_gm_view", view });
+              }}
             >
               {GM_TOOLBAR_NAV_ITEMS.map((item) => (
                 <option key={item.view} value={item.view}>

@@ -3,7 +3,8 @@ import type {
   AugmentationEffectType,
   AugmentationOperation,
   FormulaAlias,
-  RollModeModifier
+  RollModeModifier,
+  StandaloneEffectDefinition
 } from "@/domain/models";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import type { AugmentationTargetMetadata } from "@/domain/ipc";
@@ -84,7 +85,14 @@ export function formatAugmentationTargetOption(target: AugmentationTargetOption)
   return `${target.label} (${target.key})`;
 }
 
-export function formatFormulaModifierSelector(augmentation: Augmentation): string {
+type EffectDefinitionLike = Pick<
+  Augmentation | StandaloneEffectDefinition,
+  "effect" | "scope" | "target"
+>;
+
+export function formatFormulaModifierSelector(
+  augmentation: Pick<EffectDefinitionLike, "effect">
+): string {
   const selector = augmentation.effect.selector;
   if (!selector) {
     return "all formulas";
@@ -99,7 +107,9 @@ export function formatFormulaModifierSelector(augmentation: Augmentation): strin
   return constraints.length > 0 ? constraints.join("; ") : "all formulas";
 }
 
-export function formatAugmentationEffect(augmentation: Augmentation): string {
+export function formatAugmentationEffect(
+  augmentation: Pick<EffectDefinitionLike, "effect">
+): string {
   if (augmentation.effect.type === "roll_mode_modifier") {
     return `grant ${augmentation.effect.roll_mode}`;
   }
@@ -137,14 +147,21 @@ function optionalText(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function readItemTargetRoot(augmentation: Augmentation): ItemAugmentationTargetRoot {
+function readItemTargetRoot(augmentation: EffectDefinitionLike): ItemAugmentationTargetRoot {
   if (augmentation.target.root === "sheet" || augmentation.target.root === "instance") {
     return augmentation.target.root;
   }
   return augmentation.scope === "sheet" ? "sheet" : "instance";
 }
 
-export function toAugmentationEditorValues(augmentation: Augmentation): AugmentationEditorValues {
+export function toAugmentationEditorValues(
+  augmentation: EffectDefinitionLike & {
+    name: string;
+    description?: string;
+    active?: boolean;
+    lifecycle?: Augmentation["lifecycle"];
+  }
+): AugmentationEditorValues {
   const numericEffect =
     augmentation.effect.type === "roll_mode_modifier" ? null : augmentation.effect;
   return {

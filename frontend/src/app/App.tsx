@@ -10,6 +10,7 @@ import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoring
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
+import { StandaloneEffectAuthoringPage } from "@/features/effects/StandaloneEffectAuthoringPage";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
@@ -80,7 +81,7 @@ export function App(): JSX.Element {
           <TemplateLibrary client={client} />
         </main>
       ) : gmView === "create_template" ? (
-        <main className="app-grid-player">
+        <main className="app-grid-wide">
           <TemplateCreatePage client={client} />
         </main>
       ) : gmView === "encounter_presets" ? (
@@ -106,6 +107,10 @@ export function App(): JSX.Element {
       ) : gmView === "condition_authoring" ? (
         <main className="app-grid-player">
           <ConditionAuthoringPage client={client} />
+        </main>
+      ) : gmView === "effect_authoring" ? (
+        <main className="app-grid-player">
+          <StandaloneEffectAuthoringPage client={client} />
         </main>
       ) : gmView === "action_authoring" ? (
         <main className="app-grid-player">

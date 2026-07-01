@@ -1,0 +1,146 @@
+.action-editor,
+.action-step-builder,
+.action-step-list,
+.action-step-entry,
+.action-step-entry__editor {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.action-editor__identity {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr);
+  gap: 0.65rem;
+}
+
+.action-step-builder {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+}
+
+.action-step-builder h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.action-step-builder__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.action-step-add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 0.45rem;
+  width: min(100%, 560px);
+}
+
+.action-step-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.action-step-entry {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.action-step-entry--selected {
+  border-color: var(--accent);
+}
+
+.action-step-entry__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem;
+  background: #f7f8f8;
+}
+
+.action-step-entry__select {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.action-step-entry__select > span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-step-entry__select .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-step-entry__order {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 1.75rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.action-step-entry__commands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.action-step-entry__commands .button {
+  min-height: 32px;
+  padding: 0.3rem 0.5rem;
+}
+
+.action-step-entry__editor {
+  border-top: 1px solid var(--line);
+  padding: 0.65rem;
+}
+
+.action-step-entry__editor > .list-item {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+@media (max-width: 760px) {
+  .action-editor__identity,
+  .action-step-add,
+  .action-step-entry__header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .action-step-builder__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action-step-add {
+    width: 100%;
+  }
+
+  .action-step-entry__commands {
+    justify-content: flex-start;
+  }
+}

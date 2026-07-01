@@ -4,6 +4,7 @@ import {
   appendFormulaToken,
   buildVariablePickerEntries,
   filterVariablePickerEntries,
+  toVariableSearchOptions,
   upsertFormulaAlias,
   variablePathLabel
 } from "@/features/variables/variablePicker";
@@ -77,10 +78,7 @@ describe("variablePicker", () => {
   it("filters mutation entries to backend-approved mutation paths", () => {
     const entries = buildVariablePickerEntries(metadata, "mutation");
 
-    expect(entries.map((entry) => entry.key)).toEqual([
-      "instance.mana",
-      "sheet.stats.arcane"
-    ]);
+    expect(entries.map((entry) => entry.key)).toEqual(["instance.mana", "sheet.stats.arcane"]);
   });
 
   it("searches labels, paths, descriptions, and shortcuts", () => {
@@ -92,6 +90,23 @@ describe("variablePicker", () => {
     expect(filterVariablePickerEntries(entries, "stats.arcane").map((entry) => entry.key)).toEqual([
       "sheet.stats.arcane"
     ]);
+  });
+
+  it("adapts variable metadata into compact generic search options", () => {
+    const entries = buildVariablePickerEntries(metadata, "formula");
+    const arcane = toVariableSearchOptions(entries).find(
+      (option) => option.id === "sheet.stats.arcane"
+    );
+
+    expect(arcane).toMatchObject({
+      label: "Arcane",
+      secondary: "@arc | sheet.stats.arcane | number",
+      value: {
+        key: "sheet.stats.arcane",
+        token: "@arc"
+      }
+    });
+    expect(arcane?.keywords).toContain("Base sheet stat.");
   });
 
   it("appends formula tokens without changing blank spacing aggressively", () => {

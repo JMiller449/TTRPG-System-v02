@@ -10,7 +10,9 @@ import type {
   PersistentSheetRecord,
   ProficiencyDefinition,
   Role,
-  Sheet
+  Sheet,
+  StandaloneEffectApplication,
+  StandaloneEffectDefinition
 } from "@/domain/models";
 import type {
   ProtocolActionFormulaAuthoringMetadataEvent,
@@ -50,6 +52,8 @@ export interface AppSnapshot {
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];
   augmentations?: Augmentation[];
+  standaloneEffects?: StandaloneEffectDefinition[];
+  standaloneEffectApplications?: StandaloneEffectApplication[];
   conditionPresets: ConditionPreset[];
   activeConditions?: ActiveCondition[];
   encounters: EncounterPreset[];

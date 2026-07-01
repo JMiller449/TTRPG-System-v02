@@ -13,26 +13,40 @@ export function ConditionPresetList({
   return (
     <div className="list">
       {conditions.length === 0 ? <EmptyState message="No conditions created yet." /> : null}
-      {conditions.map((condition) => (
-        <article className="list-item list-item--block" key={condition.id}>
-          <div className="list-item__top">
-            <strong>{condition.name}</strong>
-            <span className="muted">{condition.visibility === "gm_only" ? "GM only" : "public"}</span>
-          </div>
-          <div className="muted">{condition.description || "(no description)"}</div>
-          <div className="muted">
-            Augmentations: {condition.augmentation_templates?.length ?? 0}
-          </div>
-          <div className="inline-actions">
-            <button className="button button--secondary" onClick={() => onEdit(condition)}>
-              Edit
-            </button>
-            <button className="button button--secondary" onClick={() => onDelete(condition.id)}>
-              Delete
-            </button>
-          </div>
-        </article>
-      ))}
+      {conditions.map((condition) => {
+        const effects = condition.augmentation_templates ?? [];
+        return (
+          <article className="list-item list-item--block" key={condition.id}>
+            <div className="list-item__top">
+              <strong>{condition.name}</strong>
+              <span className="muted">
+                {condition.visibility === "gm_only" ? "GM only" : "public"}
+              </span>
+            </div>
+            <div className="muted">{condition.description || "(no description)"}</div>
+            <div className="muted">Effects: {effects.length}</div>
+            {effects.length > 0 ? (
+              <div className="muted">{effects.map((effect) => effect.name).join(", ")}</div>
+            ) : null}
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => onEdit(condition)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="button button--danger"
+                onClick={() => onDelete(condition.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

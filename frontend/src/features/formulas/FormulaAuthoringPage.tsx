@@ -15,7 +15,7 @@ import {
   selectOrderedFormulaDefinitions
 } from "@/features/formulas/formulaAuthoringRequests";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
-import { VariablePathBrowser } from "@/features/variables/components/VariablePathBrowser";
+import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
 import {
   appendFormulaToken,
   upsertFormulaAlias,
@@ -108,10 +108,10 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
           onCancel={startNewFormula}
         />
 
-        <VariablePathBrowser
+        <VariableSearchPicker
           metadata={actionFormulaAuthoringMetadata}
           mode="formula"
-          title="Formula Variable Browser"
+          label="Insert Formula Variable"
           onPick={insertVariable}
         />
 

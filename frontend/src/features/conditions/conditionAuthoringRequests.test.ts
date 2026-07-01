@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { ConditionPreset } from "@/domain/models";
 import { createEmptyAugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
-import { createEmptyConditionPresetEditorValues } from "@/features/conditions/conditionEditorValues";
+import {
+  createEmptyConditionPresetEditorValues,
+  toConditionAugmentationTemplatePayload
+} from "@/features/conditions/conditionEditorValues";
 import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
   buildLoadConditionAugmentationTargetMetadataSubmission,
-  buildRemoveConditionAugmentationSubmission,
   buildUpdateConditionPresetSubmission,
-  buildUpsertConditionAugmentationSubmission,
   selectOrderedConditionPresets
 } from "@/features/conditions/conditionAuthoringRequests";
 
@@ -78,7 +79,8 @@ describe("conditionAuthoringRequests", () => {
         type: "delete_condition_preset",
         condition_id: "poisoned"
       },
-      label: "Delete condition: Poisoned"
+      label: "Delete condition: Poisoned",
+      confirmation: 'Delete condition "Poisoned"?'
     });
   });
 
@@ -92,25 +94,29 @@ describe("conditionAuthoringRequests", () => {
     });
   });
 
-  it("builds condition augmentation upsert and remove submissions through condition updates", () => {
-    const values = createEmptyAugmentationEditorValues();
-    values.name = "Poison Drain";
-    values.operation = "subtract";
-    values.targetPath = ["stats", "stamina"];
-    values.formulaText = "2";
-
-    const upsert = buildUpsertConditionAugmentationSubmission({
-      condition: condition(),
-      values,
-      augmentationId: "poison-drain"
+  it("includes draft effects in the initial condition create submission", () => {
+    const effectValues = createEmptyAugmentationEditorValues();
+    effectValues.name = "Poison Drain";
+    effectValues.operation = "subtract";
+    effectValues.targetPath = ["stats", "stamina"];
+    effectValues.formulaText = "2";
+    const effect = toConditionAugmentationTemplatePayload({
+      values: effectValues,
+      augmentationId: "poison-drain",
+      conditionId: "draft-condition",
+      conditionName: "Poisoned"
     });
+    if (!effect) {
+      throw new Error("Expected a valid condition effect.");
+    }
+    const values = createEmptyConditionPresetEditorValues();
+    values.name = "Poisoned";
+    values.augmentationTemplates = [effect];
 
-    expect(upsert?.request).toMatchObject({
-      type: "update_condition_preset",
-      condition_id: "poisoned",
-      condition_partial: {
+    expect(buildCreateConditionPresetSubmission(values, "poisoned")?.request).toMatchObject({
+      type: "create_condition_preset",
+      condition: {
         id: "poisoned",
-        name: "Poisoned",
         augmentation_ids: ["poison-drain"],
         augmentation_templates: [
           {
@@ -120,31 +126,12 @@ describe("conditionAuthoringRequests", () => {
               id: "poisoned",
               label: "Poisoned"
             },
-            scope: "instance",
             target: {
               root: "instance",
               path: ["stats", "stamina"]
             }
           }
         ]
-      }
-    });
-
-    const conditionWithAugmentation = upsert?.request.type === "update_condition_preset"
-      ? (upsert.request.condition_partial as unknown as ConditionPreset)
-      : condition();
-
-    expect(
-      buildRemoveConditionAugmentationSubmission({
-        condition: conditionWithAugmentation,
-        augmentationId: "poison-drain"
-      })?.request
-    ).toMatchObject({
-      type: "update_condition_preset",
-      condition_id: "poisoned",
-      condition_partial: {
-        augmentation_ids: [],
-        augmentation_templates: []
       }
     });
   });

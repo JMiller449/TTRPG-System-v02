@@ -141,15 +141,15 @@ def _validate_action_step(
         return
     if isinstance(step, ApplyAugmentationActionStepPayload):
         if state is not None:
-            augmentation = state.augmentations.get(step.augmentation_id)
-            if augmentation is None:
+            effect = state.standalone_effects.get(step.augmentation_id)
+            if effect is None:
                 raise ValueError(
-                    f"Augmentation '{step.augmentation_id}' does not exist."
+                    f"Standalone effect '{step.augmentation_id}' does not exist."
                 )
-            if augmentation.target.root != "instance":
+            if effect.target.root != "instance" or effect.scope != "instance":
                 raise ValueError(
-                    "Action augmentation steps can only use instance-targeted "
-                    "augmentation records."
+                    "Action effect steps can only use instance-targeted "
+                    "standalone effect definitions."
                 )
         return
     if isinstance(step, ApplyConditionPresetActionStepPayload):

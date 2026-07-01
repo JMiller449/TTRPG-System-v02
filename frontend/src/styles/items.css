@@ -89,7 +89,6 @@
 .formula-definition-card,
 .action-editor,
 .action-definition-card,
-.action-metadata-panel,
 .augmentation-template-panel,
 .augmentation-template-card {
   background: #fff;
@@ -120,6 +119,32 @@
   gap: 0.4rem;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.condition-effects-section {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+}
+
+.condition-effects-section h3,
+.condition-effects-section h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.condition-effect-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+}
+
+.condition-effect-lifecycle summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.87rem;
+}
+
+.condition-effect-lifecycle[open] summary {
+  margin-bottom: 0.65rem;
 }
 
 @media (max-width: 760px) {

@@ -277,6 +277,25 @@ export interface Augmentation {
   lifecycle?: AugmentationLifecycle;
 }
 
+export interface StandaloneEffectDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  scope: AugmentationScope;
+  target: AugmentationTarget;
+  effect: AugmentationEffect;
+  active?: boolean;
+  lifecycle?: AugmentationLifecycle;
+}
+
+export interface StandaloneEffectApplication {
+  application_id: string;
+  definition_id: string;
+  instance_id: string;
+  source: AugmentationSource;
+  active?: boolean;
+}
+
 export type ConditionVisibility = "public" | "gm_only";
 
 export interface ConditionPreset {

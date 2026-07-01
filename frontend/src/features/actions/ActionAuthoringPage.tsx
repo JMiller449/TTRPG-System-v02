@@ -3,7 +3,6 @@ import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ActionDefinitionList } from "@/features/actions/components/ActionDefinitionList";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
-import { ActionStepMetadataPanel } from "@/features/actions/components/ActionStepMetadataPanel";
 import {
   createEmptyActionEditorValues,
   toActionEditorValues,
@@ -18,7 +17,7 @@ import {
 } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
-import type { Augmentation, ConditionPreset } from "@/domain/models";
+import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 
 export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -28,8 +27,8 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         actionOrder,
         formulas: formulaRecords,
         formulaOrder,
-        augmentations: augmentationRecords,
-        augmentationOrder,
+        standaloneEffects: standaloneEffectRecords,
+        standaloneEffectOrder,
         conditionPresets,
         conditionPresetOrder,
         proficiencies: proficiencyRecords,
@@ -61,14 +60,15 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         .filter((formula) => Boolean(formula)),
     [formulaOrder, formulaRecords]
   );
-  const augmentations = useMemo(
+  const standaloneEffects = useMemo(
     () =>
-      augmentationOrder
-        .map((augmentationId) => augmentationRecords[augmentationId])
+      standaloneEffectOrder
+        .map((effectId) => standaloneEffectRecords[effectId])
         .filter(
-          (augmentation): augmentation is Augmentation => augmentation?.target.root === "instance"
+          (effect): effect is StandaloneEffectDefinition =>
+            effect?.target.root === "instance" && effect.scope === "instance"
         ),
-    [augmentationOrder, augmentationRecords]
+    [standaloneEffectOrder, standaloneEffectRecords]
   );
   const conditions = useMemo(
     () =>
@@ -138,11 +138,9 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           metadata={actionFormulaAuthoringMetadata}
           proficiencies={proficiencies}
           formulas={formulas}
-          augmentations={augmentations}
+          standaloneEffects={standaloneEffects}
           conditions={conditions}
         />
-
-        <ActionStepMetadataPanel metadata={actionFormulaAuthoringMetadata} />
 
         <ActionDefinitionList
           actions={actions}

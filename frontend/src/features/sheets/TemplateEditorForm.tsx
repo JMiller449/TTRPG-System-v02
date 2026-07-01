@@ -1,119 +1,187 @@
-import type { ChangeEvent } from "react";
+import { useMemo, useState } from "react";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
+import type {
+  ActionDefinition,
+  ItemDefinition,
+  ProficiencyDefinition
+} from "@/domain/models";
 import {
-  CORE_STAT_LABELS,
-  CORE_TEMPLATE_STATS,
-  type CoreTemplateStatKey,
-  type TemplateEditorValues
+  TemplateActionsSection,
+  TemplateInventorySection,
+  TemplateProficienciesSection
+} from "@/features/sheets/components/TemplateAssignmentsSection";
+import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
+import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
+import { TemplateStatsSection } from "@/features/sheets/components/TemplateStatsSection";
+import type {
+  TemplateEditorErrors,
+  TemplateEditorSection,
+  TemplateEditorValues
 } from "@/features/sheets/templateEditorTypes";
-import { Field } from "@/shared/ui/Field";
+import {
+  validateTemplateEditorValues,
+  type TemplateReferenceCatalogs
+} from "@/features/sheets/templateEditorValues";
 
-interface TemplateEditorFormProps {
-  title: string;
-  submitLabel: string;
-  values: TemplateEditorValues;
-  onChange: (next: TemplateEditorValues) => void;
-  onSubmit: () => void;
-  onCancel?: () => void;
+const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
+  { id: "details", label: "Details" },
+  { id: "stats", label: "Stats" },
+  { id: "resistances", label: "Resistances" },
+  { id: "actions", label: "Actions" },
+  { id: "proficiencies", label: "Proficiencies" },
+  { id: "inventory", label: "Inventory" }
+];
+
+function ValidationSummary({ errors }: { errors: TemplateEditorErrors }): JSX.Element | null {
+  const entries = SECTIONS.flatMap((section) =>
+    errors[section.id].map((message) => ({ section: section.label, message }))
+  );
+  if (entries.length === 0) {
+    return null;
+  }
+  return (
+    <div className="template-builder__validation" role="alert">
+      <strong>{entries.length} issue{entries.length === 1 ? "" : "s"} to resolve</strong>
+      <ul>
+        {entries.map((entry) => (
+          <li key={`${entry.section}:${entry.message}`}>
+            <b>{entry.section}:</b> {entry.message}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function TemplateEditorForm({
   title,
   submitLabel,
   values,
+  actions,
+  actionOrder,
+  proficiencies,
+  proficiencyOrder,
+  items,
+  itemOrder,
+  metadata,
+  pending = false,
   onChange,
   onSubmit,
   onCancel
-}: TemplateEditorFormProps): JSX.Element {
-  const updateCoreStat =
-    (key: CoreTemplateStatKey) =>
-    (event: ChangeEvent<HTMLInputElement>): void => {
-      onChange({
-        ...values,
-        coreStats: {
-          ...values.coreStats,
-          [key]: event.target.value
-        }
-      });
-    };
+}: {
+  title: string;
+  submitLabel: string;
+  values: TemplateEditorValues;
+  actions: Record<string, ActionDefinition>;
+  actionOrder: string[];
+  proficiencies: Record<string, ProficiencyDefinition>;
+  proficiencyOrder: string[];
+  items: Record<string, ItemDefinition>;
+  itemOrder: string[];
+  metadata: ActionFormulaAuthoringMetadata | null;
+  pending?: boolean;
+  onChange: (next: TemplateEditorValues) => void;
+  onSubmit: () => void;
+  onCancel?: () => void;
+}): JSX.Element {
+  const [activeSection, setActiveSection] = useState<TemplateEditorSection>("details");
+  const catalogs: TemplateReferenceCatalogs = useMemo(
+    () => ({ actions, proficiencies, items }),
+    [actions, items, proficiencies]
+  );
+  const validation = useMemo(
+    () => validateTemplateEditorValues(values, catalogs),
+    [catalogs, values]
+  );
 
   return (
-    <section className="template-editor">
-      <h3 className="template-editor__title">{title}</h3>
-      <div className="stack">
-        <div className="inline-group">
-          <Field label="Template Name">
-            <input
-              value={values.name}
-              onChange={(event) => onChange({ ...values, name: event.target.value })}
-              placeholder="e.g. Orc Brute"
-            />
-          </Field>
-          <Field label="Kind">
-            <select
-              value={values.kind}
-              onChange={(event) => onChange({ ...values, kind: event.target.value as TemplateEditorValues["kind"] })}
+    <form
+      className="template-builder"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (validation.isValid && !pending) {
+          onSubmit();
+        }
+      }}
+    >
+      <header className="template-builder__heading">
+        <div>
+          <h2>{title}</h2>
+          <span className="muted">
+            {values.kind === "player" ? "Player-controlled" : "GM-controlled"}
+          </span>
+        </div>
+        <span className={`pill ${validation.isValid ? "pill--resolved" : "pill--failed"}`}>
+          {validation.isValid ? "Ready to save" : "Draft needs attention"}
+        </span>
+      </header>
+
+      <div className="template-builder__tabs" role="tablist" aria-label="Template sections">
+        {SECTIONS.map((section) => {
+          const errorCount = validation.errors[section.id].length;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              role="tab"
+              aria-selected={activeSection === section.id}
+              className={activeSection === section.id ? "is-active" : ""}
+              onClick={() => setActiveSection(section.id)}
             >
-              <option value="player">Player</option>
-              <option value="enemy">Enemy</option>
-            </select>
-          </Field>
-        </div>
-
-        <Field label="Notes">
-          <textarea
-            value={values.notes}
-            onChange={(event) => onChange({ ...values, notes: event.target.value })}
-            rows={3}
-            placeholder="Reference notes for this template."
-          />
-        </Field>
-
-        <div className="inline-group">
-          <Field label="XP Given When Slayed">
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={values.xpGivenWhenSlayed}
-              onChange={(event) =>
-                onChange({ ...values, xpGivenWhenSlayed: event.target.value })
-              }
-              placeholder="0"
-            />
-          </Field>
-          <Field label="XP Needed For Next Level">
-            <input
-              value={values.xpCap}
-              onChange={(event) => onChange({ ...values, xpCap: event.target.value })}
-              placeholder="e.g. 100"
-            />
-          </Field>
-        </div>
-
-        <div className="template-editor__stats">
-          {CORE_TEMPLATE_STATS.map((key) => (
-            <Field key={key} label={CORE_STAT_LABELS[key]}>
-              <input
-                type="number"
-                value={values.coreStats[key]}
-                onChange={updateCoreStat(key)}
-                placeholder="0"
-              />
-            </Field>
-          ))}
-        </div>
-
-        <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit}>
-            {submitLabel}
-          </button>
-          {onCancel ? (
-            <button className="button button--secondary" onClick={onCancel}>
-              Cancel
+              {section.label}
+              {errorCount > 0 ? <span aria-label={`${errorCount} errors`}>{errorCount}</span> : null}
             </button>
-          ) : null}
-        </div>
+          );
+        })}
       </div>
-    </section>
+
+      <div className="template-builder__content" role="tabpanel">
+        {activeSection === "details" ? (
+          <TemplateDetailsSection values={values} onChange={onChange} />
+        ) : null}
+        {activeSection === "stats" ? (
+          <TemplateStatsSection values={values} metadata={metadata} onChange={onChange} />
+        ) : null}
+        {activeSection === "resistances" ? (
+          <TemplateResistancesSection values={values} onChange={onChange} />
+        ) : null}
+        {activeSection === "actions" ? (
+          <TemplateActionsSection
+            values={values}
+            actions={actions}
+            actionOrder={actionOrder}
+            onChange={onChange}
+          />
+        ) : null}
+        {activeSection === "proficiencies" ? (
+          <TemplateProficienciesSection
+            values={values}
+            proficiencies={proficiencies}
+            proficiencyOrder={proficiencyOrder}
+            onChange={onChange}
+          />
+        ) : null}
+        {activeSection === "inventory" ? (
+          <TemplateInventorySection
+            values={values}
+            items={items}
+            itemOrder={itemOrder}
+            onChange={onChange}
+          />
+        ) : null}
+      </div>
+
+      <ValidationSummary errors={validation.errors} />
+      <footer className="template-builder__footer">
+        {onCancel ? (
+          <button type="button" className="button button--secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        ) : null}
+        <button type="submit" className="button" disabled={!validation.isValid || pending}>
+          {pending ? "Saving..." : submitLabel}
+        </button>
+      </footer>
+    </form>
   );
 }

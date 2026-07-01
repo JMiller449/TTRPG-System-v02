@@ -6,8 +6,6 @@ import {
   isCalculatedValueReference,
   isFormulaReference,
   isInlineFormula,
-  moveActionStep,
-  removeActionStep,
   setBoundedMutationSource,
   updateBoundedMutationFormula,
   updateBoundedMutationSettings,
@@ -17,7 +15,7 @@ import {
   type EditorNumericValueSource
 } from "@/features/actions/actionEditorValues";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
-import { VariablePathBrowser } from "@/features/variables/components/VariablePathBrowser";
+import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
 import {
   appendFormulaToken,
   upsertFormulaAlias,
@@ -138,10 +136,10 @@ export function ActionBoundedMutationStepEditor({
                 placeholder="e.g. 1d8 + 2"
               />
             </Field>
-            <VariablePathBrowser
+            <VariableSearchPicker
               metadata={metadata}
               mode="formula"
-              title={`${sourceLabel} Variables`}
+              label={`Insert ${sourceLabel} Variable`}
               onPick={(entry) => {
                 if (!isInlineFormula(source)) {
                   return;
@@ -275,26 +273,6 @@ export function ActionBoundedMutationStepEditor({
       <div className="inline-group">
         {boundEditor("min_value", "Minimum")}
         {boundEditor("max_value", "Maximum")}
-      </div>
-      <div className="inline-actions">
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(moveActionStep(values, step.step_id, "up"))}
-        >
-          Up
-        </button>
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(moveActionStep(values, step.step_id, "down"))}
-        >
-          Down
-        </button>
-        <button
-          className="button button--secondary"
-          onClick={() => onChange(removeActionStep(values, step.step_id))}
-        >
-          Delete
-        </button>
       </div>
     </div>
   );

@@ -189,6 +189,14 @@ class StateSyncService:
             for application_id, condition in state.get("active_conditions", {}).items()
             if application_id in visible_applications
         }
+        state["standalone_effect_applications"] = {
+            application_id: application
+            for application_id, application in state.get(
+                "standalone_effect_applications", {}
+            ).items()
+            if isinstance(application, dict)
+            and application.get("instance_id") == assigned_instance_id
+        }
 
         hidden_augmentation_ids: set[str] = set()
         for augmentation_id, augmentation in list(
@@ -255,6 +263,26 @@ class StateSyncService:
                 visible = (
                     isinstance(value, dict)
                     and value.get("visibility") != "gm_only"
+                    and value.get("instance_id") == assigned_instance_id
+                )
+                if visible:
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if (
+                len(segments) >= 2
+                and segments[0] == "standalone_effect_applications"
+            ):
+                if op.op == "remove":
+                    visible_prefix = f"standalone:{assigned_instance_id}:"
+                    if segments[1].startswith(visible_prefix):
+                        redacted_ops.append(op)
+                    continue
+                value = asdict(op.value) if is_dataclass(op.value) else op.value
+                visible = (
+                    isinstance(value, dict)
                     and value.get("instance_id") == assigned_instance_id
                 )
                 if visible:

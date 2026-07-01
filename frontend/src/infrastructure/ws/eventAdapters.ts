@@ -5,7 +5,12 @@ import type {
   ProtocolPatchOperation,
   ProtocolServerEvent
 } from "@/infrastructure/ws/protocol";
-import type { ActiveConditionPayload, EncounterPresetPayload } from "@/generated/backendProtocol";
+import type {
+  ActiveConditionPayload,
+  EncounterPresetPayload,
+  StandaloneEffectDefinitionPayload
+} from "@/generated/backendProtocol";
+import type { StandaloneEffectDefinition } from "@/domain/models";
 
 export interface SocketProtocolState {
   backendState: ProtocolBackendState | null;
@@ -160,6 +165,17 @@ function projectActiveCondition(value: ActiveConditionPayload): ActiveCondition 
   };
 }
 
+function projectStandaloneEffect(
+  value: StandaloneEffectDefinitionPayload
+): StandaloneEffectDefinition {
+  return {
+    ...value,
+    scope: value.scope ?? "instance",
+    active: value.active ?? true,
+    lifecycle: value.lifecycle ?? {}
+  };
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}),
@@ -172,6 +188,12 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
     augmentations: Object.values(state.augmentations ?? {}),
+    standaloneEffects: Object.values(state.standalone_effects ?? {}).map(
+      projectStandaloneEffect
+    ),
+    standaloneEffectApplications: Object.values(
+      state.standalone_effect_applications ?? {}
+    ),
     conditionPresets: Object.values(state.condition_presets ?? {}),
     activeConditions: Object.values(state.active_conditions ?? {}).map(projectActiveCondition),
     encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),

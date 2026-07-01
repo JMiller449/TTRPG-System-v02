@@ -251,6 +251,103 @@ def test_v4_migration_groups_existing_condition_augmentations() -> None:
     ] == application_id
 
 
+def test_v5_migration_splits_manual_effect_definition_and_application() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 5,
+            "state": {
+                "instanced_sheets": {
+                    "instance-1": {
+                        "parent_id": "sheet-1",
+                        "health": 15,
+                        "mana": 5,
+                        "augments": {
+                            "legacy": {
+                                "relationship_id": "legacy",
+                                "entry_id": "blessing",
+                            }
+                        },
+                    }
+                },
+                "augmentations": {
+                    "blessing": {
+                        "id": "blessing",
+                        "name": "Blessing",
+                        "description": "Legacy manual effect.",
+                        "source": {"type": "manual", "label": "GM"},
+                        "scope": "instance",
+                        "target": {"root": "instance", "path": ["health"]},
+                        "effect": {
+                            "type": "formula_modifier",
+                            "operation": "add",
+                            "value": {"aliases": None, "text": "5", "tags": []},
+                            "selector": {},
+                        },
+                        "active": True,
+                        "applied": True,
+                        "applied_target_id": "instance-1",
+                        "lifecycle_owner": "manual",
+                        "lifecycle": {},
+                    }
+                },
+            },
+        }
+    )
+
+    application_id = "standalone:instance-1:blessing"
+    target_path = "/instanced_sheets/instance-1/health"
+    assert "blessing" not in migrated.state["augmentations"]
+    assert migrated.state["standalone_effects"]["blessing"]["id"] == "blessing"
+    assert migrated.state["standalone_effect_applications"][application_id][
+        "definition_id"
+    ] == "blessing"
+    assert migrated.state["equipment_effect_projections"][target_path] == {
+        "target_path": target_path,
+        "base_value": 10,
+        "effective_value": 15,
+    }
+    assert migrated.state["instanced_sheets"]["instance-1"]["augments"] == {}
+
+
+def test_v5_migration_keeps_irreversible_applied_manual_effect_in_compatibility_state() -> None:
+    legacy = {
+        "id": "legacy-set",
+        "name": "Legacy Set",
+        "source": {"type": "manual"},
+        "scope": "instance",
+        "target": {"root": "instance", "path": ["health"]},
+        "effect": {
+            "type": "formula_modifier",
+            "operation": "set",
+            "value": {"aliases": None, "text": "40", "tags": []},
+        },
+        "active": True,
+        "applied": True,
+        "applied_target_id": "instance-1",
+        "lifecycle_owner": "manual",
+    }
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 5,
+            "state": {
+                "instanced_sheets": {
+                    "instance-1": {
+                        "parent_id": "sheet-1",
+                        "health": 40,
+                        "mana": 5,
+                        "augments": {},
+                    }
+                },
+                "augmentations": {"legacy-set": legacy},
+            },
+        }
+    )
+
+    assert migrated.state["augmentations"]["legacy-set"] == legacy
+    assert "legacy-set" not in migrated.state["standalone_effects"]
+    assert migrated.state["standalone_effect_applications"] == {}
+
+
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
     isolate_state: Path,
 ) -> None:
@@ -377,6 +474,8 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
         "items": {},
         "equipment_effect_projections": {},
         "active_conditions": {},
+        "standalone_effects": {},
+        "standalone_effect_applications": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False

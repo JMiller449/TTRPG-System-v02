@@ -9,7 +9,12 @@ from backend.state.models.action_history import (
 )
 from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
-from backend.state.models.augmentation import Augmentation, EquipmentEffectProjection
+from backend.state.models.augmentation import (
+    Augmentation,
+    EquipmentEffectProjection,
+    StandaloneEffectApplication,
+    StandaloneEffectDefinition,
+)
 from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
@@ -28,6 +33,12 @@ class State:
     items: dict[str, Item] = field(default_factory=dict)
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
     augmentations: dict[str, Augmentation] = field(default_factory=dict)
+    standalone_effects: dict[str, StandaloneEffectDefinition] = field(
+        default_factory=dict
+    )
+    standalone_effect_applications: dict[str, StandaloneEffectApplication] = field(
+        default_factory=dict
+    )
     equipment_effect_projections: dict[str, EquipmentEffectProjection] = field(
         default_factory=dict
     )
@@ -71,6 +82,16 @@ class State:
             augmentations={
                 key: Augmentation.from_dict(augmentation)
                 for key, augmentation in raw.get("augmentations", {}).items()
+            },
+            standalone_effects={
+                key: StandaloneEffectDefinition.from_dict(effect)
+                for key, effect in raw.get("standalone_effects", {}).items()
+            },
+            standalone_effect_applications={
+                key: StandaloneEffectApplication.from_dict(application)
+                for key, application in raw.get(
+                    "standalone_effect_applications", {}
+                ).items()
             },
             equipment_effect_projections={
                 key: EquipmentEffectProjection.from_dict(projection)

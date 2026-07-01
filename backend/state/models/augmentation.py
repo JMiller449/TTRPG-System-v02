@@ -170,6 +170,19 @@ AugmentationEffect = (
 )
 
 
+def augmentation_effect_from_dict(raw: dict) -> AugmentationEffect:
+    effect_types = {
+        "formula_modifier": FormulaModifierEffect,
+        "evaluation_formula_modifier": EvaluationFormulaModifierEffect,
+        "roll_mode_modifier": RollModeModifierEffect,
+    }
+    effect_type = raw.get("type")
+    effect_model = effect_types.get(effect_type)
+    if effect_model is None:
+        raise ValueError(f"Unsupported augmentation effect type '{effect_type}'.")
+    return effect_model.from_dict(raw)
+
+
 @dataclass
 class AugmentationLifecycle:
     # MVP lifecycle fields are descriptive metadata only; no predicate syntax is executed.
@@ -205,17 +218,6 @@ class Augmentation:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Augmentation":
-        raw_effect = raw["effect"]
-        effect_type = raw_effect["type"]
-        effect_types = {
-            "formula_modifier": FormulaModifierEffect,
-            "evaluation_formula_modifier": EvaluationFormulaModifierEffect,
-            "roll_mode_modifier": RollModeModifierEffect,
-        }
-        effect_model = effect_types.get(effect_type)
-        if effect_model is None:
-            raise ValueError(f"Unsupported augmentation effect type '{effect_type}'.")
-
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -223,12 +225,56 @@ class Augmentation:
             source=AugmentationSource.from_dict(raw["source"]),
             scope=raw["scope"],
             target=AugmentationTarget.from_dict(raw["target"]),
-            effect=effect_model.from_dict(raw_effect),
+            effect=augmentation_effect_from_dict(raw["effect"]),
             active=raw.get("active", True),
             applied=raw.get("applied", False),
             applied_target_id=raw.get("applied_target_id"),
             lifecycle_owner=raw.get("lifecycle_owner", "manual"),
             lifecycle=AugmentationLifecycle.from_dict(raw.get("lifecycle")),
+        )
+
+
+@dataclass
+class StandaloneEffectDefinition:
+    id: str
+    name: str
+    scope: AugmentationScope
+    target: AugmentationTarget
+    effect: AugmentationEffect
+    description: str = ""
+    active: bool = True
+    lifecycle: AugmentationLifecycle = field(default_factory=AugmentationLifecycle)
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "StandaloneEffectDefinition":
+        return cls(
+            id=raw["id"],
+            name=raw["name"],
+            description=raw.get("description", ""),
+            scope=raw["scope"],
+            target=AugmentationTarget.from_dict(raw["target"]),
+            effect=augmentation_effect_from_dict(raw["effect"]),
+            active=raw.get("active", True),
+            lifecycle=AugmentationLifecycle.from_dict(raw.get("lifecycle")),
+        )
+
+
+@dataclass
+class StandaloneEffectApplication:
+    application_id: str
+    definition_id: str
+    instance_id: str
+    source: AugmentationSource
+    active: bool = True
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "StandaloneEffectApplication":
+        return cls(
+            application_id=raw["application_id"],
+            definition_id=raw["definition_id"],
+            instance_id=raw["instance_id"],
+            source=AugmentationSource.from_dict(raw["source"]),
+            active=raw.get("active", True),
         )
 
 

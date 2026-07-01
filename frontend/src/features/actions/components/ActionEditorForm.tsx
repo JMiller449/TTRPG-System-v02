@@ -1,35 +1,22 @@
+import { useEffect, useState } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
   DAMAGE_TYPES,
-  type Augmentation,
   type ConditionPreset,
   type DamageType,
   type FormulaDefinition,
-  type ProficiencyDefinition
+  type ProficiencyDefinition,
+  type StandaloneEffectDefinition
 } from "@/domain/models";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
-  addCalculateValueActionStep,
-  addApplyAugmentationActionStep,
-  addApplyConditionPresetActionStep,
-  addDecrementValueActionStep,
-  addGainProficiencyUseActionStep,
-  addIncrementValueActionStep,
-  addResolveDamageActionStep,
-  addSendMessageActionStep,
-  addSetValueActionStep,
   calculatedValuesBeforeStep,
+  duplicateActionStep,
   isCalculatedValueReference,
   isFormulaReference,
   isInlineFormula,
   moveActionStep,
-  moveGainProficiencyUseActionStep,
-  moveResolveDamageActionStep,
-  moveSendMessageActionStep,
-  removeCalculateValueActionStep,
-  removeGainProficiencyUseActionStep,
-  removeResolveDamageActionStep,
-  removeSendMessageActionStep,
+  removeActionStep,
   setNumericStepCalculatedValue,
   setActionStepFormulaReference,
   updateCalculateValueActionStep,
@@ -42,9 +29,17 @@ import {
   type ActionEditorValues,
   type ResolveDamageEditorStep
 } from "@/features/actions/actionEditorValues";
+import {
+  actionStepIdPrefix,
+  actionStepLabel,
+  addActionStepFromMenu,
+  buildActionStepMenuOptions,
+  type ActionStepMenuGroup,
+  type ActionStepMenuType
+} from "@/features/actions/actionStepMenu";
 import { ActionBoundedMutationStepEditor } from "@/features/actions/components/ActionBoundedMutationStepEditor";
 import { ActionRecordStepEditor } from "@/features/actions/components/ActionRecordStepEditor";
-import { VariablePathBrowser } from "@/features/variables/components/VariablePathBrowser";
+import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
 import {
   appendFormulaToken,
   buildVariablePickerEntries,
@@ -53,6 +48,12 @@ import {
 } from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
+
+const ACTION_STEP_GROUPS: readonly ActionStepMenuGroup[] = [
+  "Calculation & Output",
+  "State Changes",
+  "Rules & Effects"
+];
 
 export function ActionEditorForm({
   editingActionId,
@@ -63,7 +64,7 @@ export function ActionEditorForm({
   metadata,
   proficiencies,
   formulas,
-  augmentations,
+  standaloneEffects,
   conditions
 }: {
   editingActionId: string | null;
@@ -74,13 +75,49 @@ export function ActionEditorForm({
   metadata: ActionFormulaAuthoringMetadata | null;
   proficiencies: ProficiencyDefinition[];
   formulas: FormulaDefinition[];
-  augmentations: Augmentation[];
+  standaloneEffects: StandaloneEffectDefinition[];
   conditions: ConditionPreset[];
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
   const mutationTargets = buildVariablePickerEntries(metadata, "mutation").filter(
     (entry) => entry.root === "instance"
   );
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [stepTypeToAdd, setStepTypeToAdd] = useState<ActionStepMenuType>("send_message");
+  const stepDependencies = {
+    mutationTargetPath: mutationTargets[0]?.path,
+    proficiencyId: defaultProficiencyId || undefined,
+    augmentationId: standaloneEffects[0]?.id,
+    conditionId: conditions[0]?.id
+  };
+  const stepMenuOptions = buildActionStepMenuOptions(stepDependencies);
+  const selectedMenuOption = stepMenuOptions.find((option) => option.type === stepTypeToAdd);
+  const actionNameIsValid = values.name.trim().length > 0;
+
+  useEffect(() => {
+    if (selectedStepId && values.steps.some((step) => step.step_id === selectedStepId)) {
+      return;
+    }
+    setSelectedStepId(values.steps[0]?.step_id ?? null);
+  }, [selectedStepId, values.steps]);
+
+  const addSelectedStep = (): void => {
+    if (selectedMenuOption?.unavailableReason) {
+      return;
+    }
+    const stepId = makeId(actionStepIdPrefix(stepTypeToAdd));
+    const nextValues = addActionStepFromMenu({
+      values,
+      type: stepTypeToAdd,
+      stepId,
+      dependencies: stepDependencies
+    });
+    if (!nextValues) {
+      return;
+    }
+    onChange(nextValues);
+    setSelectedStepId(stepId);
+  };
 
   const insertCalculatedValue = (stepId: string, variableId: string): void => {
     const step = values.steps.find((candidate) => candidate.step_id === stepId);
@@ -270,532 +307,456 @@ export function ActionEditorForm({
 
   return (
     <div className="template-editor action-editor">
-      <p className="template-editor__title">{editingActionId ? "Edit Action" : "Create Action"}</p>
+      <h3 className="template-editor__title">
+        {editingActionId ? "Edit Action" : "Create Action"}
+      </h3>
       <div className="stack">
-        <Field label="Name">
-          <input
-            value={values.name}
-            onChange={(event) => onChange({ ...values, name: event.target.value })}
-            placeholder="e.g. Mana burst"
-          />
-        </Field>
+        <div className="action-editor__identity">
+          <Field label="Name">
+            <input
+              value={values.name}
+              aria-invalid={!actionNameIsValid}
+              onChange={(event) => onChange({ ...values, name: event.target.value })}
+              placeholder="e.g. Mana burst"
+            />
+          </Field>
 
-        <Field label="Roll Mode">
-          <select
-            value={values.rollModeKind}
-            onChange={(event) =>
-              onChange({
-                ...values,
-                rollModeKind: event.target.value as ActionEditorValues["rollModeKind"]
-              })
-            }
-          >
-            <option value="none">None (normal only)</option>
-            <option value="check">Check (normal / advantage / disadvantage)</option>
-            <option value="damage">Damage (normal / critical)</option>
-          </select>
-        </Field>
+          <Field label="Roll Mode">
+            <select
+              value={values.rollModeKind}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  rollModeKind: event.target.value as ActionEditorValues["rollModeKind"]
+                })
+              }
+            >
+              <option value="none">None (normal only)</option>
+              <option value="check">Check (normal / advantage / disadvantage)</option>
+              <option value="damage">Damage (normal / critical)</option>
+            </select>
+          </Field>
+        </div>
 
         <Field label="Notes">
           <textarea
-            rows={3}
+            rows={2}
             value={values.notes}
             onChange={(event) => onChange({ ...values, notes: event.target.value })}
             placeholder="GM-facing action notes"
           />
         </Field>
 
-        <div className="stack">
-          <div className="list-item__top">
-            <span className="muted">Steps: {values.steps.length}</span>
-            <div className="inline-actions">
+        <section className="action-step-builder stack">
+          <div className="action-step-builder__header">
+            <div>
+              <h4>Steps</h4>
+              <span className="muted">{values.steps.length}</span>
+            </div>
+            <div className="action-step-add">
+              <Field label="Step Type">
+                <select
+                  value={stepTypeToAdd}
+                  onChange={(event) => setStepTypeToAdd(event.target.value as ActionStepMenuType)}
+                >
+                  {ACTION_STEP_GROUPS.map((group) => (
+                    <optgroup key={group} label={group}>
+                      {stepMenuOptions
+                        .filter((option) => option.group === group)
+                        .map((option) => (
+                          <option
+                            key={option.type}
+                            value={option.type}
+                            disabled={Boolean(option.unavailableReason)}
+                          >
+                            {option.label}
+                            {option.unavailableReason ? ` - ${option.unavailableReason}` : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </Field>
               <button
-                className="button button--secondary"
-                onClick={() => {
-                  const stepId = makeId("calculate");
-                  const existingVariables = new Set(
-                    values.steps
-                      .filter((step) => step.type === "calculate_value")
-                      .map((step) => step.variable_id)
-                  );
-                  let variableIndex = existingVariables.size + 1;
-                  while (existingVariables.has(`value_${variableIndex}`)) {
-                    variableIndex += 1;
-                  }
-                  const variableId = `value_${variableIndex}`;
-                  onChange(addCalculateValueActionStep(values, stepId, variableId));
-                }}
+                className="button"
+                type="button"
+                onClick={addSelectedStep}
+                disabled={Boolean(selectedMenuOption?.unavailableReason)}
               >
-                Add Calculation
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() => onChange(addSendMessageActionStep(values, makeId("step")))}
-              >
-                Add Message
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() => onChange(addResolveDamageActionStep(values, makeId("damage")))}
-              >
-                Add Damage
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={mutationTargets.length === 0}
-                onClick={() => {
-                  const target = mutationTargets[0];
-                  if (target) {
-                    onChange(addSetValueActionStep(values, makeId("set"), target.path));
-                  }
-                }}
-              >
-                Add Set
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={mutationTargets.length === 0}
-                onClick={() => {
-                  const target = mutationTargets[0];
-                  if (target) {
-                    onChange(addIncrementValueActionStep(values, makeId("increase"), target.path));
-                  }
-                }}
-              >
-                Add Increase
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={mutationTargets.length === 0}
-                onClick={() => {
-                  const target = mutationTargets[0];
-                  if (target) {
-                    onChange(addDecrementValueActionStep(values, makeId("decrease"), target.path));
-                  }
-                }}
-              >
-                Add Decrease
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={!defaultProficiencyId}
-                onClick={() =>
-                  onChange(
-                    addGainProficiencyUseActionStep(
-                      values,
-                      makeId("proficiency"),
-                      defaultProficiencyId
-                    )
-                  )
-                }
-              >
-                Add Proficiency
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={augmentations.length === 0}
-                onClick={() => {
-                  const augmentation = augmentations[0];
-                  if (augmentation) {
-                    onChange(
-                      addApplyAugmentationActionStep(
-                        values,
-                        makeId("augmentation"),
-                        augmentation.id
-                      )
-                    );
-                  }
-                }}
-              >
-                Add Augmentation
-              </button>
-              <button
-                className="button button--secondary"
-                disabled={conditions.length === 0}
-                onClick={() => {
-                  const condition = conditions[0];
-                  if (condition) {
-                    onChange(
-                      addApplyConditionPresetActionStep(values, makeId("condition"), condition.id)
-                    );
-                  }
-                }}
-              >
-                Add Condition
+                Add Step
               </button>
             </div>
           </div>
-          <div className="list">
-            {values.steps.map((step) =>
-              step.type === "calculate_value" ? (
-                <div className="list-item list-item--block" key={step.step_id}>
-                  <div className="inline-group">
-                    <Field label={`Calculated Variable: ${step.step_id}`}>
-                      <input
-                        value={step.variable_id}
-                        pattern="[A-Za-z_][A-Za-z0-9_]*"
-                        title="Start with a letter or underscore; use only letters, numbers, and underscores."
-                        onChange={(event) =>
-                          onChange(
-                            updateCalculateValueActionStep(values, step.step_id, {
-                              variableId: event.target.value
-                            })
-                          )
-                        }
-                        placeholder="healing_amount"
-                      />
-                    </Field>
-                    {formulaSourcePicker(step.step_id, step.value)}
-                  </div>
-                  {isInlineFormula(step.value) ? (
-                    <>
-                      <Field label="Formula">
-                        <input
-                          value={step.value.text}
-                          onChange={(event) =>
-                            onChange(
-                              updateCalculateValueActionStep(values, step.step_id, {
-                                formulaText: event.target.value
-                              })
-                            )
-                          }
-                          placeholder="e.g. 1d8 + 2"
-                        />
-                      </Field>
-                      <VariablePathBrowser
-                        metadata={metadata}
-                        mode="formula"
-                        title="Calculation Variables"
-                        onPick={(entry) => {
-                          if (!isInlineFormula(step.value)) {
-                            return;
-                          }
-                          onChange(
-                            updateCalculateValueActionStep(values, step.step_id, {
-                              formulaText: appendFormulaToken(step.value.text, entry.token),
-                              aliases: upsertFormulaAlias(step.value.aliases ?? null, entry.alias)
-                            })
-                          );
-                        }}
-                      />
-                      {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
-                      <FormulaTagEditor
-                        label="Calculation Formula Tags"
-                        tags={step.value.tags ?? []}
-                        onChange={(tags) =>
-                          onChange(updateCalculateValueActionStep(values, step.step_id, { tags }))
-                        }
-                      />
-                    </>
-                  ) : (
-                    <p className="muted">Uses global formula {step.value.formula_id} by ID.</p>
-                  )}
-                  <div className="inline-actions">
+          <div className="action-step-list">
+            {values.steps.length === 0 ? <p className="muted">No steps configured.</p> : null}
+            {values.steps.map((step, stepIndex) => (
+              <div
+                className={`action-step-entry ${
+                  selectedStepId === step.step_id ? "action-step-entry--selected" : ""
+                }`}
+                key={step.step_id}
+              >
+                <div className="action-step-entry__header">
+                  <button
+                    className="action-step-entry__select"
+                    type="button"
+                    aria-expanded={selectedStepId === step.step_id}
+                    onClick={() => setSelectedStepId(step.step_id)}
+                  >
+                    <span className="action-step-entry__order">{stepIndex + 1}</span>
+                    <span>
+                      <strong>{actionStepLabel(step.type)}</strong>
+                      <span className="muted">{step.step_id}</span>
+                    </span>
+                  </button>
+                  <div className="action-step-entry__commands">
                     <button
                       className="button button--secondary"
+                      type="button"
+                      aria-label={`Move ${actionStepLabel(step.type)} up`}
+                      disabled={stepIndex === 0}
                       onClick={() => onChange(moveActionStep(values, step.step_id, "up"))}
                     >
                       Up
                     </button>
                     <button
                       className="button button--secondary"
+                      type="button"
+                      aria-label={`Move ${actionStepLabel(step.type)} down`}
+                      disabled={stepIndex === values.steps.length - 1}
                       onClick={() => onChange(moveActionStep(values, step.step_id, "down"))}
                     >
                       Down
                     </button>
                     <button
                       className="button button--secondary"
-                      onClick={() => onChange(removeCalculateValueActionStep(values, step.step_id))}
+                      type="button"
+                      onClick={() => {
+                        const duplicateStepId = makeId(actionStepIdPrefix(step.type));
+                        onChange(duplicateActionStep(values, step.step_id, duplicateStepId));
+                        setSelectedStepId(duplicateStepId);
+                      }}
                     >
-                      Delete
+                      Duplicate
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      type="button"
+                      onClick={() => onChange(removeActionStep(values, step.step_id))}
+                    >
+                      Remove
                     </button>
                   </div>
                 </div>
-              ) : step.type === "send_message" ? (
-                <div className="list-item list-item--block" key={step.step_id}>
-                  {formulaSourcePicker(step.step_id, step.message, {
-                    label: `Message Source: ${step.step_id}`
-                  })}
-                  {isInlineFormula(step.message) ? (
-                    <>
-                      <Field label="Message Formula">
-                        <textarea
-                          rows={3}
-                          value={step.message.text}
-                          onChange={(event) =>
-                            onChange(
-                              updateSendMessageActionStepText(
-                                values,
-                                step.step_id,
-                                event.target.value
-                              )
-                            )
-                          }
-                          placeholder="/em describes the action."
-                        />
-                      </Field>
-                      <VariablePathBrowser
-                        metadata={metadata}
-                        mode="formula"
-                        title="Message Variables"
-                        onPick={(entry) => insertIntoMessageStep(step.step_id, entry)}
-                      />
-                      {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
-                      <FormulaTagEditor
-                        label="Message Formula Tags"
-                        tags={step.message.tags ?? []}
-                        onChange={(tags) =>
-                          onChange(
-                            updateSendMessageActionStepFormula(values, step.step_id, { tags })
-                          )
-                        }
-                      />
-                    </>
-                  ) : (
-                    <p className="muted">Uses global formula {step.message.formula_id} by ID.</p>
-                  )}
-                  <div className="inline-actions">
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveSendMessageActionStep(values, step.step_id, "up"))
-                      }
-                    >
-                      Up
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveSendMessageActionStep(values, step.step_id, "down"))
-                      }
-                    >
-                      Down
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() => onChange(removeSendMessageActionStep(values, step.step_id))}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ) : step.type === "set_value" ||
-                step.type === "increment_value" ||
-                step.type === "decrement_value" ? (
-                <ActionBoundedMutationStepEditor
-                  key={step.step_id}
-                  step={step}
-                  values={values}
-                  onChange={onChange}
-                  metadata={metadata}
-                  mutationTargets={mutationTargets}
-                  formulas={formulas}
-                />
-              ) : step.type === "resolve_damage" ? (
-                <div className="list-item list-item--block" key={step.step_id}>
-                  <div className="inline-group">
-                    <Field label={`Damage Type: ${step.step_id}`}>
-                      <select
-                        value={step.damage_type}
-                        onChange={(event) =>
-                          onChange(
-                            updateResolveDamageActionStep(values, step.step_id, {
-                              damageType: event.target.value as DamageType
-                            })
-                          )
-                        }
-                      >
-                        {DAMAGE_TYPES.map((damageType) => (
-                          <option key={damageType} value={damageType}>
-                            {damageType}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    {formulaSourcePicker(step.step_id, step.amount, {
-                      allowCalculated: true,
-                      label: "Amount Source"
-                    })}
-                  </div>
-                  {isInlineFormula(step.amount) ? (
-                    <>
-                      <Field label="Amount Formula">
-                        <input
-                          value={step.amount.text}
-                          onChange={(event) =>
-                            onChange(
-                              updateResolveDamageActionStep(values, step.step_id, {
-                                amountText: event.target.value
-                              })
-                            )
-                          }
-                          placeholder="e.g. @strength * 2"
-                        />
-                      </Field>
-                      <VariablePathBrowser
-                        metadata={metadata}
-                        mode="formula"
-                        title="Damage Amount Variables"
-                        onPick={(entry) => insertIntoDamageStep(step.step_id, entry)}
-                      />
-                      {calculatedValuePicker(step.step_id, "Earlier Calculated Value in Formula")}
-                      <FormulaTagEditor
-                        label="Damage Formula Tags"
-                        tags={step.amount.tags ?? []}
-                        onChange={(tags) =>
-                          onChange(
-                            updateResolveDamageActionStepFormula(values, step.step_id, { tags })
-                          )
-                        }
-                      />
-                    </>
-                  ) : isFormulaReference(step.amount) ? (
-                    <p className="muted">Uses global formula {step.amount.formula_id} by ID.</p>
-                  ) : (
-                    <p className="muted">
-                      Reuses {step.amount.variable_id} directly without reevaluating its formula.
-                    </p>
-                  )}
-                  <div className="inline-actions">
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveResolveDamageActionStep(values, step.step_id, "up"))
-                      }
-                    >
-                      Up
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveResolveDamageActionStep(values, step.step_id, "down"))
-                      }
-                    >
-                      Down
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() => onChange(removeResolveDamageActionStep(values, step.step_id))}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ) : step.type === "gain_proficiency_use" ? (
-                <div className="list-item list-item--block" key={step.step_id}>
-                  <div className="inline-group">
-                    <Field label={`Proficiency: ${step.step_id}`}>
-                      <select
-                        value={step.proficiency_id}
-                        onChange={(event) =>
-                          onChange(
-                            updateGainProficiencyUseActionStep(values, step.step_id, {
-                              proficiencyId: event.target.value
-                            })
-                          )
-                        }
-                      >
-                        {proficiencies.some(
-                          (proficiency) => proficiency.id === step.proficiency_id
-                        ) ? null : (
-                          <option value={step.proficiency_id}>{step.proficiency_id}</option>
+                {selectedStepId === step.step_id ? (
+                  <div className="action-step-entry__editor">
+                    {step.type === "calculate_value" ? (
+                      <div className="list-item list-item--block" key={step.step_id}>
+                        <div className="inline-group">
+                          <Field label={`Calculated Variable: ${step.step_id}`}>
+                            <input
+                              value={step.variable_id}
+                              pattern="[A-Za-z_][A-Za-z0-9_]*"
+                              title="Start with a letter or underscore; use only letters, numbers, and underscores."
+                              onChange={(event) =>
+                                onChange(
+                                  updateCalculateValueActionStep(values, step.step_id, {
+                                    variableId: event.target.value
+                                  })
+                                )
+                              }
+                              placeholder="healing_amount"
+                            />
+                          </Field>
+                          {formulaSourcePicker(step.step_id, step.value)}
+                        </div>
+                        {isInlineFormula(step.value) ? (
+                          <>
+                            <Field label="Formula">
+                              <input
+                                value={step.value.text}
+                                onChange={(event) =>
+                                  onChange(
+                                    updateCalculateValueActionStep(values, step.step_id, {
+                                      formulaText: event.target.value
+                                    })
+                                  )
+                                }
+                                placeholder="e.g. 1d8 + 2"
+                              />
+                            </Field>
+                            <VariableSearchPicker
+                              metadata={metadata}
+                              mode="formula"
+                              label="Insert Calculation Variable"
+                              onPick={(entry) => {
+                                if (!isInlineFormula(step.value)) {
+                                  return;
+                                }
+                                onChange(
+                                  updateCalculateValueActionStep(values, step.step_id, {
+                                    formulaText: appendFormulaToken(step.value.text, entry.token),
+                                    aliases: upsertFormulaAlias(
+                                      step.value.aliases ?? null,
+                                      entry.alias
+                                    )
+                                  })
+                                );
+                              }}
+                            />
+                            {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
+                            <FormulaTagEditor
+                              label="Calculation Formula Tags"
+                              tags={step.value.tags ?? []}
+                              onChange={(tags) =>
+                                onChange(
+                                  updateCalculateValueActionStep(values, step.step_id, { tags })
+                                )
+                              }
+                            />
+                          </>
+                        ) : (
+                          <p className="muted">
+                            Uses global formula {step.value.formula_id} by ID.
+                          </p>
                         )}
-                        {proficiencies.map((proficiency) => (
-                          <option key={proficiency.id} value={proficiency.id}>
-                            {proficiency.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    {formulaSourcePicker(step.step_id, step.amount, {
-                      allowCalculated: true,
-                      label: "Amount Source"
-                    })}
-                  </div>
-                  {isInlineFormula(step.amount) ? (
-                    <>
-                      <Field label="Use Amount Formula">
-                        <input
-                          value={step.amount.text}
-                          onChange={(event) =>
-                            onChange(
-                              updateGainProficiencyUseActionStep(values, step.step_id, {
-                                amountText: event.target.value
-                              })
-                            )
-                          }
-                          placeholder="e.g. 1"
-                        />
-                      </Field>
-                      <VariablePathBrowser
+                      </div>
+                    ) : step.type === "send_message" ? (
+                      <div className="list-item list-item--block" key={step.step_id}>
+                        {formulaSourcePicker(step.step_id, step.message, {
+                          label: `Message Source: ${step.step_id}`
+                        })}
+                        {isInlineFormula(step.message) ? (
+                          <>
+                            <Field label="Message Formula">
+                              <textarea
+                                rows={3}
+                                value={step.message.text}
+                                onChange={(event) =>
+                                  onChange(
+                                    updateSendMessageActionStepText(
+                                      values,
+                                      step.step_id,
+                                      event.target.value
+                                    )
+                                  )
+                                }
+                                placeholder="/em describes the action."
+                              />
+                            </Field>
+                            <VariableSearchPicker
+                              metadata={metadata}
+                              mode="formula"
+                              label="Insert Message Variable"
+                              onPick={(entry) => insertIntoMessageStep(step.step_id, entry)}
+                            />
+                            {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
+                            <FormulaTagEditor
+                              label="Message Formula Tags"
+                              tags={step.message.tags ?? []}
+                              onChange={(tags) =>
+                                onChange(
+                                  updateSendMessageActionStepFormula(values, step.step_id, { tags })
+                                )
+                              }
+                            />
+                          </>
+                        ) : (
+                          <p className="muted">
+                            Uses global formula {step.message.formula_id} by ID.
+                          </p>
+                        )}
+                      </div>
+                    ) : step.type === "set_value" ||
+                      step.type === "increment_value" ||
+                      step.type === "decrement_value" ? (
+                      <ActionBoundedMutationStepEditor
+                        key={step.step_id}
+                        step={step}
+                        values={values}
+                        onChange={onChange}
                         metadata={metadata}
-                        mode="formula"
-                        title="Use Amount Variables"
-                        onPick={(entry) => insertIntoProficiencyStep(step.step_id, entry)}
+                        mutationTargets={mutationTargets}
+                        formulas={formulas}
                       />
-                      {calculatedValuePicker(step.step_id, "Earlier Calculated Value in Formula")}
-                      <FormulaTagEditor
-                        label="Proficiency Formula Tags"
-                        tags={step.amount.tags ?? []}
-                        onChange={(tags) =>
-                          onChange(
-                            updateGainProficiencyUseActionStepFormula(values, step.step_id, {
-                              tags
-                            })
-                          )
-                        }
+                    ) : step.type === "resolve_damage" ? (
+                      <div className="list-item list-item--block" key={step.step_id}>
+                        <div className="inline-group">
+                          <Field label={`Damage Type: ${step.step_id}`}>
+                            <select
+                              value={step.damage_type}
+                              onChange={(event) =>
+                                onChange(
+                                  updateResolveDamageActionStep(values, step.step_id, {
+                                    damageType: event.target.value as DamageType
+                                  })
+                                )
+                              }
+                            >
+                              {DAMAGE_TYPES.map((damageType) => (
+                                <option key={damageType} value={damageType}>
+                                  {damageType}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          {formulaSourcePicker(step.step_id, step.amount, {
+                            allowCalculated: true,
+                            label: "Amount Source"
+                          })}
+                        </div>
+                        {isInlineFormula(step.amount) ? (
+                          <>
+                            <Field label="Amount Formula">
+                              <input
+                                value={step.amount.text}
+                                onChange={(event) =>
+                                  onChange(
+                                    updateResolveDamageActionStep(values, step.step_id, {
+                                      amountText: event.target.value
+                                    })
+                                  )
+                                }
+                                placeholder="e.g. @strength * 2"
+                              />
+                            </Field>
+                            <VariableSearchPicker
+                              metadata={metadata}
+                              mode="formula"
+                              label="Insert Damage Variable"
+                              onPick={(entry) => insertIntoDamageStep(step.step_id, entry)}
+                            />
+                            {calculatedValuePicker(
+                              step.step_id,
+                              "Earlier Calculated Value in Formula"
+                            )}
+                            <FormulaTagEditor
+                              label="Damage Formula Tags"
+                              tags={step.amount.tags ?? []}
+                              onChange={(tags) =>
+                                onChange(
+                                  updateResolveDamageActionStepFormula(values, step.step_id, {
+                                    tags
+                                  })
+                                )
+                              }
+                            />
+                          </>
+                        ) : isFormulaReference(step.amount) ? (
+                          <p className="muted">
+                            Uses global formula {step.amount.formula_id} by ID.
+                          </p>
+                        ) : (
+                          <p className="muted">
+                            Reuses {step.amount.variable_id} directly without reevaluating its
+                            formula.
+                          </p>
+                        )}
+                      </div>
+                    ) : step.type === "gain_proficiency_use" ? (
+                      <div className="list-item list-item--block" key={step.step_id}>
+                        <div className="inline-group">
+                          <Field label={`Proficiency: ${step.step_id}`}>
+                            <select
+                              value={step.proficiency_id}
+                              onChange={(event) =>
+                                onChange(
+                                  updateGainProficiencyUseActionStep(values, step.step_id, {
+                                    proficiencyId: event.target.value
+                                  })
+                                )
+                              }
+                            >
+                              {proficiencies.some(
+                                (proficiency) => proficiency.id === step.proficiency_id
+                              ) ? null : (
+                                <option value={step.proficiency_id}>{step.proficiency_id}</option>
+                              )}
+                              {proficiencies.map((proficiency) => (
+                                <option key={proficiency.id} value={proficiency.id}>
+                                  {proficiency.name}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          {formulaSourcePicker(step.step_id, step.amount, {
+                            allowCalculated: true,
+                            label: "Amount Source"
+                          })}
+                        </div>
+                        {isInlineFormula(step.amount) ? (
+                          <>
+                            <Field label="Use Amount Formula">
+                              <input
+                                value={step.amount.text}
+                                onChange={(event) =>
+                                  onChange(
+                                    updateGainProficiencyUseActionStep(values, step.step_id, {
+                                      amountText: event.target.value
+                                    })
+                                  )
+                                }
+                                placeholder="e.g. 1"
+                              />
+                            </Field>
+                            <VariableSearchPicker
+                              metadata={metadata}
+                              mode="formula"
+                              label="Insert Proficiency Variable"
+                              onPick={(entry) => insertIntoProficiencyStep(step.step_id, entry)}
+                            />
+                            {calculatedValuePicker(
+                              step.step_id,
+                              "Earlier Calculated Value in Formula"
+                            )}
+                            <FormulaTagEditor
+                              label="Proficiency Formula Tags"
+                              tags={step.amount.tags ?? []}
+                              onChange={(tags) =>
+                                onChange(
+                                  updateGainProficiencyUseActionStepFormula(values, step.step_id, {
+                                    tags
+                                  })
+                                )
+                              }
+                            />
+                          </>
+                        ) : isFormulaReference(step.amount) ? (
+                          <p className="muted">
+                            Uses global formula {step.amount.formula_id} by ID.
+                          </p>
+                        ) : (
+                          <p className="muted">
+                            Reuses {step.amount.variable_id} directly without reevaluating its
+                            formula.
+                          </p>
+                        )}
+                      </div>
+                    ) : step.type === "apply_augmentation" ||
+                      step.type === "apply_condition_preset" ? (
+                      <ActionRecordStepEditor
+                        key={step.step_id}
+                        step={step}
+                        values={values}
+                        onChange={onChange}
+                        standaloneEffects={standaloneEffects}
+                        conditions={conditions}
                       />
-                    </>
-                  ) : isFormulaReference(step.amount) ? (
-                    <p className="muted">Uses global formula {step.amount.formula_id} by ID.</p>
-                  ) : (
-                    <p className="muted">
-                      Reuses {step.amount.variable_id} directly without reevaluating its formula.
-                    </p>
-                  )}
-                  <div className="inline-actions">
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveGainProficiencyUseActionStep(values, step.step_id, "up"))
-                      }
-                    >
-                      Up
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(moveGainProficiencyUseActionStep(values, step.step_id, "down"))
-                      }
-                    >
-                      Down
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() =>
-                        onChange(removeGainProficiencyUseActionStep(values, step.step_id))
-                      }
-                    >
-                      Delete
-                    </button>
+                    ) : null}
                   </div>
-                </div>
-              ) : step.type === "apply_augmentation" || step.type === "apply_condition_preset" ? (
-                <ActionRecordStepEditor
-                  key={step.step_id}
-                  step={step}
-                  values={values}
-                  onChange={onChange}
-                  augmentations={augmentations}
-                  conditions={conditions}
-                />
-              ) : null
-            )}
+                ) : null}
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
 
+        {!actionNameIsValid ? (
+          <p className="error-text" role="alert">
+            Name is required.
+          </p>
+        ) : null}
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit}>
+          <button className="button" onClick={onSubmit} disabled={!actionNameIsValid}>
             {editingActionId ? "Save Action" : "Create Action"}
           </button>
           {editingActionId ? (

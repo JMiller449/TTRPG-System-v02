@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  GM_TOOLBAR_NAV_ITEMS,
-  orderedEncounterPresets
-} from "@/features/console/gmConsoleToolbar";
+import { GM_TOOLBAR_NAV_ITEMS, orderedEncounterPresets } from "@/features/console/gmConsoleToolbar";
 
 describe("gmConsoleToolbar", () => {
   it("defines one unique option for every GM page", () => {
@@ -20,6 +17,7 @@ describe("gmConsoleToolbar", () => {
       "formula_authoring",
       "proficiency_authoring",
       "condition_authoring",
+      "effect_authoring",
       "action_authoring",
       "state_backup"
     ]);

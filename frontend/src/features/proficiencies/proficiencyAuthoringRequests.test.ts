@@ -15,6 +15,7 @@ function testProficiency(
     id: "longsword",
     name: "Longsword",
     description: "Tracks approved longsword use.",
+    category: "custom",
     ...overrides
   };
 }
@@ -40,6 +41,7 @@ describe("proficiencyAuthoringRequests", () => {
     values.id = " longsword ";
     values.name = " Longsword ";
     values.description = " Tracks approved longsword use. ";
+    values.category = "weapon_family";
 
     expect(buildCreateProficiencySubmission(values)).toEqual({
       request: {
@@ -47,7 +49,8 @@ describe("proficiencyAuthoringRequests", () => {
         proficiency: {
           id: "longsword",
           name: "Longsword",
-          description: "Tracks approved longsword use."
+          description: "Tracks approved longsword use.",
+          category: "weapon_family"
         }
       },
       label: "Create proficiency: Longsword"
@@ -75,7 +78,8 @@ describe("proficiencyAuthoringRequests", () => {
         proficiency: {
           id: "longsword",
           name: "Longsword Mastery",
-          description: "Updated."
+          description: "Updated.",
+          category: "custom"
         }
       },
       label: "Update proficiency: Longsword Mastery"

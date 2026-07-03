@@ -109,7 +109,8 @@ const testItem: ItemDefinitionPayload = {
 const testProficiency: ProficiencyDefinitionPayload = {
   id: "longsword",
   name: "Longsword",
-  description: "Tracks approved longsword use."
+  description: "Tracks approved longsword use.",
+  category: "weapon_family"
 };
 
 const testAugmentation: AugmentationPayload = {

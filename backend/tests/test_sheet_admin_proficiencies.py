@@ -29,11 +29,13 @@ def _reset_state() -> None:
 def _proficiency_payload(
     proficiency_id: str = "longsword",
     name: str = "Longsword",
+    category: str = "custom",
 ) -> dict:
     return {
         "id": proficiency_id,
         "name": name,
         "description": "Tracks approved longsword use.",
+        "category": category,
     }
 
 
@@ -92,6 +94,7 @@ def test_dm_can_update_proficiency(monkeypatch) -> None:
             )
 
             assert state.proficiencies["longsword"].name == "Longsword Mastery"
+            assert state.proficiencies["longsword"].category == "custom"
             assert websocket.sent_messages[0]["ops"][0] == {
                 "op": "set",
                 "path": "/proficiencies/longsword",

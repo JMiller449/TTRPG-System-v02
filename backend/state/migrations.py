@@ -7,7 +7,7 @@ from typing import Any
 
 from backend.state.default_actions import seeded_global_action_payloads
 
-CURRENT_STATE_SCHEMA_VERSION = 12
+CURRENT_STATE_SCHEMA_VERSION = 13
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -827,6 +827,64 @@ def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 12, "state": state}
 
 
+def _seeded_weapon_family_proficiency_payloads() -> dict[str, dict[str, Any]]:
+    names = {
+        "long_swords": "Long Swords",
+        "short_swords": "Short Swords",
+        "spears": "Spears",
+        "shields": "Shields",
+        "pugilists": "Pugilists",
+        "staffs": "Staffs",
+        "bows": "Bows",
+        "throwing": "Throwing",
+        "knives": "Knives",
+        "axes": "Axes",
+    }
+    descriptions = {
+        "long_swords": "Weapon-family proficiency for long sword use.",
+        "short_swords": "Weapon-family proficiency for short sword use.",
+        "spears": "Weapon-family proficiency for spear use.",
+        "shields": "Weapon-family proficiency for shield use.",
+        "pugilists": "Weapon-family proficiency for unarmed and pugilist use.",
+        "staffs": "Weapon-family proficiency for staff use.",
+        "bows": "Weapon-family proficiency for bow use.",
+        "throwing": "Weapon-family proficiency for thrown weapon use.",
+        "knives": "Weapon-family proficiency for knife use.",
+        "axes": "Weapon-family proficiency for axe use.",
+    }
+    return {
+        proficiency_id: {
+            "id": proficiency_id,
+            "name": names[proficiency_id],
+            "description": descriptions[proficiency_id],
+            "category": "weapon_family",
+        }
+        for proficiency_id in names
+    }
+
+
+def _migrate_v12_to_v13(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    proficiencies = state.setdefault("proficiencies", {})
+    if not isinstance(proficiencies, dict):
+        proficiencies = {}
+        state["proficiencies"] = proficiencies
+
+    seeded = _seeded_weapon_family_proficiency_payloads()
+    for proficiency_id, proficiency in list(proficiencies.items()):
+        if not isinstance(proficiency, dict):
+            continue
+        proficiency.setdefault(
+            "category",
+            "weapon_family" if proficiency_id in seeded else "custom",
+        )
+
+    for proficiency_id, proficiency in seeded.items():
+        proficiencies.setdefault(proficiency_id, proficiency)
+
+    return {"schema_version": 13, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -840,6 +898,7 @@ MIGRATIONS: dict[int, Migration] = {
     9: _migrate_v9_to_v10,
     10: _migrate_v10_to_v11,
     11: _migrate_v11_to_v12,
+    12: _migrate_v12_to_v13,
 }
 
 

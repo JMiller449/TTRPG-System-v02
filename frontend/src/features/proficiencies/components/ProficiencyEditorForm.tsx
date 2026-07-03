@@ -36,6 +36,20 @@ export function ProficiencyEditorForm({
               placeholder="e.g. Longsword"
             />
           </Field>
+          <Field label="Category">
+            <select
+              value={values.category}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  category: event.target.value as ProficiencyEditorValues["category"]
+                })
+              }
+            >
+              <option value="custom">Custom</option>
+              <option value="weapon_family">Weapon Family</option>
+            </select>
+          </Field>
         </div>
 
         <Field label="Description">

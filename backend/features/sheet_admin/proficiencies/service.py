@@ -16,6 +16,7 @@ def _build_proficiency(payload: ProficiencyDefinitionPayload) -> Proficiency:
         id=payload.id,
         name=payload.name,
         description=payload.description,
+        category=payload.category,
     )
 
 

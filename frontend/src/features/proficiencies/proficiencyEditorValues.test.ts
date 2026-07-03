@@ -15,6 +15,7 @@ function testProficiency(
     id: "longsword",
     name: "Longsword",
     description: "Tracks approved longsword use.",
+    category: "custom",
     ...overrides
   };
 }
@@ -24,7 +25,8 @@ describe("proficiencyEditorValues", () => {
     expect(createEmptyProficiencyEditorValues()).toEqual({
       id: "",
       name: "",
-      description: ""
+      description: "",
+      category: "custom"
     });
   });
 
@@ -32,7 +34,8 @@ describe("proficiencyEditorValues", () => {
     expect(toProficiencyEditorValues(testProficiency())).toEqual({
       id: "longsword",
       name: "Longsword",
-      description: "Tracks approved longsword use."
+      description: "Tracks approved longsword use.",
+      category: "custom"
     });
   });
 
@@ -41,11 +44,26 @@ describe("proficiencyEditorValues", () => {
       hasValidProficiencyEditorValues({
         id: " longsword ",
         name: " Longsword ",
-        description: ""
+        description: "",
+        category: "weapon_family"
       })
     ).toBe(true);
-    expect(hasValidProficiencyEditorValues({ id: "", name: "Longsword", description: "" })).toBe(false);
-    expect(hasValidProficiencyEditorValues({ id: "longsword", name: "", description: "" })).toBe(false);
+    expect(
+      hasValidProficiencyEditorValues({
+        id: "",
+        name: "Longsword",
+        description: "",
+        category: "custom"
+      })
+    ).toBe(false);
+    expect(
+      hasValidProficiencyEditorValues({
+        id: "longsword",
+        name: "",
+        description: "",
+        category: "custom"
+      })
+    ).toBe(false);
   });
 
   it("maps editor values to trimmed create payloads", () => {
@@ -53,12 +71,14 @@ describe("proficiencyEditorValues", () => {
       toProficiencyDefinitionPayload({
         id: " longsword ",
         name: " Longsword ",
-        description: " Tracks approved longsword use. "
+        description: " Tracks approved longsword use. ",
+        category: "weapon_family"
       })
     ).toEqual({
       id: "longsword",
       name: "Longsword",
-      description: "Tracks approved longsword use."
+      description: "Tracks approved longsword use.",
+      category: "weapon_family"
     });
   });
 
@@ -67,18 +87,21 @@ describe("proficiencyEditorValues", () => {
       toUpdatedProficiencyDefinitionPayload(testProficiency(), {
         id: "ignored",
         name: " Longsword Mastery ",
-        description: " Updated. "
+        description: " Updated. ",
+        category: "weapon_family"
       })
     ).toEqual({
       id: "longsword",
       name: "Longsword Mastery",
-      description: "Updated."
+      description: "Updated.",
+      category: "weapon_family"
     });
     expect(
       toUpdatedProficiencyDefinitionPayload(undefined, {
         id: "longsword",
         name: "Longsword",
-        description: ""
+        description: "",
+        category: "custom"
       })
     ).toBeNull();
   });

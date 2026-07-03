@@ -1382,7 +1382,8 @@ describe("authoritative server-state sync", () => {
           value: {
             id: "longsword",
             name: "Longsword",
-            description: "Tracks approved longsword use."
+            description: "Tracks approved longsword use.",
+            category: "weapon_family"
           }
         }
       ],
@@ -1394,7 +1395,8 @@ describe("authoritative server-state sync", () => {
     expect(created.state.serverState.proficiencies.longsword).toEqual({
       id: "longsword",
       name: "Longsword",
-      description: "Tracks approved longsword use."
+      description: "Tracks approved longsword use.",
+      category: "weapon_family"
     });
     expect(created.state.serverState.proficiencyOrder).toEqual(["longsword"]);
 

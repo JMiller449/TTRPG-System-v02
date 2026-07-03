@@ -71,6 +71,27 @@ def test_dump_writes_versioned_checkpoint_and_round_trips_state(isolate_state) -
     assert loaded.actions["attack"].name == "Attack"
 
 
+def test_fresh_state_seeds_weapon_family_proficiencies(isolate_state) -> None:
+    StateSingleton._state = None
+
+    loaded = StateSingleton.initializeState()
+
+    assert {
+        "long_swords",
+        "short_swords",
+        "spears",
+        "shields",
+        "pugilists",
+        "staffs",
+        "bows",
+        "throwing",
+        "knives",
+        "axes",
+    }.issubset(loaded.proficiencies)
+    assert loaded.proficiencies["long_swords"].name == "Long Swords"
+    assert loaded.proficiencies["long_swords"].category == "weapon_family"
+
+
 def test_initialize_migrates_legacy_unversioned_state(isolate_state) -> None:
     state_path = isolate_state
     state_path.write_text(
@@ -419,6 +440,39 @@ def test_v11_migration_adds_backend_owned_optional_item_facts() -> None:
     )
 
 
+def test_v12_migration_adds_proficiency_categories_and_weapon_families() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 12,
+            "state": {
+                "proficiencies": {
+                    "custom_skill": {
+                        "id": "custom_skill",
+                        "name": "Custom Skill",
+                        "description": "Kept.",
+                    },
+                    "long_swords": {
+                        "id": "long_swords",
+                        "name": "Renamed Long Blades",
+                        "description": "GM edit preserved.",
+                    },
+                }
+            },
+        }
+    )
+
+    proficiencies = migrated.state["proficiencies"]
+    assert proficiencies["custom_skill"]["category"] == "custom"
+    assert proficiencies["long_swords"] == {
+        "id": "long_swords",
+        "name": "Renamed Long Blades",
+        "description": "GM edit preserved.",
+        "category": "weapon_family",
+    }
+    assert proficiencies["axes"]["name"] == "Axes"
+    assert proficiencies["axes"]["category"] == "weapon_family"
+
+
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
     isolate_state: Path,
 ) -> None:
@@ -545,8 +599,10 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert legacy.migrated is True
     required_fact = legacy.state.pop("facts")
     seeded_actions = legacy.state.pop("actions")
+    seeded_proficiencies = legacy.state.pop("proficiencies")
     assert required_fact["amount_of_reactions"]["required"] is True
     assert seeded_actions == seeded_global_action_payloads()
+    assert seeded_proficiencies["long_swords"]["category"] == "weapon_family"
     assert legacy.state == {
         "sheets": {},
         "items": {},

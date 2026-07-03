@@ -398,6 +398,7 @@ export interface ProficiencyDefinition {
   id: string;
   name: string;
   description: string;
+  category?: "custom" | "weapon_family";
 }
 
 export interface SheetSlayedBridge {

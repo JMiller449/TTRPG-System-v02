@@ -5,12 +5,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from backend.core.transport import RequestModel
+from backend.state.models.proficiency import ProficiencyCategory
 
 
 class ProficiencyDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     description: str = ""
+    category: ProficiencyCategory = "custom"
 
 
 class CreateProficiency(RequestModel):

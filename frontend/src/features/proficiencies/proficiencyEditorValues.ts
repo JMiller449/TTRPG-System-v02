@@ -5,13 +5,15 @@ export interface ProficiencyEditorValues {
   id: string;
   name: string;
   description: string;
+  category: "custom" | "weapon_family";
 }
 
 export function createEmptyProficiencyEditorValues(): ProficiencyEditorValues {
   return {
     id: "",
     name: "",
-    description: ""
+    description: "",
+    category: "custom"
   };
 }
 
@@ -21,7 +23,8 @@ export function toProficiencyEditorValues(
   return {
     id: proficiency.id,
     name: proficiency.name,
-    description: proficiency.description
+    description: proficiency.description,
+    category: proficiency.category ?? "custom"
   };
 }
 
@@ -38,7 +41,8 @@ export function toProficiencyDefinitionPayload(
   return {
     id: proficiencyId.trim(),
     name: values.name.trim(),
-    description: values.description.trim()
+    description: values.description.trim(),
+    category: values.category
   };
 }
 

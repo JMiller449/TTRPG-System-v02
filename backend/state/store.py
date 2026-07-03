@@ -14,6 +14,7 @@ from backend.state.migrations import (
     migrate_persisted_state,
 )
 from backend.state.models.state import State
+from backend.state.models.proficiency import seeded_weapon_family_proficiencies
 from backend.state.default_actions import seeded_global_actions
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,10 @@ DEFAULT_STATE = State()
 
 
 def _fresh_state() -> State:
-    return State(actions=seeded_global_actions())
+    return State(
+        actions=seeded_global_actions(),
+        proficiencies=seeded_weapon_family_proficiencies(),
+    )
 
 
 def _backup_path(path: Path) -> Path:

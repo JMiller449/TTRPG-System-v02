@@ -104,6 +104,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientNamespace": "proficiencies"' in output
     assert '"clientMethodName": "deleteProficiency"' in output
     assert "export type ProficiencyDefinitionPayload = {" in output
+    assert '"category"?: "custom" | "weapon_family";' in output
     assert '"type": "create_sheet"' in output
     assert '"clientNamespace": "sheetAdminSheets"' in output
     assert '"type": "create_instanced_sheet"' in output

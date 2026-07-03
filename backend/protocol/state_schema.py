@@ -293,6 +293,7 @@ class ProficiencyPayload(ProtocolModel):
     id: str
     name: str
     description: str
+    category: Literal["custom", "weapon_family"] = "custom"
 
 
 class AugmentationSourcePayload(ProtocolModel):

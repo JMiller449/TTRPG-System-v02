@@ -9,11 +9,16 @@ export function ProficiencyDefinitionCard({
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
+  const categoryLabel =
+    proficiency.category === "weapon_family" ? "Weapon Family" : "Custom";
+
   return (
     <article className="list-item list-item--block proficiency-definition-card">
       <div className="list-item__top">
         <strong>{proficiency.name}</strong>
-        <span className="muted">{proficiency.id}</span>
+        <span className="muted">
+          {proficiency.id} · {categoryLabel}
+        </span>
       </div>
       <div className="muted">{proficiency.description || "(no description)"}</div>
       <div className="inline-actions">

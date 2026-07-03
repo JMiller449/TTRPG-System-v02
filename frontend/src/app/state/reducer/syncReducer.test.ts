@@ -681,6 +681,111 @@ describe("authoritative server-state sync", () => {
     expect(deleted.state.serverState.actionOrder).toEqual([]);
   });
 
+  it("reconciles Fact definitions and sheet, item, and action Fact bridges", () => {
+    const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: { ...sheet(), facts: {} }
+        },
+        instanced_sheets: {},
+        items: {
+          item_1: {
+            id: "item_1",
+            name: "Focus Ring",
+            interaction_type: "equippable",
+            description: "Improves mana.",
+            price: "120g",
+            weight: "1",
+            augmentation_templates: [],
+            facts: {}
+          }
+        },
+        actions: {
+          action_1: {
+            id: "action_1",
+            name: "Mana Burst",
+            notes: "Burn mana.",
+            steps: [],
+            facts: {}
+          }
+        },
+        formulas: {},
+        facts: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    const factDefinition = {
+      id: "rank_label",
+      name: "Rank Label",
+      subject_types: ["sheet", "item", "action"],
+      value_type: "text",
+      default_value: { type: "text", value: "F" },
+      visibility: "public"
+    };
+    const factBridge = (relationshipId: string, value: string) => ({
+      relationship_id: relationshipId,
+      fact_id: "rank_label",
+      value: { type: "text", value },
+      evaluated_value: value,
+      evaluation_error: null
+    });
+
+    const attached = applyAuthoritativeEvent(initial.state, initial.protocolState, {
+      response_id: null,
+      ops: [
+        { op: "set", path: "/facts/rank_label", value: factDefinition },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/facts/rank_label",
+          value: factBridge("sheet-rank", "C")
+        },
+        {
+          op: "set",
+          path: "/items/item_1/facts/rank_label",
+          value: factBridge("item-rank", "D")
+        },
+        {
+          op: "set",
+          path: "/actions/action_1/facts/rank_label",
+          value: factBridge("action-rank", "A")
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-attach-facts"
+    });
+
+    expect(attached.state.serverState.factOrder).toEqual(["rank_label"]);
+    expect(attached.state.serverState.sheets.sheet_1?.facts?.rank_label.evaluated_value).toBe("C");
+    expect(attached.state.serverState.items.item_1?.facts?.rank_label.evaluated_value).toBe("D");
+    expect(attached.state.serverState.actions.action_1?.facts?.rank_label.evaluated_value).toBe(
+      "A"
+    );
+
+    const detached = applyAuthoritativeEvent(attached.state, attached.protocolState, {
+      response_id: null,
+      ops: [
+        { op: "remove", path: "/sheets/sheet_1/facts/rank_label" },
+        { op: "remove", path: "/items/item_1/facts/rank_label" },
+        { op: "remove", path: "/actions/action_1/facts/rank_label" },
+        { op: "remove", path: "/facts/rank_label" }
+      ],
+      state_version: 2,
+      type: "state_patch",
+      request_id: "req-detach-facts"
+    });
+
+    expect(detached.state.serverState.factOrder).toEqual([]);
+    expect(detached.state.serverState.sheets.sheet_1?.facts?.rank_label).toBeUndefined();
+    expect(detached.state.serverState.items.item_1?.facts?.rank_label).toBeUndefined();
+    expect(detached.state.serverState.actions.action_1?.facts?.rank_label).toBeUndefined();
+  });
+
   it("accepts a forced resync snapshot as the new authoritative source of truth", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,

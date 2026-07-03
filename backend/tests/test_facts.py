@@ -99,6 +99,27 @@ def test_required_amount_of_reactions_is_seeded_and_evaluated() -> None:
     assert bridge.evaluation_error is None
 
 
+def test_canonical_optional_sheet_fact_definitions_are_seeded() -> None:
+    state = deepcopy(DEFAULT_STATE)
+    sheet = _sheet()
+    synchronize_required_sheet_facts(sheet)
+
+    expected = {
+        "level": (1, ""),
+        "movement": (30, "feet"),
+        "mana_regeneration": (10, "% max mana per hour"),
+    }
+    for fact_id, (default_value, unit) in expected.items():
+        definition = state.facts[fact_id]
+        assert definition.subject_types == ["sheet"]
+        assert definition.value_type == "number"
+        assert definition.default_value.value == default_value
+        assert definition.unit == unit
+        assert definition.required is False
+        assert definition.backend_owned is True
+        assert fact_id not in sheet.facts
+
+
 def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -234,13 +255,13 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
                 {
                     "type": "create_fact",
                     "fact": {
-                        "id": "level",
-                        "name": "Level",
-                        "description": "Current character level.",
+                        "id": "renown",
+                        "name": "Renown",
+                        "description": "Current character renown.",
                         "subject_types": ["sheet"],
                         "value_type": "number",
                         "default_value": {"type": "number", "value": 1},
-                        "unit": "levels",
+                        "unit": "points",
                         "visibility": "public",
                         "required": False,
                     },
@@ -251,11 +272,11 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
                 {
                     "type": "attach_sheet_fact",
                     "sheet_id": "mage",
-                    "relationship_id": "mage-level",
-                    "fact_id": "level",
+                    "relationship_id": "mage-renown",
+                    "fact_id": "renown",
                 },
             )
-            bridge = StateSingleton.getState().sheets["mage"].facts["level"]
+            bridge = StateSingleton.getState().sheets["mage"].facts["renown"]
             assert bridge.evaluated_value == 1
 
             await handle_client_payload(
@@ -263,12 +284,12 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
                 {
                     "type": "set_sheet_fact_value",
                     "sheet_id": "mage",
-                    "fact_id": "level",
+                    "fact_id": "renown",
                     "value": {"type": "number", "value": 3},
                 },
             )
             assert StateSingleton.getState().sheets["mage"].facts[
-                "level"
+                "renown"
             ].evaluated_value == 3
 
             await handle_client_payload(
@@ -276,15 +297,15 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
                 {
                     "type": "detach_sheet_fact",
                     "sheet_id": "mage",
-                    "fact_id": "level",
+                    "fact_id": "renown",
                 },
             )
             await handle_client_payload(
                 websocket,
-                {"type": "delete_fact", "fact_id": "level"},
+                {"type": "delete_fact", "fact_id": "renown"},
             )
-            assert "level" not in StateSingleton.getState().facts
-            assert "level" not in StateSingleton.getState().sheets["mage"].facts
+            assert "renown" not in StateSingleton.getState().facts
+            assert "renown" not in StateSingleton.getState().sheets["mage"].facts
         finally:
             StateSingleton._state = original_state
 
@@ -302,16 +323,16 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
             await websocket_sessions.connect(websocket, role="dm")
 
             for fact_id, default_value in (
-                ("level", {"type": "number", "value": 1}),
+                ("power", {"type": "number", "value": 1}),
                 (
-                    "next_level",
+                    "next_power",
                     {
                         "type": "formula",
                         "formula": {
                             "aliases": [
-                                {"name": "level", "path": ["facts", "level"]}
+                                {"name": "power", "path": ["facts", "power"]}
                             ],
-                            "text": "@level + 1",
+                            "text": "@power + 1",
                         },
                     },
                 ),
@@ -344,12 +365,12 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                 {
                     "type": "set_sheet_fact_value",
                     "sheet_id": "mage",
-                    "fact_id": "level",
+                    "fact_id": "power",
                     "value": {"type": "number", "value": 4},
                 },
             )
             assert StateSingleton.getState().sheets["mage"].facts[
-                "next_level"
+                "next_power"
             ].evaluated_value == 5
 
             await handle_client_payload(
@@ -357,22 +378,22 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                 {
                     "type": "set_sheet_fact_value",
                     "sheet_id": "mage",
-                    "fact_id": "level",
+                    "fact_id": "power",
                     "value": {
                         "type": "formula",
                         "formula": {
                             "aliases": [
                                 {
-                                    "name": "next_level",
-                                    "path": ["facts", "next_level"],
+                                    "name": "next_power",
+                                    "path": ["facts", "next_power"],
                                 }
                             ],
-                            "text": "@next_level",
+                            "text": "@next_power",
                         },
                     },
                 },
             )
-            bridge = StateSingleton.getState().sheets["mage"].facts["level"]
+            bridge = StateSingleton.getState().sheets["mage"].facts["power"]
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "cycle detected" in websocket.sent_messages[-1]["reason"]
             assert bridge.value.type == "number"
@@ -469,8 +490,8 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             definition = {
-                "id": "level",
-                "name": "Level",
+                "id": "custom_level",
+                "name": "Custom Level",
                 "subject_types": ["sheet"],
                 "value_type": "number",
                 "default_value": {"type": "number", "value": 1},
@@ -483,16 +504,19 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
                 websocket,
                 {
                     "type": "update_fact",
-                    "fact_id": "level",
+                    "fact_id": "custom_level",
                     "fact": {
                         **definition,
                         "default_value": {
                             "type": "formula",
                             "formula": {
                                 "aliases": [
-                                    {"name": "level", "path": ["facts", "level"]}
+                                    {
+                                        "name": "custom_level",
+                                        "path": ["facts", "custom_level"],
+                                    }
                                 ],
-                                "text": "@level + 1",
+                                "text": "@custom_level + 1",
                             },
                         },
                     },
@@ -501,7 +525,10 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
 
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "cannot reference itself" in websocket.sent_messages[-1]["reason"]
-            assert StateSingleton.getState().facts["level"].default_value.value == 1
+            assert (
+                StateSingleton.getState().facts["custom_level"].default_value.value
+                == 1
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -629,6 +656,39 @@ def test_item_and_action_subject_facts_persist_and_evaluate(monkeypatch) -> None
                 },
             )
             assert state.actions["parry"].facts["rank"].evaluated_value == "B"
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "reset_subject_fact_value",
+                    "subject_type": "action",
+                    "subject_id": "parry",
+                    "fact_id": "rank",
+                },
+            )
+            assert state.actions["parry"].facts["rank"].evaluated_value == "F"
+
+            for subject_type, subject_id in (
+                ("item", "sword"),
+                ("action", "parry"),
+            ):
+                await handle_client_payload(
+                    websocket,
+                    {
+                        "type": "detach_subject_fact",
+                        "subject_type": subject_type,
+                        "subject_id": subject_id,
+                        "fact_id": "rank",
+                    },
+                )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_fact", "fact_id": "rank"},
+            )
+            assert "rank" not in state.facts
+            assert "rank" not in state.items["sword"].facts
+            assert "rank" not in state.actions["parry"].facts
         finally:
             StateSingleton._state = original_state
 

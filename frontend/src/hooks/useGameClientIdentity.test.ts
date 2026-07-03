@@ -40,10 +40,12 @@ describe("useGameClient identity", () => {
   it("keeps one facade across store-driven rerenders", () => {
     hookRuntime.beginRender();
     const first = useGameClient();
+    const firstSendProtocolRequest = first.sendProtocolRequest;
 
     hookRuntime.beginRender();
     const second = useGameClient();
 
     expect(second).toBe(first);
+    expect(second.sendProtocolRequest).not.toBe(firstSendProtocolRequest);
   });
 });

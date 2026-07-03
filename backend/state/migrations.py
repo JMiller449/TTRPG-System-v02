@@ -7,7 +7,7 @@ from typing import Any
 
 from backend.state.default_actions import seeded_global_action_payloads
 
-CURRENT_STATE_SCHEMA_VERSION = 10
+CURRENT_STATE_SCHEMA_VERSION = 11
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -677,6 +677,72 @@ def _migrate_v9_to_v10(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 10, "state": state}
 
 
+def _sheet_fact_definition(
+    fact_id: str,
+    name: str,
+    default_value: int,
+    *,
+    description: str,
+    unit: str = "",
+) -> dict[str, Any]:
+    return {
+        "id": fact_id,
+        "name": name,
+        "description": description,
+        "subject_types": ["sheet"],
+        "value_type": "number",
+        "default_value": _literal_fact_value("number", default_value),
+        "unit": unit,
+        "visibility": "public",
+        "validation_options": [],
+        "reference_kind": None,
+        "required": False,
+        "required_profile": None,
+        "backend_owned": True,
+    }
+
+
+def _migrate_v10_to_v11(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    facts = state.setdefault("facts", {})
+    if not isinstance(facts, dict):
+        facts = {}
+        state["facts"] = facts
+
+    definitions = (
+        _sheet_fact_definition(
+            "level",
+            "Level",
+            1,
+            description="Current character or creature level.",
+        ),
+        _sheet_fact_definition(
+            "movement",
+            "Movement",
+            30,
+            description=(
+                "Normal movement allocation for manual Roll20 play; this value is "
+                "not enforced by the app."
+            ),
+            unit="feet",
+        ),
+        _sheet_fact_definition(
+            "mana_regeneration",
+            "Mana Regeneration",
+            10,
+            description=(
+                "Percent of maximum mana regenerated per hour. Time advancement "
+                "and regeneration remain manual."
+            ),
+            unit="% max mana per hour",
+        ),
+    )
+    for definition in definitions:
+        facts[definition["id"]] = definition
+
+    return {"schema_version": 11, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -688,6 +754,7 @@ MIGRATIONS: dict[int, Migration] = {
     7: _migrate_v7_to_v8,
     8: _migrate_v8_to_v9,
     9: _migrate_v9_to_v10,
+    10: _migrate_v10_to_v11,
 }
 
 

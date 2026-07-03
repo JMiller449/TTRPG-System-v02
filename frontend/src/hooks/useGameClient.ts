@@ -18,6 +18,20 @@ interface PendingIntentMetadata {
   label: string;
   requestType: ProtocolApplicationRequest["type"];
   resolvesOnSnapshot: boolean;
+  quiet: boolean;
+}
+
+const QUIET_REQUEST_TYPES = new Set<ProtocolApplicationRequest["type"]>([
+  "get_action_formula_authoring_metadata",
+  "get_augmentation_target_metadata",
+  "get_roll20_bridge_status",
+  "get_sheet_access_codes",
+  "get_variable_registry",
+  "get_xp_tracker"
+]);
+
+export function requestUsesQuietFeedback(request: ProtocolApplicationRequest): boolean {
+  return QUIET_REQUEST_TYPES.has(request.type);
 }
 
 export function requestResolvesOnSnapshot(request: ProtocolApplicationRequest): boolean {
@@ -84,16 +98,18 @@ export function useGameClient(): GameClient {
         return null;
       }
       delete pendingIntentMapRef.current[requestId];
-      dispatch({
-        type: "push_intent_feedback",
-        item: {
-          id: makeId("feedback"),
-          intentId: requestId,
-          status: "success",
-          message: buildIntentSuccessMessage(metadata.label),
-          createdAt: new Date().toISOString()
-        }
-      });
+      if (!metadata.quiet) {
+        dispatch({
+          type: "push_intent_feedback",
+          item: {
+            id: makeId("feedback"),
+            intentId: requestId,
+            status: "success",
+            message: buildIntentSuccessMessage(metadata.label),
+            createdAt: new Date().toISOString()
+          }
+        });
+      }
       dispatch({ type: "clear_intent", intentId: requestId });
       return metadata;
     };
@@ -227,7 +243,8 @@ export function useGameClient(): GameClient {
         pendingIntentMapRef.current[event.requestId] = {
           label: "State resync",
           requestType: "resync_state",
-          resolvesOnSnapshot: true
+          resolvesOnSnapshot: true,
+          quiet: false
         };
         dispatch({ type: "queue_intent", intentId: event.requestId });
         dispatch({
@@ -305,22 +322,26 @@ export function useGameClient(): GameClient {
       ...request,
       request_id: requestId
     } as ProtocolApplicationRequest;
+    const quiet = requestUsesQuietFeedback(requestWithId);
     pendingIntentMapRef.current[requestId] = {
       label,
       requestType: request.type,
-      resolvesOnSnapshot: requestResolvesOnSnapshot(requestWithId)
+      resolvesOnSnapshot: requestResolvesOnSnapshot(requestWithId),
+      quiet
     };
     dispatch({ type: "queue_intent", intentId: requestId });
-    dispatch({
-      type: "push_intent_feedback",
-      item: {
-        id: makeId("feedback"),
-        intentId: requestId,
-        status: "pending",
-        message: `${label} pending...`,
-        createdAt: new Date().toISOString()
-      }
-    });
+    if (!quiet) {
+      dispatch({
+        type: "push_intent_feedback",
+        item: {
+          id: makeId("feedback"),
+          intentId: requestId,
+          status: "pending",
+          message: `${label} pending...`,
+          createdAt: new Date().toISOString()
+        }
+      });
+    }
     client.sendProtocolRequest(requestWithId);
   };
 
@@ -342,6 +363,13 @@ export function useGameClient(): GameClient {
       authenticateWithCode
     };
   }
+
+  facadeRef.current.connect = connect;
+  facadeRef.current.disconnect = disconnect;
+  facadeRef.current.endSession = endSession;
+  facadeRef.current.sendProtocolRequest = sendProtocolRequest;
+  facadeRef.current.authenticate = authenticate;
+  facadeRef.current.authenticateWithCode = authenticateWithCode;
 
   return facadeRef.current;
 }

@@ -112,7 +112,7 @@ export function App(): JSX.Element {
         <ConsolePage role="player" client={client} />
       ) : (
         <div className="app-layout app-layout--gm">
-          <GMConsoleToolbar client={client} />
+          <GMConsoleToolbar />
           <main className="app-main-panel app-main-panel--gm">{gmContent}</main>
         </div>
       )}

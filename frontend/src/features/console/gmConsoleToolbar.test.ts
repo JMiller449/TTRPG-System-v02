@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-  GM_TOOLBAR_NAV_ITEMS,
-  orderedEncounterPresets
-} from "@/features/console/gmConsoleToolbarData";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { initialState } from "@/app/state/initialState";
+import { StoreContext } from "@/app/state/storeContext";
+import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
+import { GM_TOOLBAR_NAV_ITEMS } from "@/features/console/gmConsoleToolbarData";
 
 describe("gmConsoleToolbar", () => {
   it("defines one unique option for every GM page", () => {
@@ -27,25 +29,17 @@ describe("gmConsoleToolbar", () => {
     ]);
   });
 
-  it("orders encounter options by authoritative encounter order and skips stale ids", () => {
-    const encounters = {
-      second: {
-        id: "second",
-        name: "Second Encounter",
-        entries: [],
-        updatedAt: "2026-06-27T00:00:00Z"
-      },
-      first: {
-        id: "first",
-        name: "First Encounter",
-        entries: [],
-        updatedAt: "2026-06-26T00:00:00Z"
-      }
-    };
+  it("keeps active-sheet and encounter controls out of persistent navigation", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        StoreContext.Provider,
+        { value: { state: initialState, dispatch: () => undefined } },
+        createElement(GMConsoleToolbar)
+      )
+    );
 
-    expect(orderedEncounterPresets(encounters, ["first", "missing", "second"])).toEqual([
-      encounters.first,
-      encounters.second
-    ]);
+    expect(markup).not.toContain("Active sheet");
+    expect(markup).not.toContain("Select preset");
+    expect(markup).not.toContain(">Spawn<");
   });
 });

@@ -31,6 +31,9 @@ WEAPON_DAMAGE_TYPES_FACT_ID = "weapon_damage_types"
 WEAPON_REACH_FACT_ID = "weapon_reach"
 WEAPON_PROFICIENCY_FACT_ID = "weapon_proficiency"
 WEAPON_PROFICIENCY_GROWTH_RATE_FACT_ID = "weapon_proficiency_growth_rate"
+LEVEL_FACT_ID = "level"
+MOVEMENT_FACT_ID = "movement"
+MANA_REGENERATION_FACT_ID = "mana_regeneration"
 
 WEAPON_FACT_IDS = (
     WEAPON_TYPE_FACT_ID,
@@ -57,6 +60,12 @@ ACTION_FACT_IDS = (
     ACTION_MANA_COST_FACT_ID,
     ACTION_BASE_SPELL_DAMAGE_FACT_ID,
     ACTION_PROFICIENCY_FACT_ID,
+)
+
+SHEET_FACT_IDS = (
+    LEVEL_FACT_ID,
+    MOVEMENT_FACT_ID,
+    MANA_REGENERATION_FACT_ID,
 )
 
 
@@ -253,6 +262,50 @@ def required_fact_definitions() -> dict[str, FactDefinition]:
     return {definition.id: definition, **weapon_fact_definitions()}
 
 
+def sheet_fact_definitions() -> dict[str, FactDefinition]:
+    shared = {
+        "subject_types": ["sheet"],
+        "visibility": "public",
+        "required": False,
+        "backend_owned": True,
+    }
+    definitions = (
+        FactDefinition(
+            id=LEVEL_FACT_ID,
+            name="Level",
+            description="Current character or creature level.",
+            value_type="number",
+            default_value=FactValue(type="number", value=1),
+            **shared,
+        ),
+        FactDefinition(
+            id=MOVEMENT_FACT_ID,
+            name="Movement",
+            description=(
+                "Normal movement allocation for manual Roll20 play; this value is "
+                "not enforced by the app."
+            ),
+            value_type="number",
+            default_value=FactValue(type="number", value=30),
+            unit="feet",
+            **shared,
+        ),
+        FactDefinition(
+            id=MANA_REGENERATION_FACT_ID,
+            name="Mana Regeneration",
+            description=(
+                "Percent of maximum mana regenerated per hour. Time advancement "
+                "and regeneration remain manual."
+            ),
+            value_type="number",
+            default_value=FactValue(type="number", value=10),
+            unit="% max mana per hour",
+            **shared,
+        ),
+    )
+    return {definition.id: definition for definition in definitions}
+
+
 def action_fact_definitions() -> dict[str, FactDefinition]:
     shared = {
         "subject_types": ["action"],
@@ -345,7 +398,11 @@ def action_fact_definitions() -> dict[str, FactDefinition]:
 
 
 def backend_fact_definitions() -> dict[str, FactDefinition]:
-    return {**required_fact_definitions(), **action_fact_definitions()}
+    return {
+        **required_fact_definitions(),
+        **sheet_fact_definitions(),
+        **action_fact_definitions(),
+    }
 
 
 def default_amount_of_reactions_bridge() -> FactBridge:

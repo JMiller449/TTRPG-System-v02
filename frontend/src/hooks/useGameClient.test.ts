@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildIntentErrorMessage,
   buildIntentSuccessMessage,
-  requestResolvesOnSnapshot
+  requestResolvesOnSnapshot,
+  requestUsesQuietFeedback
 } from "@/hooks/useGameClient";
 
 describe("useGameClient feedback messages", () => {
@@ -68,5 +69,27 @@ describe("useGameClient feedback messages", () => {
         value: 8
       })
     ).toBe(true);
+  });
+
+  it("keeps background reads quiet while mutations and recovery remain visible", () => {
+    expect(
+      requestUsesQuietFeedback({
+        type: "get_action_formula_authoring_metadata"
+      })
+    ).toBe(true);
+    expect(
+      requestUsesQuietFeedback({
+        type: "get_augmentation_target_metadata",
+        context: "condition_template"
+      })
+    ).toBe(true);
+    expect(requestUsesQuietFeedback({ type: "get_xp_tracker" })).toBe(true);
+    expect(
+      requestUsesQuietFeedback({
+        type: "delete_fact",
+        fact_id: "fact-1"
+      })
+    ).toBe(false);
+    expect(requestUsesQuietFeedback({ type: "resync_state" })).toBe(false);
   });
 });

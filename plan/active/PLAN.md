@@ -203,7 +203,7 @@ Known derived/rule values:
 - Mana regeneration: 10 percent per hour
 - Armor class: `Dexterity * 0.5`
 - Action points: Reaction Time threshold table
-- Movement: Dexterity threshold table
+- Movement: backend-owned optional Fact defaulting to 30 feet for manual play; the Dexterity threshold table is not automatically evaluated or enforced by the app
 - Resistance totals: additive by damage type, capped at 100 percent
 - Carry weight: `FLOOR(Strength)`
 - HP max: `Health * Racial HP Multiplier`, with the multiplier authored on the race or creature template approved by the GM
@@ -1091,7 +1091,7 @@ This is the next MVP implementation track and must be completed before work in `
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
 
 ### Active TODO
-- [ ] Add typed Facts for sheets, items, and actions with backend-required defaults.
+- [x] Add typed Facts for sheets, items, and actions with backend-required defaults.
   - [x] Deliver the first end-to-end required sheet-Fact slice with `amount_of_reactions`.
     - Added persisted typed Fact definitions/values and sheet-Fact bridges, schema-v7 initialization/backfill, and backend restoration of the reserved required definition/bridge on load and sheet creation.
     - The backend evaluates `@registration + @reaction_time`, stores the authoritative evaluated value or explicit evaluation error, and refreshes affected Fact projections after sheet-stat mutations, equipment projection changes, imports, and undo.
@@ -1163,9 +1163,11 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
     - Item Maker now loads the existing backend formula authoring metadata and reuses the variable picker for equipment-effect formulas. A case-only GM toolbar helper collision was renamed so the frontend production build remains portable.
     - Verified with 73 focused backend tests, focused frontend Vitest coverage, frontend ESLint, protocol generation, and the production TypeScript/Vite build.
   - [x] Keep `calculate_value` as the execution-local evaluation-once mechanism for dice and current-state calculations. Fact values are persistent authored inputs and must not be used as writable execution scratch space.
-  - [ ] Add checkpoint migration/backfill, backend CRUD/permission/type/evaluation/required-invariant tests, protocol/codegen checks, and frontend authoring/assignment/snapshot/patch/reconciliation tests for sheet, item, and action subjects.
-  - [ ] Keep current reaction counts, turn resets, spending, and combat enforcement out of this track; the `amount_of_reactions` Fact is display-only until combat/turn tracking is implemented.
-  - [ ] Keep range, target count, and area as display/manual Facts unless a specific action step consumes them; do not add targeting or cross-sheet execution.
+  - [x] Add checkpoint migration/backfill, backend CRUD/permission/type/evaluation/required-invariant tests, protocol/codegen checks, and frontend authoring/assignment/snapshot/patch/reconciliation tests for sheet, item, and action subjects.
+    - Added explicit item/action Fact reset-detach-delete coverage and frontend authoritative patch reconciliation across global Fact definitions plus sheet, item, and action bridges.
+    - Verified the completed track with 424 backend tests, 319 frontend tests, frontend lint, protocol generation, changed-file formatting, and the production TypeScript/Vite build.
+  - [x] Keep current reaction counts, turn resets, spending, and combat enforcement out of this track; the `amount_of_reactions` Fact is display-only until combat/turn tracking is implemented.
+  - [x] Keep range, target count, and area as display/manual Facts unless a specific action step consumes them; do not add targeting or cross-sheet execution.
 - [x] Complete default action coverage for the supplied spreadsheet roll formulas on the typed item-Fact foundation.
   - [x] Replace the current placeholder defaults: keep Dodge as Dexterity-based, change Block from Constitution to Strength, and stop automatically attaching generic Attack and Parry actions to every sheet.
   - [x] Extend resolved action execution and formula context with evaluated current-Action Facts plus, when explicitly supplied, the source item bridge, source item definition, evaluated required weapon Facts, resolved governing-stat value, resolved sheet proficiency modifier, and base damage.
@@ -1189,7 +1191,10 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
     - Added one canonical backend factory for all 17 standard formula stats, including their relative aliases, and exposed them through generated action/formula authoring metadata.
     - Removed the frontend-owned formula expressions. New Template Builder drafts wait for backend defaults, clone them into editable draft state, and remain invalid if the authoritative metadata is incomplete rather than inventing fallback rules.
     - Extended protocol parsing/adaptation coverage for the new defaults and corrected Fact formula-variable metadata forwarding through the same event path.
-  - [ ] Seed reusable optional sheet Fact definitions for `level`, `movement`, and `mana_regeneration`; mana regeneration remains informational/manual and does not add a time-advancement engine.
+  - [x] Seed reusable optional sheet Fact definitions for `level`, `movement`, and `mana_regeneration`; mana regeneration remains informational/manual and does not add a time-advancement engine.
+    - Added backend-owned optional sheet definitions with defaults of Level `1`, Movement `30 feet`, and Mana Regeneration `10% of maximum mana per hour`.
+    - Added schema-v11 checkpoint migration while preserving unrelated custom Fact definitions. These canonical Facts remain opt-in per sheet, editable after attachment, and informational only; no movement enforcement or timed mana regeneration was added.
+    - Verified with 426 backend tests.
   - [x] Seed reusable optional Action Fact definitions for rank, range, target count, area, mana cost, base spell damage, and proficiency reference. These values remain display/manual unless an authored action formula or step consumes them.
   - [ ] Seed reusable optional item Fact definitions needed by the examples, including attribute, mana efficiency, flat effect bonus, and mana-regeneration modifier, alongside the backend-owned required weapon Fact definitions.
   - [ ] Add proficiency category metadata and seed the supplied weapon-family definitions: Long Swords, Short Swords, Spears, Shields, Pugilists, Staffs, Bows, Throwing, Knives, and Axes. Specific weapon names remain item records that reference the applicable proficiency rather than separate hardcoded resolvers.
@@ -1199,6 +1204,19 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
   - [ ] Verify the fixed Flames of Life example can reject insufficient mana and exchange `100` mana for `10` health through existing ordered bounded-mutation steps. Limb/injury restoration remains RP-only.
   - [ ] Keep weapon sharpness/dulling out of scope. Treat descriptive mana conductivity and unspecified proficiency improvements as displayed Facts/notes until concrete executable rules are supplied.
   - [ ] Do not add automatic rank progression, proficiency-threshold feature hiding, timed regeneration, range enforcement, target-count enforcement, positioning, or multi-sheet targeting in this track.
+- [ ] Simplify GM navigation, contextual authoring, and request feedback.
+  - [x] Classify frontend feedback by user relevance. Suppress success banners/toasts for background metadata loads, initial page entry, routine authentication/bootstrap, and other read-only synchronization. Keep visible feedback for user-triggered saves/updates, errors and permission failures, connection loss/recovery, and destructive operations.
+    - Metadata, tracker, access-code, variable-registry, and Roll20-status reads remain represented by pending/status state but no longer create pending or success banners. Their failures still use normal visible error feedback. The banner renderer also suppresses stale non-error `Load`/`Refresh` feedback that may survive a live frontend update.
+  - [x] Ensure initial GM application load does not produce duplicate success notifications. Persistent connection and pending-count indicators remain the normal status surface when no user action requires acknowledgement.
+    - Initial action/formula and augmentation-target metadata requests now use the quiet read-only feedback policy, removing the duplicate page-entry success banners.
+  - [x] Remove Active Sheet selection and Encounter quick-spawn controls from the persistent GM toolbar. Place active-sheet selection on sheet-dependent screens and encounter selection/spawning within Encounter Presets or the GM Console.
+    - The persistent toolbar now contains navigation plus connection/pending status only. A shared active-sheet context selector appears in Sheet Viewer and the GM Console, while encounter spawning remains in Encounter Presets.
+    - Added quiet-feedback classification and toolbar/context-selector regression coverage. Verified with 323 frontend tests, frontend lint, changed-file formatting, and the production TypeScript/Vite build.
+  - [ ] Add contextual `Create new...` dialogs to Template Builder assignment controls for Facts, Actions, Items, and Proficiencies so a GM can create a missing record without abandoning the current template draft.
+  - [ ] Reuse the existing authoring value mappers, validation, typed request helpers, and focused form components in contextual dialogs rather than creating parallel payload or validation implementations.
+  - [ ] After an authoritative create patch arrives, select or attach the newly created record to the current template draft while preserving all other unsaved template edits. Dialog state and pending feedback remain frontend-local; catalog records remain backend-authoritative.
+  - [ ] Retain dedicated authoring pages for global browse/edit/delete workflows. Complex Item or Action creation may use a large dialog or offer `Continue in full editor`; avoid nested dialog chains and do not force full catalog management into Template Builder.
+  - [ ] Add frontend coverage for notification suppression, relocated toolbar controls, draft preservation, authoritative create reconciliation, and automatic selection/attachment of the new record.
 - [x] Seed new template drafts with the standard substat formula set.
   - New drafts start with authored formulas and sheet-relative aliases for lifting, carry weight, acrobatics, stamina, reaction time, health, endurance, pain tolerance, sight distance, intuition, registration, mana, control, sensitivity, charisma, mental fortitude, and courage.
   - Existing templates retain their authored formulas. `Amount of Reactions` is intentionally not a formula stat; it belongs to the planned required Facts model above.

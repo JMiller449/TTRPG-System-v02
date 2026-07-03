@@ -1,5 +1,4 @@
 import type { GMView } from "@/app/state/types";
-import type { EncounterPreset } from "@/domain/models";
 
 export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<{ view: GMView; label: string }> = [
   { view: "console", label: "GM Console" },
@@ -17,12 +16,3 @@ export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<{ view: GMView; label: string }
   { view: "action_authoring", label: "Action Authoring" },
   { view: "state_backup", label: "State Backup" }
 ];
-
-export function orderedEncounterPresets(
-  encounters: Record<string, EncounterPreset>,
-  encounterOrder: string[]
-): EncounterPreset[] {
-  return encounterOrder
-    .map((id) => encounters[id])
-    .filter((encounter): encounter is EncounterPreset => Boolean(encounter));
-}

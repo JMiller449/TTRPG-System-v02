@@ -6,16 +6,11 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { RollLog } from "@/features/rolls/RollLog";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
+import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
-export function ConsolePage({
-  role,
-  client
-}: {
-  role: Role;
-  client: GameClient;
-}): JSX.Element {
+export function ConsolePage({ role, client }: { role: Role; client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const activeDetail = selectActiveSheetDetail(state);
   const { connection, pendingIntentIds, roll20Bridge } = state.uiState;
@@ -86,14 +81,17 @@ export function ConsolePage({
   }
 
   return (
-    <div className={`app-grid-player-shell ${role === "gm" ? "app-grid-player-shell--gm" : ""}`}>
-      <section className="player-console-main">
-        <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
-      </section>
-      <section className="player-console-side">
-        <RollPanel client={client} />
-        <RollLog />
-      </section>
+    <div className="main-panel-stack">
+      <ActiveSheetSelector />
+      <div className="app-grid-player-shell app-grid-player-shell--gm">
+        <section className="player-console-main">
+          <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
+        </section>
+        <section className="player-console-side">
+          <RollPanel client={client} />
+          <RollLog />
+        </section>
+      </div>
     </div>
   );
 }

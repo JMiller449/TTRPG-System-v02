@@ -344,6 +344,39 @@ def test_v8_migration_adds_backend_owned_action_fact_definitions() -> None:
     assert migrated.state["actions"]["parry"]["facts"] == {}
 
 
+def test_v10_migration_adds_backend_owned_optional_sheet_facts() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 10,
+            "state": {
+                "facts": {
+                    "custom": {
+                        "id": "custom",
+                        "name": "Custom",
+                        "subject_types": ["sheet"],
+                        "value_type": "text",
+                        "default_value": {"type": "text", "value": "kept"},
+                    }
+                }
+            },
+        }
+    )
+
+    facts = migrated.state["facts"]
+    assert facts["custom"]["default_value"]["value"] == "kept"
+    assert facts["level"]["default_value"]["value"] == 1
+    assert facts["movement"]["default_value"]["value"] == 30
+    assert facts["movement"]["unit"] == "feet"
+    assert facts["mana_regeneration"]["default_value"]["value"] == 10
+    assert facts["mana_regeneration"]["unit"] == "% max mana per hour"
+    assert all(
+        facts[fact_id]["backend_owned"] is True
+        and facts[fact_id]["required"] is False
+        and facts[fact_id]["subject_types"] == ["sheet"]
+        for fact_id in ("level", "movement", "mana_regeneration")
+    )
+
+
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
     isolate_state: Path,
 ) -> None:

@@ -1,6 +1,12 @@
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
+import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
 import type { GameClient } from "@/hooks/useGameClient";
 
 export function SheetViewerPage({ client }: { client: GameClient }): JSX.Element {
-  return <PlayerCharacterSheet mode="gm" panelTitle="Sheet Viewer" client={client} />;
+  return (
+    <div className="main-panel-stack">
+      <ActiveSheetSelector />
+      <PlayerCharacterSheet mode="gm" panelTitle="Sheet Viewer" client={client} />
+    </div>
+  );
 }

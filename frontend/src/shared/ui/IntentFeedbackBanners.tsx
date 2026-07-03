@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
+import { shouldDisplayIntentFeedback } from "@/shared/ui/intentFeedbackVisibility";
 
 const INTENT_BANNER_TTL_MS = {
   pending: 4000,
@@ -15,6 +16,7 @@ export function IntentFeedbackBanners(): JSX.Element | null {
     dispatch
   } = useAppStore();
   const timeoutIdsRef = useRef<Record<string, number>>({});
+  const visibleFeedback = intentFeedback.filter(shouldDisplayIntentFeedback);
 
   useEffect(() => {
     const activeIds = new Set(intentFeedback.map((item) => item.id));
@@ -49,17 +51,16 @@ export function IntentFeedbackBanners(): JSX.Element | null {
     []
   );
 
-  if (intentFeedback.length === 0) {
+  if (visibleFeedback.length === 0) {
     return null;
   }
 
   return (
     <section className="intent-banner-stack" aria-live="polite">
-      {intentFeedback.map((item) => (
+      {visibleFeedback.map((item) => (
         <article key={item.id} className={`intent-banner intent-banner--${item.status}`}>
           <div>
-            <strong className="intent-banner__status">{item.status}</strong>
-            {" "}
+            <strong className="intent-banner__status">{item.status}</strong>{" "}
             <span className="intent-banner__message">{item.message}</span>
           </div>
           <button

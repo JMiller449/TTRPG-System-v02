@@ -63,6 +63,11 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
                 type="password"
                 value={codeInput}
                 onChange={(event) => setCodeInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    void submitCode();
+                  }
+                }}
                 placeholder="Enter player or GM code"
               />
             </Field>

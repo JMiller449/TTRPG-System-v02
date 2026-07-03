@@ -18,6 +18,27 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - `plan/archived/`: archived planning/task/completion source files retained for history.
 - `state_dumpy.json`: persisted local state snapshot.
 
+## Before adding a new feature or completing a large refactor, follow this six-step workflow: (Pause for user confirmation and review between each step. Following this workflow is unnecessary for small changes requested explicitly by the user)
+
+1. **Define the goal:** Restate the requested change, its purpose, constraints, non-goals, and expected outcome.
+
+2. **Clarify requirements:** Identify ambiguity, assumptions, edge cases, and measurable acceptance criteria. Resolve what you can from the available documentation and code.
+
+3. **Investigate the codebase:** Inspect the relevant architecture, files, existing implementations, dependencies, conventions, and tests. Do not begin implementation yet.
+
+4. **Produce an implementation plan:** Create a concrete, repository-specific plan identifying:
+
+   * files and systems to modify,
+   * existing abstractions to reuse,
+   * expected data and control flow,
+   * implementation order,
+   * tests and validation,
+   * risks, compatibility concerns, and migrations.
+
+5. **Review and harden the plan:** Critically challenge the proposed approach. Look for incorrect assumptions, duplicated systems, architectural conflicts, missing dependencies, unhandled edge cases, excessive scope, compatibility issues, and weak acceptance criteria. Revise the plan before proceeding. Clearly report any unresolved blocker.
+
+6. **Implement and verify:** Implement the reviewed plan, run the relevant tests and validation, confirm the acceptance criteria, inspect for regressions, and summarize the completed changes and any deviations from the plan.
+
 ## Build, Test, and Development Commands
 - `python -m venv backend/.venv`: create backend virtual environment.
 - `backend/.venv/bin/pip install -r backend/requirements.txt`: install backend deps.

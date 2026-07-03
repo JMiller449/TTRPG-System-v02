@@ -64,6 +64,14 @@ def _build_fact_value(
     return FactValue(type=raw["type"], value=raw["value"])
 
 
+def build_fact_value(
+    payload: FactValuePayload,
+    *,
+    fact_ids: set[str] | None = None,
+) -> FactValue:
+    return _build_fact_value(payload, fact_ids=fact_ids)
+
+
 REFERENCE_COLLECTIONS = {
     "proficiency": "proficiencies",
     "item": "items",

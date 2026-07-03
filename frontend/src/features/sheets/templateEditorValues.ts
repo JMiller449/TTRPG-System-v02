@@ -1,5 +1,6 @@
 import type {
   ActionDefinition,
+  FactDefinition,
   Formula,
   ItemDefinition,
   ProficiencyDefinition,
@@ -37,6 +38,7 @@ export interface TemplateReferenceCatalogs {
   actions: Record<string, ActionDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   items: Record<string, ItemDefinition>;
+  facts: Record<string, FactDefinition>;
 }
 
 export interface TemplateEditorValidation {
@@ -111,6 +113,7 @@ export function createEmptyTemplateEditorValues(kind: SheetKind = "player"): Tem
     actions: [],
     proficiencies: [],
     items: [],
+    facts: {},
     slayedRecord: {}
   };
 }
@@ -144,7 +147,8 @@ function emptyErrors(): TemplateEditorErrors {
     resistances: [],
     actions: [],
     proficiencies: [],
-    inventory: []
+    inventory: [],
+    facts: []
   };
 }
 
@@ -240,6 +244,22 @@ export function validateTemplateEditorValues(
     errors.inventory.push("Only positive-quantity equippable items can start equipped.");
   }
 
+  const factRelationshipIds = Object.values(values.facts).map((bridge) => bridge.relationship_id);
+  if (hasDuplicates(factRelationshipIds) || factRelationshipIds.some((id) => !id)) {
+    errors.facts.push("Fact assignments must have unique relationship IDs.");
+  }
+  for (const [factId, bridge] of Object.entries(values.facts)) {
+    const definition = catalogs.facts[factId];
+    if (!definition || !definition.subject_types.includes("sheet")) {
+      errors.facts.push("Every attached Fact must reference an available sheet Fact definition.");
+      break;
+    }
+    if (bridge.fact_id !== factId) {
+      errors.facts.push("Fact assignment keys must match their Fact IDs.");
+      break;
+    }
+  }
+
   return {
     errors,
     isValid: (Object.keys(errors) as TemplateEditorSection[]).every(
@@ -277,6 +297,9 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
       count: String(bridge.count),
       equipped: bridge.equipped
     })),
+    facts: Object.fromEntries(
+      Object.entries(sheet.facts ?? {}).map(([factId, bridge]) => [factId, structuredClone(bridge)])
+    ),
     slayedRecord: Object.fromEntries(
       Object.entries(sheet.slayed_record).map(([key, bridge]) => [key, { ...bridge }])
     )
@@ -341,6 +364,18 @@ export function toSheetDefinitionPayload(
       values.actions.map((entry) => [
         entry.relationshipId,
         { relationship_id: entry.relationshipId, entry_id: entry.actionId }
+      ])
+    ),
+    facts: Object.fromEntries(
+      Object.entries(values.facts).map(([factId, bridge]) => [
+        factId,
+        {
+          relationship_id: bridge.relationship_id,
+          fact_id: bridge.fact_id,
+          value: structuredClone(bridge.value),
+          evaluated_value: bridge.evaluated_value ?? null,
+          evaluation_error: bridge.evaluation_error ?? null
+        }
       ])
     )
   };

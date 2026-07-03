@@ -30,6 +30,7 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
     proficiencyOrder,
     items,
     itemOrder,
+    facts,
     sheets
   } = state.serverState;
   const {
@@ -45,8 +46,8 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
   const loadedSheetIdRef = useRef<string | null | undefined>(undefined);
   const requestedMetadataRef = useRef(false);
   const catalogs = useMemo(
-    () => ({ actions, proficiencies, items }),
-    [actions, items, proficiencies]
+    () => ({ actions, proficiencies, items, facts }),
+    [actions, facts, items, proficiencies]
   );
 
   useEffect(() => {
@@ -133,6 +134,7 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
         proficiencyOrder={proficiencyOrder}
         items={items}
         itemOrder={itemOrder}
+        facts={facts}
         metadata={actionFormulaAuthoringMetadata}
         pending={Boolean(pendingSave)}
         onChange={setValues}

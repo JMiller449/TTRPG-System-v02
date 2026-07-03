@@ -7,6 +7,7 @@ from backend.features.sheet_admin.formulas.service import (
     build_formula,
     validate_formula_payload_paths,
 )
+from backend.features.facts import service as facts_service
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -48,7 +49,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.action import Action, SendMessageStep
 from backend.state.models.formula import Formula, FormulaAliases
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.fact import FactBridge, synchronize_all_sheet_facts
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -161,6 +162,47 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
             for key, bridge in payload.actions.items()
         },
     )
+
+
+def _build_sheet_facts(
+    payload: SheetDefinitionPayload,
+    state: State,
+) -> dict[str, FactBridge]:
+    facts: dict[str, FactBridge] = {}
+    relationship_ids: set[str] = set()
+
+    for key, bridge in payload.facts.items():
+        if key != bridge.fact_id:
+            raise ValueError(
+                f"Sheet Fact key '{key}' must match fact_id '{bridge.fact_id}'."
+            )
+        definition = state.facts.get(bridge.fact_id)
+        if definition is None or "sheet" not in definition.subject_types:
+            raise ValueError(f"Sheet Fact '{bridge.fact_id}' does not exist.")
+        if bridge.relationship_id in relationship_ids:
+            raise ValueError(
+                f"Fact relationship '{bridge.relationship_id}' already exists."
+            )
+        relationship_ids.add(bridge.relationship_id)
+        value = facts_service.build_fact_value(
+            bridge.value,
+            fact_ids=set(state.facts),
+        )
+        facts_service.validate_fact_value(definition, value, state=state)
+        facts[bridge.fact_id] = FactBridge(
+            relationship_id=bridge.relationship_id,
+            fact_id=bridge.fact_id,
+            value=value,
+        )
+
+    return facts
+
+
+def _build_sheet_for_state(payload: SheetDefinitionPayload, state: State) -> Sheet:
+    sheet = _build_sheet(payload)
+    sheet.facts = _build_sheet_facts(payload, state)
+    synchronize_all_sheet_facts(sheet)
+    return sheet
 
 
 def _baseline_check_action_id(stat_name: str) -> str:
@@ -404,8 +446,6 @@ async def _create_sheet(
     request_id: str | None = None,
 ) -> None:
     payload = _with_default_action_bridges(payload)
-    sheet = _build_sheet(payload)
-    synchronize_required_sheet_facts(sheet)
     default_actions = _default_action_definitions()
 
     def mutation(state: State) -> tuple[None, list]:
@@ -417,6 +457,7 @@ async def _create_sheet(
             state,
             extra_action_ids=set(default_actions),
         )
+        sheet = _build_sheet_for_state(payload, state)
         default_action_ops = _add_missing_default_action_mutations(state)
         path = state_sync_service.join_path("sheets", payload.id)
         op = state_sync_service.add_mutation(state, path, sheet)
@@ -440,9 +481,7 @@ async def _update_sheet(
             raise ValueError(f"Sheet '{sheet_id}' does not exist.")
 
         _validate_sheet_references(payload, state)
-        sheet = _build_sheet(payload)
-        sheet.facts = deepcopy(sheets[sheet_id].facts)
-        synchronize_required_sheet_facts(sheet)
+        sheet = _build_sheet_for_state(payload, state)
         path = state_sync_service.join_path("sheets", sheet_id)
         op = state_sync_service.set_mutation(state, path, sheet)
         return None, [op]

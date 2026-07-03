@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.fact import FactBridge, FactDefinition, FactValue
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -198,6 +199,54 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             }
             assert websocket.sent_messages[0]["type"] == "state_patch"
             assert websocket.sent_messages[0]["request_id"] == "req-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_create_sheet_with_fact_bridges(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.facts["level"] = FactDefinition(
+                id="level",
+                name="Level",
+                description="Character level.",
+                subject_types=["sheet"],
+                value_type="number",
+                default_value=FactValue(type="number", value=1),
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            payload = _sheet_payload()
+            payload["facts"] = {
+                "level": {
+                    "relationship_id": "sheet_fact_level",
+                    "fact_id": "level",
+                    "value": {"type": "number", "value": 3},
+                }
+            }
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet",
+                    "sheet": payload,
+                },
+            )
+
+            sheet = state.sheets["mage_template"]
+            assert sheet.facts["level"].relationship_id == "sheet_fact_level"
+            assert sheet.facts["level"].value.value == 3
+            assert sheet.facts["level"].evaluated_value == 3
+            assert "amount_of_reactions" in sheet.facts
+            assert websocket.sent_messages[0]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
 
@@ -612,6 +661,76 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
                 "Renamed Mage"
             )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_update_sheet_replaces_fact_bridges_from_complete_payload(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.facts["level"] = FactDefinition(
+                id="level",
+                name="Level",
+                description="Character level.",
+                subject_types=["sheet"],
+                value_type="number",
+                default_value=FactValue(type="number", value=1),
+            )
+            state.facts["movement"] = FactDefinition(
+                id="movement",
+                name="Movement",
+                description="Manual movement note.",
+                subject_types=["sheet"],
+                value_type="number",
+                default_value=FactValue(type="number", value=0),
+            )
+            sheet = Sheet.from_dict(_sheet_payload())
+            sheet.facts["level"] = FactBridge(
+                relationship_id="sheet_fact_level",
+                fact_id="level",
+                value=FactValue(type="number", value=2),
+            )
+            sheet.facts["movement"] = FactBridge(
+                relationship_id="sheet_fact_movement",
+                fact_id="movement",
+                value=FactValue(type="number", value=30),
+            )
+            state.sheets["mage_template"] = sheet
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            payload = _sheet_payload(name="Renamed Mage")
+            payload["facts"] = {
+                "level": {
+                    "relationship_id": "sheet_fact_level",
+                    "fact_id": "level",
+                    "value": {"type": "number", "value": 5},
+                }
+            }
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_sheet",
+                    "sheet_id": "mage_template",
+                    "sheet": payload,
+                },
+            )
+
+            updated = state.sheets["mage_template"]
+            assert updated.name == "Renamed Mage"
+            assert updated.facts["level"].value.value == 5
+            assert updated.facts["level"].evaluated_value == 5
+            assert "movement" not in updated.facts
+            assert "amount_of_reactions" in updated.facts
+            assert websocket.sent_messages[0]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
 
@@ -1593,6 +1712,57 @@ def test_update_sheet_rejects_missing_embedded_proficiency_reference(
                 {
                     "response_id": None,
                     "reason": "Proficiency 'missing_prof' does not exist.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_sheet_rejects_non_sheet_fact_bridge(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.facts["item_only_fact"] = FactDefinition(
+                id="item_only_fact",
+                name="Item Only",
+                description="Invalid for sheets.",
+                subject_types=["item"],
+                value_type="text",
+                default_value=FactValue(type="text", value=""),
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            sheet = _sheet_payload()
+            sheet["facts"] = {
+                "item_only_fact": {
+                    "relationship_id": "sheet_fact_item_only",
+                    "fact_id": "item_only_fact",
+                    "value": {"type": "text", "value": "invalid"},
+                }
+            }
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet",
+                    "sheet": sheet,
+                },
+            )
+
+            assert StateSingleton.getState().sheets == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "Sheet Fact 'item_only_fact' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }

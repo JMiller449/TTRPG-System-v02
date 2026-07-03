@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
+  FactDefinition,
   ItemDefinition,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -11,6 +12,7 @@ import {
   TemplateProficienciesSection
 } from "@/features/sheets/components/TemplateAssignmentsSection";
 import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
+import { TemplateFactsSection } from "@/features/sheets/components/TemplateFactsSection";
 import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
 import { TemplateStatsSection } from "@/features/sheets/components/TemplateStatsSection";
 import type {
@@ -29,7 +31,8 @@ const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
   { id: "resistances", label: "Resistances" },
   { id: "actions", label: "Actions" },
   { id: "proficiencies", label: "Proficiencies" },
-  { id: "inventory", label: "Inventory" }
+  { id: "inventory", label: "Inventory" },
+  { id: "facts", label: "Facts" }
 ];
 
 function ValidationSummary({ errors }: { errors: TemplateEditorErrors }): JSX.Element | null {
@@ -63,6 +66,7 @@ export function TemplateEditorForm({
   proficiencyOrder,
   items,
   itemOrder,
+  facts,
   metadata,
   pending = false,
   onChange,
@@ -78,6 +82,7 @@ export function TemplateEditorForm({
   proficiencyOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  facts: Record<string, FactDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
   onChange: (next: TemplateEditorValues) => void;
@@ -86,8 +91,8 @@ export function TemplateEditorForm({
 }): JSX.Element {
   const [activeSection, setActiveSection] = useState<TemplateEditorSection>("details");
   const catalogs: TemplateReferenceCatalogs = useMemo(
-    () => ({ actions, proficiencies, items }),
-    [actions, items, proficiencies]
+    () => ({ actions, proficiencies, items, facts }),
+    [actions, facts, items, proficiencies]
   );
   const validation = useMemo(
     () => validateTemplateEditorValues(values, catalogs),
@@ -168,6 +173,9 @@ export function TemplateEditorForm({
             itemOrder={itemOrder}
             onChange={onChange}
           />
+        ) : null}
+        {activeSection === "facts" ? (
+          <TemplateFactsSection values={values} definitions={facts} onChange={onChange} />
         ) : null}
       </div>
 

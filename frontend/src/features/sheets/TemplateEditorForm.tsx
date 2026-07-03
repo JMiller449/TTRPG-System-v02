@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
+  FactDefinition,
   ItemDefinition,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -11,6 +12,7 @@ import {
   TemplateProficienciesSection
 } from "@/features/sheets/components/TemplateAssignmentsSection";
 import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
+import { TemplateFactsSection } from "@/features/sheets/components/TemplateFactsSection";
 import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
 import { TemplateStatsSection } from "@/features/sheets/components/TemplateStatsSection";
 import type {
@@ -26,6 +28,7 @@ import {
 const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
   { id: "details", label: "Details" },
   { id: "stats", label: "Stats" },
+  { id: "facts", label: "Facts" },
   { id: "resistances", label: "Resistances" },
   { id: "actions", label: "Actions" },
   { id: "proficiencies", label: "Proficiencies" },
@@ -41,7 +44,9 @@ function ValidationSummary({ errors }: { errors: TemplateEditorErrors }): JSX.El
   }
   return (
     <div className="template-builder__validation" role="alert">
-      <strong>{entries.length} issue{entries.length === 1 ? "" : "s"} to resolve</strong>
+      <strong>
+        {entries.length} issue{entries.length === 1 ? "" : "s"} to resolve
+      </strong>
       <ul>
         {entries.map((entry) => (
           <li key={`${entry.section}:${entry.message}`}>
@@ -63,6 +68,7 @@ export function TemplateEditorForm({
   proficiencyOrder,
   items,
   itemOrder,
+  facts,
   metadata,
   pending = false,
   onChange,
@@ -78,6 +84,7 @@ export function TemplateEditorForm({
   proficiencyOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  facts: Record<string, FactDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
   onChange: (next: TemplateEditorValues) => void;
@@ -86,8 +93,8 @@ export function TemplateEditorForm({
 }): JSX.Element {
   const [activeSection, setActiveSection] = useState<TemplateEditorSection>("details");
   const catalogs: TemplateReferenceCatalogs = useMemo(
-    () => ({ actions, proficiencies, items }),
-    [actions, items, proficiencies]
+    () => ({ actions, proficiencies, items, facts }),
+    [actions, facts, items, proficiencies]
   );
   const validation = useMemo(
     () => validateTemplateEditorValues(values, catalogs),
@@ -129,7 +136,9 @@ export function TemplateEditorForm({
               onClick={() => setActiveSection(section.id)}
             >
               {section.label}
-              {errorCount > 0 ? <span aria-label={`${errorCount} errors`}>{errorCount}</span> : null}
+              {errorCount > 0 ? (
+                <span aria-label={`${errorCount} errors`}>{errorCount}</span>
+              ) : null}
             </button>
           );
         })}
@@ -141,6 +150,14 @@ export function TemplateEditorForm({
         ) : null}
         {activeSection === "stats" ? (
           <TemplateStatsSection values={values} metadata={metadata} onChange={onChange} />
+        ) : null}
+        {activeSection === "facts" ? (
+          <TemplateFactsSection
+            values={values}
+            definitions={facts}
+            metadata={metadata}
+            onChange={onChange}
+          />
         ) : null}
         {activeSection === "resistances" ? (
           <TemplateResistancesSection values={values} onChange={onChange} />

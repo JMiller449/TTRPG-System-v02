@@ -16,7 +16,7 @@ from backend.features.facts.schema import (
     SetSubjectFactValue,
     UpdateFact,
 )
-from backend.features.sheet_admin.formulas.service import build_formula
+from backend.features.variable_registry import service as variable_registry_service
 from backend.features.state_sync.service import state_sync_service
 from backend.features.facts.value_schema import (
     FactDefinitionPayload,
@@ -37,27 +37,34 @@ from backend.state.models.fact import (
     FactBridge,
     FactDefinition,
     FactValue,
+    require_valid_subject_fact_evaluation,
     synchronize_all_sheet_facts,
     evaluate_all_subject_facts,
     synchronize_required_sheet_facts,
+    validate_sheet_formula_dependencies,
 )
+from backend.state.models.formula import Formula, FormulaAliases
 from backend.state.models.sheet import Sheet
 from backend.state.models.state import State
 
 
 def _build_fact_value(
     payload: FactValuePayload,
-    *,
-    fact_ids: set[str] | None = None,
 ) -> FactValue:
     if isinstance(payload, FormulaFactValuePayload):
         return FactValue(
             type="formula",
-            formula=build_formula(
-                payload.formula,
-                additional_paths={
-                    ("facts", fact_id) for fact_id in fact_ids or set()
-                },
+            formula=Formula(
+                aliases=(
+                    None
+                    if payload.formula.aliases is None
+                    else [
+                        FormulaAliases(name=alias.name, path=list(alias.path))
+                        for alias in payload.formula.aliases
+                    ]
+                ),
+                text=payload.formula.text,
+                tags=list(payload.formula.tags),
             ),
         )
     raw = payload.model_dump(mode="python")
@@ -72,11 +79,66 @@ REFERENCE_COLLECTIONS = {
 }
 
 
+def _fact_formula_paths(
+    state: State,
+    subject_type: str,
+) -> set[tuple[str, ...]]:
+    paths = {
+        ("facts", definition.id)
+        for definition in state.facts.values()
+        if definition.value_type == "number"
+        and subject_type in definition.subject_types
+    }
+    if subject_type == "sheet":
+        paths.update(
+            tuple(variable.path)
+            for variable in variable_registry_service.build_variable_registry().variables
+            if variable.root == "sheet"
+            and variable.value_type in {"number", "percent", "formula"}
+        )
+    return paths
+
+
+def validate_fact_formula_paths(
+    state: State,
+    formula: Formula,
+    *,
+    subject_types: list[str],
+    attached_fact_ids: set[str] | None = None,
+) -> None:
+    for alias in formula.aliases or []:
+        path = tuple(alias.path)
+        unsupported_subjects = [
+            subject_type
+            for subject_type in subject_types
+            if path not in _fact_formula_paths(state, subject_type)
+        ]
+        if unsupported_subjects:
+            raise ValueError(
+                f"Fact formula alias '{alias.name}' references unsupported path "
+                f"'{'.'.join(alias.path)}' for subject type(s): "
+                + ", ".join(unsupported_subjects)
+                + "."
+            )
+        if (
+            attached_fact_ids is not None
+            and len(alias.path) == 2
+            and alias.path[0] == "facts"
+            and alias.path[1] not in attached_fact_ids
+        ):
+            raise ValueError(
+                f"Fact formula alias '{alias.name}' references Fact "
+                f"'{alias.path[1]}', but it is not attached to this subject."
+            )
+
+
 def validate_fact_value(
     definition: FactDefinition,
     value: FactValue,
     *,
     state: State | None = None,
+    subject_types: list[str] | None = None,
+    attached_fact_ids: set[str] | None = None,
 ) -> None:
     actual_type = "number" if value.type == "formula" else value.type
     if actual_type != definition.value_type:
@@ -115,6 +177,15 @@ def validate_fact_value(
                 + ", ".join(invalid)
                 + "."
             )
+    if value.type == "formula" and value.formula is not None:
+        if state is None or subject_types is None:
+            raise ValueError("Formula Fact validation requires an authoritative subject scope.")
+        validate_fact_formula_paths(
+            state,
+            value.formula,
+            subject_types=subject_types,
+            attached_fact_ids=attached_fact_ids,
+        )
 
 
 def validate_subject_fact_value(
@@ -123,8 +194,20 @@ def validate_subject_fact_value(
     subject: object,
     definition: FactDefinition,
     value: FactValue,
+    *,
+    attached_fact_ids: set[str] | None = None,
 ) -> None:
-    validate_fact_value(definition, value, state=state)
+    validate_fact_value(
+        definition,
+        value,
+        state=state,
+        subject_types=[subject_type],
+        attached_fact_ids=(
+            set(getattr(subject, "facts", {}))
+            if attached_fact_ids is None
+            else attached_fact_ids
+        ),
+    )
     if subject_type != "item" or getattr(subject, "fact_profile", None) != "weapon":
         if subject_type == "action":
             if definition.id in {
@@ -224,7 +307,12 @@ def _build_definition(
         raise ValueError(
             f"Unsupported Fact reference kind '{payload.reference_kind}'."
         )
-    value = _build_fact_value(payload.default_value, fact_ids=set(state.facts))
+    value = _build_fact_value(payload.default_value)
+    if value.type == "formula" and any(
+        alias.path == ["facts", payload.id]
+        for alias in value.formula.aliases or []
+    ):
+        raise ValueError(f"Fact '{payload.id}' default formula cannot reference itself.")
     definition = FactDefinition(
         id=payload.id,
         name=payload.name,
@@ -240,7 +328,12 @@ def _build_definition(
         required_profile=None,
         backend_owned=False,
     )
-    validate_fact_value(definition, value, state=state)
+    validate_fact_value(
+        definition,
+        value,
+        state=state,
+        subject_types=list(definition.subject_types),
+    )
     return definition
 
 
@@ -335,6 +428,20 @@ def reevaluate_sheet_facts_mutations(
     return _apply_candidate_sheet_facts(state, sheet_id, candidate)
 
 
+def validate_and_evaluate_sheet_facts(
+    sheet: Sheet,
+    fact_ids: set[str] | None = None,
+) -> None:
+    validate_sheet_formula_dependencies(sheet)
+    synchronize_all_sheet_facts(sheet)
+    require_valid_subject_fact_evaluation(sheet, fact_ids)
+
+
+def validate_and_evaluate_subject_facts(subject: object) -> None:
+    evaluate_all_subject_facts(subject)
+    require_valid_subject_fact_evaluation(subject)
+
+
 async def create_fact(request: CreateFact) -> None:
     if (
         request.fact.required
@@ -371,11 +478,14 @@ async def update_fact(request: UpdateFact) -> None:
             raise ValueError("Required Fact metadata is backend-owned.")
         definition = _build_definition(request.fact, state=state)
         fact_references = _fact_references(state, request.fact_id)
-        for _, _, subject in fact_references:
-            validate_fact_value(
+        for root, _, subject in fact_references:
+            subject_type = "sheet" if root == "sheets" else root.removesuffix("s")
+            validate_subject_fact_value(
+                state,
+                subject_type,
+                subject,
                 definition,
                 subject.facts[request.fact_id].value,
-                state=state,
             )
         referencing_subjects = [
             sheet.id
@@ -485,18 +595,25 @@ async def attach_sheet_fact(request: AttachSheetFact) -> None:
                 f"Fact relationship '{request.relationship_id}' already exists."
             )
         value = (
-            _build_fact_value(request.value, fact_ids=set(state.facts))
+            _build_fact_value(request.value)
             if request.value is not None
             else deepcopy(definition.default_value)
         )
-        validate_fact_value(definition, value, state=state)
+        validate_subject_fact_value(
+            state,
+            "sheet",
+            sheet,
+            definition,
+            value,
+            attached_fact_ids={*sheet.facts, request.fact_id},
+        )
         candidate = deepcopy(sheet)
         candidate.facts[request.fact_id] = FactBridge(
             relationship_id=request.relationship_id,
             fact_id=request.fact_id,
             value=value,
         )
-        synchronize_all_sheet_facts(candidate)
+        validate_and_evaluate_sheet_facts(candidate)
         return None, _apply_candidate_sheet_facts(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -511,7 +628,7 @@ async def detach_sheet_fact(request: DetachSheetFact) -> None:
             raise ValueError("Required Facts cannot be detached.")
         candidate = deepcopy(sheet)
         candidate.facts.pop(request.fact_id)
-        synchronize_all_sheet_facts(candidate)
+        validate_and_evaluate_sheet_facts(candidate)
         return None, _apply_candidate_sheet_facts(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -538,7 +655,7 @@ async def attach_subject_fact(request: AttachSubjectFact) -> None:
                 f"Fact relationship '{request.relationship_id}' already exists."
             )
         value = (
-            _build_fact_value(request.value, fact_ids=set(state.facts))
+            _build_fact_value(request.value)
             if request.value is not None
             else deepcopy(definition.default_value)
         )
@@ -548,6 +665,7 @@ async def attach_subject_fact(request: AttachSubjectFact) -> None:
             subject,
             definition,
             value,
+            attached_fact_ids={*subject.facts, request.fact_id},
         )
         candidate = deepcopy(subject)
         candidate.facts[request.fact_id] = FactBridge(
@@ -555,7 +673,7 @@ async def attach_subject_fact(request: AttachSubjectFact) -> None:
             fact_id=request.fact_id,
             value=value,
         )
-        evaluate_all_subject_facts(candidate)
+        validate_and_evaluate_subject_facts(candidate)
         return None, _apply_candidate_subject_facts(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -573,7 +691,7 @@ async def set_subject_fact_value(request: SetSubjectFactValue) -> None:
         )
         if bridge is None:
             raise ValueError(f"Fact '{request.fact_id}' is not attached.")
-        value = _build_fact_value(request.value, fact_ids=set(state.facts))
+        value = _build_fact_value(request.value)
         validate_subject_fact_value(
             state,
             request.subject_type,
@@ -583,7 +701,7 @@ async def set_subject_fact_value(request: SetSubjectFactValue) -> None:
         )
         candidate = deepcopy(subject)
         candidate.facts[request.fact_id].value = value
-        evaluate_all_subject_facts(candidate)
+        validate_and_evaluate_subject_facts(candidate)
         return None, _apply_candidate_subject_facts(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -610,7 +728,7 @@ async def reset_subject_fact_value(request: ResetSubjectFactValue) -> None:
         )
         candidate = deepcopy(subject)
         candidate.facts[request.fact_id].value = deepcopy(definition.default_value)
-        evaluate_all_subject_facts(candidate)
+        validate_and_evaluate_subject_facts(candidate)
         return None, _apply_candidate_subject_facts(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -632,7 +750,7 @@ async def detach_subject_fact(request: DetachSubjectFact) -> None:
             raise ValueError("Required Facts cannot be detached.")
         candidate = deepcopy(subject)
         candidate.facts.pop(request.fact_id)
-        evaluate_all_subject_facts(candidate)
+        validate_and_evaluate_subject_facts(candidate)
         return None, _apply_candidate_subject_facts(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -647,11 +765,17 @@ async def set_sheet_fact_value(request: SetSheetFactValue) -> None:
             request.sheet_id,
             request.fact_id,
         )
-        value = _build_fact_value(request.value, fact_ids=set(state.facts))
-        validate_fact_value(definition, value, state=state)
+        value = _build_fact_value(request.value)
+        validate_subject_fact_value(
+            state,
+            "sheet",
+            sheet,
+            definition,
+            value,
+        )
         candidate = deepcopy(sheet)
         candidate.facts[request.fact_id].value = deepcopy(value)
-        synchronize_all_sheet_facts(candidate)
+        validate_and_evaluate_sheet_facts(candidate)
         return None, _apply_candidate_sheet_facts(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -666,7 +790,7 @@ async def reset_sheet_fact_value(request: ResetSheetFactValue) -> None:
         )
         candidate = deepcopy(sheet)
         candidate.facts[request.fact_id].value = deepcopy(definition.default_value)
-        synchronize_all_sheet_facts(candidate)
+        validate_and_evaluate_sheet_facts(candidate)
         return None, _apply_candidate_sheet_facts(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

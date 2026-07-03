@@ -215,6 +215,12 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
             payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
           action_fact_presets:
             payload.action_fact_presets as ProtocolActionFormulaAuthoringMetadataEvent["action_fact_presets"],
+          fact_formula_variables: Array.isArray(payload.fact_formula_variables)
+            ? (payload.fact_formula_variables as ProtocolActionFormulaAuthoringMetadataEvent["fact_formula_variables"])
+            : [],
+          sheet_formula_stat_defaults: Array.isArray(payload.sheet_formula_stat_defaults)
+            ? (payload.sheet_formula_stat_defaults as ProtocolActionFormulaAuthoringMetadataEvent["sheet_formula_stat_defaults"])
+            : [],
           type: "action_formula_authoring_metadata",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null

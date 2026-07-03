@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { FactDefinition, FactValue } from "@/domain/models";
+import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
+import { FactFormulaVariablePicker } from "@/features/facts/FactFormulaVariablePicker";
 import {
   emptyFactDraft,
   factPayloadFromDraft,
@@ -14,6 +16,7 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
+import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
 
 type FactValueType = FactDefinition["value_type"];
 
@@ -30,12 +33,23 @@ function factValueText(value: FactValue): string {
 export function FactAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const { facts, factOrder } = state.serverState;
+  const { actionFormulaAuthoringMetadata } = state.uiState;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<FactDraft>(emptyFactDraft);
+  const requestedMetadataRef = useRef(false);
   const orderedFacts = useMemo(
     () => factOrder.map((id) => facts[id]).filter((fact): fact is FactDefinition => Boolean(fact)),
     [factOrder, facts]
   );
+
+  useEffect(() => {
+    if (actionFormulaAuthoringMetadata || requestedMetadataRef.current) {
+      return;
+    }
+    requestedMetadataRef.current = true;
+    const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [actionFormulaAuthoringMetadata, client]);
 
   const reset = (): void => {
     setEditingId(null);
@@ -135,9 +149,21 @@ export function FactAuthoringPage({ client }: { client: GameClient }): JSX.Eleme
             <fieldset className="stack">
               <legend>Formula aliases</legend>
               <p className="muted">
-                Use relative paths such as stats.registration or facts.level, then reference the
-                alias as @name in the formula.
+                Insert a variable valid for every selected subject, or enter a relative path and
+                reference its alias as @name in the formula.
               </p>
+              <FactFormulaVariablePicker
+                metadata={actionFormulaAuthoringMetadata}
+                subjectTypes={draft.subjectTypes}
+                excludedFactId={editingId ?? undefined}
+                onPick={(entry) =>
+                  setDraft((current) => ({
+                    ...current,
+                    defaultText: appendFormulaToken(current.defaultText, entry.token),
+                    formulaAliases: upsertFormulaAlias(current.formulaAliases, entry.alias)
+                  }))
+                }
+              />
               {draft.formulaAliases.map((alias, index) => (
                 <div className="inline-actions" key={`${index}-${alias.name}`}>
                   <label>

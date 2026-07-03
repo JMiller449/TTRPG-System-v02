@@ -33,7 +33,10 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
-from backend.features.facts.service import validate_subject_fact_value
+from backend.features.facts.service import (
+    validate_and_evaluate_subject_facts,
+    validate_subject_fact_value,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.action import (
@@ -54,7 +57,7 @@ from backend.state.models.action import (
     SetValueStep,
 )
 from backend.state.models.state import State
-from backend.state.models.fact import FactBridge, evaluate_all_subject_facts
+from backend.state.models.fact import FactBridge
 
 
 def _format_path(path: list[str]) -> str:
@@ -479,7 +482,7 @@ def _validate_action_facts(action: Action, state: State) -> None:
         if definition is None or "action" not in definition.subject_types:
             raise ValueError(f"Action Fact '{fact_id}' does not exist.")
         validate_subject_fact_value(state, "action", action, definition, bridge.value)
-    evaluate_all_subject_facts(action)
+    validate_and_evaluate_subject_facts(action)
 
 
 def _actions_state(state: State) -> dict[str, dict]:

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { FactDefinition, ProficiencyDefinition } from "@/domain/models";
 import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 import { setItemFactProfile, type ItemEditorValues } from "@/features/items/itemEditorValues";
@@ -8,11 +9,13 @@ export function ItemFactsEditor({
   values,
   definitions,
   proficiencies,
+  metadata,
   onChange
 }: {
   values: ItemEditorValues;
   definitions: Record<string, FactDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
+  metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (values: ItemEditorValues) => void;
 }): JSX.Element {
   const profiles = useMemo(
@@ -110,6 +113,7 @@ export function ItemFactsEditor({
         bridges={values.facts}
         canEdit
         subjectType="item"
+        formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
         onSaveFormula={(factId, formula) => updateBridge(factId, { type: "formula", formula })}
         onSaveValue={updateBridge}

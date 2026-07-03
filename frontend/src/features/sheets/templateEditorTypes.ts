@@ -1,4 +1,4 @@
-import type { Formula, SheetKind, SheetSlayedBridge } from "@/domain/models";
+import type { FactBridge, Formula, SheetKind, SheetSlayedBridge } from "@/domain/models";
 import type {
   ResistancePercentDraft,
   SheetFormulaStatName
@@ -38,6 +38,7 @@ export interface TemplateEditorValues {
   xpCap: string;
   coreStats: Record<CoreTemplateStatKey, string>;
   formulaStats: Record<SheetFormulaStatName, Formula>;
+  facts: Record<string, FactBridge>;
   resistances: ResistancePercentDraft;
   actions: TemplateActionAssignment[];
   proficiencies: TemplateProficiencyAssignment[];
@@ -67,6 +68,7 @@ export interface TemplateItemAssignment {
 export type TemplateEditorSection =
   | "details"
   | "stats"
+  | "facts"
   | "resistances"
   | "actions"
   | "proficiencies"

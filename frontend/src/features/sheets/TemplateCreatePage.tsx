@@ -23,43 +23,41 @@ interface PendingTemplateSave {
 
 export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
-  const {
-    actions,
-    actionOrder,
-    proficiencies,
-    proficiencyOrder,
-    items,
-    itemOrder,
-    sheets
-  } = state.serverState;
-  const {
-    templateBuilderSheetId,
-    actionFormulaAuthoringMetadata,
-    intentFeedback
-  } = state.uiState;
+  const { actions, actionOrder, proficiencies, proficiencyOrder, items, itemOrder, facts, sheets } =
+    state.serverState;
+  const { templateBuilderSheetId, actionFormulaAuthoringMetadata, intentFeedback } = state.uiState;
   const sourceSheet = templateBuilderSheetId ? sheets[templateBuilderSheetId] : undefined;
+  const formulaDefaults = useMemo(
+    () => actionFormulaAuthoringMetadata?.sheet_formula_stat_defaults ?? [],
+    [actionFormulaAuthoringMetadata]
+  );
+  const formulaDefaultsReady = formulaDefaults.length > 0;
   const [values, setValues] = useState<TemplateEditorValues>(() =>
-    sourceSheet ? toTemplateEditorValues(sourceSheet) : createEmptyTemplateEditorValues("player")
+    sourceSheet
+      ? toTemplateEditorValues(sourceSheet)
+      : createEmptyTemplateEditorValues("player", facts, formulaDefaults)
   );
   const [pendingSave, setPendingSave] = useState<PendingTemplateSave | null>(null);
-  const loadedSheetIdRef = useRef<string | null | undefined>(undefined);
+  const loadedDraftSourceRef = useRef<string | undefined>(undefined);
   const requestedMetadataRef = useRef(false);
   const catalogs = useMemo(
-    () => ({ actions, proficiencies, items }),
-    [actions, items, proficiencies]
+    () => ({ actions, proficiencies, items, facts }),
+    [actions, facts, items, proficiencies]
   );
 
   useEffect(() => {
-    if (loadedSheetIdRef.current === templateBuilderSheetId) {
+    const draftSource =
+      templateBuilderSheetId ?? `new:${formulaDefaultsReady ? "ready" : "waiting"}`;
+    if (loadedDraftSourceRef.current === draftSource) {
       return;
     }
-    loadedSheetIdRef.current = templateBuilderSheetId;
+    loadedDraftSourceRef.current = draftSource;
     setValues(
       templateBuilderSheetId && sheets[templateBuilderSheetId]
         ? toTemplateEditorValues(sheets[templateBuilderSheetId])
-        : createEmptyTemplateEditorValues("player")
+        : createEmptyTemplateEditorValues("player", facts, formulaDefaults)
     );
-  }, [sheets, templateBuilderSheetId]);
+  }, [facts, formulaDefaults, formulaDefaultsReady, sheets, templateBuilderSheetId]);
 
   useEffect(() => {
     if (!templateBuilderSheetId || sourceSheet) {
@@ -123,22 +121,31 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
         </button>
       }
     >
-      <TemplateEditorForm
-        title={sourceSheet ? `Edit ${sourceSheet.name}` : "New Template"}
-        submitLabel={sourceSheet ? "Save Template" : "Create Template"}
-        values={values}
-        actions={actions}
-        actionOrder={actionOrder}
-        proficiencies={proficiencies}
-        proficiencyOrder={proficiencyOrder}
-        items={items}
-        itemOrder={itemOrder}
-        metadata={actionFormulaAuthoringMetadata}
-        pending={Boolean(pendingSave)}
-        onChange={setValues}
-        onSubmit={submit}
-        onCancel={sourceSheet ? exitBuilder : undefined}
-      />
+      {!sourceSheet && !formulaDefaultsReady ? (
+        <p className="muted">
+          {actionFormulaAuthoringMetadata
+            ? "Backend template defaults are unavailable."
+            : "Loading backend template defaults…"}
+        </p>
+      ) : (
+        <TemplateEditorForm
+          title={sourceSheet ? `Edit ${sourceSheet.name}` : "New Template"}
+          submitLabel={sourceSheet ? "Save Template" : "Create Template"}
+          values={values}
+          actions={actions}
+          actionOrder={actionOrder}
+          proficiencies={proficiencies}
+          proficiencyOrder={proficiencyOrder}
+          items={items}
+          itemOrder={itemOrder}
+          facts={facts}
+          metadata={actionFormulaAuthoringMetadata}
+          pending={Boolean(pendingSave)}
+          onChange={setValues}
+          onSubmit={submit}
+          onCancel={sourceSheet ? exitBuilder : undefined}
+        />
+      )}
     </Panel>
   );
 }

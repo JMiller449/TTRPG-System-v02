@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
+from backend.features.facts.service import validate_and_evaluate_sheet_facts
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.stats.schema import (
     SetSheetBaseStat,
@@ -17,6 +20,10 @@ async def set_base_stat(request: SetSheetBaseStat) -> None:
         if request.sheet_id not in state.sheets:
             raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
 
+        candidate = deepcopy(state.sheets[request.sheet_id])
+        setattr(candidate.stats, request.stat_name, request.value)
+        validate_and_evaluate_sheet_facts(candidate)
+
         path = state_sync_service.join_path(
             "sheets",
             request.sheet_id,
@@ -30,27 +37,39 @@ async def set_base_stat(request: SetSheetBaseStat) -> None:
 
 
 async def set_formula_stat(request: SetSheetFormulaStat) -> None:
-    sheet_paths = {
-        tuple(variable.path)
-        for variable in variable_registry_service.build_action_formula_authoring_metadata().variables
-        if variable.root == "sheet" and variable.formula_reference_allowed
-    }
-    for alias in request.formula.aliases or []:
-        alias_path = tuple(alias.path)
-        if alias_path not in sheet_paths:
-            raise ValueError(
-                f"Sheet formula alias '{alias.name}' references unsupported path "
-                f"'{'.'.join(alias.path)}'."
-            )
-        if alias.path == ["stats", request.stat_name]:
-            raise ValueError(
-                f"Sheet formula stat '{request.stat_name}' cannot reference itself."
-            )
-    formula = build_formula(request.formula)
-
     def mutation(state: State) -> tuple[None, list]:
         if request.sheet_id not in state.sheets:
             raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
+
+        sheet = state.sheets[request.sheet_id]
+        attached_fact_paths = {
+            ("facts", fact_id) for fact_id in sheet.facts
+        }
+        sheet_paths = {
+            tuple(variable.path)
+            for variable in variable_registry_service.build_action_formula_authoring_metadata(
+                state=state
+            ).variables
+            if variable.root == "sheet" and variable.formula_reference_allowed
+        } | attached_fact_paths
+        for alias in request.formula.aliases or []:
+            alias_path = tuple(alias.path)
+            if alias_path not in sheet_paths:
+                raise ValueError(
+                    f"Sheet formula alias '{alias.name}' references unsupported path "
+                    f"'{'.'.join(alias.path)}'."
+                )
+            if alias.path == ["stats", request.stat_name]:
+                raise ValueError(
+                    f"Sheet formula stat '{request.stat_name}' cannot reference itself."
+                )
+        formula = build_formula(
+            request.formula,
+            additional_paths=attached_fact_paths,
+        )
+        candidate = deepcopy(sheet)
+        setattr(candidate.stats, request.stat_name, formula)
+        validate_and_evaluate_sheet_facts(candidate)
 
         path = state_sync_service.join_path(
             "sheets",

@@ -37,6 +37,7 @@ describe("ItemFactsEditor", () => {
             description: ""
           }
         }}
+        metadata={null}
         onChange={() => undefined}
       />
     );

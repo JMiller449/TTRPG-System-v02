@@ -13,6 +13,8 @@ from backend.features.variable_registry.schema import (
     AugmentationTargetMetadataResponse,
     AuthoringVariablePathMetadata,
     FormulaAliasMetadata,
+    FactFormulaVariablePathMetadata,
+    SheetFormulaStatDefaultMetadata,
     VariableEditableRole,
     VariablePathMetadata,
     VariableRegistry,
@@ -30,6 +32,7 @@ from backend.state.models.fact import (
     FactDefinition,
 )
 from backend.state.models.state import State
+from backend.state.models.stat import default_sheet_formula_stats
 
 _BASE_STATS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("strength", "Strength", ("str", "strength")),
@@ -592,6 +595,44 @@ def _formula_aliases(
     return aliases
 
 
+def _fact_formula_variables(
+    state: State,
+    *,
+    include_gm_only: bool,
+) -> list[FactFormulaVariablePathMetadata]:
+    variables = [
+        FactFormulaVariablePathMetadata(
+            key=f"fact_formula.{variable.key}",
+            label=variable.label,
+            subject_types=["sheet"],
+            path=list(variable.path),
+            value_type=variable.value_type,
+            description=variable.description,
+            shortcuts=(
+                None if variable.shortcuts is None else list(variable.shortcuts)
+            ),
+        )
+        for variable in build_variable_registry().variables
+        if variable.root == "sheet"
+        and variable.value_type in {"number", "percent", "formula"}
+    ]
+    variables.extend(
+        FactFormulaVariablePathMetadata(
+            key=f"fact_formula.facts.{definition.id}",
+            label=f"Fact: {definition.name}",
+            subject_types=list(definition.subject_types),
+            path=["facts", definition.id],
+            value_type="number",
+            description=definition.description,
+            shortcuts=[definition.id],
+        )
+        for definition in state.facts.values()
+        if definition.value_type == "number"
+        and (include_gm_only or definition.visibility == "public")
+    )
+    return variables
+
+
 def _ordered_roots(roots: set[VariableRoot]) -> list[VariableRoot]:
     return [root for root in _ROOT_ORDER if root in roots]
 
@@ -647,5 +688,13 @@ def build_action_formula_authoring_metadata(
         action_steps=list(_ACTION_STEPS),
         action_preset_templates=list(_ACTION_PRESET_TEMPLATES),
         action_fact_presets=list(_ACTION_FACT_PRESETS),
+        fact_formula_variables=_fact_formula_variables(
+            state,
+            include_gm_only=include_gm_only,
+        ),
+        sheet_formula_stat_defaults=[
+            SheetFormulaStatDefaultMetadata(stat_name=stat_name, formula=formula)
+            for stat_name, formula in default_sheet_formula_stats().items()
+        ],
         request_id=request_id,
     )

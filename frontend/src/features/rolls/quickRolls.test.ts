@@ -6,7 +6,17 @@ import {
   resolveQuickRollAction
 } from "@/features/rolls/quickRolls";
 import { actionRollModes } from "@/features/rolls/actionRollModes";
+import { FORMULA_STAT_KEYS } from "@/features/sheets/sheetDefinitionEditing";
 import { createDefaultStats } from "@/features/sheets/templateEditorValues";
+
+const formulaDefaults = FORMULA_STAT_KEYS.map((statName) => ({
+  stat_name: statName,
+  formula: {
+    aliases: [{ name: "strength", path: ["stats", "strength"] }],
+    text: "@strength",
+    tags: []
+  }
+}));
 
 function testSheet(overrides: Partial<Sheet> = {}): Sheet {
   return {
@@ -17,7 +27,7 @@ function testSheet(overrides: Partial<Sheet> = {}): Sheet {
     xp_cap: "",
     proficiencies: {},
     items: {},
-    stats: createDefaultStats(),
+    stats: createDefaultStats(formulaDefaults),
     slayed_record: {},
     actions: {
       default_dodge: {

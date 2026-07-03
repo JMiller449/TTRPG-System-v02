@@ -205,6 +205,17 @@ describe("parseProtocolServerEvent", () => {
       ],
       action_preset_templates: [],
       action_fact_presets: [],
+      fact_formula_variables: [],
+      sheet_formula_stat_defaults: [
+        {
+          stat_name: "health",
+          formula: {
+            aliases: [{ name: "constitution", path: ["stats", "constitution"] }],
+            text: "@constitution",
+            tags: []
+          }
+        }
+      ],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -251,6 +262,17 @@ describe("parseProtocolServerEvent", () => {
       ],
       action_preset_templates: [],
       action_fact_presets: [],
+      fact_formula_variables: [],
+      sheet_formula_stat_defaults: [
+        {
+          stat_name: "health",
+          formula: {
+            aliases: [{ name: "constitution", path: ["stats", "constitution"] }],
+            text: "@constitution",
+            tags: []
+          }
+        }
+      ],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -367,6 +389,17 @@ describe("adaptProtocolServerEvent", () => {
       ],
       action_preset_templates: [],
       action_fact_presets: [],
+      fact_formula_variables: [],
+      sheet_formula_stat_defaults: [
+        {
+          stat_name: "health",
+          formula: {
+            aliases: [{ name: "constitution", path: ["stats", "constitution"] }],
+            text: "@constitution",
+            tags: []
+          }
+        }
+      ],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -397,7 +430,18 @@ describe("adaptProtocolServerEvent", () => {
             }
           ],
           action_preset_templates: [],
-          action_fact_presets: []
+          action_fact_presets: [],
+          fact_formula_variables: [],
+          sheet_formula_stat_defaults: [
+            {
+              stat_name: "health",
+              formula: {
+                aliases: [{ name: "constitution", path: ["stats", "constitution"] }],
+                text: "@constitution",
+                tags: []
+              }
+            }
+          ]
         }
       }
     ]);

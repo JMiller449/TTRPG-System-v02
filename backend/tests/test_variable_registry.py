@@ -67,6 +67,13 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         preset.id: preset for preset in metadata.action_preset_templates
     }
     fact_presets = {preset.id: preset for preset in metadata.action_fact_presets}
+    fact_formula_variables = {
+        variable.key: variable for variable in metadata.fact_formula_variables
+    }
+    sheet_formula_defaults = {
+        default.stat_name: default.formula
+        for default in metadata.sheet_formula_stat_defaults
+    }
 
     assert metadata.type == "action_formula_authoring_metadata"
     assert metadata.formula_roots == [
@@ -76,6 +83,41 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "source_item",
     ]
     assert metadata.action_mutation_roots == ["sheet", "instance"]
+    assert fact_formula_variables["fact_formula.sheet.stats.strength"].path == [
+        "stats",
+        "strength",
+    ]
+    amount_of_reactions = fact_formula_variables[
+        "fact_formula.facts.amount_of_reactions"
+    ]
+    assert amount_of_reactions.subject_types == ["sheet"]
+    assert amount_of_reactions.path == ["facts", "amount_of_reactions"]
+    assert {name: formula.text for name, formula in sheet_formula_defaults.items()} == {
+        "lifting": "@strength",
+        "carry_weight": "@strength",
+        "acrobatics": "(@dexterity + @registration) / 2",
+        "stamina": "@dexterity",
+        "reaction_time": "(@stamina + @intuition) / 2",
+        "health": "@constitution",
+        "endurance": "(@stamina + @constitution) / 2",
+        "pain_tolerance": "(@endurance + @strength) / 2",
+        "sight_distance": "@perception",
+        "intuition": "(@perception + @registration) / 2",
+        "registration": "@perception",
+        "mana": "@arcane",
+        "control": "(@arcane + @mana) / 2",
+        "sensitivity": "(@intuition + @arcane) / 2",
+        "charisma": "@will",
+        "mental_fortitude": "(@will + @charisma) / 2",
+        "courage": "(@mental_fortitude + @charisma) / 2",
+    }
+    assert [
+        (alias.name, alias.path)
+        for alias in sheet_formula_defaults["reaction_time"].aliases or []
+    ] == [
+        ("stamina", ["stats", "stamina"]),
+        ("intuition", ["stats", "intuition"]),
+    ]
     assert set(fact_presets) == {"action_details", "spell_details"}
     assert set(fact_presets["action_details"].fact_values) == {
         "action_rank",

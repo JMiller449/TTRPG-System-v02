@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { FactBridge, FactDefinition, FactValue, Formula } from "@/domain/models";
+import { FactFormulaVariablePicker } from "@/features/facts/FactFormulaVariablePicker";
+import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
 
 function displayFactValue(value: FactBridge["evaluated_value"]): string {
   if (value === null || value === undefined) {
@@ -34,6 +37,7 @@ export function SheetFactsSection({
   onAttach,
   onDetach,
   validationOptionLabels,
+  formulaMetadata,
   subjectType = "sheet"
 }: {
   definitions: Record<string, FactDefinition>;
@@ -45,6 +49,7 @@ export function SheetFactsSection({
   onAttach?: (factId: string) => void;
   onDetach?: (factId: string) => void;
   validationOptionLabels?: Record<string, Record<string, string>>;
+  formulaMetadata?: ActionFormulaAuthoringMetadata | null;
   subjectType?: "sheet" | "item" | "action";
 }): JSX.Element {
   const [selectedFactId, setSelectedFactId] = useState("");
@@ -111,6 +116,8 @@ export function SheetFactsSection({
           onReset={onReset}
           onDetach={onDetach}
           validationOptionLabels={validationOptionLabels}
+          formulaMetadata={formulaMetadata}
+          subjectType={subjectType}
         />
       ))}
     </section>
@@ -125,7 +132,9 @@ function SheetFactCard({
   onSaveValue,
   onReset,
   onDetach,
-  validationOptionLabels
+  validationOptionLabels,
+  formulaMetadata,
+  subjectType
 }: {
   definition: FactDefinition | undefined;
   bridge: FactBridge;
@@ -135,16 +144,22 @@ function SheetFactCard({
   onReset: (factId: string) => void;
   onDetach?: (factId: string) => void;
   validationOptionLabels?: Record<string, Record<string, string>>;
+  formulaMetadata?: ActionFormulaAuthoringMetadata | null;
+  subjectType: "sheet" | "item" | "action";
 }): JSX.Element {
   const formula = bridge.value.type === "formula" ? bridge.value.formula : null;
   const [formulaText, setFormulaText] = useState(formula?.text ?? "");
+  const [formulaAliases, setFormulaAliases] = useState(formula?.aliases ?? null);
   const [literalText, setLiteralText] = useState(
     bridge.value.type === "formula" ? "" : factValueText(bridge.value)
   );
 
   useEffect(() => {
     setFormulaText(formula?.text ?? "");
-  }, [formula?.text]);
+    setFormulaAliases(
+      formula?.aliases?.map((alias) => ({ ...alias, path: [...alias.path] })) ?? null
+    );
+  }, [formula]);
 
   useEffect(() => {
     if (bridge.value.type !== "formula") {
@@ -177,6 +192,15 @@ function SheetFactCard({
       ) : null}
       {canEdit && formula ? (
         <div className="stack">
+          <FactFormulaVariablePicker
+            metadata={formulaMetadata ?? null}
+            subjectTypes={[subjectType]}
+            excludedFactId={bridge.fact_id}
+            onPick={(entry) => {
+              setFormulaText((current) => appendFormulaToken(current, entry.token));
+              setFormulaAliases((current) => upsertFormulaAlias(current, entry.alias));
+            }}
+          />
           <label>
             Formula
             <input value={formulaText} onChange={(event) => setFormulaText(event.target.value)} />
@@ -188,6 +212,7 @@ function SheetFactCard({
               onClick={() =>
                 onSaveFormula(bridge.fact_id, {
                   ...formula,
+                  aliases: formulaAliases,
                   text: formulaText.trim()
                 })
               }

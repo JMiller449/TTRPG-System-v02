@@ -16,14 +16,16 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
-from backend.features.facts.service import validate_subject_fact_value
+from backend.features.facts.service import (
+    validate_and_evaluate_subject_facts,
+    validate_subject_fact_value,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.fact import (
     WEAPON_FACT_IDS,
     FactBridge,
-    evaluate_all_subject_facts,
     synchronize_required_item_facts,
 )
 from backend.state.models.item import Item, ItemActionGrant
@@ -134,7 +136,7 @@ def _validate_item_facts(item: Item, state: State) -> None:
         missing = [fact_id for fact_id in WEAPON_FACT_IDS if fact_id not in item.facts]
         if missing:
             raise ValueError("Weapon profile is missing required Facts: " + ", ".join(missing))
-    evaluate_all_subject_facts(item)
+    validate_and_evaluate_subject_facts(item)
 
 
 def _validate_item_action_grants(item: Item, state: State) -> None:

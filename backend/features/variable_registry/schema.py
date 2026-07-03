@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from backend.core.transport import RequestModel, ResponseModel
+from backend.state.models.formula import Formula
+from backend.state.models.stat import FormulaStatName
 
 VariableRoot = Literal["state", "sheet", "instance", "action", "source_item"]
 VariableValueType = Literal["number", "percent", "formula", "resource"]
@@ -109,6 +111,23 @@ class FormulaAliasMetadata:
 
 
 @dataclass
+class FactFormulaVariablePathMetadata:
+    key: str
+    label: str
+    subject_types: list[Literal["sheet", "item", "action"]]
+    path: list[str]
+    value_type: Literal["number", "percent", "formula"]
+    description: str = ""
+    shortcuts: list[str] | None = None
+
+
+@dataclass
+class SheetFormulaStatDefaultMetadata:
+    stat_name: FormulaStatName
+    formula: Formula
+
+
+@dataclass
 class ActionStepAuthoringMetadata:
     type: str
     label: str
@@ -147,6 +166,12 @@ class ActionFormulaAuthoringMetadata(ResponseModel):
     action_steps: list[ActionStepAuthoringMetadata]
     action_preset_templates: list[ActionPresetTemplate]
     action_fact_presets: list[ActionFactPreset]
+    fact_formula_variables: list[FactFormulaVariablePathMetadata] = field(
+        default_factory=list
+    )
+    sheet_formula_stat_defaults: list[SheetFormulaStatDefaultMetadata] = field(
+        default_factory=list
+    )
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"

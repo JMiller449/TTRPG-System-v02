@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Sheet } from "@/domain/models";
+import type { FactDefinition, Sheet } from "@/domain/models";
 import { FORMULA_STAT_KEYS } from "@/features/sheets/sheetDefinitionEditing";
 import {
   createDefaultStats,
@@ -9,8 +9,18 @@ import {
   toTemplateEditorValues,
   toUpdatedSheetDefinitionPayload,
   validateTemplateEditorValues,
+  type SheetFormulaStatDefaults,
   type TemplateReferenceCatalogs
 } from "@/features/sheets/templateEditorValues";
+
+const formulaDefaults: SheetFormulaStatDefaults = FORMULA_STAT_KEYS.map((statName) => ({
+  stat_name: statName,
+  formula: {
+    aliases: [{ name: "strength", path: ["stats", "strength"] }],
+    text: `@strength + ${FORMULA_STAT_KEYS.indexOf(statName)}`,
+    tags: []
+  }
+}));
 
 const catalogs: TemplateReferenceCatalogs = {
   actions: {
@@ -28,6 +38,26 @@ const catalogs: TemplateReferenceCatalogs = {
       price: "10",
       weight: "2"
     }
+  }
+};
+
+const sheetFacts: Record<string, FactDefinition> = {
+  amount_of_reactions: {
+    id: "amount_of_reactions",
+    name: "Amount of Reactions",
+    subject_types: ["sheet"],
+    value_type: "number",
+    default_value: {
+      type: "formula",
+      formula: {
+        aliases: [
+          { name: "registration", path: ["stats", "registration"] },
+          { name: "reaction_time", path: ["stats", "reaction_time"] }
+        ],
+        text: "@registration + @reaction_time"
+      }
+    },
+    required: true
   }
 };
 
@@ -56,7 +86,7 @@ function completeSheet(): Sheet {
       }
     },
     stats: {
-      ...createDefaultStats(),
+      ...createDefaultStats(formulaDefaults),
       strength: 4,
       arcane: 6,
       health: {
@@ -77,37 +107,32 @@ function completeSheet(): Sheet {
 }
 
 describe("templateEditorValues", () => {
-  it("provides the canonical substat formulas and aliases for new templates", () => {
-    const stats = createDefaultStats();
+  it("builds new-template substats from backend-provided formula metadata", () => {
+    const stats = createDefaultStats(formulaDefaults);
 
-    expect(Object.fromEntries(FORMULA_STAT_KEYS.map((key) => [key, stats[key].text]))).toEqual({
-      lifting: "@strength",
-      carry_weight: "@strength",
-      acrobatics: "(@dexterity + @registration) / 2",
-      stamina: "@dexterity",
-      reaction_time: "(@stamina + @intuition) / 2",
-      health: "@constitution",
-      endurance: "(@stamina + @constitution) / 2",
-      pain_tolerance: "(@endurance + @strength) / 2",
-      sight_distance: "@perception",
-      intuition: "(@perception + @registration) / 2",
-      registration: "@perception",
-      mana: "@arcane",
-      control: "(@arcane + @mana) / 2",
-      sensitivity: "(@intuition + @arcane) / 2",
-      charisma: "@will",
-      mental_fortitude: "(@will + @charisma) / 2",
-      courage: "(@mental_fortitude + @charisma) / 2"
-    });
     for (const key of FORMULA_STAT_KEYS) {
-      for (const alias of stats[key].aliases ?? []) {
-        expect(alias.path).toEqual(["stats", alias.name]);
-      }
+      const expected = formulaDefaults.find((entry) => entry.stat_name === key)?.formula;
+      expect(stats[key]).toEqual(expected);
+      expect(stats[key]).not.toBe(expected);
     }
   });
 
+  it("does not invent fallback rules when backend formula metadata is incomplete", () => {
+    const values = createEmptyTemplateEditorValues(
+      "player",
+      {},
+      formulaDefaults.filter((entry) => entry.stat_name !== "courage")
+    );
+    values.name = "Incomplete Defaults";
+
+    expect(values.formulaStats.courage).toEqual({ aliases: null, text: "", tags: [] });
+    expect(validateTemplateEditorValues(values, catalogs).errors.stats).toContain(
+      "Every formula stat needs a formula and valid variable aliases."
+    );
+  });
+
   it("maps a complete template draft to one backend sheet definition", () => {
-    const values = createEmptyTemplateEditorValues("enemy");
+    const values = createEmptyTemplateEditorValues("enemy", {}, formulaDefaults);
     values.name = "  Ember Guard  ";
     values.notes = "  GM-facing notes  ";
     values.xpGivenWhenSlayed = "25";
@@ -173,6 +198,41 @@ describe("templateEditorValues", () => {
     });
   });
 
+  it("seeds required Facts and includes them in the atomic sheet payload", () => {
+    const values = createEmptyTemplateEditorValues("player", sheetFacts, formulaDefaults);
+    values.name = "Reactive Guard";
+    const validation = validateTemplateEditorValues(values, {
+      ...catalogs,
+      facts: sheetFacts
+    });
+    const payload = toSheetDefinitionPayload(values, "reactive_guard");
+
+    expect(validation.isValid).toBe(true);
+    expect(values.facts.amount_of_reactions.relationship_id).toBe(
+      "required_fact_amount_of_reactions"
+    );
+    expect(payload.facts?.amount_of_reactions).toMatchObject({
+      relationship_id: "required_fact_amount_of_reactions",
+      fact_id: "amount_of_reactions",
+      value: sheetFacts.amount_of_reactions.default_value,
+      evaluated_value: null,
+      evaluation_error: null
+    });
+  });
+
+  it("rejects a template draft missing a required sheet Fact", () => {
+    const values = createEmptyTemplateEditorValues("player", sheetFacts, formulaDefaults);
+    values.name = "Invalid Guard";
+    delete values.facts.amount_of_reactions;
+
+    const validation = validateTemplateEditorValues(values, {
+      ...catalogs,
+      facts: sheetFacts
+    });
+
+    expect(validation.errors.facts).toContain("Every required sheet Fact must remain attached.");
+  });
+
   it("hydrates every editable section from an authoritative sheet", () => {
     const values = toTemplateEditorValues(completeSheet());
 
@@ -215,11 +275,12 @@ describe("templateEditorValues", () => {
     expect(payload.actions).toEqual(sheet.actions);
     expect(payload.proficiencies).toEqual(sheet.proficiencies);
     expect(payload.items).toEqual(sheet.items);
+    expect(payload.facts).toEqual({});
     expect(payload.slayed_record).toEqual(sheet.slayed_record);
   });
 
   it("reports invalid fields, duplicate references, and impossible equipment state by section", () => {
-    const values = createEmptyTemplateEditorValues();
+    const values = createEmptyTemplateEditorValues("player", {}, formulaDefaults);
     values.coreStats.strength = "";
     values.resistances.fire = "101";
     values.actions = [

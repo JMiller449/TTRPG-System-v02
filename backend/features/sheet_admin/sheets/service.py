@@ -42,13 +42,18 @@ from backend.features.sheet_admin.sheets.schema import (
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_access.schema import SheetAccessCodes
 from backend.features.state_sync.service import state_sync_service
+from backend.features.facts.service import (
+    validate_and_evaluate_sheet_facts,
+    validate_fact_formula_paths,
+    validate_subject_fact_value,
+)
 from backend.state.default_actions import (
     default_sheet_action_ids,
     seeded_global_actions,
 )
 from backend.state.models.action import Action, SendMessageStep
 from backend.state.models.formula import Formula, FormulaAliases
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.fact import FactBridge, synchronize_required_sheet_facts
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -66,8 +71,15 @@ _BASELINE_CHECK_STATS: tuple[tuple[str, str], ...] = (
     ("will", "Will"),
 )
 
-def _build_stats(payload: StatsPayload) -> Stats:
-    _validate_stats_formula_paths(payload)
+def _build_stats(
+    payload: StatsPayload,
+    *,
+    attached_fact_ids: set[str] | None = None,
+) -> Stats:
+    additional_paths = {
+        ("facts", fact_id) for fact_id in (attached_fact_ids or set())
+    }
+    _validate_stats_formula_paths(payload, additional_paths=additional_paths)
     return Stats(
         strength=payload.strength,
         dexterity=payload.dexterity,
@@ -75,23 +87,23 @@ def _build_stats(payload: StatsPayload) -> Stats:
         perception=payload.perception,
         arcane=payload.arcane,
         will=payload.will,
-        lifting=build_formula(payload.lifting),
-        carry_weight=build_formula(payload.carry_weight),
-        acrobatics=build_formula(payload.acrobatics),
-        stamina=build_formula(payload.stamina),
-        reaction_time=build_formula(payload.reaction_time),
-        health=build_formula(payload.health),
-        endurance=build_formula(payload.endurance),
-        pain_tolerance=build_formula(payload.pain_tolerance),
-        sight_distance=build_formula(payload.sight_distance),
-        intuition=build_formula(payload.intuition),
-        registration=build_formula(payload.registration),
-        mana=build_formula(payload.mana),
-        control=build_formula(payload.control),
-        sensitivity=build_formula(payload.sensitivity),
-        charisma=build_formula(payload.charisma),
-        mental_fortitude=build_formula(payload.mental_fortitude),
-        courage=build_formula(payload.courage),
+        lifting=build_formula(payload.lifting, additional_paths=additional_paths),
+        carry_weight=build_formula(payload.carry_weight, additional_paths=additional_paths),
+        acrobatics=build_formula(payload.acrobatics, additional_paths=additional_paths),
+        stamina=build_formula(payload.stamina, additional_paths=additional_paths),
+        reaction_time=build_formula(payload.reaction_time, additional_paths=additional_paths),
+        health=build_formula(payload.health, additional_paths=additional_paths),
+        endurance=build_formula(payload.endurance, additional_paths=additional_paths),
+        pain_tolerance=build_formula(payload.pain_tolerance, additional_paths=additional_paths),
+        sight_distance=build_formula(payload.sight_distance, additional_paths=additional_paths),
+        intuition=build_formula(payload.intuition, additional_paths=additional_paths),
+        registration=build_formula(payload.registration, additional_paths=additional_paths),
+        mana=build_formula(payload.mana, additional_paths=additional_paths),
+        control=build_formula(payload.control, additional_paths=additional_paths),
+        sensitivity=build_formula(payload.sensitivity, additional_paths=additional_paths),
+        charisma=build_formula(payload.charisma, additional_paths=additional_paths),
+        mental_fortitude=build_formula(payload.mental_fortitude, additional_paths=additional_paths),
+        courage=build_formula(payload.courage, additional_paths=additional_paths),
     )
 
 
@@ -144,7 +156,7 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
             )
             for key, bridge in payload.items.items()
         },
-        stats=_build_stats(payload.stats),
+        stats=_build_stats(payload.stats, attached_fact_ids=set(payload.facts)),
         resistances=_build_resistances(payload.resistances),
         slayed_record={
             key: SheetSlayedBridge(
@@ -160,7 +172,49 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
             )
             for key, bridge in payload.actions.items()
         },
+        facts={
+            fact_id: FactBridge.from_dict(bridge.model_dump(mode="json"))
+            for fact_id, bridge in payload.facts.items()
+        },
     )
+
+
+def _validate_sheet_facts(sheet: Sheet, state: State) -> None:
+    authored_fact_ids = set(sheet.facts)
+    synchronize_required_sheet_facts(sheet)
+    attached_fact_ids = set(sheet.facts)
+    relationship_ids: set[str] = set()
+    for fact_id, bridge in sheet.facts.items():
+        if bridge.fact_id != fact_id:
+            raise ValueError(
+                f"Sheet Fact bridge key '{fact_id}' does not match '{bridge.fact_id}'."
+            )
+        if bridge.relationship_id in relationship_ids:
+            raise ValueError(
+                f"Sheet Fact relationship '{bridge.relationship_id}' is duplicated."
+            )
+        relationship_ids.add(bridge.relationship_id)
+        definition = state.facts.get(fact_id)
+        if definition is None or "sheet" not in definition.subject_types:
+            raise ValueError(f"Sheet Fact '{fact_id}' does not exist.")
+        validate_subject_fact_value(
+            state,
+            "sheet",
+            sheet,
+            definition,
+            bridge.value,
+            attached_fact_ids=attached_fact_ids,
+        )
+
+    for value in vars(sheet.stats).values():
+        if isinstance(value, Formula):
+            validate_fact_formula_paths(
+                state,
+                value,
+                subject_types=["sheet"],
+                attached_fact_ids=attached_fact_ids,
+            )
+    validate_and_evaluate_sheet_facts(sheet, authored_fact_ids)
 
 
 def _baseline_check_action_id(stat_name: str) -> str:
@@ -278,7 +332,11 @@ def _validate_item_bridge(payload: ItemBridgePayload, state: State) -> None:
         raise ValueError("An equipped item must have a positive quantity.")
 
 
-def _validate_stats_formula_paths(payload: StatsPayload) -> None:
+def _validate_stats_formula_paths(
+    payload: StatsPayload,
+    *,
+    additional_paths: set[tuple[str, ...]] | None = None,
+) -> None:
     for formula in (
         payload.lifting,
         payload.carry_weight,
@@ -298,7 +356,7 @@ def _validate_stats_formula_paths(payload: StatsPayload) -> None:
         payload.mental_fortitude,
         payload.courage,
     ):
-        validate_formula_payload_paths(formula)
+        validate_formula_payload_paths(formula, additional_paths=additional_paths)
 
 
 def _validate_sheet_references(
@@ -405,7 +463,6 @@ async def _create_sheet(
 ) -> None:
     payload = _with_default_action_bridges(payload)
     sheet = _build_sheet(payload)
-    synchronize_required_sheet_facts(sheet)
     default_actions = _default_action_definitions()
 
     def mutation(state: State) -> tuple[None, list]:
@@ -417,6 +474,7 @@ async def _create_sheet(
             state,
             extra_action_ids=set(default_actions),
         )
+        _validate_sheet_facts(sheet, state)
         default_action_ops = _add_missing_default_action_mutations(state)
         path = state_sync_service.join_path("sheets", payload.id)
         op = state_sync_service.add_mutation(state, path, sheet)
@@ -441,8 +499,7 @@ async def _update_sheet(
 
         _validate_sheet_references(payload, state)
         sheet = _build_sheet(payload)
-        sheet.facts = deepcopy(sheets[sheet_id].facts)
-        synchronize_required_sheet_facts(sheet)
+        _validate_sheet_facts(sheet, state)
         path = state_sync_service.join_path("sheets", sheet_id)
         op = state_sync_service.set_mutation(state, path, sheet)
         return None, [op]

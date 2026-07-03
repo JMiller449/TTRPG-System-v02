@@ -266,6 +266,45 @@ def test_sheet_formula_stat_rejects_instance_and_self_aliases(monkeypatch) -> No
     asyncio.run(scenario())
 
 
+def test_sheet_formula_stat_rejects_cross_fact_dependency_cycles(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_sheet_formula_stat",
+                    "sheet_id": "mage_template",
+                    "stat_name": "registration",
+                    "formula": {
+                        "aliases": [
+                            {
+                                "name": "amount_of_reactions",
+                                "path": ["facts", "amount_of_reactions"],
+                            }
+                        ],
+                        "text": "@amount_of_reactions",
+                    },
+                },
+            )
+
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "dependency cycle" in websocket.sent_messages[-1]["reason"]
+            assert state.sheets["mage_template"].stats.registration.text == "@arcane"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_set_sheet_resistances_atomically(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

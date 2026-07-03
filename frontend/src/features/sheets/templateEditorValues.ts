@@ -1,13 +1,16 @@
 import type {
   ActionDefinition,
+  FactBridge,
+  FactDefinition,
+  FactValue,
   Formula,
   ItemDefinition,
   ProficiencyDefinition,
   Sheet,
   SheetKind,
-  StatKey,
   Stats
 } from "@/domain/models";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import {
   FORMULA_STAT_KEYS,
@@ -37,6 +40,7 @@ export interface TemplateReferenceCatalogs {
   actions: Record<string, ActionDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   items: Record<string, ItemDefinition>;
+  facts?: Record<string, FactDefinition>;
 }
 
 export interface TemplateEditorValidation {
@@ -44,13 +48,9 @@ export interface TemplateEditorValidation {
   isValid: boolean;
 }
 
-function createFormula(text: string, aliases: StatKey[]): Formula {
-  return {
-    aliases: aliases.map((name) => ({ name, path: ["stats", name] })),
-    text,
-    tags: []
-  };
-}
+export type SheetFormulaStatDefaults = NonNullable<
+  ActionFormulaAuthoringMetadata["sheet_formula_stat_defaults"]
+>;
 
 function cloneFormula(formula: Formula): Formula {
   return {
@@ -60,7 +60,12 @@ function cloneFormula(formula: Formula): Formula {
   };
 }
 
-export function createDefaultStats(): Stats {
+export function createDefaultStats(defaults: SheetFormulaStatDefaults): Stats {
+  const formulas = new Map(defaults.map((entry) => [entry.stat_name, entry.formula]));
+  const formula = (statName: SheetFormulaStatName): Formula => {
+    const authoredDefault = formulas.get(statName);
+    return authoredDefault ? cloneFormula(authoredDefault) : { aliases: null, text: "", tags: [] };
+  };
   return {
     strength: 0,
     dexterity: 0,
@@ -68,23 +73,23 @@ export function createDefaultStats(): Stats {
     perception: 0,
     arcane: 0,
     will: 0,
-    lifting: createFormula("@strength", ["strength"]),
-    carry_weight: createFormula("@strength", ["strength"]),
-    acrobatics: createFormula("(@dexterity + @registration) / 2", ["dexterity", "registration"]),
-    stamina: createFormula("@dexterity", ["dexterity"]),
-    reaction_time: createFormula("(@stamina + @intuition) / 2", ["stamina", "intuition"]),
-    health: createFormula("@constitution", ["constitution"]),
-    endurance: createFormula("(@stamina + @constitution) / 2", ["stamina", "constitution"]),
-    pain_tolerance: createFormula("(@endurance + @strength) / 2", ["endurance", "strength"]),
-    sight_distance: createFormula("@perception", ["perception"]),
-    intuition: createFormula("(@perception + @registration) / 2", ["perception", "registration"]),
-    registration: createFormula("@perception", ["perception"]),
-    mana: createFormula("@arcane", ["arcane"]),
-    control: createFormula("(@arcane + @mana) / 2", ["arcane", "mana"]),
-    sensitivity: createFormula("(@intuition + @arcane) / 2", ["intuition", "arcane"]),
-    charisma: createFormula("@will", ["will"]),
-    mental_fortitude: createFormula("(@will + @charisma) / 2", ["will", "charisma"]),
-    courage: createFormula("(@mental_fortitude + @charisma) / 2", ["mental_fortitude", "charisma"])
+    lifting: formula("lifting"),
+    carry_weight: formula("carry_weight"),
+    acrobatics: formula("acrobatics"),
+    stamina: formula("stamina"),
+    reaction_time: formula("reaction_time"),
+    health: formula("health"),
+    endurance: formula("endurance"),
+    pain_tolerance: formula("pain_tolerance"),
+    sight_distance: formula("sight_distance"),
+    intuition: formula("intuition"),
+    registration: formula("registration"),
+    mana: formula("mana"),
+    control: formula("control"),
+    sensitivity: formula("sensitivity"),
+    charisma: formula("charisma"),
+    mental_fortitude: formula("mental_fortitude"),
+    courage: formula("courage")
   };
 }
 
@@ -94,8 +99,31 @@ function createFormulaStats(stats: Stats): Record<SheetFormulaStatName, Formula>
   ) as Record<SheetFormulaStatName, Formula>;
 }
 
-export function createEmptyTemplateEditorValues(kind: SheetKind = "player"): TemplateEditorValues {
-  const stats = createDefaultStats();
+function createRequiredSheetFacts(
+  definitions: Record<string, FactDefinition>
+): Record<string, FactBridge> {
+  return Object.fromEntries(
+    Object.values(definitions)
+      .filter((definition) => definition.required && definition.subject_types.includes("sheet"))
+      .map((definition) => [
+        definition.id,
+        {
+          relationship_id: `required_fact_${definition.id}`,
+          fact_id: definition.id,
+          value: structuredClone(definition.default_value),
+          evaluated_value: null,
+          evaluation_error: null
+        }
+      ])
+  );
+}
+
+export function createEmptyTemplateEditorValues(
+  kind: SheetKind = "player",
+  factDefinitions: Record<string, FactDefinition> = {},
+  formulaDefaults: SheetFormulaStatDefaults = []
+): TemplateEditorValues {
+  const stats = createDefaultStats(formulaDefaults);
   return {
     kind,
     name: "",
@@ -107,6 +135,7 @@ export function createEmptyTemplateEditorValues(kind: SheetKind = "player"): Tem
       {} as TemplateEditorValues["coreStats"]
     ),
     formulaStats: createFormulaStats(stats),
+    facts: createRequiredSheetFacts(factDefinitions),
     resistances: toResistancePercentDraft(undefined),
     actions: [],
     proficiencies: [],
@@ -141,6 +170,7 @@ function emptyErrors(): TemplateEditorErrors {
   return {
     details: [],
     stats: [],
+    facts: [],
     resistances: [],
     actions: [],
     proficiencies: [],
@@ -175,6 +205,41 @@ export function validateTemplateEditorValues(
   });
   if (invalidFormula) {
     errors.stats.push("Every formula stat needs a formula and valid variable aliases.");
+  }
+
+  const factDefinitions = catalogs.facts ?? {};
+  const factEntries = Object.entries(values.facts);
+  const factBridges = factEntries.map(([, bridge]) => bridge);
+  const factRelationshipIds = factBridges.map((bridge) => bridge.relationship_id);
+  if (hasDuplicates(factRelationshipIds) || factRelationshipIds.some((id) => !id)) {
+    errors.facts.push("Fact assignments must have unique relationship IDs.");
+  }
+  if (factEntries.some(([factId, bridge]) => factId !== bridge.fact_id)) {
+    errors.facts.push("Every Fact assignment key must match its Fact definition ID.");
+  }
+  if (
+    factBridges.some(
+      (bridge) =>
+        !factDefinitions[bridge.fact_id] ||
+        !factDefinitions[bridge.fact_id]?.subject_types.includes("sheet")
+    )
+  ) {
+    errors.facts.push(
+      "Every attached Fact must support sheets and reference an available definition."
+    );
+  }
+  if (
+    Object.values(factDefinitions).some(
+      (definition) =>
+        definition.required &&
+        definition.subject_types.includes("sheet") &&
+        !values.facts[definition.id]
+    )
+  ) {
+    errors.facts.push("Every required sheet Fact must remain attached.");
+  }
+  if (factBridges.some((bridge) => !isValidFactValue(bridge.value))) {
+    errors.facts.push("Every Fact needs a valid value or formula.");
   }
 
   if (!parseResistancePercentDraft(values.resistances)) {
@@ -260,6 +325,7 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     xpCap: sheet.xp_cap ?? "",
     coreStats,
     formulaStats: createFormulaStats(sheet.stats),
+    facts: structuredClone(sheet.facts ?? {}),
     resistances: toResistancePercentDraft(sheet.resistances),
     actions: Object.values(sheet.actions).map((bridge) => ({
       relationshipId: bridge.relationship_id,
@@ -342,6 +408,18 @@ export function toSheetDefinitionPayload(
         entry.relationshipId,
         { relationship_id: entry.relationshipId, entry_id: entry.actionId }
       ])
+    ),
+    facts: Object.fromEntries(
+      Object.entries(values.facts).map(([factId, bridge]) => [
+        factId,
+        {
+          relationship_id: bridge.relationship_id,
+          fact_id: bridge.fact_id,
+          value: structuredClone(bridge.value),
+          evaluated_value: null,
+          evaluation_error: null
+        }
+      ])
     )
   };
 }
@@ -356,6 +434,24 @@ export function toUpdatedSheetDefinitionPayload(
 function parseFiniteFormulaNumber(text: string): number | null {
   const parsed = Number(text);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isValidFactValue(value: FactValue): boolean {
+  if (value.type === "formula") {
+    return (
+      Boolean(value.formula.text.trim()) &&
+      (value.formula.aliases ?? []).every(
+        (alias) =>
+          Boolean(alias.name.trim()) &&
+          alias.path.length > 0 &&
+          alias.path.every((part) => Boolean(part.trim()))
+      )
+    );
+  }
+  if (value.type === "number") {
+    return Number.isFinite(value.value);
+  }
+  return value.type !== "reference" || Boolean(value.value.trim());
 }
 
 function parseIntegerFormulaNumber(text: string): number | null {

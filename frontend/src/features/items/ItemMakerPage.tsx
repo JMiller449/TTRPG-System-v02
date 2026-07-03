@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
+import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
 import {
@@ -42,7 +43,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         facts: factDefinitions,
         proficiencies: proficiencyRecords
       },
-      uiState: { augmentationTargetMetadata }
+      uiState: { augmentationTargetMetadata, actionFormulaAuthoringMetadata }
     },
     dispatch
   } = useAppStore();
@@ -53,6 +54,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
+  const requestedFormulaMetadataRef = useRef(false);
 
   const items = useMemo(
     () => selectOrderedItemDefinitions(itemRecords, itemOrder),
@@ -85,6 +87,15 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     const submission = buildLoadItemAugmentationTargetMetadataSubmission();
     client.sendProtocolRequest(submission.request, submission.label);
   }, [augmentationTargetMetadata?.context, client]);
+
+  useEffect(() => {
+    if (actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
+      return;
+    }
+    requestedFormulaMetadataRef.current = true;
+    const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [actionFormulaAuthoringMetadata, client]);
 
   const resetAugmentationEditor = (): void => {
     setEditingAugmentationId(null);
@@ -186,6 +197,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
               values={values}
               definitions={factDefinitions}
               proficiencies={proficiencyRecords}
+              metadata={actionFormulaAuthoringMetadata}
               onChange={setValues}
             />
           }

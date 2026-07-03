@@ -204,6 +204,174 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_sheet_create_and_update_save_authored_facts_atomically(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_fact",
+                    "fact": {
+                        "id": "combat_rating",
+                        "name": "Combat Rating",
+                        "subject_types": ["sheet"],
+                        "value_type": "number",
+                        "default_value": {
+                            "type": "formula",
+                            "formula": {
+                                "aliases": [
+                                    {
+                                        "name": "strength",
+                                        "path": ["stats", "strength"],
+                                    },
+                                    {
+                                        "name": "dexterity",
+                                        "path": ["stats", "dexterity"],
+                                    },
+                                ],
+                                "text": "@strength + @dexterity",
+                            },
+                        },
+                    },
+                },
+            )
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+            assert "combat_rating" in StateSingleton.getState().facts
+            payload = _sheet_payload()
+            payload["facts"] = {
+                "combat_rating": {
+                    "relationship_id": "sheet-fact-combat-rating",
+                    "fact_id": "combat_rating",
+                    "value": {
+                        "type": "formula",
+                        "formula": {
+                            "aliases": [
+                                {
+                                    "name": "strength",
+                                    "path": ["stats", "strength"],
+                                },
+                                {
+                                    "name": "dexterity",
+                                    "path": ["stats", "dexterity"],
+                                },
+                            ],
+                            "text": "@strength + @dexterity",
+                        },
+                    },
+                }
+            }
+            await handle_client_payload(
+                websocket,
+                {"type": "create_sheet", "sheet": payload},
+            )
+
+            sheet = StateSingleton.getState().sheets["mage_template"]
+            assert sheet.facts["combat_rating"].evaluated_value == 21
+            assert "amount_of_reactions" in sheet.facts
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+            created = websocket.sent_messages[-1]["ops"][-1]["value"]
+            assert created["facts"]["combat_rating"]["evaluated_value"] == 21
+
+            payload["name"] = "Updated Mage Template"
+            payload["facts"]["combat_rating"]["value"] = {
+                "type": "number",
+                "value": 30,
+            }
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_sheet",
+                    "sheet_id": "mage_template",
+                    "sheet": payload,
+                },
+            )
+            updated = StateSingleton.getState().sheets["mage_template"]
+            assert updated.name == "Updated Mage Template"
+            assert updated.facts["combat_rating"].relationship_id == (
+                "sheet-fact-combat-rating"
+            )
+            assert updated.facts["combat_rating"].evaluated_value == 30
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_sheet_create_rejects_cross_stat_fact_dependency_cycle(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_fact",
+                    "fact": {
+                        "id": "health_bonus",
+                        "name": "Health Bonus",
+                        "subject_types": ["sheet"],
+                        "value_type": "number",
+                        "default_value": {
+                            "type": "formula",
+                            "formula": {
+                                "aliases": [
+                                    {"name": "health", "path": ["stats", "health"]}
+                                ],
+                                "text": "@health",
+                            },
+                        },
+                    },
+                },
+            )
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+            assert "health_bonus" in StateSingleton.getState().facts
+            payload = _sheet_payload()
+            payload["stats"]["health"] = _formula_payload(
+                "@health_bonus",
+                [{"name": "health_bonus", "path": ["facts", "health_bonus"]}],
+            )
+            payload["facts"] = {
+                "health_bonus": {
+                    "relationship_id": "sheet-fact-health-bonus",
+                    "fact_id": "health_bonus",
+                    "value": {
+                        "type": "formula",
+                        "formula": {
+                            "aliases": [
+                                {"name": "health", "path": ["stats", "health"]}
+                            ],
+                            "text": "@health",
+                        },
+                    },
+                }
+            }
+            await handle_client_payload(
+                websocket,
+                {"type": "create_sheet", "sheet": payload},
+            )
+
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "dependency cycle" in websocket.sent_messages[-1]["reason"]
+            assert "mage_template" not in StateSingleton.getState().sheets
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_set_sheet_notes(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

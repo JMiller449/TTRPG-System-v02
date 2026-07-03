@@ -115,6 +115,7 @@ export function ActionFactsEditor({
         bridges={values.facts}
         canEdit
         subjectType="action"
+        formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
         onSaveFormula={(factId, formula) => updateBridge(factId, { type: "formula", formula })}
         onSaveValue={updateBridge}

@@ -291,7 +291,7 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
     asyncio.run(scenario())
 
 
-def test_optional_fact_dependencies_recompute_and_report_cycles(monkeypatch) -> None:
+def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -373,8 +373,12 @@ def test_optional_fact_dependencies_recompute_and_report_cycles(monkeypatch) -> 
                 },
             )
             bridge = StateSingleton.getState().sheets["mage"].facts["level"]
-            assert bridge.evaluated_value is None
-            assert "cycle detected" in (bridge.evaluation_error or "")
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "cycle detected" in websocket.sent_messages[-1]["reason"]
+            assert bridge.value.type == "number"
+            assert bridge.value.value == 4
+            assert bridge.evaluated_value == 4
+            assert bridge.evaluation_error is None
         finally:
             StateSingleton._state = original_state
 
@@ -402,6 +406,102 @@ def test_required_fact_definition_cannot_be_deleted(monkeypatch) -> None:
             )
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "Backend-owned" in websocket.sent_messages[-1]["reason"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_fact_formula_definition_rejects_paths_invalid_for_its_subjects(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_with_sheet()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_fact",
+                    "fact": {
+                        "id": "invalid_item_rating",
+                        "name": "Invalid Item Rating",
+                        "subject_types": ["item"],
+                        "value_type": "number",
+                        "default_value": {
+                            "type": "formula",
+                            "formula": {
+                                "aliases": [
+                                    {
+                                        "name": "strength",
+                                        "path": ["stats", "strength"],
+                                    }
+                                ],
+                                "text": "@strength",
+                            },
+                        },
+                    },
+                },
+            )
+
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "unsupported path 'stats.strength'" in websocket.sent_messages[-1][
+                "reason"
+            ]
+            assert "invalid_item_rating" not in StateSingleton.getState().facts
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_with_sheet()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            definition = {
+                "id": "level",
+                "name": "Level",
+                "subject_types": ["sheet"],
+                "value_type": "number",
+                "default_value": {"type": "number", "value": 1},
+            }
+            await handle_client_payload(
+                websocket,
+                {"type": "create_fact", "fact": definition},
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_fact",
+                    "fact_id": "level",
+                    "fact": {
+                        **definition,
+                        "default_value": {
+                            "type": "formula",
+                            "formula": {
+                                "aliases": [
+                                    {"name": "level", "path": ["facts", "level"]}
+                                ],
+                                "text": "@level + 1",
+                            },
+                        },
+                    },
+                },
+            )
+
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "cannot reference itself" in websocket.sent_messages[-1]["reason"]
+            assert StateSingleton.getState().facts["level"].default_value.value == 1
         finally:
             StateSingleton._state = original_state
 

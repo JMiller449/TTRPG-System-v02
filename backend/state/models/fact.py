@@ -366,6 +366,19 @@ class _FactFormulaRoot:
         return getattr(self._subject, name)
 
 
+class _LazyFactValues(dict[str, EvaluatedFactValue]):
+    def __init__(self, subject: Any, resolver: Any) -> None:
+        super().__init__()
+        self._subject = subject
+        self._resolver = resolver
+
+    def __contains__(self, fact_id: object) -> bool:
+        return isinstance(fact_id, str) and fact_id in self._subject.facts
+
+    def __getitem__(self, fact_id: str) -> EvaluatedFactValue:
+        return self._resolver(fact_id)
+
+
 def evaluate_all_subject_facts(subject: Any) -> None:
     evaluated: dict[str, EvaluatedFactValue] = {}
     visiting: list[str] = []
@@ -393,7 +406,10 @@ def evaluate_all_subject_facts(subject: Any) -> None:
                             )
                         evaluate_bridge(alias.path[1])
                 result = evaluate_numeric_formula(
-                    _FactFormulaRoot(subject, evaluated),
+                    _FactFormulaRoot(
+                        subject,
+                        _LazyFactValues(subject, evaluate_bridge),
+                    ),
                     bridge.value.formula,
                 )
             else:
@@ -411,6 +427,66 @@ def evaluate_all_subject_facts(subject: Any) -> None:
         except (AttributeError, KeyError, SyntaxError, TypeError, ValueError) as exc:
             bridge.evaluated_value = None
             bridge.evaluation_error = str(exc)
+
+
+def require_valid_subject_fact_evaluation(
+    subject: Any,
+    fact_ids: set[str] | None = None,
+) -> None:
+    invalid = next(
+        (
+            (fact_id, bridge.evaluation_error)
+            for fact_id, bridge in subject.facts.items()
+            if (fact_ids is None or fact_id in fact_ids)
+            and bridge.evaluation_error is not None
+        ),
+        None,
+    )
+    if invalid is not None:
+        fact_id, error = invalid
+        raise ValueError(f"Fact '{fact_id}' could not be evaluated: {error}")
+
+
+def validate_sheet_formula_dependencies(sheet: "Sheet") -> None:
+    formulas: dict[str, Formula] = {}
+    for stat_name, value in vars(sheet.stats).items():
+        if isinstance(value, Formula):
+            formulas[f"stats.{stat_name}"] = value
+    for fact_id, bridge in sheet.facts.items():
+        if bridge.value.type == "formula" and bridge.value.formula is not None:
+            formulas[f"facts.{fact_id}"] = bridge.value.formula
+
+    graph: dict[str, set[str]] = {node: set() for node in formulas}
+    for node, formula in formulas.items():
+        for alias in formula.aliases or []:
+            if len(alias.path) != 2 or alias.path[0] not in {"stats", "facts"}:
+                continue
+            target = f"{alias.path[0]}.{alias.path[1]}"
+            if alias.path[0] == "facts" and alias.path[1] not in sheet.facts:
+                raise ValueError(
+                    f"Formula alias '{alias.name}' references Fact "
+                    f"'{alias.path[1]}', but it is not attached to this sheet."
+                )
+            if target in formulas:
+                graph[node].add(target)
+
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(node: str) -> None:
+        if node in visiting:
+            cycle = " -> ".join([*visiting[visiting.index(node) :], node])
+            raise ValueError(f"Sheet formula dependency cycle detected: {cycle}.")
+        if node in visited:
+            return
+        visiting.append(node)
+        for target in sorted(graph[node]):
+            visit(target)
+        visiting.pop()
+        visited.add(node)
+
+    for node in sorted(graph):
+        visit(node)
 
 
 def evaluate_all_sheet_facts(sheet: "Sheet") -> None:

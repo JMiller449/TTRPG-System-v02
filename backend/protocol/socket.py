@@ -100,6 +100,7 @@ from backend.protocol.state_schema import (
     ActionStepPayload,
     BackendStateSnapshotPayload,
     FactValuePayload,
+    FormulaPayload,
 )
 
 
@@ -202,6 +203,39 @@ class FormulaAliasMetadataEvent(ProtocolModel):
     path: list[str]
 
 
+class FactFormulaVariablePathMetadataEvent(ProtocolModel):
+    key: str
+    label: str
+    subject_types: list[Literal["sheet", "item", "action"]]
+    path: list[str]
+    value_type: Literal["number", "percent", "formula"]
+    description: str = ""
+    shortcuts: list[str] | None = None
+
+
+class SheetFormulaStatDefaultMetadataEvent(ProtocolModel):
+    stat_name: Literal[
+        "lifting",
+        "carry_weight",
+        "acrobatics",
+        "stamina",
+        "reaction_time",
+        "health",
+        "endurance",
+        "pain_tolerance",
+        "sight_distance",
+        "intuition",
+        "registration",
+        "mana",
+        "control",
+        "sensitivity",
+        "charisma",
+        "mental_fortitude",
+        "courage",
+    ]
+    formula: FormulaPayload
+
+
 class ActionStepAuthoringMetadataEvent(ProtocolModel):
     type: str
     label: str
@@ -260,6 +294,12 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     action_steps: list[ActionStepAuthoringMetadataEvent]
     action_preset_templates: list[ActionPresetTemplateEvent]
     action_fact_presets: list[ActionFactPresetEvent]
+    fact_formula_variables: list[FactFormulaVariablePathMetadataEvent] = Field(
+        default_factory=list
+    )
+    sheet_formula_stat_defaults: list[
+        SheetFormulaStatDefaultMetadataEvent
+    ] = Field(default_factory=list)
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"

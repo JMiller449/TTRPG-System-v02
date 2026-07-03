@@ -17,6 +17,7 @@ function renderEditor(name = ""): string {
       proficiencyOrder={[]}
       items={{}}
       itemOrder={[]}
+      facts={{}}
       metadata={null}
       onChange={() => undefined}
       onSubmit={() => undefined}
@@ -32,6 +33,7 @@ describe("TemplateEditorForm", () => {
     expect(markup).toContain("GM-controlled");
     expect(markup).toContain("Details");
     expect(markup).toContain("Stats");
+    expect(markup).toContain("Facts");
     expect(markup).toContain("Resistances");
     expect(markup).toContain("Actions");
     expect(markup).toContain("Proficiencies");

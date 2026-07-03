@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TTRPG Character Sheet Design Study</title>
+  <link rel="stylesheet" href="./preview.css" />
+</head>
+<body class="cs-theme cs-theme--command">
+  <div class="preview-topbar">
+    <div><strong>Character Sheet Study</strong><span>Static preview · no backend</span></div>
+    <button id="theme-toggle" type="button">Use parchment bridge</button>
+  </div>
+
+  <div class="cs-sheet">
+    <header class="cs-hero">
+      <div class="cs-hero__identity">
+        <div class="cs-hero__portrait" aria-hidden="true"><span>MV</span></div>
+        <div class="cs-hero__copy">
+          <p class="cs-eyebrow">Active character</p>
+          <div class="cs-hero__name-line"><h1>Mara Voss</h1><span class="cs-level">Level 12</span></div>
+          <p class="cs-hero__subtitle">Human Vanguard · Ash Company</p>
+          <ul class="cs-badge-row"><li>Frontline</li><li>Longsword</li><li>Arcane Initiate</li></ul>
+        </div>
+      </div>
+      <div class="cs-hero__meta"><div class="cs-sync cs-sync--synced" role="status"><span class="cs-sync__dot"></span><span>Synced</span></div></div>
+      <div class="cs-hero__resources" id="resources"></div>
+    </header>
+
+    <nav class="cs-tabs" aria-label="Character sheet sections">
+      <div class="cs-tabs__scroll" role="tablist">
+        <button class="cs-tab cs-tab--active" role="tab" aria-selected="true" data-tab="overview">Overview</button>
+        <button class="cs-tab" role="tab" aria-selected="false" data-tab="actions">Actions</button>
+        <button class="cs-tab" role="tab" aria-selected="false" data-tab="conditions">Conditions <span class="cs-tab__badge">2</span></button>
+        <button class="cs-tab" role="tab" aria-selected="false" data-tab="equipment">Equipment</button>
+        <button class="cs-tab" role="tab" aria-selected="false" data-tab="proficiencies">Proficiencies</button>
+        <button class="cs-tab" role="tab" aria-selected="false" data-tab="notes">Notes</button>
+      </div>
+    </nav>
+
+    <main class="cs-sheet__content">
+      <div class="preview-panel" data-panel="overview">
+        <section class="cs-section">
+          <div class="cs-section__heading"><div><p class="cs-eyebrow">Current state</p><h2>Conditions</h2></div><span class="cs-count">2 active</span></div>
+          <div class="cs-condition-grid">
+            <article class="cs-condition cs-condition--danger"><div class="cs-condition__marker"></div><div class="cs-condition__body"><div class="cs-condition__title-row"><h3>Grappled</h3><span>Until escaped</span></div><p>Attacks are made at disadvantage; attacks against this character are guaranteed to hit.</p><small>Source: Stone Brute</small></div></article>
+            <article class="cs-condition cs-condition--info"><div class="cs-condition__marker"></div><div class="cs-condition__body"><div class="cs-condition__title-row"><h3>Flanking Position</h3><span>Positional</span></div><p>Gain advantage on applicable contested checks while the position is maintained.</p></div></article>
+          </div>
+        </section>
+        <section class="cs-section">
+          <div class="cs-section__heading"><div><p class="cs-eyebrow">Core profile</p><h2>Stats and substats</h2></div></div>
+          <div class="cs-stat-grid" id="stats"></div>
+        </section>
+      </div>
+
+      <div class="preview-panel" data-panel="actions" hidden>
+        <section class="cs-section">
+          <div class="cs-section__heading"><div><p class="cs-eyebrow">Play controls</p><h2>Actions</h2></div><span class="cs-count" id="action-count"></span></div>
+          <div class="cs-action-tools"><label class="cs-search"><span aria-hidden="true">⌕</span><input id="action-search" placeholder="Search actions" aria-label="Search actions" /></label><button class="cs-filter-toggle" id="favorites-filter" aria-pressed="false">☆ Favorites</button></div>
+          <div class="cs-filter-row" id="filters"></div>
+          <div class="cs-action-grid" id="actions"></div>
+        </section>
+      </div>
+
+      <div class="preview-panel" data-panel="conditions" hidden>
+        <section class="cs-section"><div class="cs-section__heading"><div><p class="cs-eyebrow">Current state</p><h2>Conditions</h2></div><span class="cs-count">2 active</span></div><p class="cs-empty">The production component renders the same condition cards with optional GM removal callbacks.</p></section>
+      </div>
+
+      <div class="preview-panel" data-panel="equipment" hidden><section class="cs-section"><p class="cs-empty">Integration slot for the existing equipment section.</p></section></div>
+      <div class="preview-panel" data-panel="proficiencies" hidden><section class="cs-section"><p class="cs-empty">Integration slot for the existing proficiency section.</p></section></div>
+      <div class="preview-panel" data-panel="notes" hidden><section class="cs-section"><p class="cs-empty">Integration slot for the existing notes section.</p></section></div>
+    </main>
+  </div>
+
+  <nav class="cs-quick-dock" aria-label="Quick rolls"><button>◈<span>Strike</span></button><button>◈<span>Parry</span></button><button>◈<span>Dodge</span></button><button>◈<span>Focus</span></button></nav>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="./preview.js"></script>
+</body>
+</html>

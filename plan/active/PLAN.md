@@ -89,6 +89,7 @@ Backend:
 
 Frontend:
 
+- Utilize the outline in ".\reference-docs\TTRPG-Character-Sheet-Design-Study" as your design bible for UI/UX, use the provided preview as a reference, but not as a concrete design structure.
 - React/Vite frontend is scaffolded.
 - Websocket wrapper handles raw JSON parsing, event normalization, connection status, snapshots, patches, and invalid payload handling.
 - Websocket wrapper tracks last seen state versions, can request resync when it detects a state version gap, and reconnects with bounded backoff after dropped websocket connections.

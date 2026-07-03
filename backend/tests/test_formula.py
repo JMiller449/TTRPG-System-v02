@@ -243,6 +243,7 @@ def test_formula_execution_context_normalizes_formula_and_semantic_tags() -> Non
         action_id="attack",
         step_id="damage-step",
         formula_id="damage-formula",
+        source_item_relationship_id=None,
         tags=("damage", "fire", "magical"),
     )
 

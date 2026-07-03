@@ -261,6 +261,7 @@ export interface FormulaModifierSelector {
   action_id?: string | null;
   formula_id?: string | null;
   step_id?: string | null;
+  same_source_item?: boolean;
 }
 
 export interface FormulaModifierEffect {

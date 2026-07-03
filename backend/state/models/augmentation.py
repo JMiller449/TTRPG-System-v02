@@ -69,6 +69,7 @@ class FormulaModifierSelector:
     action_id: str | None = None
     formula_id: str | None = None
     step_id: str | None = None
+    same_source_item: bool = False
 
     def __post_init__(self) -> None:
         self.required_tags = normalize_formula_tags(self.required_tags)
@@ -94,6 +95,7 @@ class FormulaModifierSelector:
             action_id=raw.get("action_id"),
             formula_id=raw.get("formula_id"),
             step_id=raw.get("step_id"),
+            same_source_item=bool(raw.get("same_source_item", False)),
         )
 
     def matches(
@@ -103,11 +105,19 @@ class FormulaModifierSelector:
         action_id: str | None = None,
         formula_id: str | None = None,
         step_id: str | None = None,
+        source_item_relationship_id: str | None = None,
+        effect_source_item_relationship_id: str | None = None,
     ) -> bool:
         context_tags = set(normalize_formula_tags(tags))
         if not set(self.required_tags).issubset(context_tags):
             return False
         if set(self.excluded_tags) & context_tags:
+            return False
+        if self.same_source_item and (
+            source_item_relationship_id is None
+            or effect_source_item_relationship_id is None
+            or source_item_relationship_id != effect_source_item_relationship_id
+        ):
             return False
         return all(
             expected is None or expected == actual

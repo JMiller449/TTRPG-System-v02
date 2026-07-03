@@ -1350,16 +1350,240 @@ def test_item_modifier_source_item_fact_requires_explicit_source(monkeypatch) ->
                 "action_id": "weapon_damage",
             }
             await handle_client_payload(websocket, request)
-            assert "requires an explicit eligible source item relationship" in (
-                websocket.sent_messages[-1]["reason"]
-            )
-            assert state.instanced_sheets["mage_instance"].health == 90
+            assert state.instanced_sheets["mage_instance"].health == 65
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
 
+            state.instanced_sheets["mage_instance"].health = 90
             request["source_item_relationship_id"] = "equipped-sword"
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].health == 65
             assert websocket.sent_messages[-1]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_same_source_item_modifier_only_matches_executing_item(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions = {}
+            sheet.items = {
+                "mana-sword": ItemBridge(
+                    relationship_id="mana-sword",
+                    count=1,
+                    equipped=True,
+                    item_id="mana-sword",
+                ),
+                "plain-sword": ItemBridge(
+                    relationship_id="plain-sword",
+                    count=1,
+                    equipped=True,
+                    item_id="plain-sword",
+                ),
+            }
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["weapon_damage"] = Action.from_dict(
+                {
+                    "id": "weapon_damage",
+                    "name": "Weapon Damage",
+                    "steps": [
+                        {
+                            "step_id": "damage-step",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Slashing",
+                            "amount": _formula_payload("10", tags=["damage"]),
+                        }
+                    ],
+                }
+            )
+            same_source_modifier = _evaluation_augmentation_payload(
+                augmentation_id="same-source-damage",
+                effect={
+                    "type": "evaluation_formula_modifier",
+                    "operation": "add",
+                    "value": _formula_payload("50"),
+                    "selector": {
+                        "required_tags": ["damage"],
+                        "same_source_item": True,
+                    },
+                },
+                source_id="mana-sword",
+            )
+            state.items["mana-sword"] = Item.from_dict(
+                {
+                    "id": "mana-sword",
+                    "name": "Sword of Mana",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_damage",
+                            "availability": "equipped",
+                        }
+                    ],
+                    "augmentation_templates": [same_source_modifier],
+                }
+            )
+            state.items["plain-sword"] = Item.from_dict(
+                {
+                    "id": "plain-sword",
+                    "name": "Plain Sword",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_damage",
+                            "availability": "equipped",
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "weapon_damage",
+                },
+            )
+            assert state.instanced_sheets["mage_instance"].health == 80
+
+            state.instanced_sheets["mage_instance"].health = 90
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "weapon_damage",
+                    "source_item_relationship_id": "plain-sword",
+                },
+            )
+            assert state.instanced_sheets["mage_instance"].health == 80
+
+            state.instanced_sheets["mage_instance"].health = 90
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "weapon_damage",
+                    "source_item_relationship_id": "mana-sword",
+                },
+            )
+            assert state.instanced_sheets["mage_instance"].health == 30
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_same_source_item_modifier_treats_same_definition_bridges_as_distinct(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions = {}
+            sheet.items = {
+                "mana-sword-a": ItemBridge(
+                    relationship_id="mana-sword-a",
+                    count=1,
+                    equipped=True,
+                    item_id="mana-sword",
+                ),
+                "mana-sword-b": ItemBridge(
+                    relationship_id="mana-sword-b",
+                    count=1,
+                    equipped=True,
+                    item_id="mana-sword",
+                ),
+            }
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["weapon_damage"] = Action.from_dict(
+                {
+                    "id": "weapon_damage",
+                    "name": "Weapon Damage",
+                    "steps": [
+                        {
+                            "step_id": "damage-step",
+                            "type": "resolve_damage",
+                            "target": "caster",
+                            "damage_type": "Slashing",
+                            "amount": _formula_payload("10", tags=["damage"]),
+                        }
+                    ],
+                }
+            )
+            state.items["mana-sword"] = Item.from_dict(
+                {
+                    "id": "mana-sword",
+                    "name": "Sword of Mana",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_damage",
+                            "availability": "equipped",
+                        }
+                    ],
+                    "augmentation_templates": [
+                        _evaluation_augmentation_payload(
+                            augmentation_id="same-source-damage",
+                            effect={
+                                "type": "evaluation_formula_modifier",
+                                "operation": "add",
+                                "value": _formula_payload("50"),
+                                "selector": {
+                                    "required_tags": ["damage"],
+                                    "same_source_item": True,
+                                },
+                            },
+                            source_id="mana-sword",
+                        )
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "weapon_damage",
+                    "source_item_relationship_id": "mana-sword-a",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].health == 30
         finally:
             StateSingleton._state = original_state
 
@@ -2232,11 +2456,10 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             }
 
             await handle_client_payload(websocket, request)
-            assert "requires an explicit eligible source item" in (
-                websocket.sent_messages[-1]["reason"]
-            )
-            assert state.instanced_sheets["mage_instance"].mana == 30
+            assert state.instanced_sheets["mage_instance"].mana == 55.8
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
 
+            state.instanced_sheets["mage_instance"].mana = 30
             request["source_item_relationship_id"] = "equipped-sword"
             state.items["test-sword"].fact_profile = None
             await handle_client_payload(websocket, request)

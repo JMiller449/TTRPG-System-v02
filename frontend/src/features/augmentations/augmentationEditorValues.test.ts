@@ -5,6 +5,7 @@ import {
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
   createEmptyAugmentationEditorValues,
+  formatFormulaModifierSelector,
   formatAugmentationTargetOption,
   hasValidAugmentationEditorValues,
   isKnownAugmentationEditorTarget,
@@ -42,7 +43,8 @@ const testAugmentation: Augmentation = {
       excluded_tags: ["healing"],
       action_id: "action_1",
       formula_id: "formula_1",
-      step_id: "step_1"
+      step_id: "step_1",
+      same_source_item: true
     },
     type: "formula_modifier"
   },
@@ -79,6 +81,7 @@ describe("augmentationEditorValues", () => {
       selectorActionId: "action_1",
       selectorFormulaId: "formula_1",
       selectorStepId: "step_1",
+      selectorSameSourceItem: true,
       duration: "encounter",
       expiresAt: "",
       removalCondition: "item removed"
@@ -109,7 +112,8 @@ describe("augmentationEditorValues", () => {
         excluded_tags: [],
         action_id: null,
         formula_id: null,
-        step_id: null
+        step_id: null,
+        same_source_item: false
       },
       type: "evaluation_formula_modifier"
     });
@@ -133,7 +137,8 @@ describe("augmentationEditorValues", () => {
         excluded_tags: [],
         action_id: null,
         formula_id: null,
-        step_id: null
+        step_id: null,
+        same_source_item: false
       },
       type: "roll_mode_modifier"
     });
@@ -158,6 +163,7 @@ describe("augmentationEditorValues", () => {
     values.selectorActionId = " action_1 ";
     values.selectorFormulaId = " formula_1 ";
     values.selectorStepId = " step_1 ";
+    values.selectorSameSourceItem = true;
     values.duration = " encounter ";
     values.removalCondition = " item removed ";
 
@@ -198,7 +204,8 @@ describe("augmentationEditorValues", () => {
           excluded_tags: ["healing"],
           action_id: "action_1",
           formula_id: "formula_1",
-          step_id: "step_1"
+          step_id: "step_1",
+          same_source_item: true
         },
         type: "formula_modifier"
       },
@@ -211,6 +218,10 @@ describe("augmentationEditorValues", () => {
         removal_condition: "item removed"
       }
     });
+  });
+
+  it("formats same-source item selector constraints", () => {
+    expect(formatFormulaModifierSelector(testAugmentation)).toContain("same source item");
   });
 
   it("uses the item target root as both backend target root and scope", () => {

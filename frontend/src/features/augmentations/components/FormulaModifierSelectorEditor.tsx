@@ -99,6 +99,17 @@ export function FormulaModifierSelectorEditor({
           </datalist>
         </Field>
       </div>
+
+      <label className="augmentation-template-panel__active">
+        <input
+          checked={values.selectorSameSourceItem}
+          type="checkbox"
+          onChange={(event) =>
+            onChange({ ...values, selectorSameSourceItem: event.target.checked })
+          }
+        />
+        Same source item only
+      </label>
     </section>
   );
 }

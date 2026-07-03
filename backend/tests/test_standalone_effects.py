@@ -97,6 +97,7 @@ def test_state_round_trips_definitions_and_applications() -> None:
         "action_id": None,
         "formula_id": None,
         "step_id": None,
+        "same_source_item": False,
     }
     assert serialized["standalone_effect_applications"][
         "standalone:instance-1:blessing"

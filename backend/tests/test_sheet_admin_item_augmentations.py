@@ -152,6 +152,7 @@ def test_dm_upsert_normalizes_formula_modifier_selector(monkeypatch) -> None:
                             "action_id": " action-1 ",
                             "formula_id": " formula-1 ",
                             "step_id": " step-1 ",
+                            "same_source_item": True,
                         }
                     ),
                 },
@@ -163,6 +164,7 @@ def test_dm_upsert_normalizes_formula_modifier_selector(monkeypatch) -> None:
             assert selector.action_id == "action-1"
             assert selector.formula_id == "formula-1"
             assert selector.step_id == "step-1"
+            assert selector.same_source_item is True
             patch_selector = websocket.sent_messages[0]["ops"][0]["value"]["effect"][
                 "selector"
             ]
@@ -172,6 +174,7 @@ def test_dm_upsert_normalizes_formula_modifier_selector(monkeypatch) -> None:
                 "action_id": "action-1",
                 "formula_id": "formula-1",
                 "step_id": "step-1",
+                "same_source_item": True,
             }
         finally:
             StateSingleton._state = original_state

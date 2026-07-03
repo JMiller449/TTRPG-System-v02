@@ -38,6 +38,7 @@ def _augmentation_payload() -> dict:
                 "action_id": None,
                 "formula_id": None,
                 "step_id": None,
+                "same_source_item": False,
             },
         },
         "active": True,
@@ -102,6 +103,7 @@ def test_state_snapshot_protocol_accepts_augmentation_payload() -> None:
             "action_id": None,
             "formula_id": None,
             "step_id": None,
+            "same_source_item": False,
         },
         "type": "formula_modifier",
     }
@@ -123,44 +125,72 @@ def test_formula_modifier_selector_matches_every_populated_constraint() -> None:
         action_id="action-1",
         formula_id="formula-1",
         step_id="step-1",
+        same_source_item=True,
     )
 
     assert selector.required_tags == ["damage", "fire"]
+    assert selector.same_source_item is True
     assert selector.matches(
+        tags=["fire", "damage", "critical"],
+        action_id="action-1",
+        formula_id="formula-1",
+        step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
+    )
+    assert not selector.matches(
         tags=["fire", "damage", "critical"],
         action_id="action-1",
         formula_id="formula-1",
         step_id="step-1",
     )
     assert not selector.matches(
+        tags=["fire", "damage", "critical"],
+        action_id="action-1",
+        formula_id="formula-1",
+        step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-b",
+    )
+    assert not selector.matches(
         tags=["damage"],
         action_id="action-1",
         formula_id="formula-1",
         step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
     )
     assert not selector.matches(
         tags=["damage", "fire", "healing"],
         action_id="action-1",
         formula_id="formula-1",
         step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
     )
     assert not selector.matches(
         tags=["damage", "fire"],
         action_id="other-action",
         formula_id="formula-1",
         step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
     )
     assert not selector.matches(
         tags=["damage", "fire"],
         action_id="action-1",
         formula_id=None,
         step_id="step-1",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
     )
     assert not selector.matches(
         tags=["damage", "fire"],
         action_id="action-1",
         formula_id="formula-1",
         step_id="other-step",
+        source_item_relationship_id="sword-a",
+        effect_source_item_relationship_id="sword-a",
     )
 
 

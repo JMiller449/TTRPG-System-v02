@@ -42,7 +42,8 @@ describe("standaloneEffectEditorValues", () => {
           excluded_tags: ["healing"],
           action_id: null,
           formula_id: null,
-          step_id: null
+          step_id: null,
+          same_source_item: false
         },
         type: "evaluation_formula_modifier"
       },
@@ -77,7 +78,8 @@ describe("standaloneEffectEditorValues", () => {
           excluded_tags: [],
           action_id: null,
           formula_id: null,
-          step_id: null
+          step_id: null,
+          same_source_item: false
         }
       },
       active: false,

@@ -140,7 +140,8 @@ describe("conditionEditorValues", () => {
           excluded_tags: [],
           action_id: null,
           formula_id: null,
-          step_id: null
+          step_id: null,
+          same_source_item: false
         },
         type: "formula_modifier"
       },

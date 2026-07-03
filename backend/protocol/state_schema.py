@@ -323,6 +323,7 @@ class FormulaModifierSelectorPayload(ProtocolModel):
     action_id: str | None = None
     formula_id: str | None = None
     step_id: str | None = None
+    same_source_item: bool = False
 
     @field_validator("required_tags", "excluded_tags")
     @classmethod

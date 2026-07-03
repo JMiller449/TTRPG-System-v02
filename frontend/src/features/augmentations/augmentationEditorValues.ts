@@ -29,6 +29,7 @@ export interface AugmentationEditorValues {
   selectorActionId: string;
   selectorFormulaId: string;
   selectorStepId: string;
+  selectorSameSourceItem: boolean;
   duration: string;
   expiresAt: string;
   removalCondition: string;
@@ -51,6 +52,7 @@ export function createEmptyAugmentationEditorValues(): AugmentationEditorValues 
     selectorActionId: "",
     selectorFormulaId: "",
     selectorStepId: "",
+    selectorSameSourceItem: false,
     duration: "",
     expiresAt: "",
     removalCondition: ""
@@ -102,7 +104,8 @@ export function formatFormulaModifierSelector(
     ...(selector.excluded_tags?.length ? [`excludes ${selector.excluded_tags.join(" + ")}`] : []),
     ...(selector.action_id ? [`action ${selector.action_id}`] : []),
     ...(selector.formula_id ? [`formula ${selector.formula_id}`] : []),
-    ...(selector.step_id ? [`step ${selector.step_id}`] : [])
+    ...(selector.step_id ? [`step ${selector.step_id}`] : []),
+    ...(selector.same_source_item ? ["same source item"] : [])
   ];
   return constraints.length > 0 ? constraints.join("; ") : "all formulas";
 }
@@ -183,6 +186,7 @@ export function toAugmentationEditorValues(
     selectorActionId: augmentation.effect.selector?.action_id ?? "",
     selectorFormulaId: augmentation.effect.selector?.formula_id ?? "",
     selectorStepId: augmentation.effect.selector?.step_id ?? "",
+    selectorSameSourceItem: augmentation.effect.selector?.same_source_item ?? false,
     duration: augmentation.lifecycle?.duration ?? "",
     expiresAt: augmentation.lifecycle?.expires_at ?? "",
     removalCondition: augmentation.lifecycle?.removal_condition ?? ""
@@ -210,7 +214,8 @@ export function toAugmentationEffectPayload(
     excluded_tags: normalizeFormulaTags(values.selectorExcludedTags),
     action_id: optionalText(values.selectorActionId),
     formula_id: optionalText(values.selectorFormulaId),
-    step_id: optionalText(values.selectorStepId)
+    step_id: optionalText(values.selectorStepId),
+    same_source_item: values.selectorSameSourceItem
   };
 
   if (values.effectType === "roll_mode_modifier") {

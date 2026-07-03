@@ -159,6 +159,7 @@ class RuntimeFormulaContext:
         instance: InstancedSheet | None,
         action: Action,
         source_item: Item | None,
+        source_item_relationship_id: str | None,
         state: State,
         action_values: dict[str, float | int] | None = None,
     ) -> None:
@@ -166,6 +167,7 @@ class RuntimeFormulaContext:
         self._instance = instance
         self._action = action
         self._source_item = source_item
+        self.source_item_relationship_id = source_item_relationship_id
         self.sheet = sheet
         self.instance = instance
         self.action = {
@@ -419,6 +421,7 @@ def _formula_execution_context(
     action_id: str,
     step_id: str,
     formula_id: str | None = None,
+    source_item_relationship_id: str | None = None,
     semantic_tags: tuple[str, ...] = (),
 ) -> FormulaExecutionContext:
     return FormulaExecutionContext.for_formula(
@@ -426,6 +429,7 @@ def _formula_execution_context(
         action_id=action_id,
         step_id=step_id,
         formula_id=formula_id,
+        source_item_relationship_id=source_item_relationship_id,
         semantic_tags=semantic_tags,
     )
 
@@ -475,6 +479,7 @@ def _evaluate_action_formula(
     formula: FormulaValueSource,
     action_id: str,
     step_id: str,
+    source_item_relationship_id: str | None = None,
     semantic_tags: tuple[str, ...] = (),
 ) -> float | int:
     resolved_formula, formula_id = _resolve_formula_value(state, formula)
@@ -484,6 +489,7 @@ def _evaluate_action_formula(
         action_id=action_id,
         step_id=step_id,
         formula_id=formula_id,
+        source_item_relationship_id=source_item_relationship_id,
         semantic_tags=semantic_tags,
     )
     modifiers = _matching_formula_effects(state, actor, context)
@@ -525,6 +531,7 @@ def _resolve_action_numeric_value(
         formula=value,
         action_id=action_id,
         step_id=step_id,
+        source_item_relationship_id=formula_root.source_item_relationship_id,
         semantic_tags=semantic_tags,
     )
 
@@ -976,11 +983,8 @@ async def perform_action(
             current_actor.sheet,
             current_actor.instance,
             current_action,
-            (
-                current_resolution.source_item
-                if request.source_item_relationship_id is not None
-                else None
-            ),
+            current_resolution.source_item,
+            current_resolution.source_item_bridge_key,
             state,
             action_values,
         )
@@ -1002,6 +1006,9 @@ async def perform_action(
                     action_id=current_action.id,
                     step_id=step.step_id,
                     formula_id=formula_id,
+                    source_item_relationship_id=(
+                        current_resolution.source_item_bridge_key
+                    ),
                 )
                 modifiers = _matching_formula_effects(
                     state,
@@ -1053,6 +1060,9 @@ async def perform_action(
                     formula=step.value,
                     action_id=current_action.id,
                     step_id=step.step_id,
+                    source_item_relationship_id=(
+                        current_resolution.source_item_bridge_key
+                    ),
                 )
                 continue
 

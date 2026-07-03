@@ -52,6 +52,7 @@ class FormulaExecutionContext:
     action_id: str | None = None
     step_id: str | None = None
     formula_id: str | None = None
+    source_item_relationship_id: str | None = None
     tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -65,12 +66,14 @@ class FormulaExecutionContext:
         action_id: str | None = None,
         step_id: str | None = None,
         formula_id: str | None = None,
+        source_item_relationship_id: str | None = None,
         semantic_tags: tuple[str, ...] = (),
     ) -> "FormulaExecutionContext":
         return cls(
             action_id=action_id,
             step_id=step_id,
             formula_id=formula_id,
+            source_item_relationship_id=source_item_relationship_id,
             tags=tuple(formula.tags) + semantic_tags,
         )
 
@@ -87,6 +90,8 @@ def _effect_matches_context(
         action_id=context.action_id,
         formula_id=context.formula_id,
         step_id=context.step_id,
+        source_item_relationship_id=context.source_item_relationship_id,
+        effect_source_item_relationship_id=context.source_item_relationship_id,
     )
 
 

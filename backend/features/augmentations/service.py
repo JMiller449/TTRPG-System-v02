@@ -115,12 +115,16 @@ def _is_evaluation_time_effect(augmentation: Augmentation) -> bool:
 def _effect_matches_context(
     effect: EvaluationTimeEffect,
     context: FormulaExecutionContext,
+    *,
+    effect_source_item_relationship_id: str | None = None,
 ) -> bool:
     return effect.selector.matches(
         tags=list(context.tags),
         action_id=context.action_id,
         formula_id=context.formula_id,
         step_id=context.step_id,
+        source_item_relationship_id=context.source_item_relationship_id,
+        effect_source_item_relationship_id=effect_source_item_relationship_id,
     )
 
 
@@ -179,7 +183,11 @@ def matching_evaluation_effects(
                 continue
             if template.scope == "instance" and instance_id is None:
                 continue
-            if _effect_matches_context(template.effect, context):
+            if _effect_matches_context(
+                template.effect,
+                context,
+                effect_source_item_relationship_id=bridge.relationship_id,
+            ):
                 effects.append(template.effect)
 
     return tuple(effects)

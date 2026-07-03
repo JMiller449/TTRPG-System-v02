@@ -19,6 +19,7 @@ function renderEditor(valid: boolean): string {
   if (valid) {
     values.name = "Focused";
     values.targetPath = [...target.path];
+    values.effectType = "evaluation_formula_modifier";
     values.formulaText = "2";
   }
   return renderToStaticMarkup(
@@ -42,6 +43,7 @@ describe("StandaloneEffectEditorForm", () => {
     expect(markup).toContain("Direct instance value");
     expect(markup).toContain("Matching formula value");
     expect(markup).toContain("Matching roll mode");
+    expect(markup).toContain("Same source item only");
     expect(markup).toContain("Insert Formula Variable");
     expect(markup).toContain("Manual lifecycle notes");
     expect(markup).toContain("Available to actions");

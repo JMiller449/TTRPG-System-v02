@@ -40,7 +40,7 @@ export interface TemplateReferenceCatalogs {
   actions: Record<string, ActionDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   items: Record<string, ItemDefinition>;
-  facts?: Record<string, FactDefinition>;
+  facts: Record<string, FactDefinition>;
 }
 
 export interface TemplateEditorValidation {

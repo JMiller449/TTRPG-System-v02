@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>R6 System Glass — Character Sheet Preview</title>
+  <link rel="stylesheet" href="../drop-in/frontend/src/styles/r6-system-ui/index.css" />
+  <link rel="stylesheet" href="./preview.css" />
+</head>
+<body class="r6-theme">
+  <main class="preview-shell">
+    <section class="r6-panel r6-panel--raised" aria-labelledby="sheet-title">
+      <span class="r6-panel__corner r6-panel__corner--tl" aria-hidden="true"></span>
+      <span class="r6-panel__corner r6-panel__corner--tr" aria-hidden="true"></span>
+      <span class="r6-panel__corner r6-panel__corner--bl" aria-hidden="true"></span>
+      <span class="r6-panel__corner r6-panel__corner--br" aria-hidden="true"></span>
+      <header class="r6-panel__header">
+        <div>
+          <p class="r6-panel__eyebrow">R6 System Interface</p>
+          <h2 class="r6-panel__title" id="sheet-title">Character Status</h2>
+        </div>
+        <span class="r6-sync r6-sync--synced" role="status"><span class="r6-sync__dot" aria-hidden="true"></span><span>Synced <small>v128</small></span></span>
+      </header>
+
+      <div class="r6-panel__body">
+        <header class="r6-status-header">
+          <div class="r6-status-header__portrait" aria-hidden="true"><span>KA</span></div>
+          <div class="r6-status-header__identity">
+            <p class="r6-kicker">Status Interface</p>
+            <h1>Kael Ardent</h1>
+            <div class="r6-status-header__meta"><span class="r6-status-header__title">Unregistered Rift Walker</span><span>Human · Vanguard</span></div>
+            <div class="r6-chip-row"><span class="r6-chip r6-chip--neutral">Frontline</span><span class="r6-chip r6-chip--neutral">Awakened</span></div>
+          </div>
+          <div class="r6-status-header__level" aria-label="Level 18, rank C">
+            <span class="r6-status-header__level-value">18</span><span class="r6-status-header__level-label">Level</span><span class="r6-status-header__rank">Rank C</span>
+          </div>
+          <div class="r6-status-header__trailing"><button class="r6-button r6-button--secondary" id="open-notice">System Notice</button></div>
+        </header>
+
+        <div class="r6-resource-grid">
+          <div class="r6-resource r6-resource--health" data-resource="hp" data-current="2220" data-max="2400" data-step="25">
+            <div class="r6-resource__top"><span class="r6-resource__label"><span class="r6-resource__glyph">✚</span>Health</span><output class="r6-resource__value"><strong>2,220</strong><span> / 2,400</span></output></div>
+            <div class="r6-resource__track" role="progressbar" aria-label="Health" aria-valuemin="0" aria-valuemax="2400" aria-valuenow="2220"><span class="r6-resource__fill" style="width:92.5%"></span></div>
+            <div class="r6-resource__controls"><button data-delta="-1" aria-label="Decrease Health by 25">−</button><button data-delta="1" aria-label="Increase Health by 25">+</button></div>
+          </div>
+          <div class="r6-resource r6-resource--mana" data-resource="mana" data-current="315" data-max="420" data-step="10">
+            <div class="r6-resource__top"><span class="r6-resource__label"><span class="r6-resource__glyph">✦</span>Mana</span><output class="r6-resource__value"><strong>315</strong><span> / 420</span></output></div>
+            <div class="r6-resource__track" role="progressbar" aria-label="Mana" aria-valuemin="0" aria-valuemax="420" aria-valuenow="315"><span class="r6-resource__fill" style="width:75%"></span></div>
+            <div class="r6-resource__controls"><button data-delta="-1" aria-label="Decrease Mana by 10">−</button><button data-delta="1" aria-label="Increase Mana by 10">+</button></div>
+          </div>
+          <div class="r6-resource r6-resource--action r6-resource--compact">
+            <div class="r6-resource__top"><span class="r6-resource__label"><span class="r6-resource__glyph">⬡</span>Actions</span><output class="r6-resource__value"><strong>7</strong><span> / 9</span></output></div>
+            <div class="r6-resource__track" role="progressbar" aria-label="Actions" aria-valuemin="0" aria-valuemax="9" aria-valuenow="7"><span class="r6-resource__fill" style="width:77.78%"></span></div>
+          </div>
+        </div>
+
+        <div class="r6-tabs" role="tablist" aria-label="Character sheet sections">
+          <button type="button" class="r6-tab r6-tab--active" role="tab" id="tab-status" aria-selected="true" aria-controls="panel-status" data-tab="status"><span>Status</span></button>
+          <button type="button" class="r6-tab" role="tab" id="tab-actions" aria-selected="false" aria-controls="panel-actions" data-tab="actions"><span>Actions</span><span class="r6-tab__badge">4</span></button>
+          <button type="button" class="r6-tab" role="tab" id="tab-equipment" aria-selected="false" aria-controls="panel-equipment" data-tab="equipment"><span>Equipment</span><span class="r6-tab__badge">7</span></button>
+          <button type="button" class="r6-tab" role="tab" id="tab-proficiencies" aria-selected="false" aria-controls="panel-proficiencies" data-tab="proficiencies"><span>Proficiencies</span></button>
+          <button type="button" class="r6-tab" role="tab" id="tab-conditions" aria-selected="false" aria-controls="panel-conditions" data-tab="conditions"><span>Conditions</span><span class="r6-tab__badge">2</span></button>
+        </div>
+
+        <section class="r6-tab-panel" role="tabpanel" id="panel-status" aria-labelledby="tab-status" data-panel="status">
+          <div class="r6-stat-grid">
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Strength" data-stat="148"><span class="r6-stat-card__glyph"><span>◆</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">STR</span><span class="r6-stat-card__label">Strength</span></span><span class="r6-stat-card__numbers"><strong>148</strong><span>+22</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Dexterity" data-stat="121"><span class="r6-stat-card__glyph"><span>◇</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">DEX</span><span class="r6-stat-card__label">Dexterity</span></span><span class="r6-stat-card__numbers"><strong>121</strong><span>+16</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Constitution" data-stat="134"><span class="r6-stat-card__glyph"><span>✚</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">CON</span><span class="r6-stat-card__label">Constitution</span></span><span class="r6-stat-card__numbers"><strong>134</strong><span>+18</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Perception" data-stat="96"><span class="r6-stat-card__glyph"><span>◉</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">PER</span><span class="r6-stat-card__label">Perception</span></span><span class="r6-stat-card__numbers"><strong>96</strong><span>+9</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Arcane" data-stat="112"><span class="r6-stat-card__glyph"><span>✦</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">ARC</span><span class="r6-stat-card__label">Arcane</span></span><span class="r6-stat-card__numbers"><strong>112</strong><span>+14</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+            <button class="r6-stat-card r6-stat-card--interactive" data-roll="Will" data-stat="88"><span class="r6-stat-card__glyph"><span>⬡</span></span><span class="r6-stat-card__copy"><span class="r6-stat-card__short">WIL</span><span class="r6-stat-card__label">Will</span></span><span class="r6-stat-card__numbers"><strong>88</strong><span>+7</span></span><span class="r6-stat-card__roll-hint">Roll</span></button>
+          </div>
+        </section>
+
+        <section class="r6-tab-panel" role="tabpanel" id="panel-actions" aria-labelledby="tab-actions" data-panel="actions" hidden>
+          <div class="r6-card-grid">
+            <article class="r6-action-card"><div class="r6-action-card__main"><div><p class="r6-kicker">Physical Attack · Strength</p><h3>Longsword Strike</h3></div><span class="r6-action-card__cost">1 action</span></div><code class="r6-action-card__formula">(1 + proficiency) × (d100 ÷ 100) × STR</code><div class="r6-chip-row"><span class="r6-chip">Melee</span><span class="r6-chip">Weapon</span></div><details class="r6-disclosure"><summary>Details</summary><p>Make a strength-based weapon attack. The target may spend a reaction to dodge, block, or parry.</p></details><div class="r6-action-card__footer"><select aria-label="Roll mode"><option>Normal</option><option>Advantage</option><option>Disadvantage</option></select><button class="r6-button r6-button--primary" data-roll="Longsword Strike" data-stat="148">Roll Action</button></div></article>
+            <article class="r6-action-card"><div class="r6-action-card__main"><div><p class="r6-kicker">Ability · Arcane</p><h3>Arc Burst</h3></div><span class="r6-action-card__cost">2 actions · 18 mana</span></div><code class="r6-action-card__formula">1.35 × (d100 ÷ 100) × ARC</code><div class="r6-chip-row"><span class="r6-chip">Arcane</span><span class="r6-chip">Area</span></div><details class="r6-disclosure"><summary>Details</summary><p>Release condensed mana in a short cone. Targets may attempt an applicable reaction.</p></details><div class="r6-action-card__footer"><select aria-label="Roll mode"><option>Normal</option><option>Advantage</option><option>Disadvantage</option></select><button class="r6-button r6-button--primary" data-roll="Arc Burst" data-stat="112">Roll Action</button></div></article>
+          </div>
+        </section>
+
+        <section class="r6-tab-panel" role="tabpanel" id="panel-equipment" aria-labelledby="tab-equipment" data-panel="equipment" hidden>
+          <div class="r6-card-grid">
+            <article class="r6-item-card r6-item-card--rare"><div class="r6-item-card__heading"><div><p class="r6-kicker">Weapon · rare</p><h3>Rift-Tempered Longsword</h3></div><span class="r6-item-card__quantity">×1</span></div><span class="r6-chip r6-chip--success">Equipped</span><p class="r6-item-card__description">A balanced blade that hums near unstable mana.</p><div class="r6-chip-row"><span class="r6-chip">Strength</span><span class="r6-chip">Parry</span><span class="r6-chip">+12 damage</span></div><div class="r6-item-card__actions"><button class="r6-button r6-button--ghost" data-feedback="Inspecting Rift-Tempered Longsword">Inspect</button><button class="r6-button r6-button--secondary" data-feedback="Longsword unequipped">Unequip</button></div></article>
+            <article class="r6-item-card r6-item-card--uncommon"><div class="r6-item-card__heading"><div><p class="r6-kicker">Consumable · uncommon</p><h3>Concentrated Mana Vial</h3></div><span class="r6-item-card__quantity">×3</span></div><p class="r6-item-card__description">Restores 80 mana after use.</p><div class="r6-chip-row"><span class="r6-chip">Consumable</span><span class="r6-chip">Mana</span></div><div class="r6-item-card__actions"><button class="r6-button r6-button--ghost" data-feedback="Inspecting Concentrated Mana Vial">Inspect</button><button class="r6-button r6-button--primary" id="use-potion">Use</button></div></article>
+          </div>
+        </section>
+
+        <section class="r6-tab-panel" role="tabpanel" id="panel-proficiencies" aria-labelledby="tab-proficiencies" data-panel="proficiencies" hidden>
+          <div class="r6-stack">
+            <article class="r6-proficiency-row"><div><p class="r6-kicker">Weapon</p><h3>Longsword</h3><p class="r6-muted">Specialization: counter-parry</p></div><div class="r6-proficiency-row__rank"><span>Rank</span><strong>4</strong></div><div class="r6-proficiency-row__progress"><div class="r6-proficiency-row__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="68"><span style="width:68%"></span></div><span>68% to next rank</span></div><strong class="r6-proficiency-row__bonus">+1.40×</strong></article>
+            <article class="r6-proficiency-row"><div><p class="r6-kicker">Ability</p><h3>Arc Burst</h3></div><div class="r6-proficiency-row__rank"><span>Rank</span><strong>2</strong></div><div class="r6-proficiency-row__progress"><div class="r6-proficiency-row__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="31"><span style="width:31%"></span></div><span>31% to next rank</span></div><strong class="r6-proficiency-row__bonus">+1.15×</strong></article>
+          </div>
+        </section>
+
+        <section class="r6-tab-panel" role="tabpanel" id="panel-conditions" aria-labelledby="tab-conditions" data-panel="conditions" hidden>
+          <div class="r6-condition-board"><span class="r6-condition r6-condition--warning"><span class="r6-condition__marker"></span><span><strong>Fatigued</strong><small>−1 action</small></span></span><span class="r6-condition r6-condition--arcane"><span class="r6-condition__marker"></span><span><strong>Mana Burn</strong><small>2 rounds</small></span></span><p class="r6-muted">Condition details should show source, mechanical effect, and expiration in an adjacent detail card.</p></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="r6-toast" id="toast" role="status" aria-live="polite">Interface ready. Try a stat, tab, resource control, or system notice.</div>
+
+  <div class="r6-modal-backdrop" id="modal" role="presentation" hidden>
+    <div class="r6-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+      <button class="r6-modal__close" id="close-modal" aria-label="Close dialog">×</button>
+      <div class="r6-modal__sigil" aria-hidden="true"><span>!</span></div>
+      <p class="r6-kicker">System Notification</p>
+      <h2 id="modal-title">A mission has arrived</h2>
+      <div class="r6-modal__body"><p><strong>Stabilize the North Gate</strong></p><p>Difficulty C · Expires after the next long rest · Reward: 240 XP and one skill card.</p></div>
+      <div class="r6-modal__actions"><button class="r6-button r6-button--ghost" id="dismiss-modal">Dismiss</button><button class="r6-button r6-button--primary" id="accept-mission">Accept Mission</button></div>
+    </div>
+  </div>
+
+  <script src="./preview.js"></script>
+</body>
+</html>

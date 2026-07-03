@@ -1,8 +1,13 @@
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/app/state/useAppStore";
+import { selectActiveSheetDetail } from "@/app/state/selectors";
 import type { Role } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { RollLog } from "@/features/rolls/RollLog";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
+import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
+import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
 export function ConsolePage({
   role,
@@ -11,8 +16,77 @@ export function ConsolePage({
   role: Role;
   client: GameClient;
 }): JSX.Element {
+  const { state } = useAppStore();
+  const activeDetail = selectActiveSheetDetail(state);
+  const { connection, pendingIntentIds, roll20Bridge } = state.uiState;
+  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
+
+  useEffect(() => {
+    setActiveTab("stats");
+  }, [activeDetail?.instance.id]);
+
+  if (role === "player") {
+    return (
+      <div className="app-layout app-layout--player">
+        <aside className="app-nav-panel player-nav-panel" aria-label="Player sheet navigation">
+          <div className="nav-panel__section">
+            <p className="nav-panel__eyebrow">Active Character</p>
+            <strong className="nav-panel__title">
+              {activeDetail?.instance.name ?? "No sheet claimed"}
+            </strong>
+            <p className="nav-panel__meta">
+              {activeDetail ? `Instance ${activeDetail.instance.id}` : "Claim a sheet to begin."}
+            </p>
+          </div>
+
+          <div className="nav-panel__section">
+            <p className="nav-panel__eyebrow">Live State</p>
+            <div className="system-status-list" aria-label="Connection status">
+              <span className={`system-status system-status--${connection.status}`}>
+                <span aria-hidden="true" />
+                {connection.status}
+              </span>
+              <span className={`system-status system-status--${roll20Bridge.status}`}>
+                <span aria-hidden="true" />
+                Roll20 {roll20Bridge.status}
+              </span>
+              <span className="system-status">
+                <span aria-hidden="true" />
+                Pending {pendingIntentIds.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="nav-panel__section nav-panel__section--tabs">
+            <p className="nav-panel__eyebrow">Sheet Sections</p>
+            <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} />
+          </div>
+        </aside>
+
+        <main className="app-main-panel app-main-panel--player">
+          <div className="player-workspace">
+            <section className={`player-workspace__sheet player-workspace__sheet--${activeTab}`}>
+              <PlayerCharacterSheet
+                mode="player"
+                panelTitle="Character Sheet"
+                activeTab={activeTab}
+                onActiveTabChange={setActiveTab}
+                showTabs={false}
+                client={client}
+              />
+            </section>
+            <section className="player-workspace__tools" aria-label="Player actions and history">
+              <RollPanel client={client} />
+              <RollLog />
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <main className={`app-grid-player-shell ${role === "gm" ? "app-grid-player-shell--gm" : ""}`}>
+    <div className={`app-grid-player-shell ${role === "gm" ? "app-grid-player-shell--gm" : ""}`}>
       <section className="player-console-main">
         <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
       </section>
@@ -20,6 +94,6 @@ export function ConsolePage({
         <RollPanel client={client} />
         <RollLog />
       </section>
-    </main>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.core.transport import RequestModel
+from backend.features.facts.value_schema import FactBridgePayload
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
 from backend.features.facts.value_schema import FactBridgePayload
 

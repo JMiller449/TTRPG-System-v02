@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
-import type { GMView } from "@/app/state/types";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
 import {
@@ -14,7 +13,6 @@ export function GMConsoleToolbar({ client }: { client: GameClient }): JSX.Elemen
   const { state, dispatch } = useAppStore();
   const { encounters, encounterOrder, persistentSheetOrder } = state.serverState;
   const { activeSheetId, connection, gmView, pendingIntentIds } = state.uiState;
-  const [collapsed, setCollapsed] = useState(false);
   const [selectedEncounterId, setSelectedEncounterId] = useState("");
 
   const sheetOptions = useMemo(
@@ -38,49 +36,46 @@ export function GMConsoleToolbar({ client }: { client: GameClient }): JSX.Elemen
   };
 
   return (
-    <aside className={`gm-toolbar ${collapsed ? "gm-toolbar--collapsed" : ""}`} aria-label="GM tools">
+    <aside className="gm-toolbar app-nav-panel" aria-label="GM tools">
       <div className="gm-toolbar__header">
-        <strong>GM Tools</strong>
-        <div className="gm-toolbar__status" aria-label="Session status">
-          <span className={`pill pill--${connection.status}`}>{connection.status}</span>
-          <span className="pill">pending: {pendingIntentIds.length}</span>
+        <div>
+          <p className="nav-panel__eyebrow">Session Control</p>
+          <strong className="nav-panel__title">GM Tools</strong>
         </div>
-        <button
-          className="gm-toolbar__collapse"
-          type="button"
-          aria-label={collapsed ? "Expand GM tools" : "Collapse GM tools"}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Expand GM tools" : "Collapse GM tools"}
-          onClick={() => setCollapsed((value) => !value)}
-        >
-          {collapsed ? "v" : "^"}
-        </button>
+        <div className="gm-toolbar__status" aria-label="Session status">
+          <span className={`system-status system-status--${connection.status}`}>
+            <span aria-hidden="true" />
+            {connection.status}
+          </span>
+          <span className="system-status">
+            <span aria-hidden="true" />
+            Pending {pendingIntentIds.length}
+          </span>
+        </div>
       </div>
 
-      {!collapsed ? (
-        <div className="gm-toolbar__controls" role="toolbar" aria-label="GM quick controls">
-          <label className="gm-toolbar__field">
-            <span>Page</span>
-            <select
-              value={gmView}
-              onChange={(event) => {
-                const view = event.target.value as GMView;
-                if (view === "create_template") {
+      <div className="gm-toolbar__controls" role="toolbar" aria-label="GM quick controls">
+        <nav className="gm-toolbar__nav" aria-label="GM pages">
+          {GM_TOOLBAR_NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              className={`gm-toolbar__nav-button ${gmView === item.view ? "gm-toolbar__nav-button--active" : ""}`}
+              onClick={() => {
+                if (item.view === "create_template") {
                   dispatch({ type: "set_template_builder_sheet", sheetId: null });
                 }
-                dispatch({ type: "set_gm_view", view });
+                dispatch({ type: "set_gm_view", view: item.view });
               }}
             >
-              {GM_TOOLBAR_NAV_ITEMS.map((item) => (
-                <option key={item.view} value={item.view}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
+        <div className="gm-toolbar__secondary">
           <label className="gm-toolbar__field">
-            <span>Active Sheet</span>
+            <span>Active sheet</span>
             <select
               value={activeSheetId ?? ""}
               onChange={(event) =>
@@ -123,7 +118,7 @@ export function GMConsoleToolbar({ client }: { client: GameClient }): JSX.Elemen
             Spawn
           </button>
         </div>
-      ) : null}
+      </div>
     </aside>
   );
 }

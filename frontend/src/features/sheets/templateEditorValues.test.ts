@@ -38,6 +38,26 @@ const catalogs: TemplateReferenceCatalogs = {
       price: "10",
       weight: "2"
     }
+  },
+  facts: {
+    level: {
+      id: "level",
+      name: "Level",
+      description: "Character level.",
+      subject_types: ["sheet"],
+      value_type: "number",
+      default_value: { type: "number", value: 1 },
+      required: false
+    },
+    item_only_fact: {
+      id: "item_only_fact",
+      name: "Item Only",
+      description: "",
+      subject_types: ["item"],
+      value_type: "text",
+      default_value: { type: "text", value: "" },
+      required: false
+    }
   }
 };
 
@@ -102,6 +122,15 @@ function completeSheet(): Sheet {
         relationship_id: "action_bridge_1",
         entry_id: "action_1"
       }
+    },
+    facts: {
+      level: {
+        relationship_id: "sheet_fact_level",
+        fact_id: "level",
+        value: { type: "number", value: 3 },
+        evaluated_value: 3,
+        evaluation_error: null
+      }
     }
   };
 }
@@ -157,6 +186,15 @@ describe("templateEditorValues", () => {
     values.items = [
       { relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }
     ];
+    values.facts = {
+      level: {
+        relationship_id: "sheet_fact_level",
+        fact_id: "level",
+        value: { type: "number", value: 4 },
+        evaluated_value: null,
+        evaluation_error: null
+      }
+    };
 
     expect(validateTemplateEditorValues(values, catalogs).isValid).toBe(true);
     expect(toSheetDefinitionPayload(values, "template_1")).toMatchObject({
@@ -193,6 +231,15 @@ describe("templateEditorValues", () => {
           item_id: "item_1",
           count: 2,
           equipped: true
+        }
+      },
+      facts: {
+        level: {
+          relationship_id: "sheet_fact_level",
+          fact_id: "level",
+          value: { type: "number", value: 4 },
+          evaluated_value: null,
+          evaluation_error: null
         }
       }
     });
@@ -252,7 +299,16 @@ describe("templateEditorValues", () => {
           growthRate: "2"
         }
       ],
-      items: [{ relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }]
+      items: [{ relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }],
+      facts: {
+        level: {
+          relationship_id: "sheet_fact_level",
+          fact_id: "level",
+          value: { type: "number", value: 3 },
+          evaluated_value: 3,
+          evaluation_error: null
+        }
+      }
     });
     expect(values.formulaStats.health.text).toBe("@constitution * 10");
     expect(values.slayedRecord).toEqual({ enemy_1: { sheet_id: "enemy_1", count: 1 } });
@@ -275,8 +331,37 @@ describe("templateEditorValues", () => {
     expect(payload.actions).toEqual(sheet.actions);
     expect(payload.proficiencies).toEqual(sheet.proficiencies);
     expect(payload.items).toEqual(sheet.items);
-    expect(payload.facts).toEqual({});
+    expect(payload.facts).toEqual({
+      level: {
+        relationship_id: "sheet_fact_level",
+        fact_id: "level",
+        value: { type: "number", value: 3 },
+        evaluated_value: null,
+        evaluation_error: null
+      }
+    });
     expect(payload.slayed_record).toEqual(sheet.slayed_record);
+  });
+
+  it("rejects missing or non-sheet Fact assignments", () => {
+    const values = createEmptyTemplateEditorValues();
+    values.name = "Fact Draft";
+    values.facts = {
+      item_only_fact: {
+        relationship_id: "sheet_fact_item_only",
+        fact_id: "item_only_fact",
+        value: { type: "text", value: "invalid" },
+        evaluated_value: null,
+        evaluation_error: null
+      }
+    };
+
+    const validation = validateTemplateEditorValues(values, catalogs);
+
+    expect(validation.isValid).toBe(false);
+    expect(validation.errors.facts).toContain(
+      "Every attached Fact must support sheets and reference an available definition."
+    );
   });
 
   it("reports invalid fields, duplicate references, and impossible equipment state by section", () => {

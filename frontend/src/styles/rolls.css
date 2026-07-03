@@ -124,6 +124,17 @@
   margin: 0.28rem 0 0;
 }
 
+.equation-preview strong {
+  display: block;
+}
+
+.equation-preview__meta {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .action-history-list {
   display: grid;
   gap: 0.65rem;

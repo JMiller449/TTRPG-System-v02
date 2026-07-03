@@ -38,6 +38,7 @@ describe("TemplateEditorForm", () => {
     expect(markup).toContain("Actions");
     expect(markup).toContain("Proficiencies");
     expect(markup).toContain("Inventory");
+    expect(markup).toContain("Facts");
     expect(markup).not.toContain(">Enemy<");
   });
 

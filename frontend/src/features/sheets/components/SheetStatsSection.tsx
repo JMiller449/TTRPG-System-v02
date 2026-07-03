@@ -11,6 +11,7 @@ import {
 
 export function SheetStatsSection({
   canEditStats,
+  compact = false,
   stats,
   editingKey,
   draftModifier,
@@ -25,6 +26,7 @@ export function SheetStatsSection({
   onEditorKeyDown
 }: {
   canEditStats: boolean;
+  compact?: boolean;
   stats: Partial<Record<SheetStatKey, number>>;
   editingKey: SheetStatKey | null;
   draftModifier: string;
@@ -39,13 +41,17 @@ export function SheetStatsSection({
   onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>, key: SheetStatKey) => void;
 }): JSX.Element {
   return (
-    <section className="character-sheet__section">
-      <h4>Core Stats and Related Substats</h4>
-      <p className="muted character-sheet__hint">
-        {canEditStats
-          ? "GM can click core stats to submit backend base stat edits and use the editors below for formulas and resistances."
-          : "Player view is read-only for stats and substats."}
-      </p>
+    <section
+      className={`character-sheet__section ${compact ? "character-sheet__section--compact" : ""}`}
+    >
+      <h4>{compact ? "Stats" : "Core Stats and Related Substats"}</h4>
+      {!compact ? (
+        <p className="muted character-sheet__hint">
+          {canEditStats
+            ? "GM stat edits are backend-authored. Formula and resistance controls stay below the table."
+            : "Read-only values from the authoritative sheet."}
+        </p>
+      ) : null}
       <div className="character-sheet__core-blocks">
         {CORE_SUBSTAT_GROUPS.map((group) => {
           const key = group.core;

@@ -48,10 +48,48 @@ export function App(): JSX.Element {
     }
   }
 
+  const gmContent =
+    gmView === "sheet_viewer" ? (
+      <SheetViewerPage client={client} />
+    ) : gmView === "template_library" ? (
+      <TemplateLibrary client={client} />
+    ) : gmView === "create_template" ? (
+      <TemplateCreatePage client={client} />
+    ) : gmView === "encounter_presets" ? (
+      <EncounterPanel client={client} />
+    ) : gmView === "xp_tracker" ? (
+      <XpTrackerPage client={client} />
+    ) : gmView === "item_maker" ? (
+      <ItemMakerPage client={client} />
+    ) : gmView === "formula_authoring" ? (
+      <FormulaAuthoringPage client={client} />
+    ) : gmView === "fact_authoring" ? (
+      <FactAuthoringPage client={client} />
+    ) : gmView === "proficiency_authoring" ? (
+      <ProficiencyAuthoringPage client={client} />
+    ) : gmView === "condition_authoring" ? (
+      <ConditionAuthoringPage client={client} />
+    ) : gmView === "effect_authoring" ? (
+      <StandaloneEffectAuthoringPage client={client} />
+    ) : gmView === "action_authoring" ? (
+      <ActionAuthoringPage client={client} />
+    ) : gmView === "state_backup" ? (
+      <div className="main-panel-stack">
+        <StateSafetyPanel client={client} />
+        <StateBackupPage client={client} />
+      </div>
+    ) : (
+      <div className="main-panel-stack">
+        <SheetAccessCodesPanel client={client} />
+        <ConsolePage role="gm" client={client} />
+      </div>
+    );
+
   return (
-    <div className={`app-shell ${role === "player" ? "app-shell--player" : ""}`}>
-      <header className="app-header">
-        <h1>TTRPG Sheet Console</h1>
+    <div className={`r6-theme app-shell ${role === "player" ? "app-shell--player" : ""}`}>
+      <header className={`app-header app-header--${role}`}>
+        <p className="app-header__eyebrow">Backend Authoritative Interface</p>
+        <h1>{role === "player" ? "Player Status Console" : "TTRPG Sheet Console"}</h1>
         <div className="header-row">
           <p>
             {role === "gm"
@@ -69,68 +107,14 @@ export function App(): JSX.Element {
         </div>
       </header>
       <IntentFeedbackBanners />
-      {role === "gm" ? <GMConsoleToolbar client={client} /> : null}
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />
-      ) : gmView === "sheet_viewer" ? (
-        <main className="app-grid-player">
-          <SheetViewerPage client={client} />
-        </main>
-      ) : gmView === "template_library" ? (
-        <main className="app-grid-player">
-          <TemplateLibrary client={client} />
-        </main>
-      ) : gmView === "create_template" ? (
-        <main className="app-grid-wide">
-          <TemplateCreatePage client={client} />
-        </main>
-      ) : gmView === "encounter_presets" ? (
-        <main className="app-grid-player">
-          <EncounterPanel client={client} />
-        </main>
-      ) : gmView === "xp_tracker" ? (
-        <main className="app-grid-player">
-          <XpTrackerPage client={client} />
-        </main>
-      ) : gmView === "item_maker" ? (
-        <main className="app-grid-player">
-          <ItemMakerPage client={client} />
-        </main>
-      ) : gmView === "formula_authoring" ? (
-        <main className="app-grid-player">
-          <FormulaAuthoringPage client={client} />
-        </main>
-      ) : gmView === "fact_authoring" ? (
-        <main className="app-grid-player">
-          <FactAuthoringPage client={client} />
-        </main>
-      ) : gmView === "proficiency_authoring" ? (
-        <main className="app-grid-player">
-          <ProficiencyAuthoringPage client={client} />
-        </main>
-      ) : gmView === "condition_authoring" ? (
-        <main className="app-grid-player">
-          <ConditionAuthoringPage client={client} />
-        </main>
-      ) : gmView === "effect_authoring" ? (
-        <main className="app-grid-player">
-          <StandaloneEffectAuthoringPage client={client} />
-        </main>
-      ) : gmView === "action_authoring" ? (
-        <main className="app-grid-player">
-          <ActionAuthoringPage client={client} />
-        </main>
-      ) : gmView === "state_backup" ? (
-        <main className="app-grid-player">
-          <StateSafetyPanel client={client} />
-          <StateBackupPage client={client} />
-        </main>
       ) : (
-        <>
-          <SheetAccessCodesPanel client={client} />
-          <ConsolePage role="gm" client={client} />
-        </>
+        <div className="app-layout app-layout--gm">
+          <GMConsoleToolbar client={client} />
+          <main className="app-main-panel app-main-panel--gm">{gmContent}</main>
+        </div>
       )}
     </div>
   );

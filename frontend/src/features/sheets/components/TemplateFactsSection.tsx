@@ -15,8 +15,31 @@ export function TemplateFactsSection({
   metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
+  const displayBridges = {
+    ...Object.fromEntries(
+      Object.values(definitions)
+        .filter(
+          (definition) =>
+            definition.required &&
+            definition.subject_types.includes("sheet") &&
+            !values.facts[definition.id]
+        )
+        .map((definition) => [
+          definition.id,
+          {
+            relationship_id: `required_fact_${definition.id}`,
+            fact_id: definition.id,
+            value: structuredClone(definition.default_value),
+            evaluated_value: null,
+            evaluation_error: null
+          }
+        ])
+    ),
+    ...values.facts
+  };
+
   const updateBridge = (factId: string, value: FactValue): void => {
-    const bridge = values.facts[factId];
+    const bridge = values.facts[factId] ?? displayBridges[factId];
     if (!bridge) {
       return;
     }
@@ -35,16 +58,16 @@ export function TemplateFactsSection({
   };
 
   return (
-    <section className="card stack">
+    <section className="template-builder__section stack" aria-labelledby="template-facts-title">
       <div>
-        <h3>Facts</h3>
+        <h3 id="template-facts-title">Facts</h3>
         <p className="muted">
-          Required and optional named values saved atomically with this template.
+          Attach sheet-compatible Facts. Values are evaluated by the backend after save.
         </p>
       </div>
       <SheetFactsSection
         definitions={definitions}
-        bridges={values.facts}
+        bridges={displayBridges}
         canEdit
         subjectType="sheet"
         formulaMetadata={metadata}

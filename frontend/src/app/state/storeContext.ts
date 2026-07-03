@@ -7,4 +7,6 @@ export interface StoreContextValue {
   dispatch: Dispatch<AppAction>;
 }
 
+export const AppStateContext = createContext<AppState | null>(null);
+export const AppDispatchContext = createContext<Dispatch<AppAction> | null>(null);
 export const StoreContext = createContext<StoreContextValue | null>(null);

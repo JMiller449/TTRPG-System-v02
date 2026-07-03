@@ -65,22 +65,18 @@ function cloneBackendState(state: ProtocolBackendState): ProtocolBackendState {
   return structuredClone(state);
 }
 
-function applySinglePatch(
-  state: ProtocolBackendState,
-  op: ProtocolPatchOperation
-): ProtocolBackendState {
-  const nextState = cloneBackendState(state);
-  const { container, leaf } = readContainer(nextState, parsePointer(op.path));
+function applySinglePatchToDraft(state: ProtocolBackendState, op: ProtocolPatchOperation): void {
+  const { container, leaf } = readContainer(state, parsePointer(op.path));
 
   if (Array.isArray(container)) {
     if (op.op === "remove") {
       container.splice(Number(leaf), 1);
-      return nextState;
+      return;
     }
 
     if (op.op === "add" && leaf === "-") {
       container.push(op.value);
-      return nextState;
+      return;
     }
 
     const index = Number(leaf);
@@ -90,16 +86,16 @@ function applySinglePatch(
 
     if (op.op === "inc") {
       container[index] = Number(container[index]) + Number(op.value ?? 0);
-      return nextState;
+      return;
     }
 
     if (op.op === "add") {
       container.splice(index, 0, op.value);
-      return nextState;
+      return;
     }
 
     container[index] = op.value;
-    return nextState;
+    return;
   }
 
   if (typeof container !== "object" || container === null) {
@@ -109,16 +105,15 @@ function applySinglePatch(
   const record = container as Record<string, unknown>;
   if (op.op === "remove") {
     delete record[leaf];
-    return nextState;
+    return;
   }
 
   if (op.op === "inc") {
     record[leaf] = Number(record[leaf] ?? 0) + Number(op.value ?? 0);
-    return nextState;
+    return;
   }
 
   record[leaf] = op.value;
-  return nextState;
 }
 
 function applyProtocolPatch(
@@ -128,7 +123,9 @@ function applyProtocolPatch(
   if (!ops || ops.length === 0) {
     return state;
   }
-  return ops.reduce(applySinglePatch, state);
+  const nextState = cloneBackendState(state);
+  ops.forEach((op) => applySinglePatchToDraft(nextState, op));
+  return nextState;
 }
 
 function mapRole(role: "player" | "dm" | "service" | null): Role | null {

@@ -27,6 +27,7 @@ vi.mock("react", () => ({
 }));
 
 vi.mock("@/app/state/useAppStore", () => ({
+  useAppDispatch: () => () => undefined,
   useAppStore: () => ({ dispatch: () => undefined })
 }));
 

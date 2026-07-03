@@ -117,6 +117,7 @@ Frontend:
 - GM navigation includes an XP Tracker page for thresholds, mob XP values, and backend-calculated level readiness; character sheets include a Kills tab for tracked mob counts.
 - GM navigation, active-sheet switching, connection/pending status, and encounter quick-spawn are consolidated into a persistent collapsible toolbar across every GM page.
 - Negative health adjustments use backend-authoritative typed damage intake; positive health restoration and mana changes remain direct current-resource adjustments.
+- Frontend sync applies multi-operation state patches against one cloned protocol-state draft per patch event, keeps dispatch-only socket hooks out of full-state subscriptions, memoizes active-sheet derivation for UI-only updates, reuses sheet-action option inputs, and bounds rendered action-history entries.
 - Frontend build, tests, and lint pass.
 
 ## 5. MVP Data Model Direction

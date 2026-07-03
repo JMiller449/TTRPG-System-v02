@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import {
   selectActiveSheetDetail,
   selectActiveConditions,
   selectActiveStandaloneEffects,
-  selectAvailableItems,
   selectSheetAssignedActions,
   selectSheetEquipment,
   selectSheetProficiencies
@@ -12,6 +11,7 @@ import {
 import type { AssignedSheetAction } from "@/app/state/selectors";
 import type { ActiveStandaloneEffect } from "@/app/state/selectors";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
+import type { AppState } from "@/app/state/types";
 import type {
   ActionDefinition,
   ActiveCondition,
@@ -50,6 +50,7 @@ interface UseSheetDetailStateResult {
 
 export function useSheetDetailState(): UseSheetDetailStateResult {
   const { state } = useAppStore();
+  const { serverState } = state;
   const {
     items,
     itemOrder,
@@ -61,11 +62,42 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     actionOrder,
     augmentations,
     facts: factDefinitions
-  } = state.serverState;
-  const { actionFormulaAuthoringMetadata } = state.uiState;
+  } = serverState;
+  const { activeSheetId, actionFormulaAuthoringMetadata } = state.uiState;
+  const selectorState = useMemo(
+    () =>
+      ({
+        serverState,
+        uiState: { activeSheetId }
+      }) as AppState,
+    [activeSheetId, serverState]
+  );
 
-  const detail = selectActiveSheetDetail(state);
-  const availableItems = selectAvailableItems(state);
+  const detail = useMemo(
+    () => selectActiveSheetDetail(selectorState),
+    [selectorState]
+  );
+  const sheetOrInstanceId = detail?.sheet?.id ?? detail?.instance.id ?? null;
+  const equipment = useMemo(
+    () => (sheetOrInstanceId ? selectSheetEquipment(selectorState, sheetOrInstanceId) : []),
+    [selectorState, sheetOrInstanceId]
+  );
+  const sheetProficiencies = useMemo(
+    () => (sheetOrInstanceId ? selectSheetProficiencies(selectorState, sheetOrInstanceId) : []),
+    [selectorState, sheetOrInstanceId]
+  );
+  const assignedActions = useMemo(
+    () => (sheetOrInstanceId ? selectSheetAssignedActions(selectorState, sheetOrInstanceId) : []),
+    [selectorState, sheetOrInstanceId]
+  );
+  const activeConditions = useMemo(
+    () => (detail ? selectActiveConditions(selectorState, detail.instance.id) : []),
+    [detail, selectorState]
+  );
+  const activeStandaloneEffects = useMemo(
+    () => (detail ? selectActiveStandaloneEffects(selectorState, detail.instance.id) : []),
+    [detail, selectorState]
+  );
 
   const [selectedItemId, setSelectedItemId] = useState<string>(itemOrder[0] || "");
 
@@ -118,15 +150,13 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     proficiencyDefinitions,
     proficiencyOrder,
     runtimeNote: detail.instance.notes ?? "",
-    equipment: selectSheetEquipment(state, detail.sheet?.id ?? detail.instance.id),
-    sheetProficiencies: selectSheetProficiencies(state, detail.sheet?.id ?? detail.instance.id),
-    assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
-    activeConditions: selectActiveConditions(state, detail.instance.id),
-    activeStandaloneEffects: selectActiveStandaloneEffects(state, detail.instance.id),
+    equipment,
+    sheetProficiencies,
+    assignedActions,
+    activeConditions,
+    activeStandaloneEffects,
     selectedItemId,
-    selectedItem: selectedItemId
-      ? (availableItems.find((item) => item.id === selectedItemId) ?? null)
-      : null,
+    selectedItem: selectedItemId ? (items[selectedItemId] ?? null) : null,
     setSelectedItemId
   };
 }

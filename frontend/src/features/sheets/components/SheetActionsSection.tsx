@@ -5,7 +5,9 @@ import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSectio
 import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { RollModeControl } from "@/features/rolls/RollModeControl";
 import {
-  selectAvailableSheetActions,
+  selectAvailableOrderedSheetActions,
+  selectExplicitAssignedSheetActionIds,
+  selectOrderedSheetActions,
   toSheetActionBridgePayload
 } from "@/features/sheets/sheetActions";
 import type { ActionRollMode, SheetActionBridgePayload } from "@/infrastructure/ws/requestBuilders";
@@ -37,9 +39,17 @@ export function SheetActionsSection({
   const [rollModes, setRollModes] = useState<Record<string, ActionRollMode>>({});
   const [selectedActionId, setSelectedActionId] = useState("");
   const [draftActionIds, setDraftActionIds] = useState<Record<string, string>>({});
+  const orderedActions = useMemo(
+    () => selectOrderedSheetActions(actionDefinitions, actionOrder),
+    [actionDefinitions, actionOrder]
+  );
+  const assignedExplicitActionIds = useMemo(
+    () => selectExplicitAssignedSheetActionIds(assignedActions),
+    [assignedActions]
+  );
   const availableActions = useMemo(
-    () => selectAvailableSheetActions(actionDefinitions, actionOrder, assignedActions),
-    [actionDefinitions, actionOrder, assignedActions]
+    () => selectAvailableOrderedSheetActions(orderedActions, assignedExplicitActionIds),
+    [assignedExplicitActionIds, orderedActions]
   );
   const availableActionIds = availableActions.map((action) => action.id).join("|");
 
@@ -98,10 +108,9 @@ export function SheetActionsSection({
           const rollMode = allowedModes.includes(storedMode) ? storedMode : "normal";
           const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
           const replacementOptions = entry.bridge
-            ? selectAvailableSheetActions(
-                actionDefinitions,
-                actionOrder,
-                assignedActions,
+            ? selectAvailableOrderedSheetActions(
+                orderedActions,
+                assignedExplicitActionIds,
                 entry.actionId
               )
             : [];

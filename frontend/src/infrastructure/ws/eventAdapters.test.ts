@@ -821,4 +821,95 @@ describe("adaptProtocolServerEvent", () => {
     expect(snapshot.snapshot.sheets[0]?.name).toBe("Goblin");
     expect(snapshot.requestId).toBe("req-3");
   });
+
+  it("applies multi-op patches to one cloned draft without mutating the previous protocol state", () => {
+    const snapshotEvent = parseProtocolServerEvent({
+      response_id: null,
+      state: {
+        sheets: {},
+        instanced_sheets: {
+          instance_1: {
+            parent_id: "sheet_1",
+            health: 10,
+            mana: 4,
+            augments: {}
+          }
+        },
+        formulas: {},
+        actions: {},
+        items: {},
+        proficiencies: {},
+        action_history: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    if (!snapshotEvent || snapshotEvent.type !== "state_snapshot") {
+      throw new Error("Expected state_snapshot event");
+    }
+
+    const afterSnapshot = adaptProtocolServerEvent(initialSocketProtocolState, snapshotEvent);
+    const originalBackendState = afterSnapshot.nextProtocolState.backendState;
+    const patchEvent = parseProtocolServerEvent({
+      response_id: null,
+      ops: [
+        {
+          op: "inc",
+          path: "/instanced_sheets/instance_1/health",
+          value: -3
+        },
+        {
+          op: "set",
+          path: "/action_history/history_1",
+          value: {
+            id: "history_1",
+            request_id: "request_1",
+            action_id: "heal",
+            action_name: "Heal",
+            actor_role: "player",
+            actor_sheet_id: "sheet_1",
+            actor_instance_id: "instance_1",
+            target_sheet_id: null,
+            created_at: "2026-06-18T12:00:00Z",
+            state_version: 1,
+            status: "success",
+            summary: "",
+            emitted_messages: [],
+            mutation_summaries: [],
+            formula_summaries: [],
+            error: null,
+            redacted: false
+          }
+        },
+        {
+          op: "set",
+          path: "/action_history/history_1/summary",
+          value: "Health changed."
+        }
+      ],
+      state_version: 1,
+      type: "state_patch",
+      request_id: "req-multi"
+    });
+
+    if (!patchEvent || patchEvent.type !== "state_patch") {
+      throw new Error("Expected state_patch event");
+    }
+
+    const adapted = adaptProtocolServerEvent(afterSnapshot.nextProtocolState, patchEvent);
+    const snapshot = adapted.events[0];
+
+    expect(snapshot?.type).toBe("snapshot");
+    if (snapshot?.type !== "snapshot") {
+      throw new Error("Expected snapshot event");
+    }
+
+    expect(snapshot.snapshot.persistentSheets[0]?.value.health).toBe(7);
+    expect(snapshot.snapshot.actionHistory[0]?.summary).toBe("Health changed.");
+    expect(originalBackendState?.instanced_sheets?.instance_1?.health).toBe(10);
+    expect(originalBackendState?.action_history).toEqual({});
+    expect(adapted.nextProtocolState.backendState).not.toBe(originalBackendState);
+  });
 });

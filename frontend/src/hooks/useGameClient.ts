@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAppStore } from "@/app/state/useAppStore";
+import { useAppDispatch } from "@/app/state/useAppStore";
 import type { Role } from "@/domain/models";
 import { ManagedGameClient, type ManagedGameClientOptions } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
@@ -79,7 +79,7 @@ export function buildIntentErrorMessage({
 }
 
 export function useGameClient(): GameClient {
-  const { dispatch } = useAppStore();
+  const dispatch = useAppDispatch();
   const clientRef = useRef<ManagedGameClient | null>(null);
   const pendingIntentMapRef = useRef<Record<string, PendingIntentMetadata>>({});
   const facadeRef = useRef<GameClient | null>(null);

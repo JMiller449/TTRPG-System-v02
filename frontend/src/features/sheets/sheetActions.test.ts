@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { AssignedSheetAction } from "@/app/state/selectors";
 import type { ActionDefinition } from "@/domain/models";
 import {
+  selectAvailableOrderedSheetActions,
   selectAvailableSheetActions,
+  selectExplicitAssignedSheetActionIds,
+  selectOrderedSheetActions,
   toSheetActionBridgePayload
 } from "@/features/sheets/sheetActions";
 
@@ -46,6 +49,24 @@ describe("sheetActions", () => {
         assignedActions,
         "attack"
       ).map((action) => action.id)
+    ).toEqual(["attack", "dodge", "potion"]);
+  });
+
+  it("reuses ordered actions and explicit assignment ids for replacement options", () => {
+    const orderedActions = selectOrderedSheetActions(actions, ["attack", "missing", "dodge", "potion"]);
+    const assignedActionIds = selectExplicitAssignedSheetActionIds(assignedActions);
+
+    expect(orderedActions.map((action) => action.id)).toEqual(["attack", "dodge", "potion"]);
+    expect([...assignedActionIds]).toEqual(["attack"]);
+    expect(
+      selectAvailableOrderedSheetActions(orderedActions, assignedActionIds).map(
+        (action) => action.id
+      )
+    ).toEqual(["dodge", "potion"]);
+    expect(
+      selectAvailableOrderedSheetActions(orderedActions, assignedActionIds, "attack").map(
+        (action) => action.id
+      )
     ).toEqual(["attack", "dodge", "potion"]);
   });
 

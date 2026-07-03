@@ -12,6 +12,11 @@ from pydantic import (
 )
 
 from backend.state.models.formula import normalize_formula_tags
+from backend.features.facts.value_schema import (
+    FactBridgePayload,
+    FactDefinitionPayload,
+    FactValuePayload,
+)
 
 
 class ProtocolModel(BaseModel):
@@ -133,6 +138,7 @@ class SheetPayload(ProtocolModel):
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     slayed_record: dict[str, SheetSlayedBridgePayload]
     actions: dict[str, BridgePayload]
+    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
 
 
 class InstancedSheetPayload(ProtocolModel):
@@ -280,6 +286,7 @@ class ActionPayload(ProtocolModel):
     roll_mode_kind: Literal["none", "check", "damage"] = "none"
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
+    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
 
 
 class ProficiencyPayload(ProtocolModel):
@@ -439,8 +446,10 @@ class ItemPayload(ProtocolModel):
     gm_special_properties: str = ""
     price: str
     weight: str
+    fact_profile: Literal["weapon"] | None = None
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
+    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
 
 
 class ConditionPresetPayload(ProtocolModel):
@@ -479,6 +488,7 @@ class BackendStateSnapshotPayload(ProtocolModel):
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)
     formulas: dict[str, FormulaDefinitionPayload] = Field(default_factory=dict)
+    facts: dict[str, FactDefinitionPayload] = Field(default_factory=dict)
     actions: dict[str, ActionPayload] = Field(default_factory=dict)
     items: dict[str, ItemPayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)

@@ -1,12 +1,80 @@
 import { describe, expect, it } from "vitest";
-import type { ItemDefinition } from "@/domain/models";
+import type { FactDefinition, ItemDefinition } from "@/domain/models";
 import {
   createEmptyItemValues,
   getItemEditorValidationError,
+  setItemFactProfile,
   toItemDefinitionPayload,
   toItemEditorValues,
   toUpdatedItemDefinitionPayload
 } from "@/features/items/itemEditorValues";
+
+const weaponFacts: Record<string, FactDefinition> = {
+  weapon_type: {
+    id: "weapon_type",
+    name: "Weapon Type",
+    subject_types: ["item"],
+    value_type: "text",
+    default_value: { type: "text", value: "" },
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_base_damage: {
+    id: "weapon_base_damage",
+    name: "Base Damage",
+    subject_types: ["item"],
+    value_type: "number",
+    default_value: { type: "number", value: 0 },
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_governing_stat: {
+    id: "weapon_governing_stat",
+    name: "Governing Stat",
+    subject_types: ["item"],
+    value_type: "enum",
+    default_value: { type: "enum", value: "strength" },
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_damage_types: {
+    id: "weapon_damage_types",
+    name: "Physical Damage Types",
+    subject_types: ["item"],
+    value_type: "list",
+    default_value: { type: "list", value: [] },
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_reach: {
+    id: "weapon_reach",
+    name: "Reach",
+    subject_types: ["item"],
+    value_type: "number",
+    default_value: { type: "number", value: 0 },
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_proficiency: {
+    id: "weapon_proficiency",
+    name: "Proficiency",
+    subject_types: ["item"],
+    value_type: "reference",
+    default_value: { type: "reference", value: "" },
+    reference_kind: "proficiency",
+    required: true,
+    required_profile: "weapon"
+  },
+  weapon_proficiency_growth_rate: {
+    id: "weapon_proficiency_growth_rate",
+    name: "Proficiency Growth Rate",
+    subject_types: ["item"],
+    value_type: "number",
+    default_value: { type: "number", value: 0 },
+    required: true,
+    required_profile: "weapon"
+  }
+};
 
 function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
   return {
@@ -21,6 +89,8 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: "3LBS",
+    fact_profile: null,
+    facts: {},
     augmentation_templates: [],
     ...overrides
   };
@@ -51,6 +121,8 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
       weight: "3LBS",
+      fact_profile: null,
+      facts: {},
       augmentation_templates: [],
       action_grants: []
     });
@@ -68,6 +140,8 @@ describe("itemEditorValues", () => {
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
       description: "A blade that conducts mana.",
+      factProfile: null,
+      facts: {},
       augmentationTemplates: [],
       actionGrants: []
     });
@@ -196,5 +270,41 @@ describe("itemEditorValues", () => {
       { actionId: "drink", availability: "carried", consumeQuantity: "1" }
     ];
     expect(getItemEditorValidationError(values)).toContain("only once");
+  });
+
+  it("attaches and validates backend-declared weapon profile Facts", () => {
+    let values = createEmptyItemValues();
+    values.name = "Never Dulls";
+    values = setItemFactProfile(values, "weapon", weaponFacts);
+
+    expect(values.interactionType).toBe("equippable");
+    expect(Object.keys(values.facts)).toEqual(Object.keys(weaponFacts));
+    expect(getItemEditorValidationError(values, { definitions: weaponFacts })).toContain(
+      "Weapon Type"
+    );
+
+    values.facts.weapon_type.value = { type: "text", value: "Long Sword" };
+    values.facts.weapon_damage_types.value = { type: "list", value: ["Slashing"] };
+    values.facts.weapon_proficiency.value = {
+      type: "reference",
+      value: "long_swords"
+    };
+    expect(
+      getItemEditorValidationError(values, {
+        definitions: weaponFacts,
+        proficiencies: {
+          long_swords: { id: "long_swords", name: "Long Swords", description: "" }
+        }
+      })
+    ).toBeNull();
+    expect(toItemDefinitionPayload(values, "sword")).toMatchObject({
+      fact_profile: "weapon",
+      facts: {
+        weapon_type: { value: { type: "text", value: "Long Sword" } },
+        weapon_proficiency: {
+          value: { type: "reference", value: "long_swords" }
+        }
+      }
+    });
   });
 });

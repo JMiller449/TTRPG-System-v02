@@ -25,6 +25,7 @@ async def handle_authoring_metadata_request(
     await websocket_sessions.send(
         session,
         service.build_action_formula_authoring_metadata(
+            include_gm_only=session.role == "dm",
             request_id=request.request_id,
         ),
     )

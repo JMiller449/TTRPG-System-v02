@@ -19,6 +19,7 @@ from backend.state.models.augmentation import (
     FormulaModifierEffect,
 )
 from backend.state.models.formula import Formula
+from backend.state.models.fact import synchronize_required_sheet_facts
 from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
@@ -126,7 +127,7 @@ def test_mutation_audit_evicts_oldest_entry_at_its_limit(monkeypatch) -> None:
 
 
 def _build_sheet_state() -> Sheet:
-    return Sheet.from_dict(
+    sheet = Sheet.from_dict(
         {
             "id": "mage_template",
             "name": "Mage Template",
@@ -215,6 +216,8 @@ def _build_sheet_state() -> Sheet:
             "actions": {},
         }
     )
+    synchronize_required_sheet_facts(sheet)
+    return sheet
 
 
 def _build_augmentation() -> Augmentation:

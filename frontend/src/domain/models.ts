@@ -43,6 +43,37 @@ export interface FormulaDefinition {
   formula: Formula;
 }
 
+export type FactValue =
+  | { type: "number"; value: number; formula?: null }
+  | { type: "formula"; formula: Formula; value?: null }
+  | { type: "boolean"; value: boolean; formula?: null }
+  | { type: "text" | "enum" | "reference"; value: string; formula?: null }
+  | { type: "list"; value: string[]; formula?: null };
+
+export interface FactDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  subject_types: Array<"sheet" | "item" | "action">;
+  value_type: "number" | "boolean" | "text" | "enum" | "reference" | "list";
+  default_value: FactValue;
+  unit?: string;
+  visibility?: "public" | "gm_only";
+  validation_options?: string[];
+  reference_kind?: string | null;
+  required?: boolean;
+  required_profile?: "weapon" | null;
+  backend_owned?: boolean;
+}
+
+export interface FactBridge {
+  relationship_id: string;
+  fact_id: string;
+  value: FactValue;
+  evaluated_value?: number | boolean | string | string[] | null;
+  evaluation_error?: string | null;
+}
+
 export interface FormulaReference {
   formula_id: string;
   type: "formula_reference";
@@ -184,6 +215,7 @@ export interface ActionDefinition {
   roll_mode_kind?: ActionRollModeKind;
   notes?: string;
   steps?: ActionStep[];
+  facts?: Record<string, FactBridge>;
 }
 
 export type ActionRollModeKind = "none" | "check" | "damage";
@@ -329,8 +361,10 @@ export interface ItemDefinition {
   gm_special_properties?: string;
   price: string;
   weight: string;
+  fact_profile?: "weapon" | null;
   augmentation_templates?: Augmentation[];
   action_grants?: ItemActionGrant[];
+  facts?: Record<string, FactBridge>;
 }
 
 export type ItemInteractionType = "equippable" | "consumable" | "inventory_only";
@@ -431,6 +465,7 @@ export interface Sheet {
   resistances?: Resistances;
   slayed_record: Record<string, SheetSlayedBridge>;
   actions: Record<string, Bridge>;
+  facts?: Record<string, FactBridge>;
 }
 
 export interface PersistentSheet {

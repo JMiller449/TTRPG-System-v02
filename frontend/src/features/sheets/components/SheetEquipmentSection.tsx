@@ -1,7 +1,14 @@
-import type { ActionDefinition, Augmentation, ItemBridge, ItemDefinition } from "@/domain/models";
+import type {
+  ActionDefinition,
+  Augmentation,
+  FactDefinition,
+  ItemBridge,
+  ItemDefinition
+} from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
+import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 import {
   countItemEffectTypes,
   itemCarryStatus,
@@ -39,6 +46,7 @@ function ItemEffectSummary({
 export function SheetEquipmentSection({
   items,
   actionDefinitions,
+  factDefinitions,
   augmentations,
   itemOrder,
   selectedItemId,
@@ -53,6 +61,7 @@ export function SheetEquipmentSection({
 }: {
   items: Record<string, ItemDefinition>;
   actionDefinitions: Record<string, ActionDefinition>;
+  factDefinitions: Record<string, FactDefinition>;
   augmentations: Record<string, Augmentation>;
   itemOrder: string[];
   selectedItemId: string;
@@ -115,6 +124,16 @@ export function SheetEquipmentSection({
           {selectedItem.interaction_type !== "inventory_only" ? (
             <div className="muted">Granted Actions {selectedItem.action_grants?.length ?? 0}</div>
           ) : null}
+          {Object.keys(selectedItem.facts ?? {}).length > 0 ? (
+            <SheetFactsSection
+              definitions={factDefinitions}
+              bridges={selectedItem.facts ?? {}}
+              canEdit={false}
+              subjectType="item"
+              onSaveFormula={() => undefined}
+              onReset={() => undefined}
+            />
+          ) : null}
         </div>
       ) : null}
       <div className="list">
@@ -145,6 +164,16 @@ export function SheetEquipmentSection({
                 </div>
                 <div className="muted">{item.description || "(no description)"}</div>
                 <ItemEffectSummary item={item} activeEffects={activeEffects} />
+                {Object.keys(item.facts ?? {}).length > 0 ? (
+                  <SheetFactsSection
+                    definitions={factDefinitions}
+                    bridges={item.facts ?? {}}
+                    canEdit={false}
+                    subjectType="item"
+                    onSaveFormula={() => undefined}
+                    onReset={() => undefined}
+                  />
+                ) : null}
                 {actionSummaries.length > 0 ? (
                   <div className="equipment-action-list">
                     {actionSummaries.map((summary) => (

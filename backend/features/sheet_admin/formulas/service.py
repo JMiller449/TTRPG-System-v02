@@ -25,21 +25,28 @@ def _format_path(path: list[str]) -> str:
     return ".".join(path)
 
 
-def _valid_formula_paths() -> set[tuple[str, ...]]:
-    registry = variable_registry_service.build_action_formula_authoring_metadata()
-    return {
-        tuple(variable.path)
-        for variable in registry.variables
-        if variable.formula_reference_allowed
-    }
+def _valid_formula_paths(state: State | None = None) -> set[tuple[str, ...]]:
+    registry = variable_registry_service.build_action_formula_authoring_metadata(
+        state=state
+    )
+    paths: set[tuple[str, ...]] = set()
+    for variable in registry.variables:
+        if not variable.formula_reference_allowed:
+            continue
+        # Existing sheet/Fact formulas are subject-relative. Action authoring uses
+        # explicit roots from the metadata picker. Accept both representations.
+        paths.add(tuple(variable.path))
+        paths.add((variable.root, *variable.path))
+    return paths
 
 
 def validate_formula_payload_paths(
     formula: FormulaPayload,
     *,
     additional_paths: set[tuple[str, ...]] | None = None,
+    state: State | None = None,
 ) -> None:
-    valid_paths = _valid_formula_paths() | (additional_paths or set())
+    valid_paths = _valid_formula_paths(state) | (additional_paths or set())
     for alias in formula.aliases or []:
         alias_path = tuple(alias.path)
         if alias_path not in valid_paths:

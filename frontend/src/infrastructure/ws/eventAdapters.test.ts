@@ -204,6 +204,7 @@ describe("parseProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
+      action_fact_presets: [],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -249,6 +250,7 @@ describe("parseProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
+      action_fact_presets: [],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -364,6 +366,7 @@ describe("adaptProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
+      action_fact_presets: [],
       type: "action_formula_authoring_metadata",
       request_id: "req-metadata"
     });
@@ -393,7 +396,8 @@ describe("adaptProtocolServerEvent", () => {
               path_catalog: "none"
             }
           ],
-          action_preset_templates: []
+          action_preset_templates: [],
+          action_fact_presets: []
         }
       }
     ]);
@@ -655,6 +659,7 @@ describe("adaptProtocolServerEvent", () => {
           proficiencies: [],
           actions: [],
           formulas: [],
+          facts: [],
           augmentations: [],
           standaloneEffects: [],
           standaloneEffectApplications: [],

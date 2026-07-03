@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -130,6 +131,58 @@ def test_dm_can_delete_proficiency(monkeypatch) -> None:
                 "path": "/proficiencies/longsword",
                 "value": None,
             }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_proficiency_rejects_live_fact_reference(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["longsword"] = Proficiency.from_dict(
+                _proficiency_payload()
+            )
+            state.items["sword"] = Item.from_dict(
+                {
+                    "id": "sword",
+                    "name": "Sword",
+                    "interaction_type": "equippable",
+                    "category": "Sword",
+                    "rank": "D",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "augmentation_templates": [],
+                    "fact_profile": "weapon",
+                    "facts": {
+                        "weapon_proficiency": {
+                            "relationship_id": "required_fact_weapon_proficiency",
+                            "fact_id": "weapon_proficiency",
+                            "value": {"type": "reference", "value": "longsword"},
+                            "evaluated_value": "longsword",
+                        }
+                    },
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_proficiency", "proficiency_id": "longsword"},
+            )
+
+            assert "longsword" in state.proficiencies
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "referenced by Facts on: item 'sword'" in websocket.sent_messages[-1][
+                "reason"
+            ]
         finally:
             StateSingleton._state = original_state
 

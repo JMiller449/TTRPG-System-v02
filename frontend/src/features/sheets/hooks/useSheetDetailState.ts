@@ -3,17 +3,20 @@ import { useAppStore } from "@/app/state/useAppStore";
 import {
   selectActiveSheetDetail,
   selectActiveConditions,
+  selectActiveStandaloneEffects,
   selectAvailableItems,
   selectSheetAssignedActions,
   selectSheetEquipment,
   selectSheetProficiencies
 } from "@/app/state/selectors";
 import type { AssignedSheetAction } from "@/app/state/selectors";
+import type { ActiveStandaloneEffect } from "@/app/state/selectors";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
   ActiveCondition,
   Augmentation,
+  FactDefinition,
   ItemBridge,
   ItemDefinition,
   ProficiencyBridge,
@@ -28,6 +31,7 @@ interface UseSheetDetailStateResult {
   actionDefinitions: Record<string, ActionDefinition>;
   actionOrder: string[];
   augmentations: Record<string, Augmentation>;
+  factDefinitions: Record<string, FactDefinition>;
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
@@ -38,6 +42,7 @@ interface UseSheetDetailStateResult {
   sheetProficiencies: ProficiencyBridge[];
   assignedActions: AssignedSheetAction[];
   activeConditions: ActiveCondition[];
+  activeStandaloneEffects: ActiveStandaloneEffect[];
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
   setSelectedItemId: (itemId: string) => void;
@@ -54,7 +59,8 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     sheetOrder,
     actions: actionDefinitions,
     actionOrder,
-    augmentations
+    augmentations,
+    facts: factDefinitions
   } = state.serverState;
   const { actionFormulaAuthoringMetadata } = state.uiState;
 
@@ -80,6 +86,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       actionDefinitions,
       actionOrder,
       augmentations,
+      factDefinitions,
       actionFormulaAuthoringMetadata,
       items,
       itemOrder,
@@ -90,6 +97,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       sheetProficiencies: [],
       assignedActions: [],
       activeConditions: [],
+      activeStandaloneEffects: [],
       selectedItemId,
       selectedItem: null,
       setSelectedItemId
@@ -103,6 +111,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     actionDefinitions,
     actionOrder,
     augmentations,
+    factDefinitions,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,
@@ -113,6 +122,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     sheetProficiencies: selectSheetProficiencies(state, detail.sheet?.id ?? detail.instance.id),
     assignedActions: selectSheetAssignedActions(state, detail.sheet?.id ?? detail.instance.id),
     activeConditions: selectActiveConditions(state, detail.instance.id),
+    activeStandaloneEffects: selectActiveStandaloneEffects(state, detail.instance.id),
     selectedItemId,
     selectedItem: selectedItemId
       ? (availableItems.find((item) => item.id === selectedItemId) ?? null)

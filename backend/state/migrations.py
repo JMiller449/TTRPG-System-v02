@@ -5,7 +5,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-CURRENT_STATE_SCHEMA_VERSION = 6
+from backend.state.default_actions import seeded_global_action_payloads
+
+CURRENT_STATE_SCHEMA_VERSION = 10
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -283,173 +285,396 @@ def _migrate_v4_to_v5(envelope: PersistedEnvelope) -> PersistedEnvelope:
     }
 
 
-def _pointer_segment(value: str) -> str:
-    return value.replace("~", "~0").replace("/", "~1")
-
-
-def _raw_path_value(root: Any, path: list[str]) -> int | float | None:
-    current = root
-    for segment in path:
-        if not isinstance(current, dict) or segment not in current:
-            return None
-        current = current[segment]
-    if isinstance(current, bool) or not isinstance(current, int | float):
-        return None
-    return current
-
-
-def _legacy_constant_modifier(effect: dict) -> int | float | None:
-    value = effect.get("value")
-    if not isinstance(value, dict) or value.get("aliases") not in (None, []):
-        return None
-    text = value.get("text")
-    if not isinstance(text, str):
-        return None
-    try:
-        parsed = float(text.strip())
-    except ValueError:
-        return None
-    return int(parsed) if parsed.is_integer() else parsed
-
-
-def _legacy_projection_base(
-    current: int | float,
-    modifier: int | float,
-    operation: str,
-) -> int | float | None:
-    if operation == "add":
-        return current - modifier
-    if operation == "subtract":
-        return current + modifier
-    if operation == "multiply" and modifier != 0:
-        return current / modifier
-    if operation == "divide":
-        return current * modifier
-    return None
-
-
 def _migrate_v5_to_v6(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    definitions = state.setdefault("standalone_effects", {})
-    applications = state.setdefault("standalone_effect_applications", {})
-    projections = state.setdefault("equipment_effect_projections", {})
-    augmentations = state.get("augmentations", {})
-    instances = state.get("instanced_sheets", {})
-
-    if not isinstance(definitions, dict):
-        definitions = {}
-        state["standalone_effects"] = definitions
-    if not isinstance(applications, dict):
-        applications = {}
-        state["standalone_effect_applications"] = applications
-    if not isinstance(projections, dict):
-        projections = {}
-        state["equipment_effect_projections"] = projections
-    if not isinstance(augmentations, dict) or not isinstance(instances, dict):
-        return {"schema_version": 6, "state": state}
-
-    migrated_ids: set[str] = set()
-    for augmentation_id, augmentation in list(augmentations.items()):
-        if not isinstance(augmentation, dict):
-            continue
-        source = augmentation.get("source")
-        source_type = source.get("type") if isinstance(source, dict) else None
-        target = augmentation.get("target")
-        if (
-            augmentation.get("lifecycle_owner", "manual") != "manual"
-            or source_type not in {"manual", "action", "spell", "other"}
-            or not isinstance(target, dict)
-            or target.get("root") != "instance"
-            or augmentation.get("scope") != "instance"
-        ):
-            continue
-
-        definition = {
-            "id": augmentation_id,
-            "name": augmentation.get("name", augmentation_id),
-            "description": augmentation.get("description", ""),
-            "scope": "instance",
-            "target": deepcopy(target),
-            "effect": deepcopy(augmentation.get("effect", {})),
-            "active": augmentation.get("active", True),
-            "lifecycle": deepcopy(augmentation.get("lifecycle", {})),
-        }
-        if not augmentation.get("applied"):
-            definitions.setdefault(augmentation_id, definition)
-            migrated_ids.add(augmentation_id)
-            continue
-
-        instance_id = augmentation.get("applied_target_id")
-        effect = augmentation.get("effect")
-        if not isinstance(instance_id, str) or not isinstance(effect, dict):
-            continue
-
-        if effect.get("type") == "formula_modifier":
-            instance = instances.get(instance_id)
-            path = target.get("path")
-            if not isinstance(instance, dict) or not isinstance(path, list):
-                continue
-            current = _raw_path_value(instance, path)
-            modifier = _legacy_constant_modifier(effect)
-            if current is None or modifier is None:
-                continue
-            target_path = "/" + "/".join(
-                _pointer_segment(segment)
-                for segment in ("instanced_sheets", instance_id, *path)
-            )
-            existing_projection = projections.get(target_path)
-            base_value = (
-                existing_projection.get("base_value")
-                if isinstance(existing_projection, dict)
-                else _legacy_projection_base(
-                    current,
-                    modifier,
-                    str(effect.get("operation", "")),
-                )
-            )
-            if base_value is None:
-                continue
-            projections[target_path] = {
-                "target_path": target_path,
-                "base_value": base_value,
-                "effective_value": current,
-            }
-
-        definitions.setdefault(augmentation_id, definition)
-        application_id = f"standalone:{instance_id}:{augmentation_id}"
-        migrated_source = deepcopy(source) if isinstance(source, dict) else {}
-        migrated_source.setdefault("type", "manual")
-        migrated_source["id"] = migrated_source.get("id") or augmentation_id
-        migrated_source["label"] = (
-            migrated_source.get("label") or definition["name"]
-        )
-        migrated_source.setdefault("relationship_id", None)
-        migrated_source["application_id"] = application_id
-        applications.setdefault(
-            application_id,
-            {
-                "application_id": application_id,
-                "definition_id": augmentation_id,
-                "instance_id": instance_id,
-                "source": migrated_source,
-                "active": True,
-            },
-        )
-        migrated_ids.add(augmentation_id)
-
-    for augmentation_id in migrated_ids:
-        augmentations.pop(augmentation_id, None)
-        for instance in instances.values():
-            if not isinstance(instance, dict):
-                continue
-            bridges = instance.get("augments")
-            if not isinstance(bridges, dict):
-                continue
-            for bridge_key, bridge in list(bridges.items()):
-                if isinstance(bridge, dict) and bridge.get("entry_id") == augmentation_id:
-                    bridges.pop(bridge_key, None)
+    for collection_name in (
+        "standalone_effects",
+        "standalone_effect_applications",
+    ):
+        if not isinstance(state.get(collection_name), dict):
+            state[collection_name] = {}
 
     return {"schema_version": 6, "state": state}
+
+
+def _amount_of_reactions_formula_payload() -> dict[str, Any]:
+    return {
+        "type": "formula",
+        "value": None,
+        "formula": {
+            "text": "@registration + @reaction_time",
+            "aliases": [
+                {"name": "registration", "path": ["stats", "registration"]},
+                {"name": "reaction_time", "path": ["stats", "reaction_time"]},
+            ],
+            "tags": [],
+        },
+    }
+
+
+def _migrate_v6_to_v7(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    facts = state.setdefault("facts", {})
+    if not isinstance(facts, dict):
+        facts = {}
+        state["facts"] = facts
+    facts["amount_of_reactions"] = {
+        "id": "amount_of_reactions",
+        "name": "Amount of Reactions",
+        "description": (
+            "Informational derived reaction amount. Combat spending and turn "
+            "enforcement remain manual."
+        ),
+        "subject_types": ["sheet"],
+        "value_type": "number",
+        "default_value": _amount_of_reactions_formula_payload(),
+        "unit": "reactions",
+        "visibility": "public",
+        "validation_options": [],
+        "reference_kind": None,
+        "required": True,
+    }
+
+    sheets = state.get("sheets", {})
+    if isinstance(sheets, dict):
+        for sheet in sheets.values():
+            if not isinstance(sheet, dict):
+                continue
+            sheet_facts = sheet.setdefault("facts", {})
+            if not isinstance(sheet_facts, dict):
+                sheet_facts = {}
+                sheet["facts"] = sheet_facts
+            sheet_facts.setdefault(
+                "amount_of_reactions",
+                {
+                    "relationship_id": "required_fact_amount_of_reactions",
+                    "fact_id": "amount_of_reactions",
+                    "value": _amount_of_reactions_formula_payload(),
+                    "evaluated_value": None,
+                    "evaluation_error": None,
+                },
+            )
+
+    return {"schema_version": 7, "state": state}
+
+
+def _literal_fact_value(value_type: str, value: Any) -> dict[str, Any]:
+    return {"type": value_type, "value": value, "formula": None}
+
+
+def _weapon_fact_definition(
+    fact_id: str,
+    name: str,
+    value_type: str,
+    default_value: Any,
+    *,
+    description: str,
+    unit: str = "",
+    validation_options: list[str] | None = None,
+    reference_kind: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": fact_id,
+        "name": name,
+        "description": description,
+        "subject_types": ["item"],
+        "value_type": value_type,
+        "default_value": _literal_fact_value(value_type, default_value),
+        "unit": unit,
+        "visibility": "public",
+        "validation_options": validation_options or [],
+        "reference_kind": reference_kind,
+        "required": True,
+        "required_profile": "weapon",
+    }
+
+
+def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    facts = state.setdefault("facts", {})
+    if not isinstance(facts, dict):
+        facts = {}
+        state["facts"] = facts
+    for definition in facts.values():
+        if isinstance(definition, dict):
+            definition.setdefault("required_profile", None)
+
+    weapon_definitions = (
+        _weapon_fact_definition(
+            "weapon_type",
+            "Weapon Type",
+            "text",
+            "",
+            description="Authored weapon family or form, such as Sword or Bow.",
+        ),
+        _weapon_fact_definition(
+            "weapon_base_damage",
+            "Base Damage",
+            "number",
+            0,
+            description="Flat weapon damage used by eligible weapon actions.",
+            unit="damage",
+        ),
+        _weapon_fact_definition(
+            "weapon_governing_stat",
+            "Governing Stat",
+            "enum",
+            "strength",
+            description="Core sheet stat used by eligible weapon actions.",
+            validation_options=[
+                "strength",
+                "dexterity",
+                "constitution",
+                "perception",
+                "arcane",
+                "will",
+            ],
+        ),
+        _weapon_fact_definition(
+            "weapon_damage_types",
+            "Physical Damage Types",
+            "list",
+            [],
+            description="Physical damage types this weapon can deal.",
+            validation_options=["Slashing", "Bludgeoning", "Piercing"],
+        ),
+        _weapon_fact_definition(
+            "weapon_reach",
+            "Reach",
+            "number",
+            0,
+            description="Authored reach for display and future eligible actions.",
+        ),
+        _weapon_fact_definition(
+            "weapon_proficiency",
+            "Proficiency",
+            "reference",
+            "",
+            description="Proficiency definition used by eligible weapon actions.",
+            reference_kind="proficiency",
+        ),
+        _weapon_fact_definition(
+            "weapon_proficiency_growth_rate",
+            "Proficiency Growth Rate",
+            "number",
+            0,
+            description="Growth rate supplied when this weapon grants proficiency use.",
+        ),
+    )
+    for definition in weapon_definitions:
+        facts[definition["id"]] = definition
+
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if isinstance(item, dict):
+                item.setdefault("fact_profile", None)
+                item.setdefault("facts", {})
+
+    return {"schema_version": 8, "state": state}
+
+
+def _action_fact_definition(
+    fact_id: str,
+    name: str,
+    value_type: str,
+    default_value: Any,
+    *,
+    description: str,
+    unit: str = "",
+    validation_options: list[str] | None = None,
+    reference_kind: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": fact_id,
+        "name": name,
+        "description": description,
+        "subject_types": ["action"],
+        "value_type": value_type,
+        "default_value": _literal_fact_value(value_type, default_value),
+        "unit": unit,
+        "visibility": "public",
+        "validation_options": validation_options or [],
+        "reference_kind": reference_kind,
+        "required": False,
+        "required_profile": None,
+        "backend_owned": True,
+    }
+
+
+def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    facts = state.setdefault("facts", {})
+    if not isinstance(facts, dict):
+        facts = {}
+        state["facts"] = facts
+    for definition in facts.values():
+        if isinstance(definition, dict):
+            definition.setdefault("backend_owned", False)
+    for fact_id in (
+        "amount_of_reactions",
+        "weapon_type",
+        "weapon_base_damage",
+        "weapon_governing_stat",
+        "weapon_damage_types",
+        "weapon_reach",
+        "weapon_proficiency",
+        "weapon_proficiency_growth_rate",
+    ):
+        definition = facts.get(fact_id)
+        if isinstance(definition, dict):
+            definition["backend_owned"] = True
+
+    rank_options = [
+        "F",
+        "F+",
+        "E",
+        "E+",
+        "D",
+        "D+",
+        "C",
+        "C+",
+        "B",
+        "B+",
+        "A",
+        "A+",
+        "S",
+        "S+",
+        "SS",
+        "SS+",
+    ]
+    action_definitions = (
+        _action_fact_definition(
+            "action_rank",
+            "Rank",
+            "enum",
+            "F",
+            description="Authored action or skill rank.",
+            validation_options=rank_options,
+        ),
+        _action_fact_definition(
+            "action_range",
+            "Range",
+            "number",
+            0,
+            description=(
+                "Informational action range unless a step explicitly consumes it."
+            ),
+        ),
+        _action_fact_definition(
+            "action_target_count",
+            "Target Count",
+            "number",
+            1,
+            description="Informational target count; it does not enforce targeting.",
+            unit="targets",
+        ),
+        _action_fact_definition(
+            "action_area",
+            "Area",
+            "text",
+            "",
+            description="Informational area or shape description.",
+        ),
+        _action_fact_definition(
+            "action_mana_cost",
+            "Mana Cost",
+            "number",
+            0,
+            description=(
+                "Authored mana cost; no resource change occurs unless a step uses it."
+            ),
+            unit="mana",
+        ),
+        _action_fact_definition(
+            "action_base_spell_damage",
+            "Base Spell Damage",
+            "number",
+            0,
+            description="Flat spell damage available to eligible spell formulas.",
+            unit="damage",
+        ),
+        _action_fact_definition(
+            "action_proficiency",
+            "Proficiency",
+            "reference",
+            "",
+            description="Proficiency definition used by eligible action formulas.",
+            reference_kind="proficiency",
+        ),
+    )
+    for definition in action_definitions:
+        facts[definition["id"]] = definition
+
+    for action in state.get("actions", {}).values():
+        if isinstance(action, dict):
+            action.setdefault("facts", {})
+
+    return {"schema_version": 9, "state": state}
+
+
+def _is_old_generic_action(action: Any, action_id: str) -> bool:
+    if not isinstance(action, dict):
+        return False
+    expected_stat = {
+        "attack": "strength",
+        "dodge": "dexterity",
+        "parry": "dexterity",
+        "block": "constitution",
+    }.get(action_id)
+    if expected_stat is None:
+        return False
+    if action.get("name") != action_id.title():
+        return False
+    if not str(action.get("notes", "")).startswith("Default editable action preset"):
+        return False
+    steps = action.get("steps")
+    if not isinstance(steps, list) or len(steps) != 1:
+        return False
+    message = steps[0].get("message") if isinstance(steps[0], dict) else None
+    if not isinstance(message, dict):
+        return False
+    return message.get("text") == (
+        f"{action_id.title()}: /r (1d100 / 100) * @{expected_stat}"
+    )
+
+
+def _migrate_v9_to_v10(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.setdefault("actions", {})
+    if not isinstance(actions, dict):
+        actions = {}
+        state["actions"] = actions
+
+    canonical_actions = seeded_global_action_payloads()
+    for obsolete_id in ("attack", "parry"):
+        if _is_old_generic_action(actions.get(obsolete_id), obsolete_id):
+            actions.pop(obsolete_id, None)
+    for action_id, payload in canonical_actions.items():
+        if action_id in {"dodge", "block"} and _is_old_generic_action(
+            actions.get(action_id), action_id
+        ):
+            actions[action_id] = payload
+            continue
+        actions.setdefault(action_id, payload)
+
+    sheets = state.get("sheets", {})
+    if isinstance(sheets, dict):
+        for sheet in sheets.values():
+            if not isinstance(sheet, dict):
+                continue
+            bridges = sheet.get("actions", {})
+            if not isinstance(bridges, dict):
+                continue
+            for relationship_id, action_id in (
+                ("default_attack", "attack"),
+                ("default_parry", "parry"),
+            ):
+                bridge = bridges.get(relationship_id)
+                if isinstance(bridge, dict) and bridge.get("entry_id") == action_id:
+                    bridges.pop(relationship_id, None)
+
+    return {"schema_version": 10, "state": state}
 
 
 MIGRATIONS: dict[int, Migration] = {
@@ -459,6 +684,10 @@ MIGRATIONS: dict[int, Migration] = {
     3: _migrate_v3_to_v4,
     4: _migrate_v4_to_v5,
     5: _migrate_v5_to_v6,
+    6: _migrate_v6_to_v7,
+    7: _migrate_v7_to_v8,
+    8: _migrate_v8_to_v9,
+    9: _migrate_v9_to_v10,
 }
 
 

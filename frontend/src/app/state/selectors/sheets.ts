@@ -1,6 +1,7 @@
 import type { AppState } from "@/app/state/types";
 import type {
   ActionDefinition,
+  ActionStep,
   ActiveCondition,
   Bridge,
   ItemBridge,
@@ -10,6 +11,8 @@ import type {
   Sheet,
   SheetInstanceView,
   SheetKind,
+  StandaloneEffectApplication,
+  StandaloneEffectDefinition,
   SheetTemplateView
 } from "@/domain/models";
 import type { SheetStatKey } from "@/domain/stats";
@@ -31,6 +34,13 @@ export interface AssignedSheetAction {
   sourceItemName?: string;
   sourceItemAvailability?: "carried" | "equipped";
   consumeQuantity?: number;
+}
+
+export interface ActiveStandaloneEffect {
+  application: StandaloneEffectApplication;
+  definition: StandaloneEffectDefinition;
+  sourceAction: ActionDefinition | null;
+  sourceStep: ActionStep | null;
 }
 
 function getSheetKind(sheet: Sheet | null): SheetKind {
@@ -172,6 +182,34 @@ export function selectActiveConditions(state: AppState, instanceId: string): Act
     .map((applicationId) => state.serverState.activeConditions[applicationId])
     .filter((condition): condition is ActiveCondition => Boolean(condition))
     .filter((condition) => condition.instance_id === instanceId);
+}
+
+export function selectActiveStandaloneEffects(
+  state: AppState,
+  instanceId: string
+): ActiveStandaloneEffect[] {
+  return state.serverState.standaloneEffectApplicationOrder.flatMap((applicationId) => {
+    const application = state.serverState.standaloneEffectApplications[applicationId];
+    if (!application || application.instance_id !== instanceId || application.active === false) {
+      return [];
+    }
+
+    const definition = state.serverState.standaloneEffects[application.definition_id];
+    if (!definition) {
+      return [];
+    }
+
+    const sourceAction = application.source.id
+      ? (state.serverState.actions[application.source.id] ?? null)
+      : null;
+    const sourceStep = application.source.relationship_id
+      ? ((sourceAction?.steps ?? []).find(
+          (step) => step.step_id === application.source.relationship_id
+        ) ?? null)
+      : null;
+
+    return [{ application, definition, sourceAction, sourceStep }];
+  });
 }
 
 export function selectSheetProficiencies(

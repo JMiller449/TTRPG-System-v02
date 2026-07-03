@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Literal
 
 from backend.state.models.augmentation import Augmentation
+from backend.state.models.fact import FactBridge, FactProfile
 
 
 @dataclass
@@ -50,7 +51,9 @@ class Item:
     price: str
     weight: str
     augmentation_templates: List[Augmentation]
+    fact_profile: FactProfile | None = None
     action_grants: List[ItemActionGrant] = field(default_factory=list)
+    facts: dict[str, FactBridge] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Item":
@@ -70,8 +73,13 @@ class Item:
                 Augmentation.from_dict(augmentation)
                 for augmentation in raw.get("augmentation_templates", [])
             ],
+            fact_profile=raw.get("fact_profile"),
             action_grants=[
                 ItemActionGrant.from_dict(grant)
                 for grant in raw.get("action_grants", [])
             ],
+            facts={
+                key: FactBridge.from_dict(bridge)
+                for key, bridge in raw.get("facts", {}).items()
+            },
         )

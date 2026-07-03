@@ -12,6 +12,7 @@ import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { StandaloneEffectAuthoringPage } from "@/features/effects/StandaloneEffectAuthoringPage";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
+import { FactAuthoringPage } from "@/features/facts/FactAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
@@ -99,6 +100,10 @@ export function App(): JSX.Element {
       ) : gmView === "formula_authoring" ? (
         <main className="app-grid-player">
           <FormulaAuthoringPage client={client} />
+        </main>
+      ) : gmView === "fact_authoring" ? (
+        <main className="app-grid-player">
+          <FactAuthoringPage client={client} />
         </main>
       ) : gmView === "proficiency_authoring" ? (
         <main className="app-grid-player">

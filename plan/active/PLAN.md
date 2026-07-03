@@ -17,11 +17,11 @@ Do not delete the source documents just because this file exists. Keep AGENTS, R
 
 ## 1. Product Goal
 
-Build a backend-authoritative sheet, variable, formula, and action executor for the Chip TTRPG system, with Roll20 remaining the table surface and play log for MVP.
+Build a backend-authoritative sheet, fact, variable, formula, and action executor for the Chip TTRPG system, with Roll20 remaining the table surface and play log for MVP.
 
 The MVP is a character builder and sheet instancer where:
 
-- GM authors characters, items, conditions, formulas, and actions/macros.
+- GM authors characters, facts, items, conditions, formulas, and actions/macros.
 - GM authors mechanically complete items whose carried/equipped behavior, granted actions, quantity consumption, and wearer effects are backend-authoritative.
 - GM saves planned encounter presets as lightweight collections of sheet templates plus counts, then spawns them into backend-owned sheet instances.
 - Players use assigned actions from instanced sheets.
@@ -127,7 +127,7 @@ Frontend:
 - Player characters have a base/template sheet and session instances.
 - Enemies should be spawned from reusable templates.
 - Current HP, current mana, conditions, and temporary overrides live on instances.
-- Base stats, proficiencies, equipment, formulas, and permanent values live on base/template state or computed state.
+- Base stats, facts, proficiencies, equipment, formulas, and permanent values live on base/template state or computed state.
 - A sheet should be handled by the DM and one assigned player, not multiple players for MVP.
 - GM can roll/use actions from any sheet.
 - Sheet generation/assignment creates an access code that can be claimed by a player session to access/control that sheet instance.
@@ -155,14 +155,46 @@ Supported variable types:
 - boolean
 - text
 - enum
+- reference
+- list of validated enum/reference values
 - current/max resource
 - formula result
 
 Variables should support GM-only visibility, player-editable flags, descriptions/notes, min/max constraints, and units such as feet, percent, HP, mana, and actions.
 
+### Facts
+
+Facts are named, typed values that do not belong in fixed sheet, item, or action schemas and are not mutable instance resources or executable action steps. Numeric Facts may be literal or formula-backed derived values.
+
+- Facts are reusable GM-authored definitions in a global catalog and attach to sheets, items, or actions through explicit stable-ID subject-fact bridges.
+- A fact definition carries a stable ID, name, description, allowed subject types (`sheet`, `item`, `action`, or a combination), value type, optional validation choices/reference kind, default value or formula, formula aliases where applicable, optional unit/display hint, visibility (`public` or `gm_only`), and backend-owned required/default metadata.
+- Subject-fact bridges own the subject-specific typed value or formula override. This allows reusable definitions such as `level`, `movement`, `base_damage`, `rank`, `range`, `target_count`, or `mana_cost` to vary per subject while retaining a backend-owned default.
+- Initial Fact value types must cover numeric/formula, boolean, text, validated enum, validated reference, and validated enum/reference list values. Do not encode governing-stat selections, proficiency links, or damage-type lists as unchecked freeform text.
+- Fact formulas use the existing backend formula evaluator and approved variable metadata/path picker. Sheet Facts resolve sheet-relative inputs, item Facts resolve item-relative Facts, and action Facts resolve action-relative Facts. Runtime contexts may expose validated Facts across subject boundaries only through the current action and an eligible explicit source-item relationship. Raw client mutation paths and frontend gameplay evaluation remain prohibited.
+- The backend evaluates attached formula Facts authoritatively for sheet/instance, item, and action display. Evaluated results are read-only projections, must report missing references/cycles explicitly, and must update through snapshots/patches when definitions, assignments, or dependencies change.
+- Optional facts may be created, edited, deleted, attached, or detached by a GM. Deletion must reject live sheet, item, or action references unless those bridges are removed in the same authoritative operation.
+- Required facts are identified by reserved backend IDs and backend-owned subject/profile rules rather than a client-trusted `deletable` flag. Their ID, name, required status, and presence on each matching subject are backend-enforced; they cannot be deleted or detached.
+- A GM may edit an allowed required-Fact value/formula and reset it to the backend-owned default. Required defaults are seeded on fresh state, backfilled onto matching existing subjects, preserved through export/import, and restored if omitted by an imported payload.
+- The first required fact is `amount_of_reactions`, displayed as `Amount of Reactions`, with the supplied default formula `@registration + @reaction_time` and sheet-relative aliases to `stats.registration` and `stats.reaction_time`.
+- `Amount of Reactions` is initially an informational derived fact only. It does not introduce a current reaction pool, turn resets, or automated reaction enforcement; those remain part of later combat/turn tracking.
+- Items support a stable backend-owned Fact profile used only to select required Fact sets and validation. The initial `weapon` profile requires Facts for weapon type, base damage, governing stat, physical damage type(s), reach, proficiency reference, and proficiency growth rate; non-weapon items are not forced to provide them.
+- Action Facts carry authored configuration/display data such as rank, range, target count, area, mana cost, base spell damage, or a proficiency reference. They do not automatically spend resources, target sheets, change rank, or unlock features.
+- Facts provide data and display only. Actions and augmentations remain responsible for rolls, damage, resource changes, passive modifiers, and other behavior.
+
+Fact and execution boundary:
+
+- Backend lifecycle fields remain first-class item fields: interaction type, Fact profile, quantity/equipped relationship state, augmentation templates, and action grants. These are not Facts because backend availability and lifecycle behavior depend directly on them.
+- Authored weapon data such as base damage, governing stat, proficiency reference, damage types, reach, and proficiency growth rate use required typed item Facts instead of bespoke weapon fields.
+- Every action execution may read its evaluated Action Facts. Equipment-granted actions may also read evaluated source-item Facts and combine them with sheet variables through ordinary formulas and `calculate_value` steps. Stable aliases such as action mana cost, source-item base damage, governing-stat value, and proficiency modifier must reject missing or invalid subject relationships.
+- Existing condition, standalone-effect, and equipment augmentation lifecycles remain the only passive modifier engines. Their formulas may read validated owner Item/Action Facts and matched action Facts where the execution context provides them; do not add a separate learned-skill passive or rank-unlock effect engine.
+- `calculate_value` is not replaced by Facts. Facts persist authored configuration; `calculate_value` results are immutable, ephemeral values evaluated once during one action execution, including dice results and calculations based on current state. They may feed later message, damage, or mutation steps in that action but must not be persisted back into any Fact or subject definition.
+- Range, target count, area, and similar Action Facts are display/manual play data unless a specific authored action step consumes them. Their presence does not add targeting, positioning, or multi-sheet automation.
+
 ### Derived Values
 
 Base values and explicit overrides should be persisted. Derived values should be computed by the backend from authoritative formulas, then may be cached/persisted in snapshots for display and sync. Cached derived values are not directly editable and must be recalculated when dependencies change. GM overrides are stored separately and marked as overrides.
+
+Formula-backed named derived values should use Facts instead of adding one-off fields to the fixed sheet schema. System calculations that are not ordinary authored formulas may remain dedicated backend-derived projections.
 
 Known derived/rule values:
 
@@ -238,7 +270,11 @@ MVP action step types:
 
 Quick actions:
 
-- Attack, dodge, block, and parry should come from sheet presets but be treated like ordinary actions so a specific sheet can edit, replace, remove, or variant them.
+- Dodge and Block are ordinary default sheet actions. Their Roll20 formulas are `FLOOR(Dexterity * (d100 / 100))` and `FLOOR(Strength * (d100 / 100))` respectively.
+- Weapon Attack, Weapon Damage, weapon Parry, and weapon Contest are ordinary backend-seeded action definitions available for equippable items to grant. They are not automatically attached to every sheet because their proficiency and governing values come from the explicit source equipment relationship.
+- The spreadsheet Weapon Parry default intentionally uses `Weapon Proficiency * (d100 / 100) * Dexterity`. This differs from the prose Parry rule's `(1 + Chosen Proficiency) * (d100 / 100) * Weapon Governing Stat`; the seeded spreadsheet action remains an editable authored default rather than replacing the prose rule globally.
+- Spell To-Hit and Spell Damage are separate authored presets. The spreadsheet formula labeled `Spell Attack` includes Base Spell Damage and is therefore represented as Spell Damage; the independent Spell To-Hit preset omits Base Spell Damage.
+- Default/preset actions remain editable authored actions rather than hardcoded runtime commands. Backend execution still emits Roll20 formulas and does not perform cross-sheet hit/defense resolution.
 - Frontend quick-roll controls should prefill an action/composer flow, not immediately submit without review.
 
 ## 7. Roll20 Boundary
@@ -309,8 +345,8 @@ Proficiency:
 - Per-use formula: `New Proficiency = MIN(1.00, Current Proficiency + Growth Rate)`.
 - Growth rate is the configured per-use increase for that weapon, skill, or spell, such as `0.01` for 1 percent or `0.001` for 0.1 percent.
 - Downtime training is manual DM adjudication for MVP; the DM may decide that a character practiced/activated something a number of times and award a specific proficiency/XP amount.
-- Mastery can unlock higher-ranked spells, higher-ranked skills, powerful weapons, and authored modifiers such as lower mana cost, more damage, range, or secondary features.
-- Unlock prerequisites can require one or multiple proficiency thresholds using explicit `all`/AND or `any`/OR grouping; do not infer grouping.
+- Future proficiency thresholds may unlock higher-ranked spells, skills, weapons, or authored modifiers, but MVP does not automatically mutate an Action `rank` Fact or hide/reveal features as proficiency changes.
+- Until concrete thresholds and unlock behavior are supplied, proficiency-improvement notes such as lower mana cost, more healing, range, or secondary features remain GM-managed/RP data. A later unlock model must use explicit thresholds and explicit `all`/AND or `any`/OR grouping rather than inferred behavior.
 - Players cannot manually edit proficiency; GM can manually correct/edit.
 - DM-authored global proficiency definitions are the registry of available proficiencies.
 - Sheet proficiency bridges are per-sheet progress records that point at a global proficiency definition.
@@ -328,15 +364,16 @@ Equipment and items:
 - Equippable wearer effects are item-owned augmentation templates tied directly to equip/unequip lifecycle. Ordinary equipment bonuses should not be wrapped in conditions merely to gain lifecycle behavior.
 - Consumables contain no standalone effect payload beyond their granted action references and consumption metadata. Immediate effects are normal action mutation/damage/healing steps; temporary named statuses use `apply_condition_preset`, while non-status mechanical modifiers use `apply_augmentation`.
 - MVP has no global active-weapon selection and no equipped-item count, slot, hand, one-handed/two-handed, or weapon-combination restrictions. Trust players to equip any number of equippable items; those restrictions and effects that change equip capacity remain later rules.
-- Item definitions store interaction type, category/type label, rank, and reference description as first-class fields instead of packing mechanical-looking labels into one description string.
+- Item definitions store interaction type, Fact profile, category/type label, rank, and reference description as first-class fields instead of packing mechanical-looking labels into one description string.
 - Item action grants define whether an action is available while carried or only while equipped and how much authoritative quantity a successful execution consumes.
 - Quantity zero represents a depleted stack: carried/equipped actions and item effects are unavailable, but the bridge remains until explicitly removed.
 - Evaluation-time numeric and roll-mode augmentation templates apply automatically from equipped items when their selectors match.
 - Direct wearer stat/resistance/resource effects require a backend-owned equip/unequip lifecycle with stable source identity and deterministic recomputation from authored base state; repeated equip, reconnect, template edits, quantity changes, and removal must not double-apply or drift values.
 - Direct item effects must be reversible when unequipped or removed. Unsupported irreversible operations, including unsafe `set` removal semantics, must be rejected at authoring/validation time unless the backend stores enough prior/base state to restore deterministically.
 - An item-granted action carries its source item relationship when the backend needs to identify which equipped item supplied it. Reusable attacks that require a specific item must receive an explicit source relationship rather than reading a global active weapon.
-- Weapons require name, weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate.
-- Optional weapon fields include stat bonuses, attached skills, traits, special effects, prerequisites, tags, and notes.
+- Items using the backend-owned `weapon` Fact profile require typed item Facts for weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate.
+- Optional weapon properties such as stat bonuses, traits, prerequisites, and tags may use optional item Facts; attached skills/actions remain action grants, mechanical wearer effects remain augmentation templates, and prose remains description/notes.
+- Campaign-specific item data such as a Fire attribute, mana efficiency, flat effect bonus, or mana-regeneration modifier should use optional typed item Facts. A Fact records the value; an authored action or augmentation with explicit tags/selectors consumes it when the value has mechanical behavior.
 - Weapon reach is stored/shown for Roll20/manual reference only and does not affect app-side mechanics, formulas, targeting, or positioning.
 - Offhand, two-handed, thrown, ranged, and improvised weapon modes are represented as tags/reference metadata unless a future resolver requires first-class fields.
 - Equipment mechanical effects should use generic augmentation templates wherever possible instead of bespoke per-equipment-type rules.
@@ -410,17 +447,17 @@ Augmentations should:
 - be applied, reversible effects
 - have stable IDs
 - carry source metadata such as item, action, spell, condition, or other origin, including the concrete source relationship/application identity needed to distinguish repeated or duplicate sources
-- carry backend-owned lifecycle ownership that distinguishes manually managed effects from source-managed equipment, condition, or action effects; this policy is assigned by the backend rather than trusted as an author-controlled removal bypass
+- carry backend-owned lifecycle ownership that distinguishes source-managed equipment and condition effects from action-controlled standalone applications
 - indicate base-sheet or instance scope
 - target validated backend-owned paths or references
 - carry formula/effect payloads that the backend can evaluate or apply authoritatively
 - support item buffs, poison/status effects, gear/weapon effects, and future conditional effects
 - keep application, removal, stacking, and recomputation backend-authoritative
-- allow direct GM apply/remove only for manually managed effects. Source-managed effects must be changed through their owning lifecycle: equip/unequip or detach for equipment, whole-condition removal for condition effects, and the corresponding backend-approved action where an action owns removal
+- change effects only through their owning lifecycle: equip/unequip or detach for equipment, whole-condition removal for condition effects, and the corresponding backend-approved action for standalone applications
 
-An augmentation is not inherently permanent or temporary. It is the generic mechanical effect record; its owner determines its lifecycle. Equipment effects last while their source relationship is equipped, condition effects last until that applied condition is removed, and manually/action-applied effects remain until an authorized removal occurs. MVP leaves duration/expiry manual because turn counting is out of scope. Duration, expiry, and removal-condition fields are descriptive lifecycle notes only; they are not executable predicates, formulas, raw paths, or scripts. Future conditional augmentation logic requires a validated backend-owned condition/effect expression model before any automatic lifecycle evaluation. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
+An augmentation is not inherently permanent or temporary. It is the generic mechanical effect record; its owner determines its lifecycle. Equipment effects last while their source relationship is equipped, condition effects last until that applied condition is removed, and action-applied standalone effects remain until an approved action removes them. MVP leaves duration/expiry manual because turn counting is out of scope. Duration, expiry, and removal-condition fields are descriptive lifecycle notes only; they are not executable predicates, formulas, raw paths, or scripts. Future conditional augmentation logic requires a validated backend-owned condition/effect expression model before any automatic lifecycle evaluation. Ally/other-sheet effects are future-only and must not introduce intersheet action execution or cross-sheet automation.
 
-`manual` is an internal lifecycle-owner value, not appropriate user-facing terminology and not permission for arbitrary player edits. The UI should call these records `Standalone effects` or `Action-controlled effects`: reusable non-condition effects explicitly applied or removed by approved actions or GM commands.
+The UI calls reusable non-condition records `Standalone effects` or `Action-controlled effects`. They are applied or removed through approved actions; there is no global direct-manual effect workflow.
 
 Frontend augmentation UX boundary:
 
@@ -775,8 +812,13 @@ MVP is done when:
 - GM can instantiate a player/enemy sheet.
 - Player can view a simplified assigned sheet instance.
 - Player can execute assigned actions.
+- GM can create/edit/delete optional Fact definitions and attach/detach them from sheets, items, and actions allowed by the definition's subject type.
+- Every sheet and profiled item contains its backend-required Facts; required Facts cannot be deleted or detached, and editable values/formulas can be reset to backend defaults.
+- GM and permitted players can view backend-evaluated attached Facts on character sheets, item displays, and available action displays without the frontend calculating or directly editing derived results.
 - Sheet users can see the active conditions they are permitted to view; the GM can explicitly remove an applied condition from that sheet without deleting its reusable preset.
 - GM can create and edit each supported item interaction type in one coherent workflow: equippable wearer effects/actions, consumable immediate/temporary use effects, or inventory-only reference records.
+- GM can assign an item Fact profile and edit its required/optional typed Facts in Item Maker; source-item actions can consume validated item Fact values authoritatively.
+- GM can attach typed Action Facts in Action Authoring; action steps and existing modifier engines can consume validated current-action/source-item Facts without replacing execution-local calculated values.
 - GM can attach inventory, change quantity, and independently equip or unequip any number of equippable items through backend-authoritative requests.
 - Carried/equipped item actions and quantity consumption are enforced by the backend, and equipped roll/formula modifiers affect only matching actions.
 - Direct wearer effects apply and reverse deterministically on equip/unequip without corrupting authored base stats or duplicating effects.
@@ -1048,6 +1090,104 @@ This is the next MVP implementation track and must be completed before work in `
 Manual amount/type damage intake was pulled forward from the later hit/damage checklist and is now implemented through the sheet resource editor.
 
 ### Active TODO
+- [ ] Add typed Facts for sheets, items, and actions with backend-required defaults.
+  - [x] Deliver the first end-to-end required sheet-Fact slice with `amount_of_reactions`.
+    - Added persisted typed Fact definitions/values and sheet-Fact bridges, schema-v7 initialization/backfill, and backend restoration of the reserved required definition/bridge on load and sheet creation.
+    - The backend evaluates `@registration + @reaction_time`, stores the authoritative evaluated value or explicit evaluation error, and refreshes affected Fact projections after sheet-stat mutations, equipment projection changes, imports, and undo.
+    - Added DM-only typed set/reset routes with generated protocol/request helpers. Required metadata/defaults remain backend-owned, players cannot edit, and public/GM-only Fact visibility participates in snapshot/patch redaction.
+    - Added frontend authoritative Fact reconciliation and a character-sheet Facts section. Both roles see the evaluated value; GMs can edit the required formula text while preserving validated aliases or reset it to the backend default.
+    - Covered required seeding, migration, evaluation, dependency refresh, permission enforcement, reset behavior, protocol generation, request construction, snapshot reconciliation, and role-specific rendering.
+    - Verified with 387 backend tests, 301 frontend tests, frontend lint, protocol generation, changed-file formatting, and the production TypeScript/Vite build.
+  - [x] Deliver optional Fact definitions and sheet/item/action assignment.
+    - Added DM-only optional Fact definition create/update/delete and subject attach/set/reset/detach routes, stable bridges on sheets, items, and actions, generated protocol/request helpers, and backend preservation of item/action Facts when their definitions are edited.
+    - Added typed literal/formula, boolean, text, validated enum, validated reference, and validated list values. Constrained types require allowed values; references also require a reference kind; definition edits reject incompatible live bridges.
+    - Added subject-relative Fact dependencies and explicit cycle/evaluation errors, authoritative evaluated values, schema/load/import support, and public/GM-only snapshot and patch redaction. Visibility changes now remove or republish every affected subject bridge for connected players.
+    - Added a GM Fact Builder with subject scope, defaults, formula aliases, units, validation metadata, and visibility. Added optional Fact assignment/edit/reset/detach to the character-sheet view and persisted Item Maker and Action Authoring records.
+    - Added frontend authoritative reconciliation plus constrained-value editors; the frontend never evaluates Fact formulas.
+    - Verified with 393 backend tests, 303 frontend tests, frontend lint, protocol generation, changed-file formatting, and the production TypeScript/Vite build.
+  - [x] Deliver the backend-owned weapon Item Fact profile.
+    - Added reserved required weapon Facts for weapon type, base damage, governing stat, physical damage types, reach, proficiency definition reference, and proficiency growth rate. Required definitions expose their `weapon` profile scope and cannot be renamed, deleted, or detached.
+    - Added a first-class item `fact_profile` plus complete Fact bridges to item create/update payloads. The backend restores stable required bridges, rejects incompatible profile/interaction combinations, validates nonnegative numeric weapon values and physical damage choices, and resolves proficiency references against authoritative proficiency definitions.
+    - Added schema-v8 initialization for the reserved definitions and explicit `fact_profile: null` on existing items without inferring profiles from prototype data. Proficiency deletion now rejects live Fact references.
+    - Item Maker now selects the backend-declared profile, authors required and optional Facts during initial creation or editing, validates required values before submission, and sends the item plus bridges atomically. It no longer requires creating the item and attaching Facts afterward.
+    - Added read-only item Facts to GM item records and shared GM/player equipment displays, with backend-evaluated values and visibility redaction preserved.
+    - Verified with 397 backend tests, 305 frontend tests, frontend lint, protocol generation, changed-file formatting, and the production TypeScript/Vite build.
+  - [x] Deliver canonical Action Facts and reusable Fact presets.
+    - Added backend-owned optional Action Fact definitions for rank, range, target count, area, mana cost, base spell damage, and proficiency reference. They remain optional configuration and cannot be edited or deleted from the global Fact catalog.
+    - Added schema-v9 initialization plus complete Action Fact bridges in create/update payloads. The backend validates subject compatibility, stable bridge identity, constrained ranks, nonnegative range/cost/damage, positive whole target counts, and authoritative proficiency references.
+    - Added backend Action Fact preset metadata for `General Action Details` and `Spell Details`. Presets attach default Fact bridges only and explicitly do not execute resource, targeting, or damage behavior.
+    - Action Authoring now applies Fact presets, attaches optional Facts, edits/reset/detaches values before initial creation, validates references before submission, and saves the Action plus Facts atomically instead of requiring post-create attachment.
+    - Added read-only Action Facts to GM Action records and shared GM/player available-action cards. Backend-owned optional definitions display as locked Preset records in Fact Builder.
+    - Moved shared Fact protocol payloads into the Facts feature so state, item, and action contracts use one generated schema without circular dependencies.
+    - Verified with 400 backend tests, 307 frontend tests, frontend lint, protocol generation, changed-file formatting, and the production TypeScript/Vite build.
+  - [x] Deliver Action/source-item Facts in action formula execution.
+    - Extended backend-provided formula metadata and generated protocol roots with read-only `action` and `source_item` variables. Numeric Action/Item Fact definitions are exposed dynamically, including stable shortcuts for mana cost, base spell damage, weapon base damage, weapon governing-stat value, and action/weapon proficiency modifiers.
+    - Fixed the existing picker/runtime mismatch by accepting both explicit rooted authoring paths and established subject-relative paths. Runtime formula contexts now expose explicit `sheet`, `instance`, current-Action, and eligible source-item projections without widening action mutation paths.
+    - Action create/update rejects current-Action Fact aliases when the required Fact is not attached, including referenced global formulas. Runtime rejects missing, malformed, wrong-profile, nonnumeric, or failed Fact projections before applying mutations.
+    - Source-item formula values require the `perform_action` request to provide an explicit relationship that passes the existing quantity/equipped/action-grant eligibility checks. Weapon projections resolve the selected governing core-stat value and the sheet's capped proficiency modifier from authoritative relationships.
+    - Added backend metadata, rooted-path validation, action-authoring, invalid-Fact, explicit-source, wrong-profile, and resolved-weapon execution coverage plus frontend picker coverage. Verified with 404 backend tests, 308 frontend tests, frontend lint, protocol generation, and the production TypeScript/Vite build.
+  - [x] Deliver executable spreadsheet action defaults and authoring presets.
+    - Added one canonical backend preset catalog shared by state seeding and Action Authoring metadata. New sheets receive only Dexterity-based Dodge and Strength-based Block; generic Attack and Parry are no longer created or attached.
+    - Seeded editable global Weapon Attack, Weapon Damage, Weapon Parry, and Weapon Contest definitions for Item Maker equipment grants. Their formulas consume only an explicit eligible source weapon, and hit, damage, defense, and contest remain independently invoked Roll20 actions.
+    - Added separate Spell To-Hit and Spell Damage authoring presets. Applying either creates a normal editable draft, sets the correct roll-mode kind and semantic tags, and attaches the spell Action Facts that must be configured before saving.
+    - Wired backend action-step presets into Action Authoring, exposed weapon definitions in Item Maker grants, and updated Quick Actions to resolve Weapon Attack/Parry through eligible item relationships while retaining sheet Dodge/Block.
+    - Added schema-v10 canonical-data initialization that removes only untouched prototype generic Attack/Parry defaults and bridges, corrects untouched Dodge/Block definitions, seeds equipment actions, and preserves unrelated/customized records.
+    - Added exact Roll20 expansion coverage for every supplied spreadsheet formula, equipment `calculate_value` reuse coverage, migration/default-bridge tests, Action preset/Fact draft tests, item-grant rendering, quick-action source tests, and standardized tag suggestions including `stealth`, `parry`, and `mana_regeneration`.
+    - Verified with 408 backend tests, 311 frontend tests, frontend lint, protocol generation, and the production TypeScript/Vite build.
+  - [x] Add persisted global `facts` definitions plus stable sheet-fact, item-fact, and action-fact bridges under the shared domain model, checkpoint schema, private/public serialization, export/import, and authoritative snapshot/patch state.
+  - [x] Define typed Fact payloads for numeric/formula, boolean, text, validated enum, validated reference, and validated enum/reference list values. Fact definitions declare allowed subject types (`sheet`, `item`, `action`, or a combination), validation metadata, default payload, unit/display hint, and visibility; subject bridges carry subject-specific values or formula overrides.
+  - [x] Add the backend-owned required-Fact registry and subject/profile rules. Seed/backfill `amount_of_reactions` on every sheet with default formula `@registration + @reaction_time`; reject required-definition deletion, reserved metadata changes, and required bridge detachment.
+  - [x] Add a first-class item Fact profile selector and an initial backend-owned `weapon` profile. It requires item Facts for weapon type, base damage, governing stat, physical damage type(s), reach, proficiency definition reference, and proficiency growth rate without imposing them on non-weapons.
+  - [x] Allow GM edits to permitted required-Fact values/formulas plus an explicit reset-to-default route; required status, profile membership, validation metadata, and default payload must never be accepted as client authority.
+  - [x] Add DM-only typed Fact definition CRUD plus sheet-Fact, item-Fact, and action-Fact attach/update/detach routes through the request registry, including role checks, subject compatibility, reference validation, dependency errors, generated protocol types, and centralized frontend request helpers.
+  - [ ] Extend formula authoring metadata and validation for Fact formulas, including sheet-relative aliases, item-relative Fact aliases, action-relative Fact aliases, missing-reference errors, cycle detection across formula stats/Facts, and explicit backend evaluation failures.
+  - [x] Define authoritative evaluated-Fact projection and invalidation behavior so definition edits, subject assignment/value changes, sheet stat changes, item/action Fact changes, imports, and reconnects produce consistent snapshot/patch results without frontend calculation.
+  - [ ] Build a GM Fact Builder for optional definition CRUD and required Fact editing/reset. Required records must show their subject/profile scope and a clear Required badge while omitting rename/delete controls.
+    - [x] Optional definition CRUD, typed defaults, validation options, units, visibility, subject scope, manual relative formula aliases, and locked Required records are implemented. Moving required value editing/reset into this page remains open; it currently lives on each sheet.
+  - [ ] Add a Facts section to Template Builder for attaching optional definitions and displaying locked required assignments; create/update must submit stable bridges in the complete sheet payload.
+  - [x] Add an Item Maker Facts section for selecting the Fact profile, editing required values, attaching optional item Facts, and showing validation errors before submission.
+  - [x] Add an Action Authoring Facts section for rank, range, target count, area, mana cost, base spell damage, proficiency references, and other optional typed configuration without turning those values into executable behavior.
+  - [x] Add read-only Facts sections to the shared GM/player character sheet, item displays, and available-action displays, respecting visibility and showing name, evaluated/typed value, unit, description, and a clear unavailable/error state when backend evaluation fails.
+  - [x] Expose validated current-Action Facts to its action-step formulas and validated source-item Facts only through an eligible explicit source-item relationship. Reject aliases for missing, ineligible, wrong-profile, or invalid Fact data.
+  - [ ] Allow existing item augmentation formulas to read their owning Item Facts and matching evaluation-time modifiers to read validated matched-Action Facts. Preserve existing equipment, condition, and standalone-effect lifecycle ownership; do not add a skill-passive lifecycle or automatic rank/feature unlock engine.
+  - [x] Keep `calculate_value` as the execution-local evaluation-once mechanism for dice and current-state calculations. Fact values are persistent authored inputs and must not be used as writable execution scratch space.
+  - [ ] Add checkpoint migration/backfill, backend CRUD/permission/type/evaluation/required-invariant tests, protocol/codegen checks, and frontend authoring/assignment/snapshot/patch/reconciliation tests for sheet, item, and action subjects.
+  - [ ] Keep current reaction counts, turn resets, spending, and combat enforcement out of this track; the `amount_of_reactions` Fact is display-only until combat/turn tracking is implemented.
+  - [ ] Keep range, target count, and area as display/manual Facts unless a specific action step consumes them; do not add targeting or cross-sheet execution.
+- [x] Complete default action coverage for the supplied spreadsheet roll formulas on the typed item-Fact foundation.
+  - [x] Replace the current placeholder defaults: keep Dodge as Dexterity-based, change Block from Constitution to Strength, and stop automatically attaching generic Attack and Parry actions to every sheet.
+  - [x] Extend resolved action execution and formula context with evaluated current-Action Facts plus, when explicitly supplied, the source item bridge, source item definition, evaluated required weapon Facts, resolved governing-stat value, resolved sheet proficiency modifier, and base damage.
+  - [x] Let equipment-granted actions use `calculate_value` for reusable intermediate attack/damage values while keeping those values execution-local and non-persistent.
+  - [x] Seed editable equipment-grantable Weapon Attack, Weapon Damage, Weapon Parry, and Weapon Contest action definitions; expose them in Item Maker action grants without attaching them to sheets automatically.
+  - [x] Represent Weapon Attack as `FLOOR((1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)`.
+  - [x] Represent Weapon Damage as `FLOOR(Weapon Base Damage + (1 + Weapon Proficiency) * (d100 / 100) * Weapon Governing Stat)` and keep it separate from the to-hit action.
+  - [x] Represent the supplied Weapon Parry attempt as `FLOOR(Weapon Proficiency * (d100 / 100) * Dexterity)` and Weapon Contest as `FLOOR(Weapon Proficiency * (d100 / 100) * Weapon Governing Stat)`. Record that these spreadsheet defaults intentionally differ from the current prose Parry rule, which uses `(1 + proficiency)` and the weapon governing stat, and update the active rules text when the default is implemented.
+  - [x] Represent Dodge as `FLOOR(Dexterity * (d100 / 100))` and Block as `FLOOR(Strength * (d100 / 100))`; keep advantage/disadvantage transformation on the standalone `1d100` term.
+  - [x] Add separate editable Spell To-Hit and Spell Damage presets. Spell To-Hit is `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane)`; Spell Damage preserves the spreadsheet expression as `FLOOR((1 + Spell Proficiency) * (d100 / 100) * Arcane + Base Spell Damage)`.
+  - [x] Add action-authoring support for attaching validated proficiency-reference and base-spell-damage Action Facts when instantiating spell presets; do not hide spell-specific values in freeform notes.
+    - [x] The backend-provided `Spell Details` Fact preset attaches validated proficiency, mana-cost, and base-spell-damage bridges during initial Action authoring. Executable Spell To-Hit/Damage step presets remain open until Action Facts enter formula context.
+  - [x] Wire the backend-provided action preset templates into Action Authoring—the metadata exists today, but the frontend does not currently consume it—and add categories for weapon, defense, contest, spell to-hit, and spell damage.
+    - [x] Backend Action Fact preset metadata is consumed by Action Authoring. Existing action-step preset templates and the weapon/defense/contest/spell executable categories remain open.
+  - [x] Treat Stealth and other skill checks as ordinary authored actions using the existing skill-check formula shape. Standardize formula-tag suggestions such as `check`, `stealth`, `parry`, `damage`, `fire`, and `mana_regeneration` so existing augmentation selectors can match them; do not add a separate skill-check runtime engine.
+  - [x] Keep hit, damage, and defense as independently invoked Roll20 actions. Do not add automatic targeting, contested-result comparison, hit-to-damage chaining, or cross-sheet mutation.
+  - [x] Add backend default-seeding/source-validation/runtime-output tests and frontend preset/item-grant/quick-action tests proving every spreadsheet formula has an executable authored representation.
+  - [x] Treat `NON LISTED = DND` as reference-only until a concrete calculation or fallback behavior is supplied; do not invent a generic D&D resolver.
+- [ ] Seed canonical authoring data and prove the `dm_examples.md` examples through normal system primitives.
+  - [ ] Move the standard substat default formulas into backend-provided authoring metadata and make new Template Builder drafts consume that metadata instead of owning a second frontend rules table.
+  - [ ] Seed reusable optional sheet Fact definitions for `level`, `movement`, and `mana_regeneration`; mana regeneration remains informational/manual and does not add a time-advancement engine.
+  - [x] Seed reusable optional Action Fact definitions for rank, range, target count, area, mana cost, base spell damage, and proficiency reference. These values remain display/manual unless an authored action formula or step consumes them.
+  - [ ] Seed reusable optional item Fact definitions needed by the examples, including attribute, mana efficiency, flat effect bonus, and mana-regeneration modifier, alongside the backend-owned required weapon Fact definitions.
+  - [ ] Add proficiency category metadata and seed the supplied weapon-family definitions: Long Swords, Short Swords, Spears, Shields, Pugilists, Staffs, Bows, Throwing, Knives, and Axes. Specific weapon names remain item records that reference the applicable proficiency rather than separate hardcoded resolvers.
+  - [ ] Add same-source-item evaluation context/selector support for modifiers such as `+50 to effects applied to this sword`; category-wide effects such as Fire Shard's `+10` fire damage continue to use ordinary semantic tags.
+  - [ ] Represent Parry advantage and Mana Manipulation bonuses with the existing roll-mode/numeric augmentation effects, selectors, and condition or standalone-effect application paths. Action Facts provide their authored values, but owning an action does not create a second automatic passive-effect lifecycle.
+  - [ ] Build backend/frontend acceptance fixtures that author, persist, reload, display, equip, and execute the six supplied equipment examples and the Parry, Flames of Life, and Mana Manipulation actions using Facts, existing actions, and existing augmentation/condition/standalone-effect lifecycles. Keep these as fixtures/sample data rather than forcing campaign-specific records into every live state.
+  - [ ] Verify the fixed Flames of Life example can reject insufficient mana and exchange `100` mana for `10` health through existing ordered bounded-mutation steps. Limb/injury restoration remains RP-only.
+  - [ ] Keep weapon sharpness/dulling out of scope. Treat descriptive mana conductivity and unspecified proficiency improvements as displayed Facts/notes until concrete executable rules are supplied.
+  - [ ] Do not add automatic rank progression, proficiency-threshold feature hiding, timed regeneration, range enforcement, target-count enforcement, positioning, or multi-sheet targeting in this track.
+- [x] Seed new template drafts with the standard substat formula set.
+  - New drafts start with authored formulas and sheet-relative aliases for lifting, carry weight, acrobatics, stamina, reaction time, health, endurance, pain tolerance, sight distance, intuition, registration, mana, control, sensitivity, charisma, mental fortitude, and courage.
+  - Existing templates retain their authored formulas. `Amount of Reactions` is intentionally not a formula stat; it belongs to the planned required Facts model above.
+  - Verified with 298 frontend tests, frontend lint, changed-file formatting, and the production build.
 - [x] Overhaul Template Builder into the primary complete sheet-authoring workflow.
   - Replaced the metadata-only create form and inline library editor with one full-width create/edit workspace that does not depend on an active instance.
   - Added responsive tabs for Details, Stats, Resistances, Actions, Proficiencies, and Starting Inventory/Equipment, with `Player-controlled` and `GM-controlled` labels mapped to the existing shared sheet schema.
@@ -1067,13 +1207,13 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
   - Migrated Formula Authoring plus calculation, message, damage, proficiency, and bounded-mutation Action Authoring consumers. Deleted the expanded `VariablePathBrowser`; large pages no longer render every variable as a card with an Insert button.
   - The generic picker remains available for later large action, formula, proficiency, item, condition, and template selectors while small fixed sets continue using native controls.
   - Added focused filtering, compact option adaptation, disabled navigation, wraparound, viewport placement, and semantic rendering coverage. Verified with 284 frontend tests, frontend lint, and the production build.
-- [ ] Replace global single-target manual augmentations with authored standalone-effect definitions and per-instance applications.
+- [x] Replace global single-target manual augmentations with authored standalone-effect definitions and per-instance applications.
   - [x] Backend definition/application foundation.
     - Added reusable `standalone_effects` definitions with no global applied state plus idempotent `standalone_effect_applications` keyed per definition and instance, carrying stable action/step source identity.
     - Added DM-only typed create/update/delete routes and generated frontend request contracts. Deletion rejects action references and active applications; updates authoritatively recompute active direct effects.
     - Action validation/runtime now resolves `apply_augmentation` steps strictly through standalone definitions. Action Authoring receives and selects only standalone definitions instead of equipment- or condition-managed concrete augmentations.
     - Direct-value applications share the existing private base/effective projection machinery with equipment, including `set`, multiple instances, definition updates, external base edits, independent removal, and reload-safe persistence. Evaluation-formula and roll-mode effects resolve from the acting instance's active applications.
-    - Added schema-v6 migration for unapplied manual definitions, evaluation-time applications, and safely reversible direct applications. Legacy applied records whose original base cannot be reconstructed remain in compatibility storage rather than being duplicated or destructively guessed.
+    - Added schema-v6 initialization for standalone definitions and applications. The prototype does not preserve or convert hypothetical pre-production global-manual records.
     - Added role-redacted application snapshots/patches: DMs receive all applications and players receive only their assigned instance's applications. Definitions and applications now reconcile into dedicated frontend server-state collections.
     - Covered CRUD permissions/contracts, definition/application round trips, two-instance concurrency, idempotence, direct/evaluation/set behavior, source identity, projection recomputation, migration, action integration, and snapshot redaction. Verified with 401 backend tests, 289 frontend tests, frontend lint, protocol generation, and the production build.
   - [x] Build the DM Effect Authoring workflow on the new standalone definition CRUD, reusing the existing target, formula, selector, and lifecycle-note controls. Use `Standalone effect` or `Action-controlled effect` in GM-facing UI; keep `manual` internal only.
@@ -1083,8 +1223,13 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
     - New definitions remain in the draft until their authoritative patch arrives and are then selected from server state. Authoritative removal clears an open editor, while rejected deletes remain visible and surface through normal request feedback.
     - Added explicit deletion confirmation noting action-reference and active-application constraints, compact authoritative definition summaries, active/disabled state, and a GM navigation entry without exposing legacy global-manual terminology.
     - Covered strict instance validation, definition hydration, payload normalization, CRUD and metadata submissions, authoritative ordering, and rendered required controls. Verified with 295 frontend tests, frontend lint, and the production TypeScript/Vite build.
-  - [ ] Show permitted active standalone applications and their action/step source on the character sheet; keep them non-removable except through their approved action or a future explicit GM command.
-  - [ ] Add an explicit GM review/conversion path for legacy applied direct records whose original pre-`set` or formula-derived base cannot be reconstructed safely, then remove the old global-manual compatibility behavior.
+  - [x] Show permitted active standalone applications and their action/step source on the character sheet; keep them non-removable except through their approved action.
+    - The Conditions tab now includes an Active Effects section joined from authoritative per-instance applications to their definitions and originating action/step.
+    - Player visibility relies on the backend-redacted assigned-instance application collection; the display has no direct removal control.
+  - [x] Remove the unused global-manual compatibility behavior instead of building a legacy conversion workflow.
+    - Schema v6 now only initializes the standalone definition/application collections.
+    - Removed the obsolete direct global augmentation apply/remove/recompute entry points and their legacy-only tests. Concrete condition effects remain condition-owned, equipment effects remain projection-managed, and standalone effects use definition/application APIs.
+    - Current verification passes with 382 backend tests and 297 frontend tests, plus frontend lint, changed-file formatting, and the production build.
 - [x] Refine Condition Authoring into a complete effect-authoring workflow.
   - Condition metadata and effects now share one frontend-local draft. Create and Save submit the complete condition payload through the existing backend contract, eliminating per-effect update requests and the create/reselect/Edit workflow.
   - The Effects section is visible during initial creation with an explicit Add Effect command. Direct sheet-value, matching-formula, and matching-roll effects continue to reuse the augmentation model and metadata-backed target/selector controls internally.

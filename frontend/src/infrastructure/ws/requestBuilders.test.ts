@@ -6,9 +6,12 @@ import {
 import {
   buildAuthenticateRequest,
   buildApplyInstancedSheetDamageRequest,
+  buildAttachSheetFactRequest,
+  buildAttachSubjectFactRequest,
   buildCreateActionRequest,
   buildCreateConditionPresetRequest,
   buildCreateFormulaRequest,
+  buildCreateFactRequest,
   buildAdjustInstancedSheetResourceRequest,
   buildClaimSheetAccessCodeRequest,
   buildCreateInstancedSheetRequest,
@@ -23,6 +26,7 @@ import {
   buildDeleteConditionPresetRequest,
   buildDeleteEncounterPresetRequest,
   buildDeleteFormulaRequest,
+  buildDeleteFactRequest,
   buildDeleteItemRequest,
   buildDeleteProficiencyRequest,
   buildExportStateBackupRequest,
@@ -37,6 +41,8 @@ import {
   buildImportStateBackupRequest,
   buildSaveEncounterPresetRequest,
   buildDeleteSheetRequest,
+  buildDetachSheetFactRequest,
+  buildDetachSubjectFactRequest,
   buildDeleteSheetActionBridgeRequest,
   buildDeleteSheetItemBridgeRequest,
   buildDeleteSheetProficiencyBridgeRequest,
@@ -44,10 +50,14 @@ import {
   buildPerformActionRequest,
   buildGenerateSheetAccessCodeRequest,
   buildResyncStateRequest,
+  buildResetSheetFactValueRequest,
+  buildResetSubjectFactValueRequest,
   buildSendRoll20ChatMessageRequest,
   buildSetInstancedSheetNotesRequest,
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
+  buildSetSheetFactValueRequest,
+  buildSetSubjectFactValueRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetResistancesRequest,
   buildSetSheetNotesRequest,
@@ -60,6 +70,7 @@ import {
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
   buildUpdateFormulaRequest,
+  buildUpdateFactRequest,
   buildUpdateItemRequest,
   buildUpdateProficiencyRequest,
   buildUpdateSheetActionBridgeRequest,
@@ -229,11 +240,14 @@ const testSheet: SheetDefinitionPayload = {
 const requestBuilderByType = {
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
   apply_instanced_sheet_damage: buildApplyInstancedSheetDamageRequest,
+  attach_sheet_fact: buildAttachSheetFactRequest,
+  attach_subject_fact: buildAttachSubjectFactRequest,
   authenticate: buildAuthenticateRequest,
   claim_sheet_access_code: buildClaimSheetAccessCodeRequest,
   create_action: buildCreateActionRequest,
   create_condition_preset: buildCreateConditionPresetRequest,
   create_formula: buildCreateFormulaRequest,
+  create_fact: buildCreateFactRequest,
   create_instanced_sheet: buildCreateInstancedSheetRequest,
   create_item: buildCreateItemRequest,
   create_proficiency: buildCreateProficiencyRequest,
@@ -246,9 +260,12 @@ const requestBuilderByType = {
   delete_condition_preset: buildDeleteConditionPresetRequest,
   delete_encounter_preset: buildDeleteEncounterPresetRequest,
   delete_formula: buildDeleteFormulaRequest,
+  delete_fact: buildDeleteFactRequest,
   delete_item: buildDeleteItemRequest,
   delete_proficiency: buildDeleteProficiencyRequest,
   delete_sheet: buildDeleteSheetRequest,
+  detach_sheet_fact: buildDetachSheetFactRequest,
+  detach_subject_fact: buildDetachSubjectFactRequest,
   delete_sheet_action_bridge: buildDeleteSheetActionBridgeRequest,
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
   delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
@@ -265,6 +282,8 @@ const requestBuilderByType = {
   perform_action: buildPerformActionRequest,
   remove_active_condition: buildRemoveActiveConditionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
+  reset_sheet_fact_value: buildResetSheetFactValueRequest,
+  reset_subject_fact_value: buildResetSubjectFactValueRequest,
   resync_state: buildResyncStateRequest,
   save_encounter_preset: buildSaveEncounterPresetRequest,
   send_roll20_chat_message: buildSendRoll20ChatMessageRequest,
@@ -272,6 +291,8 @@ const requestBuilderByType = {
   set_instanced_sheet_resource: buildSetInstancedSheetResourceRequest,
   set_mob_xp_value: buildSetMobXpValueRequest,
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
+  set_sheet_fact_value: buildSetSheetFactValueRequest,
+  set_subject_fact_value: buildSetSubjectFactValueRequest,
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
   set_sheet_resistances: buildSetSheetResistancesRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
@@ -283,6 +304,7 @@ const requestBuilderByType = {
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
   update_formula: buildUpdateFormulaRequest,
+  update_fact: buildUpdateFactRequest,
   update_item: buildUpdateItemRequest,
   update_proficiency: buildUpdateProficiencyRequest,
   update_sheet: buildUpdateSheetRequest,
@@ -485,6 +507,37 @@ describe("requestBuilders", () => {
       sheet_id: "sheet_1",
       stat_name: "strength",
       value: 14
+    });
+  });
+
+  it("builds sheet Fact update and reset requests", () => {
+    expect(
+      buildSetSheetFactValueRequest({
+        sheetId: "sheet_1",
+        factId: "amount_of_reactions",
+        value: {
+          type: "formula",
+          formula: { aliases: null, text: "2" }
+        }
+      })
+    ).toEqual({
+      type: "set_sheet_fact_value",
+      sheet_id: "sheet_1",
+      fact_id: "amount_of_reactions",
+      value: {
+        type: "formula",
+        formula: { aliases: null, text: "2" }
+      }
+    });
+    expect(
+      buildResetSheetFactValueRequest({
+        sheetId: "sheet_1",
+        factId: "amount_of_reactions"
+      })
+    ).toEqual({
+      type: "reset_sheet_fact_value",
+      sheet_id: "sheet_1",
+      fact_id: "amount_of_reactions"
     });
   });
 

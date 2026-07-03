@@ -5,6 +5,7 @@ import type {
   ProficiencyDefinition,
   Sheet,
   SheetKind,
+  StatKey,
   Stats
 } from "@/domain/models";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
@@ -43,8 +44,12 @@ export interface TemplateEditorValidation {
   isValid: boolean;
 }
 
-function createFormula(text = "0"): Formula {
-  return { aliases: null, text, tags: [] };
+function createFormula(text: string, aliases: StatKey[]): Formula {
+  return {
+    aliases: aliases.map((name) => ({ name, path: ["stats", name] })),
+    text,
+    tags: []
+  };
 }
 
 function cloneFormula(formula: Formula): Formula {
@@ -63,23 +68,23 @@ export function createDefaultStats(): Stats {
     perception: 0,
     arcane: 0,
     will: 0,
-    lifting: createFormula(),
-    carry_weight: createFormula(),
-    acrobatics: createFormula(),
-    stamina: createFormula(),
-    reaction_time: createFormula(),
-    health: createFormula(),
-    endurance: createFormula(),
-    pain_tolerance: createFormula(),
-    sight_distance: createFormula(),
-    intuition: createFormula(),
-    registration: createFormula(),
-    mana: createFormula(),
-    control: createFormula(),
-    sensitivity: createFormula(),
-    charisma: createFormula(),
-    mental_fortitude: createFormula(),
-    courage: createFormula()
+    lifting: createFormula("@strength", ["strength"]),
+    carry_weight: createFormula("@strength", ["strength"]),
+    acrobatics: createFormula("(@dexterity + @registration) / 2", ["dexterity", "registration"]),
+    stamina: createFormula("@dexterity", ["dexterity"]),
+    reaction_time: createFormula("(@stamina + @intuition) / 2", ["stamina", "intuition"]),
+    health: createFormula("@constitution", ["constitution"]),
+    endurance: createFormula("(@stamina + @constitution) / 2", ["stamina", "constitution"]),
+    pain_tolerance: createFormula("(@endurance + @strength) / 2", ["endurance", "strength"]),
+    sight_distance: createFormula("@perception", ["perception"]),
+    intuition: createFormula("(@perception + @registration) / 2", ["perception", "registration"]),
+    registration: createFormula("@perception", ["perception"]),
+    mana: createFormula("@arcane", ["arcane"]),
+    control: createFormula("(@arcane + @mana) / 2", ["arcane", "mana"]),
+    sensitivity: createFormula("(@intuition + @arcane) / 2", ["intuition", "arcane"]),
+    charisma: createFormula("@will", ["will"]),
+    mental_fortitude: createFormula("(@will + @charisma) / 2", ["will", "charisma"]),
+    courage: createFormula("(@mental_fortitude + @charisma) / 2", ["mental_fortitude", "charisma"])
   };
 }
 
@@ -193,10 +198,7 @@ export function validateTemplateEditorValues(
   if (hasDuplicates(proficiencyIds)) {
     errors.proficiencies.push("A proficiency can only be assigned once.");
   }
-  if (
-    hasDuplicates(proficiencyRelationshipIds) ||
-    proficiencyRelationshipIds.some((id) => !id)
-  ) {
+  if (hasDuplicates(proficiencyRelationshipIds) || proficiencyRelationshipIds.some((id) => !id)) {
     errors.proficiencies.push("Proficiency assignments must have unique relationship IDs.");
   }
   if (proficiencyIds.some((id) => !catalogs.proficiencies[id])) {
@@ -230,7 +232,9 @@ export function validateTemplateEditorValues(
   if (
     values.items.some((entry) => {
       const item = catalogs.items[entry.itemId];
-      return entry.equipped && (item?.interaction_type !== "equippable" || Number(entry.count) <= 0);
+      return (
+        entry.equipped && (item?.interaction_type !== "equippable" || Number(entry.count) <= 0)
+      );
     })
   ) {
     errors.inventory.push("Only positive-quantity equippable items can start equipped.");

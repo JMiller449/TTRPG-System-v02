@@ -66,10 +66,48 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     action_presets = {
         preset.id: preset for preset in metadata.action_preset_templates
     }
+    fact_presets = {preset.id: preset for preset in metadata.action_fact_presets}
 
     assert metadata.type == "action_formula_authoring_metadata"
-    assert metadata.formula_roots == ["sheet", "instance"]
+    assert metadata.formula_roots == [
+        "sheet",
+        "instance",
+        "action",
+        "source_item",
+    ]
     assert metadata.action_mutation_roots == ["sheet", "instance"]
+    assert set(fact_presets) == {"action_details", "spell_details"}
+    assert set(fact_presets["action_details"].fact_values) == {
+        "action_rank",
+        "action_range",
+        "action_target_count",
+        "action_area",
+    }
+    assert fact_presets["spell_details"].fact_values["action_proficiency"] == {
+        "type": "reference",
+        "value": "",
+    }
+
+    action_damage = variables["action.facts.action_base_spell_damage"]
+    assert action_damage.root == "action"
+    assert action_damage.path == ["facts", "action_base_spell_damage"]
+    assert action_damage.shortcuts == ["base_spell_damage"]
+    assert action_damage.action_mutation_allowed is False
+
+    weapon_damage = variables["source_item.facts.weapon_base_damage"]
+    assert weapon_damage.root == "source_item"
+    assert weapon_damage.path == ["facts", "weapon_base_damage"]
+    assert weapon_damage.shortcuts == ["weapon_base_damage"]
+
+    weapon_stat = variables["source_item.resolved.governing_stat"]
+    assert weapon_stat.shortcuts == ["weapon_stat"]
+    assert variables[
+        "source_item.resolved.proficiency_modifier"
+    ].shortcuts == ["weapon_proficiency"]
+    assert variables["action.resolved.proficiency_modifier"].shortcuts == [
+        "action_proficiency",
+        "spell_proficiency",
+    ]
 
     strength = variables["sheet.stats.strength"]
     assert strength.formula_reference_allowed is True
@@ -120,6 +158,14 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "heal_health",
         "spend_mana",
         "restore_mana",
+        "dodge",
+        "block",
+        "weapon_attack",
+        "weapon_damage",
+        "weapon_parry",
+        "weapon_contest",
+        "spell_to_hit",
+        "spell_damage",
     }
     assert action_presets["spend_mana"].steps == [
         {
@@ -138,6 +184,26 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "steps.0.amount",
         "steps.0.max_value",
     ]
+    assert action_presets["weapon_attack"].roll_mode_kind == "check"
+    assert action_presets["weapon_attack"].category == "weapon"
+    assert action_presets["weapon_attack"].steps[0]["message"]["text"] == (
+        "Weapon Attack: /r floor((1 + @weapon_proficiency) * "
+        "(1d100 / 100) * @weapon_stat)"
+    )
+    assert action_presets["weapon_damage"].roll_mode_kind == "damage"
+    assert action_presets["weapon_parry"].steps[0]["message"]["text"] == (
+        "Weapon Parry: /r floor(@weapon_proficiency * "
+        "(1d100 / 100) * @dexterity)"
+    )
+    assert action_presets["block"].steps[0]["message"]["aliases"] == [
+        {"name": "strength", "path": ["sheet", "stats", "strength"]}
+    ]
+    assert action_presets["spell_to_hit"].fact_values[
+        "action_proficiency"
+    ] == {"type": "reference", "value": ""}
+    assert action_presets["spell_damage"].fact_values[
+        "action_base_spell_damage"
+    ] == {"type": "number", "value": 0}
 
 
 def test_augmentation_target_catalog_reuses_mutation_safe_variable_metadata() -> None:
@@ -308,6 +374,10 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
             preset["id"]: preset
             for preset in websocket.sent_messages[0]["action_preset_templates"]
         }
+        fact_presets = {
+            preset["id"]: preset
+            for preset in websocket.sent_messages[0]["action_fact_presets"]
+        }
 
         assert variables["sheet.stats.arcane"]["shortcuts"] == ["arc", "arcane"]
         assert variables["sheet.stats.arcane"]["action_mutation_allowed"] is True
@@ -324,11 +394,21 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
             "heal_health",
             "spend_mana",
             "restore_mana",
+            "dodge",
+            "block",
+            "weapon_attack",
+            "weapon_damage",
+            "weapon_parry",
+            "weapon_contest",
+            "spell_to_hit",
+            "spell_damage",
         }
+        assert set(fact_presets) == {"action_details", "spell_details"}
         assert action_presets["restore_mana"]["steps"][0]["type"] == (
             "increment_value"
         )
-        assert "damage" not in action_presets
+        assert action_presets["weapon_damage"]["category"] == "weapon"
+        assert action_presets["spell_damage"]["category"] == "spell"
 
     asyncio.run(scenario())
 

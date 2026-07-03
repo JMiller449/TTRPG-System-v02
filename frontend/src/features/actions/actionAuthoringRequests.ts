@@ -7,8 +7,10 @@ import {
   buildUpdateActionRequest
 } from "@/infrastructure/ws/requestBuilders";
 import {
+  getActionEditorValidationError,
   toActionDefinitionPayload,
   toUpdatedActionDefinitionPayload,
+  type ActionFactValidationContext,
   type ActionEditorValues
 } from "@/features/actions/actionEditorValues";
 
@@ -21,14 +23,17 @@ export function selectOrderedActionDefinitions(
   actionRecords: Record<string, ActionDefinition>,
   actionOrder: string[]
 ): ActionDefinition[] {
-  return actionOrder.map((id) => actionRecords[id]).filter((action): action is ActionDefinition => Boolean(action));
+  return actionOrder
+    .map((id) => actionRecords[id])
+    .filter((action): action is ActionDefinition => Boolean(action));
 }
 
 export function buildCreateActionSubmission(
   values: ActionEditorValues,
-  actionId: string
+  actionId: string,
+  context: ActionFactValidationContext = {}
 ): ActionAuthoringSubmission | null {
-  if (!values.name.trim()) {
+  if (getActionEditorValidationError(values, context)) {
     return null;
   }
 
@@ -41,9 +46,10 @@ export function buildCreateActionSubmission(
 
 export function buildUpdateActionSubmission(
   action: ActionDefinition | undefined,
-  values: ActionEditorValues
+  values: ActionEditorValues,
+  context: ActionFactValidationContext = {}
 ): ActionAuthoringSubmission | null {
-  if (!action || !values.name.trim()) {
+  if (!action || getActionEditorValidationError(values, context)) {
     return null;
   }
 

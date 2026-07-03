@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import floor
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from backend.features.augmentations import service as augmentation_service
@@ -47,7 +47,14 @@ from backend.state.models.damage import (
     damage_type_resistance_key,
 )
 from backend.state.models.formula import Formula
-from backend.state.models.item import ItemActionGrant
+from backend.state.models.fact import (
+    ACTION_PROFICIENCY_FACT_ID,
+    WEAPON_GOVERNING_STAT_FACT_ID,
+    WEAPON_PROFICIENCY_FACT_ID,
+    WEAPON_FACT_PROFILE,
+    FactBridge,
+)
+from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
@@ -115,6 +122,7 @@ class ResolvedAction:
     action: Action
     source_item_bridge_key: str | None = None
     source_item_grant: ItemActionGrant | None = None
+    source_item: Item | None = None
 
 
 class RuntimeFormulaContext:
@@ -122,16 +130,260 @@ class RuntimeFormulaContext:
         self,
         sheet: Sheet,
         instance: InstancedSheet | None,
+        action: Action,
+        source_item: Item | None,
+        state: State,
         action_values: dict[str, float | int] | None = None,
     ) -> None:
         self._sheet = sheet
         self._instance = instance
+        self._action = action
+        self._source_item = source_item
+        self.sheet = sheet
+        self.instance = instance
+        self.action = {
+            "facts": _numeric_fact_values(state, action, subject_type="action"),
+            "resolved": _resolved_action_values(state, sheet, action),
+        }
+        self.source_item = (
+            None
+            if source_item is None
+            else {
+                "facts": _numeric_fact_values(
+                    state,
+                    source_item,
+                    subject_type="item",
+                ),
+                "resolved": _resolved_source_item_values(
+                    state,
+                    sheet,
+                    source_item,
+                ),
+            }
+        )
         self.action_values = action_values if action_values is not None else {}
+
+    def validate_formula(self, state: State, formula: Formula) -> None:
+        _validate_runtime_fact_aliases(
+            state,
+            formula,
+            sheet=self._sheet,
+            action=self._action,
+            source_item=self._source_item,
+        )
 
     def __getattr__(self, name: str) -> Any:
         if self._instance is not None and hasattr(self._instance, name):
             return getattr(self._instance, name)
         return getattr(self._sheet, name)
+
+
+def _valid_numeric_fact_value(bridge: FactBridge) -> float | int | None:
+    value = bridge.evaluated_value
+    if bridge.evaluation_error is not None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return value
+
+
+def _numeric_fact_values(
+    state: State,
+    subject: Action | Item,
+    *,
+    subject_type: Literal["action", "item"],
+) -> dict[str, float | int]:
+    values: dict[str, float | int] = {}
+    for fact_id, bridge in subject.facts.items():
+        definition = state.facts.get(fact_id)
+        if (
+            definition is None
+            or definition.value_type != "number"
+            or subject_type not in definition.subject_types
+            or (
+                definition.required_profile is not None
+                and definition.required_profile
+                != getattr(subject, "fact_profile", None)
+            )
+        ):
+            continue
+        value = _valid_numeric_fact_value(bridge)
+        if value is not None:
+            values[fact_id] = value
+    return values
+
+
+def _fact_reference_value(subject: Action | Item, fact_id: str) -> str | None:
+    bridge = subject.facts.get(fact_id)
+    if (
+        bridge is None
+        or bridge.fact_id != fact_id
+        or bridge.evaluation_error is not None
+    ):
+        return None
+    value = bridge.evaluated_value
+    return value if isinstance(value, str) and value else None
+
+
+def _sheet_proficiency_modifier(sheet: Sheet, proficiency_id: str) -> float | None:
+    for bridge_key, bridge in sheet.proficiencies.items():
+        if (
+            bridge_key == proficiency_id
+            or bridge.prof_id == proficiency_id
+            or bridge.relationship_id == proficiency_id
+        ):
+            return min(bridge.growth_rate * bridge.use_count, 1)
+    return None
+
+
+def _resolved_action_values(
+    state: State,
+    sheet: Sheet,
+    action: Action,
+) -> dict[str, float | int]:
+    proficiency_id = _fact_reference_value(action, ACTION_PROFICIENCY_FACT_ID)
+    if proficiency_id is None or proficiency_id not in state.proficiencies:
+        return {}
+    modifier = _sheet_proficiency_modifier(sheet, proficiency_id)
+    return {} if modifier is None else {"proficiency_modifier": modifier}
+
+
+def _resolved_source_item_values(
+    state: State,
+    sheet: Sheet,
+    item: Item,
+) -> dict[str, float | int]:
+    if item.fact_profile != WEAPON_FACT_PROFILE:
+        return {}
+    values: dict[str, float | int] = {}
+    governing_stat = _fact_reference_value(item, WEAPON_GOVERNING_STAT_FACT_ID)
+    if governing_stat is not None:
+        stat_value = getattr(sheet.stats, governing_stat, None)
+        if isinstance(stat_value, int | float) and not isinstance(stat_value, bool):
+            values["governing_stat"] = stat_value
+    proficiency_id = _fact_reference_value(item, WEAPON_PROFICIENCY_FACT_ID)
+    if proficiency_id is not None and proficiency_id in state.proficiencies:
+        modifier = _sheet_proficiency_modifier(sheet, proficiency_id)
+        if modifier is not None:
+            values["proficiency_modifier"] = modifier
+    return values
+
+
+def _validate_runtime_fact_aliases(
+    state: State,
+    formula: Formula,
+    *,
+    sheet: Sheet,
+    action: Action,
+    source_item: Item | None,
+) -> None:
+    for alias in formula.aliases or []:
+        path = alias.path
+        if len(path) >= 2 and path[:2] == ["action", "facts"]:
+            if len(path) != 3:
+                raise ValueError(
+                    f"Action Fact alias '{alias.name}' must reference "
+                    "action.facts.<fact_id>."
+                )
+            _validate_runtime_numeric_fact(
+                state,
+                action,
+                path[2],
+                subject_type="action",
+                alias_name=alias.name,
+            )
+            continue
+        if path[:2] == ["action", "resolved"]:
+            if path != ["action", "resolved", "proficiency_modifier"]:
+                raise ValueError(f"Action alias '{alias.name}' is not supported.")
+            if "proficiency_modifier" not in _resolved_action_values(
+                state, sheet, action
+            ):
+                raise ValueError(
+                    f"Action alias '{alias.name}' requires an attached valid Action "
+                    "Proficiency Fact and matching sheet proficiency."
+                )
+            continue
+        if path and path[0] == "source_item":
+            if source_item is None:
+                raise ValueError(
+                    f"Source-item alias '{alias.name}' requires an explicit eligible "
+                    "source item relationship."
+                )
+            if len(path) >= 2 and path[:2] == ["source_item", "facts"]:
+                if len(path) != 3:
+                    raise ValueError(
+                        f"Source-item Fact alias '{alias.name}' must reference "
+                        "source_item.facts.<fact_id>."
+                    )
+                _validate_runtime_numeric_fact(
+                    state,
+                    source_item,
+                    path[2],
+                    subject_type="item",
+                    alias_name=alias.name,
+                )
+            elif path[:2] == ["source_item", "resolved"]:
+                supported_paths = (
+                    ["source_item", "resolved", "governing_stat"],
+                    ["source_item", "resolved", "proficiency_modifier"],
+                )
+                if path not in supported_paths:
+                    raise ValueError(
+                        f"Source-item alias '{alias.name}' is not supported."
+                    )
+                resolved_key = path[2]
+                if resolved_key not in _resolved_source_item_values(
+                    state, sheet, source_item
+                ):
+                    raise ValueError(
+                        f"Source-item alias '{alias.name}' requires a weapon with a "
+                        f"valid {resolved_key.replace('_', ' ')} Fact relationship."
+                    )
+
+
+def _validate_runtime_numeric_fact(
+    state: State,
+    subject: Action | Item,
+    fact_id: str,
+    *,
+    subject_type: Literal["action", "item"],
+    alias_name: str,
+) -> None:
+    definition = state.facts.get(fact_id)
+    if (
+        definition is None
+        or definition.value_type != "number"
+        or subject_type not in definition.subject_types
+    ):
+        raise ValueError(
+            f"Formula alias '{alias_name}' does not reference a numeric "
+            f"{subject_type} Fact."
+        )
+    if (
+        definition.required_profile is not None
+        and definition.required_profile != getattr(subject, "fact_profile", None)
+    ):
+        raise ValueError(
+            f"Formula alias '{alias_name}' requires source-item profile "
+            f"'{definition.required_profile}'."
+        )
+    bridge = subject.facts.get(fact_id)
+    if bridge is None or bridge.fact_id != fact_id:
+        raise ValueError(
+            f"Formula alias '{alias_name}' references Fact '{fact_id}', but it is "
+            f"not attached to the current {subject_type}."
+        )
+    if bridge.evaluation_error is not None:
+        raise ValueError(
+            f"Formula alias '{alias_name}' references invalid Fact '{fact_id}': "
+            f"{bridge.evaluation_error}"
+        )
+    if _valid_numeric_fact_value(bridge) is None:
+        raise ValueError(
+            f"Formula alias '{alias_name}' references Fact '{fact_id}', but its "
+            "evaluated value is not numeric."
+        )
 
 
 def _formula_execution_context(
@@ -187,6 +439,7 @@ def _evaluate_action_formula(
     semantic_tags: tuple[str, ...] = (),
 ) -> float | int:
     resolved_formula, formula_id = _resolve_formula_value(state, formula)
+    formula_root.validate_formula(state, resolved_formula)
     context = _formula_execution_context(
         resolved_formula,
         action_id=action_id,
@@ -297,7 +550,7 @@ def _resolve_item_action_source(
     *,
     state: State,
     relationship_id: str,
-) -> tuple[str, ItemActionGrant]:
+) -> tuple[str, ItemActionGrant, Item]:
     matches = [
         (bridge_key, bridge)
         for bridge_key, bridge in sheet.items.items()
@@ -341,7 +594,7 @@ def _resolve_item_action_source(
             f"Item '{item.name}' requires {grant.consume_quantity} quantity to use "
             f"action '{action_id}', but only {bridge.count} remains."
         )
-    return bridge_key, grant
+    return bridge_key, grant, item
 
 
 def _resolve_action(
@@ -358,7 +611,7 @@ def _resolve_action(
         raise ValueError(f"Action '{action_id}' does not exist.")
 
     if source_item_relationship_id is not None:
-        bridge_key, grant = _resolve_item_action_source(
+        bridge_key, grant, item = _resolve_item_action_source(
             sheet,
             action_id,
             state=current_state,
@@ -368,6 +621,7 @@ def _resolve_action(
             action=action,
             source_item_bridge_key=bridge_key,
             source_item_grant=grant,
+            source_item=item,
         )
 
     if actor_role == "dm":
@@ -376,7 +630,7 @@ def _resolve_action(
     if any(bridge.entry_id == action_id for bridge in sheet.actions.values()):
         return ResolvedAction(action=action)
 
-    eligible_sources: list[tuple[str, ItemActionGrant]] = []
+    eligible_sources: list[tuple[str, ItemActionGrant, Item]] = []
     for bridge_key in sheet.items:
         try:
             eligible_sources.append(
@@ -391,11 +645,12 @@ def _resolve_action(
             continue
 
     if len(eligible_sources) == 1:
-        bridge_key, grant = eligible_sources[0]
+        bridge_key, grant, item = eligible_sources[0]
         return ResolvedAction(
             action=action,
             source_item_bridge_key=bridge_key,
             source_item_grant=grant,
+            source_item=item,
         )
     if len(eligible_sources) > 1:
         raise ValueError(
@@ -675,6 +930,13 @@ async def perform_action(
         formula_root = RuntimeFormulaContext(
             current_actor.sheet,
             current_actor.instance,
+            current_action,
+            (
+                current_resolution.source_item
+                if request.source_item_relationship_id is not None
+                else None
+            ),
+            state,
             action_values,
         )
 
@@ -701,6 +963,7 @@ async def perform_action(
                     current_actor,
                     execution_context,
                 )
+                formula_root.validate_formula(state, message_formula)
                 message = compose_roll20_message(
                     formula_root,
                     message_formula,

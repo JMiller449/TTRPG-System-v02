@@ -10,8 +10,9 @@ from backend.state.models.augmentation import Augmentation, StandaloneEffectDefi
 from backend.state.models.action import Action
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
+from backend.state.models.fact import synchronize_required_sheet_facts
 from backend.state.models.item import Item, ItemBridge
-from backend.state.models.proficiency import ProficiencyBridge
+from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.shared import Bridge
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -88,7 +89,7 @@ def test_roll_mode_transforms_only_standalone_d100_check_expressions() -> None:
 
 
 def _build_sheet_state() -> Sheet:
-    return Sheet.from_dict(
+    sheet = Sheet.from_dict(
         {
             "id": "mage_template",
             "name": "Mage Template",
@@ -174,6 +175,8 @@ def _build_sheet_state() -> Sheet:
             },
         }
     )
+    synchronize_required_sheet_facts(sheet)
+    return sheet
 
 
 def _build_instance_state() -> InstancedSheet:
@@ -375,6 +378,7 @@ def _evaluation_augmentation_payload(
         "active": active,
         "applied": applied,
         "applied_target_id": applied_target_id,
+        "lifecycle_owner": "condition" if source_type == "condition" else "equipment",
         "lifecycle": {
             "duration": None,
             "expires_at": None,
@@ -1629,6 +1633,240 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                     "value": -1,
                 },
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_formula_reads_evaluated_action_fact(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions = {
+                "spell": Bridge(relationship_id="spell", entry_id="spell_burst")
+            }
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["spell_burst"] = Action.from_dict(
+                {
+                    "id": "spell_burst",
+                    "name": "Spell Burst",
+                    "facts": {
+                        "action_base_spell_damage": {
+                            "relationship_id": "spell-damage",
+                            "fact_id": "action_base_spell_damage",
+                            "value": {"type": "number", "value": 12},
+                            "evaluated_value": None,
+                            "evaluation_error": "broken test formula",
+                        }
+                    },
+                    "steps": [
+                        {
+                            "step_id": "gain-mana-for-test",
+                            "type": "increment_value",
+                            "path": ["mana"],
+                            "amount": _formula_payload(
+                                "@base_spell_damage",
+                                [
+                                    {
+                                        "name": "base_spell_damage",
+                                        "path": [
+                                            "action",
+                                            "facts",
+                                            "action_base_spell_damage",
+                                        ],
+                                    }
+                                ],
+                            ),
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            request = {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "spell_burst",
+            }
+            await handle_client_payload(websocket, request)
+            assert "references invalid Fact 'action_base_spell_damage'" in (
+                websocket.sent_messages[-1]["reason"]
+            )
+            assert state.instanced_sheets["mage_instance"].mana == 30
+
+            damage_fact = state.actions["spell_burst"].facts[
+                "action_base_spell_damage"
+            ]
+            damage_fact.evaluated_value = 12
+            damage_fact.evaluation_error = None
+            await handle_client_payload(websocket, request)
+
+            assert state.instanced_sheets["mage_instance"].mana == 42
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions = {}
+            sheet.proficiencies = {
+                "swords": ProficiencyBridge(
+                    relationship_id="sheet-swords",
+                    prof_id="swords",
+                    use_count=4,
+                    growth_rate=0.2,
+                )
+            }
+            sheet.items = {
+                "sword": ItemBridge(
+                    relationship_id="equipped-sword",
+                    count=1,
+                    equipped=True,
+                    item_id="test-sword",
+                )
+            }
+            state.proficiencies["swords"] = Proficiency(
+                id="swords",
+                name="Swords",
+                description="Sword proficiency.",
+            )
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.actions["weapon_test"] = Action.from_dict(
+                {
+                    "id": "weapon_test",
+                    "name": "Weapon Test",
+                    "steps": [
+                        {
+                            "step_id": "resolve",
+                            "type": "calculate_value",
+                            "variable_id": "weapon_total",
+                            "value": _formula_payload(
+                                "@base_damage + @weapon_stat + @weapon_proficiency",
+                                [
+                                    {
+                                        "name": "base_damage",
+                                        "path": [
+                                            "source_item",
+                                            "facts",
+                                            "weapon_base_damage",
+                                        ],
+                                    },
+                                    {
+                                        "name": "weapon_stat",
+                                        "path": [
+                                            "source_item",
+                                            "resolved",
+                                            "governing_stat",
+                                        ],
+                                    },
+                                    {
+                                        "name": "weapon_proficiency",
+                                        "path": [
+                                            "source_item",
+                                            "resolved",
+                                            "proficiency_modifier",
+                                        ],
+                                    },
+                                ],
+                            ),
+                        },
+                        {
+                            "step_id": "apply",
+                            "type": "increment_value",
+                            "path": ["mana"],
+                            "amount": {
+                                "type": "calculated_value",
+                                "variable_id": "weapon_total",
+                            },
+                        }
+                    ],
+                }
+            )
+            state.items["test-sword"] = Item.from_dict(
+                {
+                    "id": "test-sword",
+                    "name": "Test Sword",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "fact_profile": "weapon",
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_test",
+                            "availability": "equipped",
+                        }
+                    ],
+                    "facts": {
+                        "weapon_base_damage": {
+                            "relationship_id": "weapon-damage",
+                            "fact_id": "weapon_base_damage",
+                            "value": {"type": "number", "value": 15},
+                            "evaluated_value": 15,
+                        },
+                        "weapon_governing_stat": {
+                            "relationship_id": "weapon-stat",
+                            "fact_id": "weapon_governing_stat",
+                            "value": {"type": "enum", "value": "strength"},
+                            "evaluated_value": "strength",
+                        },
+                        "weapon_proficiency": {
+                            "relationship_id": "weapon-prof",
+                            "fact_id": "weapon_proficiency",
+                            "value": {"type": "reference", "value": "swords"},
+                            "evaluated_value": "swords",
+                        },
+                    },
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+            request = {
+                "type": "perform_action",
+                "sheet_id": "mage_instance",
+                "action_id": "weapon_test",
+            }
+
+            await handle_client_payload(websocket, request)
+            assert "requires an explicit eligible source item" in (
+                websocket.sent_messages[-1]["reason"]
+            )
+            assert state.instanced_sheets["mage_instance"].mana == 30
+
+            request["source_item_relationship_id"] = "equipped-sword"
+            state.items["test-sword"].fact_profile = None
+            await handle_client_payload(websocket, request)
+            assert "requires source-item profile 'weapon'" in (
+                websocket.sent_messages[-1]["reason"]
+            )
+            assert state.instanced_sheets["mage_instance"].mana == 30
+
+            state.items["test-sword"].fact_profile = "weapon"
+            await handle_client_payload(websocket, request)
+
+            assert state.instanced_sheets["mage_instance"].mana == 55.8
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
 

@@ -9,6 +9,7 @@ from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.features.sheet_admin.items.schema import ItemDefinitionPayload
 from backend.state.models.action import Action
 from backend.state.models.item import Item
+from backend.state.models.proficiency import Proficiency
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -48,6 +49,26 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
     }
 
 
+def _weapon_fact_bridges(proficiency_id: str = "long_swords") -> dict:
+    values = {
+        "weapon_type": {"type": "text", "value": "Long Sword"},
+        "weapon_base_damage": {"type": "number", "value": 15},
+        "weapon_governing_stat": {"type": "enum", "value": "strength"},
+        "weapon_damage_types": {"type": "list", "value": ["Slashing"]},
+        "weapon_reach": {"type": "number", "value": 5},
+        "weapon_proficiency": {"type": "reference", "value": proficiency_id},
+        "weapon_proficiency_growth_rate": {"type": "number", "value": 0.8},
+    }
+    return {
+        fact_id: {
+            "relationship_id": f"client-{fact_id}",
+            "fact_id": fact_id,
+            "value": value,
+        }
+        for fact_id, value in values.items()
+    }
+
+
 def test_dm_can_create_item(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -79,6 +100,127 @@ def test_dm_can_create_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "gm_special_properties"
             ] == "Cursed under moonlight."
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_create_weapon_profile_with_backend_required_facts(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["long_swords"] = Proficiency(
+                id="long_swords",
+                name="Long Swords",
+                description="",
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload.update(
+                {
+                    "interaction_type": "equippable",
+                    "fact_profile": "weapon",
+                    "facts": _weapon_fact_bridges(),
+                }
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            weapon = state.items["sword"]
+            assert weapon.fact_profile == "weapon"
+            assert set(weapon.facts) == set(_weapon_fact_bridges())
+            assert weapon.facts["weapon_base_damage"].evaluated_value == 15
+            assert weapon.facts["weapon_proficiency"].evaluated_value == "long_swords"
+            assert all(
+                bridge.relationship_id == f"required_fact_{fact_id}"
+                for fact_id, bridge in weapon.facts.items()
+            )
+            assert state.facts["weapon_base_damage"].required_profile == "weapon"
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_subject_fact_value",
+                    "subject_type": "item",
+                    "subject_id": "sword",
+                    "fact_id": "weapon_base_damage",
+                    "value": {"type": "number", "value": -1},
+                },
+            )
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert weapon.facts["weapon_base_damage"].evaluated_value == 15
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "detach_subject_fact",
+                    "subject_type": "item",
+                    "subject_id": "sword",
+                    "fact_id": "weapon_base_damage",
+                },
+            )
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "Required Facts cannot be detached" in websocket.sent_messages[-1]["reason"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_weapon_profile_rejects_missing_proficiency_and_removes_facts_on_clear(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload.update(
+                {
+                    "interaction_type": "equippable",
+                    "fact_profile": "weapon",
+                    "facts": _weapon_fact_bridges("missing"),
+                }
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+            assert "sword" not in state.items
+            assert "missing proficiency 'missing'" in websocket.sent_messages[-1]["reason"]
+
+            state.proficiencies["long_swords"] = Proficiency(
+                id="long_swords",
+                name="Long Swords",
+                description="",
+            )
+            payload["facts"] = _weapon_fact_bridges()
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+            payload["fact_profile"] = None
+            await handle_client_payload(
+                websocket,
+                {"type": "update_item", "item_id": "sword", "item": payload},
+            )
+            assert state.items["sword"].fact_profile is None
+            assert state.items["sword"].facts == {}
         finally:
             StateSingleton._state = original_state
 

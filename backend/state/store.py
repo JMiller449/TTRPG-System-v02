@@ -14,10 +14,15 @@ from backend.state.migrations import (
     migrate_persisted_state,
 )
 from backend.state.models.state import State
+from backend.state.default_actions import seeded_global_actions
 
 logger = logging.getLogger(__name__)
 STATE_PATH = Path(__file__).resolve().parents[2] / "state_dumpy.json"
 DEFAULT_STATE = State()
+
+
+def _fresh_state() -> State:
+    return State(actions=seeded_global_actions())
 
 
 def _backup_path(path: Path) -> Path:
@@ -107,7 +112,7 @@ class StateSingleton:
                 )
         if cls._state is None:
             logger.warning("No valid state checkpoint found; using empty state.")
-            cls._state = State()
+            cls._state = _fresh_state()
         return cls._state
 
     @classmethod
@@ -120,14 +125,14 @@ class StateSingleton:
     @classmethod
     def dumpState(cls) -> None:
         if cls._state is None:
-            cls._state = State()
+            cls._state = _fresh_state()
         cls._state.action_history = prune_action_history(cls._state.action_history)
         _write_checkpoint(STATE_PATH, cls._state)
 
     @classmethod
     def exportPersistedState(cls) -> dict[str, Any]:
         if cls._state is None:
-            cls._state = State()
+            cls._state = _fresh_state()
         cls._state.action_history = prune_action_history(cls._state.action_history)
         return _checkpoint_document(cls._state)
 
@@ -139,5 +144,5 @@ class StateSingleton:
 
     @classmethod
     def restartState(cls) -> None:
-        cls._state = State()
+        cls._state = _fresh_state()
         cls.dumpState()

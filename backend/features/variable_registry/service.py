@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from backend.core.permissions import permission_allowed_roles
 from backend.features.variable_registry.schema import (
     ActionFormulaAuthoringMetadata,
+    ActionFactPreset,
     ActionPresetTemplate,
     ActionStepAuthoringMetadata,
     AugmentationTargetContext,
@@ -15,6 +18,18 @@ from backend.features.variable_registry.schema import (
     VariableRegistry,
     VariableRoot,
 )
+from backend.state.default_actions import CANONICAL_ACTION_PRESETS
+from backend.state.models.fact import (
+    ACTION_BASE_SPELL_DAMAGE_FACT_ID,
+    ACTION_MANA_COST_FACT_ID,
+    ACTION_PROFICIENCY_FACT_ID,
+    ACTION_RANGE_FACT_ID,
+    ACTION_TARGET_COUNT_FACT_ID,
+    WEAPON_BASE_DAMAGE_FACT_ID,
+    WEAPON_PROFICIENCY_FACT_ID,
+    FactDefinition,
+)
+from backend.state.models.state import State
 
 _BASE_STATS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("strength", "Strength", ("str", "strength")),
@@ -70,7 +85,24 @@ _DM_ONLY: list[VariableEditableRole] = list(permission_allowed_roles("stat_edit"
 _PLAYER_AND_DM: list[VariableEditableRole] = list(
     permission_allowed_roles("resource_edit")
 )
-_ROOT_ORDER: tuple[VariableRoot, ...] = ("state", "sheet", "instance")
+_ROOT_ORDER: tuple[VariableRoot, ...] = (
+    "state",
+    "sheet",
+    "instance",
+    "action",
+    "source_item",
+)
+
+_ACTION_FACT_SHORTCUTS: dict[str, tuple[str, ...]] = {
+    ACTION_RANGE_FACT_ID: ("action_range",),
+    ACTION_TARGET_COUNT_FACT_ID: ("action_target_count",),
+    ACTION_MANA_COST_FACT_ID: ("mana_cost",),
+    ACTION_BASE_SPELL_DAMAGE_FACT_ID: ("base_spell_damage",),
+}
+
+_SOURCE_ITEM_FACT_SHORTCUTS: dict[str, tuple[str, ...]] = {
+    WEAPON_BASE_DAMAGE_FACT_ID: ("weapon_base_damage",),
+}
 
 
 _ACTION_STEPS: tuple[ActionStepAuthoringMetadata, ...] = (
@@ -226,6 +258,47 @@ _ACTION_PRESET_TEMPLATES: tuple[ActionPresetTemplate, ...] = (
         ],
         editable_formula_fields=["steps.0.amount", "steps.0.max_value"],
     ),
+    *(
+        ActionPresetTemplate(
+            id=preset.id,
+            label=preset.label,
+            category=preset.category,
+            description=preset.description,
+            steps=preset.steps(),
+            editable_formula_fields=["steps.0.message"],
+            roll_mode_kind=preset.roll_mode_kind,
+            fact_values=preset.authoring_fact_values(),
+        )
+        for preset in CANONICAL_ACTION_PRESETS
+    ),
+)
+
+
+_ACTION_FACT_PRESETS: tuple[ActionFactPreset, ...] = (
+    ActionFactPreset(
+        id="action_details",
+        label="General Action Details",
+        description="Adds rank, range, target count, and area as display/manual Facts.",
+        fact_values={
+            "action_rank": {"type": "enum", "value": "F"},
+            "action_range": {"type": "number", "value": 0},
+            "action_target_count": {"type": "number", "value": 1},
+            "action_area": {"type": "text", "value": ""},
+        },
+    ),
+    ActionFactPreset(
+        id="spell_details",
+        label="Spell Details",
+        description=(
+            "Adds mana cost, base spell damage, and proficiency configuration. "
+            "These remain authored inputs until an action formula consumes them."
+        ),
+        fact_values={
+            "action_mana_cost": {"type": "number", "value": 0},
+            "action_base_spell_damage": {"type": "number", "value": 0},
+            "action_proficiency": {"type": "reference", "value": ""},
+        },
+    ),
 )
 
 
@@ -356,6 +429,85 @@ def _authoring_variable(
     )
 
 
+def _fact_authoring_variable(
+    definition: FactDefinition,
+    *,
+    root: Literal["action", "source_item"],
+) -> AuthoringVariablePathMetadata:
+    shortcuts_by_root = (
+        _ACTION_FACT_SHORTCUTS if root == "action" else _SOURCE_ITEM_FACT_SHORTCUTS
+    )
+    subject_label = "Action" if root == "action" else "Source Item"
+    return AuthoringVariablePathMetadata(
+        key=f"{root}.facts.{definition.id}",
+        label=f"{subject_label}: {definition.name}",
+        root=root,
+        path=["facts", definition.id],
+        value_type="number",
+        editable_roles=[],
+        formula_backed=definition.default_value.type == "formula",
+        description=(
+            f"Evaluated {subject_label.lower()} Fact. "
+            + (definition.description or definition.name)
+        ),
+        shortcuts=list(
+            shortcuts_by_root.get(definition.id, (f"{root}_{definition.id}",))
+        ),
+        formula_reference_allowed=True,
+        action_mutation_allowed=False,
+    )
+
+
+def _resolved_authoring_variables() -> list[AuthoringVariablePathMetadata]:
+    return [
+        AuthoringVariablePathMetadata(
+            key="action.resolved.proficiency_modifier",
+            label="Action: Proficiency Modifier",
+            root="action",
+            path=["resolved", "proficiency_modifier"],
+            value_type="number",
+            editable_roles=[],
+            formula_backed=True,
+            description=(
+                "Current sheet proficiency modifier selected by the Action "
+                "Proficiency Fact."
+            ),
+            shortcuts=["action_proficiency", "spell_proficiency"],
+            action_mutation_allowed=False,
+        ),
+        AuthoringVariablePathMetadata(
+            key="source_item.resolved.governing_stat",
+            label="Source Weapon: Governing Stat Value",
+            root="source_item",
+            path=["resolved", "governing_stat"],
+            value_type="number",
+            editable_roles=[],
+            formula_backed=True,
+            description=(
+                "Current sheet stat value selected by the eligible source weapon's "
+                "Governing Stat Fact."
+            ),
+            shortcuts=["weapon_stat"],
+            action_mutation_allowed=False,
+        ),
+        AuthoringVariablePathMetadata(
+            key="source_item.resolved.proficiency_modifier",
+            label="Source Weapon: Proficiency Modifier",
+            root="source_item",
+            path=["resolved", "proficiency_modifier"],
+            value_type="number",
+            editable_roles=[],
+            formula_backed=True,
+            description=(
+                "Current sheet proficiency modifier selected by the eligible "
+                "source weapon's Proficiency Fact."
+            ),
+            shortcuts=["weapon_proficiency"],
+            action_mutation_allowed=False,
+        ),
+    ]
+
+
 def _augmentation_target_contexts(
     variable: VariablePathMetadata,
 ) -> list[AugmentationTargetContext]:
@@ -446,12 +598,34 @@ def _ordered_roots(roots: set[VariableRoot]) -> list[VariableRoot]:
 
 def build_action_formula_authoring_metadata(
     *,
+    state: State | None = None,
+    include_gm_only: bool = True,
     request_id: str | None = None,
 ) -> ActionFormulaAuthoringMetadata:
+    if state is None:
+        from backend.state.store import StateSingleton
+
+        state = StateSingleton.getState()
     variables = [
         _authoring_variable(variable)
         for variable in build_variable_registry().variables
     ]
+    variables.extend(
+        _fact_authoring_variable(definition, root="action")
+        for definition in state.facts.values()
+        if definition.value_type == "number"
+        and (include_gm_only or definition.visibility == "public")
+        and "action" in definition.subject_types
+    )
+    variables.extend(
+        _fact_authoring_variable(definition, root="source_item")
+        for definition in state.facts.values()
+        if definition.value_type == "number"
+        and (include_gm_only or definition.visibility == "public")
+        and "item" in definition.subject_types
+    )
+    if ACTION_PROFICIENCY_FACT_ID in state.facts:
+        variables.extend(_resolved_authoring_variables())
     return ActionFormulaAuthoringMetadata(
         response_id=None,
         variables=variables,
@@ -472,5 +646,6 @@ def build_action_formula_authoring_metadata(
         formula_aliases=_formula_aliases(variables),
         action_steps=list(_ACTION_STEPS),
         action_preset_templates=list(_ACTION_PRESET_TEMPLATES),
+        action_fact_presets=list(_ACTION_FACT_PRESETS),
         request_id=request_id,
     )

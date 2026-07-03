@@ -1,4 +1,11 @@
-import type { Augmentation, ItemDefinition, ItemInteractionType } from "@/domain/models";
+import type {
+  Augmentation,
+  FactBridge,
+  FactDefinition,
+  ItemDefinition,
+  ItemInteractionType,
+  ProficiencyDefinition
+} from "@/domain/models";
 import type { ItemDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
 export type ItemEditorValues = {
@@ -12,6 +19,8 @@ export type ItemEditorValues = {
   gmNotes: string;
   gmSpecialProperties: string;
   description: string;
+  factProfile: "weapon" | null;
+  facts: Record<string, FactBridge>;
   augmentationTemplates: Augmentation[];
   actionGrants: ItemActionGrantEditorValues[];
 };
@@ -53,8 +62,38 @@ export function createEmptyItemValues(): ItemEditorValues {
     gmNotes: "",
     gmSpecialProperties: "",
     description: "",
+    factProfile: null,
+    facts: {},
     augmentationTemplates: [],
     actionGrants: []
+  };
+}
+
+export function setItemFactProfile(
+  values: ItemEditorValues,
+  factProfile: "weapon" | null,
+  definitions: Record<string, FactDefinition>
+): ItemEditorValues {
+  const facts = Object.fromEntries(
+    Object.entries(values.facts).filter(([factId]) => !definitions[factId]?.required_profile)
+  );
+  for (const definition of Object.values(definitions)) {
+    if (definition.required_profile !== factProfile) {
+      continue;
+    }
+    facts[definition.id] = {
+      relationship_id: `required_fact_${definition.id}`,
+      fact_id: definition.id,
+      value: structuredClone(definition.default_value),
+      evaluated_value: null,
+      evaluation_error: null
+    };
+  }
+  return {
+    ...values,
+    interactionType: factProfile === "weapon" ? "equippable" : values.interactionType,
+    factProfile,
+    facts
   };
 }
 
@@ -70,6 +109,10 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     gmNotes: item.gm_notes ?? "",
     gmSpecialProperties: item.gm_special_properties ?? "",
     description: item.description ?? "",
+    factProfile: item.fact_profile ?? null,
+    facts: Object.fromEntries(
+      Object.entries(item.facts ?? {}).map(([factId, bridge]) => [factId, structuredClone(bridge)])
+    ),
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
     actionGrants: (item.action_grants ?? []).map((grant) => ({
       actionId: grant.action_id,
@@ -122,9 +165,50 @@ function parseQuantity(value: string): number | null {
   return Number.isSafeInteger(quantity) ? quantity : null;
 }
 
-export function getItemEditorValidationError(values: ItemEditorValues): string | null {
+export interface ItemFactValidationContext {
+  definitions?: Record<string, FactDefinition>;
+  proficiencies?: Record<string, ProficiencyDefinition>;
+}
+
+export function getItemEditorValidationError(
+  values: ItemEditorValues,
+  context: ItemFactValidationContext = {}
+): string | null {
   if (!values.name.trim()) {
     return "Name is required.";
+  }
+  if (values.factProfile === "weapon") {
+    if (values.interactionType !== "equippable") {
+      return "Weapon-profile items must be equippable.";
+    }
+    const requiredFacts = Object.values(context.definitions ?? {}).filter(
+      (definition) => definition.required_profile === "weapon"
+    );
+    for (const definition of requiredFacts) {
+      const bridge = values.facts[definition.id];
+      if (!bridge) {
+        return `Weapon profile is missing ${definition.name}.`;
+      }
+      const stored = bridge.value.type === "formula" ? null : bridge.value.value;
+      if (definition.value_type === "text" && !String(stored ?? "").trim()) {
+        return `${definition.name} is required.`;
+      }
+      if (definition.value_type === "list" && (!Array.isArray(stored) || stored.length === 0)) {
+        return `${definition.name} requires at least one value.`;
+      }
+      if (
+        definition.value_type === "number" &&
+        (typeof stored !== "number" || !Number.isFinite(stored) || stored < 0)
+      ) {
+        return `${definition.name} must be nonnegative.`;
+      }
+      if (definition.reference_kind === "proficiency") {
+        const proficiencyId = String(stored ?? "");
+        if (!proficiencyId || !context.proficiencies?.[proficiencyId]) {
+          return `${definition.name} must reference an existing proficiency.`;
+        }
+      }
+    }
   }
   if (values.interactionType === "inventory_only") {
     return null;
@@ -168,6 +252,8 @@ export function toItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
+    fact_profile: values.factProfile,
+    facts: values.facts,
     augmentation_templates: toAugmentationTemplatePayloads(values, itemId),
     action_grants: toActionGrantPayloads(values)
   };
@@ -190,6 +276,8 @@ export function toUpdatedItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
+    fact_profile: values.factProfile,
+    facts: values.facts,
     augmentation_templates: toAugmentationTemplatePayloads(values, item.id),
     action_grants: toActionGrantPayloads(values)
   };

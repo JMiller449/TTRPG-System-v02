@@ -1,4 +1,11 @@
-import type { ActionDefinition, FormulaAlias } from "@/domain/models";
+import type {
+  ActionDefinition,
+  FactBridge,
+  FactDefinition,
+  FormulaAlias,
+  ProficiencyDefinition
+} from "@/domain/models";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import type { ActionDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
@@ -29,14 +36,19 @@ export interface ActionEditorValues {
   rollModeKind: NonNullable<ActionDefinitionPayload["roll_mode_kind"]>;
   notes: string;
   steps: ActionEditorSteps;
+  facts: Record<string, FactBridge>;
 }
+
+export type ActionPresetTemplate =
+  ActionFormulaAuthoringMetadata["action_preset_templates"][number];
 
 export function createEmptyActionEditorValues(): ActionEditorValues {
   return {
     name: "",
     rollModeKind: "none",
     notes: "",
-    steps: []
+    steps: [],
+    facts: {}
   };
 }
 
@@ -86,8 +98,99 @@ function cloneActionSteps(
 function cloneActionEditorValues(values: ActionEditorValues): ActionEditorValues {
   return {
     ...values,
-    steps: cloneActionSteps(values.steps)
+    steps: cloneActionSteps(values.steps),
+    facts: structuredClone(values.facts)
   };
+}
+
+export interface ActionFactValidationContext {
+  definitions?: Record<string, FactDefinition>;
+  proficiencies?: Record<string, ProficiencyDefinition>;
+}
+
+export function getActionEditorValidationError(
+  values: ActionEditorValues,
+  context: ActionFactValidationContext = {}
+): string | null {
+  if (!values.name.trim()) {
+    return "Name is required.";
+  }
+  for (const [factId, bridge] of Object.entries(values.facts)) {
+    const definition = context.definitions?.[factId];
+    if (!definition || !definition.subject_types.includes("action")) {
+      return `Action Fact '${factId}' is unavailable.`;
+    }
+    const stored = bridge.value.type === "formula" ? null : bridge.value.value;
+    if (
+      definition.validation_options?.length &&
+      typeof stored === "string" &&
+      !definition.validation_options.includes(stored)
+    ) {
+      return `${definition.name} has an unsupported value.`;
+    }
+    if (definition.reference_kind === "proficiency") {
+      const proficiencyId = String(stored ?? "");
+      if (!proficiencyId || !context.proficiencies?.[proficiencyId]) {
+        return `${definition.name} must reference an existing proficiency.`;
+      }
+    }
+    if (
+      ["action_range", "action_mana_cost", "action_base_spell_damage"].includes(factId) &&
+      (typeof stored !== "number" || !Number.isFinite(stored) || stored < 0)
+    ) {
+      return `${definition.name} must be nonnegative.`;
+    }
+    if (
+      factId === "action_target_count" &&
+      (typeof stored !== "number" || !Number.isInteger(stored) || stored < 1)
+    ) {
+      return "Target Count must be a positive whole number.";
+    }
+  }
+  return null;
+}
+
+export function applyActionFactValues(
+  values: ActionEditorValues,
+  factValues: Record<string, FactBridge["value"]>,
+  definitions: Record<string, FactDefinition>,
+  relationshipIdFactory: () => string
+): ActionEditorValues {
+  const facts = { ...values.facts };
+  for (const [factId, value] of Object.entries(factValues)) {
+    if (!definitions[factId]?.subject_types.includes("action")) {
+      continue;
+    }
+    facts[factId] = {
+      relationship_id: facts[factId]?.relationship_id ?? relationshipIdFactory(),
+      fact_id: factId,
+      value: structuredClone(value),
+      evaluated_value: null,
+      evaluation_error: null
+    };
+  }
+  return { ...values, facts };
+}
+
+export function applyActionPresetTemplate(
+  values: ActionEditorValues,
+  preset: ActionPresetTemplate,
+  definitions: Record<string, FactDefinition>,
+  relationshipIdFactory: () => string
+): ActionEditorValues {
+  const nextValues: ActionEditorValues = {
+    ...values,
+    name: preset.label,
+    rollModeKind: preset.roll_mode_kind ?? "none",
+    notes: preset.description,
+    steps: structuredClone(preset.steps) as ActionEditorSteps
+  };
+  return applyActionFactValues(
+    nextValues,
+    preset.fact_values ?? {},
+    definitions,
+    relationshipIdFactory
+  );
 }
 
 function cloneAliases(aliases: FormulaAlias[] | null | undefined): FormulaAlias[] | null {
@@ -1030,7 +1133,8 @@ export function toActionEditorValues(action: ActionDefinition): ActionEditorValu
     name: action.name,
     rollModeKind: action.roll_mode_kind ?? "none",
     notes: action.notes ?? "",
-    steps: cloneActionSteps(action.steps)
+    steps: cloneActionSteps(action.steps),
+    facts: structuredClone(action.facts ?? {})
   };
 }
 
@@ -1043,7 +1147,8 @@ export function toActionDefinitionPayload(
     name: values.name.trim(),
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
-    steps: cloneActionSteps(values.steps)
+    steps: cloneActionSteps(values.steps),
+    facts: structuredClone(values.facts)
   };
 }
 
@@ -1056,6 +1161,7 @@ export function toUpdatedActionDefinitionPayload(
     name: values.name.trim(),
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
-    steps: cloneActionSteps(values.steps)
+    steps: cloneActionSteps(values.steps),
+    facts: structuredClone(values.facts)
   };
 }

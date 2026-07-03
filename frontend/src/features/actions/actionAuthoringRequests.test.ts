@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ActionDefinition } from "@/domain/models";
-import { createEmptyActionEditorValues, toActionEditorValues } from "@/features/actions/actionEditorValues";
+import {
+  createEmptyActionEditorValues,
+  toActionEditorValues
+} from "@/features/actions/actionEditorValues";
 import {
   buildCreateActionSubmission,
   buildDeleteActionSubmission,
@@ -58,7 +61,8 @@ describe("actionAuthoringRequests", () => {
           name: "Mana Burst",
           roll_mode_kind: "none",
           notes: "Roll20 output only.",
-          steps: []
+          steps: [],
+          facts: {}
         }
       },
       label: "Create action: Mana Burst"
@@ -88,7 +92,8 @@ describe("actionAuthoringRequests", () => {
           name: "Edited Mana Burst",
           roll_mode_kind: "check",
           notes: "Updated notes.",
-          steps: action.steps
+          steps: action.steps,
+          facts: {}
         }
       },
       label: "Update action: Edited Mana Burst"

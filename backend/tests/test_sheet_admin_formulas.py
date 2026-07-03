@@ -373,3 +373,33 @@ def test_create_formula_rejects_unknown_alias_path(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_create_formula_accepts_explicit_rooted_authoring_path(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            payload = _formula_definition_payload()
+            payload["formula"]["aliases"] = [
+                {
+                    "name": "constitution",
+                    "path": ["sheet", "stats", "constitution"],
+                }
+            ]
+            await handle_client_payload(
+                websocket,
+                {"type": "create_formula", "formula": payload},
+            )
+
+            assert "max_health" in StateSingleton.getState().formulas
+            assert websocket.sent_messages[0]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())

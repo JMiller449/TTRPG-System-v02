@@ -179,6 +179,22 @@ describe("authoritative server-state sync", () => {
             }
           }
         },
+        facts: {
+          amount_of_reactions: {
+            id: "amount_of_reactions",
+            name: "Amount of Reactions",
+            description: "Informational reaction amount.",
+            subject_types: ["sheet"],
+            value_type: "number",
+            default_value: {
+              type: "formula",
+              formula: { aliases: null, text: "1" }
+            },
+            unit: "reactions",
+            visibility: "public",
+            required: true
+          }
+        },
         augmentations: {
           aug_1: augmentationTemplate()
         },
@@ -236,6 +252,8 @@ describe("authoritative server-state sync", () => {
     expect(result.state.serverState.itemOrder).toEqual(["item_1"]);
     expect(result.state.serverState.actionOrder).toEqual(["action_1"]);
     expect(result.state.serverState.formulaOrder).toEqual(["formula_1"]);
+    expect(result.state.serverState.factOrder).toEqual(["amount_of_reactions"]);
+    expect(result.state.serverState.facts.amount_of_reactions?.required).toBe(true);
     expect(result.state.serverState.augmentationOrder).toEqual(["aug_1"]);
     expect(result.state.serverState.augmentations.aug_1?.name).toBe("Arcane Guard");
     expect(result.state.serverState.encounterOrder).toEqual(["encounter_1"]);

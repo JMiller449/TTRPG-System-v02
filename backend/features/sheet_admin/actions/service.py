@@ -33,6 +33,7 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
+from backend.features.facts.service import validate_subject_fact_value
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.action import (
@@ -53,6 +54,7 @@ from backend.state.models.action import (
     SetValueStep,
 )
 from backend.state.models.state import State
+from backend.state.models.fact import FactBridge, evaluate_all_subject_facts
 
 
 def _format_path(path: list[str]) -> str:
@@ -115,7 +117,69 @@ def _validate_formula_value(
     validate_formula_payload_paths(
         value,
         additional_paths=_action_value_paths(available_variables),
+        state=state,
     )
+
+
+def _formula_alias_paths(
+    value: FormulaValuePayload,
+    *,
+    state: State | None,
+) -> list[tuple[str, list[str]]]:
+    if isinstance(value, FormulaReferencePayload):
+        if state is None:
+            return []
+        definition = state.formulas.get(value.formula_id)
+        if definition is None:
+            return []
+        return [
+            (alias.name, list(alias.path))
+            for alias in definition.formula.aliases or []
+        ]
+    return [(alias.name, list(alias.path)) for alias in value.aliases or []]
+
+
+def _validate_action_scoped_aliases(
+    value: FormulaValuePayload | None,
+    *,
+    state: State | None,
+    attached_fact_ids: set[str],
+) -> None:
+    if value is None or isinstance(value, CalculatedValueReferencePayload):
+        return
+    for alias_name, path in _formula_alias_paths(value, state=state):
+        required_fact_id: str | None = None
+        if len(path) == 3 and path[:2] == ["action", "facts"]:
+            required_fact_id = path[2]
+        elif path == ["action", "resolved", "proficiency_modifier"]:
+            required_fact_id = "action_proficiency"
+        if required_fact_id is not None and required_fact_id not in attached_fact_ids:
+            raise ValueError(
+                f"Formula alias '{alias_name}' requires Action Fact "
+                f"'{required_fact_id}' to be attached to this action."
+            )
+
+
+def _action_step_formula_values(
+    step: ActionStepPayload,
+) -> list[FormulaValuePayload | None]:
+    if isinstance(step, SendMessageActionStepPayload):
+        return [step.message]
+    if isinstance(step, CalculateValueActionStepPayload):
+        return [step.value]
+    if isinstance(step, SetValueActionStepPayload):
+        return [step.value, step.min_value, step.max_value]
+    if isinstance(
+        step,
+        (IncrementValueActionStepPayload, DecrementValueActionStepPayload),
+    ):
+        return [step.amount, step.min_value, step.max_value]
+    if isinstance(
+        step,
+        (ResolveDamageActionStepPayload, GainProficiencyUseActionStepPayload),
+    ):
+        return [step.amount]
+    return []
 
 
 def _validate_action_step(
@@ -206,8 +270,15 @@ def _validate_action_payload(
     payload: ActionDefinitionPayload,
     state: State | None = None,
 ) -> None:
+    attached_fact_ids = set(payload.facts)
     available_variables: set[str] = set()
     for step in payload.steps:
+        for value in _action_step_formula_values(step):
+            _validate_action_scoped_aliases(
+                value,
+                state=state,
+                attached_fact_ids=attached_fact_ids,
+            )
         _validate_action_step(
             step,
             state,
@@ -385,7 +456,30 @@ def _build_action(payload: ActionDefinitionPayload, state: State | None = None) 
         roll_mode_kind=payload.roll_mode_kind,
         notes=payload.notes,
         steps=steps,
+        facts={
+            fact_id: FactBridge.from_dict(bridge.model_dump(mode="json"))
+            for fact_id, bridge in payload.facts.items()
+        },
     )
+
+
+def _validate_action_facts(action: Action, state: State) -> None:
+    relationship_ids: set[str] = set()
+    for fact_id, bridge in action.facts.items():
+        if bridge.fact_id != fact_id:
+            raise ValueError(
+                f"Action Fact bridge key '{fact_id}' does not match '{bridge.fact_id}'."
+            )
+        if bridge.relationship_id in relationship_ids:
+            raise ValueError(
+                f"Action Fact relationship '{bridge.relationship_id}' is duplicated."
+            )
+        relationship_ids.add(bridge.relationship_id)
+        definition = state.facts.get(fact_id)
+        if definition is None or "action" not in definition.subject_types:
+            raise ValueError(f"Action Fact '{fact_id}' does not exist.")
+        validate_subject_fact_value(state, "action", action, definition, bridge.value)
+    evaluate_all_subject_facts(action)
 
 
 def _actions_state(state: State) -> dict[str, dict]:
@@ -422,6 +516,7 @@ async def _create_action(
         if payload.id in actions:
             raise ValueError(f"Action '{payload.id}' already exists.")
         action = _build_action(payload, state)
+        _validate_action_facts(action, state)
         path = state_sync_service.join_path("actions", payload.id)
         op = state_sync_service.add_mutation(state, path, action)
         return None, [op]
@@ -444,6 +539,7 @@ async def _update_action(
             raise ValueError(f"Action '{action_id}' does not exist.")
 
         action = _build_action(payload, state)
+        _validate_action_facts(action, state)
         path = state_sync_service.join_path("actions", action_id)
         op = state_sync_service.set_mutation(state, path, action)
         return None, [op]

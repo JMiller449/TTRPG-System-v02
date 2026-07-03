@@ -105,7 +105,7 @@ def matching_evaluation_effects(
 
     for augmentation in state.augmentations.values():
         if (
-            augmentation.lifecycle_owner == "equipment"
+            augmentation.lifecycle_owner != "condition"
             or not augmentation.active
             or not augmentation.applied
             or not _is_evaluation_time_effect(augmentation)
@@ -775,21 +775,18 @@ def _set_application_state_ops(
     ]
 
 
-def _apply_augmentation_mutation(
+def _apply_condition_effect_mutation(
     state: State,
     augmentation_id: str,
     *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    allow_source_managed: bool = False,
+    instance_id: str,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     augmentation = state.augmentations.get(augmentation_id)
     if augmentation is None:
         raise ValueError(f"Augmentation '{augmentation_id}' does not exist.")
-    if augmentation.lifecycle_owner != "manual" and not allow_source_managed:
+    if augmentation.lifecycle_owner != "condition":
         raise ValueError(
-            f"Augmentation '{augmentation_id}' is managed by its "
-            f"{augmentation.lifecycle_owner} source."
+            f"Augmentation '{augmentation_id}' is not a condition-owned effect."
         )
 
     if not augmentation.active:
@@ -815,7 +812,6 @@ def _apply_augmentation_mutation(
     target = _resolve_target(
         state,
         augmentation,
-        sheet_id=sheet_id,
         instance_id=instance_id,
     )
     if _is_evaluation_time_effect(augmentation):
@@ -862,38 +858,18 @@ def _apply_augmentation_mutation(
     )
 
 
-def apply_augmentation_mutation(
+def _remove_condition_effect_mutation(
     state: State,
     augmentation_id: str,
     *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    allow_source_managed: bool = False,
-) -> tuple[AugmentationMutationResult, list[PatchOp]]:
-    return _apply_augmentation_mutation(
-        state,
-        augmentation_id,
-        sheet_id=sheet_id,
-        instance_id=instance_id,
-        allow_source_managed=allow_source_managed,
-    )
-
-
-def _remove_augmentation_mutation(
-    state: State,
-    augmentation_id: str,
-    *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    allow_source_managed: bool = False,
+    instance_id: str,
 ) -> tuple[AugmentationMutationResult, list[PatchOp]]:
     augmentation = state.augmentations.get(augmentation_id)
     if augmentation is None:
         raise ValueError(f"Augmentation '{augmentation_id}' does not exist.")
-    if augmentation.lifecycle_owner != "manual" and not allow_source_managed:
+    if augmentation.lifecycle_owner != "condition":
         raise ValueError(
-            f"Augmentation '{augmentation_id}' is managed by its "
-            f"{augmentation.lifecycle_owner} source."
+            f"Augmentation '{augmentation_id}' is not a condition-owned effect."
         )
 
     if not augmentation.applied:
@@ -909,7 +885,6 @@ def _remove_augmentation_mutation(
     target = _resolve_target(
         state,
         augmentation,
-        sheet_id=sheet_id,
         instance_id=instance_id,
     )
     if augmentation.applied_target_id != target.target_id:
@@ -960,59 +935,6 @@ def _remove_augmentation_mutation(
         ),
         ops,
     )
-
-
-def remove_augmentation_mutation(
-    state: State,
-    augmentation_id: str,
-    *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    allow_source_managed: bool = False,
-) -> tuple[AugmentationMutationResult, list[PatchOp]]:
-    return _remove_augmentation_mutation(
-        state,
-        augmentation_id,
-        sheet_id=sheet_id,
-        instance_id=instance_id,
-        allow_source_managed=allow_source_managed,
-    )
-
-
-async def apply_augmentation(
-    augmentation_id: str,
-    *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    request_id: str | None = None,
-) -> AugmentationMutationResult:
-    def mutation(state: State) -> tuple[AugmentationMutationResult, list[PatchOp]]:
-        return _apply_augmentation_mutation(
-            state,
-            augmentation_id,
-            sheet_id=sheet_id,
-            instance_id=instance_id,
-        )
-
-    return await state_sync_service.apply_mutation(mutation, request_id=request_id)
-
-
-async def remove_augmentation(
-    augmentation_id: str,
-    *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    request_id: str | None = None,
-) -> AugmentationMutationResult:
-    def mutation(state: State) -> tuple[AugmentationMutationResult, list[PatchOp]]:
-        return _remove_augmentation_mutation(
-            state,
-            augmentation_id,
-            sheet_id=sheet_id,
-            instance_id=instance_id,
-        )
-
-    return await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
 
 def _condition_augmentation_id(
@@ -1146,11 +1068,10 @@ def _apply_condition_preset_mutation(
             ),
             _condition_bridge(augmentation.id),
         )
-        result, apply_ops = _apply_augmentation_mutation(
+        result, apply_ops = _apply_condition_effect_mutation(
             state,
             augmentation.id,
             instance_id=instance_id,
-            allow_source_managed=True,
         )
 
         results.append(result)
@@ -1238,11 +1159,10 @@ def _remove_condition_application_mutation(
     for augmentation_id in active_condition.augmentation_ids:
         if augmentation_id not in state.augmentations:
             continue
-        result, remove_ops = _remove_augmentation_mutation(
+        result, remove_ops = _remove_condition_effect_mutation(
             state,
             augmentation_id,
             instance_id=instance_id,
-            allow_source_managed=True,
         )
         results.append(result)
         ops.extend(remove_ops)
@@ -1350,69 +1270,5 @@ async def remove_condition_application(
             instance_id=instance_id,
             application_id=application_id,
         )
-
-    return await state_sync_service.apply_mutation(mutation, request_id=request_id)
-
-
-async def recompute_augmentations(
-    *,
-    sheet_id: str | None = None,
-    instance_id: str | None = None,
-    request_id: str | None = None,
-) -> list[AugmentationMutationResult]:
-    def mutation(state: State) -> tuple[list[AugmentationMutationResult], list[PatchOp]]:
-        results: list[AugmentationMutationResult] = []
-        ops: list[PatchOp] = []
-        recompute_targets: list[tuple[str, str | None]] = []
-
-        for augmentation_id in list(state.augmentations):
-            augmentation = state.augmentations[augmentation_id]
-            target_id = sheet_id if augmentation.target.root == "sheet" else instance_id
-            if augmentation.target.root == "sheet" and target_id is None:
-                target_id = augmentation.applied_target_id
-            if augmentation.target.root == "instance" and target_id is None:
-                target_id = augmentation.applied_target_id
-            if augmentation.target.root != "state" and target_id is None:
-                continue
-
-            if (augmentation.active and not augmentation.applied) or (
-                not augmentation.active and augmentation.applied
-            ):
-                _validate_runtime_augmentation_target(augmentation)
-
-            recompute_targets.append((augmentation_id, target_id))
-
-        for augmentation_id, target_id in recompute_targets:
-            augmentation = state.augmentations[augmentation_id]
-            if augmentation.active and not augmentation.applied:
-                result, result_ops = _apply_augmentation_mutation(
-                    state,
-                    augmentation_id,
-                    sheet_id=target_id if augmentation.target.root == "sheet" else None,
-                    instance_id=target_id
-                    if augmentation.target.root == "instance"
-                    else None,
-                )
-            elif not augmentation.active and augmentation.applied:
-                result, result_ops = _remove_augmentation_mutation(
-                    state,
-                    augmentation_id,
-                    sheet_id=target_id if augmentation.target.root == "sheet" else None,
-                    instance_id=target_id
-                    if augmentation.target.root == "instance"
-                    else None,
-                )
-            else:
-                result = AugmentationMutationResult(
-                    augmentation_id=augmentation_id,
-                    operation="ignored",
-                    reason="already_in_sync",
-                )
-                result_ops = []
-
-            results.append(result)
-            ops.extend(result_ops)
-
-        return results, ops
 
     return await state_sync_service.apply_mutation(mutation, request_id=request_id)

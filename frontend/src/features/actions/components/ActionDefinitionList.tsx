@@ -1,13 +1,15 @@
-import type { ActionDefinition } from "@/domain/models";
+import type { ActionDefinition, FactDefinition } from "@/domain/models";
 import { ActionDefinitionCard } from "@/features/actions/components/ActionDefinitionCard";
 import { EmptyState } from "@/shared/ui/EmptyState";
 
 export function ActionDefinitionList({
   actions,
+  factDefinitions,
   onEdit,
   onDelete
 }: {
   actions: ActionDefinition[];
+  factDefinitions: Record<string, FactDefinition>;
   onEdit: (action: ActionDefinition) => void;
   onDelete: (actionId: string) => void;
 }): JSX.Element {
@@ -18,6 +20,7 @@ export function ActionDefinitionList({
         <ActionDefinitionCard
           key={action.id}
           action={action}
+          factDefinitions={factDefinitions}
           onEdit={() => onEdit(action)}
           onDelete={() => onDelete(action.id)}
         />

@@ -12,6 +12,19 @@ from backend.features.encounters.schema import (
     SaveEncounterPreset,
     SpawnEncounterPreset,
 )
+from backend.features.facts.schema import (
+    AttachSheetFact,
+    AttachSubjectFact,
+    CreateFact,
+    DeleteFact,
+    DetachSheetFact,
+    DetachSubjectFact,
+    ResetSubjectFactValue,
+    ResetSheetFactValue,
+    SetSheetFactValue,
+    SetSubjectFactValue,
+    UpdateFact,
+)
 from backend.features.sheet_admin.actions.schema import (
     CreateAction,
     DeleteAction,
@@ -83,7 +96,11 @@ from backend.features.xp_tracker.schema import (
     SetSheetMobKillCount,
     SetSheetXpRequired,
 )
-from backend.protocol.state_schema import ActionStepPayload, BackendStateSnapshotPayload
+from backend.protocol.state_schema import (
+    ActionStepPayload,
+    BackendStateSnapshotPayload,
+    FactValuePayload,
+)
 
 
 class ProtocolModel(BaseModel):
@@ -167,7 +184,7 @@ class VariableRegistryEvent(ProtocolModel):
 class AuthoringVariablePathMetadataEvent(ProtocolModel):
     key: str
     label: str
-    root: Literal["state", "sheet", "instance"]
+    root: Literal["state", "sheet", "instance", "action", "source_item"]
     path: list[str]
     value_type: Literal["number", "percent", "formula", "resource"]
     editable_roles: list[Literal["unauthenticated", "player", "dm"]]
@@ -181,7 +198,7 @@ class AuthoringVariablePathMetadataEvent(ProtocolModel):
 class FormulaAliasMetadataEvent(ProtocolModel):
     name: str
     key: str
-    root: Literal["state", "sheet", "instance"]
+    root: Literal["state", "sheet", "instance", "action", "source_item"]
     path: list[str]
 
 
@@ -208,20 +225,41 @@ class ActionStepAuthoringMetadataEvent(ProtocolModel):
 class ActionPresetTemplateEvent(ProtocolModel):
     id: str
     label: str
-    category: Literal["healing", "resource"]
+    category: Literal[
+        "healing",
+        "resource",
+        "weapon",
+        "defense",
+        "contest",
+        "spell",
+    ]
     description: str
     steps: list[ActionStepPayload]
     editable_formula_fields: list[str]
+    roll_mode_kind: Literal["none", "check", "damage"] = "none"
+    fact_values: dict[str, FactValuePayload] = Field(default_factory=dict)
+
+
+class ActionFactPresetEvent(ProtocolModel):
+    id: str
+    label: str
+    description: str
+    fact_values: dict[str, FactValuePayload]
 
 
 class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     response_id: str | None = None
     variables: list[AuthoringVariablePathMetadataEvent]
-    formula_roots: list[Literal["state", "sheet", "instance"]]
-    action_mutation_roots: list[Literal["state", "sheet", "instance"]]
+    formula_roots: list[
+        Literal["state", "sheet", "instance", "action", "source_item"]
+    ]
+    action_mutation_roots: list[
+        Literal["state", "sheet", "instance", "action", "source_item"]
+    ]
     formula_aliases: list[FormulaAliasMetadataEvent]
     action_steps: list[ActionStepAuthoringMetadataEvent]
     action_preset_templates: list[ActionPresetTemplateEvent]
+    action_fact_presets: list[ActionFactPresetEvent]
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"
@@ -324,6 +362,9 @@ ApplicationRequest = Annotated[
     | CreateFormula
     | UpdateFormula
     | DeleteFormula
+    | CreateFact
+    | UpdateFact
+    | DeleteFact
     | CreateItem
     | UpdateItem
     | DeleteItem
@@ -353,6 +394,14 @@ ApplicationRequest = Annotated[
     | SetSheetBaseStat
     | SetSheetFormulaStat
     | SetSheetResistances
+    | AttachSheetFact
+    | DetachSheetFact
+    | AttachSubjectFact
+    | SetSubjectFactValue
+    | ResetSubjectFactValue
+    | DetachSubjectFact
+    | SetSheetFactValue
+    | ResetSheetFactValue
     | GetActionFormulaAuthoringMetadata
     | GetAugmentationTargetMetadata
     | GetVariableRegistry

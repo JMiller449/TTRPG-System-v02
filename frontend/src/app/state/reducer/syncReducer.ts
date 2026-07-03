@@ -31,6 +31,9 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       );
       const actions = Object.fromEntries(action.snapshot.actions.map((item) => [item.id, item]));
       const formulas = Object.fromEntries(action.snapshot.formulas.map((item) => [item.id, item]));
+      const facts = Object.fromEntries(
+        (action.snapshot.facts ?? []).map((item) => [item.id, item])
+      );
       const augmentations = Object.fromEntries(
         (action.snapshot.augmentations ?? []).map((item) => [item.id, item])
       );
@@ -70,12 +73,12 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
           actionOrder: action.snapshot.actions.map((item) => item.id),
           formulas,
           formulaOrder: action.snapshot.formulas.map((item) => item.id),
+          facts,
+          factOrder: (action.snapshot.facts ?? []).map((item) => item.id),
           augmentations,
           augmentationOrder: (action.snapshot.augmentations ?? []).map((item) => item.id),
           standaloneEffects,
-          standaloneEffectOrder: (action.snapshot.standaloneEffects ?? []).map(
-            (item) => item.id
-          ),
+          standaloneEffectOrder: (action.snapshot.standaloneEffects ?? []).map((item) => item.id),
           standaloneEffectApplications,
           standaloneEffectApplicationOrder: (
             action.snapshot.standaloneEffectApplications ?? []

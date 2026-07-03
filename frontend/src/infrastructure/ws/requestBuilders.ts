@@ -30,6 +30,8 @@ export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
 export type AugmentationPayload =
   ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
 export type FormulaPayload = ProtocolRequest<"set_sheet_formula_stat">["formula"];
+export type FactValuePayload = ProtocolRequest<"set_sheet_fact_value">["value"];
+export type FactDefinitionPayload = ProtocolRequest<"create_fact">["fact"];
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 export type ProficiencyDefinitionPayload = ProtocolRequest<"create_proficiency">["proficiency"];
@@ -353,6 +355,206 @@ export function buildSetSheetFormulaStatRequest({
     sheet_id: sheetId,
     stat_name: statName,
     formula
+  };
+}
+
+export function buildSetSheetFactValueRequest({
+  sheetId,
+  factId,
+  value,
+  requestId
+}: {
+  sheetId: string;
+  factId: string;
+  value: FactValuePayload;
+} & OptionalRequestId): ProtocolRequest<"set_sheet_fact_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_sheet_fact_value",
+    sheet_id: sheetId,
+    fact_id: factId,
+    value
+  };
+}
+
+export function buildCreateFactRequest({
+  fact,
+  requestId
+}: {
+  fact: FactDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_fact",
+    fact
+  };
+}
+
+export function buildUpdateFactRequest({
+  factId,
+  fact,
+  requestId
+}: {
+  factId: string;
+  fact: FactDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_fact",
+    fact_id: factId,
+    fact
+  };
+}
+
+export function buildDeleteFactRequest({
+  factId,
+  requestId
+}: {
+  factId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_fact",
+    fact_id: factId
+  };
+}
+
+export function buildAttachSheetFactRequest({
+  sheetId,
+  relationshipId,
+  factId,
+  value,
+  requestId
+}: {
+  sheetId: string;
+  relationshipId: string;
+  factId: string;
+  value?: FactValuePayload;
+} & OptionalRequestId): ProtocolRequest<"attach_sheet_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "attach_sheet_fact",
+    sheet_id: sheetId,
+    relationship_id: relationshipId,
+    fact_id: factId,
+    ...(value === undefined ? {} : { value })
+  };
+}
+
+export function buildDetachSheetFactRequest({
+  sheetId,
+  factId,
+  requestId
+}: {
+  sheetId: string;
+  factId: string;
+} & OptionalRequestId): ProtocolRequest<"detach_sheet_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "detach_sheet_fact",
+    sheet_id: sheetId,
+    fact_id: factId
+  };
+}
+
+export function buildAttachSubjectFactRequest({
+  subjectType,
+  subjectId,
+  relationshipId,
+  factId,
+  value,
+  requestId
+}: {
+  subjectType: "item" | "action";
+  subjectId: string;
+  relationshipId: string;
+  factId: string;
+  value?: FactValuePayload;
+} & OptionalRequestId): ProtocolRequest<"attach_subject_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "attach_subject_fact",
+    subject_type: subjectType,
+    subject_id: subjectId,
+    relationship_id: relationshipId,
+    fact_id: factId,
+    ...(value === undefined ? {} : { value })
+  };
+}
+
+export function buildSetSubjectFactValueRequest({
+  subjectType,
+  subjectId,
+  factId,
+  value,
+  requestId
+}: {
+  subjectType: "item" | "action";
+  subjectId: string;
+  factId: string;
+  value: FactValuePayload;
+} & OptionalRequestId): ProtocolRequest<"set_subject_fact_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_subject_fact_value",
+    subject_type: subjectType,
+    subject_id: subjectId,
+    fact_id: factId,
+    value
+  };
+}
+
+export function buildResetSubjectFactValueRequest({
+  subjectType,
+  subjectId,
+  factId,
+  requestId
+}: {
+  subjectType: "item" | "action";
+  subjectId: string;
+  factId: string;
+} & OptionalRequestId): ProtocolRequest<"reset_subject_fact_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "reset_subject_fact_value",
+    subject_type: subjectType,
+    subject_id: subjectId,
+    fact_id: factId
+  };
+}
+
+export function buildDetachSubjectFactRequest({
+  subjectType,
+  subjectId,
+  factId,
+  requestId
+}: {
+  subjectType: "item" | "action";
+  subjectId: string;
+  factId: string;
+} & OptionalRequestId): ProtocolRequest<"detach_subject_fact"> {
+  return {
+    ...requestIdField(requestId),
+    type: "detach_subject_fact",
+    subject_type: subjectType,
+    subject_id: subjectId,
+    fact_id: factId
+  };
+}
+
+export function buildResetSheetFactValueRequest({
+  sheetId,
+  factId,
+  requestId
+}: {
+  sheetId: string;
+  factId: string;
+} & OptionalRequestId): ProtocolRequest<"reset_sheet_fact_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "reset_sheet_fact_value",
+    sheet_id: sheetId,
+    fact_id: factId
   };
 }
 

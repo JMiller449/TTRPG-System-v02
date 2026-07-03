@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.fact import synchronize_required_sheet_facts
 from backend.state.models.sheet import Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -33,7 +34,7 @@ def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
 
 
 def _build_sheet_state() -> Sheet:
-    return Sheet.from_dict(
+    sheet = Sheet.from_dict(
         {
             "id": "mage_template",
             "name": "Mage Template",
@@ -114,6 +115,8 @@ def _build_sheet_state() -> Sheet:
             "actions": {},
         }
     )
+    synchronize_required_sheet_facts(sheet)
+    return sheet
 
 
 def test_dm_can_set_sheet_base_stat(monkeypatch) -> None:

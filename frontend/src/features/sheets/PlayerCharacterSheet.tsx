@@ -4,11 +4,13 @@ import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSe
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
+import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
+import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
@@ -18,15 +20,19 @@ import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildAttachSheetActionRequest,
+  buildAttachSheetFactRequest,
   buildAttachSheetItemRequest,
   buildDetachSheetActionRequest,
+  buildDetachSheetFactRequest,
   buildDetachSheetItemRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
+  buildResetSheetFactValueRequest,
   buildRelinkSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetSheetFactValueRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetResistancesRequest,
   buildUnlinkSheetProficiencyRequest,
@@ -51,6 +57,7 @@ export function PlayerCharacterSheet({
     actionDefinitions,
     actionOrder,
     augmentations,
+    factDefinitions,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,
@@ -61,6 +68,7 @@ export function PlayerCharacterSheet({
     sheetProficiencies,
     assignedActions,
     activeConditions,
+    activeStandaloneEffects,
     selectedItemId,
     selectedItem,
     setSelectedItemId
@@ -193,6 +201,64 @@ export function PlayerCharacterSheet({
               onCancelEditing={statEditor.cancelEditing}
               onEditorKeyDown={statEditor.onEditorKeyDown}
             />
+            <SheetFactsSection
+              definitions={factDefinitions}
+              bridges={detail.sheet?.facts ?? {}}
+              canEdit={canEditStats && Boolean(sheetId)}
+              onSaveFormula={(factId, formula) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildSetSheetFactValueRequest({
+                    sheetId,
+                    factId,
+                    value: { type: "formula", formula }
+                  }),
+                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onSaveValue={(factId, value) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildSetSheetFactValueRequest({ sheetId, factId, value }),
+                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onReset={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildResetSheetFactValueRequest({ sheetId, factId }),
+                  `Reset Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onAttach={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildAttachSheetFactRequest({
+                    sheetId,
+                    factId,
+                    relationshipId: makeId("sheet_fact")
+                  }),
+                  `Attach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onDetach={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildDetachSheetFactRequest({ sheetId, factId }),
+                  `Detach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+            />
             {canEditStats && detail.sheet && sheetId ? (
               <div className="stack">
                 <SheetFormulaStatsEditor
@@ -236,6 +302,7 @@ export function PlayerCharacterSheet({
             <SheetActionsSection
               assignedActions={assignedActions}
               actionDefinitions={actionDefinitions}
+              factDefinitions={factDefinitions}
               actionOrder={actionOrder}
               canEdit={canEditActions}
               onCreate={(bridge) => {
@@ -300,6 +367,7 @@ export function PlayerCharacterSheet({
                 )
               }
             />
+            <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
           </div>
         ) : null}
 
@@ -393,6 +461,7 @@ export function PlayerCharacterSheet({
             <SheetEquipmentSection
               items={items}
               actionDefinitions={actionDefinitions}
+              factDefinitions={factDefinitions}
               augmentations={augmentations}
               itemOrder={itemOrder}
               selectedItemId={selectedItemId}

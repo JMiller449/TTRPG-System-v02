@@ -7,6 +7,7 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import {
   getItemEditorValidationError,
+  type ItemFactValidationContext,
   toItemDefinitionPayload,
   toUpdatedItemDefinitionPayload,
   type ItemEditorValues
@@ -28,9 +29,10 @@ export function selectOrderedItemDefinitions(
 
 export function buildCreateItemSubmission(
   values: ItemEditorValues,
-  itemId: string
+  itemId: string,
+  context: ItemFactValidationContext = {}
 ): ItemMakerSubmission | null {
-  if (getItemEditorValidationError(values)) {
+  if (getItemEditorValidationError(values, context)) {
     return null;
   }
 
@@ -43,9 +45,10 @@ export function buildCreateItemSubmission(
 
 export function buildUpdateItemSubmission(
   item: ItemDefinition | undefined,
-  values: ItemEditorValues
+  values: ItemEditorValues,
+  context: ItemFactValidationContext = {}
 ): ItemMakerSubmission | null {
-  if (!item || getItemEditorValidationError(values)) {
+  if (!item || getItemEditorValidationError(values, context)) {
     return null;
   }
 

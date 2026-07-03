@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from backend.core.transport import RequestModel, ResponseModel
 
-VariableRoot = Literal["state", "sheet", "instance"]
+VariableRoot = Literal["state", "sheet", "instance", "action", "source_item"]
 VariableValueType = Literal["number", "percent", "formula", "resource"]
 VariableEditableRole = Literal["unauthenticated", "player", "dm"]
 ActionStepTarget = Literal["caster", "target"]
@@ -15,7 +15,14 @@ ActionStepCategory = Literal[
     "bounded_mutation",
     "semantic_mutation",
 ]
-ActionPresetTemplateCategory = Literal["healing", "resource"]
+ActionPresetTemplateCategory = Literal[
+    "healing",
+    "resource",
+    "weapon",
+    "defense",
+    "contest",
+    "spell",
+]
 AugmentationTargetContext = Literal["item_template", "condition_template", "runtime"]
 ActionPathCatalog = Literal[
     "none",
@@ -119,6 +126,16 @@ class ActionPresetTemplate:
     description: str
     steps: list[dict]
     editable_formula_fields: list[str]
+    roll_mode_kind: Literal["none", "check", "damage"] = "none"
+    fact_values: dict[str, dict] = field(default_factory=dict)
+
+
+@dataclass
+class ActionFactPreset:
+    id: str
+    label: str
+    description: str
+    fact_values: dict[str, dict]
 
 
 @dataclass
@@ -129,6 +146,7 @@ class ActionFormulaAuthoringMetadata(ResponseModel):
     formula_aliases: list[FormulaAliasMetadata]
     action_steps: list[ActionStepAuthoringMetadata]
     action_preset_templates: list[ActionPresetTemplate]
+    action_fact_presets: list[ActionFactPreset]
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"

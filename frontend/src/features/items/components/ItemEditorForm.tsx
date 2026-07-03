@@ -3,9 +3,15 @@ import { Field } from "@/shared/ui/Field";
 import {
   getItemEditorValidationError,
   ITEM_RANK_OPTIONS,
+  setItemFactProfile,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
-import type { ActionDefinition, ItemInteractionType } from "@/domain/models";
+import type {
+  ActionDefinition,
+  FactDefinition,
+  ItemInteractionType,
+  ProficiencyDefinition
+} from "@/domain/models";
 import { ItemActionGrantEditor } from "@/features/items/components/ItemActionGrantEditor";
 
 const ITEM_INTERACTION_TYPES: ReadonlyArray<{
@@ -22,6 +28,9 @@ export function ItemEditorForm({
   values,
   onChange,
   actions,
+  factDefinitions,
+  proficiencies,
+  factsEditor,
   effectEditor,
   onSubmit,
   onCancel,
@@ -31,15 +40,21 @@ export function ItemEditorForm({
   values: ItemEditorValues;
   onChange: (values: ItemEditorValues) => void;
   actions: ActionDefinition[];
+  factDefinitions: Record<string, FactDefinition>;
+  proficiencies: Record<string, ProficiencyDefinition>;
+  factsEditor: ReactNode;
   effectEditor: ReactNode;
   onSubmit: () => void;
   onCancel: () => void;
   onOpenActionAuthoring: () => void;
 }): JSX.Element {
-  const validationError = getItemEditorValidationError(values);
+  const validationError = getItemEditorValidationError(values, {
+    definitions: factDefinitions,
+    proficiencies
+  });
 
   const setInteractionType = (interactionType: ItemInteractionType): void => {
-    onChange({
+    let nextValues: ItemEditorValues = {
       ...values,
       interactionType,
       actionGrants: values.actionGrants.map((grant) => ({
@@ -50,7 +65,11 @@ export function ItemEditorForm({
             ? "1"
             : grant.consumeQuantity
       }))
-    });
+    };
+    if (interactionType !== "equippable" && nextValues.factProfile) {
+      nextValues = setItemFactProfile(nextValues, null, factDefinitions);
+    }
+    onChange(nextValues);
   };
 
   return (
@@ -157,6 +176,8 @@ export function ItemEditorForm({
           </Field>
         ) : null}
       </section>
+
+      {factsEditor}
 
       {values.interactionType === "equippable" ? effectEditor : null}
 

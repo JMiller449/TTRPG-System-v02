@@ -150,16 +150,29 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             assert sheet.name == "Mage Template"
             assert sheet.notes == "GM-only template notes."
             assert "baseline_check_strength" in StateSingleton.getState().actions
-            assert "attack" in StateSingleton.getState().actions
+            assert "attack" not in StateSingleton.getState().actions
+            assert "parry" not in StateSingleton.getState().actions
+            assert "weapon_attack" in StateSingleton.getState().actions
+            assert "weapon_damage" in StateSingleton.getState().actions
             assert (
                 StateSingleton.getState().actions["baseline_check_strength"].roll_mode_kind
                 == "check"
             )
-            assert StateSingleton.getState().actions["attack"].roll_mode_kind == "check"
+            assert (
+                StateSingleton.getState().actions["weapon_attack"].roll_mode_kind
+                == "check"
+            )
+            assert StateSingleton.getState().actions["block"].steps[0].message.aliases[
+                0
+            ].path == ["sheet", "stats", "strength"]
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
                 "baseline_check_strength"
             )
-            assert sheet.actions["default_attack"].entry_id == "attack"
+            assert sheet.actions["default_dodge"].entry_id == "dodge"
+            assert sheet.actions["default_block"].entry_id == "block"
+            assert "default_attack" not in sheet.actions
+            assert "default_parry" not in sheet.actions
+            assert "default_weapon_attack" not in sheet.actions
             assert websocket.sent_messages[0]["ops"][-1]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][-1]["path"] == (
                 "/sheets/mage_template"
@@ -176,10 +189,12 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
                 "/actions/baseline_check_perception",
                 "/actions/baseline_check_arcane",
                 "/actions/baseline_check_will",
-                "/actions/attack",
                 "/actions/dodge",
-                "/actions/parry",
                 "/actions/block",
+                "/actions/weapon_attack",
+                "/actions/weapon_damage",
+                "/actions/weapon_parry",
+                "/actions/weapon_contest",
             }
             assert websocket.sent_messages[0]["type"] == "state_patch"
             assert websocket.sent_messages[0]["request_id"] == "req-1"
@@ -506,7 +521,7 @@ def test_default_baseline_check_executes_as_sheet_action(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_default_attack_preset_executes_as_sheet_action(monkeypatch) -> None:
+def test_default_dodge_and_block_presets_execute_as_sheet_actions(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -526,30 +541,39 @@ def test_default_attack_preset_executes_as_sheet_action(monkeypatch) -> None:
                     "sheet": _sheet_payload(),
                 },
             )
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "perform_action",
-                    "sheet_id": "mage_template",
-                    "action_id": "attack",
-                },
-            )
+            for action_id in ("dodge", "block"):
+                await handle_client_payload(
+                    websocket,
+                    {
+                        "type": "perform_action",
+                        "sheet_id": "mage_template",
+                        "action_id": action_id,
+                    },
+                )
 
             assert websocket.sent_messages[-1] == {
                 "response_id": None,
                 "sheet_id": "mage_template",
-                "action_id": "attack",
+                "action_id": "block",
                 "applied_mutations": [],
-            "emitted_messages": ["Attack: /r (1d100 / 100) * (10)"],
+                "emitted_messages": [
+                    "Block: /r floor((10) * (1d100 / 100))"
+                ],
                 "type": "action_executed",
-                "request_id": "req-2",
+                "request_id": "req-3",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                "message": "Attack: /r (1d100 / 100) * (10)",
+                    "message": "Dodge: /r floor((11) * (1d100 / 100))",
                     "type": "chat_message",
                     "request_id": "req-2",
+                },
+                {
+                    "message_id": bridge_socket.sent_messages[1]["message_id"],
+                    "message": "Block: /r floor((10) * (1d100 / 100))",
+                    "type": "chat_message",
+                    "request_id": "req-3",
                 }
             ]
         finally:

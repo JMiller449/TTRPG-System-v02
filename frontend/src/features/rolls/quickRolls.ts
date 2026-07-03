@@ -4,9 +4,21 @@ import {
   type ActionRollMode
 } from "@/infrastructure/ws/requestBuilders";
 
-export type QuickRollAction = "attack" | "dodge" | "parry" | "block";
+export type QuickRollAction = "weapon_attack" | "dodge" | "weapon_parry" | "block";
 
-export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = ["attack", "dodge", "parry", "block"];
+export const QUICK_ROLL_ACTIONS: readonly QuickRollAction[] = [
+  "weapon_attack",
+  "dodge",
+  "weapon_parry",
+  "block"
+];
+
+const QUICK_ROLL_LABELS: Record<QuickRollAction, string> = {
+  weapon_attack: "Weapon Attack",
+  dodge: "Dodge",
+  weapon_parry: "Weapon Parry",
+  block: "Block"
+};
 
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
@@ -19,10 +31,6 @@ export interface ResolvedQuickRollAction {
 export interface QuickRollExecutionRequest {
   request: ReturnType<typeof buildPerformActionRequest>;
   label: string;
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export function getQuickRollRelationshipId(action: QuickRollAction): string {
@@ -87,7 +95,7 @@ export function resolveQuickRollAction(
 }
 
 export function getQuickRollLabel(action: QuickRollAction): string {
-  return capitalize(action);
+  return QUICK_ROLL_LABELS[action];
 }
 
 export function buildQuickRollExecutionRequest({

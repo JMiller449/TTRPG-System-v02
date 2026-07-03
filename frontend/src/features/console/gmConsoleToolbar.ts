@@ -10,6 +10,7 @@ export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<{ view: GMView; label: string }
   { view: "xp_tracker", label: "XP Tracker" },
   { view: "item_maker", label: "Item Maker" },
   { view: "formula_authoring", label: "Formula Authoring" },
+  { view: "fact_authoring", label: "Fact Builder" },
   { view: "proficiency_authoring", label: "Proficiency Authoring" },
   { view: "condition_authoring", label: "Condition Authoring" },
   { view: "effect_authoring", label: "Effect Authoring" },

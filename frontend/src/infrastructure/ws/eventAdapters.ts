@@ -187,13 +187,10 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     proficiencies: Object.values(state.proficiencies ?? {}),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
+    facts: Object.values(state.facts ?? {}),
     augmentations: Object.values(state.augmentations ?? {}),
-    standaloneEffects: Object.values(state.standalone_effects ?? {}).map(
-      projectStandaloneEffect
-    ),
-    standaloneEffectApplications: Object.values(
-      state.standalone_effect_applications ?? {}
-    ),
+    standaloneEffects: Object.values(state.standalone_effects ?? {}).map(projectStandaloneEffect),
+    standaloneEffectApplications: Object.values(state.standalone_effect_applications ?? {}),
     conditionPresets: Object.values(state.condition_presets ?? {}),
     activeConditions: Object.values(state.active_conditions ?? {}).map(projectActiveCondition),
     encounters: Object.values(state.encounter_presets ?? {}).map(projectEncounterPreset),
@@ -296,7 +293,8 @@ export function adaptProtocolServerEvent(
               action_mutation_roots: event.action_mutation_roots,
               formula_aliases: event.formula_aliases,
               action_steps: event.action_steps,
-              action_preset_templates: event.action_preset_templates
+              action_preset_templates: event.action_preset_templates,
+              action_fact_presets: event.action_fact_presets
             },
             requestId: event.request_id ?? undefined
           }

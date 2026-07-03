@@ -21,6 +21,8 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: "3LBS",
+    fact_profile: null,
+    facts: {},
     augmentation_templates: [],
     ...overrides
   };
@@ -69,6 +71,8 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Adds +50 to sword enchantments.",
           price: "NA",
           weight: "3LBS",
+          fact_profile: null,
+          facts: {},
           augmentation_templates: [],
           action_grants: []
         }

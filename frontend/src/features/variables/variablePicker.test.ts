@@ -55,7 +55,8 @@ const metadata: ActionFormulaAuthoringMetadata = {
   action_mutation_roots: ["sheet", "instance"],
   formula_aliases: [],
   action_steps: [],
-  action_preset_templates: []
+  action_preset_templates: [],
+  action_fact_presets: []
 };
 
 describe("variablePicker", () => {
@@ -73,6 +74,59 @@ describe("variablePicker", () => {
       }
     });
     expect(variablePathLabel(arcane!)).toBe("sheet.stats.arcane");
+  });
+
+  it("builds Action Fact and explicit source-item formula roots", () => {
+    const factMetadata: ActionFormulaAuthoringMetadata = {
+      ...metadata,
+      variables: [
+        ...metadata.variables,
+        {
+          key: "action.facts.action_base_spell_damage",
+          label: "Action: Base Spell Damage",
+          root: "action",
+          path: ["facts", "action_base_spell_damage"],
+          value_type: "number",
+          editable_roles: [],
+          formula_backed: false,
+          description: "Evaluated Action Fact.",
+          shortcuts: ["base_spell_damage"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: false
+        },
+        {
+          key: "source_item.resolved.governing_stat",
+          label: "Source Weapon: Governing Stat Value",
+          root: "source_item",
+          path: ["resolved", "governing_stat"],
+          value_type: "number",
+          editable_roles: [],
+          formula_backed: true,
+          description: "Resolved source weapon value.",
+          shortcuts: ["weapon_stat"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: false
+        }
+      ],
+      formula_roots: ["sheet", "instance", "action", "source_item"]
+    };
+
+    const entries = buildVariablePickerEntries(factMetadata, "formula");
+
+    expect(
+      entries.find((entry) => entry.key === "action.facts.action_base_spell_damage")
+        ?.alias
+    ).toEqual({
+      name: "base_spell_damage",
+      path: ["action", "facts", "action_base_spell_damage"]
+    });
+    expect(
+      entries.find((entry) => entry.key === "source_item.resolved.governing_stat")
+        ?.alias
+    ).toEqual({
+      name: "weapon_stat",
+      path: ["source_item", "resolved", "governing_stat"]
+    });
   });
 
   it("filters mutation entries to backend-approved mutation paths", () => {

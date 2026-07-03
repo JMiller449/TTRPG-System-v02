@@ -20,10 +20,6 @@ function testSheet(overrides: Partial<Sheet> = {}): Sheet {
     stats: createDefaultStats(),
     slayed_record: {},
     actions: {
-      default_attack: {
-        relationship_id: "default_attack",
-        entry_id: "attack"
-      },
       default_dodge: {
         relationship_id: "default_dodge",
         entry_id: "custom_dodge"
@@ -34,9 +30,9 @@ function testSheet(overrides: Partial<Sheet> = {}): Sheet {
 }
 
 const actions: Record<string, ActionDefinition> = {
-  attack: {
-    id: "attack",
-    name: "Attack"
+  weapon_attack: {
+    id: "weapon_attack",
+    name: "Weapon Attack"
   },
   custom_dodge: {
     id: "custom_dodge",
@@ -52,21 +48,21 @@ describe("quickRolls", () => {
   });
 
   it("returns stable default action relationship ids", () => {
-    expect(getQuickRollRelationshipId("attack")).toBe("default_attack");
+    expect(getQuickRollRelationshipId("weapon_attack")).toBe("default_weapon_attack");
     expect(getQuickRollRelationshipId("block")).toBe("default_block");
   });
 
   it("resolves quick controls through authoritative sheet action bridges", () => {
-    expect(resolveQuickRollAction(testSheet(), actions, "attack")).toEqual({
-      action: "attack",
-      actionId: "attack",
-      actionName: "Attack",
-      relationshipId: "default_attack"
+    expect(resolveQuickRollAction(testSheet(), actions, "dodge")).toEqual({
+      action: "dodge",
+      actionId: "custom_dodge",
+      actionName: "Sidestep",
+      relationshipId: "default_dodge"
     });
   });
 
   it("builds typed perform_action requests for resolved quick actions", () => {
-    const resolution = resolveQuickRollAction(testSheet(), actions, "attack");
+    const resolution = resolveQuickRollAction(testSheet(), actions, "dodge");
 
     if (!resolution) {
       throw new Error("Expected attack quick action to resolve.");
@@ -82,10 +78,10 @@ describe("quickRolls", () => {
       request: {
         type: "perform_action",
         sheet_id: "instance_1",
-        action_id: "attack",
+        action_id: "custom_dodge",
         roll_mode: "advantage"
       },
-      label: "Perform action: Attack (advantage)"
+      label: "Perform action: Sidestep (advantage)"
     });
   });
 
@@ -111,31 +107,35 @@ describe("quickRolls", () => {
     };
 
     expect(
-      resolveQuickRollAction(sheet, actions, "attack", {
+      resolveQuickRollAction(sheet, actions, "weapon_attack", {
         potion: {
           id: "potion",
-          name: "Attack Potion",
+          name: "Attack Sword",
           interaction_type: "consumable",
           description: "",
           price: "",
           weight: "",
           action_grants: [
-            { action_id: "attack", availability: "carried", consume_quantity: 1 }
+            {
+              action_id: "weapon_attack",
+              availability: "carried",
+              consume_quantity: 1
+            }
           ]
         }
       })
     ).toEqual({
-      action: "attack",
-      actionId: "attack",
-      actionName: "Attack",
-      relationshipId: "item:potion_2:attack",
+      action: "weapon_attack",
+      actionId: "weapon_attack",
+      actionName: "Weapon Attack",
+      relationshipId: "item:potion_2:weapon_attack",
       sourceItemRelationshipId: "potion_2"
     });
   });
 
   it("does not resolve removed or missing quick actions", () => {
     expect(resolveQuickRollAction(testSheet(), actions, "block")).toBeNull();
-    expect(resolveQuickRollAction(testSheet(), {}, "attack")).toBeNull();
-    expect(resolveQuickRollAction(null, actions, "attack")).toBeNull();
+    expect(resolveQuickRollAction(testSheet(), {}, "weapon_attack")).toBeNull();
+    expect(resolveQuickRollAction(null, actions, "weapon_attack")).toBeNull();
   });
 });

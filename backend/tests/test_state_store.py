@@ -13,6 +13,7 @@ from backend.state.migrations import (
 )
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.state import State
+from backend.state.default_actions import seeded_global_action_payloads
 from backend.state.store import CURRENT_STATE_SCHEMA_VERSION, StateSingleton
 
 
@@ -251,101 +252,96 @@ def test_v4_migration_groups_existing_condition_augmentations() -> None:
     ] == application_id
 
 
-def test_v5_migration_splits_manual_effect_definition_and_application() -> None:
+def test_v5_migration_initializes_standalone_effect_collections() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 5,
             "state": {
-                "instanced_sheets": {
-                    "instance-1": {
-                        "parent_id": "sheet-1",
-                        "health": 15,
-                        "mana": 5,
-                        "augments": {
-                            "legacy": {
-                                "relationship_id": "legacy",
-                                "entry_id": "blessing",
-                            }
-                        },
-                    }
-                },
-                "augmentations": {
-                    "blessing": {
-                        "id": "blessing",
-                        "name": "Blessing",
-                        "description": "Legacy manual effect.",
-                        "source": {"type": "manual", "label": "GM"},
-                        "scope": "instance",
-                        "target": {"root": "instance", "path": ["health"]},
-                        "effect": {
-                            "type": "formula_modifier",
-                            "operation": "add",
-                            "value": {"aliases": None, "text": "5", "tags": []},
-                            "selector": {},
-                        },
-                        "active": True,
-                        "applied": True,
-                        "applied_target_id": "instance-1",
-                        "lifecycle_owner": "manual",
-                        "lifecycle": {},
-                    }
-                },
+                "sheets": {},
+                "standalone_effects": None,
+                "standalone_effect_applications": [],
             },
         }
     )
 
-    application_id = "standalone:instance-1:blessing"
-    target_path = "/instanced_sheets/instance-1/health"
-    assert "blessing" not in migrated.state["augmentations"]
-    assert migrated.state["standalone_effects"]["blessing"]["id"] == "blessing"
-    assert migrated.state["standalone_effect_applications"][application_id][
-        "definition_id"
-    ] == "blessing"
-    assert migrated.state["equipment_effect_projections"][target_path] == {
-        "target_path": target_path,
-        "base_value": 10,
-        "effective_value": 15,
-    }
-    assert migrated.state["instanced_sheets"]["instance-1"]["augments"] == {}
-
-
-def test_v5_migration_keeps_irreversible_applied_manual_effect_in_compatibility_state() -> None:
-    legacy = {
-        "id": "legacy-set",
-        "name": "Legacy Set",
-        "source": {"type": "manual"},
-        "scope": "instance",
-        "target": {"root": "instance", "path": ["health"]},
-        "effect": {
-            "type": "formula_modifier",
-            "operation": "set",
-            "value": {"aliases": None, "text": "40", "tags": []},
-        },
-        "active": True,
-        "applied": True,
-        "applied_target_id": "instance-1",
-        "lifecycle_owner": "manual",
-    }
-    migrated = migrate_persisted_state(
-        {
-            "schema_version": 5,
-            "state": {
-                "instanced_sheets": {
-                    "instance-1": {
-                        "parent_id": "sheet-1",
-                        "health": 40,
-                        "mana": 5,
-                        "augments": {},
-                    }
-                },
-                "augmentations": {"legacy-set": legacy},
-            },
-        }
-    )
-
-    assert migrated.state["augmentations"]["legacy-set"] == legacy
-    assert "legacy-set" not in migrated.state["standalone_effects"]
+    assert migrated.state["sheets"] == {}
+    assert migrated.state["standalone_effects"] == {}
     assert migrated.state["standalone_effect_applications"] == {}
+
+
+def test_v6_migration_backfills_required_sheet_fact() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 6,
+            "state": {
+                "sheets": {
+                    "mage": {
+                        "id": "mage",
+                    }
+                }
+            },
+        }
+    )
+
+    definition = migrated.state["facts"]["amount_of_reactions"]
+    bridge = migrated.state["sheets"]["mage"]["facts"]["amount_of_reactions"]
+    assert definition["required"] is True
+    assert definition["default_value"]["formula"]["text"] == (
+        "@registration + @reaction_time"
+    )
+    assert bridge["relationship_id"] == "required_fact_amount_of_reactions"
+
+
+def test_v7_migration_adds_weapon_fact_profile_metadata_without_inference() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 7,
+            "state": {
+                "facts": {},
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "name": "Sword",
+                        "facts": {},
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["items"]["sword"]["fact_profile"] is None
+    assert migrated.state["items"]["sword"]["facts"] == {}
+    definition = migrated.state["facts"]["weapon_proficiency"]
+    assert definition["required"] is True
+    assert definition["required_profile"] == "weapon"
+    assert definition["reference_kind"] == "proficiency"
+
+
+def test_v8_migration_adds_backend_owned_action_fact_definitions() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 8,
+            "state": {
+                "facts": {
+                    "custom": {
+                        "id": "custom",
+                        "name": "Custom",
+                        "subject_types": ["action"],
+                        "value_type": "text",
+                        "default_value": {"type": "text", "value": ""},
+                    }
+                },
+                "actions": {"parry": {"id": "parry", "name": "Parry"}},
+            },
+        }
+    )
+
+    assert migrated.state["facts"]["custom"]["backend_owned"] is False
+    rank = migrated.state["facts"]["action_rank"]
+    assert rank["backend_owned"] is True
+    assert rank["required"] is False
+    assert rank["validation_options"][0] == "F"
+    assert migrated.state["actions"]["parry"]["facts"] == {}
 
 
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
@@ -460,7 +456,10 @@ def test_newer_primary_schema_falls_back_to_supported_backup(
 
     loaded = StateSingleton.initializeState()
 
-    assert set(loaded.actions) == {"supported"}
+    assert set(loaded.actions) == {
+        "supported",
+        *seeded_global_action_payloads(),
+    }
 
 
 def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
@@ -469,6 +468,10 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
 
     assert legacy.source_version == 0
     assert legacy.migrated is True
+    required_fact = legacy.state.pop("facts")
+    seeded_actions = legacy.state.pop("actions")
+    assert required_fact["amount_of_reactions"]["required"] is True
+    assert seeded_actions == seeded_global_action_payloads()
     assert legacy.state == {
         "sheets": {},
         "items": {},
@@ -480,6 +483,69 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False
     assert current.state == {"actions": {}}
+
+
+def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
+    def old_action(action_id: str, stat_name: str) -> dict:
+        label = action_id.title()
+        return {
+            "id": action_id,
+            "name": label,
+            "notes": "Default editable action preset. Old prototype default.",
+            "steps": [
+                {
+                    "step_id": "roll",
+                    "type": "send_message",
+                    "message": {
+                        "aliases": [
+                            {"name": stat_name, "path": ["stats", stat_name]}
+                        ],
+                        "text": f"{label}: /r (1d100 / 100) * @{stat_name}",
+                    },
+                }
+            ],
+        }
+
+    result = migrate_persisted_state(
+        {
+            "schema_version": 9,
+            "state": {
+                "actions": {
+                    "attack": old_action("attack", "strength"),
+                    "dodge": old_action("dodge", "dexterity"),
+                    "parry": old_action("parry", "dexterity"),
+                    "block": old_action("block", "constitution"),
+                    "custom": {"id": "custom", "name": "Custom", "steps": []},
+                },
+                "sheets": {
+                    "fighter": {
+                        "actions": {
+                            "default_attack": {
+                                "relationship_id": "default_attack",
+                                "entry_id": "attack",
+                            },
+                            "default_parry": {
+                                "relationship_id": "default_parry",
+                                "entry_id": "parry",
+                            },
+                            "custom": {
+                                "relationship_id": "custom",
+                                "entry_id": "custom",
+                            },
+                        }
+                    }
+                },
+            },
+        }
+    )
+
+    assert "attack" not in result.state["actions"]
+    assert "parry" not in result.state["actions"]
+    assert result.state["actions"]["block"]["steps"][0]["message"][
+        "aliases"
+    ] == [{"name": "strength", "path": ["sheet", "stats", "strength"]}]
+    assert result.state["actions"]["custom"]["name"] == "Custom"
+    assert set(result.state["sheets"]["fighter"]["actions"]) == {"custom"}
 
 
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:

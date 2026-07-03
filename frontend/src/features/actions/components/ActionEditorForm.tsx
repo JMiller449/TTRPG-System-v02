@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
   DAMAGE_TYPES,
@@ -65,7 +66,9 @@ export function ActionEditorForm({
   proficiencies,
   formulas,
   standaloneEffects,
-  conditions
+  conditions,
+  factsEditor,
+  validationError
 }: {
   editingActionId: string | null;
   values: ActionEditorValues;
@@ -77,6 +80,8 @@ export function ActionEditorForm({
   formulas: FormulaDefinition[];
   standaloneEffects: StandaloneEffectDefinition[];
   conditions: ConditionPreset[];
+  factsEditor: ReactNode;
+  validationError: string | null;
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
   const mutationTargets = buildVariablePickerEntries(metadata, "mutation").filter(
@@ -92,7 +97,7 @@ export function ActionEditorForm({
   };
   const stepMenuOptions = buildActionStepMenuOptions(stepDependencies);
   const selectedMenuOption = stepMenuOptions.find((option) => option.type === stepTypeToAdd);
-  const actionNameIsValid = values.name.trim().length > 0;
+  const actionIsValid = validationError === null;
 
   useEffect(() => {
     if (selectedStepId && values.steps.some((step) => step.step_id === selectedStepId)) {
@@ -315,7 +320,7 @@ export function ActionEditorForm({
           <Field label="Name">
             <input
               value={values.name}
-              aria-invalid={!actionNameIsValid}
+              aria-invalid={!values.name.trim()}
               onChange={(event) => onChange({ ...values, name: event.target.value })}
               placeholder="e.g. Mana burst"
             />
@@ -750,13 +755,15 @@ export function ActionEditorForm({
           </div>
         </section>
 
-        {!actionNameIsValid ? (
+        {factsEditor}
+
+        {validationError ? (
           <p className="error-text" role="alert">
-            Name is required.
+            {validationError}
           </p>
         ) : null}
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit} disabled={!actionNameIsValid}>
+          <button className="button" onClick={onSubmit} disabled={!actionIsValid}>
             {editingActionId ? "Save Action" : "Create Action"}
           </button>
           {editingActionId ? (

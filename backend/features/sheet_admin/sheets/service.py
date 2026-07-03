@@ -42,8 +42,13 @@ from backend.features.sheet_admin.sheets.schema import (
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_access.schema import SheetAccessCodes
 from backend.features.state_sync.service import state_sync_service
+from backend.state.default_actions import (
+    default_sheet_action_ids,
+    seeded_global_actions,
+)
 from backend.state.models.action import Action, SendMessageStep
 from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.fact import synchronize_required_sheet_facts
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -60,14 +65,6 @@ _BASELINE_CHECK_STATS: tuple[tuple[str, str], ...] = (
     ("arcane", "Arcane"),
     ("will", "Will"),
 )
-
-_DEFAULT_ACTION_PRESETS: tuple[tuple[str, str, str], ...] = (
-    ("attack", "Attack", "strength"),
-    ("dodge", "Dodge", "dexterity"),
-    ("parry", "Parry", "dexterity"),
-    ("block", "Block", "constitution"),
-)
-
 
 def _build_stats(payload: StatsPayload) -> Stats:
     _validate_stats_formula_paths(payload)
@@ -211,59 +208,25 @@ def _baseline_check_actions() -> dict[str, Action]:
     }
 
 
-def _build_default_action_preset(
-    action_id: str,
-    label: str,
-    stat_name: str,
-) -> Action:
-    return Action(
-        id=action_id,
-        name=label,
-        roll_mode_kind="check",
-        notes=(
-            "Default editable action preset. This is intentionally authored as a "
-            "normal action so sheets can customize, replace, or remove it."
-        ),
-        steps=[
-            SendMessageStep(
-                step_id="roll",
-                message=Formula(
-                    aliases=[
-                        FormulaAliases(
-                            name=stat_name,
-                            path=["stats", stat_name],
-                        )
-                    ],
-                    text=f"{label}: /r (1d100 / 100) * @{stat_name}",
-                ),
-            )
-        ],
-    )
-
-
-def _default_action_presets() -> dict[str, Action]:
-    return {
-        action_id: _build_default_action_preset(
-            action_id,
-            label,
-            stat_name,
-        )
-        for action_id, label, stat_name in _DEFAULT_ACTION_PRESETS
-    }
-
-
-def _default_sheet_actions() -> dict[str, Action]:
+def _default_action_definitions() -> dict[str, Action]:
     return {
         **_baseline_check_actions(),
-        **_default_action_presets(),
+        **seeded_global_actions(),
     }
+
+
+def _new_sheet_default_action_ids() -> tuple[str, ...]:
+    return (
+        *(_baseline_check_action_id(name) for name, _ in _BASELINE_CHECK_STATS),
+        *default_sheet_action_ids(),
+    )
 
 
 def _with_default_action_bridges(
     payload: SheetDefinitionPayload,
 ) -> SheetDefinitionPayload:
     actions = dict(payload.actions)
-    for action_id in _default_sheet_actions():
+    for action_id in _new_sheet_default_action_ids():
         relationship_id = _default_action_relationship_id(action_id)
         actions.setdefault(
             relationship_id,
@@ -277,7 +240,7 @@ def _with_default_action_bridges(
 
 def _add_missing_default_action_mutations(state: State) -> list:
     ops = []
-    for action_id, action in _default_sheet_actions().items():
+    for action_id, action in _default_action_definitions().items():
         if action_id in state.actions:
             continue
         path = state_sync_service.join_path("actions", action_id)
@@ -442,7 +405,8 @@ async def _create_sheet(
 ) -> None:
     payload = _with_default_action_bridges(payload)
     sheet = _build_sheet(payload)
-    default_actions = _default_sheet_actions()
+    synchronize_required_sheet_facts(sheet)
+    default_actions = _default_action_definitions()
 
     def mutation(state: State) -> tuple[None, list]:
         sheets = _sheets_state(state)
@@ -477,6 +441,8 @@ async def _update_sheet(
 
         _validate_sheet_references(payload, state)
         sheet = _build_sheet(payload)
+        sheet.facts = deepcopy(sheets[sheet_id].facts)
+        synchronize_required_sheet_facts(sheet)
         path = state_sync_service.join_path("sheets", sheet_id)
         op = state_sync_service.set_mutation(state, path, sheet)
         return None, [op]

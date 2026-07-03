@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { uiReducer } from "@/app/state/reducer/uiReducer";
-import type {
-  ActionFormulaAuthoringMetadata,
-  AugmentationTargetMetadata
-} from "@/domain/ipc";
+import type { ActionFormulaAuthoringMetadata, AugmentationTargetMetadata } from "@/domain/ipc";
 
 const metadata: ActionFormulaAuthoringMetadata = {
   variables: [],
@@ -21,7 +18,8 @@ const metadata: ActionFormulaAuthoringMetadata = {
       path_catalog: "none"
     }
   ],
-  action_preset_templates: []
+  action_preset_templates: [],
+  action_fact_presets: []
 };
 
 const augmentationTargetMetadata: AugmentationTargetMetadata = {
@@ -97,9 +95,7 @@ describe("uiReducer", () => {
       metadata: augmentationTargetMetadata
     });
 
-    expect(state?.uiState.augmentationTargetMetadata).toEqual(
-      augmentationTargetMetadata
-    );
+    expect(state?.uiState.augmentationTargetMetadata).toEqual(augmentationTargetMetadata);
   });
 
   it("stores and resets the XP tracker read model", () => {
@@ -141,13 +137,10 @@ describe("uiReducer", () => {
       type: "set_action_formula_authoring_metadata",
       metadata
     });
-    const stateWithAugmentationMetadata = uiReducer(
-      stateWithMetadata ?? initialState,
-      {
-        type: "set_augmentation_target_metadata",
-        metadata: augmentationTargetMetadata
-      }
-    );
+    const stateWithAugmentationMetadata = uiReducer(stateWithMetadata ?? initialState, {
+      type: "set_augmentation_target_metadata",
+      metadata: augmentationTargetMetadata
+    });
     const resetState = uiReducer(stateWithAugmentationMetadata ?? initialState, {
       type: "reset_session_ui"
     });

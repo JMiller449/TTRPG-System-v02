@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Sheet } from "@/domain/models";
+import { FORMULA_STAT_KEYS } from "@/features/sheets/sheetDefinitionEditing";
 import {
   createDefaultStats,
   createEmptyTemplateEditorValues,
@@ -76,6 +77,35 @@ function completeSheet(): Sheet {
 }
 
 describe("templateEditorValues", () => {
+  it("provides the canonical substat formulas and aliases for new templates", () => {
+    const stats = createDefaultStats();
+
+    expect(Object.fromEntries(FORMULA_STAT_KEYS.map((key) => [key, stats[key].text]))).toEqual({
+      lifting: "@strength",
+      carry_weight: "@strength",
+      acrobatics: "(@dexterity + @registration) / 2",
+      stamina: "@dexterity",
+      reaction_time: "(@stamina + @intuition) / 2",
+      health: "@constitution",
+      endurance: "(@stamina + @constitution) / 2",
+      pain_tolerance: "(@endurance + @strength) / 2",
+      sight_distance: "@perception",
+      intuition: "(@perception + @registration) / 2",
+      registration: "@perception",
+      mana: "@arcane",
+      control: "(@arcane + @mana) / 2",
+      sensitivity: "(@intuition + @arcane) / 2",
+      charisma: "@will",
+      mental_fortitude: "(@will + @charisma) / 2",
+      courage: "(@mental_fortitude + @charisma) / 2"
+    });
+    for (const key of FORMULA_STAT_KEYS) {
+      for (const alias of stats[key].aliases ?? []) {
+        expect(alias.path).toEqual(["stats", alias.name]);
+      }
+    }
+  });
+
   it("maps a complete template draft to one backend sheet definition", () => {
     const values = createEmptyTemplateEditorValues("enemy");
     values.name = "  Ember Guard  ";
@@ -162,9 +192,7 @@ describe("templateEditorValues", () => {
           growthRate: "2"
         }
       ],
-      items: [
-        { relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }
-      ]
+      items: [{ relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }]
     });
     expect(values.formulaStats.health.text).toBe("@constitution * 10");
     expect(values.slayedRecord).toEqual({ enemy_1: { sheet_id: "enemy_1", count: 1 } });
@@ -198,9 +226,7 @@ describe("templateEditorValues", () => {
       { relationshipId: "a1", actionId: "action_1" },
       { relationshipId: "a2", actionId: "action_1" }
     ];
-    values.items = [
-      { relationshipId: "i1", itemId: "item_1", count: "0", equipped: true }
-    ];
+    values.items = [{ relationshipId: "i1", itemId: "item_1", count: "0", equipped: true }];
 
     const validation = validateTemplateEditorValues(values, catalogs);
 

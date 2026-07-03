@@ -1,5 +1,11 @@
-import type { ActionDefinition, ItemDefinition, ItemInteractionType } from "@/domain/models";
+import type {
+  ActionDefinition,
+  FactDefinition,
+  ItemDefinition,
+  ItemInteractionType
+} from "@/domain/models";
 import { toItemEditorValues } from "@/features/items/itemEditorValues";
+import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 
 const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
   equippable: "Equippable",
@@ -10,11 +16,13 @@ const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
 export function ItemDefinitionCard({
   item,
   actions,
+  factDefinitions,
   onEdit,
   onDelete
 }: {
   item: ItemDefinition;
   actions: Record<string, ActionDefinition>;
+  factDefinitions: Record<string, FactDefinition>;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
@@ -70,6 +78,16 @@ export function ItemDefinitionCard({
       {item.gm_notes ? <div className="muted">GM Notes: {item.gm_notes}</div> : null}
       {item.gm_special_properties ? (
         <div className="muted">GM Special Properties: {item.gm_special_properties}</div>
+      ) : null}
+      {Object.keys(item.facts ?? {}).length > 0 ? (
+        <SheetFactsSection
+          definitions={factDefinitions}
+          bridges={item.facts ?? {}}
+          canEdit={false}
+          subjectType="item"
+          onSaveFormula={() => undefined}
+          onReset={() => undefined}
+        />
       ) : null}
       <div className="inline-actions">
         <button className="button button--secondary" type="button" onClick={onEdit}>

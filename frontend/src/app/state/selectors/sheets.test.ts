@@ -11,6 +11,7 @@ import type {
 } from "@/domain/models";
 import {
   selectActiveConditions,
+  selectActiveStandaloneEffects,
   selectSheetAssignedActions,
   selectActiveSheetDetail,
   selectAvailableItems,
@@ -284,6 +285,59 @@ describe("sheet selectors", () => {
     expect(selectActiveConditions(state, "instance_player")).toEqual([
       state.serverState.activeConditions["condition:poisoned:instance_player"]
     ]);
+  });
+
+  it("joins active standalone applications to their definition and action step", () => {
+    const state = stateFixture();
+    state.serverState.actions.action_attack.steps = [
+      {
+        step_id: "effect_step",
+        augmentation_id: "effect_blessing",
+        operation: "apply",
+        type: "apply_augmentation"
+      }
+    ];
+    state.serverState.standaloneEffects.effect_blessing = {
+      id: "effect_blessing",
+      name: "Blessing",
+      scope: "instance",
+      target: { root: "instance", path: ["health"] },
+      effect: {
+        type: "formula_modifier",
+        operation: "add",
+        value: { aliases: null, text: "5" }
+      }
+    };
+    state.serverState.standaloneEffectApplications = {
+      "standalone:instance_player:effect_blessing": {
+        application_id: "standalone:instance_player:effect_blessing",
+        definition_id: "effect_blessing",
+        instance_id: "instance_player",
+        source: {
+          type: "action",
+          id: "action_attack",
+          relationship_id: "effect_step"
+        },
+        active: true
+      },
+      "standalone:instance_orphan:effect_blessing": {
+        application_id: "standalone:instance_orphan:effect_blessing",
+        definition_id: "effect_blessing",
+        instance_id: "instance_orphan",
+        source: { type: "action", id: "action_attack", relationship_id: "effect_step" },
+        active: true
+      }
+    };
+    state.serverState.standaloneEffectApplicationOrder = [
+      "standalone:instance_orphan:effect_blessing",
+      "standalone:instance_player:effect_blessing"
+    ];
+
+    const [effect] = selectActiveStandaloneEffects(state, "instance_player");
+
+    expect(effect.definition.name).toBe("Blessing");
+    expect(effect.sourceAction?.name).toBe("Arc Strike");
+    expect(effect.sourceStep?.step_id).toBe("effect_step");
   });
 
   it("resolves assigned actions from sheet or instance ids and filters stale bridges", () => {

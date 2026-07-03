@@ -62,6 +62,26 @@ def _proficiency_payload(proficiency_id: str = "magic_prof") -> dict:
     }
 
 
+def _action_fact_bridges(proficiency_id: str = "magic_prof") -> dict:
+    values = {
+        "action_rank": {"type": "enum", "value": "A"},
+        "action_range": {"type": "number", "value": 30},
+        "action_target_count": {"type": "number", "value": 1},
+        "action_area": {"type": "text", "value": "single target"},
+        "action_mana_cost": {"type": "number", "value": 100},
+        "action_base_spell_damage": {"type": "number", "value": 10},
+        "action_proficiency": {"type": "reference", "value": proficiency_id},
+    }
+    return {
+        fact_id: {
+            "relationship_id": f"action-fact-{fact_id}",
+            "fact_id": fact_id,
+            "value": value,
+        }
+        for fact_id, value in values.items()
+    }
+
+
 def _augmentation_state(augmentation_id: str = "shielded") -> Augmentation:
     return Augmentation.from_dict(
         {
@@ -140,6 +160,85 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 "/actions/battle_cry"
             )
             assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "battle_cry"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_create_action_with_canonical_fact_configuration(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["magic_prof"] = Proficiency.from_dict(
+                _proficiency_payload()
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": {
+                        **_action_payload("fire_bolt", "Fire Bolt"),
+                        "facts": _action_fact_bridges(),
+                    },
+                },
+            )
+
+            action = state.actions["fire_bolt"]
+            assert action.facts["action_rank"].evaluated_value == "A"
+            assert action.facts["action_mana_cost"].evaluated_value == 100
+            assert action.facts["action_proficiency"].evaluated_value == "magic_prof"
+            assert state.facts["action_rank"].backend_owned is True
+            assert state.facts["action_rank"].required is False
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_subject_fact_value",
+                    "subject_type": "action",
+                    "subject_id": "fire_bolt",
+                    "fact_id": "action_target_count",
+                    "value": {"type": "number", "value": 0},
+                },
+            )
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert action.facts["action_target_count"].evaluated_value == 1
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_fact_configuration_rejects_missing_proficiency(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_action",
+                    "action": {
+                        **_action_payload("fire_bolt", "Fire Bolt"),
+                        "facts": _action_fact_bridges("missing"),
+                    },
+                },
+            )
+
+            assert "fire_bolt" not in StateSingleton.getState().actions
+            assert "missing proficiency 'missing'" in websocket.sent_messages[-1]["reason"]
         finally:
             StateSingleton._state = original_state
 
@@ -806,6 +905,46 @@ def test_create_action_rejects_unknown_mutation_path(monkeypatch) -> None:
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_create_action_requires_referenced_action_fact_attachment(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"][0]["message"] = _formula_payload(
+                "@base_spell_damage",
+                [
+                    {
+                        "name": "base_spell_damage",
+                        "path": [
+                            "action",
+                            "facts",
+                            "action_base_spell_damage",
+                        ],
+                    }
+                ],
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            assert "battle_cry" not in StateSingleton.getState().actions
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Formula alias 'base_spell_damage' requires Action Fact "
+                "'action_base_spell_damage' to be attached to this action."
+            )
         finally:
             StateSingleton._state = original_state
 

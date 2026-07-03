@@ -143,7 +143,20 @@ class StateSyncService:
 
         for field_name in PRIVATE_ITEM_FIELDS:
             value.pop(field_name, None)
+        self._redact_subject_facts(value)
         return value
+
+    def _redact_subject_facts(self, value: dict[str, Any]) -> None:
+        subject_facts = value.get("facts")
+        if not isinstance(subject_facts, dict):
+            return
+        hidden_fact_ids = {
+            fact_id
+            for fact_id, fact in StateSingleton.getState().facts.items()
+            if fact.visibility == "gm_only"
+        }
+        for fact_id in hidden_fact_ids:
+            subject_facts.pop(fact_id, None)
 
     def _redact_sheet_payload(self, value: Any) -> Any:
         if is_dataclass(value):
@@ -157,6 +170,15 @@ class StateSyncService:
             value.pop(field_name, None)
         value["xp_cap"] = ""
         value["xp_given_when_slayed"] = 0
+        sheet_facts = value.get("facts")
+        if isinstance(sheet_facts, dict):
+            hidden_fact_ids = {
+                fact_id
+                for fact_id, fact in StateSingleton.getState().facts.items()
+                if fact.visibility == "gm_only"
+            }
+            for fact_id in hidden_fact_ids:
+                sheet_facts.pop(fact_id, None)
         return value
 
     def _redact_state_for_role(
@@ -168,6 +190,14 @@ class StateSyncService:
     ) -> dict[str, Any]:
         if role == "dm":
             return state
+
+        hidden_fact_ids = {
+            fact_id
+            for fact_id, fact in state.get("facts", {}).items()
+            if isinstance(fact, dict) and fact.get("visibility") == "gm_only"
+        }
+        for fact_id in hidden_fact_ids:
+            state.get("facts", {}).pop(fact_id, None)
 
         hidden_condition_ids = {
             condition_id
@@ -227,12 +257,20 @@ class StateSyncService:
                 sheet.pop(field_name, None)
             sheet["xp_cap"] = ""
             sheet["xp_given_when_slayed"] = 0
+            sheet_facts = sheet.get("facts")
+            if isinstance(sheet_facts, dict):
+                for fact_id in hidden_fact_ids:
+                    sheet_facts.pop(fact_id, None)
 
         for item in state.get("items", {}).values():
             if not isinstance(item, dict):
                 continue
             for field_name in PRIVATE_ITEM_FIELDS:
                 item.pop(field_name, None)
+            self._redact_subject_facts(item)
+        for action in state.get("actions", {}).values():
+            if isinstance(action, dict):
+                self._redact_subject_facts(action)
         return state
 
     def _redact_patch_for_role(
@@ -253,6 +291,45 @@ class StateSyncService:
                 continue
             if role == "dm":
                 redacted_ops.append(op)
+                continue
+
+            if len(segments) >= 2 and segments[0] == "facts":
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+                current_fact = StateSingleton.getState().facts.get(segments[1])
+                if current_fact is not None and current_fact.visibility != "gm_only":
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if (
+                len(segments) >= 4
+                and segments[0] == "sheets"
+                and segments[2] == "facts"
+            ):
+                current_fact = StateSingleton.getState().facts.get(segments[3])
+                if current_fact is not None and current_fact.visibility != "gm_only":
+                    redacted_ops.append(op)
+                elif op.op == "remove":
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
+                continue
+
+            if (
+                len(segments) >= 4
+                and segments[0] in {"items", "actions"}
+                and segments[2] == "facts"
+            ):
+                current_fact = StateSingleton.getState().facts.get(segments[3])
+                if current_fact is not None and current_fact.visibility != "gm_only":
+                    redacted_ops.append(op)
+                elif op.op == "remove":
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(PatchOp(op="remove", path=op.path))
                 continue
 
             if len(segments) >= 2 and segments[0] == "active_conditions":
@@ -397,6 +474,11 @@ class StateSyncService:
 
             if len(segments) >= 2 and segments[0] == "items":
                 op.value = self._redact_item_payload(op.value)
+            if len(segments) >= 2 and segments[0] == "actions":
+                if is_dataclass(op.value):
+                    op.value = asdict(op.value)
+                if isinstance(op.value, dict):
+                    self._redact_subject_facts(op.value)
             redacted_ops.append(op)
 
         redacted_patch.ops = redacted_ops
@@ -802,6 +884,33 @@ class StateSyncService:
     ) -> PatchOp:
         return self.increment_mutation(state, path, -amount)
 
+    def _synchronize_sheet_fact_projections(
+        self,
+        state: State,
+        operations: list[PatchOp],
+    ) -> list[PatchOp]:
+        affected_sheet_ids: set[str] = set()
+        for operation in operations:
+            segments = self._parse_path(operation.path)
+            if (
+                len(segments) >= 3
+                and segments[0] == "sheets"
+                and segments[2] == "stats"
+            ):
+                affected_sheet_ids.add(segments[1])
+        if not affected_sheet_ids:
+            return []
+
+        from backend.features.facts.service import reevaluate_sheet_facts_mutations
+
+        fact_operations: list[PatchOp] = []
+        for sheet_id in sorted(affected_sheet_ids):
+            if sheet_id in state.sheets:
+                fact_operations.extend(
+                    reevaluate_sheet_facts_mutations(state, sheet_id)
+                )
+        return fact_operations
+
     async def apply_mutation(
         self,
         mutation: Callable[[State], tuple[MutationResultT, list[PatchOp]]],
@@ -824,6 +933,7 @@ class StateSyncService:
                 )
 
                 ops.extend(synchronize_equipment_augmentations_mutation(state))
+                ops.extend(self._synchronize_sheet_fact_projections(state, ops))
             except Exception:
                 for state_field in fields(state):
                     setattr(
@@ -859,6 +969,9 @@ class StateSyncService:
             state = StateSingleton.getState()
             inverse_ops = self._undo_history.pop()
             applied_ops = [self._apply_patch_op(state, op) for op in inverse_ops]
+            applied_ops.extend(
+                self._synchronize_sheet_fact_projections(state, applied_ops)
+            )
             StateSingleton.dumpState()
             patch = self._next_patch(applied_ops, request_id=request_id)
             self._record_mutation(patch, source=current_request_source())

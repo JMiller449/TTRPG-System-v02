@@ -16,9 +16,16 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
+from backend.features.facts.service import validate_subject_fact_value
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation, AugmentationSource
+from backend.state.models.fact import (
+    WEAPON_FACT_IDS,
+    FactBridge,
+    evaluate_all_subject_facts,
+    synchronize_required_item_facts,
+)
 from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.state import State
 
@@ -80,6 +87,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
+        fact_profile=payload.fact_profile,
         augmentation_templates=_build_item_augmentation_templates(payload),
         action_grants=[
             ItemActionGrant(
@@ -89,7 +97,44 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
             )
             for grant in payload.action_grants
         ],
+        facts={
+            fact_id: FactBridge.from_dict(bridge.model_dump(mode="json"))
+            for fact_id, bridge in payload.facts.items()
+        },
     )
+
+
+def _validate_item_facts(item: Item, state: State) -> None:
+    synchronize_required_item_facts(item, state.facts)
+    relationship_ids: set[str] = set()
+    for fact_id, bridge in item.facts.items():
+        if bridge.fact_id != fact_id:
+            raise ValueError(
+                f"Item Fact bridge key '{fact_id}' does not match '{bridge.fact_id}'."
+            )
+        if bridge.relationship_id in relationship_ids:
+            raise ValueError(
+                f"Item Fact relationship '{bridge.relationship_id}' is duplicated."
+            )
+        relationship_ids.add(bridge.relationship_id)
+        definition = state.facts.get(fact_id)
+        if definition is None or "item" not in definition.subject_types:
+            raise ValueError(f"Item Fact '{fact_id}' does not exist.")
+        if (
+            definition.required_profile is not None
+            and definition.required_profile != item.fact_profile
+        ):
+            raise ValueError(
+                f"Fact '{fact_id}' requires item profile "
+                f"'{definition.required_profile}'."
+            )
+        validate_subject_fact_value(state, "item", item, definition, bridge.value)
+
+    if item.fact_profile == "weapon":
+        missing = [fact_id for fact_id in WEAPON_FACT_IDS if fact_id not in item.facts]
+        if missing:
+            raise ValueError("Weapon profile is missing required Facts: " + ", ".join(missing))
+    evaluate_all_subject_facts(item)
 
 
 def _validate_item_action_grants(item: Item, state: State) -> None:
@@ -152,6 +197,7 @@ async def _create_item(
         items = _items_state(state)
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
+        _validate_item_facts(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", payload.id)
@@ -177,6 +223,7 @@ async def _update_item(
         if item_id not in items:
             raise ValueError(f"Item '{item_id}' does not exist.")
 
+        _validate_item_facts(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", item_id)

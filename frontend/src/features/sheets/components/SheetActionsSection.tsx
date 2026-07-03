@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AssignedSheetAction } from "@/app/state/selectors";
-import type { ActionDefinition } from "@/domain/models";
+import type { ActionDefinition, FactDefinition } from "@/domain/models";
+import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { RollModeControl } from "@/features/rolls/RollModeControl";
 import {
@@ -15,6 +16,7 @@ import { makeId } from "@/shared/utils/id";
 export function SheetActionsSection({
   assignedActions,
   actionDefinitions,
+  factDefinitions,
   actionOrder,
   canEdit,
   onCreate,
@@ -24,6 +26,7 @@ export function SheetActionsSection({
 }: {
   assignedActions: AssignedSheetAction[];
   actionDefinitions: Record<string, ActionDefinition>;
+  factDefinitions: Record<string, FactDefinition>;
   actionOrder: string[];
   canEdit: boolean;
   onCreate: (bridge: SheetActionBridgePayload) => void;
@@ -120,6 +123,16 @@ export function SheetActionsSection({
                 </div>
               ) : null}
               <div className="muted">Steps: {entry.action.steps?.length ?? 0}</div>
+              {Object.keys(entry.action.facts ?? {}).length > 0 ? (
+                <SheetFactsSection
+                  definitions={factDefinitions}
+                  bridges={entry.action.facts ?? {}}
+                  canEdit={false}
+                  subjectType="action"
+                  onSaveFormula={() => undefined}
+                  onReset={() => undefined}
+                />
+              ) : null}
               <RollModeControl
                 value={rollMode}
                 modeKind={modeKind}

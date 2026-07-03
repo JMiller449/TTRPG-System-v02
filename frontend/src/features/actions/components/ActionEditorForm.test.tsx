@@ -24,6 +24,8 @@ function renderEditor(withSteps = false): string {
       formulas={[]}
       standaloneEffects={[]}
       conditions={[]}
+      factsEditor={null}
+      validationError={null}
     />
   );
 }

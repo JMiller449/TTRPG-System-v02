@@ -3,8 +3,17 @@ import { DAMAGE_TYPES } from "@/domain/models";
 export const COMMON_FORMULA_TAGS = [
   "check",
   "hit",
+  "attack",
   "damage",
   "healing",
+  "dodge",
+  "block",
+  "parry",
+  "contest",
+  "stealth",
+  "spell",
+  "weapon",
+  "mana_regeneration",
   "physical",
   "magical",
   ...DAMAGE_TYPES.map((damageType) => damageType.toLowerCase())

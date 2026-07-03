@@ -15,6 +15,7 @@ describe("gmConsoleToolbar", () => {
       "xp_tracker",
       "item_maker",
       "formula_authoring",
+      "fact_authoring",
       "proficiency_authoring",
       "condition_authoring",
       "effect_authoring",

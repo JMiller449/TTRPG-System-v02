@@ -1,10 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { Role } from "@/domain/models";
-import {
-  ManagedGameClient,
-  type ManagedGameClientOptions
-} from "@/infrastructure/ws/GameClient";
+import { ManagedGameClient, type ManagedGameClientOptions } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { makeId } from "@/shared/utils/id";
 
@@ -37,6 +34,9 @@ function isRoll20BridgeUnavailableError(message: string): boolean {
   return message.toLowerCase().includes("roll20 chat bridge is not connected");
 }
 
+const ROLL20_BRIDGE_SETUP_HINT =
+  "Open Roll20 with the extension loaded, then confirm the extension options use ws://127.0.0.1:6767/ws/chat and the backend SERVICE_AUTH_CODE (local default: service).";
+
 export function buildIntentSuccessMessage(label: string): string {
   return label === "State resync" ? "State resynced." : `${label} synced.`;
 }
@@ -53,7 +53,7 @@ export function buildIntentErrorMessage({
   isRoll20BridgeError: boolean;
 }): string {
   if (isRoll20BridgeError) {
-    return `${label} failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded before trying again.`;
+    return `${label} failed: Roll20 bridge disconnected. ${ROLL20_BRIDGE_SETUP_HINT}`;
   }
   if (!requestId) {
     return `Transport error: ${message}`;
@@ -109,7 +109,10 @@ export function useGameClient(): GameClient {
           dispatch({ type: "reset_session_ui" });
         }
         dispatch({ type: "set_role", role: event.authenticated ? event.role : null });
-        dispatch({ type: "set_gm_authenticated", value: event.authenticated && event.role === "gm" });
+        dispatch({
+          type: "set_gm_authenticated",
+          value: event.authenticated && event.role === "gm"
+        });
         dispatch({ type: "connection_error", error: event.reason ? event.reason : undefined });
         if (!event.authenticated && event.reason) {
           return;
@@ -122,18 +125,18 @@ export function useGameClient(): GameClient {
           const metadata = pendingIntentMapRef.current[event.requestId];
           if (metadata?.resolvesOnSnapshot) {
             resolveIntent(event.requestId);
-            }
+          }
         }
         return;
       }
       if (event.type === "ack") {
         const metadata = resolveIntent(event.requestId);
         if (metadata?.requestType === "perform_action") {
-        dispatch({
+          dispatch({
             type: "set_roll20_bridge_status",
             status: "connected",
             checkedAt: new Date().toISOString()
-        });
+          });
           dispatch({
             type: "clear_connection_error_matching",
             text: "roll20 chat bridge"
@@ -146,7 +149,7 @@ export function useGameClient(): GameClient {
         dispatch({ type: "set_player_sheet_selection_complete", value: true });
         if (event.requestId) {
           resolveIntent(event.requestId);
-            }
+        }
         return;
       }
       if (event.type === "sheet_access_codes") {
@@ -189,7 +192,9 @@ export function useGameClient(): GameClient {
           type: "set_roll20_bridge_status",
           status: event.connected ? "connected" : "disconnected",
           checkedAt: new Date().toISOString(),
-          error: event.connected ? undefined : "Roll20 chat bridge is not connected."
+          error: event.connected
+            ? undefined
+            : `Roll20 chat bridge is not connected. ${ROLL20_BRIDGE_SETUP_HINT}`
         });
         if (event.connected) {
           dispatch({
@@ -203,18 +208,18 @@ export function useGameClient(): GameClient {
           } else {
             const metadata = pendingIntentMapRef.current[event.requestId];
             delete pendingIntentMapRef.current[event.requestId];
-          dispatch({
-            type: "push_intent_feedback",
-            item: {
-              id: makeId("feedback"),
-              intentId: event.requestId,
+            dispatch({
+              type: "push_intent_feedback",
+              item: {
+                id: makeId("feedback"),
+                intentId: event.requestId,
                 status: "error",
-                message: `${metadata?.label ?? "Roll20 bridge status"} failed: Roll20 bridge disconnected.`,
-              createdAt: new Date().toISOString()
-            }
-          });
-          dispatch({ type: "clear_intent", intentId: event.requestId });
-        }
+                message: `${metadata?.label ?? "Roll20 bridge status"} failed: Roll20 bridge disconnected. ${ROLL20_BRIDGE_SETUP_HINT}`,
+                createdAt: new Date().toISOString()
+              }
+            });
+            dispatch({ type: "clear_intent", intentId: event.requestId });
+          }
         }
         return;
       }
@@ -241,9 +246,7 @@ export function useGameClient(): GameClient {
         dispatch({ type: "connection_error", error: event.message });
         return;
       }
-      const metadata = event.requestId
-        ? pendingIntentMapRef.current[event.requestId]
-        : undefined;
+      const metadata = event.requestId ? pendingIntentMapRef.current[event.requestId] : undefined;
       const label = metadata?.label ?? (event.requestId ? "Intent" : "Transport");
       const isRoll20BridgeError = isRoll20BridgeUnavailableError(event.message);
       if (isRoll20BridgeError) {
@@ -251,11 +254,11 @@ export function useGameClient(): GameClient {
           type: "set_roll20_bridge_status",
           status: "disconnected",
           checkedAt: new Date().toISOString(),
-          error: event.message
+          error: `${event.message} ${ROLL20_BRIDGE_SETUP_HINT}`
         });
       }
       if (!event.requestId) {
-      dispatch({ type: "connection_error", error: event.message });
+        dispatch({ type: "connection_error", error: event.message });
       }
       dispatch({
         type: "push_intent_feedback",

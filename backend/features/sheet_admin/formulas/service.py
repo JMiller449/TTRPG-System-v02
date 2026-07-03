@@ -40,21 +40,47 @@ def _valid_formula_paths(state: State | None = None) -> set[tuple[str, ...]]:
     return paths
 
 
+def _validate_alias_paths(
+    aliases: list[tuple[str, list[str]]],
+    *,
+    additional_paths: set[tuple[str, ...]] | None = None,
+    state: State | None = None,
+) -> None:
+    valid_paths = _valid_formula_paths(state) | (additional_paths or set())
+    for alias_name, path in aliases:
+        alias_path = tuple(path)
+        if alias_path not in valid_paths:
+            raise ValueError(
+                "Formula alias "
+                f"'{alias_name}' references unsupported path "
+                f"'{_format_path(path)}'."
+            )
+
+
 def validate_formula_payload_paths(
     formula: FormulaPayload,
     *,
     additional_paths: set[tuple[str, ...]] | None = None,
     state: State | None = None,
 ) -> None:
-    valid_paths = _valid_formula_paths(state) | (additional_paths or set())
-    for alias in formula.aliases or []:
-        alias_path = tuple(alias.path)
-        if alias_path not in valid_paths:
-            raise ValueError(
-                "Formula alias "
-                f"'{alias.name}' references unsupported path "
-                f"'{_format_path(alias.path)}'."
-            )
+    _validate_alias_paths(
+        [(alias.name, list(alias.path)) for alias in formula.aliases or []],
+        additional_paths=additional_paths,
+        state=state,
+    )
+
+
+def validate_formula_alias_paths(
+    formula: Formula,
+    *,
+    additional_paths: set[tuple[str, ...]] | None = None,
+    state: State | None = None,
+) -> None:
+    _validate_alias_paths(
+        [(alias.name, list(alias.path)) for alias in formula.aliases or []],
+        additional_paths=additional_paths,
+        state=state,
+    )
 
 
 def build_formula(

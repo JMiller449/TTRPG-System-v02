@@ -10,8 +10,15 @@ DUMP_INTERVAL_SECONDS = 6000
 
 
 async def _periodic_dump(stop_event: asyncio.Event) -> None:
-    while not stop_event.is_set():
-        await asyncio.sleep(DUMP_INTERVAL_SECONDS)
+    while True:
+        try:
+            await asyncio.wait_for(
+                stop_event.wait(),
+                timeout=DUMP_INTERVAL_SECONDS,
+            )
+            return
+        except TimeoutError:
+            pass
         StateSingleton.dumpState()
 
 

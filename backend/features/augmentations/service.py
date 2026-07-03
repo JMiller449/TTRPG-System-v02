@@ -54,10 +54,55 @@ class _ResolvedTarget:
     target_id: str | None
 
 
-def _evaluate_formula(root: Any, augmentation: Augmentation) -> float | int:
+class _AugmentationFormulaRoot:
+    def __init__(self, state: State, target_root: Any, augmentation: Augmentation) -> None:
+        self._target_root = target_root
+        self.instance = target_root if hasattr(target_root, "parent_id") else None
+        self.sheet = target_root
+        if self.instance is not None:
+            self.sheet = state.sheets.get(self.instance.parent_id)
+        self.source_item = _source_item_formula_values(state, augmentation)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._target_root, name)
+
+
+def _source_item_formula_values(
+    state: State,
+    augmentation: Augmentation,
+) -> dict[str, dict[str, float | int]] | None:
+    if augmentation.source.type != "item" or augmentation.source.id is None:
+        return None
+    item = state.items.get(augmentation.source.id)
+    if item is None:
+        return None
+    values: dict[str, float | int] = {}
+    for fact_id, bridge in item.facts.items():
+        definition = state.facts.get(fact_id)
+        if (
+            definition is None
+            or definition.value_type != "number"
+            or "item" not in definition.subject_types
+            or (
+                definition.required_profile is not None
+                and definition.required_profile != item.fact_profile
+            )
+            or bridge.evaluation_error is not None
+            or isinstance(bridge.evaluated_value, bool)
+            or not isinstance(bridge.evaluated_value, int | float)
+        ):
+            continue
+        values[fact_id] = bridge.evaluated_value
+    return {"facts": values}
+
+
+def _evaluate_formula(state: State, root: Any, augmentation: Augmentation) -> float | int:
     if augmentation.effect.type == "roll_mode_modifier":
         raise ValueError("Roll-mode modifier effects do not contain numeric formulas.")
-    return evaluate_numeric_formula(root, augmentation.effect.value)
+    return evaluate_numeric_formula(
+        _AugmentationFormulaRoot(state, root, augmentation),
+        augmentation.effect.value,
+    )
 
 
 def _is_evaluation_time_effect(augmentation: Augmentation) -> bool:
@@ -342,7 +387,7 @@ def _sync_equipment_direct_effects(
                 ),
             )
             current_value = _current_numeric_value(working_state, target_path)
-            modifier = _evaluate_formula(target.root, augmentation)
+            modifier = _evaluate_formula(working_state, target.root, augmentation)
             next_value = apply_numeric_operation(
                 current_value,
                 modifier,
@@ -831,7 +876,7 @@ def _apply_condition_effect_mutation(
         )
 
     current_value = _current_numeric_value(state, target.state_path)
-    modifier = _evaluate_formula(target.root, augmentation)
+    modifier = _evaluate_formula(state, target.root, augmentation)
     next_value = apply_numeric_operation(
         current_value,
         modifier,
@@ -910,7 +955,7 @@ def _remove_condition_effect_mutation(
         )
 
     current_value = _current_numeric_value(state, target.state_path)
-    modifier = _evaluate_formula(target.root, augmentation)
+    modifier = _evaluate_formula(state, target.root, augmentation)
     next_value = _remove_operation(
         current_value,
         modifier,

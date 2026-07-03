@@ -18,8 +18,17 @@
         <p>
           <label>
             Service authentication code
-            <input id="service-auth-code" type="password" required />
+            <input
+              id="service-auth-code"
+              type="password"
+              autocomplete="off"
+              required
+            />
           </label>
+        </p>
+        <p>
+          Local development defaults to <code>service</code>. Use the backend's
+          <code>SERVICE_AUTH_CODE</code> value if you changed it.
         </p>
         <button type="submit">Save</button>
         <span id="save-status" role="status" aria-live="polite"></span>

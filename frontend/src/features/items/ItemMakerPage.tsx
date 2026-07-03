@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
+import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
 import {
   createEmptyAugmentationEditorValues,
@@ -42,10 +43,11 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         facts: factDefinitions,
         proficiencies: proficiencyRecords
       },
-      uiState: { augmentationTargetMetadata }
+      uiState: { actionFormulaAuthoringMetadata, augmentationTargetMetadata }
     },
     dispatch
   } = useAppStore();
+  const requestedFormulaMetadata = useRef(false);
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
@@ -85,6 +87,15 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     const submission = buildLoadItemAugmentationTargetMetadataSubmission();
     client.sendProtocolRequest(submission.request, submission.label);
   }, [augmentationTargetMetadata?.context, client]);
+
+  useEffect(() => {
+    if (actionFormulaAuthoringMetadata || requestedFormulaMetadata.current) {
+      return;
+    }
+    requestedFormulaMetadata.current = true;
+    const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [actionFormulaAuthoringMetadata, client]);
 
   const resetAugmentationEditor = (): void => {
     setEditingAugmentationId(null);
@@ -196,6 +207,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
               templates={values.augmentationTemplates}
               targetOptions={targetOptions}
               selectorOptions={selectorOptions}
+              formulaMetadata={actionFormulaAuthoringMetadata}
               values={augmentationValues}
               onChange={setAugmentationValues}
               onSubmit={submitAugmentation}

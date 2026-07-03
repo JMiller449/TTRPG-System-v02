@@ -61,12 +61,8 @@ def test_canonical_spreadsheet_formulas_expand_to_roll20_expressions() -> None:
             "Weapon Damage: /r floor((15) + (1 + (0.8)) * "
             "(1d100 / 100) * (25))"
         ),
-        "weapon_parry": (
-            "Weapon Parry: /r floor((0.8) * (1d100 / 100) * (26))"
-        ),
-        "weapon_contest": (
-            "Weapon Contest: /r floor((0.8) * (1d100 / 100) * (25))"
-        ),
+        "weapon_parry": "Weapon Parry: /r floor((0.8) * (1d100 / 100) * (26))",
+        "weapon_contest": "Weapon Contest: /r floor((0.8) * (1d100 / 100) * (25))",
         "spell_to_hit": (
             "Spell To-Hit: /r floor((1 + (0.5)) * (1d100 / 100) * (28))"
         ),

@@ -20,7 +20,7 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 
 ## Before adding a new feature or completing a large refactor, follow this six-step workflow: (Pause for user confirmation and review between each step. Following this workflow is unnecessary for small changes requested explicitly by the user)
 
-1. **Define the goal:** Restate the requested change, its purpose, constraints, non-goals, and expected outcome.
+1. **Define the goal:** Restate the requested change or identify the next logical implementation step according to ./plan/active/PLAN.md, its purpose, constraints, non-goals, and expected outcome.
 
 2. **Clarify requirements:** Identify ambiguity, assumptions, edge cases, and measurable acceptance criteria. Resolve what you can from the available documentation and code.
 

@@ -503,14 +503,14 @@ def test_default_baseline_check_executes_as_sheet_action(monkeypatch) -> None:
                 "sheet_id": "mage_template",
                 "action_id": "baseline_check_strength",
                 "applied_mutations": [],
-            "emitted_messages": ["Strength Check: /r (1d100 / 100) * (10)"],
+                "emitted_messages": ["Strength Check: [[(1d100 / 100) * (10)]]"],
                 "type": "action_executed",
                 "request_id": "req-2",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                "message": "Strength Check: /r (1d100 / 100) * (10)",
+                    "message": "Strength Check: [[(1d100 / 100) * (10)]]",
                     "type": "chat_message",
                     "request_id": "req-2",
                 }
@@ -556,22 +556,20 @@ def test_default_dodge_and_block_presets_execute_as_sheet_actions(monkeypatch) -
                 "sheet_id": "mage_template",
                 "action_id": "block",
                 "applied_mutations": [],
-                "emitted_messages": [
-                    "Block: /r floor((10) * (1d100 / 100))"
-                ],
+                "emitted_messages": ["Block: [[floor((10) * (1d100 / 100))]]"],
                 "type": "action_executed",
                 "request_id": "req-3",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                    "message": "Dodge: /r floor((11) * (1d100 / 100))",
+                    "message": "Dodge: [[floor((11) * (1d100 / 100))]]",
                     "type": "chat_message",
                     "request_id": "req-2",
                 },
                 {
                     "message_id": bridge_socket.sent_messages[1]["message_id"],
-                    "message": "Block: /r floor((10) * (1d100 / 100))",
+                    "message": "Block: [[floor((10) * (1d100 / 100))]]",
                     "type": "chat_message",
                     "request_id": "req-3",
                 }

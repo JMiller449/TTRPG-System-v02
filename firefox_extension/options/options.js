@@ -1,5 +1,6 @@
 (function () {
   const DEFAULT_BACKEND_WS_URL = "ws://127.0.0.1:6767/ws/chat";
+  const DEFAULT_SERVICE_AUTH_CODE = "service";
   const form = document.querySelector("#bridge-settings");
   const backendUrlInput = document.querySelector("#backend-ws-url");
   const serviceCodeInput = document.querySelector("#service-auth-code");
@@ -8,7 +9,7 @@
   async function restoreSettings() {
     const settings = await browser.storage.local.get({
       backendWsUrl: DEFAULT_BACKEND_WS_URL,
-      serviceAuthCode: "",
+      serviceAuthCode: DEFAULT_SERVICE_AUTH_CODE,
     });
     backendUrlInput.value = settings.backendWsUrl;
     serviceCodeInput.value = settings.serviceAuthCode;

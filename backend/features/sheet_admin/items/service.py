@@ -17,12 +17,16 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.facts.service import validate_subject_fact_value
+from backend.features.sheet_admin.formulas.service import validate_formula_alias_paths
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.fact import (
     WEAPON_FACT_IDS,
+    WEAPON_GOVERNING_STAT_FACT_ID,
+    WEAPON_PROFICIENCY_FACT_ID,
     FactBridge,
+    FactDefinition,
     evaluate_all_subject_facts,
     synchronize_required_item_facts,
 )
@@ -51,6 +55,140 @@ def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
         raise ValueError(
             "Item augmentation template target "
             f"'{_target_label(augmentation)}' is not allowed."
+        )
+
+
+def _is_valid_numeric_fact(bridge: FactBridge) -> bool:
+    value = bridge.evaluated_value
+    return (
+        bridge.evaluation_error is None
+        and isinstance(value, int | float)
+        and not isinstance(value, bool)
+    )
+
+
+def _validate_item_numeric_fact_alias(
+    *,
+    state: State,
+    item: Item,
+    fact_id: str,
+    alias_name: str,
+) -> None:
+    definition = state.facts.get(fact_id)
+    if (
+        definition is None
+        or definition.value_type != "number"
+        or "item" not in definition.subject_types
+    ):
+        raise ValueError(
+            f"Formula alias '{alias_name}' does not reference a numeric item Fact."
+        )
+    _validate_item_fact_profile(definition, item, alias_name)
+    bridge = item.facts.get(fact_id)
+    if bridge is None or bridge.fact_id != fact_id:
+        raise ValueError(
+            f"Formula alias '{alias_name}' references Fact '{fact_id}', but it is "
+            "not attached to this item."
+        )
+    if bridge.evaluation_error is not None:
+        raise ValueError(
+            f"Formula alias '{alias_name}' references invalid Fact '{fact_id}': "
+            f"{bridge.evaluation_error}"
+        )
+    if not _is_valid_numeric_fact(bridge):
+        raise ValueError(
+            f"Formula alias '{alias_name}' references Fact '{fact_id}', but its "
+            "evaluated value is not numeric."
+        )
+
+
+def _validate_item_fact_profile(
+    definition: FactDefinition,
+    item: Item,
+    alias_name: str,
+) -> None:
+    if (
+        definition.required_profile is not None
+        and definition.required_profile != item.fact_profile
+    ):
+        raise ValueError(
+            f"Formula alias '{alias_name}' requires source-item profile "
+            f"'{definition.required_profile}'."
+        )
+
+
+def _validate_item_resolved_alias(
+    *,
+    item: Item,
+    path: list[str],
+    alias_name: str,
+) -> None:
+    if path == ["source_item", "resolved", "governing_stat"]:
+        required_fact_id = WEAPON_GOVERNING_STAT_FACT_ID
+    elif path == ["source_item", "resolved", "proficiency_modifier"]:
+        required_fact_id = WEAPON_PROFICIENCY_FACT_ID
+    else:
+        raise ValueError(f"Source-item alias '{alias_name}' is not supported.")
+
+    if item.fact_profile != "weapon" or required_fact_id not in item.facts:
+        raise ValueError(
+            f"Source-item alias '{alias_name}' requires a weapon item with "
+            f"Fact '{required_fact_id}'."
+        )
+
+
+def _validate_item_augmentation_formula_aliases(
+    *,
+    state: State,
+    item: Item,
+    augmentation: Augmentation,
+) -> None:
+    if augmentation.effect.type == "roll_mode_modifier":
+        return
+
+    formula = augmentation.effect.value
+    validate_formula_alias_paths(formula, state=state)
+    for alias in formula.aliases or []:
+        path = list(alias.path)
+        if path and path[0] == "action":
+            if augmentation.effect.type == "formula_modifier":
+                raise ValueError(
+                    f"Formula alias '{alias.name}' cannot use action context in a "
+                    "direct wearer effect."
+                )
+            continue
+        if len(path) >= 2 and path[:2] == ["source_item", "facts"]:
+            if len(path) != 3:
+                raise ValueError(
+                    f"Source-item Fact alias '{alias.name}' must reference "
+                    "source_item.facts.<fact_id>."
+                )
+            _validate_item_numeric_fact_alias(
+                state=state,
+                item=item,
+                fact_id=path[2],
+                alias_name=alias.name,
+            )
+            continue
+        if path[:2] == ["source_item", "resolved"]:
+            if augmentation.effect.type == "formula_modifier":
+                raise ValueError(
+                    f"Formula alias '{alias.name}' cannot use resolved source-item "
+                    "context in a direct wearer effect."
+                )
+            _validate_item_resolved_alias(
+                item=item,
+                path=path,
+                alias_name=alias.name,
+            )
+
+
+def _validate_item_augmentation_formulas(item: Item, state: State) -> None:
+    for augmentation in item.augmentation_templates:
+        _validate_item_augmentation_formula_aliases(
+            state=state,
+            item=item,
+            augmentation=augmentation,
         )
 
 
@@ -198,6 +336,7 @@ async def _create_item(
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
         _validate_item_facts(item, state)
+        _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", payload.id)
@@ -224,6 +363,7 @@ async def _update_item(
             raise ValueError(f"Item '{item_id}' does not exist.")
 
         _validate_item_facts(item, state)
+        _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
         path = state_sync_service.join_path("items", item_id)
@@ -326,6 +466,16 @@ async def upsert_item_augmentation_template(
         if item.interaction_type != "equippable":
             raise ValueError("Only equippable items can have augmentation templates.")
         augmentation.source.label = item.name
+        candidate = deepcopy(item)
+        replaced = False
+        for index, current in enumerate(candidate.augmentation_templates):
+            if current.id == augmentation.id:
+                candidate.augmentation_templates[index] = augmentation
+                replaced = True
+                break
+        if not replaced:
+            candidate.augmentation_templates.append(augmentation)
+        _validate_item_augmentation_formulas(candidate, state)
 
         for index, current in enumerate(item.augmentation_templates):
             if current.id == augmentation.id:

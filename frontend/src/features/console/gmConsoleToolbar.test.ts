@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { GM_TOOLBAR_NAV_ITEMS, orderedEncounterPresets } from "@/features/console/gmConsoleToolbar";
+import {
+  GM_TOOLBAR_NAV_ITEMS,
+  orderedEncounterPresets
+} from "@/features/console/gmConsoleToolbarData";
 
 describe("gmConsoleToolbar", () => {
   it("defines one unique option for every GM page", () => {

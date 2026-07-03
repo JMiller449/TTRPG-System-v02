@@ -7,7 +7,7 @@ from typing import Any
 
 from backend.state.default_actions import seeded_global_action_payloads
 
-CURRENT_STATE_SCHEMA_VERSION = 11
+CURRENT_STATE_SCHEMA_VERSION = 12
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -743,6 +743,90 @@ def _migrate_v10_to_v11(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 11, "state": state}
 
 
+def _item_fact_definition(
+    fact_id: str,
+    name: str,
+    value_type: str,
+    default_value: Any,
+    *,
+    description: str,
+    unit: str = "",
+) -> dict[str, Any]:
+    return {
+        "id": fact_id,
+        "name": name,
+        "description": description,
+        "subject_types": ["item"],
+        "value_type": value_type,
+        "default_value": _literal_fact_value(value_type, default_value),
+        "unit": unit,
+        "visibility": "public",
+        "validation_options": [],
+        "reference_kind": None,
+        "required": False,
+        "required_profile": None,
+        "backend_owned": True,
+    }
+
+
+def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    facts = state.setdefault("facts", {})
+    if not isinstance(facts, dict):
+        facts = {}
+        state["facts"] = facts
+
+    definitions = (
+        _item_fact_definition(
+            "item_attribute",
+            "Attribute",
+            "text",
+            "",
+            description=(
+                "Authored item attribute such as Fire. Display data unless an "
+                "eligible action or augmentation explicitly consumes it."
+            ),
+        ),
+        _item_fact_definition(
+            "item_mana_efficiency",
+            "Mana Efficiency",
+            "number",
+            100,
+            description=(
+                "Authored mana-conductivity efficiency. This does not execute "
+                "mana behavior by itself."
+            ),
+            unit="%",
+        ),
+        _item_fact_definition(
+            "item_flat_effect_bonus",
+            "Flat Effect Bonus",
+            "number",
+            0,
+            description=(
+                "Flat bonus available as authored item data for eligible formulas "
+                "or effects."
+            ),
+            unit="bonus",
+        ),
+        _item_fact_definition(
+            "item_mana_regeneration_modifier",
+            "Mana Regeneration Modifier",
+            "number",
+            0,
+            description=(
+                "Authored mana-regeneration modifier. Time advancement and "
+                "regeneration remain manual."
+            ),
+            unit="%",
+        ),
+    )
+    for definition in definitions:
+        facts[definition["id"]] = definition
+
+    return {"schema_version": 12, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -755,6 +839,7 @@ MIGRATIONS: dict[int, Migration] = {
     8: _migrate_v8_to_v9,
     9: _migrate_v9_to_v10,
     10: _migrate_v10_to_v11,
+    11: _migrate_v11_to_v12,
 }
 
 

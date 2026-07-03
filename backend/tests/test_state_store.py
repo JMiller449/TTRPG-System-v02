@@ -377,6 +377,48 @@ def test_v10_migration_adds_backend_owned_optional_sheet_facts() -> None:
     )
 
 
+def test_v11_migration_adds_backend_owned_optional_item_facts() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 11,
+            "state": {
+                "facts": {
+                    "custom": {
+                        "id": "custom",
+                        "name": "Custom",
+                        "subject_types": ["item"],
+                        "value_type": "text",
+                        "default_value": {"type": "text", "value": "kept"},
+                    }
+                }
+            },
+        }
+    )
+
+    facts = migrated.state["facts"]
+    assert facts["custom"]["default_value"]["value"] == "kept"
+    assert facts["item_attribute"]["value_type"] == "text"
+    assert facts["item_attribute"]["default_value"]["value"] == ""
+    assert facts["item_mana_efficiency"]["default_value"]["value"] == 100
+    assert facts["item_mana_efficiency"]["unit"] == "%"
+    assert facts["item_flat_effect_bonus"]["default_value"]["value"] == 0
+    assert facts["item_flat_effect_bonus"]["unit"] == "bonus"
+    assert facts["item_mana_regeneration_modifier"]["default_value"]["value"] == 0
+    assert facts["item_mana_regeneration_modifier"]["unit"] == "%"
+    assert all(
+        facts[fact_id]["backend_owned"] is True
+        and facts[fact_id]["required"] is False
+        and facts[fact_id]["subject_types"] == ["item"]
+        and facts[fact_id]["required_profile"] is None
+        for fact_id in (
+            "item_attribute",
+            "item_mana_efficiency",
+            "item_flat_effect_bonus",
+            "item_mana_regeneration_modifier",
+        )
+    )
+
+
 def test_initialize_recovers_from_backup_when_primary_is_corrupt(
     isolate_state: Path,
 ) -> None:

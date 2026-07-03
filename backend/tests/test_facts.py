@@ -120,6 +120,26 @@ def test_canonical_optional_sheet_fact_definitions_are_seeded() -> None:
         assert fact_id not in sheet.facts
 
 
+def test_canonical_optional_item_fact_definitions_are_seeded() -> None:
+    state = deepcopy(DEFAULT_STATE)
+
+    expected = {
+        "item_attribute": ("text", "", ""),
+        "item_mana_efficiency": ("number", 100, "%"),
+        "item_flat_effect_bonus": ("number", 0, "bonus"),
+        "item_mana_regeneration_modifier": ("number", 0, "%"),
+    }
+    for fact_id, (value_type, default_value, unit) in expected.items():
+        definition = state.facts[fact_id]
+        assert definition.subject_types == ["item"]
+        assert definition.value_type == value_type
+        assert definition.default_value.value == default_value
+        assert definition.unit == unit
+        assert definition.required is False
+        assert definition.required_profile is None
+        assert definition.backend_owned is True
+
+
 def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

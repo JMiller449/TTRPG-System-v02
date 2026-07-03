@@ -34,6 +34,10 @@ WEAPON_PROFICIENCY_GROWTH_RATE_FACT_ID = "weapon_proficiency_growth_rate"
 LEVEL_FACT_ID = "level"
 MOVEMENT_FACT_ID = "movement"
 MANA_REGENERATION_FACT_ID = "mana_regeneration"
+ITEM_ATTRIBUTE_FACT_ID = "item_attribute"
+ITEM_MANA_EFFICIENCY_FACT_ID = "item_mana_efficiency"
+ITEM_FLAT_EFFECT_BONUS_FACT_ID = "item_flat_effect_bonus"
+ITEM_MANA_REGENERATION_MODIFIER_FACT_ID = "item_mana_regeneration_modifier"
 
 WEAPON_FACT_IDS = (
     WEAPON_TYPE_FACT_ID,
@@ -66,6 +70,13 @@ SHEET_FACT_IDS = (
     LEVEL_FACT_ID,
     MOVEMENT_FACT_ID,
     MANA_REGENERATION_FACT_ID,
+)
+
+ITEM_FACT_IDS = (
+    ITEM_ATTRIBUTE_FACT_ID,
+    ITEM_MANA_EFFICIENCY_FACT_ID,
+    ITEM_FLAT_EFFECT_BONUS_FACT_ID,
+    ITEM_MANA_REGENERATION_MODIFIER_FACT_ID,
 )
 
 
@@ -397,11 +408,71 @@ def action_fact_definitions() -> dict[str, FactDefinition]:
     return {definition.id: definition for definition in definitions}
 
 
+def item_fact_definitions() -> dict[str, FactDefinition]:
+    shared = {
+        "subject_types": ["item"],
+        "visibility": "public",
+        "required": False,
+        "backend_owned": True,
+    }
+    definitions = (
+        FactDefinition(
+            id=ITEM_ATTRIBUTE_FACT_ID,
+            name="Attribute",
+            description=(
+                "Authored item attribute such as Fire. Display data unless an "
+                "eligible action or augmentation explicitly consumes it."
+            ),
+            value_type="text",
+            default_value=FactValue(type="text", value=""),
+            **shared,
+        ),
+        FactDefinition(
+            id=ITEM_MANA_EFFICIENCY_FACT_ID,
+            name="Mana Efficiency",
+            description=(
+                "Authored mana-conductivity efficiency. This does not execute "
+                "mana behavior by itself."
+            ),
+            value_type="number",
+            default_value=FactValue(type="number", value=100),
+            unit="%",
+            **shared,
+        ),
+        FactDefinition(
+            id=ITEM_FLAT_EFFECT_BONUS_FACT_ID,
+            name="Flat Effect Bonus",
+            description=(
+                "Flat bonus available as authored item data for eligible formulas "
+                "or effects."
+            ),
+            value_type="number",
+            default_value=FactValue(type="number", value=0),
+            unit="bonus",
+            **shared,
+        ),
+        FactDefinition(
+            id=ITEM_MANA_REGENERATION_MODIFIER_FACT_ID,
+            name="Mana Regeneration Modifier",
+            description=(
+                "Authored mana-regeneration modifier. Time advancement and "
+                "regeneration remain manual."
+            ),
+            value_type="number",
+            default_value=FactValue(type="number", value=0),
+            unit="%",
+            **shared,
+        ),
+    )
+    return {definition.id: definition for definition in definitions}
+
+
 def backend_fact_definitions() -> dict[str, FactDefinition]:
     return {
         **required_fact_definitions(),
         **sheet_fact_definitions(),
         **action_fact_definitions(),
+        **item_fact_definitions(),
     }
 
 

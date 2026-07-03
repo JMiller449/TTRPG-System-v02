@@ -28,6 +28,7 @@ export function SheetFactsSection({
   definitions,
   bridges,
   canEdit,
+  compact = false,
   onSaveFormula,
   onSaveValue,
   onReset,
@@ -39,6 +40,7 @@ export function SheetFactsSection({
   definitions: Record<string, FactDefinition>;
   bridges: Record<string, FactBridge>;
   canEdit: boolean;
+  compact?: boolean;
   onSaveFormula: (factId: string, formula: Formula) => void;
   onSaveValue?: (factId: string, value: FactValue) => void;
   onReset: (factId: string) => void;
@@ -67,10 +69,15 @@ export function SheetFactsSection({
   }
 
   return (
-    <section className="stack" aria-labelledby="sheet-facts-title">
+    <section
+      className={`stack sheet-facts ${compact ? "sheet-facts--compact" : ""}`}
+      aria-labelledby="sheet-facts-title"
+    >
       <div>
-        <h4 id="sheet-facts-title">Facts</h4>
-        <p className="muted">Backend-evaluated named values for this {subjectType}.</p>
+        <h4 id="sheet-facts-title">{compact ? "Derived" : "Facts"}</h4>
+        {!compact ? (
+          <p className="muted">Backend-evaluated named values for this {subjectType}.</p>
+        ) : null}
       </div>
       {canEdit && onAttach && availableDefinitions.length > 0 ? (
         <div className="inline-actions">
@@ -106,6 +113,7 @@ export function SheetFactsSection({
           definition={definitions[bridge.fact_id]}
           bridge={bridge}
           canEdit={canEdit}
+          compact={compact}
           onSaveFormula={onSaveFormula}
           onSaveValue={onSaveValue}
           onReset={onReset}
@@ -121,6 +129,7 @@ function SheetFactCard({
   definition,
   bridge,
   canEdit,
+  compact,
   onSaveFormula,
   onSaveValue,
   onReset,
@@ -130,6 +139,7 @@ function SheetFactCard({
   definition: FactDefinition | undefined;
   bridge: FactBridge;
   canEdit: boolean;
+  compact: boolean;
   onSaveFormula: (factId: string, formula: Formula) => void;
   onSaveValue?: (factId: string, value: FactValue) => void;
   onReset: (factId: string) => void;
@@ -157,19 +167,19 @@ function SheetFactCard({
   const displayedValue = displayedBridgeValue(bridge);
 
   return (
-    <article className="card stack">
+    <article className={`card stack sheet-fact-card ${compact ? "sheet-fact-card--compact" : ""}`}>
       <div className="inline-actions">
         <strong>{name}</strong>
-        {definition?.required ? <span className="badge">Required</span> : null}
+        {definition?.required && !compact ? <span className="badge">Required</span> : null}
       </div>
       <div>
-        <span className="muted">Value: </span>
+        {!compact ? <span className="muted">Value: </span> : null}
         <strong>
           {displayFactValue(displayedValue)}
           {displayedValue === null || displayedValue === undefined ? "" : unit}
         </strong>
       </div>
-      {definition?.description ? <p className="muted">{definition.description}</p> : null}
+      {definition?.description && !compact ? <p className="muted">{definition.description}</p> : null}
       {bridge.evaluation_error ? (
         <p role="alert" className="form-error">
           {bridge.evaluation_error}

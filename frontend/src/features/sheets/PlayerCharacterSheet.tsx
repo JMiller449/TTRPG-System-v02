@@ -46,10 +46,16 @@ import { makeId } from "@/shared/utils/id";
 export function PlayerCharacterSheet({
   mode = "player",
   panelTitle,
+  activeTab: controlledActiveTab,
+  onActiveTabChange,
+  showTabs = true,
   client
 }: {
   mode?: "player" | "gm";
   panelTitle?: string;
+  activeTab?: PlayerSheetTab;
+  onActiveTabChange?: (tab: PlayerSheetTab) => void;
+  showTabs?: boolean;
   client: GameClient;
 }): JSX.Element {
   const {
@@ -74,8 +80,10 @@ export function PlayerCharacterSheet({
     setSelectedItemId
   } = useSheetDetailState();
 
-  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("stats");
+  const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("stats");
   const requestedFormulaMetadataRef = useRef(false);
+  const activeTab = controlledActiveTab ?? localActiveTab;
+  const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
   const statEditor = useStatModifierEditor({
     resetToken: detail?.instance.id,
@@ -93,8 +101,10 @@ export function PlayerCharacterSheet({
   });
 
   useEffect(() => {
-    setActiveTab("stats");
-  }, [detail?.instance.id]);
+    if (!controlledActiveTab) {
+      setLocalActiveTab("stats");
+    }
+  }, [controlledActiveTab, detail?.instance.id]);
 
   useEffect(() => {
     if (mode !== "gm" || actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
@@ -153,7 +163,9 @@ export function PlayerCharacterSheet({
 
   return (
     <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
-      <p className="character-sheet__panel-subtext muted">Sheet ID: {detail.instance.id}</p>
+      {mode === "gm" ? (
+        <p className="character-sheet__panel-subtext muted">Sheet ID: {detail.instance.id}</p>
+      ) : null}
       <article className="character-sheet">
         <header className="character-sheet__header">
           <div className="character-sheet__header-main">
@@ -177,7 +189,7 @@ export function PlayerCharacterSheet({
           </div>
         </header>
 
-        <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} />
+        {showTabs ? <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} /> : null}
 
         {showStatsSection ? (
           <div
@@ -188,6 +200,7 @@ export function PlayerCharacterSheet({
           >
             <SheetStatsSection
               canEditStats={canEditStats}
+              compact={mode === "player"}
               stats={detail.stats}
               editingKey={statEditor.editingKey}
               draftModifier={statEditor.draftModifier}
@@ -205,6 +218,7 @@ export function PlayerCharacterSheet({
               definitions={factDefinitions}
               bridges={detail.sheet?.facts ?? {}}
               canEdit={canEditStats && Boolean(sheetId)}
+              compact={mode === "player"}
               onSaveFormula={(factId, formula) => {
                 if (!sheetId) {
                   return;

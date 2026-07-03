@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
+import systemMark from "@/assets/system-mark.svg";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
@@ -38,12 +39,22 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
   };
 
   return (
-    <div className="landing-shell">
-      <div className="landing-card">
-        <h1>TTRPG Sheet Console</h1>
-        <p className="muted">
-          Enter your player or GM code. The backend decides which console access that code grants.
-        </p>
+    <div className="r6-theme landing-shell">
+      <div className="landing-card landing-card--system">
+        <header className="landing-card__header">
+          <img className="landing-card__mark" src={systemMark} alt="" aria-hidden="true" />
+          <div>
+            <p className="landing-card__eyebrow">Backend Authoritative Interface</p>
+            <h1>TTRPG Sheet Console</h1>
+            <p className="muted">Enter your player or GM code.</p>
+          </div>
+        </header>
+
+        <div className="landing-status-strip" aria-label="Connection status">
+          <span className={`pill pill--${connection.status}`}>{connection.status}</span>
+          {isConnecting ? <span className="pill pill--connecting">connecting...</span> : null}
+          <span className="landing-status-strip__meta">WebSocket /ws</span>
+        </div>
 
         <Panel title="Enter Code">
           <div className="stack">
@@ -65,11 +76,6 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
             >
               Enter Console
             </button>
-
-            <div className="status-row">
-              <span className={`pill pill--${connection.status}`}>{connection.status}</span>
-              {isConnecting ? <span className="pill pill--connecting">connecting...</span> : null}
-            </div>
 
             {localError ? <p className="error-text">{localError}</p> : null}
             {connection.error ? <p className="error-text">{connection.error}</p> : null}

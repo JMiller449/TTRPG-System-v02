@@ -112,16 +112,16 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
         />
         <div className="roll-panel__footer">
           <div className="equation-preview">
-            <span className="muted">Action Request</span>
+            <span className="muted">Selected Action</span>
             {selectedQuickActionResolution ? (
-              <code>
-                perform_action: {activeSheetId} / {selectedQuickActionResolution.actionId} /{" "}
-                {effectiveRollMode}
-              </code>
+              <p>
+                <strong>{selectedQuickActionResolution.actionName}</strong>
+                <span className="equation-preview__meta">Mode: {effectiveRollMode}</span>
+              </p>
             ) : selectedQuickAction ? (
-              <code>Selected quick action is not assigned to this sheet.</code>
+              <p>Selected quick action is not assigned to this sheet.</p>
             ) : (
-              <code>Select an assigned action.</code>
+              <p>Select an assigned action.</p>
             )}
           </div>
           <button className="button" onClick={submit} disabled={!canSubmit}>

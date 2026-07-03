@@ -1,0 +1,155 @@
+/*
+  Compatibility skin for the existing repository.
+  Every selector is scoped beneath .r6-theme so adoption and rollback are safe.
+*/
+.r6-theme.app-shell,
+.r6-theme .app-shell {
+  color: var(--r6-text);
+  background:
+    radial-gradient(circle at 75% 5%, rgba(31, 168, 255, 0.12), transparent 36rem),
+    linear-gradient(145deg, #06172b, var(--r6-bg-void) 62%);
+}
+
+.r6-theme .app-header {
+  border-bottom: 1px solid var(--r6-line);
+  color: var(--r6-text);
+  background: rgba(3, 17, 31, 0.78);
+  backdrop-filter: blur(14px);
+}
+
+.r6-theme .app-header h1,
+.r6-theme .panel__header h2,
+.r6-theme .character-sheet__section h4 {
+  color: var(--r6-text);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.r6-theme .muted,
+.r6-theme .field__label,
+.r6-theme .empty-state {
+  color: var(--r6-text-muted);
+}
+
+.r6-theme .panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--r6-line-strong);
+  border-radius: var(--r6-radius-lg);
+  color: var(--r6-text);
+  background: var(--r6-bg-panel);
+  box-shadow: var(--r6-shadow), inset 0 0 0 1px rgba(191,249,255,.08);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+
+.r6-theme .panel::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(191,249,255,.12);
+  border-radius: 7px;
+  pointer-events: none;
+}
+
+.r6-theme .panel__header {
+  position: relative;
+  z-index: 1;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--r6-line);
+}
+
+.r6-theme .panel__body { position: relative; z-index: 1; }
+
+.r6-theme .button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: var(--r6-radius-sm);
+  color: var(--r6-bg-deep);
+  background: linear-gradient(135deg, var(--r6-cyan), var(--r6-blue));
+  font-weight: 750;
+  box-shadow: 0 0 20px rgba(31,168,255,.16);
+}
+.r6-theme .button:hover { background: linear-gradient(135deg, #8af5ff, #45b8ff); }
+.r6-theme .button--secondary { color: var(--r6-text); border-color: var(--r6-line); background: rgba(31,168,255,.1); box-shadow: none; }
+.r6-theme .button--secondary:hover { background: rgba(31,168,255,.18); }
+.r6-theme .button--danger { color: white; background: linear-gradient(135deg, #ff7895, var(--r6-danger)); }
+
+.r6-theme input,
+.r6-theme select,
+.r6-theme textarea {
+  color: var(--r6-text);
+  border-color: var(--r6-line);
+  background: rgba(2,14,27,.88);
+}
+
+.r6-theme .tab,
+.r6-theme .character-sheet__tab {
+  min-height: 40px;
+  border-color: var(--r6-line);
+  border-radius: var(--r6-radius-sm);
+  color: var(--r6-text-muted);
+  background: rgba(4,24,41,.72);
+  font-weight: 750;
+}
+.r6-theme .tab--active,
+.r6-theme .character-sheet__tab--active,
+.r6-theme .character-sheet__tab[aria-selected="true"],
+.r6-theme .tab[aria-selected="true"] {
+  color: var(--r6-cyan-soft);
+  border-color: var(--r6-cyan);
+  background: rgba(31,168,255,.16);
+  box-shadow: var(--r6-glow);
+}
+
+.r6-theme .character-sheet {
+  border-color: var(--r6-line-strong);
+  color: var(--r6-text);
+  background: linear-gradient(145deg, rgba(7,28,48,.94), rgba(3,16,29,.96));
+  box-shadow: inset 0 0 28px rgba(31,168,255,.05);
+}
+.r6-theme .character-sheet__header,
+.r6-theme .character-sheet__tabs {
+  border-color: var(--r6-line);
+}
+.r6-theme .character-sheet__section h4 { color: var(--r6-cyan-soft); }
+
+.r6-theme .resource-card,
+.r6-theme .stat-item,
+.r6-theme .core-block,
+.r6-theme .list-item,
+.r6-theme .equipment-card,
+.r6-theme .sheet-xp-card,
+.r6-theme .template-editor,
+.r6-theme .formula-selector-editor {
+  border-color: var(--r6-line);
+  color: var(--r6-text);
+  background: var(--r6-bg-card);
+}
+.r6-theme .stat-item { border-style: solid; }
+.r6-theme .resource-card__label { color: var(--r6-text-muted); letter-spacing: .08em; text-transform: uppercase; }
+.r6-theme .resource-card__value { color: var(--r6-text); font-variant-numeric: tabular-nums; text-shadow: 0 0 14px rgba(94,238,255,.18); }
+
+.r6-theme .equipment-selection-preview {
+  border-left-color: var(--r6-cyan);
+  color: var(--r6-text);
+  background: rgba(31,168,255,.08);
+}
+.r6-theme .equipment-card--depleted { opacity: .64; filter: saturate(.35); }
+.r6-theme .equipment-quantity-stepper { border-color: var(--r6-line); }
+.r6-theme .equipment-quantity-stepper button,
+.r6-theme .equipment-quantity-stepper output { color: var(--r6-text); background: rgba(2,14,27,.9); }
+.r6-theme .equipment-quantity-stepper output { border-color: var(--r6-line); }
+
+.r6-theme .formula-tag,
+.r6-theme .formula-tag-suggestion {
+  color: var(--r6-text-muted);
+  border-color: var(--r6-line);
+  background: rgba(8,36,58,.78);
+}
+.r6-theme .formula-tag-suggestion--selected { color: var(--r6-cyan-soft); border-color: var(--r6-cyan); background: rgba(31,168,255,.16); }
+.r6-theme .error-text { color: var(--r6-danger); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .r6-theme .panel,
+  .r6-theme .app-header { backdrop-filter: none; background: var(--r6-bg-deep); }
+}

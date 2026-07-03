@@ -89,7 +89,7 @@ Backend:
 
 Frontend:
 
-- Utilize the outline in ".\reference-docs\TTRPG-Character-Sheet-Design-Study" as your design bible for UI/UX, use the provided preview as a reference, but not as a concrete design structure.
+- Utilize the outline in ".\reference-docs\design_study" as your design bible for UI/UX, use the provided preview as a reference, but not as a concrete design structure.
 - React/Vite frontend is scaffolded.
 - Websocket wrapper handles raw JSON parsing, event normalization, connection status, snapshots, patches, and invalid payload handling.
 - Websocket wrapper tracks last seen state versions, can request resync when it detects a state version gap, and reconnects with bounded backoff after dropped websocket connections.
@@ -1325,6 +1325,13 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
 
 ### Recently Completed
 
+- [x] Apply the design-study System Glass direction to the landing and player shell.
+  - Added the scoped R6 theme import and system mark asset from `reference-docs/design_study`.
+  - Updated unauthenticated code entry, player sheet-claim entry, and the authenticated player/GM shell header to use the status-window visual language while preserving existing websocket auth, sheet-claim, and runtime request flows.
+  - Follow-up readability pass darkened legacy stat, quick-action, GM toolbar, intent, and empty-page surfaces so the themed UI no longer exposes white-on-light text or old beige page backgrounds.
+  - Reworked authenticated pages around a three-panel frame: top header, left navigation/status panel, and main content panel. Player sheet tabs now live in the left nav, GM pages use vertical navigation buttons, and quick-action debug request IDs were replaced with a lower-emphasis action summary.
+  - Compact player Stats tab removes explanatory text and sheet IDs, presents derived Facts as small value rows, constrains the Stats panel to avoid an inner scrollbar on desktop, adds themed scrollbars where scrolling is appropriate, and changes themed buttons from gradients to solid fills.
+  - Verified with frontend build, lint, and the full Vitest suite.
 - [x] Add GM console overlay mode for fast page switching and encounter spawn actions.
   - Added a persistent sticky GM toolbar across every GM page with compact page navigation, active-sheet selection, connection/pending status, and encounter preset spawning.
   - The toolbar is collapsible and responsive; it reuses frontend-local page/sheet selection and the existing typed encounter spawn request.

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import systemMark from "@/assets/system-mark.svg";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildClaimSheetAccessCodeRequest } from "@/infrastructure/ws/requestBuilders";
 import { Field } from "@/shared/ui/Field";
@@ -23,10 +24,16 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
   };
 
   return (
-    <div className="landing-shell">
-      <div className="landing-card">
-        <h1>Claim Character Sheet</h1>
-        <p className="muted">Enter the sheet access code provided by your GM.</p>
+    <div className="r6-theme landing-shell">
+      <div className="landing-card landing-card--system">
+        <header className="landing-card__header">
+          <img className="landing-card__mark" src={systemMark} alt="" aria-hidden="true" />
+          <div>
+            <p className="landing-card__eyebrow">Player Access</p>
+            <h1>Claim Character Sheet</h1>
+            <p className="muted">Enter the sheet access code provided by your GM.</p>
+          </div>
+        </header>
 
         <Panel title="Sheet Access Code">
           <div className="stack">

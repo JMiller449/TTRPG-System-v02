@@ -47,7 +47,6 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     },
     dispatch
   } = useAppStore();
-
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
   const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
@@ -208,6 +207,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
               templates={values.augmentationTemplates}
               targetOptions={targetOptions}
               selectorOptions={selectorOptions}
+              formulaMetadata={actionFormulaAuthoringMetadata}
               values={augmentationValues}
               onChange={setAugmentationValues}
               onSubmit={submitAugmentation}

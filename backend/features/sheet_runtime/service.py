@@ -65,6 +65,12 @@ _ROLL20_COMMAND_PATTERN = re.compile(
     r"(?P<prefix>.*?/(?:roll|r)\s+)(?P<expression>.+)$",
     re.IGNORECASE,
 )
+_ROLL20_COMMAND_WITH_OPTIONAL_LABEL_PATTERN = re.compile(
+    r"^(?P<label>.*?)(?P<command>/(?:roll|r)\s+)(?P<expression>.+)$",
+    re.IGNORECASE,
+)
+_ROLL20_LABEL_UNSAFE_PATTERN = re.compile(r"[\r\n]+")
+_WHITESPACE_PATTERN = re.compile(r"\s+")
 _ROLL_MODE_OUTPUT = {
     "advantage": ("2d100kh1", "Advantage"),
     "disadvantage": ("2d100kl1", "Disadvantage"),
@@ -93,6 +99,27 @@ def _apply_roll_mode_to_message(message: str, roll_mode: str) -> tuple[str, bool
     if replacement_count == 0:
         return message, False
     return f"[{label}] {transformed}", True
+
+
+def _roll20_inline_roll_label(raw_label: str) -> str | None:
+    label = raw_label.strip()
+    if label.endswith(":"):
+        label = label[:-1].strip()
+    label = label.replace("[", "").replace("]", "")
+    label = _ROLL20_LABEL_UNSAFE_PATTERN.sub(" ", label)
+    label = _WHITESPACE_PATTERN.sub(" ", label).strip()
+    return label or None
+
+
+def _format_roll20_inline_roll_message(message: str) -> str:
+    match = _ROLL20_COMMAND_WITH_OPTIONAL_LABEL_PATTERN.fullmatch(message)
+    if match is None:
+        return message
+    label = _roll20_inline_roll_label(match.group("label"))
+    expression = match.group("expression").strip()
+    if label is None:
+        return f"[[{expression}]]"
+    return f"{label}: [[{expression}]]"
 
 
 def get_sheet(sheet_id: str, state: State | None = None) -> Sheet:
@@ -428,6 +455,18 @@ def _matching_formula_effects(
     )
 
 
+def _validate_matching_formula_effects(
+    *,
+    state: State,
+    formula_root: RuntimeFormulaContext,
+    modifiers: tuple[EvaluationTimeEffect, ...],
+) -> None:
+    for modifier in modifiers:
+        if modifier.type != "evaluation_formula_modifier":
+            continue
+        formula_root.validate_formula(state, modifier.value)
+
+
 def _evaluate_action_formula(
     *,
     state: State,
@@ -447,11 +486,17 @@ def _evaluate_action_formula(
         formula_id=formula_id,
         semantic_tags=semantic_tags,
     )
+    modifiers = _matching_formula_effects(state, actor, context)
+    _validate_matching_formula_effects(
+        state=state,
+        formula_root=formula_root,
+        modifiers=modifiers,
+    )
     return evaluate_numeric_formula(
         formula_root,
         resolved_formula,
         execution_context=context,
-        modifiers=_matching_formula_effects(state, actor, context),
+        modifiers=modifiers,
     )
 
 
@@ -964,6 +1009,11 @@ async def perform_action(
                     execution_context,
                 )
                 formula_root.validate_formula(state, message_formula)
+                _validate_matching_formula_effects(
+                    state=state,
+                    formula_root=formula_root,
+                    modifiers=modifiers,
+                )
                 message = compose_roll20_message(
                     formula_root,
                     message_formula,
@@ -986,6 +1036,7 @@ async def perform_action(
                     message,
                     effective_roll_mode,
                 )
+                message = _format_roll20_inline_roll_message(message)
                 roll_mode_applied = roll_mode_applied or mode_applied
                 emitted_messages.append(message)
                 continue

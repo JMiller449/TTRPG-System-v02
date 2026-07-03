@@ -89,6 +89,7 @@ Backend:
 
 Frontend:
 
+- Utilize the outline in ".\reference-docs\TTRPG-Character-Sheet-Design-Study" as your design bible for UI/UX, use the provided preview as a reference, but not as a concrete design structure.
 - React/Vite frontend is scaffolded.
 - Websocket wrapper handles raw JSON parsing, event normalization, connection status, snapshots, patches, and invalid payload handling.
 - Websocket wrapper tracks last seen state versions, can request resync when it detects a state version gap, and reconnects with bounded backoff after dropped websocket connections.
@@ -1155,7 +1156,12 @@ Manual amount/type damage intake was pulled forward from the later hit/damage ch
   - [x] Add an Action Authoring Facts section for rank, range, target count, area, mana cost, base spell damage, proficiency references, and other optional typed configuration without turning those values into executable behavior.
   - [x] Add read-only Facts sections to the shared GM/player character sheet, item displays, and available-action displays, respecting visibility and showing name, evaluated/typed value, unit, description, and a clear unavailable/error state when backend evaluation fails.
   - [x] Expose validated current-Action Facts to its action-step formulas and validated source-item Facts only through an eligible explicit source-item relationship. Reject aliases for missing, ineligible, wrong-profile, or invalid Fact data.
-  - [ ] Allow existing item augmentation formulas to read their owning Item Facts and matching evaluation-time modifiers to read validated matched-Action Facts. Preserve existing equipment, condition, and standalone-effect lifecycle ownership; do not add a skill-passive lifecycle or automatic rank/feature unlock engine.
+  - [x] Allow existing item augmentation formulas to read their owning Item Facts and matching evaluation-time modifiers to read validated matched-Action Facts. Preserve existing equipment, condition, and standalone-effect lifecycle ownership; do not add a skill-passive lifecycle or automatic rank/feature unlock engine.
+    - Added shared built-formula alias path validation and item-context validation for item augmentation formulas. Direct wearer effects can read validated owning `source_item.facts.*` values and reject action-context aliases; evaluation-time item modifiers can validate owning source-item Facts while matched Action Facts remain runtime-authoritative.
+    - Runtime action evaluation now validates matched evaluation-formula modifiers against the same action/source-item formula context before applying them, producing explicit Fact/context errors for missing, invalid, or ineligible Action and Source Item Fact aliases.
+    - Equipment direct-effect recomputation now exposes the owning item as `source_item.facts` without adding a new lifecycle engine, automatic rank unlocks, turn tracking, or cross-sheet execution.
+    - Item Maker now loads the existing backend formula authoring metadata and reuses the variable picker for equipment-effect formulas. A case-only GM toolbar helper collision was renamed so the frontend production build remains portable.
+    - Verified with 73 focused backend tests, focused frontend Vitest coverage, frontend ESLint, protocol generation, and the production TypeScript/Vite build.
   - [x] Keep `calculate_value` as the execution-local evaluation-once mechanism for dice and current-state calculations. Fact values are persistent authored inputs and must not be used as writable execution scratch space.
   - [ ] Add checkpoint migration/backfill, backend CRUD/permission/type/evaluation/required-invariant tests, protocol/codegen checks, and frontend authoring/assignment/snapshot/patch/reconciliation tests for sheet, item, and action subjects.
   - [ ] Keep current reaction counts, turn resets, spending, and combat enforcement out of this track; the `amount_of_reactions` Fact is display-only until combat/turn tracking is implemented.

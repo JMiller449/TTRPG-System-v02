@@ -69,6 +69,38 @@ def _weapon_fact_bridges(proficiency_id: str = "long_swords") -> dict:
     }
 
 
+def _item_augmentation_payload(
+    *,
+    effect_type: str = "formula_modifier",
+    value: dict | None = None,
+) -> dict:
+    return {
+        "id": "fact-powered-effect",
+        "name": "Fact Powered Effect",
+        "description": "",
+        "source": {"type": "item", "id": "sword", "label": "Sword"},
+        "scope": "sheet",
+        "target": {"root": "sheet", "path": ["stats", "strength"]},
+        "effect": {
+            "type": effect_type,
+            "operation": "add",
+            "value": value
+            or {
+                "text": "1",
+                "aliases": None,
+            },
+        },
+        "active": True,
+        "applied": False,
+        "applied_target_id": None,
+        "lifecycle": {
+            "duration": None,
+            "expires_at": None,
+            "removal_condition": None,
+        },
+    }
+
+
 def test_dm_can_create_item(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -100,6 +132,163 @@ def test_dm_can_create_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "gm_special_properties"
             ] == "Cursed under moonlight."
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_augmentation_formula_can_reference_owning_item_fact(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["long_swords"] = Proficiency(
+                id="long_swords",
+                name="Long Swords",
+                description="",
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload.update(
+                {
+                    "interaction_type": "equippable",
+                    "fact_profile": "weapon",
+                    "facts": _weapon_fact_bridges(),
+                    "augmentation_templates": [
+                        _item_augmentation_payload(
+                            value={
+                                "text": "@base_damage",
+                                "aliases": [
+                                    {
+                                        "name": "base_damage",
+                                        "path": [
+                                            "source_item",
+                                            "facts",
+                                            "weapon_base_damage",
+                                        ],
+                                    }
+                                ],
+                            }
+                        )
+                    ],
+                }
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            assert state.items["sword"].augmentation_templates[0].effect.value.text == (
+                "@base_damage"
+            )
+            assert websocket.sent_messages[0]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_augmentation_formula_rejects_missing_owning_item_fact(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload.update(
+                {
+                    "interaction_type": "equippable",
+                    "augmentation_templates": [
+                        _item_augmentation_payload(
+                            value={
+                                "text": "@base_damage",
+                                "aliases": [
+                                    {
+                                        "name": "base_damage",
+                                        "path": [
+                                            "source_item",
+                                            "facts",
+                                            "weapon_base_damage",
+                                        ],
+                                    }
+                                ],
+                            }
+                        )
+                    ],
+                }
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            assert "sword" not in StateSingleton.getState().items
+            assert websocket.sent_messages[0]["reason"] == (
+                "Formula alias 'base_damage' requires source-item profile 'weapon'."
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_direct_item_augmentation_formula_rejects_action_context(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload.update(
+                {
+                    "interaction_type": "equippable",
+                    "augmentation_templates": [
+                        _item_augmentation_payload(
+                            value={
+                                "text": "@mana_cost",
+                                "aliases": [
+                                    {
+                                        "name": "mana_cost",
+                                        "path": [
+                                            "action",
+                                            "facts",
+                                            "action_mana_cost",
+                                        ],
+                                    }
+                                ],
+                            }
+                        )
+                    ],
+                }
+            )
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            assert "sword" not in StateSingleton.getState().items
+            assert websocket.sent_messages[0]["reason"] == (
+                "Formula alias 'mana_cost' cannot use action context in a direct "
+                "wearer effect."
+            )
         finally:
             StateSingleton._state = original_state
 

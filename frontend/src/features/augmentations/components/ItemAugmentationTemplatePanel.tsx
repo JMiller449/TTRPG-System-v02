@@ -1,3 +1,4 @@
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { Augmentation } from "@/domain/models";
 import { Field } from "@/shared/ui/Field";
 import {
@@ -14,6 +15,12 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
+import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
+import {
+  appendFormulaToken,
+  upsertFormulaAlias,
+  type VariablePickerEntry
+} from "@/features/variables/variablePicker";
 
 const AUGMENTATION_OPERATIONS = ["add", "subtract", "multiply", "divide", "set"] as const;
 const AUGMENTATION_EFFECT_TYPES = [
@@ -87,6 +94,7 @@ export function ItemAugmentationTemplatePanel({
   templates,
   targetOptions,
   selectorOptions,
+  formulaMetadata,
   values,
   onChange,
   onSubmit,
@@ -99,6 +107,7 @@ export function ItemAugmentationTemplatePanel({
   templates: Augmentation[];
   targetOptions: AugmentationTargetOption[];
   selectorOptions: AugmentationSelectorOptions;
+  formulaMetadata: ActionFormulaAuthoringMetadata | null;
   values: AugmentationEditorValues;
   onChange: (values: AugmentationEditorValues) => void;
   onSubmit: () => void;
@@ -116,6 +125,13 @@ export function ItemAugmentationTemplatePanel({
   const rollAndFormulaEffects = templates.filter(
     (augmentation) => augmentation.effect.type !== "formula_modifier"
   );
+  const insertVariable = (entry: VariablePickerEntry): void => {
+    onChange({
+      ...values,
+      formulaText: appendFormulaToken(values.formulaText, entry.token),
+      formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
+    });
+  };
 
   return (
     <section className="template-editor augmentation-template-panel">
@@ -227,14 +243,22 @@ export function ItemAugmentationTemplatePanel({
         </Field>
 
         {values.effectType !== "roll_mode_modifier" ? (
-          <Field label="Formula">
-            <textarea
-              rows={2}
-              value={values.formulaText}
-              onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-              placeholder="@arcane + 2"
+          <div className="stack">
+            <Field label="Formula">
+              <textarea
+                rows={2}
+                value={values.formulaText}
+                onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
+                placeholder="@arcane + 2"
+              />
+            </Field>
+            <VariableSearchPicker
+              metadata={formulaMetadata}
+              mode="formula"
+              label="Insert Formula Variable"
+              onPick={insertVariable}
             />
-          </Field>
+          </div>
         ) : null}
 
         {values.effectType !== "formula_modifier" ? (

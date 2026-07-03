@@ -1,5 +1,6 @@
 (function () {
   const DEFAULT_BACKEND_WS_URL = "ws://127.0.0.1:6767/ws/chat";
+  const DEFAULT_SERVICE_AUTH_CODE = "service";
   const CHAT_INPUT_SELECTOR = 'textarea[title="Text Chat Input"]';
   const SEND_BUTTON_SELECTOR = "#chatSendBtn";
   const RECONNECT_DELAY_MS = 3000;
@@ -8,7 +9,7 @@
   let reconnectTimer = null;
   let isAuthenticated = false;
   let backendWsUrl = DEFAULT_BACKEND_WS_URL;
-  let serviceAuthCode = "";
+  let serviceAuthCode = DEFAULT_SERVICE_AUTH_CODE;
 
   function log(message, extra) {
     if (extra === undefined) {
@@ -146,7 +147,7 @@
 
     if (!serviceAuthCode) {
       log(
-        "Service authentication code is not configured. Open the extension options.",
+        "Service authentication code is not configured. Open the extension options and set SERVICE_AUTH_CODE.",
       );
       return;
     }
@@ -183,7 +184,7 @@
   async function start() {
     const settings = await browser.storage.local.get({
       backendWsUrl: DEFAULT_BACKEND_WS_URL,
-      serviceAuthCode: "",
+      serviceAuthCode: DEFAULT_SERVICE_AUTH_CODE,
     });
     backendWsUrl = settings.backendWsUrl.trim() || DEFAULT_BACKEND_WS_URL;
     serviceAuthCode = settings.serviceAuthCode.trim();

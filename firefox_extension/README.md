@@ -22,8 +22,13 @@ After loading the extension, open its preferences/options page and configure:
 - the backend WebSocket URL
 - the same service authentication code used by the backend's `SERVICE_AUTH_CODE`
 
-Reload the Roll20 editor tab after saving. The service code is stored in Firefox extension
-storage and is not committed in the content script.
+For local development, the extension defaults to:
+
+- backend WebSocket URL: `ws://127.0.0.1:6767/ws/chat`
+- service authentication code: `service`
+
+Reload the Roll20 editor tab after saving. If you override the local default, the custom
+service code is stored in Firefox extension storage.
 
 ### URL Smoke Test
 

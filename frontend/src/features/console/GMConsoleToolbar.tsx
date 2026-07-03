@@ -6,7 +6,7 @@ import type { SheetInstanceView } from "@/domain/models";
 import {
   GM_TOOLBAR_NAV_ITEMS,
   orderedEncounterPresets
-} from "@/features/console/gmConsoleToolbar";
+} from "@/features/console/gmConsoleToolbarData";
 import { buildSpawnEncounterPresetSubmission } from "@/features/encounters/encounterRequests";
 import type { GameClient } from "@/hooks/useGameClient";
 

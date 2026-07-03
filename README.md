@@ -65,8 +65,11 @@ For local use on your machine, you do not need to package or sign it.
 Then:
 
 1. Keep the backend running on port `6767`
-2. Open your Roll20 game at `https://app.roll20.net/editor/...`
-3. The extension will connect automatically when that page is open
+2. Open the extension preferences/options page and confirm:
+   - Backend WebSocket URL: `ws://127.0.0.1:6767/ws/chat`
+   - Service authentication code: the backend `SERVICE_AUTH_CODE` value, defaulting to `service` for local development
+3. Open or reload your Roll20 game at `https://app.roll20.net/editor/...`
+4. The extension will connect automatically when that page is open
 
 The extension only runs on `https://app.roll20.net/editor/*`.
 

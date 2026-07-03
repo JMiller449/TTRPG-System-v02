@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/domain/models": ["./stub-domain-models.ts"],
+      "@/shared/ui/character-sheet-study": ["../drop-in/frontend/src/shared/ui/character-sheet-study/index.ts"]
+    }
+  },
+  "include": [
+    "../drop-in/frontend/src/features/sheets/characterSheetStudyAdapter.ts",
+    "../drop-in/frontend/src/shared/ui/character-sheet-study/**/*.ts",
+    "../drop-in/frontend/src/shared/ui/character-sheet-study/**/*.tsx",
+    "./stub-domain-models.ts"
+  ]
+}

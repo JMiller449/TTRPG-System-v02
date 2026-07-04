@@ -1026,6 +1026,45 @@ describe("authoritative server-state sync", () => {
     expect(deleted.state.uiState.playerSheetSelectionComplete).toBe(false);
   });
 
+  it("selects the first authoritative instance when no active sheet is selected", () => {
+    const result = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
+      response_id: null,
+      state: {
+        sheets: {
+          sheet_1: sheet()
+        },
+        instanced_sheets: {
+          instance_2: {
+            parent_id: "sheet_1",
+            notes: "Second",
+            health: 80,
+            mana: 10,
+            resistances: {},
+            augments: {}
+          },
+          instance_1: {
+            parent_id: "sheet_1",
+            notes: "First",
+            health: 100,
+            mana: 20,
+            resistances: {},
+            augments: {}
+          }
+        },
+        items: {},
+        actions: {},
+        formulas: {},
+        proficiencies: {}
+      },
+      state_version: 0,
+      type: "state_snapshot",
+      request_id: null
+    });
+
+    expect(result.state.serverState.persistentSheetOrder).toEqual(["instance_2", "instance_1"]);
+    expect(result.state.uiState.activeSheetId).toBe("instance_2");
+  });
+
   it("reconciles equipment from authoritative sheet item bridge patches", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,

@@ -53,7 +53,7 @@ describe("SheetStandaloneEffectsSection", () => {
     const markup = renderToStaticMarkup(<SheetStandaloneEffectsSection effects={[activeEffect]} />);
 
     expect(markup).toContain("Blessing");
-    expect(markup).toContain("mutate: add 5 on instance.health");
+    expect(markup).toContain("Behavior: Add 5 to the target value on instance.health");
     expect(markup).toContain("Protective Ward · Apply or remove effect (apply_blessing)");
     expect(markup).not.toContain("<button");
   });

@@ -66,7 +66,8 @@ export function TemplateAttributesSection({
         <div>
           <h3 id="template-attributes-title">Attributes</h3>
           <p className="muted">
-            Attach sheet-compatible Attributes. Values are evaluated by the backend after save.
+            Optional named values for campaign-specific rules, such as movement speed, ancestry,
+            or reaction count. Most templates do not need a custom Attribute.
           </p>
         </div>
         {onCreateNew ? (
@@ -75,7 +76,7 @@ export function TemplateAttributesSection({
             className="button button--secondary"
             onClick={() => onCreateNew("attribute")}
           >
-            Create new Attribute…
+            Create reusable Attribute…
           </button>
         ) : null}
       </div>

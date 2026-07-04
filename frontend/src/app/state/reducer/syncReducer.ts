@@ -3,18 +3,21 @@ import { updateServerState, updateUiState } from "@/app/state/reducer/shared";
 
 function normalizeUiSelections(state: AppState): AppState {
   const { activeSheetId } = state.uiState;
-  if (!activeSheetId) {
+  if (activeSheetId && state.serverState.persistentSheets[activeSheetId]) {
     return state;
   }
 
-  if (state.serverState.persistentSheets[activeSheetId]) {
-    return state;
-  }
+  const firstAvailableSheetId =
+    state.serverState.persistentSheetOrder.find(
+      (sheetId) => state.serverState.persistentSheets[sheetId]
+    ) ?? null;
 
   return updateUiState(state, (uiState) => ({
     ...uiState,
-    activeSheetId: null,
-    playerSheetSelectionComplete: false
+    activeSheetId: firstAvailableSheetId,
+    playerSheetSelectionComplete: firstAvailableSheetId
+      ? uiState.playerSheetSelectionComplete
+      : false
   }));
 }
 

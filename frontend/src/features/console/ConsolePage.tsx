@@ -6,7 +6,6 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
-import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
@@ -59,7 +58,6 @@ export function ConsolePage({ role, client }: { role: Role; client: GameClient }
 
   return (
     <div className="main-panel-stack main-panel-stack--console main-panel-stack--dashboard">
-      <ActiveSheetSelector />
       <div className="gm-dashboard-tools">
         <SheetAccessCodesPanel client={client} />
         <RollPanel client={client} />

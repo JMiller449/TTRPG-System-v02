@@ -29,7 +29,7 @@ export function AttributeEditorForm({
   const canSubmit = Boolean(attributePayloadFromDraft(draft, editingId ?? "draft-attribute"));
 
   return (
-    <div className="card stack attribute-editor-form">
+    <div className="stack attribute-editor-form">
       <div>
         <p className="template-editor__title">
           {editingId ? "Edit Attribute" : "Create Attribute"}

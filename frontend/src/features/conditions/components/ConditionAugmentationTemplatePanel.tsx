@@ -2,6 +2,7 @@ import type { Augmentation, AugmentationOperation } from "@/domain/models";
 import { Field } from "@/shared/ui/Field";
 import {
   applyAugmentationTargetOption,
+  augmentationEffectUsesTarget,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
   formatAugmentationEffect,
@@ -309,10 +310,12 @@ export function ConditionAugmentationTemplatePanel({
                 {(augmentation.active ?? true) ? "enabled" : "disabled"}
               </span>
             </div>
-            <div className="muted">Target: {formatTarget(augmentation)}</div>
-            <div className="muted">Effect: {formatAugmentationEffect(augmentation)}</div>
+            {augmentationEffectUsesTarget(augmentation) ? (
+              <div className="muted">Changes: {formatTarget(augmentation)}</div>
+            ) : null}
+            <div className="muted">Behavior: {formatAugmentationEffect(augmentation)}</div>
             {augmentation.effect.type !== "formula_modifier" ? (
-              <div className="muted">Selector: {formatFormulaModifierSelector(augmentation)}</div>
+              <div className="muted">Applies to: {formatFormulaModifierSelector(augmentation)}</div>
             ) : null}
             {augmentation.description ? (
               <div className="muted">{augmentation.description}</div>

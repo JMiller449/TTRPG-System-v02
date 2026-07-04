@@ -3,6 +3,7 @@ import type { Augmentation } from "@/domain/models";
 import { Field } from "@/shared/ui/Field";
 import {
   applyAugmentationTargetOption,
+  augmentationEffectUsesTarget,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
   formatAugmentationEffect,
@@ -58,10 +59,12 @@ function EffectTemplateList({
             <strong>{augmentation.name}</strong>
             <span className="muted">{(augmentation.active ?? true) ? "active" : "inactive"}</span>
           </div>
-          <div className="muted">Target: {formatTarget(augmentation)}</div>
-          <div className="muted">Effect: {formatAugmentationEffect(augmentation)}</div>
+          {augmentationEffectUsesTarget(augmentation) ? (
+            <div className="muted">Changes: {formatTarget(augmentation)}</div>
+          ) : null}
+          <div className="muted">Behavior: {formatAugmentationEffect(augmentation)}</div>
           {augmentation.effect.type !== "formula_modifier" ? (
-            <div className="muted">Selector: {formatFormulaModifierSelector(augmentation)}</div>
+            <div className="muted">Applies to: {formatFormulaModifierSelector(augmentation)}</div>
           ) : null}
           {augmentation.description ? (
             <div className="muted">{augmentation.description}</div>

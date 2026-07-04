@@ -18,7 +18,7 @@ export function ActionPresetPicker({
   const categories = Array.from(new Set(presets.map((preset) => preset.category)));
 
   return (
-    <section className="card stack">
+    <section className="stack">
       <div>
         <h3>Start from an Action Preset</h3>
         <p className="muted">

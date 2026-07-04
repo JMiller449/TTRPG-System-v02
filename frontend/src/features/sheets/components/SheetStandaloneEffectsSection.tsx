@@ -1,6 +1,9 @@
 import type { ActiveStandaloneEffect } from "@/app/state/selectors";
 import { actionStepLabel } from "@/features/actions/actionStepMenu";
-import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
+import {
+  augmentationEffectUsesTarget,
+  formatAugmentationEffect
+} from "@/features/augmentations/augmentationEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
 
 function sourceLabel(effect: ActiveStandaloneEffect): string {
@@ -42,8 +45,10 @@ export function SheetStandaloneEffectsSection({
                 <div className="muted">{definition.description}</div>
               ) : null}
               <div className="muted">
-                Effect: {formatAugmentationEffect(definition)} on {definition.target.root}.
-                {definition.target.path.join(".")}
+                Behavior: {formatAugmentationEffect(definition)}
+                {augmentationEffectUsesTarget(definition)
+                  ? ` on ${definition.target.root}.${definition.target.path.join(".")}`
+                  : ""}
               </div>
               <div className="muted">Source: {sourceLabel(effect)}</div>
             </article>

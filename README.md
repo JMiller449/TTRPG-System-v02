@@ -46,6 +46,31 @@ Or directly:
 ./backend/.venv/bin/python -m uvicorn backend.core.main:app --host 0.0.0.0 --port 6767
 ```
 
+## Seed Development State
+
+Stop the backend, then replace the local checkpoint with the comprehensive
+starter campaign:
+
+```bash
+just seed
+```
+
+The command builds and validates the seed in isolation before atomically
+replacing `state_dumpy.json`. The previous valid checkpoint is retained as
+`state_dumpy.json.bak`. Seeded content includes player and enemy templates,
+instances, formulas, attributes, actions, proficiencies, equipment,
+consumables, conditions, effects, and encounters.
+
+The seeded player instances can be claimed with these development access
+codes:
+
+- `EXAMPLE1` — Example Player 1
+- `EXAMPLE2` — Example Player 2
+
+Do not run the seed command while the backend is active. A running process
+retains its current state in memory and could overwrite the new checkpoint on
+its next mutation.
+
 The backend websocket endpoints are:
 
 - app clients: `ws://127.0.0.1:6767/ws`

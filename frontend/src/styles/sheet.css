@@ -1069,6 +1069,56 @@
   margin-top: 0.65rem;
 }
 
+.sheet-detail-disclosure {
+  margin-bottom: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  background: var(--card);
+  break-inside: avoid;
+}
+
+.sheet-detail-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sheet-detail-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sheet-detail-disclosure > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.sheet-detail-disclosure[open] > summary::after {
+  content: "−";
+}
+
+.sheet-detail-disclosure__body {
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.sheet-detail-disclosure__body > .sheet-attributes {
+  margin-top: 0.75rem;
+}
+
+.sheet-detail-disclosure__body > .sheet-attributes > div:first-child,
+.sheet-detail-disclosure__body > .character-sheet__section > h4 {
+  display: none;
+}
+
 .sheet-attributes--compact {
   gap: 0.35rem;
 }

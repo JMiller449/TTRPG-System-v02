@@ -4,13 +4,14 @@ movement
 
 # Implemented starter campaign coverage:
 
-The validated starter session data lives in
-`backend/tests/dm_examples_fixtures.py` and is exercised by
-`backend/tests/test_dm_examples_acceptance.py`.
+The validated starter session data lives in `backend/dev/dm_examples.py`, can
+be installed with `just seed`, and is exercised by
+`backend/tests/test_dm_examples_acceptance.py` and
+`backend/tests/test_dev_seed.py`.
 
 Current starter records include:
 
-- Player templates: Ember Ranker Arin Vale, Shadowblade Mina Seo.
+- Player reference templates: Example Player 1 and Example Player 2.
 - Enemy templates: Red Gate Goblin, Ash Wraith.
 - Campaign Attributes: Campaign Role, Gate Affinity, Guild Rank.
 - Custom proficiencies: Pyromancy, Shadow Steps, Gate Lore, plus seeded weapon
@@ -21,6 +22,13 @@ Current starter records include:
 - Actions: checks, spell to-hit, spell damage, weapon actions, resource costs,
   healing, condition application/removal, consumable use, and proficiency gain.
 - Encounter presets: Red Gate Scouts, Ash Wraith Threshold.
+- Global formulas used by Flames of Life, Ember Bolt, and Gate Lore actions.
+- Instanced players with deterministic development access codes.
+- XP thresholds showing both in-progress (75/100) and ready-to-level (60/60)
+  player states, backed by seeded enemy kill records and XP values.
+- A condition/effect matrix covering direct value changes, evaluation-time
+  formula modifiers, roll-mode modifiers, lifecycle notes, public/GM-only
+  visibility, and conditions with no automatic mechanical effect.
 
 # Some presets:
 Attack = (1 + Proficiency) * (d100/100) * weapon_stat_type			

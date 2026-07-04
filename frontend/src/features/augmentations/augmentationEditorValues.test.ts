@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Augmentation } from "@/domain/models";
 import {
   applyAugmentationTargetOption,
+  augmentationEffectUsesTarget,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
   createEmptyAugmentationEditorValues,
+  formatAugmentationEffect,
   formatFormulaModifierSelector,
   formatAugmentationTargetOption,
   hasValidAugmentationEditorValues,
@@ -222,6 +224,22 @@ describe("augmentationEditorValues", () => {
 
   it("formats same-source item selector constraints", () => {
     expect(formatFormulaModifierSelector(testAugmentation)).toContain("same source item");
+  });
+
+  it("distinguishes direct targets from selector-only behavior", () => {
+    const rollEffect: Augmentation = {
+      ...testAugmentation,
+      effect: {
+        type: "roll_mode_modifier",
+        roll_mode: "disadvantage",
+        selector: { required_tags: ["check", "dodge"] }
+      }
+    };
+
+    expect(augmentationEffectUsesTarget(testAugmentation)).toBe(true);
+    expect(augmentationEffectUsesTarget(rollEffect)).toBe(false);
+    expect(formatAugmentationEffect(rollEffect)).toBe("Disadvantage on matching rolls");
+    expect(formatFormulaModifierSelector(rollEffect)).toBe("tags check + dodge");
   });
 
   it("uses the item target root as both backend target root and scope", () => {

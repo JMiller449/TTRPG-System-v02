@@ -5,18 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from backend.features.chat import service as chat_service
-from backend.features.state_sync.service import state_sync_service
-from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state import store as store_module
-from backend.state.store import StateSingleton
-from backend.tests.dm_examples_fixtures import (
+from backend.dev.dm_examples import (
     ACTION_IDS,
     CAMPAIGN_ATTRIBUTE_IDS,
     CONDITION_IDS,
     CUSTOM_PROFICIENCY_IDS,
     ENCOUNTER_IDS,
     ENEMY_TEMPLATE_IDS,
+    FORMULA_IDS,
     INSTANCE_ID,
     ITEM_IDS,
     PLAYER_TEMPLATE_IDS,
@@ -26,6 +22,11 @@ from backend.tests.dm_examples_fixtures import (
     STARTER_ITEM_IDS,
     authoring_requests,
 )
+from backend.features.chat import service as chat_service
+from backend.features.state_sync.service import state_sync_service
+from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state import store as store_module
+from backend.state.store import StateSingleton
 
 
 class FakeWebSocket:
@@ -82,6 +83,11 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert set(STARTER_ACTION_IDS).issubset(authored.actions)
             assert set(PLAYER_TEMPLATE_IDS).issubset(authored.sheets)
             assert set(ENEMY_TEMPLATE_IDS).issubset(authored.sheets)
+            assert set(FORMULA_IDS).issubset(authored.formulas)
+            assert all(
+                authored.sheets[sheet_id].dm_only
+                for sheet_id in ENEMY_TEMPLATE_IDS
+            )
             assert {"amount_of_reactions", "weapon_base_damage"}.issubset(
                 authored.attributes
             )

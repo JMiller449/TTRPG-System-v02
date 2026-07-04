@@ -85,6 +85,7 @@ Frontend:
 - GM sheet Actions uses the player-style searchable command grid for execution while retaining GM assignment management below it.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
+- Template Builder newcomer pass (2026-07-04): sections are grouped into core setup, optional starting content, advanced customization, and final review; validation is deferred until review; empty states explain safe defaults; derived formulas and the full resistance matrix are progressively disclosed; and contextual creation dialogs now identify the quickest valid path in table-facing language. Presentation-only; backend validation and authoring contracts are unchanged.
 
 ## 4. MVP Character Sheet And Dice Roller Acceptance
 
@@ -118,11 +119,13 @@ No large architecture feature is currently missing for the stated character-shee
   - common conditions and standalone effects
   - default and campaign-specific actions for checks, spells, weapons, resource costs, healing, damage, and proficiency gain
   - encounter presets for expected sessions
-  - Covered by `backend/tests/dm_examples_fixtures.py` and
-    `backend/tests/test_dm_examples_acceptance.py`; the acceptance test authors the
-    starter data through websocket routes, persists/reloads it, executes
-    representative actions, applies/removes a condition, consumes an item, gains
-    proficiency use, and spawns an encounter preset.
+  - Covered by reusable `backend/dev/dm_examples.py` seed content,
+    `backend/dev/seed.py`, and `backend/tests/test_dm_examples_acceptance.py`.
+    `just seed` atomically installs the validated starter campaign for UI and
+    table smoke testing. The acceptance test authors the starter data through
+    websocket routes, persists/reloads it, executes representative actions,
+    applies/removes a condition, consumes an item, gains proficiency use, and
+    spawns an encounter preset.
 - [ ] Run an end-to-end local table smoke test:
   - start backend and frontend
   - load the Firefox extension on a Roll20 editor page

@@ -308,7 +308,8 @@
 /* Editors sit directly on the panel surface; dividers instead of nested boxes. */
 .r6-theme .template-editor,
 .r6-theme .formula-editor,
-.r6-theme .action-editor {
+.r6-theme .action-editor,
+.r6-theme .augmentation-template-panel {
   border: 0;
   color: var(--r6-text);
   background: transparent;

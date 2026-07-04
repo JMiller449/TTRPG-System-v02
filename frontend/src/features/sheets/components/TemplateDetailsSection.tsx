@@ -12,7 +12,10 @@ export function TemplateDetailsSection({
     <section className="template-builder__section stack" aria-labelledby="template-details-title">
       <div>
         <h3 id="template-details-title">Details</h3>
-        <p className="muted">Identity, table control, notes, and XP bookkeeping.</p>
+        <p className="muted">
+          Name the template and choose who controls its created characters. This is the only
+          required setup step.
+        </p>
       </div>
       <div className="template-builder__details-grid">
         <Field label="Template Name">
@@ -20,7 +23,7 @@ export function TemplateDetailsSection({
             value={values.name}
             onChange={(event) => onChange({ ...values, name: event.target.value })}
             placeholder="e.g. Orc Brute"
-            required
+            aria-required="true"
           />
         </Field>
         <Field label="Control Mode">
@@ -34,29 +37,32 @@ export function TemplateDetailsSection({
             <option value="enemy">GM-controlled</option>
           </select>
         </Field>
-        <Field label="XP Awarded When Slain">
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={values.xpGivenWhenSlayed}
-            onChange={(event) => onChange({ ...values, xpGivenWhenSlayed: event.target.value })}
-          />
-        </Field>
-        <Field label="XP Needed For Next Level">
-          <input
-            value={values.xpCap}
-            onChange={(event) => onChange({ ...values, xpCap: event.target.value })}
-            placeholder="e.g. 100"
-          />
-        </Field>
+        {values.kind === "enemy" ? (
+          <Field label="XP Awarded When Slain">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={values.xpGivenWhenSlayed}
+              onChange={(event) => onChange({ ...values, xpGivenWhenSlayed: event.target.value })}
+            />
+          </Field>
+        ) : (
+          <Field label="XP Needed For Next Level (Optional)">
+            <input
+              value={values.xpCap}
+              onChange={(event) => onChange({ ...values, xpCap: event.target.value })}
+              placeholder="e.g. 100"
+            />
+          </Field>
+        )}
       </div>
-      <Field label="Notes">
+      <Field label="GM Reference Notes (Optional)">
         <textarea
           value={values.notes}
           onChange={(event) => onChange({ ...values, notes: event.target.value })}
           rows={6}
-          placeholder="GM reference notes for this template."
+          placeholder="Role, tactics, or reminders for using this template at the table."
         />
       </Field>
     </section>

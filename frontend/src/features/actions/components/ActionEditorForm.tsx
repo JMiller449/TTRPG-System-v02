@@ -760,7 +760,15 @@ export function ActionEditorForm({
           </div>
         </section>
 
-        {attributesEditor}
+        <details className="authoring-disclosure">
+          <summary>
+            <span>
+              <strong>Attributes</strong>
+              <small>Optional values such as range or resource cost</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body">{attributesEditor}</div>
+        </details>
 
         {validationError ? (
           <p className="error-text" role="alert">

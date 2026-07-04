@@ -100,24 +100,45 @@ export function formatFormulaModifierSelector(
     return "all formulas";
   }
   const constraints = [
-    ...(selector.required_tags?.length ? [`requires ${selector.required_tags.join(" + ")}`] : []),
-    ...(selector.excluded_tags?.length ? [`excludes ${selector.excluded_tags.join(" + ")}`] : []),
-    ...(selector.action_id ? [`action ${selector.action_id}`] : []),
-    ...(selector.formula_id ? [`formula ${selector.formula_id}`] : []),
-    ...(selector.step_id ? [`step ${selector.step_id}`] : []),
-    ...(selector.same_source_item ? ["same source item"] : [])
+    ...(selector.required_tags?.length ? [`tags ${selector.required_tags.join(" + ")}`] : []),
+    ...(selector.excluded_tags?.length ? [`not ${selector.excluded_tags.join(" + ")}`] : []),
+    ...(selector.action_id ? [`action: ${selector.action_id}`] : []),
+    ...(selector.formula_id ? [`formula: ${selector.formula_id}`] : []),
+    ...(selector.step_id ? [`step: ${selector.step_id}`] : []),
+    ...(selector.same_source_item ? ["same source item only"] : [])
   ];
-  return constraints.length > 0 ? constraints.join("; ") : "all formulas";
+  return constraints.length > 0 ? constraints.join("; ") : "all matching formulas";
+}
+
+function operationLabel(operation: AugmentationOperation, value: string): string {
+  const labels: Record<AugmentationOperation, string> = {
+    add: `Add ${value}`,
+    subtract: `Subtract ${value}`,
+    multiply: `Multiply by ${value}`,
+    divide: `Divide by ${value}`,
+    set: `Set to ${value}`
+  };
+  return labels[operation];
+}
+
+export function augmentationEffectUsesTarget(
+  augmentation: Pick<EffectDefinitionLike, "effect">
+): boolean {
+  return augmentation.effect.type === "formula_modifier";
 }
 
 export function formatAugmentationEffect(
   augmentation: Pick<EffectDefinitionLike, "effect">
 ): string {
   if (augmentation.effect.type === "roll_mode_modifier") {
-    return `grant ${augmentation.effect.roll_mode}`;
+    const rollMode = augmentation.effect.roll_mode === "advantage" ? "Advantage" : "Disadvantage";
+    return `${rollMode} on matching rolls`;
   }
-  const prefix = augmentation.effect.type === "evaluation_formula_modifier" ? "evaluate" : "mutate";
-  return `${prefix}: ${augmentation.effect.operation} ${augmentation.effect.value.text || "(blank)"}`;
+  const value = augmentation.effect.value.text || "(blank)";
+  const operation = operationLabel(augmentation.effect.operation, value);
+  return augmentation.effect.type === "evaluation_formula_modifier"
+    ? `${operation} to matching formula results`
+    : `${operation} to the target value`;
 }
 
 export function isKnownAugmentationEditorTarget(

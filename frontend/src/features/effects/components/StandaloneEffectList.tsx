@@ -1,5 +1,6 @@
 import type { StandaloneEffectDefinition } from "@/domain/models";
 import {
+  augmentationEffectUsesTarget,
   formatAugmentationEffect,
   formatFormulaModifierSelector
 } from "@/features/augmentations/augmentationEditorValues";
@@ -31,10 +32,12 @@ export function StandaloneEffectList({
               <strong>{effect.name}</strong>
               <span className="muted">{(effect.active ?? true) ? "available" : "disabled"}</span>
             </div>
-            <div className="muted">Target: {formatTarget(effect)}</div>
-            <div className="muted">Effect: {formatAugmentationEffect(effect)}</div>
+            {augmentationEffectUsesTarget(effect) ? (
+              <div className="muted">Changes: {formatTarget(effect)}</div>
+            ) : null}
+            <div className="muted">Behavior: {formatAugmentationEffect(effect)}</div>
             {effect.effect.type !== "formula_modifier" ? (
-              <div className="muted">Selector: {formatFormulaModifierSelector(effect)}</div>
+              <div className="muted">Applies to: {formatFormulaModifierSelector(effect)}</div>
             ) : null}
             {effect.description ? (
               <p className="item-definition-card__description">{effect.description}</p>

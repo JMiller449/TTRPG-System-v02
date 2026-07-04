@@ -81,7 +81,7 @@ export function ActionAttributesEditor({
   };
 
   return (
-    <section className="card stack">
+    <section className="stack">
       <div>
         <h3>Attributes</h3>
         <p className="muted">

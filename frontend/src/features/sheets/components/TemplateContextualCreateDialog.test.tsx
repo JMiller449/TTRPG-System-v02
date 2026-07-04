@@ -41,14 +41,18 @@ describe("TemplateContextualCreateDialog", () => {
   it("reuses the complete Item and Action editors without nested-authoring navigation", () => {
     const item = renderDialog("item");
     expect(item).toContain("Create and attach Item");
+    expect(item).toContain("Quick start");
     expect(item).toContain("Create Item");
     expect(item).toContain("Equipment Effects");
+    expect(item).toContain("Reference and GM notes");
+    expect(item).toContain("Granted actions");
     expect(item).not.toContain("Open Action Authoring");
 
     const action = renderDialog("action");
     expect(action).toContain("Create and attach Action");
     expect(action).toContain("Create Action");
     expect(action).toContain("Add Step");
+    expect(action).toContain("Optional values such as range or resource cost");
   });
 
   it("locks closure and submission controls while pending", () => {
@@ -102,9 +106,9 @@ describe("Template Builder contextual controls", () => {
       )
     ].join("\n");
 
-    expect(markup).toContain("Create new Attribute…");
-    expect(markup).toContain("Create new Action…");
-    expect(markup).toContain("Create new Proficiency…");
-    expect(markup).toContain("Create new Item…");
+    expect(markup).toContain("Create reusable Attribute…");
+    expect(markup).toContain("Create reusable Action…");
+    expect(markup).toContain("Create reusable Proficiency…");
+    expect(markup).toContain("Create reusable Item…");
   });
 });

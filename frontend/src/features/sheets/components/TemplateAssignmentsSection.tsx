@@ -15,8 +15,13 @@ function orderedRecords<T>(records: Record<string, T>, order: string[]): T[] {
   return order.map((id) => records[id]).filter((entry): entry is T => Boolean(entry));
 }
 
-function AssignmentEmpty({ children }: { children: string }): JSX.Element {
-  return <p className="template-builder__assignment-empty muted">{children}</p>;
+function AssignmentEmpty({ title, children }: { title: string; children: string }): JSX.Element {
+  return (
+    <div className="template-builder__assignment-empty">
+      <strong>{title}</strong>
+      <span className="muted">{children}</span>
+    </div>
+  );
 }
 
 export function TemplateActionsSection({
@@ -50,7 +55,8 @@ export function TemplateActionsSection({
         <div>
           <h3 id="template-actions-title">Actions</h3>
           <p className="muted">
-            Assign global actions. Action definitions remain managed in Action Authoring.
+            Choose what this character or enemy can do. Standard system actions are added
+            automatically, so this section can stay empty.
           </p>
         </div>
         {onCreateNew ? (
@@ -59,13 +65,13 @@ export function TemplateActionsSection({
             className="button button--secondary"
             onClick={() => onCreateNew("action")}
           >
-            Create new Action…
+            Create reusable Action…
           </button>
         ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Action"
-        placeholder="Search action definitions"
+        placeholder="Search available actions"
         options={options}
         emptyMessage="No actions match."
         onSelect={(action) =>
@@ -79,8 +85,8 @@ export function TemplateActionsSection({
         }
       />
       {values.actions.length === 0 ? (
-        <AssignmentEmpty>
-          Backend baseline actions will be attached when this template is created.
+        <AssignmentEmpty title="No extra starting actions">
+          Standard checks and other system actions will still be available after creation.
         </AssignmentEmpty>
       ) : (
         <div className="template-builder__assignment-list">
@@ -159,7 +165,10 @@ export function TemplateProficienciesSection({
       <div className="template-builder__section-heading">
         <div>
           <h3 id="template-proficiencies-title">Proficiencies</h3>
-          <p className="muted">Assign definitions with starting use count and growth per use.</p>
+          <p className="muted">
+            Add trained skills, weapons, spells, or campaign knowledge. Starting uses represent
+            prior practice; growth controls how much each future use adds.
+          </p>
         </div>
         {onCreateNew ? (
           <button
@@ -167,13 +176,13 @@ export function TemplateProficienciesSection({
             className="button button--secondary"
             onClick={() => onCreateNew("proficiency")}
           >
-            Create new Proficiency…
+            Create reusable Proficiency…
           </button>
         ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Proficiency"
-        placeholder="Search proficiency definitions"
+        placeholder="Search available proficiencies"
         options={options}
         emptyMessage="No proficiencies match."
         onSelect={(proficiency) =>
@@ -192,7 +201,9 @@ export function TemplateProficienciesSection({
         }
       />
       {values.proficiencies.length === 0 ? (
-        <AssignmentEmpty>No starting proficiencies assigned.</AssignmentEmpty>
+        <AssignmentEmpty title="No starting proficiencies">
+          This is valid. Add only training that the template should begin with.
+        </AssignmentEmpty>
       ) : (
         <div className="template-builder__assignment-list">
           {values.proficiencies.map((entry) => {
@@ -206,7 +217,7 @@ export function TemplateProficienciesSection({
                   <strong>{proficiency?.name ?? entry.proficiencyId}</strong>
                   <span className="muted">{proficiency?.description ?? "Missing definition"}</span>
                 </div>
-                <Field label="Starting Uses">
+                <Field label="Starting use count">
                   <input
                     type="number"
                     min="0"
@@ -224,7 +235,7 @@ export function TemplateProficienciesSection({
                     }
                   />
                 </Field>
-                <Field label="Growth Per Use">
+                <Field label="Growth per use">
                   <input
                     type="number"
                     min="0"
@@ -306,7 +317,8 @@ export function TemplateInventorySection({
         <div>
           <h3 id="template-inventory-title">Starting Inventory &amp; Equipment</h3>
           <p className="muted">
-            Attach item definitions with starting quantity and equipped state.
+            Add items that every new character created from this template should receive. Items
+            can be carried or start equipped.
           </p>
         </div>
         {onCreateNew ? (
@@ -315,13 +327,13 @@ export function TemplateInventorySection({
             className="button button--secondary"
             onClick={() => onCreateNew("item")}
           >
-            Create new Item…
+            Create reusable Item…
           </button>
         ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Item"
-        placeholder="Search item definitions"
+        placeholder="Search available items"
         options={options}
         emptyMessage="No items match."
         onSelect={(item) =>
@@ -340,7 +352,9 @@ export function TemplateInventorySection({
         }
       />
       {values.items.length === 0 ? (
-        <AssignmentEmpty>No starting inventory assigned.</AssignmentEmpty>
+        <AssignmentEmpty title="No starting inventory">
+          This is valid. Items can also be added to a character after the template is created.
+        </AssignmentEmpty>
       ) : (
         <div className="template-builder__assignment-list">
           {values.items.map((entry) => {

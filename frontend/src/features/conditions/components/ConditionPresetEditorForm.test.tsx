@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { Augmentation } from "@/domain/models";
 import { createEmptyAugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
 import { createEmptyConditionPresetEditorValues } from "@/features/conditions/conditionEditorValues";
 import { ConditionAugmentationTemplatePanel } from "@/features/conditions/components/ConditionAugmentationTemplatePanel";
@@ -68,5 +69,43 @@ describe("ConditionPresetEditorForm", () => {
     expect(markup).toContain("Removal note");
     expect(markup).toContain("Effect name is required.");
     expect(markup).toContain("Save or cancel the open effect before saving the condition.");
+  });
+
+  it("shows selector-only condition behavior without a meaningless target", () => {
+    const effect: Augmentation = {
+      id: "shadow_bound_dodge_penalty",
+      name: "Dodge Disadvantage",
+      description: "Dodge checks roll with disadvantage while restrained.",
+      source: { type: "condition" },
+      scope: "instance",
+      target: { root: "instance", path: ["mana"] },
+      effect: {
+        type: "roll_mode_modifier",
+        roll_mode: "disadvantage",
+        selector: { required_tags: ["check", "dodge"] }
+      }
+    };
+    const markup = renderToStaticMarkup(
+      <ConditionAugmentationTemplatePanel
+        conditionName="Shadow Bound"
+        editorOpen={false}
+        editingAugmentationId={null}
+        templates={[effect]}
+        targetOptions={[]}
+        selectorOptions={selectorOptions}
+        values={createEmptyAugmentationEditorValues()}
+        onChange={() => undefined}
+        onAdd={() => undefined}
+        onSubmit={() => undefined}
+        onCancel={() => undefined}
+        onEdit={() => undefined}
+        onRemove={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("Behavior: Disadvantage on matching rolls");
+    expect(markup).toContain("Applies to: tags check + dodge");
+    expect(markup).not.toContain("instance.mana");
+    expect(markup).not.toContain("Target:");
   });
 });

@@ -14,9 +14,9 @@ import {
 import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
 import { TemplateAttributesSection } from "@/features/sheets/components/TemplateAttributesSection";
 import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
+import { TemplateReviewSection } from "@/features/sheets/components/TemplateReviewSection";
 import { TemplateStatsSection } from "@/features/sheets/components/TemplateStatsSection";
 import type {
-  TemplateEditorErrors,
   TemplateEditorSection,
   TemplateEditorValues
 } from "@/features/sheets/templateEditorTypes";
@@ -26,38 +26,28 @@ import {
 } from "@/features/sheets/templateEditorValues";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
-const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
-  { id: "details", label: "Details" },
-  { id: "stats", label: "Stats" },
-  { id: "attributes", label: "Attributes" },
-  { id: "resistances", label: "Resistances" },
-  { id: "actions", label: "Actions" },
-  { id: "proficiencies", label: "Proficiencies" },
-  { id: "inventory", label: "Inventory" }
-];
+type BuilderSection = TemplateEditorSection | "review";
 
-function ValidationSummary({ errors }: { errors: TemplateEditorErrors }): JSX.Element | null {
-  const entries = SECTIONS.flatMap((section) =>
-    errors[section.id].map((message) => ({ section: section.label, message }))
-  );
-  if (entries.length === 0) {
-    return null;
-  }
-  return (
-    <div className="template-builder__validation" role="alert">
-      <strong>
-        {entries.length} issue{entries.length === 1 ? "" : "s"} to resolve
-      </strong>
-      <ul>
-        {entries.map((entry) => (
-          <li key={`${entry.section}:${entry.message}`}>
-            <b>{entry.section}:</b> {entry.message}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+const SECTIONS: ReadonlyArray<{
+  id: BuilderSection;
+  label: string;
+  group: "Core setup" | "Starting content" | "Advanced" | "Finish";
+  status: string;
+}> = [
+  { id: "details", label: "Details", group: "Core setup", status: "Required" },
+  { id: "stats", label: "Stats", group: "Core setup", status: "Defaults included" },
+  { id: "actions", label: "Actions", group: "Starting content", status: "Optional" },
+  {
+    id: "proficiencies",
+    label: "Proficiencies",
+    group: "Starting content",
+    status: "Optional"
+  },
+  { id: "inventory", label: "Inventory", group: "Starting content", status: "Optional" },
+  { id: "attributes", label: "Attributes", group: "Advanced", status: "Optional" },
+  { id: "resistances", label: "Resistances", group: "Advanced", status: "Optional" },
+  { id: "review", label: "Review", group: "Finish", status: "Final check" }
+];
 
 export function TemplateEditorForm({
   title,
@@ -94,7 +84,8 @@ export function TemplateEditorForm({
   onSubmit: () => void;
   onCancel?: () => void;
 }): JSX.Element {
-  const [activeSection, setActiveSection] = useState<TemplateEditorSection>("details");
+  const [activeSection, setActiveSection] = useState<BuilderSection>("details");
+  const [reviewRequested, setReviewRequested] = useState(false);
   const catalogs: TemplateReferenceCatalogs = useMemo(
     () => ({ actions, proficiencies, items, attributes }),
     [actions, attributes, items, proficiencies]
@@ -107,8 +98,11 @@ export function TemplateEditorForm({
   return (
     <form
       className="template-builder"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
+        setReviewRequested(true);
+        setActiveSection("review");
         if (validation.isValid && !pending) {
           onSubmit();
         }
@@ -122,33 +116,49 @@ export function TemplateEditorForm({
           </span>
         </div>
         <span className={`pill ${validation.isValid ? "pill--resolved" : "pill--draft"}`}>
-          {validation.isValid ? "Ready to save" : "Draft in progress"}
+          {validation.isValid ? "Ready for review" : "Draft in progress"}
         </span>
       </header>
 
       <div className="template-builder__tabs" role="tablist" aria-label="Template sections">
         {SECTIONS.map((section, index) => {
-          const errorCount = validation.errors[section.id].length;
-          return (
+          const previousSection = SECTIONS[index - 1];
+          const showGroup = !previousSection || previousSection.group !== section.group;
+          const errorCount =
+            section.id === "review" ? 0 : validation.errors[section.id].length;
+          return [
+            showGroup ? (
+              <span className="template-builder__tab-group" key={`${section.group}-label`}>
+                {section.group}
+              </span>
+            ) : null,
             <button
               key={section.id}
               type="button"
               role="tab"
               aria-selected={activeSection === section.id}
               className={activeSection === section.id ? "is-active" : ""}
-              onClick={() => setActiveSection(section.id)}
+              onClick={() => {
+                if (section.id === "review") {
+                  setReviewRequested(true);
+                }
+                setActiveSection(section.id);
+              }}
             >
               <span className="template-builder__tab-number" aria-hidden="true">
                 {index + 1}
               </span>
-              <span className="template-builder__tab-label">{section.label}</span>
-              {errorCount > 0 ? (
+              <span className="template-builder__tab-copy">
+                <span className="template-builder__tab-label">{section.label}</span>
+                <small>{section.status}</small>
+              </span>
+              {reviewRequested && errorCount > 0 ? (
                 <span className="template-builder__tab-errors" aria-label={`${errorCount} errors`}>
                   {errorCount}
                 </span>
               ) : null}
             </button>
-          );
+          ];
         })}
       </div>
 
@@ -198,18 +208,44 @@ export function TemplateEditorForm({
             onChange={onChange}
           />
         ) : null}
+        {activeSection === "review" ? (
+          <TemplateReviewSection
+            values={values}
+            validation={validation}
+            onNavigate={setActiveSection}
+          />
+        ) : null}
       </div>
 
-      <ValidationSummary errors={validation.errors} />
       <footer className="template-builder__footer">
+        <p className="muted">
+          {activeSection === "review"
+            ? validation.isValid
+              ? "Everything required is ready. Optional sections can stay empty."
+              : "Use the Review links to fix the required fields."
+            : "Only Details is required; the remaining sections have safe defaults or are optional."}
+        </p>
         {onCancel ? (
           <button type="button" className="button button--secondary" onClick={onCancel}>
             Cancel
           </button>
         ) : null}
-        <button type="submit" className="button" disabled={!validation.isValid || pending}>
-          {pending ? "Saving..." : submitLabel}
-        </button>
+        {activeSection === "review" ? (
+          <button type="submit" className="button" disabled={!validation.isValid || pending}>
+            {pending ? "Saving..." : submitLabel}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              setReviewRequested(true);
+              setActiveSection("review");
+            }}
+          >
+            Review Template
+          </button>
+        )}
       </footer>
     </form>
   );

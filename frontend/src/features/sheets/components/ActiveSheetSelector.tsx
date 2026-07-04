@@ -8,6 +8,9 @@ export function ActiveSheetSelector(): JSX.Element {
   const sheetOptions = state.serverState.persistentSheetOrder
     .map((id) => selectSheetInstanceView(state, id))
     .filter((sheet): sheet is SheetInstanceView => Boolean(sheet));
+  const selectedSheetId = sheetOptions.some((sheet) => sheet.id === activeSheetId)
+    ? activeSheetId
+    : (sheetOptions[0]?.id ?? "");
 
   return (
     <section className="sheet-context-selector" aria-label="Active sheet context">
@@ -20,15 +23,16 @@ export function ActiveSheetSelector(): JSX.Element {
       <label className="sheet-context-selector__field">
         <span>Active sheet</span>
         <select
-          value={activeSheetId ?? ""}
+          value={selectedSheetId ?? ""}
+          disabled={sheetOptions.length === 0}
           onChange={(event) =>
             dispatch({
               type: "set_active_sheet_local",
-              sheetId: event.target.value || null
+              sheetId: event.target.value
             })
           }
         >
-          <option value="">No active sheet</option>
+          {sheetOptions.length === 0 ? <option value="">No sheets available</option> : null}
           {sheetOptions.map((sheet) => (
             <option key={sheet.id} value={sheet.id}>
               {sheet.name}

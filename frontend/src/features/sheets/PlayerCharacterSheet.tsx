@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
+import { SheetDetailDisclosure } from "@/features/sheets/components/SheetDetailDisclosure";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
@@ -348,110 +349,123 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-details"
             tabIndex={0}
           >
-            <SheetAttributesSection
-              definitions={attributeDefinitions}
-              bridges={detail.sheet?.attributes ?? {}}
-              canEdit={canEditStats && Boolean(sheetId)}
-              compact={mode === "player"}
-              onSaveFormula={(attributeId, formula) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildSetSheetAttributeValueRequest({
-                    sheetId,
-                    attributeId,
-                    value: { type: "formula", formula }
-                  }),
-                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                );
-              }}
-              onSaveValue={(attributeId, value) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildSetSheetAttributeValueRequest({ sheetId, attributeId, value }),
-                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                );
-              }}
-              onReset={(attributeId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildResetSheetAttributeValueRequest({ sheetId, attributeId }),
-                  `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                );
-              }}
-              onAttach={(attributeId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildAttachSheetAttributeRequest({
-                    sheetId,
-                    attributeId,
-                    relationshipId: makeId("sheet_attribute")
-                  }),
-                  `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                );
-              }}
-              onDetach={(attributeId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildDetachSheetAttributeRequest({ sheetId, attributeId }),
-                  `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                );
-              }}
-            />
-            <SheetProficienciesSection
-              proficiencyDefinitions={proficiencyDefinitions}
-              proficiencyOrder={proficiencyOrder}
-              sheetProficiencies={sheetProficiencies}
-              canEdit={canEditProficiencies}
-              onCreate={(bridge) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildLinkSheetProficiencyRequest({
-                    sheetId,
-                    bridge
-                  }),
-                  `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-                );
-              }}
-              onUpdate={(relationshipId, bridge) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildUpdateLinkedSheetProficiencyRequest({
-                    sheetId,
-                    relationshipId,
-                    bridge
-                  }),
-                  `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-                );
-              }}
-              onDelete={(relationshipId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildUnlinkSheetProficiencyRequest({
-                    sheetId,
-                    relationshipId
-                  }),
-                  "Remove proficiency"
-                );
-              }}
-            />
+            <SheetDetailDisclosure
+              title="Attributes"
+              count={Object.keys(detail.sheet?.attributes ?? {}).length}
+            >
+              <SheetAttributesSection
+                definitions={attributeDefinitions}
+                bridges={detail.sheet?.attributes ?? {}}
+                canEdit={canEditStats && Boolean(sheetId)}
+                compact={mode === "player"}
+                onSaveFormula={(attributeId, formula) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildSetSheetAttributeValueRequest({
+                      sheetId,
+                      attributeId,
+                      value: { type: "formula", formula }
+                    }),
+                    `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                  );
+                }}
+                onSaveValue={(attributeId, value) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildSetSheetAttributeValueRequest({ sheetId, attributeId, value }),
+                    `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                  );
+                }}
+                onReset={(attributeId) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildResetSheetAttributeValueRequest({ sheetId, attributeId }),
+                    `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                  );
+                }}
+                onAttach={(attributeId) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildAttachSheetAttributeRequest({
+                      sheetId,
+                      attributeId,
+                      relationshipId: makeId("sheet_attribute")
+                    }),
+                    `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                  );
+                }}
+                onDetach={(attributeId) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildDetachSheetAttributeRequest({ sheetId, attributeId }),
+                    `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                  );
+                }}
+              />
+            </SheetDetailDisclosure>
+            <SheetDetailDisclosure title="Proficiencies" count={sheetProficiencies.length}>
+              <SheetProficienciesSection
+                proficiencyDefinitions={proficiencyDefinitions}
+                proficiencyOrder={proficiencyOrder}
+                sheetProficiencies={sheetProficiencies}
+                canEdit={canEditProficiencies}
+                onCreate={(bridge) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildLinkSheetProficiencyRequest({
+                      sheetId,
+                      bridge
+                    }),
+                    `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                  );
+                }}
+                onUpdate={(relationshipId, bridge) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildUpdateLinkedSheetProficiencyRequest({
+                      sheetId,
+                      relationshipId,
+                      bridge
+                    }),
+                    `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                  );
+                }}
+                onDelete={(relationshipId) => {
+                  if (!sheetId) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildUnlinkSheetProficiencyRequest({
+                      sheetId,
+                      relationshipId
+                    }),
+                    "Remove proficiency"
+                  );
+                }}
+              />
+            </SheetDetailDisclosure>
             {sheetId ? (
-              <SheetKillsSection client={client} instanceId={detail.instance.id} sheetId={sheetId} />
+              <SheetDetailDisclosure title="Tracked Kills">
+                <SheetKillsSection
+                  client={client}
+                  instanceId={detail.instance.id}
+                  sheetId={sheetId}
+                />
+              </SheetDetailDisclosure>
             ) : null}
           </div>
         ) : null}

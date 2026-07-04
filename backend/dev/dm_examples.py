@@ -1,3 +1,5 @@
+"""Reusable starter-campaign content for development and acceptance tests."""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -83,7 +85,19 @@ CUSTOM_PROFICIENCY_IDS = (
     "gate_lore",
 )
 
-CONDITION_IDS = ("shadow_bound", "bleeding")
+CONDITION_IDS = (
+    "shadow_bound",
+    "bleeding",
+    "arcane_surge",
+    "hidden_gate_mark",
+)
+FORMULA_IDS = (
+    "flames_of_life_mana_cost",
+    "flames_of_life_healing",
+    "ember_bolt_attack_roll",
+    "ember_bolt_damage_roll",
+    "gate_lore_roll",
+)
 
 
 def formula(
@@ -97,6 +111,97 @@ def formula(
         "text": text,
         "tags": [] if tags is None else tags,
     }
+
+
+def formula_reference(formula_id: str) -> dict[str, str]:
+    return {
+        "type": "formula_reference",
+        "formula_id": formula_id,
+    }
+
+
+def formula_payloads() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "flames_of_life_mana_cost",
+            "formula": formula("100", tags=["resource", "mana", "cost"]),
+        },
+        {
+            "id": "flames_of_life_healing",
+            "formula": formula("10", tags=["healing", "health"]),
+        },
+        {
+            "id": "ember_bolt_attack_roll",
+            "formula": formula(
+                (
+                    "Ember Bolt To-Hit: /r floor((1 + @spell_proficiency) "
+                    "* (1d100 / 100) * @arcane)"
+                ),
+                aliases=[
+                    {
+                        "name": "spell_proficiency",
+                        "path": [
+                            "action",
+                            "resolved",
+                            "proficiency_modifier",
+                        ],
+                    },
+                    {"name": "arcane", "path": ["stats", "arcane"]},
+                ],
+                tags=["check", "spell", "attack", "fire"],
+            ),
+        },
+        {
+            "id": "ember_bolt_damage_roll",
+            "formula": formula(
+                (
+                    "Ember Bolt Damage: /r floor((1 + @spell_proficiency) "
+                    "* (1d100 / 100) * @arcane + @base_damage)"
+                ),
+                aliases=[
+                    {
+                        "name": "spell_proficiency",
+                        "path": [
+                            "action",
+                            "resolved",
+                            "proficiency_modifier",
+                        ],
+                    },
+                    {"name": "arcane", "path": ["stats", "arcane"]},
+                    {
+                        "name": "base_damage",
+                        "path": [
+                            "action",
+                            "attributes",
+                            ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
+                        ],
+                    },
+                ],
+                tags=["damage", "spell", "fire"],
+            ),
+        },
+        {
+            "id": "gate_lore_roll",
+            "formula": formula(
+                (
+                    "Gate Lore: /r floor((1 + @lore_proficiency) "
+                    "* (1d100 / 100) * @perception)"
+                ),
+                aliases=[
+                    {
+                        "name": "lore_proficiency",
+                        "path": [
+                            "action",
+                            "resolved",
+                            "proficiency_modifier",
+                        ],
+                    },
+                    {"name": "perception", "path": ["stats", "perception"]},
+                ],
+                tags=["check", "knowledge", "gate"],
+            ),
+        },
+    ]
 
 
 def attribute_bridge(attribute_id: str, value_type: str, value: Any) -> dict[str, Any]:
@@ -113,14 +218,18 @@ def rank_attribute(rank: str) -> dict[str, dict[str, Any]]:
 
 def selector(
     *required_tags: str,
+    excluded_tags: tuple[str, ...] = (),
+    action_id: str | None = None,
+    formula_id: str | None = None,
+    step_id: str | None = None,
     same_source_item: bool = False,
 ) -> dict[str, Any]:
     return {
         "required_tags": list(required_tags),
-        "excluded_tags": [],
-        "action_id": None,
-        "formula_id": None,
-        "step_id": None,
+        "excluded_tags": list(excluded_tags),
+        "action_id": action_id,
+        "formula_id": formula_id,
+        "step_id": step_id,
         "same_source_item": same_source_item,
     }
 
@@ -133,6 +242,9 @@ def augmentation(
     path: list[str],
     effect: dict[str, Any],
     description: str = "",
+    duration: str | None = None,
+    expires_at: str | None = None,
+    removal_condition: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": augmentation_id,
@@ -147,9 +259,9 @@ def augmentation(
         "applied_target_id": None,
         "lifecycle_owner": "equipment",
         "lifecycle": {
-            "duration": None,
-            "expires_at": None,
-            "removal_condition": None,
+            "duration": duration,
+            "expires_at": expires_at,
+            "removal_condition": removal_condition,
         },
     }
 
@@ -168,6 +280,10 @@ def evaluation_effect(
     value: str,
     *required_tags: str,
     aliases: list[dict[str, Any]] | None = None,
+    excluded_tags: tuple[str, ...] = (),
+    action_id: str | None = None,
+    formula_id: str | None = None,
+    step_id: str | None = None,
     same_source_item: bool = False,
 ) -> dict[str, Any]:
     return {
@@ -176,6 +292,10 @@ def evaluation_effect(
         "value": formula(value, aliases=aliases),
         "selector": selector(
             *required_tags,
+            excluded_tags=excluded_tags,
+            action_id=action_id,
+            formula_id=formula_id,
+            step_id=step_id,
             same_source_item=same_source_item,
         ),
     }
@@ -184,11 +304,12 @@ def evaluation_effect(
 def roll_mode_effect(
     *required_tags: str,
     roll_mode: str = "advantage",
+    action_id: str | None = None,
 ) -> dict[str, Any]:
     return {
         "type": "roll_mode_modifier",
         "roll_mode": roll_mode,
-        "selector": selector(*required_tags),
+        "selector": selector(*required_tags, action_id=action_id),
     }
 
 
@@ -324,7 +445,7 @@ def condition_payloads() -> list[dict[str, Any]]:
             "augmentation_templates": [
                 augmentation(
                     "shadow_bound_dodge_penalty",
-                    "Shadow Bound Dodge Disadvantage",
+                    "Dodge Disadvantage",
                     root="instance",
                     path=["mana"],
                     effect=roll_mode_effect(
@@ -332,6 +453,11 @@ def condition_payloads() -> list[dict[str, Any]]:
                         "dodge",
                         roll_mode="disadvantage",
                     ),
+                    description=(
+                        "Dodge checks roll with disadvantage while restrained."
+                    ),
+                    duration="Until the character escapes",
+                    removal_condition="Escape succeeds or the binding source ends",
                 )
             ],
         },
@@ -351,8 +477,55 @@ def condition_payloads() -> list[dict[str, Any]]:
                     root="instance",
                     path=["health"],
                     effect=direct_effect("subtract", "2"),
+                    description=(
+                        "Reduces current health by 2 while Bleeding is applied; "
+                        "removal restores that temporary reduction."
+                    ),
+                    duration="Until treated",
+                    removal_condition="Bleeding is treated or otherwise stopped",
                 )
             ],
+        },
+        {
+            "id": "arcane_surge",
+            "name": "Arcane Surge",
+            "description": (
+                "A short-lived spell surge that strengthens Ember Bolt damage."
+            ),
+            "visibility": "public",
+            "augmentation_ids": [],
+            "augmentation_templates": [
+                augmentation(
+                    "arcane_surge_ember_bolt_damage",
+                    "Empowered Ember Bolt",
+                    root="instance",
+                    path=["mana"],
+                    effect=evaluation_effect(
+                        "add",
+                        "4",
+                        "damage",
+                        "spell",
+                        excluded_tags=("healing",),
+                        formula_id="ember_bolt_damage_roll",
+                    ),
+                    description=(
+                        "Adds 4 only when the Ember Bolt damage formula is evaluated."
+                    ),
+                    duration="Three rounds",
+                    expires_at="End of the affected character's third turn",
+                    removal_condition="The surge expires or is dispelled",
+                )
+            ],
+        },
+        {
+            "id": "hidden_gate_mark",
+            "name": "Hidden Gate Mark",
+            "description": (
+                "A GM-only narrative marker with no automatic mechanical effect."
+            ),
+            "visibility": "gm_only",
+            "augmentation_ids": [],
+            "augmentation_templates": [],
         },
     ]
 
@@ -673,14 +846,37 @@ def standalone_effect_payloads(
 ) -> list[dict[str, Any]]:
     return [
         {
+            "id": "guarded_stance",
+            "name": "Guarded Stance",
+            "description": (
+                "Temporarily adds 10% physical resistance while the stance is active."
+            ),
+            "scope": "instance",
+            "target": {"root": "instance", "path": ["resistances", "physical"]},
+            "effect": direct_effect("add", "0.10"),
+            "active": True,
+            "lifecycle": {
+                "duration": "Until the stance ends",
+                "expires_at": None,
+                "removal_condition": "An action removes Guarded Stance",
+            },
+        },
+        {
             "id": "parry_advantage",
             "name": "Parry Advantage",
             "description": "Always grants advantage on tagged Parry attempts.",
             "scope": "instance",
             "target": {"root": "instance", "path": ["mana"]},
-            "effect": roll_mode_effect("check", "parry"),
+            "effect": roll_mode_effect(
+                "check",
+                "parry",
+                action_id="weapon_parry",
+            ),
             "active": True,
-            "lifecycle": {},
+            "lifecycle": {
+                "duration": "Until removed",
+                "removal_condition": "Parry training effect is dismissed",
+            },
         },
         {
             "id": "mana_manipulation_effect_bonus",
@@ -745,7 +941,7 @@ def action_payloads() -> list[dict[str, Any]]:
                     "type": "decrement_value",
                     "target": "caster",
                     "path": ["mana"],
-                    "amount": formula("100"),
+                    "amount": formula_reference("flames_of_life_mana_cost"),
                     "min_value": formula("0"),
                     "max_value": None,
                     "on_min_violation": "reject",
@@ -756,7 +952,7 @@ def action_payloads() -> list[dict[str, Any]]:
                     "type": "increment_value",
                     "target": "caster",
                     "path": ["health"],
-                    "amount": formula("10"),
+                    "amount": formula_reference("flames_of_life_healing"),
                     "min_value": formula("0"),
                     "max_value": formula(
                         "@max_health",
@@ -844,24 +1040,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 {
                     "step_id": "roll_spell_attack",
                     "type": "send_message",
-                    "message": formula(
-                        (
-                            "Ember Bolt To-Hit: /r floor((1 + @spell_proficiency) "
-                            "* (1d100 / 100) * @arcane)"
-                        ),
-                        aliases=[
-                            {
-                                "name": "spell_proficiency",
-                                "path": [
-                                    "action",
-                                    "resolved",
-                                    "proficiency_modifier",
-                                ],
-                            },
-                            {"name": "arcane", "path": ["stats", "arcane"]},
-                        ],
-                        tags=["check", "spell", "attack", "fire"],
-                    ),
+                    "message": formula_reference("ember_bolt_attack_roll"),
                 }
             ],
         },
@@ -903,32 +1082,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 {
                     "step_id": "roll_spell_damage",
                     "type": "send_message",
-                    "message": formula(
-                        (
-                            "Ember Bolt Damage: /r floor((1 + @spell_proficiency) "
-                            "* (1d100 / 100) * @arcane + @base_damage)"
-                        ),
-                        aliases=[
-                            {
-                                "name": "spell_proficiency",
-                                "path": [
-                                    "action",
-                                    "resolved",
-                                    "proficiency_modifier",
-                                ],
-                            },
-                            {"name": "arcane", "path": ["stats", "arcane"]},
-                            {
-                                "name": "base_damage",
-                                "path": [
-                                    "action",
-                                    "attributes",
-                                    ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
-                                ],
-                            },
-                        ],
-                        tags=["damage", "spell", "fire"],
-                    ),
+                    "message": formula_reference("ember_bolt_damage_roll"),
                 },
             ],
         },
@@ -1083,24 +1237,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 {
                     "step_id": "roll_gate_lore",
                     "type": "send_message",
-                    "message": formula(
-                        (
-                            "Gate Lore: /r floor((1 + @lore_proficiency) "
-                            "* (1d100 / 100) * @perception)"
-                        ),
-                        aliases=[
-                            {
-                                "name": "lore_proficiency",
-                                "path": [
-                                    "action",
-                                    "resolved",
-                                    "proficiency_modifier",
-                                ],
-                            },
-                            {"name": "perception", "path": ["stats", "perception"]},
-                        ],
-                        tags=["check", "knowledge", "gate"],
-                    ),
+                    "message": formula_reference("gate_lore_roll"),
                 }
             ],
         },
@@ -1268,14 +1405,14 @@ def sheet_payload() -> dict[str, Any]:
     }
     return {
         "id": SHEET_ID,
-        "name": "Ember Ranker Arin Vale",
+        "name": "Example Player 1",
         "notes": (
-            "Starter player template: a fire-affinity ranker with recovery magic "
-            "and item examples."
+            "DM reference template: fire-affinity striker/healer with formulas, "
+            "actions, equipment, consumables, proficiencies, and XP progress."
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": "",
+        "xp_cap": "100",
         "proficiencies": {
             "fixture_long_swords": proficiency_bridge("long_swords", use_count=0),
             "fixture_pyromancy": proficiency_bridge("pyromancy", use_count=30),
@@ -1306,14 +1443,14 @@ def sheet_payload() -> dict[str, Any]:
 def shadowblade_sheet_payload() -> dict[str, Any]:
     return {
         "id": SHADOWBLADE_SHEET_ID,
-        "name": "Shadowblade Mina Seo",
+        "name": "Example Player 2",
         "notes": (
-            "Starter player template: quick melee scout inspired by gate-hunter "
-            "manhwa archetypes."
+            "DM reference template: quick melee scout with item-granted actions, "
+            "conditions, proficiency growth, and a completed XP threshold."
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": "",
+        "xp_cap": "60",
         "proficiencies": {
             "fixture_knives": proficiency_bridge("knives", use_count=42),
             "fixture_shadow_steps": proficiency_bridge(
@@ -1364,7 +1501,7 @@ def goblin_sheet_payload() -> dict[str, Any]:
         "id": GOBLIN_SHEET_ID,
         "name": "Red Gate Goblin",
         "notes": "Starter enemy template: fast minion from an unstable red gate.",
-        "dm_only": False,
+        "dm_only": True,
         "xp_given_when_slayed": 15,
         "xp_cap": "D",
         "proficiencies": {},
@@ -1398,7 +1535,7 @@ def wraith_sheet_payload() -> dict[str, Any]:
         "id": WRAITH_SHEET_ID,
         "name": "Ash Wraith",
         "notes": "Starter enemy template: elite ash caster guarding a gate core.",
-        "dm_only": False,
+        "dm_only": True,
         "xp_given_when_slayed": 45,
         "xp_cap": "C",
         "proficiencies": {
@@ -1484,6 +1621,10 @@ def authoring_requests(
         for condition in condition_payloads()
     )
     requests.extend(
+        {"type": "create_formula", "formula": formula_definition}
+        for formula_definition in formula_payloads()
+    )
+    requests.extend(
         {"type": "create_action", "action": action}
         for action in action_payloads()
     )
@@ -1496,6 +1637,34 @@ def authoring_requests(
         for sheet in sheet_payloads()
     )
     requests.extend(
+        [
+            {
+                "type": "set_sheet_mob_kill_count",
+                "sheet_id": SHEET_ID,
+                "mob_sheet_id": GOBLIN_SHEET_ID,
+                "count": 2,
+            },
+            {
+                "type": "set_sheet_mob_kill_count",
+                "sheet_id": SHEET_ID,
+                "mob_sheet_id": WRAITH_SHEET_ID,
+                "count": 1,
+            },
+            {
+                "type": "set_sheet_mob_kill_count",
+                "sheet_id": SHADOWBLADE_SHEET_ID,
+                "mob_sheet_id": GOBLIN_SHEET_ID,
+                "count": 1,
+            },
+            {
+                "type": "set_sheet_mob_kill_count",
+                "sheet_id": SHADOWBLADE_SHEET_ID,
+                "mob_sheet_id": WRAITH_SHEET_ID,
+                "count": 1,
+            },
+        ]
+    )
+    requests.extend(
         {"type": "save_encounter_preset", "encounter": encounter}
         for encounter in encounter_payloads()
     )
@@ -1504,7 +1673,7 @@ def authoring_requests(
             "type": "create_instanced_sheet",
             "instance_id": INSTANCE_ID,
             "parent_sheet_id": SHEET_ID,
-            "notes": "",
+            "notes": "Example Player 1 runtime instance for DM reference.",
             "health": 50,
             "mana": 200,
             "resistances": {},
@@ -1516,7 +1685,7 @@ def authoring_requests(
             "type": "create_instanced_sheet",
             "instance_id": SHADOWBLADE_INSTANCE_ID,
             "parent_sheet_id": SHADOWBLADE_SHEET_ID,
-            "notes": "",
+            "notes": "Example Player 2 runtime instance for DM reference.",
             "health": 62,
             "mana": 80,
             "resistances": {},

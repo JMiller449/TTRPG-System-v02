@@ -52,20 +52,31 @@ export interface TemplateContextualCreateSubmission {
 const DIALOG_COPY: Record<TemplateContextualEntityKind, { title: string; description: string }> = {
   attribute: {
     title: "Create and attach Attribute",
-    description: "Create a sheet-compatible Attribute. It attaches after the backend confirms it."
+    description: "Create a reusable named value and add it to this template."
   },
   proficiency: {
     title: "Create and attach Proficiency",
-    description: "Create a proficiency definition without leaving the current template draft."
+    description: "Create reusable training and add it to this template without losing your draft."
   },
   item: {
     title: "Create and attach Item",
-    description: "Create a complete item, then add one unequipped copy to starting inventory."
+    description: "Create a reusable item and add one unequipped copy to starting inventory."
   },
   action: {
     title: "Create and attach Action",
-    description: "Create an authored action and attach it after authoritative reconciliation."
+    description: "Create a reusable action and add it to this template."
   }
+};
+
+const DIALOG_GUIDANCE: Record<TemplateContextualEntityKind, string> = {
+  attribute:
+    "Start with a name and value type. Formula sources and attachment options are advanced and can keep their defaults.",
+  proficiency:
+    "Name the training and choose its category. The description is optional but helps explain when it applies.",
+  item:
+    "Choose the item type and complete Details first. Attributes, effects, granted actions, and GM metadata are optional.",
+  action:
+    "Use a preset when one fits. Otherwise, name the action and add only the steps it needs; roll mode and Attributes are optional."
 };
 
 function requestWithId(
@@ -259,6 +270,10 @@ export function TemplateContextualCreateDialog({
       size={kind === "attribute" || kind === "proficiency" ? "compact" : "large"}
       onClose={onClose}
     >
+      <div className="template-contextual-modal__guidance">
+        <strong>Quick start</strong>
+        <span>{DIALOG_GUIDANCE[kind]}</span>
+      </div>
       {kind === "attribute" ? (
         <AttributeEditorForm
           editingId={null}

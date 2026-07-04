@@ -141,55 +141,92 @@ export function ItemEditorForm({
           </Field>
         </div>
 
-        <Field label="World Anvil URL">
-          <input
-            value={values.worldAnvilUrl}
-            onChange={(event) => onChange({ ...values, worldAnvilUrl: event.target.value })}
-            placeholder="https://..."
-          />
-        </Field>
-
-        <Field label="Reference Description">
-          <textarea
-            rows={4}
-            value={values.description}
-            onChange={(event) => onChange({ ...values, description: event.target.value })}
-            placeholder="Appearance, history, reach, or other table reference"
-          />
-        </Field>
-
-        <Field label="GM Notes">
-          <textarea
-            rows={3}
-            value={values.gmNotes}
-            onChange={(event) => onChange({ ...values, gmNotes: event.target.value })}
-            placeholder="Private GM notes"
-          />
-        </Field>
-
-        {values.interactionType !== "inventory_only" ? (
-          <Field label="GM Special Properties">
-            <textarea
-              rows={3}
-              value={values.gmSpecialProperties}
-              onChange={(event) => onChange({ ...values, gmSpecialProperties: event.target.value })}
-              placeholder="Private properties"
-            />
-          </Field>
-        ) : null}
+        <details className="authoring-disclosure">
+          <summary>
+            <span>
+              <strong>Reference and GM notes</strong>
+              <small>Optional</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body stack">
+            <Field label="World Anvil URL">
+              <input
+                value={values.worldAnvilUrl}
+                onChange={(event) => onChange({ ...values, worldAnvilUrl: event.target.value })}
+                placeholder="https://..."
+              />
+            </Field>
+            <Field label="Reference Description">
+              <textarea
+                rows={4}
+                value={values.description}
+                onChange={(event) => onChange({ ...values, description: event.target.value })}
+                placeholder="Appearance, history, reach, or other table reference"
+              />
+            </Field>
+            <Field label="GM Notes">
+              <textarea
+                rows={3}
+                value={values.gmNotes}
+                onChange={(event) => onChange({ ...values, gmNotes: event.target.value })}
+                placeholder="Private GM notes"
+              />
+            </Field>
+            {values.interactionType !== "inventory_only" ? (
+              <Field label="GM Special Properties">
+                <textarea
+                  rows={3}
+                  value={values.gmSpecialProperties}
+                  onChange={(event) =>
+                    onChange({ ...values, gmSpecialProperties: event.target.value })
+                  }
+                  placeholder="Private properties"
+                />
+              </Field>
+            ) : null}
+          </div>
+        </details>
       </section>
 
-      {attributesEditor}
+      <details className="authoring-disclosure">
+        <summary>
+          <span>
+            <strong>Attributes</strong>
+            <small>Optional named values and profiles</small>
+          </span>
+        </summary>
+        <div className="authoring-disclosure__body">{attributesEditor}</div>
+      </details>
 
-      {values.interactionType === "equippable" ? effectEditor : null}
+      {values.interactionType === "equippable" ? (
+        <details className="authoring-disclosure">
+          <summary>
+            <span>
+              <strong>Equipment effects</strong>
+              <small>Optional changes while worn</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body">{effectEditor}</div>
+        </details>
+      ) : null}
 
       {values.interactionType !== "inventory_only" ? (
-        <ItemActionGrantEditor
-          values={values}
-          actions={actions}
-          onChange={onChange}
-          onOpenActionAuthoring={onOpenActionAuthoring}
-        />
+        <details className="authoring-disclosure">
+          <summary>
+            <span>
+              <strong>Granted actions</strong>
+              <small>Optional actions available from this item</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body">
+            <ItemActionGrantEditor
+              values={values}
+              actions={actions}
+              onChange={onChange}
+              onOpenActionAuthoring={onOpenActionAuthoring}
+            />
+          </div>
+        </details>
       ) : null}
 
       {validationError ? <p className="error-text">{validationError}</p> : null}

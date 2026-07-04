@@ -59,7 +59,11 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   const [draft, setDraft] = useState<AttributeDraft>(emptyAttributeDraft);
   const requestedMetadataRef = useRef(false);
   const orderedAttributes = useMemo(
-    () => attributeOrder.map((id) => attributes[id]).filter((attribute): attribute is AttributeDefinition => Boolean(attribute)),
+    () =>
+      attributeOrder
+        .map((id) => attributes[id])
+        .filter((attribute): attribute is AttributeDefinition => Boolean(attribute))
+        .filter((attribute) => !attribute.backend_owned),
     [attributeOrder, attributes]
   );
 
@@ -95,6 +99,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   return (
     <Panel
       title="Attribute Builder"
+      subtitle="Attributes are typed facts — like Range or Mana Cost — that sheets, items, and actions can carry."
       actions={
         editingId ? (
           <div className="inline-actions">
@@ -128,14 +133,10 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
           <CatalogTileGrid
             items={orderedAttributes.map((attribute) => ({
               id: attribute.id,
-              name: attribute.name,
-              disabled: attribute.backend_owned,
-              disabledReason: attribute.backend_owned
-                ? `${attribute.name} is backend-owned`
-                : undefined
+              name: attribute.name
             }))}
             selectedId={editingId}
-            emptyMessage="No attributes created yet."
+            emptyMessage="No custom attributes yet. Built-in attributes are managed by the system and stay out of this list."
             onSelect={(attributeId) => {
               const attribute = attributes[attributeId];
               if (!attribute || attribute.backend_owned) {

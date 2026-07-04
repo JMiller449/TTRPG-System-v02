@@ -27,13 +27,14 @@ export function selectOrderedProficiencyDefinitions(
 }
 
 export function buildCreateProficiencySubmission(
-  values: ProficiencyEditorValues
+  values: ProficiencyEditorValues,
+  proficiencyId: string
 ): ProficiencyAuthoringSubmission | null {
   if (!hasValidProficiencyEditorValues(values)) {
     return null;
   }
 
-  const proficiency = toProficiencyDefinitionPayload(values);
+  const proficiency = toProficiencyDefinitionPayload(values, proficiencyId);
   return {
     request: buildCreateProficiencyRequest({ proficiency }),
     label: `Create proficiency: ${proficiency.name}`

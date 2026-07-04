@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { selectPlayerInstances } from "@/app/state/selectors";
+import { selectPlayerInstances, selectSheetInstanceView } from "@/app/state/selectors";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
@@ -59,6 +59,7 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
   return (
     <Panel
       title="Player Access Codes"
+      subtitle="Codes your players enter on the landing screen to claim their character."
       actions={
         <button
           type="button"
@@ -85,7 +86,7 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
               {playerInstances.length === 0 ? <option value="">No player instances</option> : null}
               {playerInstances.map((instance) => (
                 <option key={instance.id} value={instance.id}>
-                  {instance.name} ({instance.id})
+                  {instance.name}
                 </option>
               ))}
             </select>
@@ -110,12 +111,21 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
           {activeCodes.length === 0 ? (
             <EmptyState message="No active player access codes loaded." />
           ) : null}
-          {activeCodes.map((entry) => (
+          {activeCodes.map((entry) => {
+            const instanceName = entry.instanceId
+              ? selectSheetInstanceView(state, entry.instanceId)?.name
+              : null;
+            const templateName = state.serverState.sheets[entry.sheetId]?.name;
+            return (
             <article className="list-item" key={entry.code}>
               <div>
                 <strong>{entry.code}</strong>
                 <div className="muted">
-                  Instance: {entry.instanceId ?? "unassigned"} · Template: {entry.sheetId}
+                  {instanceName
+                    ? `Unlocks ${instanceName}`
+                    : templateName
+                      ? `Unlocks a ${templateName} sheet (unclaimed)`
+                      : "Not assigned to a character yet"}
                 </div>
               </div>
               <button
@@ -126,7 +136,8 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
                 {copiedCode === entry.code ? "Copied" : "Copy"}
               </button>
             </article>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Panel>

@@ -20,7 +20,6 @@ import { Panel } from "@/shared/ui/Panel";
 export function RollPanel({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const { activeSheetId } = state.uiState;
-  const { roll20Bridge } = state.uiState;
   const { actions, items } = state.serverState;
 
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickRollAction | null>(null);
@@ -32,7 +31,6 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
     }
     return selectSheetInstanceView(state, activeSheetId);
   }, [activeSheetId, state]);
-  const activeSheetName = activeSheetView?.name ?? activeSheetId ?? "None";
   const quickActionResolutions = useMemo(
     () =>
       Object.fromEntries(
@@ -65,29 +63,11 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
     client.sendProtocolRequest(execution.request, execution.label);
   };
 
-  const selectedActionLabel = selectedQuickActionResolution
-    ? selectedQuickActionResolution.actionName
-    : selectedQuickAction
-      ? getQuickRollLabel(selectedQuickAction)
-      : null;
   const canSubmit = Boolean(activeSheetId && selectedQuickActionResolution);
-  const bridgeStatusLabel =
-    roll20Bridge.status === "connected"
-      ? "Roll20 connected"
-      : roll20Bridge.status === "disconnected"
-        ? "Roll20 disconnected"
-        : "Roll20 unknown";
 
   return (
     <Panel title="Quick Actions">
       <div className="stack">
-        <div className="status-row roll-panel__meta">
-          <span className="pill">sheet: {activeSheetName}</span>
-          <span className={`pill roll20-bridge-pill roll20-bridge-pill--${roll20Bridge.status}`}>
-            {bridgeStatusLabel}
-          </span>
-          {selectedActionLabel ? <span className="pill">action: {selectedActionLabel}</span> : null}
-        </div>
         <div className="quick-roll-row">
           {QUICK_ROLL_ACTIONS.map((action) => (
             <button

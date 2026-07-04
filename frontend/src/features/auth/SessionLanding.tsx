@@ -45,7 +45,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
         <header className="landing-card__header">
           <img className="landing-card__mark" src={systemMark} alt="" aria-hidden="true" />
           <div>
-            <p className="landing-card__eyebrow">Backend Authoritative Interface</p>
+            <p className="landing-card__eyebrow">Chip TTRPG Session Console</p>
             <h1>TTRPG Sheet Console</h1>
             <p className="muted">Enter your player or GM code.</p>
           </div>
@@ -54,7 +54,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
         <div className="landing-status-strip" aria-label="Connection status">
           <span className={`pill pill--${connection.status}`}>{connection.status}</span>
           {isConnecting ? <span className="pill pill--connecting">connecting...</span> : null}
-          <span className="landing-status-strip__meta">WebSocket /ws</span>
+          <span className="landing-status-strip__meta">Live game connection</span>
         </div>
 
         <Panel title="Enter Code">

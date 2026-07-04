@@ -38,12 +38,11 @@ describe("proficiencyAuthoringRequests", () => {
 
   it("builds create submissions from editor values", () => {
     const values = createEmptyProficiencyEditorValues();
-    values.id = " longsword ";
     values.name = " Longsword ";
     values.description = " Tracks approved longsword use. ";
     values.category = "weapon_family";
 
-    expect(buildCreateProficiencySubmission(values)).toEqual({
+    expect(buildCreateProficiencySubmission(values, "longsword")).toEqual({
       request: {
         type: "create_proficiency",
         proficiency: {
@@ -59,9 +58,8 @@ describe("proficiencyAuthoringRequests", () => {
 
   it("does not build create or update submissions for invalid values", () => {
     const values = createEmptyProficiencyEditorValues();
-    values.id = "longsword";
 
-    expect(buildCreateProficiencySubmission(values)).toBeNull();
+    expect(buildCreateProficiencySubmission(values, "longsword")).toBeNull();
     expect(buildUpdateProficiencySubmission(testProficiency(), values)).toBeNull();
   });
 

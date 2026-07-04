@@ -1,6 +1,6 @@
 .app-grid-wide > .panel {
   min-width: 0;
-  border-radius: 8px;
+  border-radius: var(--r6-radius-lg, 4px);
 }
 
 .template-builder {
@@ -41,7 +41,7 @@
   gap: 0.35rem;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--r6-radius, 3px);
 }
 
 .template-builder__tabs button {
@@ -51,7 +51,7 @@
   gap: 0.55rem;
   min-height: 3.2rem;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--r6-radius-sm, 2px);
   padding: 0.45rem 0.55rem;
   background: transparent;
   color: var(--muted);
@@ -72,7 +72,7 @@
   width: 1.75rem;
   height: 1.75rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
   font-size: 0.75rem;
   font-weight: 850;
 }
@@ -155,7 +155,7 @@
   max-height: 34rem;
   overflow-y: auto;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
 }
 
@@ -233,7 +233,7 @@
 .template-builder__validation {
   grid-area: validation;
   border: 1px solid var(--r6-danger-line, rgba(255, 95, 131, 0.5));
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
   padding: 0.65rem 0.8rem;
   background: var(--r6-danger-bg, rgba(255, 95, 131, 0.1));
   color: var(--r6-danger, #ff5f83);

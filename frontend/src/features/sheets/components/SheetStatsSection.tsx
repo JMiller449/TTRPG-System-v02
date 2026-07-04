@@ -48,8 +48,8 @@ export function SheetStatsSection({
       {!compact ? (
         <p className="muted character-sheet__hint">
           {canEditStats
-            ? "GM stat edits are backend-authored. Formula and resistance controls stay below the table."
-            : "Read-only values from the authoritative sheet."}
+            ? "Click a stat to edit it — changes save to the server instantly. Formula and resistance tools are further down."
+            : "These values come straight from the server and update live."}
         </p>
       ) : null}
       <div className="character-sheet__core-blocks">

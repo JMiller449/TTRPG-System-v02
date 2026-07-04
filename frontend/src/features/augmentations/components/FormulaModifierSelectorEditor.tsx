@@ -25,11 +25,11 @@ export function FormulaModifierSelectorEditor({
   return (
     <section className="formula-selector-editor stack" aria-label="Formula modifier selector">
       <div>
-        <strong>Formula Match Selector</strong>
+        <strong>Which Rolls Does This Affect?</strong>
         <p className="muted formula-selector-editor__hint">
-          All populated constraints must match. Evaluation-time effects apply while the
-          concrete effect is active or the attached item is equipped; direct state modifiers
-          ignore this selector.
+          Narrow the modifier down to specific tags, actions, formulas, or steps. Leave a
+          field on &ldquo;Any&rdquo; to match everything. Every filled-in constraint must
+          match for the modifier to apply.
         </p>
       </div>
 
@@ -55,48 +55,47 @@ export function FormulaModifierSelectorEditor({
       ) : null}
 
       <div className="inline-group">
-        <Field label="Exact Action ID">
-          <input
-            list={`${idPrefix}-action-options`}
+        <Field label="Limit to Action">
+          <select
+            id={`${idPrefix}-action-options`}
             value={values.selectorActionId}
             onChange={(event) => onChange({ ...values, selectorActionId: event.target.value })}
-            placeholder="Any action"
-          />
-          <datalist id={`${idPrefix}-action-options`}>
+          >
+            <option value="">Any action</option>
             {options.actions.map((option) => (
-              <option key={option.id} value={option.id} label={option.label} />
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </Field>
-        <Field label="Exact Formula ID">
-          <input
-            list={`${idPrefix}-formula-options`}
+        <Field label="Limit to Formula">
+          <select
+            id={`${idPrefix}-formula-options`}
             value={values.selectorFormulaId}
             onChange={(event) => onChange({ ...values, selectorFormulaId: event.target.value })}
-            placeholder="Any formula"
-          />
-          <datalist id={`${idPrefix}-formula-options`}>
+          >
+            <option value="">Any formula</option>
             {options.formulas.map((option) => (
-              <option key={option.id} value={option.id} label={option.label} />
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </Field>
-        <Field label="Exact Step ID">
-          <input
-            list={`${idPrefix}-step-options`}
+        <Field label="Limit to Step">
+          <select
+            id={`${idPrefix}-step-options`}
             value={values.selectorStepId}
             onChange={(event) => onChange({ ...values, selectorStepId: event.target.value })}
-            placeholder="Any step"
-          />
-          <datalist id={`${idPrefix}-step-options`}>
+          >
+            <option value="">Any step</option>
             {stepOptions.map((option) => (
-              <option
-                key={`${option.actionId}:${option.id}`}
-                value={option.id}
-                label={option.label}
-              />
+              <option key={`${option.actionId}:${option.id}`} value={option.id}>
+                {option.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </Field>
       </div>
 

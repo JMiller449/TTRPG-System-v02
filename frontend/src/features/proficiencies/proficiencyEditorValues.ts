@@ -1,5 +1,6 @@
 import type { ProficiencyDefinition } from "@/domain/models";
 import type { ProficiencyDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
+import { makeId } from "@/shared/utils/id";
 
 export interface ProficiencyEditorValues {
   id: string;
@@ -31,7 +32,26 @@ export function toProficiencyEditorValues(
 export function hasValidProficiencyEditorValues(
   values: ProficiencyEditorValues
 ): boolean {
-  return values.id.trim().length > 0 && values.name.trim().length > 0;
+  return values.name.trim().length > 0;
+}
+
+export function deriveProficiencyId(name: string, existingIds: readonly string[]): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!slug) {
+    return makeId("proficiency");
+  }
+  if (!existingIds.includes(slug)) {
+    return slug;
+  }
+  let suffix = 2;
+  while (existingIds.includes(`${slug}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${slug}_${suffix}`;
 }
 
 export function toProficiencyDefinitionPayload(

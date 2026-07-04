@@ -179,6 +179,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   return (
     <Panel
       title="Condition Authoring"
+      subtitle="Status conditions like Poisoned or Stunned, plus the effects they apply while active."
       actions={
         editingConditionId ? (
           <div className="inline-actions">

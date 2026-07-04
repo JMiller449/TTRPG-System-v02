@@ -32,6 +32,7 @@ import { ProficiencyEditorForm } from "@/features/proficiencies/components/Profi
 import { buildCreateProficiencySubmission } from "@/features/proficiencies/proficiencyAuthoringRequests";
 import {
   createEmptyProficiencyEditorValues,
+  deriveProficiencyId,
   type ProficiencyEditorValues
 } from "@/features/proficiencies/proficiencyEditorValues";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
@@ -152,10 +153,11 @@ export function TemplateContextualCreateDialog({
     definitions: serverState.attributes,
     proficiencies: serverState.proficiencies
   });
-  const proficiencyId = proficiencyValues.id.trim();
-  const proficiencyValidationError = serverState.proficiencies[proficiencyId]
-    ? `Proficiency ID '${proficiencyId}' already exists.`
-    : null;
+  const proficiencyId = deriveProficiencyId(
+    proficiencyValues.name,
+    Object.keys(serverState.proficiencies)
+  );
+  const proficiencyValidationError = null;
 
   const submit = (
     entityKind: TemplateContextualEntityKind,
@@ -189,7 +191,7 @@ export function TemplateContextualCreateDialog({
     if (proficiencyValidationError) {
       return;
     }
-    const submission = buildCreateProficiencySubmission(proficiencyValues);
+    const submission = buildCreateProficiencySubmission(proficiencyValues, proficiencyId);
     if (!submission) {
       return;
     }

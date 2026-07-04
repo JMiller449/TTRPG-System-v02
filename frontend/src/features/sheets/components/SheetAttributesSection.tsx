@@ -92,7 +92,7 @@ export function SheetAttributesSection({
               value={selectedAttributeId}
               onChange={(event) => setSelectedAttributeId(event.target.value)}
             >
-              <option value="">Select a Attribute</option>
+              <option value="">Select an Attribute</option>
               {availableDefinitions.map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.name}

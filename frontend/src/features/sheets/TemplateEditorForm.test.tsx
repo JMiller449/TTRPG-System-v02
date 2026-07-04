@@ -45,7 +45,7 @@ describe("TemplateEditorForm", () => {
   it("disables creation and shows section validation for an incomplete draft", () => {
     const markup = renderEditor();
 
-    expect(markup).toContain("Draft needs attention");
+    expect(markup).toContain("Draft in progress");
     expect(markup).toContain("Template name is required.");
     expect(markup).toContain('type="submit" class="button" disabled=""');
   });

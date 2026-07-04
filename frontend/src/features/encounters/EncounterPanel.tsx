@@ -100,7 +100,10 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
   };
 
   return (
-    <Panel title="Encounter Presets">
+    <Panel
+      title="Encounter Presets"
+      subtitle="Save enemy groups ahead of time so you can spawn a whole encounter in one click."
+    >
       <div className="stack">
         <Field label="Preset Name">
           <input

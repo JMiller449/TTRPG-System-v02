@@ -30,11 +30,20 @@ export function AttributeEditorForm({
 
   return (
     <div className="card stack attribute-editor-form">
+      <div>
+        <p className="template-editor__title">
+          {editingId ? "Edit Attribute" : "Create Attribute"}
+        </p>
+        <p className="muted">
+          Name it, choose what kind of value it holds, and pick where it can be attached.
+        </p>
+      </div>
       <label>
         Name
         <input
           value={draft.name}
           onChange={(event) => onChange({ ...draft, name: event.target.value })}
+          placeholder="e.g. Range"
         />
       </label>
       <label>
@@ -42,10 +51,11 @@ export function AttributeEditorForm({
         <textarea
           value={draft.description}
           onChange={(event) => onChange({ ...draft, description: event.target.value })}
+          placeholder="What this Attribute means at the table"
         />
       </label>
       <fieldset className="attribute-subject-options">
-        <legend>Allowed subjects</legend>
+        <legend>Can be attached to</legend>
         {(["sheet", "item", "action"] as const).map((subjectType) => {
           const required = requiredSubjectType === subjectType;
           return (

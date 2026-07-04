@@ -25,14 +25,6 @@ export function ProficiencyEditorForm({
       </p>
       <div className="stack">
         <div className="inline-group">
-          <Field label="ID">
-            <input
-              disabled={Boolean(editingProficiencyId)}
-              value={values.id}
-              onChange={(event) => onChange({ ...values, id: event.target.value })}
-              placeholder="e.g. longsword"
-            />
-          </Field>
           <Field label="Name">
             <input
               value={values.name}

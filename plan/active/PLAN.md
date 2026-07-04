@@ -84,6 +84,7 @@ Frontend:
 - GM dashboard hosts session-level active sheet selection, player access codes, and quick actions without embedding the character sheet; GM Characters owns sheet detail plus dedicated tabs for action history, formula stats, and resistances.
 - GM sheet Actions uses the player-style searchable command grid for execution while retaining GM assignment management below it.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
+- Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
 
 ## 4. MVP Character Sheet And Dice Roller Acceptance
 

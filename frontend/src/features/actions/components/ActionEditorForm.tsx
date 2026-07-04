@@ -173,6 +173,17 @@ export function ActionEditorForm({
     }
   };
 
+  const sharedFormulaHint = (formulaId: string): JSX.Element => {
+    const definition = formulas.find((formula) => formula.id === formulaId);
+    return (
+      <p className="muted">
+        {definition
+          ? `Uses shared formula: ${definition.formula.text}`
+          : "Uses a shared formula that has since been deleted."}
+      </p>
+    );
+  };
+
   const calculatedValuePicker = (stepId: string, label: string): JSX.Element | null => {
     const options = calculatedValuesBeforeStep(values, stepId);
     if (options.length === 0) {
@@ -523,9 +534,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : (
-                          <p className="muted">
-                            Uses global formula {step.value.formula_id} by ID.
-                          </p>
+                          sharedFormulaHint(step.value.formula_id)
                         )}
                       </div>
                     ) : step.type === "send_message" ? (
@@ -569,9 +578,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : (
-                          <p className="muted">
-                            Uses global formula {step.message.formula_id} by ID.
-                          </p>
+                          sharedFormulaHint(step.message.formula_id)
                         )}
                       </div>
                     ) : step.type === "set_value" ||
@@ -650,9 +657,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : isFormulaReference(step.amount) ? (
-                          <p className="muted">
-                            Uses global formula {step.amount.formula_id} by ID.
-                          </p>
+                          sharedFormulaHint(step.amount.formula_id)
                         ) : (
                           <p className="muted">
                             Reuses {step.amount.variable_id} directly without reevaluating its
@@ -729,9 +734,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : isFormulaReference(step.amount) ? (
-                          <p className="muted">
-                            Uses global formula {step.amount.formula_id} by ID.
-                          </p>
+                          sharedFormulaHint(step.amount.formula_id)
                         ) : (
                           <p className="muted">
                             Reuses {step.amount.variable_id} directly without reevaluating its

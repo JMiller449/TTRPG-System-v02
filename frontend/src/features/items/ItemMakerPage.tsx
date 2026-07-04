@@ -176,6 +176,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   return (
     <Panel
       title="Item / Equipment Maker"
+      subtitle="Gear, consumables, and loot. Items can grant actions and passive effects to whoever carries or equips them."
       actions={
         editingItemId ? (
           <div className="inline-actions">

@@ -96,11 +96,12 @@ export function SheetActionsSection({
       category === "damage" ? "damage" : category === "check" ? "check" : "check";
 
     const manager = canEdit ? (
-      <section className="sheet-actions-section__manager" aria-label="Manage action assignments">
-        <div className="action-command-toolbar__heading">
-          <h4>Manage Assignments</h4>
+      <details className="sheet-actions-section__manager" aria-label="Manage action assignments">
+        <summary className="sheet-actions-section__manager-summary">
+          Manage Assignments
           <span className="muted">{assignedActions.length} assigned</span>
-        </div>
+        </summary>
+        <div className="sheet-actions-section__manager-body">
         <div className="inline-group">
           <Field label="Global Action">
             <select
@@ -148,7 +149,6 @@ export function SheetActionsSection({
               <article className="list-item list-item--block" key={entry.relationshipId}>
                 <div className="list-item__top">
                   <strong>{entry.action.name}</strong>
-                  <span className="muted">{entry.relationshipId}</span>
                 </div>
                 {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
                 {entry.sourceItemName ? (
@@ -207,7 +207,8 @@ export function SheetActionsSection({
             );
           })}
         </div>
-      </section>
+        </div>
+      </details>
     ) : null;
 
     return (
@@ -365,7 +366,6 @@ export function SheetActionsSection({
             <article className="list-item list-item--block" key={entry.relationshipId}>
               <div className="list-item__top">
                 <strong>{entry.action.name}</strong>
-                <span className="muted">{entry.relationshipId}</span>
               </div>
               {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
               {entry.sourceItemName ? (

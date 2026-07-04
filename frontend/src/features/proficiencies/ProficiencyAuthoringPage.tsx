@@ -10,6 +10,7 @@ import {
 } from "@/features/proficiencies/proficiencyAuthoringRequests";
 import {
   createEmptyProficiencyEditorValues,
+  deriveProficiencyId,
   toProficiencyEditorValues,
   type ProficiencyEditorValues
 } from "@/features/proficiencies/proficiencyEditorValues";
@@ -45,7 +46,10 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
   const onSubmit = (): void => {
     const submission = editingProficiencyId
       ? buildUpdateProficiencySubmission(proficiencyRecords[editingProficiencyId], values)
-      : buildCreateProficiencySubmission(values);
+      : buildCreateProficiencySubmission(
+          values,
+          deriveProficiencyId(values.name, Object.keys(proficiencyRecords))
+        );
     if (!submission) {
       return;
     }
@@ -68,6 +72,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
   return (
     <Panel
       title="Proficiency Authoring"
+      subtitle="Trainable skills — weapon families, magic schools, and anything else that improves with use."
       actions={
         editingProficiencyId ? (
           <div className="inline-actions">

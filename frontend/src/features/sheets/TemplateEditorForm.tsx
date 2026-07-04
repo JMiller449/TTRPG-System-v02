@@ -121,8 +121,8 @@ export function TemplateEditorForm({
             {values.kind === "player" ? "Player-controlled" : "GM-controlled"}
           </span>
         </div>
-        <span className={`pill ${validation.isValid ? "pill--resolved" : "pill--failed"}`}>
-          {validation.isValid ? "Ready to save" : "Draft needs attention"}
+        <span className={`pill ${validation.isValid ? "pill--resolved" : "pill--draft"}`}>
+          {validation.isValid ? "Ready to save" : "Draft in progress"}
         </span>
       </header>
 

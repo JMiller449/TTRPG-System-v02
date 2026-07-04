@@ -85,8 +85,8 @@ export function ActionAttributesEditor({
       <div>
         <h3>Attributes</h3>
         <p className="muted">
-          Presets attach authored configuration only. A formula or step must explicitly consume a
-          Attribute before it affects execution.
+          Attributes describe this action (range, mana cost, and so on). They only change a
+          roll when a formula or step actually references them.
         </p>
       </div>
       {presets.length > 0 ? (
@@ -97,7 +97,7 @@ export function ActionAttributesEditor({
               value={selectedPresetId}
               onChange={(event) => setSelectedPresetId(event.target.value)}
             >
-              <option value="">Select a Attribute preset</option>
+              <option value="">Select an Attribute preset</option>
               {presets.map((preset) => (
                 <option key={preset.id} value={preset.id}>
                   {preset.label}

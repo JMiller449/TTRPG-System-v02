@@ -148,7 +148,7 @@ body:has(.r6-theme) {
   min-height: 24px;
   width: fit-content;
   border: 1px solid var(--r6-line);
-  border-radius: 999px;
+  border-radius: var(--r6-radius, 3px);
   padding: 0.12rem 0.5rem;
   color: var(--r6-text-muted);
   background: rgba(8, 36, 58, 0.74);

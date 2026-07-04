@@ -78,7 +78,7 @@
   grid-template-columns: 2rem minmax(3rem, auto) 2rem;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
 }
 
 .equipment-quantity-stepper button,
@@ -165,7 +165,7 @@
   gap: 0.5rem;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   padding: 0.55rem;
 }
@@ -210,14 +210,15 @@
 }
 
 .stat-item {
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  padding: 0.45rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+  border-radius: 0;
+  padding: 0.45rem 0.2rem;
 }
 
 .character-sheet {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r6-radius-lg, 4px);
   padding: 0.8rem;
   background: var(--card);
 }
@@ -347,7 +348,7 @@
 
 .character-sheet__tab {
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   padding: 0.33rem 0.7rem;
   cursor: pointer;
@@ -378,7 +379,7 @@
 .resource-card {
   position: relative;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   padding: 0.45rem 0.55rem;
 }
@@ -389,7 +390,7 @@
   margin-top: 0.45rem;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: rgba(0, 0, 0, 0.32);
 }
 
@@ -527,7 +528,7 @@
   min-width: 0;
   min-height: 84px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r6-radius-sm, 2px);
   padding: 0.62rem 0.68rem;
   color: var(--text);
   background: var(--card);
@@ -611,9 +612,10 @@
 
 .core-block {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   overflow: hidden;
+  break-inside: avoid;
 }
 
 .core-block__header {
@@ -682,9 +684,14 @@
 }
 
 .core-sub-row {
-  border: 1px dashed var(--line);
-  border-radius: 6px;
-  padding: 0.35rem 0.45rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+  border-radius: 0;
+  padding: 0.3rem 0.2rem;
+}
+
+.core-block__subs > .core-sub-row:last-child {
+  border-bottom: 0;
 }
 
 .character-sheet__section--compact .core-sub-row {
@@ -753,7 +760,7 @@
 
 .stat-modifier {
   font-size: 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--r6-radius, 3px);
   padding: 0.05rem 0.42rem;
   border: 1px solid var(--line);
   background: var(--r6-control-bg-soft, var(--card));
@@ -799,7 +806,7 @@
   max-width: min(25rem, calc(100vw - 3rem));
   margin-top: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r6-radius-sm, 2px);
   padding: 0.55rem;
   background: var(--card);
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
@@ -845,6 +852,145 @@
   overflow: auto;
   padding: 0.75rem 1rem 0.2rem;
   scrollbar-width: thin;
+}
+
+/* Non-overview tabs fill the height, then flow into extra columns to the right
+   (swipe / shift+wheel sideways) instead of scrolling down. */
+.character-sheet__tab-panel:not(#sheet-panel-overview):not(.character-sheet__tab-panel--tool) {
+  column-width: 420px;
+  column-gap: 1.1rem;
+  column-fill: auto;
+  column-rule: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.character-sheet__tab-panel :is(.list-item, .equipment-card, .action-command-card, .sheet-xp-card, .field, label, .inline-group, .inline-actions, .sheet-proficiency-add-row, .sheet-proficiency-editor, .equipment-add-row, .action-command-toolbar) {
+  break-inside: avoid;
+}
+
+.character-sheet__tab-panel:not(#sheet-panel-overview) .stack {
+  display: block;
+}
+
+.character-sheet__tab-panel:not(#sheet-panel-overview) .stack > * {
+  margin-bottom: 0.7rem;
+}
+
+.character-sheet__tab-panel:not(#sheet-panel-overview) .stack > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Layout wrappers become plain flow inside column panels so their cards can
+   distribute across columns (grid/flex boxes cannot fragment in Firefox).
+   The Actions tab is excluded: it has its own purpose-built layout below. */
+.character-sheet__tab-panel:not(#sheet-panel-overview):not(#sheet-panel-actions)
+  :is(.list, .sheet-xp-grid, .level-grid, .stats-grid,
+      .equipment-action-list, .character-sheet__section) {
+  display: block;
+}
+
+.character-sheet__tab-panel:not(#sheet-panel-overview):not(#sheet-panel-actions)
+  :is(.list, .sheet-xp-grid, .level-grid, .stats-grid,
+      .equipment-action-list) > * {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+/* Actions tab: fixed toolbar on top, cards flow sideways in the middle,
+   GM assignment manager as a horizontal strip at the bottom. */
+#sheet-panel-actions.character-sheet__tab-panel {
+  display: flex;
+  flex-direction: column;
+  column-width: auto;
+  overflow: hidden;
+}
+
+#sheet-panel-actions .sheet-actions-section--command {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+#sheet-panel-actions .action-command-toolbar {
+  flex: 0 0 auto;
+}
+
+#sheet-panel-actions .action-command-grid {
+  flex: 1 1 auto;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.35rem;
+}
+
+#sheet-panel-actions .action-command-card {
+  flex: 0 0 auto;
+  width: 300px;
+  margin: 0;
+}
+
+#sheet-panel-actions .action-command-grid {
+  overflow-y: auto;
+}
+
+/* GM assignment manager: collapsed one-line strip by default; when opened,
+   the assign controls sit left and assignments flow sideways on the right. */
+.sheet-actions-section__manager {
+  display: block;
+}
+
+.sheet-actions-section__manager-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: fit-content;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--r6-cyan-soft, var(--text));
+}
+
+.sheet-actions-section__manager-body {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.6rem;
+}
+
+#sheet-panel-actions .sheet-actions-section__manager {
+  flex: 0 0 auto;
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+
+#sheet-panel-actions .sheet-actions-section__manager-body {
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem 0.85rem;
+}
+
+#sheet-panel-actions .sheet-actions-section__manager-body > .list {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.35rem;
+}
+
+#sheet-panel-actions .sheet-actions-section__manager .list-item {
+  flex: 0 0 460px;
+  margin: 0;
 }
 
 .character-sheet__tab-panel--tool > .panel {

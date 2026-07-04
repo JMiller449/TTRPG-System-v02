@@ -31,9 +31,9 @@
   --r6-control-bg-active: rgba(31, 168, 255, 0.18);
   --r6-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
   --r6-glow: 0 0 0 1px rgba(94, 238, 255, 0.25), 0 0 24px rgba(31, 168, 255, 0.16);
-  --r6-radius-sm: 6px;
-  --r6-radius: 9px;
-  --r6-radius-lg: 12px;
+  --r6-radius-sm: 2px;
+  --r6-radius: 3px;
+  --r6-radius-lg: 4px;
   --r6-space-1: 0.25rem;
   --r6-space-2: 0.5rem;
   --r6-space-3: 0.75rem;

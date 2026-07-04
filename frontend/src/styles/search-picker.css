@@ -9,9 +9,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
-  box-shadow: 0 8px 24px rgba(31, 29, 24, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
   padding: 0.3rem;
 }
 

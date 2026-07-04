@@ -36,6 +36,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   return (
     <Panel
       title="XP Tracker"
+      subtitle="Player level progress, level-up thresholds, and how much XP each enemy is worth."
       actions={
         <button
           className="button button--secondary"

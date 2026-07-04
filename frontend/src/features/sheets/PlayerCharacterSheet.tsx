@@ -179,9 +179,6 @@ export function PlayerCharacterSheet({
       title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}
       className="sheet-panel"
     >
-      {mode === "gm" ? (
-        <p className="character-sheet__panel-subtext muted">Sheet ID: {detail.instance.id}</p>
-      ) : null}
       <article className="character-sheet">
         <header className="character-sheet__header">
           <div className="character-sheet__identity-mark" aria-hidden="true">

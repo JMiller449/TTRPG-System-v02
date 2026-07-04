@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProficiencyDefinition } from "@/domain/models";
 import {
   createEmptyProficiencyEditorValues,
+  deriveProficiencyId,
   hasValidProficiencyEditorValues,
   toProficiencyDefinitionPayload,
   toProficiencyEditorValues,
@@ -39,7 +40,7 @@ describe("proficiencyEditorValues", () => {
     });
   });
 
-  it("validates required id and name fields", () => {
+  it("validates the required name field", () => {
     expect(
       hasValidProficiencyEditorValues({
         id: " longsword ",
@@ -55,7 +56,7 @@ describe("proficiencyEditorValues", () => {
         description: "",
         category: "custom"
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       hasValidProficiencyEditorValues({
         id: "longsword",
@@ -64,6 +65,14 @@ describe("proficiencyEditorValues", () => {
         category: "custom"
       })
     ).toBe(false);
+  });
+
+  it("derives readable unique ids from names", () => {
+    expect(deriveProficiencyId("Longsword", [])).toBe("longsword");
+    expect(deriveProficiencyId("  Fire Magic!  ", [])).toBe("fire_magic");
+    expect(deriveProficiencyId("Longsword", ["longsword"])).toBe("longsword_2");
+    expect(deriveProficiencyId("Longsword", ["longsword", "longsword_2"])).toBe("longsword_3");
+    expect(deriveProficiencyId("!!!", [])).toMatch(/^proficiency_/);
   });
 
   it("maps editor values to trimmed create payloads", () => {

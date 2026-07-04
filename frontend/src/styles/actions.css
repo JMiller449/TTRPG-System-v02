@@ -45,9 +45,10 @@
 
 .action-step-entry {
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   overflow: hidden;
+  break-inside: avoid;
 }
 
 .action-step-entry--selected {

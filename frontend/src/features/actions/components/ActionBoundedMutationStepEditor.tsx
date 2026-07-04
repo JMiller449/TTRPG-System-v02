@@ -180,7 +180,14 @@ export function ActionBoundedMutationStepEditor({
             />
           </>
         ) : isFormulaReference(source) ? (
-          <p className="muted">Uses global formula {source.formula_id} by ID.</p>
+          <p className="muted">
+            {(() => {
+              const definition = formulas.find((formula) => formula.id === source.formula_id);
+              return definition
+                ? `Uses shared formula: ${definition.formula.text}`
+                : "Uses a shared formula that has since been deleted.";
+            })()}
+          </p>
         ) : (
           <p className="muted">
             Reuses {source.variable_id} directly without reevaluating its formula.

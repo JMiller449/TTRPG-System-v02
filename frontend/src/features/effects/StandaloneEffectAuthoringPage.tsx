@@ -133,6 +133,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   return (
     <Panel
       title="Effect Authoring"
+      subtitle="Buffs and debuffs that actions can apply — a burning blade, a shield spell, a lingering curse."
       actions={
         editingEffectId || pendingCreatedEffectId ? (
           <div className="inline-actions">

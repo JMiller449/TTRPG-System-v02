@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "backend.core.main:app", "--host", "127.0.0.1", "--port", "6767"],
+      "port": 6767
+    },
+    {
+      "name": "frontend-wsl",
+      "runtimeExecutable": "wsl",
+      "runtimeArgs": ["-e", "bash", "-lc", "cd '/mnt/c/Users/mille/Documents/My Projects/TTRPG/TTRPG-System-v02/frontend' && exec \"$HOME/.nvm/versions/node/v22.12.0/bin/node\" node_modules/vite/bin/vite.js --port 5175 --strictPort --host"],
+      "port": 5175
+    }
+  ]
+}

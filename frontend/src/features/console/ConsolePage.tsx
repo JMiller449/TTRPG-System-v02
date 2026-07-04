@@ -29,7 +29,7 @@ export function ConsolePage({ role, client }: { role: Role; client: GameClient }
               {activeDetail?.instance.name ?? "No sheet claimed"}
             </strong>
             <p className="nav-panel__meta">
-              {activeDetail ? `Instance ${activeDetail.instance.id}` : "Claim a sheet to begin."}
+              {activeDetail ? "Player character" : "Claim a sheet to begin."}
             </p>
           </div>
 

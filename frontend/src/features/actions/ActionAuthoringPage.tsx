@@ -131,6 +131,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
   return (
     <Panel
       title="Action Authoring"
+      subtitle="Build the rollable moves used at the table. An action is a list of steps that run in order when it is performed."
       actions={
         editingActionId ? (
           <div className="inline-actions">

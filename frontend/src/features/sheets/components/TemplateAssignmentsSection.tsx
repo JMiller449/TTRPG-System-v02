@@ -1,8 +1,4 @@
-import type {
-  ActionDefinition,
-  ItemDefinition,
-  ProficiencyDefinition
-} from "@/domain/models";
+import type { ActionDefinition, ItemDefinition, ProficiencyDefinition } from "@/domain/models";
 import type {
   TemplateActionAssignment,
   TemplateEditorValues,
@@ -13,6 +9,7 @@ import { Field } from "@/shared/ui/Field";
 import { SearchPopoverPicker } from "@/shared/ui/SearchPopoverPicker";
 import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
 import { makeId } from "@/shared/utils/id";
+import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
 function orderedRecords<T>(records: Record<string, T>, order: string[]): T[] {
   return order.map((id) => records[id]).filter((entry): entry is T => Boolean(entry));
@@ -26,31 +23,45 @@ export function TemplateActionsSection({
   values,
   actions,
   actionOrder,
+  onCreateNew,
   onChange
 }: {
   values: TemplateEditorValues;
   actions: Record<string, ActionDefinition>;
   actionOrder: string[];
+  onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const assignedIds = new Set(values.actions.map((entry) => entry.actionId));
-  const options: SearchPopoverOption<ActionDefinition>[] = orderedRecords(
-    actions,
-    actionOrder
-  ).map((action) => ({
-    id: action.id,
-    label: action.name,
-    secondary: action.roll_mode_kind === "none" ? "No roll mode" : action.roll_mode_kind,
-    keywords: [action.id, action.notes ?? ""],
-    disabledReason: assignedIds.has(action.id) ? "Already assigned" : undefined,
-    value: action
-  }));
+  const options: SearchPopoverOption<ActionDefinition>[] = orderedRecords(actions, actionOrder).map(
+    (action) => ({
+      id: action.id,
+      label: action.name,
+      secondary: action.roll_mode_kind === "none" ? "No roll mode" : action.roll_mode_kind,
+      keywords: [action.id, action.notes ?? ""],
+      disabledReason: assignedIds.has(action.id) ? "Already assigned" : undefined,
+      value: action
+    })
+  );
 
   return (
     <section className="template-builder__section stack" aria-labelledby="template-actions-title">
-      <div>
-        <h3 id="template-actions-title">Actions</h3>
-        <p className="muted">Assign global actions. Action definitions remain managed in Action Authoring.</p>
+      <div className="template-builder__section-heading">
+        <div>
+          <h3 id="template-actions-title">Actions</h3>
+          <p className="muted">
+            Assign global actions. Action definitions remain managed in Action Authoring.
+          </p>
+        </div>
+        {onCreateNew ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => onCreateNew("action")}
+          >
+            Create new Action…
+          </button>
+        ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Action"
@@ -68,7 +79,9 @@ export function TemplateActionsSection({
         }
       />
       {values.actions.length === 0 ? (
-        <AssignmentEmpty>Backend baseline actions will be attached when this template is created.</AssignmentEmpty>
+        <AssignmentEmpty>
+          Backend baseline actions will be attached when this template is created.
+        </AssignmentEmpty>
       ) : (
         <div className="template-builder__assignment-list">
           {values.actions.map((entry) => {
@@ -116,11 +129,13 @@ export function TemplateProficienciesSection({
   values,
   proficiencies,
   proficiencyOrder,
+  onCreateNew,
   onChange
 }: {
   values: TemplateEditorValues;
   proficiencies: Record<string, ProficiencyDefinition>;
   proficiencyOrder: string[];
+  onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const assignedIds = new Set(values.proficiencies.map((entry) => entry.proficiencyId));
@@ -141,9 +156,20 @@ export function TemplateProficienciesSection({
       className="template-builder__section stack"
       aria-labelledby="template-proficiencies-title"
     >
-      <div>
-        <h3 id="template-proficiencies-title">Proficiencies</h3>
-        <p className="muted">Assign definitions with starting use count and growth per use.</p>
+      <div className="template-builder__section-heading">
+        <div>
+          <h3 id="template-proficiencies-title">Proficiencies</h3>
+          <p className="muted">Assign definitions with starting use count and growth per use.</p>
+        </div>
+        {onCreateNew ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => onCreateNew("proficiency")}
+          >
+            Create new Proficiency…
+          </button>
+        ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Proficiency"
@@ -253,11 +279,13 @@ export function TemplateInventorySection({
   values,
   items,
   itemOrder,
+  onCreateNew,
   onChange
 }: {
   values: TemplateEditorValues;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const assignedIds = new Set(values.items.map((entry) => entry.itemId));
@@ -273,13 +301,23 @@ export function TemplateInventorySection({
   );
 
   return (
-    <section
-      className="template-builder__section stack"
-      aria-labelledby="template-inventory-title"
-    >
-      <div>
-        <h3 id="template-inventory-title">Starting Inventory &amp; Equipment</h3>
-        <p className="muted">Attach item definitions with starting quantity and equipped state.</p>
+    <section className="template-builder__section stack" aria-labelledby="template-inventory-title">
+      <div className="template-builder__section-heading">
+        <div>
+          <h3 id="template-inventory-title">Starting Inventory &amp; Equipment</h3>
+          <p className="muted">
+            Attach item definitions with starting quantity and equipped state.
+          </p>
+        </div>
+        {onCreateNew ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => onCreateNew("item")}
+          >
+            Create new Item…
+          </button>
+        ) : null}
       </div>
       <SearchPopoverPicker
         label="Add Item"

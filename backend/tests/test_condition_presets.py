@@ -65,6 +65,7 @@ def _augmentation_template(
                 "action_id": None,
                 "formula_id": None,
                 "step_id": None,
+                "same_source_item": False,
             },
         },
         "active": True,

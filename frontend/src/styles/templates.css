@@ -71,6 +71,21 @@
   min-width: 0;
 }
 
+.template-builder__section-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.template-builder__section-heading > div {
+  min-width: 0;
+}
+
+.template-builder__section-heading p {
+  margin: 0.25rem 0 0;
+}
+
 .template-builder__section > div:first-child > p {
   margin: 0.25rem 0 0;
 }
@@ -207,6 +222,51 @@
   background: var(--card);
 }
 
+.template-contextual-modal {
+  align-items: center;
+}
+
+.template-contextual-modal__dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: calc(100vh - 2rem);
+  padding: 1.25rem;
+  text-align: left;
+}
+
+.template-contextual-modal__dialog--compact {
+  width: min(720px, 100%);
+}
+
+.template-contextual-modal__dialog--large {
+  width: min(1180px, 100%);
+}
+
+.template-contextual-modal__heading {
+  padding-right: 2.75rem;
+}
+
+.template-contextual-modal__heading h2 {
+  margin: 0;
+}
+
+.template-contextual-modal__heading p {
+  margin: 0.35rem 0 1rem;
+}
+
+.template-contextual-modal__body {
+  min-width: 0;
+  overflow: auto;
+  padding: 0.2rem 0.4rem 0.4rem 0.2rem;
+  overscroll-behavior: contain;
+}
+
+.template-contextual-modal__body .card,
+.template-contextual-modal__body .template-editor,
+.template-contextual-modal__body .item-editor {
+  text-align: left;
+}
+
 @media (max-width: 900px) {
   .template-builder__core-grid {
     grid-template-columns: repeat(3, minmax(100px, 1fr));
@@ -224,10 +284,20 @@
     grid-column: 1 / -1;
     justify-self: end;
   }
+
+  .template-contextual-modal {
+    padding: 0.5rem;
+  }
+
+  .template-contextual-modal__dialog {
+    max-height: calc(100vh - 1rem);
+    padding: 0.9rem;
+  }
 }
 
 @media (max-width: 640px) {
   .template-builder__heading,
+  .template-builder__section-heading,
   .template-builder__assignment-row {
     align-items: stretch;
     flex-direction: column;

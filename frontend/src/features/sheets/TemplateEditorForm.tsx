@@ -24,6 +24,7 @@ import {
   validateTemplateEditorValues,
   type TemplateReferenceCatalogs
 } from "@/features/sheets/templateEditorValues";
+import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
 const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
   { id: "details", label: "Details" },
@@ -71,6 +72,7 @@ export function TemplateEditorForm({
   facts,
   metadata,
   pending = false,
+  onCreateReference,
   onChange,
   onSubmit,
   onCancel
@@ -87,6 +89,7 @@ export function TemplateEditorForm({
   facts: Record<string, FactDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
+  onCreateReference?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
   onSubmit: () => void;
   onCancel?: () => void;
@@ -156,6 +159,7 @@ export function TemplateEditorForm({
             values={values}
             definitions={facts}
             metadata={metadata}
+            onCreateNew={onCreateReference}
             onChange={onChange}
           />
         ) : null}
@@ -167,6 +171,7 @@ export function TemplateEditorForm({
             values={values}
             actions={actions}
             actionOrder={actionOrder}
+            onCreateNew={onCreateReference}
             onChange={onChange}
           />
         ) : null}
@@ -175,6 +180,7 @@ export function TemplateEditorForm({
             values={values}
             proficiencies={proficiencies}
             proficiencyOrder={proficiencyOrder}
+            onCreateNew={onCreateReference}
             onChange={onChange}
           />
         ) : null}
@@ -183,6 +189,7 @@ export function TemplateEditorForm({
             values={values}
             items={items}
             itemOrder={itemOrder}
+            onCreateNew={onCreateReference}
             onChange={onChange}
           />
         ) : null}

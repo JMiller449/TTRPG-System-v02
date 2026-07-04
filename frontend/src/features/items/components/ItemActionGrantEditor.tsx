@@ -26,7 +26,7 @@ export function ItemActionGrantEditor({
   values: ItemEditorValues;
   actions: ActionDefinition[];
   onChange: (values: ItemEditorValues) => void;
-  onOpenActionAuthoring: () => void;
+  onOpenActionAuthoring?: () => void;
 }): JSX.Element {
   const isConsumable = values.interactionType === "consumable";
 
@@ -35,13 +35,15 @@ export function ItemActionGrantEditor({
       <div className="item-section-heading">
         <h3>{actionSectionTitle(values.interactionType)}</h3>
         <div className="inline-actions">
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={onOpenActionAuthoring}
-          >
-            Open Action Authoring
-          </button>
+          {onOpenActionAuthoring ? (
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={onOpenActionAuthoring}
+            >
+              Open Action Authoring
+            </button>
+          ) : null}
           <button
             className="button button--secondary"
             type="button"

@@ -32,6 +32,7 @@ export function ItemEditorForm({
   proficiencies,
   factsEditor,
   effectEditor,
+  pending = false,
   onSubmit,
   onCancel,
   onOpenActionAuthoring
@@ -44,9 +45,10 @@ export function ItemEditorForm({
   proficiencies: Record<string, ProficiencyDefinition>;
   factsEditor: ReactNode;
   effectEditor: ReactNode;
+  pending?: boolean;
   onSubmit: () => void;
   onCancel: () => void;
-  onOpenActionAuthoring: () => void;
+  onOpenActionAuthoring?: () => void;
 }): JSX.Element {
   const validationError = getItemEditorValidationError(values, {
     definitions: factDefinitions,
@@ -192,8 +194,12 @@ export function ItemEditorForm({
 
       {validationError ? <p className="error-text">{validationError}</p> : null}
       <div className="template-editor__actions item-editor__actions">
-        <button className="button" onClick={onSubmit} disabled={Boolean(validationError)}>
-          {editingItemId ? "Save Item" : "Create Item"}
+        <button
+          className="button"
+          onClick={onSubmit}
+          disabled={Boolean(validationError) || pending}
+        >
+          {pending ? "Creating…" : editingItemId ? "Save Item" : "Create Item"}
         </button>
         {editingItemId ? (
           <button className="button button--secondary" onClick={onCancel}>

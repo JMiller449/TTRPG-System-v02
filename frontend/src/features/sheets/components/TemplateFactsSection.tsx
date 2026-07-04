@@ -3,16 +3,19 @@ import type { FactDefinition, FactValue } from "@/domain/models";
 import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
 import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import { makeId } from "@/shared/utils/id";
+import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
 export function TemplateFactsSection({
   values,
   definitions,
   metadata,
+  onCreateNew,
   onChange
 }: {
   values: TemplateEditorValues;
   definitions: Record<string, FactDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
+  onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const displayBridges = {
@@ -59,11 +62,22 @@ export function TemplateFactsSection({
 
   return (
     <section className="template-builder__section stack" aria-labelledby="template-facts-title">
-      <div>
-        <h3 id="template-facts-title">Facts</h3>
-        <p className="muted">
-          Attach sheet-compatible Facts. Values are evaluated by the backend after save.
-        </p>
+      <div className="template-builder__section-heading">
+        <div>
+          <h3 id="template-facts-title">Facts</h3>
+          <p className="muted">
+            Attach sheet-compatible Facts. Values are evaluated by the backend after save.
+          </p>
+        </div>
+        {onCreateNew ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => onCreateNew("fact")}
+          >
+            Create new Fact…
+          </button>
+        ) : null}
       </div>
       <SheetFactsSection
         definitions={definitions}

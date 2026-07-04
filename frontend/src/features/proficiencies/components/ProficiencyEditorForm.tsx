@@ -4,12 +4,16 @@ import type { ProficiencyEditorValues } from "@/features/proficiencies/proficien
 export function ProficiencyEditorForm({
   editingProficiencyId,
   values,
+  pending = false,
+  validationError,
   onChange,
   onSubmit,
   onCancel
 }: {
   editingProficiencyId: string | null;
   values: ProficiencyEditorValues;
+  pending?: boolean;
+  validationError?: string | null;
   onChange: (values: ProficiencyEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -61,9 +65,22 @@ export function ProficiencyEditorForm({
           />
         </Field>
 
+        {validationError ? (
+          <p className="error-text" role="alert">
+            {validationError}
+          </p>
+        ) : null}
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit}>
-            {editingProficiencyId ? "Save Proficiency" : "Create Proficiency"}
+          <button
+            className="button"
+            onClick={onSubmit}
+            disabled={pending || Boolean(validationError)}
+          >
+            {pending
+              ? "Creating…"
+              : editingProficiencyId
+                ? "Save Proficiency"
+                : "Create Proficiency"}
           </button>
           {editingProficiencyId ? (
             <button className="button button--secondary" onClick={onCancel}>

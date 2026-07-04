@@ -629,6 +629,7 @@ def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
                                         "action_id": None,
                                         "formula_id": None,
                                         "step_id": None,
+                                        "same_source_item": False,
                                     },
                                     "type": "formula_modifier",
                                 },

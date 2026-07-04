@@ -68,7 +68,8 @@ export function ActionEditorForm({
   standaloneEffects,
   conditions,
   factsEditor,
-  validationError
+  validationError,
+  pending = false
 }: {
   editingActionId: string | null;
   values: ActionEditorValues;
@@ -82,6 +83,7 @@ export function ActionEditorForm({
   conditions: ConditionPreset[];
   factsEditor: ReactNode;
   validationError: string | null;
+  pending?: boolean;
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
   const mutationTargets = buildVariablePickerEntries(metadata, "mutation").filter(
@@ -763,8 +765,8 @@ export function ActionEditorForm({
           </p>
         ) : null}
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit} disabled={!actionIsValid}>
-            {editingActionId ? "Save Action" : "Create Action"}
+          <button className="button" onClick={onSubmit} disabled={!actionIsValid || pending}>
+            {pending ? "Creating…" : editingActionId ? "Save Action" : "Create Action"}
           </button>
           {editingActionId ? (
             <button className="button button--secondary" onClick={onCancel}>

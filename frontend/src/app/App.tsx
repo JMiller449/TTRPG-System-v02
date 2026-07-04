@@ -5,7 +5,6 @@ import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
-import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
 import { AppStatusBar } from "@/features/console/AppStatusBar";
@@ -80,8 +79,7 @@ export function App(): JSX.Element {
         <StateBackupPage client={client} />
       </div>
     ) : (
-      <div className="main-panel-stack">
-        <SheetAccessCodesPanel client={client} />
+      <div className="main-panel-stack main-panel-stack--dashboard">
         <ConsolePage role="gm" client={client} />
       </div>
     );

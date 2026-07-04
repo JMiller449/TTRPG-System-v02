@@ -31,19 +31,19 @@
 }
 
 .roll20-bridge-pill--connected {
-  background: #e4f1e8;
-  color: #1f5b33;
-  border-color: #b9d8c2;
+  background: var(--r6-success-bg, rgba(88, 240, 179, 0.1));
+  color: var(--r6-success, #58f0b3);
+  border-color: var(--r6-success-line, rgba(88, 240, 179, 0.5));
 }
 
 .roll20-bridge-pill--disconnected {
-  background: #f7e1dc;
-  color: #7b2e21;
-  border-color: #e2b7ae;
+  background: var(--r6-danger-bg, rgba(255, 95, 131, 0.1));
+  color: var(--r6-danger, #ff5f83);
+  border-color: var(--r6-danger-line, rgba(255, 95, 131, 0.5));
 }
 
 .roll20-bridge-pill--unknown {
-  background: #f3efe6;
+  background: var(--r6-control-bg-soft, var(--card));
   color: var(--muted);
 }
 
@@ -56,7 +56,7 @@
 .quick-roll-btn {
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   color: var(--text);
   padding: 0.3rem 0.65rem;
   cursor: pointer;
@@ -64,13 +64,13 @@
 
 .quick-roll-btn--active {
   border-color: var(--accent);
-  background: #d8e8e9;
+  background: var(--r6-control-bg-active, var(--card));
 }
 
 .quick-roll-btn:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: #f4f1ea;
+  background: var(--r6-control-bg-soft, var(--card));
   opacity: 0.75;
 }
 
@@ -81,14 +81,14 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   overflow: hidden;
-  background: #fff;
+  background: var(--card);
 }
 
 .roll-mode-control__option {
   min-width: 0;
   border: 0;
   border-right: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
   color: var(--text);
   padding: 0.45rem 0.55rem;
   font-size: 0.82rem;
@@ -100,15 +100,15 @@
 }
 
 .roll-mode-control__option--active {
-  background: #d8e8e9;
-  color: #173f43;
+  background: var(--r6-control-bg-active, var(--card));
+  color: var(--r6-cyan-soft, var(--text));
   font-weight: 700;
 }
 
 .equation-preview {
   border: 1px dashed var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--card);
   padding: 0.45rem 0.55rem;
 }
 
@@ -117,7 +117,7 @@
   margin-top: 0.2rem;
   font-size: 0.82rem;
   line-height: 1.4;
-  color: #2f2a20;
+  color: var(--r6-cyan-soft, var(--text));
 }
 
 .equation-preview p {
@@ -143,7 +143,7 @@
 .action-history-entry {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--card);
   padding: 0.7rem;
 }
 
@@ -183,15 +183,15 @@
 }
 
 .action-history-status--success {
-  background: #e4f1e8;
-  color: #1f5b33;
-  border-color: #b9d8c2;
+  background: var(--r6-success-bg, rgba(88, 240, 179, 0.1));
+  color: var(--r6-success, #58f0b3);
+  border-color: var(--r6-success-line, rgba(88, 240, 179, 0.5));
 }
 
 .action-history-status--failed {
-  background: #f7e1dc;
-  color: #7b2e21;
-  border-color: #e2b7ae;
+  background: var(--r6-danger-bg, rgba(255, 95, 131, 0.1));
+  color: var(--r6-danger, #ff5f83);
+  border-color: var(--r6-danger-line, rgba(255, 95, 131, 0.5));
 }
 
 .action-history-entry__details {
@@ -216,7 +216,7 @@
 }
 
 .action-history-entry__error {
-  color: #7b2e21;
+  color: var(--r6-danger, #ff5f83);
 }
 
 @media (max-width: 720px) {

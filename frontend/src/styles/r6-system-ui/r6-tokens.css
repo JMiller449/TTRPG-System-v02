@@ -1,6 +1,8 @@
 :root {
   --r6-bg-void: #020610;
+  --r6-bg-abyss: #01040b;
   --r6-bg-deep: #03111f;
+  --r6-bg-shell: #06172b;
   --r6-bg-panel: rgba(7, 24, 42, 0.84);
   --r6-bg-panel-raised: rgba(8, 31, 54, 0.9);
   --r6-bg-card: rgba(8, 31, 52, 0.94);
@@ -14,9 +16,19 @@
   --r6-success: #58f0b3;
   --r6-warning: #ffd166;
   --r6-danger: #ff5f83;
+  --r6-success-bg: rgba(88, 240, 179, 0.1);
+  --r6-success-line: rgba(88, 240, 179, 0.5);
+  --r6-warning-bg: rgba(255, 209, 102, 0.1);
+  --r6-warning-line: rgba(255, 209, 102, 0.5);
+  --r6-danger-bg: rgba(255, 95, 131, 0.1);
+  --r6-danger-line: rgba(255, 95, 131, 0.5);
   --r6-arcane: #a98cff;
   --r6-line: rgba(159, 225, 255, 0.36);
   --r6-line-strong: rgba(174, 239, 255, 0.72);
+  --r6-control-bg: rgba(2, 14, 27, 0.88);
+  --r6-control-bg-soft: rgba(4, 24, 41, 0.72);
+  --r6-control-bg-hover: rgba(31, 168, 255, 0.14);
+  --r6-control-bg-active: rgba(31, 168, 255, 0.18);
   --r6-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
   --r6-glow: 0 0 0 1px rgba(94, 238, 255, 0.25), 0 0 24px rgba(31, 168, 255, 0.16);
   --r6-radius-sm: 6px;

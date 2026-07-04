@@ -11,6 +11,7 @@ import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceH
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
+import { RollLog } from "@/features/rolls/RollLog";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
@@ -141,6 +142,9 @@ export function PlayerCharacterSheet({
   const showInventorySection = activeTab === "inventory";
   const showDetailsSection = activeTab === "details";
   const showNotesSection = activeTab === "notes";
+  const showActionHistorySection = mode === "gm" && activeTab === "action_history";
+  const showFormulaStatsSection = mode === "gm" && activeTab === "formula_stats";
+  const showResistancesSection = mode === "gm" && activeTab === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
   const canEditEquipment = mode === "gm";
@@ -187,29 +191,31 @@ export function PlayerCharacterSheet({
             <h3>{detail.instance.name}</h3>
             <p>{mode === "gm" ? "GM-controlled sheet workspace" : "Active character sheet"}</p>
           </div>
+          <div className="character-sheet__header-resources">
+            <SheetResourceHeader
+              stats={detail.stats}
+              resources={resourceEditor.resources}
+              editingResource={resourceEditor.editingResource}
+              resourceDraftModifier={resourceEditor.resourceDraftModifier}
+              healthDamageType={resourceEditor.healthDamageType}
+              resourceEditorError={resourceEditor.resourceEditorError}
+              onBeginResourceEdit={resourceEditor.beginResourceEdit}
+              onResourceDraftModifierChange={resourceEditor.setResourceDraftModifier}
+              onHealthDamageTypeChange={resourceEditor.setHealthDamageType}
+              onApplyResourceModifier={resourceEditor.applyResourceModifier}
+              onCancelResourceEdit={resourceEditor.cancelResourceEdit}
+              onResourceEditorKeyDown={resourceEditor.onResourceEditorKeyDown}
+            />
+          </div>
         </header>
 
-        <div className="character-sheet__resources">
-          <SheetResourceHeader
-            stats={detail.stats}
-            resources={resourceEditor.resources}
-            editingResource={resourceEditor.editingResource}
-            resourceDraftModifier={resourceEditor.resourceDraftModifier}
-            healthDamageType={resourceEditor.healthDamageType}
-            resourceEditorError={resourceEditor.resourceEditorError}
-            onBeginResourceEdit={resourceEditor.beginResourceEdit}
-            onResourceDraftModifierChange={resourceEditor.setResourceDraftModifier}
-            onHealthDamageTypeChange={resourceEditor.setHealthDamageType}
-            onApplyResourceModifier={resourceEditor.applyResourceModifier}
-            onCancelResourceEdit={resourceEditor.cancelResourceEdit}
-            onResourceEditorKeyDown={resourceEditor.onResourceEditorKeyDown}
-          />
-        </div>
-
-        {showTabs ? <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} /> : null}
+        {showTabs ? (
+          <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
+        ) : null}
 
         {showOverviewSection ? (
           <div
+            className="character-sheet__tab-panel"
             role="tabpanel"
             id="sheet-panel-overview"
             aria-labelledby="sheet-tab-overview"
@@ -252,8 +258,7 @@ export function PlayerCharacterSheet({
               </aside>
             </div>
             {mode === "player" && assignedActions.length > 0 ? (
-              <section className="character-sheet__section">
-                <h4>Pinned Actions</h4>
+              <section className="character-sheet__section" aria-label="Pinned Actions">
                 <SheetActionsSection
                   assignedActions={assignedActions.slice(0, 6)}
                   actionDefinitions={actionDefinitions}
@@ -278,41 +283,12 @@ export function PlayerCharacterSheet({
                 />
               </section>
             ) : null}
-            {canEditStats && detail.sheet && sheetId ? (
-              <div className="stack">
-                <SheetFormulaStatsEditor
-                  stats={detail.sheet.stats}
-                  metadata={actionFormulaAuthoringMetadata}
-                  onSave={(statName, formula) =>
-                    client.sendProtocolRequest(
-                      buildSetSheetFormulaStatRequest({
-                        sheetId,
-                        statName,
-                        formula
-                      }),
-                      `Update formula stat: ${statName}`
-                    )
-                  }
-                />
-                <SheetResistancesEditor
-                  resistances={detail.sheet.resistances}
-                  onSave={(resistances) =>
-                    client.sendProtocolRequest(
-                      buildSetSheetResistancesRequest({
-                        sheetId,
-                        resistances
-                      }),
-                      "Update template resistances"
-                    )
-                  }
-                />
-              </div>
-            ) : null}
           </div>
         ) : null}
 
         {showActionsSection ? (
           <div
+            className="character-sheet__tab-panel"
             role="tabpanel"
             id="sheet-panel-actions"
             aria-labelledby="sheet-tab-actions"
@@ -324,6 +300,7 @@ export function PlayerCharacterSheet({
               attributeDefinitions={attributeDefinitions}
               actionOrder={actionOrder}
               canEdit={canEditActions}
+              commandLayout={mode === "gm"}
               onCreate={(bridge) => {
                 if (!sheetId) {
                   return;
@@ -368,6 +345,7 @@ export function PlayerCharacterSheet({
 
         {showDetailsSection ? (
           <div
+            className="character-sheet__tab-panel"
             role="tabpanel"
             id="sheet-panel-details"
             aria-labelledby="sheet-tab-details"
@@ -483,6 +461,7 @@ export function PlayerCharacterSheet({
 
         {showNotesSection ? (
           <div
+            className="character-sheet__tab-panel"
             role="tabpanel"
             id="sheet-panel-notes"
             aria-labelledby="sheet-tab-notes"
@@ -506,6 +485,7 @@ export function PlayerCharacterSheet({
 
         {showInventorySection ? (
           <div
+            className="character-sheet__tab-panel"
             role="tabpanel"
             id="sheet-panel-inventory"
             aria-labelledby="sheet-tab-inventory"
@@ -581,6 +561,74 @@ export function PlayerCharacterSheet({
                 );
               }}
             />
+          </div>
+        ) : null}
+
+        {showActionHistorySection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--tool"
+            role="tabpanel"
+            id="sheet-panel-action_history"
+            aria-labelledby="sheet-tab-action_history"
+            tabIndex={0}
+          >
+            <RollLog />
+          </div>
+        ) : null}
+
+        {showFormulaStatsSection ? (
+          <div
+            className="character-sheet__tab-panel"
+            role="tabpanel"
+            id="sheet-panel-formula_stats"
+            aria-labelledby="sheet-tab-formula_stats"
+            tabIndex={0}
+          >
+            {canEditStats && detail.sheet && sheetId ? (
+              <SheetFormulaStatsEditor
+                stats={detail.sheet.stats}
+                metadata={actionFormulaAuthoringMetadata}
+                onSave={(statName, formula) =>
+                  client.sendProtocolRequest(
+                    buildSetSheetFormulaStatRequest({
+                      sheetId,
+                      statName,
+                      formula
+                    }),
+                    `Update formula stat: ${statName}`
+                  )
+                }
+              />
+            ) : (
+              <EmptyState message="No template formula stats available." />
+            )}
+          </div>
+        ) : null}
+
+        {showResistancesSection ? (
+          <div
+            className="character-sheet__tab-panel"
+            role="tabpanel"
+            id="sheet-panel-resistances"
+            aria-labelledby="sheet-tab-resistances"
+            tabIndex={0}
+          >
+            {canEditStats && detail.sheet && sheetId ? (
+              <SheetResistancesEditor
+                resistances={detail.sheet.resistances}
+                onSave={(resistances) =>
+                  client.sendProtocolRequest(
+                    buildSetSheetResistancesRequest({
+                      sheetId,
+                      resistances
+                    }),
+                    "Update template resistances"
+                  )
+                }
+              />
+            ) : (
+              <EmptyState message="No template resistances available." />
+            )}
           </div>
         ) : null}
       </article>

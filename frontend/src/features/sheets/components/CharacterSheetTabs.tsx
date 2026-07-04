@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from "react";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
-const SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
+const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "actions", label: "Actions" },
   { id: "inventory", label: "Inventory" },
@@ -9,23 +9,33 @@ const SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
   { id: "notes", label: "Notes" }
 ];
 
+const GM_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
+  ...PLAYER_SHEET_TABS,
+  { id: "action_history", label: "Action History" },
+  { id: "formula_stats", label: "Formula Stats" },
+  { id: "resistances", label: "Resistances" }
+];
+
 export function CharacterSheetTabs({
   activeTab,
-  onChange
+  onChange,
+  mode = "player"
 }: {
   activeTab: PlayerSheetTab;
   onChange: (tab: PlayerSheetTab) => void;
+  mode?: "player" | "gm";
 }): JSX.Element {
+  const tabs = mode === "gm" ? GM_SHEET_TABS : PLAYER_SHEET_TABS;
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number): void => {
     let nextIndex: number | null = null;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      nextIndex = (currentIndex + 1) % SHEET_TABS.length;
+      nextIndex = (currentIndex + 1) % tabs.length;
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      nextIndex = (currentIndex - 1 + SHEET_TABS.length) % SHEET_TABS.length;
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
     } else if (event.key === "Home") {
       nextIndex = 0;
     } else if (event.key === "End") {
-      nextIndex = SHEET_TABS.length - 1;
+      nextIndex = tabs.length - 1;
     }
 
     if (nextIndex === null) {
@@ -33,7 +43,7 @@ export function CharacterSheetTabs({
     }
 
     event.preventDefault();
-    const nextTab = SHEET_TABS[nextIndex];
+    const nextTab = tabs[nextIndex];
     onChange(nextTab.id);
     const tabButtons =
       event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
@@ -42,7 +52,7 @@ export function CharacterSheetTabs({
 
   return (
     <nav className="character-sheet__tabs" aria-label="Character sheet sections" role="tablist">
-      {SHEET_TABS.map((tab, index) => {
+      {tabs.map((tab, index) => {
         const selected = activeTab === tab.id;
         return (
           <button

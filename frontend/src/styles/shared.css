@@ -1,13 +1,13 @@
 :root {
-  --bg: #f6f4ef;
-  --card: #fffdf8;
-  --line: #d7d2c8;
-  --text: #1f1d18;
-  --muted: #6d665a;
-  --accent: #2f5d62;
-  --accent-strong: #204248;
-  --error: #9f2d2d;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --bg: var(--r6-bg-void, #020610);
+  --card: var(--r6-bg-card, rgba(8, 31, 52, 0.94));
+  --line: var(--r6-line, rgba(159, 225, 255, 0.36));
+  --text: var(--r6-text, #f4fbff);
+  --muted: var(--r6-text-muted, #abc6d9);
+  --accent: var(--r6-cyan, #5eeeff);
+  --accent-strong: var(--r6-cyan-soft, #bff9ff);
+  --error: var(--r6-danger, #ff5f83);
+  font-family: var(--r6-font, "IBM Plex Sans", "Segoe UI", sans-serif);
 }
 
 * {
@@ -16,7 +16,7 @@
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #f6f4ef 0%, #efebe1 100%);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -33,7 +33,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
-  background: #fff;
+  background: var(--r6-control-bg, var(--card));
 }
 
 button:focus-visible,
@@ -41,7 +41,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [role="tab"]:focus-visible {
-  outline: 3px solid #7aa8ad;
+  outline: 3px solid var(--r6-cyan-soft, var(--accent));
   outline-offset: 2px;
 }
 
@@ -51,7 +51,7 @@ textarea {
 }
 
 :where(button, input, select, textarea, a):focus-visible {
-  outline: 3px solid #1f6f78;
+  outline: 3px solid var(--r6-cyan-soft, var(--accent));
   outline-offset: 2px;
 }
 
@@ -179,11 +179,11 @@ textarea:disabled {
 
 .attribute-subject-option input:checked + span {
   border-color: var(--accent);
-  background: #d8e8e9;
+  background: var(--r6-control-bg-active, var(--card));
 }
 
 .attribute-subject-option input:focus-visible + span {
-  outline: 3px solid #1f6f78;
+  outline: 3px solid var(--r6-cyan-soft, var(--accent));
   outline-offset: 2px;
 }
 
@@ -194,7 +194,7 @@ textarea:disabled {
 
 .button {
   background: var(--accent);
-  color: #fff;
+  color: var(--r6-bg-deep, #020610);
   border: 0;
   border-radius: 8px;
   padding: 0.5rem 0.8rem;
@@ -215,28 +215,28 @@ textarea:disabled {
 }
 
 .button--secondary {
-  background: #e7ecea;
-  color: #1f1d18;
+  background: var(--r6-control-bg-soft, var(--card));
+  color: var(--text);
 }
 
 .button--secondary:hover {
-  background: #d8e2de;
+  background: var(--r6-control-bg-hover, var(--card));
 }
 
 .button--secondary:disabled:hover {
-  background: #e7ecea;
+  background: var(--r6-control-bg-soft, var(--card));
 }
 
 .button--danger {
-  background: #8d332f;
+  background: var(--r6-danger, #ff5f83);
 }
 
 .button--danger:hover {
-  background: #702522;
+  background: color-mix(in srgb, var(--r6-danger, #ff5f83), black 18%);
 }
 
 .button--danger:disabled:hover {
-  background: #8d332f;
+  background: var(--r6-danger, #ff5f83);
 }
 
 .tab-row {
@@ -247,7 +247,7 @@ textarea:disabled {
 
 .tab {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--r6-control-bg-soft, var(--card));
   border-radius: 999px;
   padding: 0.35rem 0.65rem;
   cursor: pointer;
@@ -255,7 +255,7 @@ textarea:disabled {
 
 .tab--active {
   border-color: var(--accent);
-  background: #d8e8e9;
+  background: var(--r6-control-bg-active, var(--card));
 }
 
 .list {
@@ -293,7 +293,7 @@ textarea:disabled {
   border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 0.55rem;
-  background: #fffefb;
+  background: var(--card);
 }
 
 .template-editor__title {
@@ -339,7 +339,7 @@ textarea:disabled {
 .formula-tag-suggestion {
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #f1f3ef;
+  background: var(--r6-control-bg-soft, var(--card));
   color: var(--text);
   padding: 0.2rem 0.55rem;
   font-size: 0.78rem;
@@ -356,7 +356,7 @@ button.formula-tag-suggestion {
 
 .formula-tag-suggestion--selected {
   border-color: var(--accent);
-  background: #d8e8e9;
+  background: var(--r6-control-bg-active, var(--card));
 }
 
 .formula-tag-editor__empty,
@@ -368,7 +368,7 @@ button.formula-tag-suggestion {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.6rem;
-  background: #f8f7f2;
+  background: var(--card);
 }
 
 .formula-selector-editor__hint {
@@ -455,7 +455,7 @@ button.formula-tag-suggestion {
 
 .catalog-tile--selected {
   border-color: var(--accent);
-  background: #d8e8e9;
+  background: var(--r6-control-bg-active, var(--card));
 }
 
 .authoring-workspace__editor > .template-editor,

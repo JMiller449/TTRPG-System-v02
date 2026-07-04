@@ -1,11 +1,19 @@
 .r6-theme {
   color-scheme: dark;
+  --bg: var(--r6-bg-void);
+  --card: var(--r6-bg-card);
+  --line: var(--r6-line);
+  --text: var(--r6-text);
+  --muted: var(--r6-text-muted);
+  --accent: var(--r6-cyan);
+  --accent-strong: var(--r6-cyan-soft);
+  --error: var(--r6-danger);
   color: var(--r6-text);
   font-family: var(--r6-font);
   background:
     radial-gradient(circle at 70% 10%, rgba(31, 168, 255, 0.14), transparent 34rem),
     radial-gradient(circle at 15% 45%, rgba(94, 238, 255, 0.08), transparent 28rem),
-    linear-gradient(145deg, #06172b 0%, var(--r6-bg-void) 62%, #01040b 100%);
+    linear-gradient(145deg, var(--r6-bg-shell) 0%, var(--r6-bg-void) 62%, var(--r6-bg-abyss) 100%);
   min-height: 100%;
 }
 
@@ -20,7 +28,7 @@ body:has(.r6-theme) {
   background:
     radial-gradient(circle at 70% 10%, rgba(31, 168, 255, 0.14), transparent 34rem),
     radial-gradient(circle at 15% 45%, rgba(94, 238, 255, 0.08), transparent 28rem),
-    linear-gradient(145deg, #06172b 0%, var(--r6-bg-void) 62%, #01040b 100%);
+    linear-gradient(145deg, var(--r6-bg-shell) 0%, var(--r6-bg-void) 62%, var(--r6-bg-abyss) 100%);
   background-attachment: fixed;
   background-size: cover;
 }

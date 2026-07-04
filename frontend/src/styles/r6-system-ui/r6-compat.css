@@ -7,7 +7,7 @@
   color: var(--r6-text);
   background:
     radial-gradient(circle at 75% 5%, rgba(31, 168, 255, 0.12), transparent 36rem),
-    linear-gradient(145deg, #06172b, var(--r6-bg-void) 62%);
+    linear-gradient(145deg, var(--r6-bg-shell), var(--r6-bg-void) 62%);
 }
 
 .r6-theme .app-header {
@@ -186,11 +186,17 @@
   z-index: 1;
 }
 
+.r6-theme .card {
+  border-color: var(--r6-line);
+  color: var(--r6-text);
+  background: var(--r6-bg-card);
+}
+
 .r6-theme .button {
   min-height: 42px;
   border: 1px solid rgba(191, 249, 255, 0.36);
   border-radius: var(--r6-radius-sm);
-  color: #021322;
+  color: var(--r6-bg-deep);
   background: var(--r6-cyan);
   font-weight: 750;
   box-shadow: 0 0 20px rgba(31, 168, 255, 0.16);
@@ -208,7 +214,7 @@
   background: rgba(31, 168, 255, 0.18);
 }
 .r6-theme .button--danger {
-  color: white;
+  color: var(--r6-bg-deep);
   background: var(--r6-danger);
 }
 .r6-theme .button:disabled,
@@ -225,7 +231,7 @@
 .r6-theme textarea {
   color: var(--r6-text);
   border-color: var(--r6-line);
-  background: rgba(2, 14, 27, 0.88);
+  background: var(--r6-control-bg);
 }
 
 .r6-theme input::placeholder,
@@ -240,7 +246,7 @@
   border-color: var(--r6-line);
   border-radius: var(--r6-radius-sm);
   color: var(--r6-text-muted);
-  background: rgba(4, 24, 41, 0.72);
+  background: var(--r6-control-bg-soft);
   font-weight: 750;
 }
 .r6-theme .tab--active,
@@ -249,7 +255,7 @@
 .r6-theme .tab[aria-selected="true"] {
   color: var(--r6-cyan-soft);
   border-color: var(--r6-cyan);
-  background: rgba(31, 168, 255, 0.16);
+  background: var(--r6-control-bg-active);
   box-shadow: var(--r6-glow);
 }
 
@@ -271,9 +277,19 @@
   color: var(--r6-text-muted);
 }
 
-.r6-theme .character-sheet__resources .resource-card {
+.r6-theme .character-sheet__resources .resource-card,
+.r6-theme .character-sheet__header-resources .resource-card {
   border-color: rgba(159, 225, 255, 0.3);
   background: rgba(3, 18, 33, 0.78);
+}
+
+.r6-theme .stat-editor--resource-popover {
+  border-color: var(--r6-line-strong);
+  background: rgba(3, 18, 33, 0.98);
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(191, 249, 255, 0.08) inset,
+    var(--r6-glow);
 }
 .r6-theme .character-sheet__header,
 .r6-theme .character-sheet__tabs {
@@ -290,6 +306,13 @@
 .r6-theme .equipment-card,
 .r6-theme .sheet-xp-card,
 .r6-theme .template-editor,
+.r6-theme .item-definition-card,
+.r6-theme .formula-editor,
+.r6-theme .formula-definition-card,
+.r6-theme .action-editor,
+.r6-theme .action-definition-card,
+.r6-theme .augmentation-template-panel,
+.r6-theme .augmentation-template-card,
 .r6-theme .formula-selector-editor {
   border-color: var(--r6-line);
   color: var(--r6-text);
@@ -386,7 +409,56 @@
 .r6-theme .formula-tag-suggestion--selected {
   color: var(--r6-cyan-soft);
   border-color: var(--r6-cyan);
-  background: rgba(31, 168, 255, 0.16);
+  background: var(--r6-control-bg-active);
+}
+
+.r6-theme .search-popover-picker__popup {
+  border-color: var(--r6-line-strong);
+  color: var(--r6-text);
+  background: rgba(3, 18, 33, 0.98);
+  box-shadow:
+    0 18px 52px rgba(0, 0, 0, 0.48),
+    var(--r6-glow);
+}
+
+.r6-theme .search-popover-picker__option + .search-popover-picker__option {
+  border-top-color: var(--r6-line);
+}
+
+.r6-theme .search-popover-picker__option--active {
+  background: var(--r6-control-bg-active);
+  outline-color: var(--r6-cyan);
+}
+
+.r6-theme .action-step-entry {
+  border-color: var(--r6-line);
+  color: var(--r6-text);
+  background: var(--r6-bg-card);
+}
+
+.r6-theme .action-step-entry--selected {
+  border-color: var(--r6-cyan);
+  box-shadow: var(--r6-glow);
+}
+
+.r6-theme .action-step-entry__header {
+  border-bottom-color: var(--r6-line);
+  background: rgba(4, 22, 38, 0.88);
+}
+
+.r6-theme .action-step-entry__select {
+  color: var(--r6-text);
+}
+
+.r6-theme .action-step-entry__order {
+  border-color: var(--r6-line);
+  color: var(--r6-cyan-soft);
+  background: rgba(31, 168, 255, 0.12);
+}
+
+.r6-theme .action-step-entry__editor {
+  border-top-color: var(--r6-line);
+  background: rgba(2, 14, 27, 0.42);
 }
 
 .r6-theme .template-builder__tabs {
@@ -407,7 +479,7 @@
 .r6-theme .template-builder__tabs button.is-active {
   color: var(--r6-cyan-soft);
   border-color: var(--r6-cyan);
-  background: rgba(31, 168, 255, 0.16);
+  background: var(--r6-control-bg-active);
   box-shadow: var(--r6-glow);
 }
 
@@ -424,9 +496,9 @@
 }
 
 .r6-theme .template-builder__validation {
-  color: #ffd5de;
-  border-color: rgba(255, 95, 131, 0.52);
-  background: rgba(255, 95, 131, 0.1);
+  color: var(--r6-danger);
+  border-color: var(--r6-danger-line);
+  background: var(--r6-danger-bg);
 }
 
 .r6-theme .template-builder__footer {
@@ -464,13 +536,13 @@
 .r6-theme .roll-mode-control__option {
   border-color: var(--r6-line);
   color: var(--r6-text-muted);
-  background: rgba(4, 24, 41, 0.78);
+  background: var(--r6-control-bg-soft);
 }
 .r6-theme .quick-roll-btn:not(:disabled):hover,
 .r6-theme .roll-mode-control__option:hover {
   color: var(--r6-text);
   border-color: var(--r6-cyan);
-  background: rgba(31, 168, 255, 0.14);
+  background: var(--r6-control-bg-hover);
 }
 .r6-theme .quick-roll-btn--active,
 .r6-theme .roll-mode-control__option--active {
@@ -479,14 +551,14 @@
   background: var(--r6-cyan);
 }
 .r6-theme .quick-roll-btn:disabled {
-  color: #283746;
+  color: var(--r6-text-faint);
   border-color: rgba(191, 249, 255, 0.18);
-  background: rgba(210, 221, 221, 0.86);
+  background: rgba(31, 168, 255, 0.08);
   opacity: 1;
 }
 .r6-theme .roll-mode-control {
   border-color: var(--r6-line);
-  background: rgba(2, 14, 27, 0.88);
+  background: var(--r6-control-bg);
 }
 .r6-theme .roll-mode-control__option {
   border-right-color: var(--r6-line);
@@ -510,6 +582,26 @@
   color: var(--r6-text);
   background: var(--r6-bg-card);
 }
+.r6-theme .roll20-bridge-pill--connected,
+.r6-theme .action-history-status--success,
+.r6-theme .status-badge--ready {
+  color: var(--r6-success);
+  border-color: var(--r6-success-line);
+  background: var(--r6-success-bg);
+}
+.r6-theme .roll20-bridge-pill--disconnected,
+.r6-theme .action-history-status--failed,
+.r6-theme .action-history-entry__error {
+  color: var(--r6-danger);
+  border-color: var(--r6-danger-line);
+  background: var(--r6-danger-bg);
+}
+.r6-theme .roll20-bridge-pill--unknown,
+.r6-theme .status-badge {
+  color: var(--r6-text-muted);
+  border-color: var(--r6-line);
+  background: rgba(8, 36, 58, 0.72);
+}
 .r6-theme .action-history-entry__header strong {
   color: var(--r6-text);
 }
@@ -529,16 +621,35 @@
   backdrop-filter: blur(14px) saturate(125%);
 }
 .r6-theme .intent-banner--pending {
-  border-color: rgba(255, 209, 102, 0.5);
-  background: rgba(255, 209, 102, 0.1);
+  border-color: var(--r6-warning-line);
+  background: var(--r6-warning-bg);
 }
 .r6-theme .intent-banner--success {
-  border-color: rgba(88, 240, 179, 0.5);
-  background: rgba(88, 240, 179, 0.1);
+  border-color: var(--r6-success-line);
+  background: var(--r6-success-bg);
 }
 .r6-theme .intent-banner--error {
-  border-color: rgba(255, 95, 131, 0.5);
-  background: rgba(255, 95, 131, 0.1);
+  border-color: var(--r6-danger-line);
+  background: var(--r6-danger-bg);
+}
+
+.r6-theme .xp-kill-stepper {
+  border-color: var(--r6-line);
+}
+
+.r6-theme .xp-kill-stepper button,
+.r6-theme .xp-kill-stepper output {
+  color: var(--r6-text);
+  background: var(--r6-control-bg);
+}
+
+.r6-theme .xp-kill-stepper button:disabled {
+  color: var(--r6-text-faint);
+  background: rgba(31, 168, 255, 0.08);
+}
+
+.r6-theme .xp-kill-stepper output {
+  border-color: var(--r6-line);
 }
 
 @media (prefers-reduced-transparency: reduce) {

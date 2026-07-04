@@ -16,7 +16,10 @@ export type PlayerSheetTab =
   | "actions"
   | "inventory"
   | "details"
-  | "notes";
+  | "notes"
+  | "action_history"
+  | "formula_stats"
+  | "resistances";
 
 export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({
   value: damageType,

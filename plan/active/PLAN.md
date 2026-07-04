@@ -80,6 +80,10 @@ Frontend:
 - Roll20 bridge disconnected state fails fast with visible client feedback.
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
+- GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.
+- GM dashboard hosts session-level active sheet selection, player access codes, and quick actions without embedding the character sheet; GM Characters owns sheet detail plus dedicated tabs for action history, formula stats, and resistances.
+- GM sheet Actions uses the player-style searchable command grid for execution while retaining GM assignment management below it.
+- Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 
 ## 4. MVP Character Sheet And Dice Roller Acceptance
 

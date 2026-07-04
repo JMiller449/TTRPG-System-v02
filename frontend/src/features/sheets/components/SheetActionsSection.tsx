@@ -22,6 +22,7 @@ export function SheetActionsSection({
   actionOrder,
   canEdit,
   compact = false,
+  commandLayout = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -33,6 +34,7 @@ export function SheetActionsSection({
   actionOrder: string[];
   canEdit: boolean;
   compact?: boolean;
+  commandLayout?: boolean;
   onCreate: (bridge: SheetActionBridgePayload) => void;
   onUpdate: (relationshipId: string, bridge: SheetActionBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
@@ -73,7 +75,7 @@ export function SheetActionsSection({
     onCreate(toSheetActionBridgePayload(makeId("action_bridge"), selectedActionId));
   };
 
-  if (!canEdit || compact) {
+  if (!canEdit || compact || commandLayout) {
     const query = search.trim().toLowerCase();
     const visibleActions = assignedActions.filter((entry) => {
       const categoryMatches =
@@ -92,6 +94,121 @@ export function SheetActionsSection({
     });
     const controlModeKind =
       category === "damage" ? "damage" : category === "check" ? "check" : "check";
+
+    const manager = canEdit ? (
+      <section className="sheet-actions-section__manager" aria-label="Manage action assignments">
+        <div className="action-command-toolbar__heading">
+          <h4>Manage Assignments</h4>
+          <span className="muted">{assignedActions.length} assigned</span>
+        </div>
+        <div className="inline-group">
+          <Field label="Global Action">
+            <select
+              value={selectedActionId}
+              onChange={(event) => setSelectedActionId(event.target.value)}
+            >
+              {availableActions.length === 0 ? (
+                <option value="">No unassigned actions</option>
+              ) : null}
+              {availableActions.map((action) => (
+                <option key={action.id} value={action.id}>
+                  {action.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <button
+            type="button"
+            className="button"
+            onClick={createAssignment}
+            disabled={!selectedActionId}
+          >
+            Assign Action
+          </button>
+        </div>
+        <div className="list">
+          {assignedActions.length === 0 ? (
+            <EmptyState message="No actions assigned to this sheet." />
+          ) : null}
+          {assignedActions.map((entry) => {
+            const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
+            const replacementOptions = entry.bridge
+              ? selectAvailableOrderedSheetActions(
+                  orderedActions,
+                  assignedExplicitActionIds,
+                  entry.actionId
+                )
+              : [];
+            const canSaveReplacement =
+              Boolean(entry.bridge) &&
+              draftActionId !== entry.actionId &&
+              Boolean(actionDefinitions[draftActionId]);
+
+            return (
+              <article className="list-item list-item--block" key={entry.relationshipId}>
+                <div className="list-item__top">
+                  <strong>{entry.action.name}</strong>
+                  <span className="muted">{entry.relationshipId}</span>
+                </div>
+                {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
+                {entry.sourceItemName ? (
+                  <div className="muted">
+                    Granted by {entry.sourceItemName} ({entry.sourceItemAvailability})
+                    {entry.consumeQuantity ? ` · consumes ${entry.consumeQuantity}` : ""}
+                  </div>
+                ) : null}
+                {entry.bridge ? (
+                  <div className="inline-group">
+                    <Field label="Assigned Action">
+                      <select
+                        value={draftActionId}
+                        onChange={(event) =>
+                          setDraftActionIds((current) => ({
+                            ...current,
+                            [entry.relationshipId]: event.target.value
+                          }))
+                        }
+                      >
+                        {replacementOptions.map((action) => (
+                          <option key={action.id} value={action.id}>
+                            {action.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      disabled={!canSaveReplacement}
+                      onClick={() => {
+                        onUpdate(
+                          entry.relationshipId,
+                          toSheetActionBridgePayload(entry.relationshipId, draftActionId)
+                        );
+                        setDraftActionIds((current) => {
+                          const next = { ...current };
+                          delete next[entry.relationshipId];
+                          return next;
+                        });
+                      }}
+                    >
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => onDelete(entry.relationshipId)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ) : null;
 
     return (
       <section className={`sheet-actions-section sheet-actions-section--command ${compact ? "sheet-actions-section--compact" : ""}`}>
@@ -189,6 +306,7 @@ export function SheetActionsSection({
             })}
           </div>
         )}
+        {manager}
       </section>
     );
   }

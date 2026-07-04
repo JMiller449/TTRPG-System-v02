@@ -3,7 +3,7 @@ import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import type { Role } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
-import { RollLog } from "@/features/rolls/RollLog";
+import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { RollPanel } from "@/features/rolls/RollPanel";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
 import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
@@ -58,16 +58,11 @@ export function ConsolePage({ role, client }: { role: Role; client: GameClient }
   }
 
   return (
-    <div className="main-panel-stack">
+    <div className="main-panel-stack main-panel-stack--console main-panel-stack--dashboard">
       <ActiveSheetSelector />
-      <div className="app-grid-player-shell app-grid-player-shell--gm">
-        <section className="player-console-main">
-          <PlayerCharacterSheet mode={role} panelTitle="Character Sheet" client={client} />
-        </section>
-        <section className="player-console-side">
-          <RollPanel client={client} />
-          <RollLog />
-        </section>
+      <div className="gm-dashboard-tools">
+        <SheetAccessCodesPanel client={client} />
+        <RollPanel client={client} />
       </div>
     </div>
   );

@@ -85,7 +85,7 @@ export function SheetResourceHeader({
 
             {editingResource === key ? (
               <div
-                className="stat-editor"
+                className={`stat-editor stat-editor--resource-popover stat-editor--resource-popover-${key}`}
                 id={editorId}
                 role="group"
                 aria-label={`Edit ${DISPLAY_NAMES[key]}`}

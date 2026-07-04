@@ -59,9 +59,9 @@
 }
 
 .status-badge--ready {
-  border-color: #9ec7aa;
-  background: #e4f1e8;
-  color: #1f5b33;
+  border-color: var(--r6-success-line, rgba(88, 240, 179, 0.5));
+  background: var(--r6-success-bg, rgba(88, 240, 179, 0.1));
+  color: var(--r6-success, #58f0b3);
 }
 
 .xp-number-editor {
@@ -88,7 +88,7 @@
   min-width: 0;
   height: 2rem;
   border: 0;
-  background: #fff;
+  background: var(--card);
   color: var(--text);
 }
 
@@ -100,7 +100,7 @@
 .xp-kill-stepper button:disabled {
   cursor: not-allowed;
   color: var(--muted);
-  background: #f4f1ea;
+  background: var(--r6-control-bg-soft, var(--card));
 }
 
 .xp-kill-stepper output {

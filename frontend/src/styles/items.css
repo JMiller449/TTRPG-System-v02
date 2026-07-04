@@ -31,7 +31,7 @@
   min-height: 36px;
   border: 0;
   border-right: 1px solid var(--line);
-  background: #f7f8f8;
+  background: var(--r6-control-bg-soft, var(--card));
   color: var(--text);
   cursor: pointer;
   padding: 0.4rem 0.55rem;
@@ -43,7 +43,7 @@
 
 .item-type-control__option--active {
   background: var(--accent);
-  color: #fff;
+  color: var(--r6-bg-deep, #020610);
 }
 
 .item-details-section,
@@ -82,7 +82,7 @@
 }
 
 .item-definition-card {
-  background: #fff;
+  background: var(--card);
 }
 
 .formula-editor,
@@ -91,7 +91,7 @@
 .action-definition-card,
 .augmentation-template-panel,
 .augmentation-template-card {
-  background: #fff;
+  background: var(--card);
 }
 
 .augmentation-template-panel__target {

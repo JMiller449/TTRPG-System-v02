@@ -46,6 +46,64 @@ Or directly:
 ./backend/.venv/bin/python -m uvicorn backend.core.main:app --host 0.0.0.0 --port 6767
 ```
 
+Run the frontend locally in a second terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Local development uses `ws://127.0.0.1:6767/ws` and serves the frontend at the
+site root. Production configuration does not replace these defaults.
+
+## Production Deployment
+
+The production application is served through Cloudflare and Nginx at
+`https://bossadapt.org/ttrpg/`. The static frontend lives under
+`/var/www/bossadapt.org/ttrpg`; systemd runs the FastAPI backend from
+`/srv/ttrpg` on loopback port `6767`.
+
+Production deployment requires the sibling
+`/home/devinphillips20/Desktop/Projects/server_config` repository and the
+configured `ssh personal` target.
+
+For the first deployment:
+
+```bash
+just init-production-env
+just bootstrap
+```
+
+`init-production-env` creates ignored `production-secret.env` with independent
+random player, DM, and service codes. It does not print them. Keep the DM and
+service codes private; distribute the player code only to intended players.
+
+Routine deployment is:
+
+```bash
+just deploy-all
+```
+
+Deployment intentionally returns a maintenance response while it stops the
+backend, replaces code, recreates the server virtualenv, installs
+`backend/requirements.txt`, and publishes the matching frontend. A failed
+deployment leaves maintenance enabled.
+
+Operational commands:
+
+```bash
+just status-backend
+just logs-backend
+just enter-maintenance
+just exit-maintenance
+```
+
+The first production deployment does not upload local checkpoint files and
+therefore starts with fresh default state. Routine deployments preserve the
+server's `state_dumpy.json` and `state_dumpy.json.bak`. Use the DM state-export
+page for campaign backups. Never run `just seed` against production.
+
 ## Seed Development State
 
 Stop the backend, then replace the local checkpoint with the comprehensive
@@ -95,6 +153,15 @@ Then:
    - Service authentication code: the backend `SERVICE_AUTH_CODE` value, defaulting to `service` for local development
 3. Open or reload your Roll20 game at `https://app.roll20.net/editor/...`
 4. The extension will connect automatically when that page is open
+
+For the hosted application, configure the extension options with:
+
+- Backend WebSocket URL: `wss://bossadapt.org/ttrpg/ws/chat`
+- Service authentication code: the production `SERVICE_AUTH_CODE` from
+  `production-secret.env`
+
+The extension and Roll20 interaction still run locally in Firefox; only the
+backend WebSocket is hosted.
 
 The extension only runs on `https://app.roll20.net/editor/*`.
 

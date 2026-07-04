@@ -24,10 +24,19 @@ This frontend is intentionally scaffolded for backend-authoritative integration.
 - Failed or interrupted connections retry with bounded backoff and re-authenticate the prior session after reconnecting.
 - Tests isolate client behavior with injected inert transports; the application runtime always uses the websocket backend.
 
+Vite mode selects the deployment base and socket configuration:
+
+- `npm run dev` uses `/` and defaults to `ws://127.0.0.1:6767/ws`.
+- `npm run build` uses `/ttrpg/` and `frontend/.env.production`, which points to
+  `wss://bossadapt.org/ttrpg/ws`.
+
 ## Auth Configuration
 - `VITE_PLAYER_AUTH_TOKEN`: optional player token used by role-based helper auth.
 - `VITE_DM_AUTH_TOKEN`: optional GM token used by role-based helper auth.
 - Normal login uses the code entered by the player or GM; these env values are only for helper paths.
+- Production builds explicitly leave both helper-token values empty. Never put
+  production authentication codes in a `VITE_*` variable because frontend
+  environment values are public bundle content.
 
 ## Integration Boundary
 

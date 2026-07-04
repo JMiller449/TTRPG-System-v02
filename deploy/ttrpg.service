@@ -1,0 +1,21 @@
+[Unit]
+Description=TTRPG backend
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/ttrpg
+EnvironmentFile=/srv/ttrpg/.env
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+ExecStart=/srv/ttrpg/backend/.venv/bin/uvicorn backend.core.main:app --host 127.0.0.1 --port 6767
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

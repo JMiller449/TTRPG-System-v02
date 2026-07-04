@@ -3,7 +3,9 @@
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
 Temporary Firefox extension that runs on `https://app.roll20.net/editor/*`, opens a
-WebSocket to the local backend, and forwards incoming chat jobs into the Roll20 chat UI.
+WebSocket to a configured TTRPG backend, and forwards incoming chat jobs into the
+Roll20 chat UI. The extension and Roll20 DOM interaction always run locally in the
+client's Firefox session; no Roll20 bot runs on the server.
 
 ### Load Temporarily In Firefox
 
@@ -13,9 +15,10 @@ WebSocket to the local backend, and forwards incoming chat jobs into the Roll20 
 
 ### Backend Socket
 
-The content script connects to:
+The content script supports either environment:
 
-`ws://127.0.0.1:6767/ws/chat`
+- local development: `ws://127.0.0.1:6767/ws/chat`
+- hosted deployment: `wss://bossadapt.org/ttrpg/ws/chat`
 
 After loading the extension, open its preferences/options page and configure:
 
@@ -26,6 +29,10 @@ For local development, the extension defaults to:
 
 - backend WebSocket URL: `ws://127.0.0.1:6767/ws/chat`
 - service authentication code: `service`
+
+For production, replace both option values with the hosted URL and the
+production backend's random `SERVICE_AUTH_CODE`. Do not use the local `service`
+default against production.
 
 Reload the Roll20 editor tab after saving. If you override the local default, the custom
 service code is stored in Firefox extension storage.

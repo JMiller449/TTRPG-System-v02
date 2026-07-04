@@ -220,6 +220,7 @@ frontend/node_modules/
 frontend/dist/
 
 # Local state recovery artifacts (may contain private sheet access codes)
+state_dumpy.json
 state_dumpy.json.bak
 state_dumpy.json.tmp
 frontend/coverage/
@@ -227,6 +228,11 @@ frontend/.vite/
 frontend/*.tsbuildinfo
 frontend/.env.local
 frontend/.env.*.local
+
+# Production deployment secrets and generated release archives
+production-secret.env
+ttrpg-frontend.tar.gz
+ttrpg-backend.tar.gz
 
 # JS package manager logs
 npm-debug.log*
@@ -236,10 +242,7 @@ pnpm-debug.log*
 
 # Windows metadata artifacts
 *:Zone.Identifier
-state_dumpy.json
 .codex
 # auto generated
 frontend/src/generated/backendProtocol.ts
 node_modules/
-state_dumpy.json
-state_dumpy.json

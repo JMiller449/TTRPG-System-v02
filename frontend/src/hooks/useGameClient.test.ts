@@ -39,7 +39,7 @@ describe("useGameClient feedback messages", () => {
         isRoll20BridgeError: true
       })
     ).toBe(
-      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded, then confirm the extension options use ws://127.0.0.1:6767/ws/chat and the backend SERVICE_AUTH_CODE (local default: service)."
+      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded, then confirm its options use the backend's Roll20 bridge WebSocket URL and matching SERVICE_AUTH_CODE."
     );
   });
 

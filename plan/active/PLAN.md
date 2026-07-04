@@ -110,6 +110,23 @@ For the MVP to be considered usable at the table:
 
 No large architecture feature is currently missing for the stated character-sheet and authored-action dice-roller goal. The remaining work is a readiness pass: content, smoke testing, and any defects found while using the real table workflow.
 
+- [x] Deploy the production application at `https://bossadapt.org/ttrpg/`:
+  - Cloudflare and Nginx serve the Vite frontend under `/ttrpg/`.
+  - Nginx proxies `/ttrpg/ws` and `/ttrpg/ws/chat` to loopback Uvicorn.
+  - `ttrpg.service` runs as `www-data` from `/srv/ttrpg` with generated
+    production authentication codes and private checkpoint permissions.
+  - `just bootstrap` handles first installation; `just deploy-all` performs
+    tested maintenance-mode routine deployments and reinstalls backend
+    dependencies from `backend/requirements.txt`.
+  - Production started with fresh default state, and a second deployment
+    preserved the generated production checkpoint.
+  - Direct readiness, public HTTPS, SPA fallback, production-default rejection,
+    and both authenticated public WebSockets were verified on 2026-07-04.
+- [ ] Complete the final hosted Roll20 browser smoke test by loading the local
+  Firefox extension in an active Roll20 editor tab, configuring
+  `wss://bossadapt.org/ttrpg/ws/chat` plus the production service code, and
+  confirming a real authored action reaches Roll20 chat.
+
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates

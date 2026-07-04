@@ -26,7 +26,7 @@ class CanonicalActionPreset:
     message_text: str
     aliases: tuple[tuple[str, tuple[str, ...]], ...]
     tags: tuple[str, ...]
-    fact_values: tuple[tuple[str, dict], ...] = ()
+    attribute_values: tuple[tuple[str, dict], ...] = ()
     seed_global: bool = False
     attach_to_new_sheet: bool = False
 
@@ -53,20 +53,20 @@ class CanonicalActionPreset:
             "roll_mode_kind": self.roll_mode_kind,
             "notes": self.description,
             "steps": self.steps(),
-            "facts": {},
+            "attributes": {},
         }
 
     def action(self) -> Action:
         return Action.from_dict(self.action_payload())
 
-    def authoring_fact_values(self) -> dict[str, dict]:
+    def authoring_attribute_values(self) -> dict[str, dict]:
         return {
-            fact_id: deepcopy(value)
-            for fact_id, value in self.fact_values
+            attribute_id: deepcopy(value)
+            for attribute_id, value in self.attribute_values
         }
 
 
-_SPELL_FACT_VALUES: tuple[tuple[str, dict], ...] = (
+_SPELL_ATTRIBUTE_VALUES: tuple[tuple[str, dict], ...] = (
     ("action_mana_cost", {"type": "number", "value": 0}),
     ("action_base_spell_damage", {"type": "number", "value": 0}),
     ("action_proficiency", {"type": "reference", "value": ""}),
@@ -137,7 +137,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         aliases=(
             (
                 "weapon_base_damage",
-                ("source_item", "facts", "weapon_base_damage"),
+                ("source_item", "attributes", "weapon_base_damage"),
             ),
             (
                 "weapon_proficiency",
@@ -198,7 +198,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         label="Spell To-Hit",
         category="spell",
         description=(
-            "Editable spell to-hit preset. Select an Action Proficiency Fact "
+            "Editable spell to-hit preset. Select an Action Proficiency Attribute "
             "before saving."
         ),
         roll_mode_kind="check",
@@ -214,7 +214,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("arcane", ("sheet", "stats", "arcane")),
         ),
         tags=("check", "spell", "attack"),
-        fact_values=_SPELL_FACT_VALUES,
+        attribute_values=_SPELL_ATTRIBUTE_VALUES,
     ),
     CanonicalActionPreset(
         id="spell_damage",
@@ -222,7 +222,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         category="spell",
         description=(
             "Editable spell damage preset. Configure Action Proficiency and Base "
-            "Spell Damage Facts before saving."
+            "Spell Damage Attributes before saving."
         ),
         roll_mode_kind="damage",
         message_text=(
@@ -237,11 +237,11 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("arcane", ("sheet", "stats", "arcane")),
             (
                 "base_spell_damage",
-                ("action", "facts", "action_base_spell_damage"),
+                ("action", "attributes", "action_base_spell_damage"),
             ),
         ),
         tags=("damage", "spell"),
-        fact_values=_SPELL_FACT_VALUES,
+        attribute_values=_SPELL_ATTRIBUTE_VALUES,
     ),
 )
 

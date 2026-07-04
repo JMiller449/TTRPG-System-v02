@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   ActionDefinition,
   DamageType,
-  FactDefinition,
+  AttributeDefinition,
   GainProficiencyUseActionStep,
   ResolveDamageActionStep
 } from "@/domain/models";
@@ -16,7 +16,7 @@ import {
   addResolveDamageActionStep,
   addSendMessageActionStep,
   addSetValueActionStep,
-  applyActionFactValues,
+  applyActionAttributeValues,
   applyActionPresetTemplate,
   boundedMutationPrimarySource,
   calculatedValuesBeforeStep,
@@ -138,7 +138,7 @@ describe("actionEditorValues", () => {
       rollModeKind: "none",
       notes: "",
       steps: [],
-      facts: {}
+      attributes: {}
     });
   });
 
@@ -148,7 +148,7 @@ describe("actionEditorValues", () => {
       rollModeKind: "check",
       notes: "Roll20 output and mana spend.",
       steps: testAction().steps,
-      facts: {}
+      attributes: {}
     });
   });
 
@@ -163,7 +163,7 @@ describe("actionEditorValues", () => {
       roll_mode_kind: "none",
       notes: "Roll20 output only.",
       steps: [],
-      facts: {}
+      attributes: {}
     });
   });
 
@@ -179,7 +179,7 @@ describe("actionEditorValues", () => {
       roll_mode_kind: "check",
       notes: "Updated notes.",
       steps: action.steps,
-      facts: {}
+      attributes: {}
     });
   });
 
@@ -205,7 +205,7 @@ describe("actionEditorValues", () => {
       name: "",
       rollModeKind: "none",
       notes: "",
-      facts: {},
+      attributes: {},
       steps: [
         {
           step_id: "step_created",
@@ -226,7 +226,7 @@ describe("actionEditorValues", () => {
       name: "",
       rollModeKind: "none",
       notes: "",
-      facts: {},
+      attributes: {},
       steps: [
         {
           step_id: "damage_created",
@@ -285,7 +285,7 @@ describe("actionEditorValues", () => {
       name: "",
       rollModeKind: "none",
       notes: "",
-      facts: {},
+      attributes: {},
       steps: [
         {
           step_id: "prof_created",
@@ -866,8 +866,8 @@ describe("actionEditorValues", () => {
     expect(removeCalculateValueActionStep(values, "calculate").steps).toEqual([values.steps[0]]);
   });
 
-  it("applies and validates canonical Action Fact preset values", () => {
-    const definitions: Record<string, FactDefinition> = {
+  it("applies and validates canonical Action Attribute preset values", () => {
+    const definitions: Record<string, AttributeDefinition> = {
       action_mana_cost: {
         id: "action_mana_cost",
         name: "Mana Cost",
@@ -888,7 +888,7 @@ describe("actionEditorValues", () => {
     };
     const values = createEmptyActionEditorValues();
     values.name = "Fire Bolt";
-    const withPreset = applyActionFactValues(
+    const withPreset = applyActionAttributeValues(
       values,
       {
         action_mana_cost: { type: "number", value: 25 },
@@ -898,13 +898,13 @@ describe("actionEditorValues", () => {
       () => "relationship"
     );
 
-    expect(withPreset.facts.action_mana_cost.value).toEqual({
+    expect(withPreset.attributes.action_mana_cost.value).toEqual({
       type: "number",
       value: 25
     });
     expect(toActionDefinitionPayload(withPreset, "fire_bolt")).toMatchObject({
       id: "fire_bolt",
-      facts: {
+      attributes: {
         action_mana_cost: { value: { type: "number", value: 25 } },
         action_proficiency: {
           value: { type: "reference", value: "magic" }
@@ -923,7 +923,7 @@ describe("actionEditorValues", () => {
   });
 
   it("creates an editable spell draft from backend Action preset metadata", () => {
-    const definitions: Record<string, FactDefinition> = {
+    const definitions: Record<string, AttributeDefinition> = {
       action_base_spell_damage: {
         id: "action_base_spell_damage",
         name: "Base Spell Damage",
@@ -949,7 +949,7 @@ describe("actionEditorValues", () => {
       description: "Editable spell damage preset.",
       roll_mode_kind: "damage" as const,
       editable_formula_fields: ["steps.0.message"],
-      fact_values: {
+      attribute_values: {
         action_base_spell_damage: { type: "number" as const, value: 0 },
         action_proficiency: { type: "reference" as const, value: "" }
       },
@@ -961,7 +961,7 @@ describe("actionEditorValues", () => {
             aliases: [
               {
                 name: "base_spell_damage",
-                path: ["action", "facts", "action_base_spell_damage"]
+                path: ["action", "attributes", "action_base_spell_damage"]
               }
             ],
             text: "Spell Damage: /r floor(@base_spell_damage)"
@@ -983,7 +983,7 @@ describe("actionEditorValues", () => {
       rollModeKind: "damage",
       notes: "Editable spell damage preset.",
       steps: [{ step_id: "roll", type: "send_message" }],
-      facts: {
+      attributes: {
         action_base_spell_damage: {
           relationship_id: "preset-relationship-1",
           value: { type: "number", value: 0 }

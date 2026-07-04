@@ -270,8 +270,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"augmentation_records" | "condition_presets"' in output
     assert "export type ActionPresetTemplateEvent" in output
     assert '"action_preset_templates": ActionPresetTemplateEvent[]' in output
-    assert "export type ActionFactPresetEvent" in output
-    assert '"action_fact_presets": ActionFactPresetEvent[]' in output
+    assert "export type ActionAttributePresetEvent" in output
+    assert '"action_attribute_presets": ActionAttributePresetEvent[]' in output
     assert "export type ResistancesPayload" in output
     assert '"resistances"?: ResistancesPayload' in output
     assert '"value_type": "number" | "percent" | "formula" | "resource"' in output

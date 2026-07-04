@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { FactDefinition, ProficiencyDefinition } from "@/domain/models";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
-import { setItemFactProfile, type ItemEditorValues } from "@/features/items/itemEditorValues";
+import type { AttributeDefinition, ProficiencyDefinition } from "@/domain/models";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
+import { setItemAttributeProfile, type ItemEditorValues } from "@/features/items/itemEditorValues";
 import { makeId } from "@/shared/utils/id";
 
-export function ItemFactsEditor({
+export function ItemAttributesEditor({
   values,
   definitions,
   proficiencies,
@@ -13,7 +13,7 @@ export function ItemFactsEditor({
   onChange
 }: {
   values: ItemEditorValues;
-  definitions: Record<string, FactDefinition>;
+  definitions: Record<string, AttributeDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (values: ItemEditorValues) => void;
@@ -32,8 +32,8 @@ export function ItemFactsEditor({
   const displayDefinitions = useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(definitions).map(([factId, definition]) => [
-          factId,
+        Object.entries(definitions).map(([attributeId, definition]) => [
+          attributeId,
           definition.reference_kind === "proficiency"
             ? { ...definition, validation_options: Object.keys(proficiencies) }
             : definition
@@ -57,18 +57,18 @@ export function ItemFactsEditor({
   );
 
   const updateBridge = (
-    factId: string,
-    value: ItemEditorValues["facts"][string]["value"]
+    attributeId: string,
+    value: ItemEditorValues["attributes"][string]["value"]
   ): void => {
-    const bridge = values.facts[factId];
+    const bridge = values.attributes[attributeId];
     if (!bridge) {
       return;
     }
     onChange({
       ...values,
-      facts: {
-        ...values.facts,
-        [factId]: {
+      attributes: {
+        ...values.attributes,
+        [attributeId]: {
           ...bridge,
           value,
           evaluated_value: null,
@@ -81,18 +81,18 @@ export function ItemFactsEditor({
   return (
     <section className="card stack">
       <div>
-        <h3>Facts</h3>
+        <h3>Attributes</h3>
         <p className="muted">
-          Profiles attach backend-required Facts. Optional Facts can be added to the same item.
+          Profiles attach backend-required Attributes. Optional Attributes can be added to the same item.
         </p>
       </div>
       <label>
-        Fact profile
+        Attribute profile
         <select
-          value={values.factProfile ?? ""}
+          value={values.attributeProfile ?? ""}
           onChange={(event) =>
             onChange(
-              setItemFactProfile(
+              setItemAttributeProfile(
                 values,
                 event.target.value ? (event.target.value as "weapon") : null,
                 definitions
@@ -108,33 +108,33 @@ export function ItemFactsEditor({
           ))}
         </select>
       </label>
-      <SheetFactsSection
+      <SheetAttributesSection
         definitions={displayDefinitions}
-        bridges={values.facts}
+        bridges={values.attributes}
         canEdit
         subjectType="item"
         formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(factId, formula) => updateBridge(factId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
         onSaveValue={updateBridge}
-        onReset={(factId) => {
-          const definition = definitions[factId];
+        onReset={(attributeId) => {
+          const definition = definitions[attributeId];
           if (definition) {
-            updateBridge(factId, structuredClone(definition.default_value));
+            updateBridge(attributeId, structuredClone(definition.default_value));
           }
         }}
-        onAttach={(factId) => {
-          const definition = definitions[factId];
+        onAttach={(attributeId) => {
+          const definition = definitions[attributeId];
           if (!definition) {
             return;
           }
           onChange({
             ...values,
-            facts: {
-              ...values.facts,
-              [factId]: {
-                relationship_id: makeId("item_fact"),
-                fact_id: factId,
+            attributes: {
+              ...values.attributes,
+              [attributeId]: {
+                relationship_id: makeId("item_attribute"),
+                attribute_id: attributeId,
                 value: structuredClone(definition.default_value),
                 evaluated_value: null,
                 evaluation_error: null
@@ -142,10 +142,10 @@ export function ItemFactsEditor({
             }
           });
         }}
-        onDetach={(factId) => {
-          const facts = { ...values.facts };
-          delete facts[factId];
-          onChange({ ...values, facts });
+        onDetach={(attributeId) => {
+          const attributes = { ...values.attributes };
+          delete attributes[attributeId];
+          onChange({ ...values, attributes });
         }}
       />
     </section>

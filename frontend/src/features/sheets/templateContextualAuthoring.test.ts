@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialServerState } from "@/app/state/initialState";
-import type { FactDefinition } from "@/domain/models";
+import type { AttributeDefinition } from "@/domain/models";
 import {
   attachContextualRecord,
   resolveTemplateContextualCreate,
@@ -9,7 +9,7 @@ import {
 } from "@/features/sheets/templateContextualAuthoring";
 import { createEmptyTemplateEditorValues } from "@/features/sheets/templateEditorValues";
 
-const createdFact: FactDefinition = {
+const createdAttribute: AttributeDefinition = {
   id: "movement",
   name: "Movement",
   subject_types: ["sheet"],
@@ -65,15 +65,15 @@ describe("template contextual authoring", () => {
     let id = 0;
     const makeRelationshipId = (prefix: string): string => `${prefix}_${++id}`;
 
-    const withFact = attachContextualRecord(
+    const withAttribute = attachContextualRecord(
       original,
-      "fact",
-      createdFact.id,
-      createdFact,
+      "attribute",
+      createdAttribute.id,
+      createdAttribute,
       makeRelationshipId
     );
     const withAction = attachContextualRecord(
-      withFact,
+      withAttribute,
       "action",
       "new_action",
       {},
@@ -92,9 +92,9 @@ describe("template contextual authoring", () => {
     expect(completed.notes).toBe("Keep this draft");
     expect(completed.coreStats).toBe(originalStats);
     expect(completed.resistances).toBe(originalResistances);
-    expect(completed.facts.movement).toMatchObject({
-      relationship_id: "sheet_fact_1",
-      fact_id: "movement",
+    expect(completed.attributes.movement).toMatchObject({
+      relationship_id: "sheet_attribute_1",
+      attribute_id: "movement",
       value: { type: "number", value: 30 }
     });
     expect(completed.actions).toEqual([
@@ -118,13 +118,13 @@ describe("template contextual authoring", () => {
     ]);
   });
 
-  it("does not attach duplicates or non-sheet Facts", () => {
+  it("does not attach duplicates or non-sheet Attributes", () => {
     const values = createEmptyTemplateEditorValues();
     const first = attachContextualRecord(values, "action", "action_1", {}, () => "bridge_1");
     expect(attachContextualRecord(first, "action", "action_1", {}, () => "bridge_2")).toBe(first);
 
-    const itemFact = { ...createdFact, id: "item_fact", subject_types: ["item" as const] };
-    expect(attachContextualRecord(values, "fact", itemFact.id, itemFact, () => "fact_bridge")).toBe(
+    const itemAttribute = { ...createdAttribute, id: "item_attribute", subject_types: ["item" as const] };
+    expect(attachContextualRecord(values, "attribute", itemAttribute.id, itemAttribute, () => "attribute_bridge")).toBe(
       values
     );
   });

@@ -1,7 +1,7 @@
 import type {
   ActionDefinition,
-  FactBridge,
-  FactDefinition,
+  AttributeBridge,
+  AttributeDefinition,
   FormulaAlias,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -36,7 +36,7 @@ export interface ActionEditorValues {
   rollModeKind: NonNullable<ActionDefinitionPayload["roll_mode_kind"]>;
   notes: string;
   steps: ActionEditorSteps;
-  facts: Record<string, FactBridge>;
+  attributes: Record<string, AttributeBridge>;
 }
 
 export type ActionPresetTemplate =
@@ -48,7 +48,7 @@ export function createEmptyActionEditorValues(): ActionEditorValues {
     rollModeKind: "none",
     notes: "",
     steps: [],
-    facts: {}
+    attributes: {}
   };
 }
 
@@ -99,26 +99,26 @@ function cloneActionEditorValues(values: ActionEditorValues): ActionEditorValues
   return {
     ...values,
     steps: cloneActionSteps(values.steps),
-    facts: structuredClone(values.facts)
+    attributes: structuredClone(values.attributes)
   };
 }
 
-export interface ActionFactValidationContext {
-  definitions?: Record<string, FactDefinition>;
+export interface ActionAttributeValidationContext {
+  definitions?: Record<string, AttributeDefinition>;
   proficiencies?: Record<string, ProficiencyDefinition>;
 }
 
 export function getActionEditorValidationError(
   values: ActionEditorValues,
-  context: ActionFactValidationContext = {}
+  context: ActionAttributeValidationContext = {}
 ): string | null {
   if (!values.name.trim()) {
     return "Name is required.";
   }
-  for (const [factId, bridge] of Object.entries(values.facts)) {
-    const definition = context.definitions?.[factId];
+  for (const [attributeId, bridge] of Object.entries(values.attributes)) {
+    const definition = context.definitions?.[attributeId];
     if (!definition || !definition.subject_types.includes("action")) {
-      return `Action Fact '${factId}' is unavailable.`;
+      return `Action Attribute '${attributeId}' is unavailable.`;
     }
     const stored = bridge.value.type === "formula" ? null : bridge.value.value;
     if (
@@ -135,13 +135,13 @@ export function getActionEditorValidationError(
       }
     }
     if (
-      ["action_range", "action_mana_cost", "action_base_spell_damage"].includes(factId) &&
+      ["action_range", "action_mana_cost", "action_base_spell_damage"].includes(attributeId) &&
       (typeof stored !== "number" || !Number.isFinite(stored) || stored < 0)
     ) {
       return `${definition.name} must be nonnegative.`;
     }
     if (
-      factId === "action_target_count" &&
+      attributeId === "action_target_count" &&
       (typeof stored !== "number" || !Number.isInteger(stored) || stored < 1)
     ) {
       return "Target Count must be a positive whole number.";
@@ -150,32 +150,32 @@ export function getActionEditorValidationError(
   return null;
 }
 
-export function applyActionFactValues(
+export function applyActionAttributeValues(
   values: ActionEditorValues,
-  factValues: Record<string, FactBridge["value"]>,
-  definitions: Record<string, FactDefinition>,
+  attributeValues: Record<string, AttributeBridge["value"]>,
+  definitions: Record<string, AttributeDefinition>,
   relationshipIdFactory: () => string
 ): ActionEditorValues {
-  const facts = { ...values.facts };
-  for (const [factId, value] of Object.entries(factValues)) {
-    if (!definitions[factId]?.subject_types.includes("action")) {
+  const attributes = { ...values.attributes };
+  for (const [attributeId, value] of Object.entries(attributeValues)) {
+    if (!definitions[attributeId]?.subject_types.includes("action")) {
       continue;
     }
-    facts[factId] = {
-      relationship_id: facts[factId]?.relationship_id ?? relationshipIdFactory(),
-      fact_id: factId,
+    attributes[attributeId] = {
+      relationship_id: attributes[attributeId]?.relationship_id ?? relationshipIdFactory(),
+      attribute_id: attributeId,
       value: structuredClone(value),
       evaluated_value: null,
       evaluation_error: null
     };
   }
-  return { ...values, facts };
+  return { ...values, attributes };
 }
 
 export function applyActionPresetTemplate(
   values: ActionEditorValues,
   preset: ActionPresetTemplate,
-  definitions: Record<string, FactDefinition>,
+  definitions: Record<string, AttributeDefinition>,
   relationshipIdFactory: () => string
 ): ActionEditorValues {
   const nextValues: ActionEditorValues = {
@@ -185,9 +185,9 @@ export function applyActionPresetTemplate(
     notes: preset.description,
     steps: structuredClone(preset.steps) as ActionEditorSteps
   };
-  return applyActionFactValues(
+  return applyActionAttributeValues(
     nextValues,
-    preset.fact_values ?? {},
+    preset.attribute_values ?? {},
     definitions,
     relationshipIdFactory
   );
@@ -1134,7 +1134,7 @@ export function toActionEditorValues(action: ActionDefinition): ActionEditorValu
     rollModeKind: action.roll_mode_kind ?? "none",
     notes: action.notes ?? "",
     steps: cloneActionSteps(action.steps),
-    facts: structuredClone(action.facts ?? {})
+    attributes: structuredClone(action.attributes ?? {})
   };
 }
 
@@ -1148,7 +1148,7 @@ export function toActionDefinitionPayload(
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps),
-    facts: structuredClone(values.facts)
+    attributes: structuredClone(values.attributes)
   };
 }
 
@@ -1162,6 +1162,6 @@ export function toUpdatedActionDefinitionPayload(
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps),
-    facts: structuredClone(values.facts)
+    attributes: structuredClone(values.attributes)
   };
 }

@@ -5,9 +5,9 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from backend.core.transport import RequestModel
-from backend.features.facts.value_schema import FactBridgePayload
+from backend.features.attributes.value_schema import AttributeBridgePayload
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
-from backend.features.facts.value_schema import FactBridgePayload
+from backend.features.attributes.value_schema import AttributeBridgePayload
 
 
 class ActionBridgePayload(BaseModel):
@@ -99,7 +99,7 @@ class SheetDefinitionPayload(BaseModel):
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     slayed_record: dict[str, SheetSlayedBridgePayload] = Field(default_factory=dict)
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
-    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
+    attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
 
 
 class CreateSheet(RequestModel):

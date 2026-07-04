@@ -10,7 +10,7 @@ import {
   getActionEditorValidationError,
   toActionDefinitionPayload,
   toUpdatedActionDefinitionPayload,
-  type ActionFactValidationContext,
+  type ActionAttributeValidationContext,
   type ActionEditorValues
 } from "@/features/actions/actionEditorValues";
 
@@ -31,7 +31,7 @@ export function selectOrderedActionDefinitions(
 export function buildCreateActionSubmission(
   values: ActionEditorValues,
   actionId: string,
-  context: ActionFactValidationContext = {}
+  context: ActionAttributeValidationContext = {}
 ): ActionAuthoringSubmission | null {
   if (getActionEditorValidationError(values, context)) {
     return null;
@@ -47,7 +47,7 @@ export function buildCreateActionSubmission(
 export function buildUpdateActionSubmission(
   action: ActionDefinition | undefined,
   values: ActionEditorValues,
-  context: ActionFactValidationContext = {}
+  context: ActionAttributeValidationContext = {}
 ): ActionAuthoringSubmission | null {
   if (!action || getActionEditorValidationError(values, context)) {
     return null;

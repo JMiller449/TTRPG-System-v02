@@ -290,7 +290,7 @@ def test_v5_migration_initializes_standalone_effect_collections() -> None:
     assert migrated.state["standalone_effect_applications"] == {}
 
 
-def test_v6_migration_backfills_required_sheet_fact() -> None:
+def test_v6_migration_backfills_required_sheet_attribute() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 6,
@@ -304,46 +304,46 @@ def test_v6_migration_backfills_required_sheet_fact() -> None:
         }
     )
 
-    definition = migrated.state["facts"]["amount_of_reactions"]
-    bridge = migrated.state["sheets"]["mage"]["facts"]["amount_of_reactions"]
+    definition = migrated.state["attributes"]["amount_of_reactions"]
+    bridge = migrated.state["sheets"]["mage"]["attributes"]["amount_of_reactions"]
     assert definition["required"] is True
     assert definition["default_value"]["formula"]["text"] == (
         "@registration + @reaction_time"
     )
-    assert bridge["relationship_id"] == "required_fact_amount_of_reactions"
+    assert bridge["relationship_id"] == "required_attribute_amount_of_reactions"
 
 
-def test_v7_migration_adds_weapon_fact_profile_metadata_without_inference() -> None:
+def test_v7_migration_adds_weapon_attribute_profile_metadata_without_inference() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 7,
             "state": {
-                "facts": {},
+                "attributes": {},
                 "items": {
                     "sword": {
                         "id": "sword",
                         "name": "Sword",
-                        "facts": {},
+                        "attributes": {},
                     }
                 },
             },
         }
     )
 
-    assert migrated.state["items"]["sword"]["fact_profile"] is None
-    assert migrated.state["items"]["sword"]["facts"] == {}
-    definition = migrated.state["facts"]["weapon_proficiency"]
+    assert migrated.state["items"]["sword"]["attribute_profile"] is None
+    assert migrated.state["items"]["sword"]["attributes"] == {}
+    definition = migrated.state["attributes"]["weapon_proficiency"]
     assert definition["required"] is True
     assert definition["required_profile"] == "weapon"
     assert definition["reference_kind"] == "proficiency"
 
 
-def test_v8_migration_adds_backend_owned_action_fact_definitions() -> None:
+def test_v8_migration_adds_backend_owned_action_attribute_definitions() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 8,
             "state": {
-                "facts": {
+                "attributes": {
                     "custom": {
                         "id": "custom",
                         "name": "Custom",
@@ -357,20 +357,20 @@ def test_v8_migration_adds_backend_owned_action_fact_definitions() -> None:
         }
     )
 
-    assert migrated.state["facts"]["custom"]["backend_owned"] is False
-    rank = migrated.state["facts"]["action_rank"]
+    assert migrated.state["attributes"]["custom"]["backend_owned"] is False
+    rank = migrated.state["attributes"]["action_rank"]
     assert rank["backend_owned"] is True
     assert rank["required"] is False
     assert rank["validation_options"][0] == "F"
-    assert migrated.state["actions"]["parry"]["facts"] == {}
+    assert migrated.state["actions"]["parry"]["attributes"] == {}
 
 
-def test_v10_migration_adds_backend_owned_optional_sheet_facts() -> None:
+def test_v10_migration_adds_backend_owned_optional_sheet_attributes() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 10,
             "state": {
-                "facts": {
+                "attributes": {
                     "custom": {
                         "id": "custom",
                         "name": "Custom",
@@ -383,27 +383,27 @@ def test_v10_migration_adds_backend_owned_optional_sheet_facts() -> None:
         }
     )
 
-    facts = migrated.state["facts"]
-    assert facts["custom"]["default_value"]["value"] == "kept"
-    assert facts["level"]["default_value"]["value"] == 1
-    assert facts["movement"]["default_value"]["value"] == 30
-    assert facts["movement"]["unit"] == "feet"
-    assert facts["mana_regeneration"]["default_value"]["value"] == 10
-    assert facts["mana_regeneration"]["unit"] == "% max mana per hour"
+    attributes = migrated.state["attributes"]
+    assert attributes["custom"]["default_value"]["value"] == "kept"
+    assert attributes["level"]["default_value"]["value"] == 1
+    assert attributes["movement"]["default_value"]["value"] == 30
+    assert attributes["movement"]["unit"] == "feet"
+    assert attributes["mana_regeneration"]["default_value"]["value"] == 10
+    assert attributes["mana_regeneration"]["unit"] == "% max mana per hour"
     assert all(
-        facts[fact_id]["backend_owned"] is True
-        and facts[fact_id]["required"] is False
-        and facts[fact_id]["subject_types"] == ["sheet"]
-        for fact_id in ("level", "movement", "mana_regeneration")
+        attributes[attribute_id]["backend_owned"] is True
+        and attributes[attribute_id]["required"] is False
+        and attributes[attribute_id]["subject_types"] == ["sheet"]
+        for attribute_id in ("level", "movement", "mana_regeneration")
     )
 
 
-def test_v11_migration_adds_backend_owned_optional_item_facts() -> None:
+def test_v11_migration_adds_backend_owned_optional_item_attributes() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 11,
             "state": {
-                "facts": {
+                "attributes": {
                     "custom": {
                         "id": "custom",
                         "name": "Custom",
@@ -416,22 +416,22 @@ def test_v11_migration_adds_backend_owned_optional_item_facts() -> None:
         }
     )
 
-    facts = migrated.state["facts"]
-    assert facts["custom"]["default_value"]["value"] == "kept"
-    assert facts["item_attribute"]["value_type"] == "text"
-    assert facts["item_attribute"]["default_value"]["value"] == ""
-    assert facts["item_mana_efficiency"]["default_value"]["value"] == 100
-    assert facts["item_mana_efficiency"]["unit"] == "%"
-    assert facts["item_flat_effect_bonus"]["default_value"]["value"] == 0
-    assert facts["item_flat_effect_bonus"]["unit"] == "bonus"
-    assert facts["item_mana_regeneration_modifier"]["default_value"]["value"] == 0
-    assert facts["item_mana_regeneration_modifier"]["unit"] == "%"
+    attributes = migrated.state["attributes"]
+    assert attributes["custom"]["default_value"]["value"] == "kept"
+    assert attributes["item_attribute"]["value_type"] == "text"
+    assert attributes["item_attribute"]["default_value"]["value"] == ""
+    assert attributes["item_mana_efficiency"]["default_value"]["value"] == 100
+    assert attributes["item_mana_efficiency"]["unit"] == "%"
+    assert attributes["item_flat_effect_bonus"]["default_value"]["value"] == 0
+    assert attributes["item_flat_effect_bonus"]["unit"] == "bonus"
+    assert attributes["item_mana_regeneration_modifier"]["default_value"]["value"] == 0
+    assert attributes["item_mana_regeneration_modifier"]["unit"] == "%"
     assert all(
-        facts[fact_id]["backend_owned"] is True
-        and facts[fact_id]["required"] is False
-        and facts[fact_id]["subject_types"] == ["item"]
-        and facts[fact_id]["required_profile"] is None
-        for fact_id in (
+        attributes[attribute_id]["backend_owned"] is True
+        and attributes[attribute_id]["required"] is False
+        and attributes[attribute_id]["subject_types"] == ["item"]
+        and attributes[attribute_id]["required_profile"] is None
+        for attribute_id in (
             "item_attribute",
             "item_mana_efficiency",
             "item_flat_effect_bonus",
@@ -597,10 +597,10 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
 
     assert legacy.source_version == 0
     assert legacy.migrated is True
-    required_fact = legacy.state.pop("facts")
+    required_attribute = legacy.state.pop("attributes")
     seeded_actions = legacy.state.pop("actions")
     seeded_proficiencies = legacy.state.pop("proficiencies")
-    assert required_fact["amount_of_reactions"]["required"] is True
+    assert required_attribute["amount_of_reactions"]["required"] is True
     assert seeded_actions == seeded_global_action_payloads()
     assert seeded_proficiencies["long_swords"]["category"] == "weapon_family"
     assert legacy.state == {

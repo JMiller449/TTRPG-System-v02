@@ -18,12 +18,12 @@ from backend.state.models.augmentation import (
 from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
-from backend.state.models.fact import (
-    FactDefinition,
-    evaluate_all_subject_facts,
-    backend_fact_definitions,
-    synchronize_all_sheet_facts,
-    synchronize_required_item_facts,
+from backend.state.models.attribute import (
+    AttributeDefinition,
+    evaluate_all_subject_attributes,
+    backend_attribute_definitions,
+    synchronize_all_sheet_attributes,
+    synchronize_required_item_attributes,
 )
 from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
@@ -36,7 +36,7 @@ class State:
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
     formulas: dict[str, FormulaDefinition] = field(default_factory=dict)
-    facts: dict[str, FactDefinition] = field(default_factory=dict)
+    attributes: dict[str, AttributeDefinition] = field(default_factory=dict)
     actions: dict[str, Action] = field(default_factory=dict)
     items: dict[str, Item] = field(default_factory=dict)
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
@@ -56,16 +56,17 @@ class State:
     sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.facts.update(backend_fact_definitions())
+        self.attributes.update(backend_attribute_definitions())
         for sheet in self.sheets.values():
-            synchronize_all_sheet_facts(sheet)
+            synchronize_all_sheet_attributes(sheet)
         for item in self.items.values():
-            synchronize_required_item_facts(item, self.facts)
+            synchronize_required_item_attributes(item, self.attributes)
         for action in self.actions.values():
-            evaluate_all_subject_facts(action)
+            evaluate_all_subject_attributes(action)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
+        raw_attributes = raw.get("attributes", raw.get("facts", {}))
         return cls(
             action_history=prune_action_history(
                 {
@@ -85,9 +86,9 @@ class State:
                 key: FormulaDefinition.from_dict(formula)
                 for key, formula in raw.get("formulas", {}).items()
             },
-            facts={
-                key: FactDefinition.from_dict(fact)
-                for key, fact in raw.get("facts", {}).items()
+            attributes={
+                key: AttributeDefinition.from_dict(attribute)
+                for key, attribute in raw_attributes.items()
             },
             actions={
                 key: Action.from_dict(action)

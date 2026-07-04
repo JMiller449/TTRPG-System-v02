@@ -12,7 +12,7 @@ from backend.state import store as store_module
 from backend.state.store import StateSingleton
 from backend.tests.dm_examples_fixtures import (
     ACTION_IDS,
-    CAMPAIGN_FACT_IDS,
+    CAMPAIGN_ATTRIBUTE_IDS,
     CONDITION_IDS,
     CUSTOM_PROFICIENCY_IDS,
     ENCOUNTER_IDS,
@@ -83,9 +83,9 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert set(PLAYER_TEMPLATE_IDS).issubset(authored.sheets)
             assert set(ENEMY_TEMPLATE_IDS).issubset(authored.sheets)
             assert {"amount_of_reactions", "weapon_base_damage"}.issubset(
-                authored.facts
+                authored.attributes
             )
-            assert set(CAMPAIGN_FACT_IDS).issubset(authored.facts)
+            assert set(CAMPAIGN_ATTRIBUTE_IDS).issubset(authored.attributes)
             assert set(CUSTOM_PROFICIENCY_IDS).issubset(authored.proficiencies)
             assert set(CONDITION_IDS).issubset(authored.condition_presets)
             assert set(ENCOUNTER_IDS).issubset(authored.encounter_presets)
@@ -94,25 +94,25 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert authored.sheets[SHEET_ID].resistances.resistance == pytest.approx(0.10)
             assert authored.sheets[SHEET_ID].resistances.fire == pytest.approx(0.25)
             assert authored.sheets[SHEET_ID].resistances.magical == pytest.approx(0.10)
-            assert "amount_of_reactions" in authored.sheets[SHEET_ID].facts
-            assert authored.sheets[SHEET_ID].facts[
+            assert "amount_of_reactions" in authored.sheets[SHEET_ID].attributes
+            assert authored.sheets[SHEET_ID].attributes[
                 "gate_affinity"
             ].evaluated_value == "Fire"
-            assert authored.sheets["starter_shadowblade_template"].facts[
+            assert authored.sheets["starter_shadowblade_template"].attributes[
                 "gate_affinity"
             ].evaluated_value == "Shadow"
             assert authored.items["lesser_mana_vial"].interaction_type == "consumable"
             assert authored.items["hunter_license"].interaction_type == "inventory_only"
-            assert authored.items["night_fang"].fact_profile == "weapon"
+            assert authored.items["night_fang"].attribute_profile == "weapon"
             assert authored.condition_presets["shadow_bound"].visibility == "public"
             assert authored.encounter_presets["red_gate_scouts"].entries[0].count == 3
-            assert authored.items["never_dulls"].facts[
+            assert authored.items["never_dulls"].attributes[
                 "weapon_base_damage"
             ].evaluated_value == 15
-            assert authored.items["fire_shard"].facts[
+            assert authored.items["fire_shard"].attributes[
                 "item_attribute"
             ].evaluated_value == "Fire"
-            assert authored.items["sword_of_mana"].facts[
+            assert authored.items["sword_of_mana"].attributes[
                 "item_flat_effect_bonus"
             ].evaluated_value == 50
 

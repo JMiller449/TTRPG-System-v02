@@ -1,11 +1,11 @@
 import type {
   ActionDefinition,
-  FactDefinition,
+  AttributeDefinition,
   ItemDefinition,
   ItemInteractionType
 } from "@/domain/models";
 import { toItemEditorValues } from "@/features/items/itemEditorValues";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 
 const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
   equippable: "Equippable",
@@ -16,13 +16,13 @@ const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
 export function ItemDefinitionCard({
   item,
   actions,
-  factDefinitions,
+  attributeDefinitions,
   onEdit,
   onDelete
 }: {
   item: ItemDefinition;
   actions: Record<string, ActionDefinition>;
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
@@ -79,10 +79,10 @@ export function ItemDefinitionCard({
       {item.gm_special_properties ? (
         <div className="muted">GM Special Properties: {item.gm_special_properties}</div>
       ) : null}
-      {Object.keys(item.facts ?? {}).length > 0 ? (
-        <SheetFactsSection
-          definitions={factDefinitions}
-          bridges={item.facts ?? {}}
+      {Object.keys(item.attributes ?? {}).length > 0 ? (
+        <SheetAttributesSection
+          definitions={attributeDefinitions}
+          bridges={item.attributes ?? {}}
           canEdit={false}
           subjectType="item"
           onSaveFormula={() => undefined}

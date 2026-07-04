@@ -14,7 +14,7 @@ import {
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
-import { ItemFactsEditor } from "@/features/items/components/ItemFactsEditor";
+import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
 import { ItemDefinitionList } from "@/features/items/components/ItemDefinitionList";
 import {
   createEmptyItemValues,
@@ -40,7 +40,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         actionOrder,
         formulas: formulaRecords,
         formulaOrder,
-        facts: factDefinitions,
+        attributes: attributeDefinitions,
         proficiencies: proficiencyRecords
       },
       uiState: { augmentationTargetMetadata, actionFormulaAuthoringMetadata }
@@ -113,7 +113,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     }
 
     const validationContext = {
-      definitions: factDefinitions,
+      definitions: attributeDefinitions,
       proficiencies: proficiencyRecords
     };
     const submission = editingItemId
@@ -189,12 +189,12 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           values={values}
           onChange={setValues}
           actions={actions}
-          factDefinitions={factDefinitions}
+          attributeDefinitions={attributeDefinitions}
           proficiencies={proficiencyRecords}
-          factsEditor={
-            <ItemFactsEditor
+          attributesEditor={
+            <ItemAttributesEditor
               values={values}
-              definitions={factDefinitions}
+              definitions={attributeDefinitions}
               proficiencies={proficiencyRecords}
               metadata={actionFormulaAuthoringMetadata}
               onChange={setValues}
@@ -227,7 +227,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         <ItemDefinitionList
           items={items}
           actions={actionRecords}
-          factDefinitions={factDefinitions}
+          attributeDefinitions={attributeDefinitions}
           onEdit={(item) => {
             setEditingItemId(item.id);
             setValues(toItemEditorValues(item));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FactDefinition, Sheet } from "@/domain/models";
+import type { AttributeDefinition, Sheet } from "@/domain/models";
 import { FORMULA_STAT_KEYS } from "@/features/sheets/sheetDefinitionEditing";
 import {
   createDefaultStats,
@@ -39,7 +39,7 @@ const catalogs: TemplateReferenceCatalogs = {
       weight: "2"
     }
   },
-  facts: {
+  attributes: {
     level: {
       id: "level",
       name: "Level",
@@ -49,8 +49,8 @@ const catalogs: TemplateReferenceCatalogs = {
       default_value: { type: "number", value: 1 },
       required: false
     },
-    item_only_fact: {
-      id: "item_only_fact",
+    item_only_attribute: {
+      id: "item_only_attribute",
       name: "Item Only",
       description: "",
       subject_types: ["item"],
@@ -61,7 +61,7 @@ const catalogs: TemplateReferenceCatalogs = {
   }
 };
 
-const sheetFacts: Record<string, FactDefinition> = {
+const sheetAttributes: Record<string, AttributeDefinition> = {
   amount_of_reactions: {
     id: "amount_of_reactions",
     name: "Amount of Reactions",
@@ -123,10 +123,10 @@ function completeSheet(): Sheet {
         entry_id: "action_1"
       }
     },
-    facts: {
+    attributes: {
       level: {
-        relationship_id: "sheet_fact_level",
-        fact_id: "level",
+        relationship_id: "sheet_attribute_level",
+        attribute_id: "level",
         value: { type: "number", value: 3 },
         evaluated_value: 3,
         evaluation_error: null
@@ -186,10 +186,10 @@ describe("templateEditorValues", () => {
     values.items = [
       { relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }
     ];
-    values.facts = {
+    values.attributes = {
       level: {
-        relationship_id: "sheet_fact_level",
-        fact_id: "level",
+        relationship_id: "sheet_attribute_level",
+        attribute_id: "level",
         value: { type: "number", value: 4 },
         evaluated_value: null,
         evaluation_error: null
@@ -233,10 +233,10 @@ describe("templateEditorValues", () => {
           equipped: true
         }
       },
-      facts: {
+      attributes: {
         level: {
-          relationship_id: "sheet_fact_level",
-          fact_id: "level",
+          relationship_id: "sheet_attribute_level",
+          attribute_id: "level",
           value: { type: "number", value: 4 },
           evaluated_value: null,
           evaluation_error: null
@@ -245,39 +245,39 @@ describe("templateEditorValues", () => {
     });
   });
 
-  it("seeds required Facts and includes them in the atomic sheet payload", () => {
-    const values = createEmptyTemplateEditorValues("player", sheetFacts, formulaDefaults);
+  it("seeds required Attributes and includes them in the atomic sheet payload", () => {
+    const values = createEmptyTemplateEditorValues("player", sheetAttributes, formulaDefaults);
     values.name = "Reactive Guard";
     const validation = validateTemplateEditorValues(values, {
       ...catalogs,
-      facts: sheetFacts
+      attributes: sheetAttributes
     });
     const payload = toSheetDefinitionPayload(values, "reactive_guard");
 
     expect(validation.isValid).toBe(true);
-    expect(values.facts.amount_of_reactions.relationship_id).toBe(
-      "required_fact_amount_of_reactions"
+    expect(values.attributes.amount_of_reactions.relationship_id).toBe(
+      "required_attribute_amount_of_reactions"
     );
-    expect(payload.facts?.amount_of_reactions).toMatchObject({
-      relationship_id: "required_fact_amount_of_reactions",
-      fact_id: "amount_of_reactions",
-      value: sheetFacts.amount_of_reactions.default_value,
+    expect(payload.attributes?.amount_of_reactions).toMatchObject({
+      relationship_id: "required_attribute_amount_of_reactions",
+      attribute_id: "amount_of_reactions",
+      value: sheetAttributes.amount_of_reactions.default_value,
       evaluated_value: null,
       evaluation_error: null
     });
   });
 
-  it("rejects a template draft missing a required sheet Fact", () => {
-    const values = createEmptyTemplateEditorValues("player", sheetFacts, formulaDefaults);
+  it("rejects a template draft missing a required sheet Attribute", () => {
+    const values = createEmptyTemplateEditorValues("player", sheetAttributes, formulaDefaults);
     values.name = "Invalid Guard";
-    delete values.facts.amount_of_reactions;
+    delete values.attributes.amount_of_reactions;
 
     const validation = validateTemplateEditorValues(values, {
       ...catalogs,
-      facts: sheetFacts
+      attributes: sheetAttributes
     });
 
-    expect(validation.errors.facts).toContain("Every required sheet Fact must remain attached.");
+    expect(validation.errors.attributes).toContain("Every required sheet Attribute must remain attached.");
   });
 
   it("hydrates every editable section from an authoritative sheet", () => {
@@ -300,10 +300,10 @@ describe("templateEditorValues", () => {
         }
       ],
       items: [{ relationshipId: "item_bridge_1", itemId: "item_1", count: "2", equipped: true }],
-      facts: {
+      attributes: {
         level: {
-          relationship_id: "sheet_fact_level",
-          fact_id: "level",
+          relationship_id: "sheet_attribute_level",
+          attribute_id: "level",
           value: { type: "number", value: 3 },
           evaluated_value: 3,
           evaluation_error: null
@@ -331,10 +331,10 @@ describe("templateEditorValues", () => {
     expect(payload.actions).toEqual(sheet.actions);
     expect(payload.proficiencies).toEqual(sheet.proficiencies);
     expect(payload.items).toEqual(sheet.items);
-    expect(payload.facts).toEqual({
+    expect(payload.attributes).toEqual({
       level: {
-        relationship_id: "sheet_fact_level",
-        fact_id: "level",
+        relationship_id: "sheet_attribute_level",
+        attribute_id: "level",
         value: { type: "number", value: 3 },
         evaluated_value: null,
         evaluation_error: null
@@ -343,13 +343,13 @@ describe("templateEditorValues", () => {
     expect(payload.slayed_record).toEqual(sheet.slayed_record);
   });
 
-  it("rejects missing or non-sheet Fact assignments", () => {
+  it("rejects missing or non-sheet Attribute assignments", () => {
     const values = createEmptyTemplateEditorValues();
-    values.name = "Fact Draft";
-    values.facts = {
-      item_only_fact: {
-        relationship_id: "sheet_fact_item_only",
-        fact_id: "item_only_fact",
+    values.name = "Attribute Draft";
+    values.attributes = {
+      item_only_attribute: {
+        relationship_id: "sheet_attribute_item_only",
+        attribute_id: "item_only_attribute",
         value: { type: "text", value: "invalid" },
         evaluated_value: null,
         evaluation_error: null
@@ -359,8 +359,8 @@ describe("templateEditorValues", () => {
     const validation = validateTemplateEditorValues(values, catalogs);
 
     expect(validation.isValid).toBe(false);
-    expect(validation.errors.facts).toContain(
-      "Every attached Fact must support sheets and reference an available definition."
+    expect(validation.errors.attributes).toContain(
+      "Every attached Attribute must support sheets and reference an available definition."
     );
   });
 

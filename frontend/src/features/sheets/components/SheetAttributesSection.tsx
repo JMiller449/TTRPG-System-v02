@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { FactBridge, FactDefinition, FactValue, Formula } from "@/domain/models";
-import { FactFormulaVariablePicker } from "@/features/facts/FactFormulaVariablePicker";
+import type { AttributeBridge, AttributeDefinition, AttributeValue, Formula } from "@/domain/models";
+import { AttributeFormulaVariablePicker } from "@/features/attributes/AttributeFormulaVariablePicker";
 import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
 
-function displayFactValue(value: FactBridge["evaluated_value"]): string {
+function displayAttributeValue(value: AttributeBridge["evaluated_value"]): string {
   if (value === null || value === undefined) {
     return "Unavailable";
   }
@@ -17,7 +17,7 @@ function displayFactValue(value: FactBridge["evaluated_value"]): string {
   return String(value);
 }
 
-function displayedBridgeValue(bridge: FactBridge): FactBridge["evaluated_value"] {
+function displayedBridgeValue(bridge: AttributeBridge): AttributeBridge["evaluated_value"] {
   if (bridge.evaluated_value !== null && bridge.evaluated_value !== undefined) {
     return bridge.evaluated_value;
   }
@@ -27,7 +27,7 @@ function displayedBridgeValue(bridge: FactBridge): FactBridge["evaluated_value"]
   return bridge.evaluated_value;
 }
 
-export function SheetFactsSection({
+export function SheetAttributesSection({
   definitions,
   bridges,
   canEdit,
@@ -41,23 +41,23 @@ export function SheetFactsSection({
   formulaMetadata,
   subjectType = "sheet"
 }: {
-  definitions: Record<string, FactDefinition>;
-  bridges: Record<string, FactBridge>;
+  definitions: Record<string, AttributeDefinition>;
+  bridges: Record<string, AttributeBridge>;
   canEdit: boolean;
   compact?: boolean;
-  onSaveFormula: (factId: string, formula: Formula) => void;
-  onSaveValue?: (factId: string, value: FactValue) => void;
-  onReset: (factId: string) => void;
-  onAttach?: (factId: string) => void;
-  onDetach?: (factId: string) => void;
+  onSaveFormula: (attributeId: string, formula: Formula) => void;
+  onSaveValue?: (attributeId: string, value: AttributeValue) => void;
+  onReset: (attributeId: string) => void;
+  onAttach?: (attributeId: string) => void;
+  onDetach?: (attributeId: string) => void;
   validationOptionLabels?: Record<string, Record<string, string>>;
   formulaMetadata?: ActionFormulaAuthoringMetadata | null;
   subjectType?: "sheet" | "item" | "action";
 }): JSX.Element {
-  const [selectedFactId, setSelectedFactId] = useState("");
+  const [selectedAttributeId, setSelectedAttributeId] = useState("");
   const orderedBridges = Object.values(bridges).sort((left, right) => {
-    const leftName = definitions[left.fact_id]?.name ?? left.fact_id;
-    const rightName = definitions[right.fact_id]?.name ?? right.fact_id;
+    const leftName = definitions[left.attribute_id]?.name ?? left.attribute_id;
+    const rightName = definitions[right.attribute_id]?.name ?? right.attribute_id;
     return leftName.localeCompare(rightName);
   });
   const availableDefinitions = Object.values(definitions)
@@ -70,16 +70,16 @@ export function SheetFactsSection({
     .sort((left, right) => left.name.localeCompare(right.name));
 
   if (orderedBridges.length === 0 && (!canEdit || availableDefinitions.length === 0)) {
-    return <p className="muted">No Facts are attached to this {subjectType}.</p>;
+    return <p className="muted">No Attributes are attached to this {subjectType}.</p>;
   }
 
   return (
     <section
-      className={`stack sheet-facts ${compact ? "sheet-facts--compact" : ""}`}
-      aria-labelledby="sheet-facts-title"
+      className={`stack sheet-attributes ${compact ? "sheet-attributes--compact" : ""}`}
+      aria-labelledby="sheet-attributes-title"
     >
       <div>
-        <h4 id="sheet-facts-title">{compact ? "Derived" : "Facts"}</h4>
+        <h4 id="sheet-attributes-title">{compact ? "Derived" : "Attributes"}</h4>
         {!compact ? (
           <p className="muted">Backend-evaluated named values for this {subjectType}.</p>
         ) : null}
@@ -87,12 +87,12 @@ export function SheetFactsSection({
       {canEdit && onAttach && availableDefinitions.length > 0 ? (
         <div className="inline-actions">
           <label>
-            Add optional Fact
+            Add optional Attribute
             <select
-              value={selectedFactId}
-              onChange={(event) => setSelectedFactId(event.target.value)}
+              value={selectedAttributeId}
+              onChange={(event) => setSelectedAttributeId(event.target.value)}
             >
-              <option value="">Select a Fact</option>
+              <option value="">Select a Attribute</option>
               {availableDefinitions.map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.name}
@@ -102,20 +102,20 @@ export function SheetFactsSection({
           </label>
           <button
             type="button"
-            disabled={!selectedFactId}
+            disabled={!selectedAttributeId}
             onClick={() => {
-              onAttach(selectedFactId);
-              setSelectedFactId("");
+              onAttach(selectedAttributeId);
+              setSelectedAttributeId("");
             }}
           >
-            Attach Fact
+            Attach Attribute
           </button>
         </div>
       ) : null}
       {orderedBridges.map((bridge) => (
-        <SheetFactCard
+        <SheetAttributeCard
           key={bridge.relationship_id}
-          definition={definitions[bridge.fact_id]}
+          definition={definitions[bridge.attribute_id]}
           bridge={bridge}
           canEdit={canEdit}
           compact={compact}
@@ -132,7 +132,7 @@ export function SheetFactsSection({
   );
 }
 
-function SheetFactCard({
+function SheetAttributeCard({
   definition,
   bridge,
   canEdit,
@@ -145,14 +145,14 @@ function SheetFactCard({
   formulaMetadata,
   subjectType
 }: {
-  definition: FactDefinition | undefined;
-  bridge: FactBridge;
+  definition: AttributeDefinition | undefined;
+  bridge: AttributeBridge;
   canEdit: boolean;
   compact: boolean;
-  onSaveFormula: (factId: string, formula: Formula) => void;
-  onSaveValue?: (factId: string, value: FactValue) => void;
-  onReset: (factId: string) => void;
-  onDetach?: (factId: string) => void;
+  onSaveFormula: (attributeId: string, formula: Formula) => void;
+  onSaveValue?: (attributeId: string, value: AttributeValue) => void;
+  onReset: (attributeId: string) => void;
+  onDetach?: (attributeId: string) => void;
   validationOptionLabels?: Record<string, Record<string, string>>;
   formulaMetadata?: ActionFormulaAuthoringMetadata | null;
   subjectType: "sheet" | "item" | "action";
@@ -161,7 +161,7 @@ function SheetFactCard({
   const [formulaText, setFormulaText] = useState(formula?.text ?? "");
   const [formulaAliases, setFormulaAliases] = useState(formula?.aliases ?? null);
   const [literalText, setLiteralText] = useState(
-    bridge.value.type === "formula" ? "" : factValueText(bridge.value)
+    bridge.value.type === "formula" ? "" : attributeValueText(bridge.value)
   );
 
   useEffect(() => {
@@ -173,16 +173,16 @@ function SheetFactCard({
 
   useEffect(() => {
     if (bridge.value.type !== "formula") {
-      setLiteralText(factValueText(bridge.value));
+      setLiteralText(attributeValueText(bridge.value));
     }
   }, [bridge.value]);
 
-  const name = definition?.name ?? bridge.fact_id;
+  const name = definition?.name ?? bridge.attribute_id;
   const unit = definition?.unit ? ` ${definition.unit}` : "";
   const displayedValue = displayedBridgeValue(bridge);
 
   return (
-    <article className={`card stack sheet-fact-card ${compact ? "sheet-fact-card--compact" : ""}`}>
+    <article className={`card stack sheet-attribute-card ${compact ? "sheet-attribute-card--compact" : ""}`}>
       <div className="inline-actions">
         <strong>{name}</strong>
         {definition?.required && !compact ? <span className="badge">Required</span> : null}
@@ -190,7 +190,7 @@ function SheetFactCard({
       <div>
         {!compact ? <span className="muted">Value: </span> : null}
         <strong>
-          {displayFactValue(displayedValue)}
+          {displayAttributeValue(displayedValue)}
           {displayedValue === null || displayedValue === undefined ? "" : unit}
         </strong>
       </div>
@@ -202,10 +202,10 @@ function SheetFactCard({
       ) : null}
       {canEdit && formula ? (
         <div className="stack">
-          <FactFormulaVariablePicker
+          <AttributeFormulaVariablePicker
             metadata={formulaMetadata ?? null}
             subjectTypes={[subjectType]}
-            excludedFactId={bridge.fact_id}
+            excludedAttributeId={bridge.attribute_id}
             onPick={(entry) => {
               setFormulaText((current) => appendFormulaToken(current, entry.token));
               setFormulaAliases((current) => upsertFormulaAlias(current, entry.alias));
@@ -220,7 +220,7 @@ function SheetFactCard({
               type="button"
               disabled={!formulaText.trim() || formulaText === formula.text}
               onClick={() =>
-                onSaveFormula(bridge.fact_id, {
+                onSaveFormula(bridge.attribute_id, {
                   ...formula,
                   aliases: formulaAliases,
                   text: formulaText.trim()
@@ -229,7 +229,7 @@ function SheetFactCard({
             >
               Save Formula
             </button>
-            <button type="button" className="secondary" onClick={() => onReset(bridge.fact_id)}>
+            <button type="button" className="secondary" onClick={() => onReset(bridge.attribute_id)}>
               Reset to Default
             </button>
           </div>
@@ -273,15 +273,15 @@ function SheetFactCard({
                 if (current.type === "formula") {
                   return;
                 }
-                const value = literalFactValue(current, literalText);
+                const value = literalAttributeValue(current, literalText);
                 if (value) {
-                  onSaveValue(bridge.fact_id, value);
+                  onSaveValue(bridge.attribute_id, value);
                 }
               }}
             >
               Save Value
             </button>
-            <button type="button" className="secondary" onClick={() => onReset(bridge.fact_id)}>
+            <button type="button" className="secondary" onClick={() => onReset(bridge.attribute_id)}>
               Reset to Default
             </button>
           </div>
@@ -291,22 +291,22 @@ function SheetFactCard({
         </div>
       ) : null}
       {canEdit && !definition?.required && onDetach ? (
-        <button type="button" className="danger" onClick={() => onDetach(bridge.fact_id)}>
-          Detach Fact
+        <button type="button" className="danger" onClick={() => onDetach(bridge.attribute_id)}>
+          Detach Attribute
         </button>
       ) : null}
     </article>
   );
 }
 
-function factValueText(value: Exclude<FactValue, { type: "formula" }>): string {
+function attributeValueText(value: Exclude<AttributeValue, { type: "formula" }>): string {
   return Array.isArray(value.value) ? value.value.join(", ") : String(value.value);
 }
 
-function literalFactValue(
-  current: Exclude<FactValue, { type: "formula" }>,
+function literalAttributeValue(
+  current: Exclude<AttributeValue, { type: "formula" }>,
   text: string
-): FactValue | null {
+): AttributeValue | null {
   if (current.type === "number") {
     const value = Number(text);
     return Number.isFinite(value) ? { type: "number", value } : null;

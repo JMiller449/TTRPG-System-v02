@@ -3,7 +3,7 @@ import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ActionDefinitionList } from "@/features/actions/components/ActionDefinitionList";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
-import { ActionFactsEditor } from "@/features/actions/components/ActionFactsEditor";
+import { ActionAttributesEditor } from "@/features/actions/components/ActionAttributesEditor";
 import { ActionPresetPicker } from "@/features/actions/components/ActionPresetPicker";
 import {
   applyActionPresetTemplate,
@@ -37,7 +37,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         conditionPresetOrder,
         proficiencies: proficiencyRecords,
         proficiencyOrder,
-        facts: factDefinitions
+        attributes: attributeDefinitions
       },
       uiState: { actionFormulaAuthoringMetadata }
     }
@@ -82,11 +82,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         .filter((condition): condition is ConditionPreset => Boolean(condition)),
     [conditionPresetOrder, conditionPresets]
   );
-  const factValidationContext = {
-    definitions: factDefinitions,
+  const attributeValidationContext = {
+    definitions: attributeDefinitions,
     proficiencies: proficiencyRecords
   };
-  const validationError = getActionEditorValidationError(values, factValidationContext);
+  const validationError = getActionEditorValidationError(values, attributeValidationContext);
 
   const startNewAction = (): void => {
     setEditingActionId(null);
@@ -109,8 +109,8 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     }
 
     const submission = editingActionId
-      ? buildUpdateActionSubmission(actionRecords[editingActionId], values, factValidationContext)
-      : buildCreateActionSubmission(values, makeId("action"), factValidationContext);
+      ? buildUpdateActionSubmission(actionRecords[editingActionId], values, attributeValidationContext)
+      : buildCreateActionSubmission(values, makeId("action"), attributeValidationContext);
     if (!submission) {
       return;
     }
@@ -147,8 +147,8 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
               applyActionPresetTemplate(
                 createEmptyActionEditorValues(),
                 preset,
-                factDefinitions,
-                () => makeId("action_fact")
+                attributeDefinitions,
+                () => makeId("action_attribute")
               )
             );
           }}
@@ -165,10 +165,10 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           standaloneEffects={standaloneEffects}
           conditions={conditions}
           validationError={validationError}
-          factsEditor={
-            <ActionFactsEditor
+          attributesEditor={
+            <ActionAttributesEditor
               values={values}
-              definitions={factDefinitions}
+              definitions={attributeDefinitions}
               proficiencies={proficiencyRecords}
               metadata={actionFormulaAuthoringMetadata}
               onChange={setValues}
@@ -178,7 +178,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
 
         <ActionDefinitionList
           actions={actions}
-          factDefinitions={factDefinitions}
+          attributeDefinitions={attributeDefinitions}
           onEdit={(action) => {
             setEditingActionId(action.id);
             setValues(toActionEditorValues(action));

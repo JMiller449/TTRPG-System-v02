@@ -56,7 +56,7 @@ const metadata: ActionFormulaAuthoringMetadata = {
   formula_aliases: [],
   action_steps: [],
   action_preset_templates: [],
-  action_fact_presets: []
+  action_attribute_presets: []
 };
 
 describe("variablePicker", () => {
@@ -76,20 +76,20 @@ describe("variablePicker", () => {
     expect(variablePathLabel(arcane!)).toBe("sheet.stats.arcane");
   });
 
-  it("builds Action Fact and explicit source-item formula roots", () => {
-    const factMetadata: ActionFormulaAuthoringMetadata = {
+  it("builds Action Attribute and explicit source-item formula roots", () => {
+    const attributeMetadata: ActionFormulaAuthoringMetadata = {
       ...metadata,
       variables: [
         ...metadata.variables,
         {
-          key: "action.facts.action_base_spell_damage",
+          key: "action.attributes.action_base_spell_damage",
           label: "Action: Base Spell Damage",
           root: "action",
-          path: ["facts", "action_base_spell_damage"],
+          path: ["attributes", "action_base_spell_damage"],
           value_type: "number",
           editable_roles: [],
           formula_backed: false,
-          description: "Evaluated Action Fact.",
+          description: "Evaluated Action Attribute.",
           shortcuts: ["base_spell_damage"],
           formula_reference_allowed: true,
           action_mutation_allowed: false
@@ -111,14 +111,14 @@ describe("variablePicker", () => {
       formula_roots: ["sheet", "instance", "action", "source_item"]
     };
 
-    const entries = buildVariablePickerEntries(factMetadata, "formula");
+    const entries = buildVariablePickerEntries(attributeMetadata, "formula");
 
     expect(
-      entries.find((entry) => entry.key === "action.facts.action_base_spell_damage")
+      entries.find((entry) => entry.key === "action.attributes.action_base_spell_damage")
         ?.alias
     ).toEqual({
       name: "base_spell_damage",
-      path: ["action", "facts", "action_base_spell_damage"]
+      path: ["action", "attributes", "action_base_spell_damage"]
     });
     expect(
       entries.find((entry) => entry.key === "source_item.resolved.governing_stat")

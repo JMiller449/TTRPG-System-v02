@@ -19,7 +19,7 @@ const metadata: ActionFormulaAuthoringMetadata = {
     }
   ],
   action_preset_templates: [],
-  action_fact_presets: []
+  action_attribute_presets: []
 };
 
 const augmentationTargetMetadata: AugmentationTargetMetadata = {

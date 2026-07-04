@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { FactDefinition, FactValue, ProficiencyDefinition } from "@/domain/models";
+import type { AttributeDefinition, AttributeValue, ProficiencyDefinition } from "@/domain/models";
 import {
-  applyActionFactValues,
+  applyActionAttributeValues,
   type ActionEditorValues
 } from "@/features/actions/actionEditorValues";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { makeId } from "@/shared/utils/id";
 
-export function ActionFactsEditor({
+export function ActionAttributesEditor({
   values,
   definitions,
   proficiencies,
@@ -16,18 +16,18 @@ export function ActionFactsEditor({
   onChange
 }: {
   values: ActionEditorValues;
-  definitions: Record<string, FactDefinition>;
+  definitions: Record<string, AttributeDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (values: ActionEditorValues) => void;
 }): JSX.Element {
   const [selectedPresetId, setSelectedPresetId] = useState("");
-  const presets = metadata?.action_fact_presets ?? [];
+  const presets = metadata?.action_attribute_presets ?? [];
   const displayDefinitions = useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(definitions).map(([factId, definition]) => [
-          factId,
+        Object.entries(definitions).map(([attributeId, definition]) => [
+          attributeId,
           definition.reference_kind === "proficiency"
             ? { ...definition, validation_options: Object.keys(proficiencies) }
             : definition
@@ -50,16 +50,16 @@ export function ActionFactsEditor({
     [definitions, proficiencies]
   );
 
-  const updateBridge = (factId: string, value: FactValue): void => {
-    const bridge = values.facts[factId];
+  const updateBridge = (attributeId: string, value: AttributeValue): void => {
+    const bridge = values.attributes[attributeId];
     if (!bridge) {
       return;
     }
     onChange({
       ...values,
-      facts: {
-        ...values.facts,
-        [factId]: {
+      attributes: {
+        ...values.attributes,
+        [attributeId]: {
           ...bridge,
           value,
           evaluated_value: null,
@@ -75,7 +75,7 @@ export function ActionFactsEditor({
       return;
     }
     onChange(
-      applyActionFactValues(values, preset.fact_values, definitions, () => makeId("action_fact"))
+      applyActionAttributeValues(values, preset.attribute_values, definitions, () => makeId("action_attribute"))
     );
     setSelectedPresetId("");
   };
@@ -83,21 +83,21 @@ export function ActionFactsEditor({
   return (
     <section className="card stack">
       <div>
-        <h3>Facts</h3>
+        <h3>Attributes</h3>
         <p className="muted">
           Presets attach authored configuration only. A formula or step must explicitly consume a
-          Fact before it affects execution.
+          Attribute before it affects execution.
         </p>
       </div>
       {presets.length > 0 ? (
         <div className="inline-actions">
           <label>
-            Fact preset
+            Attribute preset
             <select
               value={selectedPresetId}
               onChange={(event) => setSelectedPresetId(event.target.value)}
             >
-              <option value="">Select a Fact preset</option>
+              <option value="">Select a Attribute preset</option>
               {presets.map((preset) => (
                 <option key={preset.id} value={preset.id}>
                   {preset.label}
@@ -106,37 +106,37 @@ export function ActionFactsEditor({
             </select>
           </label>
           <button type="button" disabled={!selectedPresetId} onClick={applyPreset}>
-            Apply Fact Preset
+            Apply Attribute Preset
           </button>
         </div>
       ) : null}
-      <SheetFactsSection
+      <SheetAttributesSection
         definitions={displayDefinitions}
-        bridges={values.facts}
+        bridges={values.attributes}
         canEdit
         subjectType="action"
         formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(factId, formula) => updateBridge(factId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
         onSaveValue={updateBridge}
-        onReset={(factId) => {
-          const definition = definitions[factId];
+        onReset={(attributeId) => {
+          const definition = definitions[attributeId];
           if (definition) {
-            updateBridge(factId, structuredClone(definition.default_value));
+            updateBridge(attributeId, structuredClone(definition.default_value));
           }
         }}
-        onAttach={(factId) => {
-          const definition = definitions[factId];
+        onAttach={(attributeId) => {
+          const definition = definitions[attributeId];
           if (!definition) {
             return;
           }
           onChange({
             ...values,
-            facts: {
-              ...values.facts,
-              [factId]: {
-                relationship_id: makeId("action_fact"),
-                fact_id: factId,
+            attributes: {
+              ...values.attributes,
+              [attributeId]: {
+                relationship_id: makeId("action_attribute"),
+                attribute_id: attributeId,
                 value: structuredClone(definition.default_value),
                 evaluated_value: null,
                 evaluation_error: null
@@ -144,10 +144,10 @@ export function ActionFactsEditor({
             }
           });
         }}
-        onDetach={(factId) => {
-          const facts = { ...values.facts };
-          delete facts[factId];
-          onChange({ ...values, facts });
+        onDetach={(attributeId) => {
+          const attributes = { ...values.attributes };
+          delete attributes[attributeId];
+          onChange({ ...values, attributes });
         }}
       />
     </section>

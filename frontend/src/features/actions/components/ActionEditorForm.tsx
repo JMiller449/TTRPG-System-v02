@@ -67,7 +67,7 @@ export function ActionEditorForm({
   formulas,
   standaloneEffects,
   conditions,
-  factsEditor,
+  attributesEditor,
   validationError,
   pending = false
 }: {
@@ -81,7 +81,7 @@ export function ActionEditorForm({
   formulas: FormulaDefinition[];
   standaloneEffects: StandaloneEffectDefinition[];
   conditions: ConditionPreset[];
-  factsEditor: ReactNode;
+  attributesEditor: ReactNode;
   validationError: string | null;
   pending?: boolean;
 }): JSX.Element {
@@ -757,7 +757,7 @@ export function ActionEditorForm({
           </div>
         </section>
 
-        {factsEditor}
+        {attributesEditor}
 
         {validationError ? (
           <p className="error-text" role="alert">

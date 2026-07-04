@@ -1,13 +1,13 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { FactDefinition } from "@/domain/models";
-import { FactFormulaVariablePicker } from "@/features/facts/FactFormulaVariablePicker";
-import { factPayloadFromDraft, type FactDraft } from "@/features/facts/factEditorValues";
+import type { AttributeDefinition } from "@/domain/models";
+import { AttributeFormulaVariablePicker } from "@/features/attributes/AttributeFormulaVariablePicker";
+import { attributePayloadFromDraft, type AttributeDraft } from "@/features/attributes/attributeEditorValues";
 import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
 
-type FactSubjectType = FactDefinition["subject_types"][number];
-type FactValueType = FactDefinition["value_type"];
+type AttributeSubjectType = AttributeDefinition["subject_types"][number];
+type AttributeValueType = AttributeDefinition["value_type"];
 
-export function FactEditorForm({
+export function AttributeEditorForm({
   editingId,
   draft,
   metadata,
@@ -18,18 +18,18 @@ export function FactEditorForm({
   onCancel
 }: {
   editingId: string | null;
-  draft: FactDraft;
+  draft: AttributeDraft;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
-  requiredSubjectType?: FactSubjectType;
-  onChange: (draft: FactDraft) => void;
+  requiredSubjectType?: AttributeSubjectType;
+  onChange: (draft: AttributeDraft) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }): JSX.Element {
-  const canSubmit = Boolean(factPayloadFromDraft(draft, editingId ?? "draft-fact"));
+  const canSubmit = Boolean(attributePayloadFromDraft(draft, editingId ?? "draft-attribute"));
 
   return (
-    <div className="card stack fact-editor-form">
+    <div className="card stack attribute-editor-form">
       <label>
         Name
         <input
@@ -76,7 +76,7 @@ export function FactEditorForm({
           onChange={(event) =>
             onChange({
               ...draft,
-              valueType: event.target.value as FactValueType,
+              valueType: event.target.value as AttributeValueType,
               defaultText: ""
             })
           }
@@ -96,7 +96,7 @@ export function FactEditorForm({
             onChange={(event) =>
               onChange({
                 ...draft,
-                numberMode: event.target.value as FactDraft["numberMode"]
+                numberMode: event.target.value as AttributeDraft["numberMode"]
               })
             }
           >
@@ -112,10 +112,10 @@ export function FactEditorForm({
             Insert a variable valid for every selected subject, or enter a relative path and
             reference its alias as @name in the formula.
           </p>
-          <FactFormulaVariablePicker
+          <AttributeFormulaVariablePicker
             metadata={metadata}
             subjectTypes={draft.subjectTypes}
-            excludedFactId={editingId ?? undefined}
+            excludedAttributeId={editingId ?? undefined}
             onPick={(entry) =>
               onChange({
                 ...draft,
@@ -242,7 +242,7 @@ export function FactEditorForm({
           onChange={(event) =>
             onChange({
               ...draft,
-              visibility: event.target.value as FactDraft["visibility"]
+              visibility: event.target.value as AttributeDraft["visibility"]
             })
           }
         >
@@ -252,7 +252,7 @@ export function FactEditorForm({
       </label>
       <div className="inline-actions">
         <button type="button" onClick={onSubmit} disabled={!canSubmit || pending}>
-          {pending ? "Creating…" : editingId ? "Save Fact" : "Create Fact"}
+          {pending ? "Creating…" : editingId ? "Save Attribute" : "Create Attribute"}
         </button>
         {onCancel ? (
           <button type="button" className="secondary" onClick={onCancel} disabled={pending}>

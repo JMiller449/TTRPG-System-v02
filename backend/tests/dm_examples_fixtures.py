@@ -3,22 +3,22 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from backend.state.models.fact import (
-    ACTION_BASE_SPELL_DAMAGE_FACT_ID,
-    ACTION_MANA_COST_FACT_ID,
-    ACTION_PROFICIENCY_FACT_ID,
-    ACTION_RANK_FACT_ID,
-    ITEM_ATTRIBUTE_FACT_ID,
-    ITEM_FLAT_EFFECT_BONUS_FACT_ID,
-    ITEM_MANA_EFFICIENCY_FACT_ID,
-    ITEM_MANA_REGENERATION_MODIFIER_FACT_ID,
-    WEAPON_BASE_DAMAGE_FACT_ID,
-    WEAPON_DAMAGE_TYPES_FACT_ID,
-    WEAPON_GOVERNING_STAT_FACT_ID,
-    WEAPON_PROFICIENCY_FACT_ID,
-    WEAPON_PROFICIENCY_GROWTH_RATE_FACT_ID,
-    WEAPON_REACH_FACT_ID,
-    WEAPON_TYPE_FACT_ID,
+from backend.state.models.attribute import (
+    ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
+    ACTION_MANA_COST_ATTRIBUTE_ID,
+    ACTION_PROFICIENCY_ATTRIBUTE_ID,
+    ACTION_RANK_ATTRIBUTE_ID,
+    ITEM_ATTRIBUTE_ATTRIBUTE_ID,
+    ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID,
+    ITEM_MANA_EFFICIENCY_ATTRIBUTE_ID,
+    ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID,
+    WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
+    WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
+    WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
+    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
+    WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
+    WEAPON_REACH_ATTRIBUTE_ID,
+    WEAPON_TYPE_ATTRIBUTE_ID,
 )
 from backend.state.models.stat import default_sheet_formula_stats
 
@@ -71,7 +71,7 @@ STARTER_ACTION_IDS = (
     "ash_wraith_spark",
 )
 
-CAMPAIGN_FACT_IDS = (
+CAMPAIGN_ATTRIBUTE_IDS = (
     "campaign_role",
     "gate_affinity",
     "guild_rank",
@@ -99,16 +99,16 @@ def formula(
     }
 
 
-def fact_bridge(fact_id: str, value_type: str, value: Any) -> dict[str, Any]:
+def attribute_bridge(attribute_id: str, value_type: str, value: Any) -> dict[str, Any]:
     return {
-        "relationship_id": f"fixture_fact_{fact_id}",
-        "fact_id": fact_id,
+        "relationship_id": f"fixture_attribute_{attribute_id}",
+        "attribute_id": attribute_id,
         "value": {"type": value_type, "value": value},
     }
 
 
-def rank_fact(rank: str) -> dict[str, dict[str, Any]]:
-    return {ACTION_RANK_FACT_ID: fact_bridge(ACTION_RANK_FACT_ID, "enum", rank)}
+def rank_attribute(rank: str) -> dict[str, dict[str, Any]]:
+    return {ACTION_RANK_ATTRIBUTE_ID: attribute_bridge(ACTION_RANK_ATTRIBUTE_ID, "enum", rank)}
 
 
 def selector(
@@ -192,7 +192,7 @@ def roll_mode_effect(
     }
 
 
-def weapon_facts(
+def weapon_attributes(
     *,
     base_damage: int,
     name: str,
@@ -202,24 +202,24 @@ def weapon_facts(
     proficiency: str = "long_swords",
 ) -> dict[str, dict[str, Any]]:
     values = {
-        WEAPON_TYPE_FACT_ID: ("text", weapon_type),
-        WEAPON_BASE_DAMAGE_FACT_ID: ("number", base_damage),
-        WEAPON_GOVERNING_STAT_FACT_ID: ("enum", governing_stat),
-        WEAPON_DAMAGE_TYPES_FACT_ID: ("list", damage_types or ["Slashing"]),
-        WEAPON_REACH_FACT_ID: ("number", 5),
-        WEAPON_PROFICIENCY_FACT_ID: ("reference", proficiency),
-        WEAPON_PROFICIENCY_GROWTH_RATE_FACT_ID: ("number", 0.01),
+        WEAPON_TYPE_ATTRIBUTE_ID: ("text", weapon_type),
+        WEAPON_BASE_DAMAGE_ATTRIBUTE_ID: ("number", base_damage),
+        WEAPON_GOVERNING_STAT_ATTRIBUTE_ID: ("enum", governing_stat),
+        WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID: ("list", damage_types or ["Slashing"]),
+        WEAPON_REACH_ATTRIBUTE_ID: ("number", 5),
+        WEAPON_PROFICIENCY_ATTRIBUTE_ID: ("reference", proficiency),
+        WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID: ("number", 0.01),
     }
     return {
-        fact_id: {
-            **fact_bridge(fact_id, value_type, value),
-            "relationship_id": f"fixture_{name}_{fact_id}",
+        attribute_id: {
+            **attribute_bridge(attribute_id, value_type, value),
+            "relationship_id": f"fixture_{name}_{attribute_id}",
         }
-        for fact_id, (value_type, value) in values.items()
+        for attribute_id, (value_type, value) in values.items()
     }
 
 
-def campaign_fact_payloads() -> list[dict[str, Any]]:
+def campaign_attribute_payloads() -> list[dict[str, Any]]:
     return [
         {
             "id": "campaign_role",
@@ -273,14 +273,14 @@ def proficiency_payloads() -> list[dict[str, Any]]:
     ]
 
 
-def action_fact_bridge(fact_id: str, value_type: str, value: Any) -> dict[str, Any]:
+def action_attribute_bridge(attribute_id: str, value_type: str, value: Any) -> dict[str, Any]:
     return {
-        **fact_bridge(fact_id, value_type, value),
-        "relationship_id": f"fixture_action_fact_{fact_id}",
+        **attribute_bridge(attribute_id, value_type, value),
+        "relationship_id": f"fixture_action_attribute_{attribute_id}",
     }
 
 
-def spell_action_facts(
+def spell_action_attributes(
     *,
     rank: str,
     mana_cost: int,
@@ -288,23 +288,23 @@ def spell_action_facts(
     proficiency: str,
 ) -> dict[str, dict[str, Any]]:
     return {
-        ACTION_RANK_FACT_ID: action_fact_bridge(
-            ACTION_RANK_FACT_ID,
+        ACTION_RANK_ATTRIBUTE_ID: action_attribute_bridge(
+            ACTION_RANK_ATTRIBUTE_ID,
             "enum",
             rank,
         ),
-        ACTION_MANA_COST_FACT_ID: action_fact_bridge(
-            ACTION_MANA_COST_FACT_ID,
+        ACTION_MANA_COST_ATTRIBUTE_ID: action_attribute_bridge(
+            ACTION_MANA_COST_ATTRIBUTE_ID,
             "number",
             mana_cost,
         ),
-        ACTION_BASE_SPELL_DAMAGE_FACT_ID: action_fact_bridge(
-            ACTION_BASE_SPELL_DAMAGE_FACT_ID,
+        ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID: action_attribute_bridge(
+            ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
             "number",
             base_damage,
         ),
-        ACTION_PROFICIENCY_FACT_ID: action_fact_bridge(
-            ACTION_PROFICIENCY_FACT_ID,
+        ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
+            ACTION_PROFICIENCY_ATTRIBUTE_ID,
             "reference",
             proficiency,
         ),
@@ -358,21 +358,21 @@ def condition_payloads() -> list[dict[str, Any]]:
 
 
 def item_payloads() -> list[dict[str, Any]]:
-    sword_of_mana_facts = weapon_facts(base_damage=0, name="sword_of_mana")
-    sword_of_mana_facts.update(
+    sword_of_mana_attributes = weapon_attributes(base_damage=0, name="sword_of_mana")
+    sword_of_mana_attributes.update(
         {
-            ITEM_MANA_EFFICIENCY_FACT_ID: fact_bridge(
-                ITEM_MANA_EFFICIENCY_FACT_ID,
+            ITEM_MANA_EFFICIENCY_ATTRIBUTE_ID: attribute_bridge(
+                ITEM_MANA_EFFICIENCY_ATTRIBUTE_ID,
                 "number",
                 100,
             ),
-            ITEM_FLAT_EFFECT_BONUS_FACT_ID: fact_bridge(
-                ITEM_FLAT_EFFECT_BONUS_FACT_ID,
+            ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID: attribute_bridge(
+                ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID,
                 "number",
                 50,
             ),
-            ITEM_MANA_REGENERATION_MODIFIER_FACT_ID: fact_bridge(
-                ITEM_MANA_REGENERATION_MODIFIER_FACT_ID,
+            ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID: attribute_bridge(
+                ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID,
                 "number",
                 25,
             ),
@@ -388,8 +388,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Light armor that protects its wearer and aids stealth.",
             "price": "10,000 CP",
             "weight": "15 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [
                 augmentation(
                     "light_steps_resistance",
@@ -417,8 +417,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Always remains sharp and never dulls.",
             "price": "500 CP",
             "weight": "3 lbs",
-            "facts": weapon_facts(base_damage=15, name="never_dulls"),
-            "fact_profile": "weapon",
+            "attributes": weapon_attributes(base_damage=15, name="never_dulls"),
+            "attribute_profile": "weapon",
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -442,14 +442,14 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Grants the Fire attribute while equipped.",
             "price": "1,000,000 CP",
             "weight": "0.1 lbs",
-            "facts": {
-                ITEM_ATTRIBUTE_FACT_ID: fact_bridge(
-                    ITEM_ATTRIBUTE_FACT_ID,
+            "attributes": {
+                ITEM_ATTRIBUTE_ATTRIBUTE_ID: attribute_bridge(
+                    ITEM_ATTRIBUTE_ATTRIBUTE_ID,
                     "text",
                     "Fire",
                 )
             },
-            "fact_profile": None,
+            "attribute_profile": None,
             "augmentation_templates": [
                 augmentation(
                     "fire_shard_damage",
@@ -470,8 +470,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Improves the wearer's perception.",
             "price": "5,000 CP",
             "weight": "2 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [
                 augmentation(
                     "helm_of_sight_perception",
@@ -492,8 +492,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Armor specialized against fire and magical damage.",
             "price": "100,000 CP",
             "weight": "1 lb",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [
                 augmentation(
                     "pyromancy_robe_fire",
@@ -521,8 +521,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Conducts mana at 100% efficiency.",
             "price": "N/A",
             "weight": "3 lbs",
-            "facts": sword_of_mana_facts,
-            "fact_profile": "weapon",
+            "attributes": sword_of_mana_attributes,
+            "attribute_profile": "weapon",
             "augmentation_templates": [
                 augmentation(
                     "sword_of_mana_effect_bonus",
@@ -538,8 +538,8 @@ def item_payloads() -> list[dict[str, Any]]:
                                 "name": "flat_effect_bonus",
                                 "path": [
                                     "source_item",
-                                    "facts",
-                                    ITEM_FLAT_EFFECT_BONUS_FACT_ID,
+                                    "attributes",
+                                    ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID,
                                 ],
                             }
                         ],
@@ -564,7 +564,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "A short blade carried by gate scouts.",
             "price": "1,200 CP",
             "weight": "1 lb",
-            "facts": weapon_facts(
+            "attributes": weapon_attributes(
                 base_damage=9,
                 name="night_fang",
                 weapon_type="Dagger",
@@ -572,7 +572,7 @@ def item_payloads() -> list[dict[str, Any]]:
                 damage_types=["Piercing"],
                 proficiency="knives",
             ),
-            "fact_profile": "weapon",
+            "attribute_profile": "weapon",
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -596,8 +596,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Restores 25 mana when consumed.",
             "price": "250 CP",
             "weight": "0.2 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -616,8 +616,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "A field dressing that restores 8 health.",
             "price": "80 CP",
             "weight": "0.5 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -636,8 +636,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "Starter guild credential for gate entry.",
             "price": "N/A",
             "weight": "0 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [],
             "action_grants": [],
         },
@@ -650,8 +650,8 @@ def item_payloads() -> list[dict[str, Any]]:
             "description": "A dormant core recovered from a sealed gate.",
             "price": "Unknown",
             "weight": "2 lbs",
-            "facts": {},
-            "fact_profile": None,
+            "attributes": {},
+            "attribute_profile": None,
             "augmentation_templates": [],
             "action_grants": [],
         },
@@ -719,7 +719,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 "Allows Parry attempts and explicitly activates their advantage. "
                 "Proficiency improvements remain GM-managed."
             ),
-            "facts": rank_fact("C"),
+            "attributes": rank_attribute("C"),
             "steps": [
                 {
                     "step_id": "activate_parry_advantage",
@@ -738,7 +738,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 "Restores 10 health for 100 mana. Limb and injury restoration "
                 "remain roleplay-only."
             ),
-            "facts": rank_fact("S"),
+            "attributes": rank_attribute("S"),
             "steps": [
                 {
                     "step_id": "spend_mana",
@@ -777,7 +777,7 @@ def action_payloads() -> list[dict[str, Any]]:
                 "Maximum-mana and regeneration improvements require GM-authored "
                 "values; timed regeneration remains manual."
             ),
-            "facts": rank_fact("A"),
+            "attributes": rank_attribute("A"),
             "steps": [
                 {
                     "step_id": "activate_mana_effect_bonus",
@@ -800,7 +800,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Fixture Fire Damage",
             "roll_mode_kind": "damage",
             "notes": "Acceptance-only tagged formula.",
-            "facts": {},
+            "attributes": {},
             "steps": [
                 {
                     "step_id": "roll_fire_damage",
@@ -817,7 +817,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Fixture Mana Overload",
             "roll_mode_kind": "check",
             "notes": "Acceptance-only tagged formula.",
-            "facts": {},
+            "attributes": {},
             "steps": [
                 {
                     "step_id": "roll_mana_overload",
@@ -834,7 +834,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Ember Bolt To-Hit",
             "roll_mode_kind": "check",
             "notes": "Starter fire spell attack roll.",
-            "facts": spell_action_facts(
+            "attributes": spell_action_attributes(
                 rank="D",
                 mana_cost=12,
                 base_damage=18,
@@ -870,7 +870,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Ember Bolt Damage",
             "roll_mode_kind": "damage",
             "notes": "Starter fire spell damage with a mana cost.",
-            "facts": spell_action_facts(
+            "attributes": spell_action_attributes(
                 rank="D",
                 mana_cost=12,
                 base_damage=18,
@@ -889,8 +889,8 @@ def action_payloads() -> list[dict[str, Any]]:
                                 "name": "mana_cost",
                                 "path": [
                                     "action",
-                                    "facts",
-                                    ACTION_MANA_COST_FACT_ID,
+                                    "attributes",
+                                    ACTION_MANA_COST_ATTRIBUTE_ID,
                                 ],
                             }
                         ],
@@ -922,8 +922,8 @@ def action_payloads() -> list[dict[str, Any]]:
                                 "name": "base_damage",
                                 "path": [
                                     "action",
-                                    "facts",
-                                    ACTION_BASE_SPELL_DAMAGE_FACT_ID,
+                                    "attributes",
+                                    ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
                                 ],
                             },
                         ],
@@ -937,10 +937,10 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Shadow Step",
             "roll_mode_kind": "check",
             "notes": "Short evasive movement check for shadow-affinity hunters.",
-            "facts": {
-                **rank_fact("C"),
-                ACTION_PROFICIENCY_FACT_ID: action_fact_bridge(
-                    ACTION_PROFICIENCY_FACT_ID,
+            "attributes": {
+                **rank_attribute("C"),
+                ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
+                    ACTION_PROFICIENCY_ATTRIBUTE_ID,
                     "reference",
                     "shadow_steps",
                 ),
@@ -975,7 +975,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Drink Lesser Mana Vial",
             "roll_mode_kind": "none",
             "notes": "Consumable action: restore 25 mana, then consume one vial.",
-            "facts": {},
+            "attributes": {},
             "steps": [
                 {
                     "step_id": "restore_mana",
@@ -998,7 +998,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Apply Emberleaf Poultice",
             "roll_mode_kind": "none",
             "notes": "Consumable action: restore 8 health, then consume one poultice.",
-            "facts": {},
+            "attributes": {},
             "steps": [
                 {
                     "step_id": "restore_health",
@@ -1023,7 +1023,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Apply Shadow Bound",
             "roll_mode_kind": "none",
             "notes": "Applies the Shadow Bound condition to the acting instance.",
-            "facts": rank_fact("C"),
+            "attributes": rank_attribute("C"),
             "steps": [
                 {
                     "step_id": "apply_shadow_bound",
@@ -1039,7 +1039,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Remove Shadow Bound",
             "roll_mode_kind": "none",
             "notes": "Removes the Shadow Bound condition from the acting instance.",
-            "facts": rank_fact("C"),
+            "attributes": rank_attribute("C"),
             "steps": [
                 {
                     "step_id": "remove_shadow_bound",
@@ -1055,7 +1055,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Apply Bleeding",
             "roll_mode_kind": "none",
             "notes": "Applies the Bleeding condition to the acting instance.",
-            "facts": rank_fact("E"),
+            "attributes": rank_attribute("E"),
             "steps": [
                 {
                     "step_id": "apply_bleeding",
@@ -1071,10 +1071,10 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Gate Lore Check",
             "roll_mode_kind": "check",
             "notes": "Campaign knowledge check for gate behavior and dungeon cores.",
-            "facts": {
-                **rank_fact("D"),
-                ACTION_PROFICIENCY_FACT_ID: action_fact_bridge(
-                    ACTION_PROFICIENCY_FACT_ID,
+            "attributes": {
+                **rank_attribute("D"),
+                ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
+                    ACTION_PROFICIENCY_ATTRIBUTE_ID,
                     "reference",
                     "gate_lore",
                 ),
@@ -1109,7 +1109,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Train Shadow Steps",
             "roll_mode_kind": "none",
             "notes": "Starter proficiency-gain action for table testing.",
-            "facts": rank_fact("C"),
+            "attributes": rank_attribute("C"),
             "steps": [
                 {
                     "step_id": "gain_shadow_step_use",
@@ -1125,7 +1125,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Red Gate Claw",
             "roll_mode_kind": "damage",
             "notes": "Enemy claw damage roll.",
-            "facts": rank_fact("E"),
+            "attributes": rank_attribute("E"),
             "steps": [
                 {
                     "step_id": "roll_claw_damage",
@@ -1145,7 +1145,7 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Ash Wraith Spark",
             "roll_mode_kind": "damage",
             "notes": "Enemy fire/ash damage roll.",
-            "facts": rank_fact("D"),
+            "attributes": rank_attribute("D"),
             "steps": [
                 {
                     "step_id": "roll_spark_damage",
@@ -1161,16 +1161,16 @@ def action_payloads() -> list[dict[str, Any]]:
     ]
 
 
-def sheet_facts(
+def sheet_attributes(
     *,
     campaign_role: str,
     gate_affinity: str,
     guild_rank: str,
 ) -> dict[str, dict[str, Any]]:
     return {
-        "campaign_role": fact_bridge("campaign_role", "text", campaign_role),
-        "gate_affinity": fact_bridge("gate_affinity", "enum", gate_affinity),
-        "guild_rank": fact_bridge("guild_rank", "enum", guild_rank),
+        "campaign_role": attribute_bridge("campaign_role", "text", campaign_role),
+        "gate_affinity": attribute_bridge("gate_affinity", "enum", gate_affinity),
+        "guild_rank": attribute_bridge("guild_rank", "enum", guild_rank),
     }
 
 
@@ -1295,7 +1295,7 @@ def sheet_payload() -> dict[str, Any]:
         "resistances": {},
         "slayed_record": {},
         "actions": actions,
-        "facts": sheet_facts(
+        "attributes": sheet_attributes(
             campaign_role="Player striker/healer",
             gate_affinity="Fire",
             guild_rank="C",
@@ -1351,7 +1351,7 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
             "assigned_apply_shadow_bound": action_bridge("apply_shadow_bound"),
             "assigned_remove_shadow_bound": action_bridge("remove_shadow_bound"),
         },
-        "facts": sheet_facts(
+        "attributes": sheet_attributes(
             campaign_role="Player scout",
             gate_affinity="Shadow",
             guild_rank="D",
@@ -1385,7 +1385,7 @@ def goblin_sheet_payload() -> dict[str, Any]:
             "assigned_red_gate_claw": action_bridge("red_gate_claw"),
             "assigned_apply_bleeding": action_bridge("apply_bleeding"),
         },
-        "facts": sheet_facts(
+        "attributes": sheet_attributes(
             campaign_role="Enemy skirmisher",
             gate_affinity="None",
             guild_rank="Unranked",
@@ -1421,7 +1421,7 @@ def wraith_sheet_payload() -> dict[str, Any]:
             "assigned_ash_wraith_spark": action_bridge("ash_wraith_spark"),
             "assigned_apply_shadow_bound": action_bridge("apply_shadow_bound"),
         },
-        "facts": sheet_facts(
+        "attributes": sheet_attributes(
             campaign_role="Enemy caster",
             gate_affinity="Ash",
             guild_rank="Unranked",
@@ -1466,8 +1466,8 @@ def authoring_requests(
 ) -> list[dict[str, Any]]:
     requests: list[dict[str, Any]] = []
     requests.extend(
-        {"type": "create_fact", "fact": fact}
-        for fact in campaign_fact_payloads()
+        {"type": "create_attribute", "attribute": attribute}
+        for attribute in campaign_attribute_payloads()
     )
     requests.extend(
         {"type": "create_proficiency", "proficiency": proficiency}

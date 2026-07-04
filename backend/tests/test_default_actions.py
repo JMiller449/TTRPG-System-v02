@@ -38,14 +38,14 @@ def test_canonical_spreadsheet_formulas_expand_to_roll20_expressions() -> None:
             )
         ),
         source_item={
-            "facts": {"weapon_base_damage": 15},
+            "attributes": {"weapon_base_damage": 15},
             "resolved": {
                 "governing_stat": 25,
                 "proficiency_modifier": 0.8,
             },
         },
         action={
-            "facts": {"action_base_spell_damage": 10},
+            "attributes": {"action_base_spell_damage": 10},
             "resolved": {"proficiency_modifier": 0.5},
         },
     )

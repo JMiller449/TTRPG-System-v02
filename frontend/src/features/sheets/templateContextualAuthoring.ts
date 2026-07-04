@@ -1,8 +1,8 @@
 import type { IntentFeedbackItem, ServerState } from "@/app/state/types";
-import type { FactDefinition } from "@/domain/models";
+import type { AttributeDefinition } from "@/domain/models";
 import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 
-export type TemplateContextualEntityKind = "fact" | "action" | "item" | "proficiency";
+export type TemplateContextualEntityKind = "attribute" | "action" | "item" | "proficiency";
 
 export interface PendingTemplateContextualCreate {
   kind: TemplateContextualEntityKind;
@@ -16,9 +16,9 @@ export function contextualRecord(
   serverState: ServerState,
   kind: TemplateContextualEntityKind,
   entityId: string
-): FactDefinition | object | undefined {
-  if (kind === "fact") {
-    return serverState.facts[entityId];
+): AttributeDefinition | object | undefined {
+  if (kind === "attribute") {
+    return serverState.attributes[entityId];
   }
   if (kind === "action") {
     return serverState.actions[entityId];
@@ -51,13 +51,13 @@ export function attachContextualRecord(
   values: TemplateEditorValues,
   kind: TemplateContextualEntityKind,
   entityId: string,
-  record: FactDefinition | object,
+  record: AttributeDefinition | object,
   makeRelationshipId: (prefix: string) => string
 ): TemplateEditorValues {
-  if (kind === "fact") {
-    const definition = record as FactDefinition;
+  if (kind === "attribute") {
+    const definition = record as AttributeDefinition;
     if (
-      values.facts[entityId] ||
+      values.attributes[entityId] ||
       definition.id !== entityId ||
       !definition.subject_types.includes("sheet")
     ) {
@@ -65,11 +65,11 @@ export function attachContextualRecord(
     }
     return {
       ...values,
-      facts: {
-        ...values.facts,
+      attributes: {
+        ...values.attributes,
         [entityId]: {
-          relationship_id: makeRelationshipId("sheet_fact"),
-          fact_id: entityId,
+          relationship_id: makeRelationshipId("sheet_attribute"),
+          attribute_id: entityId,
           value: structuredClone(definition.default_value),
           evaluated_value: null,
           evaluation_error: null

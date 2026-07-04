@@ -77,23 +77,23 @@ def _source_item_formula_values(
     if item is None:
         return None
     values: dict[str, float | int] = {}
-    for fact_id, bridge in item.facts.items():
-        definition = state.facts.get(fact_id)
+    for attribute_id, bridge in item.attributes.items():
+        definition = state.attributes.get(attribute_id)
         if (
             definition is None
             or definition.value_type != "number"
             or "item" not in definition.subject_types
             or (
                 definition.required_profile is not None
-                and definition.required_profile != item.fact_profile
+                and definition.required_profile != item.attribute_profile
             )
             or bridge.evaluation_error is not None
             or isinstance(bridge.evaluated_value, bool)
             or not isinstance(bridge.evaluated_value, int | float)
         ):
             continue
-        values[fact_id] = bridge.evaluated_value
-    return {"facts": values}
+        values[attribute_id] = bridge.evaluated_value
+    return {"attributes": values}
 
 
 def _evaluate_formula(state: State, root: Any, augmentation: Augmentation) -> float | int:

@@ -1,11 +1,11 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { FactDefinition, FactValue } from "@/domain/models";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import type { AttributeDefinition, AttributeValue } from "@/domain/models";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import { makeId } from "@/shared/utils/id";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
-export function TemplateFactsSection({
+export function TemplateAttributesSection({
   values,
   definitions,
   metadata,
@@ -13,7 +13,7 @@ export function TemplateFactsSection({
   onChange
 }: {
   values: TemplateEditorValues;
-  definitions: Record<string, FactDefinition>;
+  definitions: Record<string, AttributeDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
@@ -25,32 +25,32 @@ export function TemplateFactsSection({
           (definition) =>
             definition.required &&
             definition.subject_types.includes("sheet") &&
-            !values.facts[definition.id]
+            !values.attributes[definition.id]
         )
         .map((definition) => [
           definition.id,
           {
-            relationship_id: `required_fact_${definition.id}`,
-            fact_id: definition.id,
+            relationship_id: `required_attribute_${definition.id}`,
+            attribute_id: definition.id,
             value: structuredClone(definition.default_value),
             evaluated_value: null,
             evaluation_error: null
           }
         ])
     ),
-    ...values.facts
+    ...values.attributes
   };
 
-  const updateBridge = (factId: string, value: FactValue): void => {
-    const bridge = values.facts[factId] ?? displayBridges[factId];
+  const updateBridge = (attributeId: string, value: AttributeValue): void => {
+    const bridge = values.attributes[attributeId] ?? displayBridges[attributeId];
     if (!bridge) {
       return;
     }
     onChange({
       ...values,
-      facts: {
-        ...values.facts,
-        [factId]: {
+      attributes: {
+        ...values.attributes,
+        [attributeId]: {
           ...bridge,
           value,
           evaluated_value: null,
@@ -61,50 +61,50 @@ export function TemplateFactsSection({
   };
 
   return (
-    <section className="template-builder__section stack" aria-labelledby="template-facts-title">
+    <section className="template-builder__section stack" aria-labelledby="template-attributes-title">
       <div className="template-builder__section-heading">
         <div>
-          <h3 id="template-facts-title">Facts</h3>
+          <h3 id="template-attributes-title">Attributes</h3>
           <p className="muted">
-            Attach sheet-compatible Facts. Values are evaluated by the backend after save.
+            Attach sheet-compatible Attributes. Values are evaluated by the backend after save.
           </p>
         </div>
         {onCreateNew ? (
           <button
             type="button"
             className="button button--secondary"
-            onClick={() => onCreateNew("fact")}
+            onClick={() => onCreateNew("attribute")}
           >
-            Create new Fact…
+            Create new Attribute…
           </button>
         ) : null}
       </div>
-      <SheetFactsSection
+      <SheetAttributesSection
         definitions={definitions}
         bridges={displayBridges}
         canEdit
         subjectType="sheet"
         formulaMetadata={metadata}
-        onSaveFormula={(factId, formula) => updateBridge(factId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
         onSaveValue={updateBridge}
-        onReset={(factId) => {
-          const definition = definitions[factId];
+        onReset={(attributeId) => {
+          const definition = definitions[attributeId];
           if (definition) {
-            updateBridge(factId, structuredClone(definition.default_value));
+            updateBridge(attributeId, structuredClone(definition.default_value));
           }
         }}
-        onAttach={(factId) => {
-          const definition = definitions[factId];
+        onAttach={(attributeId) => {
+          const definition = definitions[attributeId];
           if (!definition) {
             return;
           }
           onChange({
             ...values,
-            facts: {
-              ...values.facts,
-              [factId]: {
-                relationship_id: makeId("sheet_fact"),
-                fact_id: factId,
+            attributes: {
+              ...values.attributes,
+              [attributeId]: {
+                relationship_id: makeId("sheet_attribute"),
+                attribute_id: attributeId,
                 value: structuredClone(definition.default_value),
                 evaluated_value: null,
                 evaluation_error: null
@@ -112,10 +112,10 @@ export function TemplateFactsSection({
             }
           });
         }}
-        onDetach={(factId) => {
-          const facts = { ...values.facts };
-          delete facts[factId];
-          onChange({ ...values, facts });
+        onDetach={(attributeId) => {
+          const attributes = { ...values.attributes };
+          delete attributes[attributeId];
+          onChange({ ...values, attributes });
         }}
       />
     </section>

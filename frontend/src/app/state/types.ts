@@ -13,7 +13,7 @@ import type {
   Augmentation,
   ConditionPreset,
   EncounterPreset,
-  FactDefinition,
+  AttributeDefinition,
   FormulaDefinition,
   ItemDefinition,
   PersistentSheet,
@@ -35,7 +35,7 @@ export type GMView =
   | "encounter_presets"
   | "item_maker"
   | "formula_authoring"
-  | "fact_authoring"
+  | "attribute_authoring"
   | "proficiency_authoring"
   | "condition_authoring"
   | "effect_authoring"
@@ -66,8 +66,8 @@ export interface ServerState {
   actionOrder: string[];
   formulas: Record<string, FormulaDefinition>;
   formulaOrder: string[];
-  facts: Record<string, FactDefinition>;
-  factOrder: string[];
+  attributes: Record<string, AttributeDefinition>;
+  attributeOrder: string[];
   augmentations: Record<string, Augmentation>;
   augmentationOrder: string[];
   standaloneEffects: Record<string, StandaloneEffectDefinition>;

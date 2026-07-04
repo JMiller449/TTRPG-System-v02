@@ -86,8 +86,8 @@ describe("useGameClient feedback messages", () => {
     expect(requestUsesQuietFeedback({ type: "get_xp_tracker" })).toBe(true);
     expect(
       requestUsesQuietFeedback({
-        type: "delete_fact",
-        fact_id: "fact-1"
+        type: "delete_attribute",
+        attribute_id: "attribute-1"
       })
     ).toBe(false);
     expect(requestUsesQuietFeedback({ type: "resync_state" })).toBe(false);

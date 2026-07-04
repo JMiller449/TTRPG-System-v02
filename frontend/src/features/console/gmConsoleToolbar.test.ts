@@ -21,7 +21,7 @@ describe("gmConsoleToolbar", () => {
       "create_template",
       "action_authoring",
       "item_maker",
-      "fact_authoring",
+      "attribute_authoring",
       "formula_authoring",
       "proficiency_authoring",
       "condition_authoring",

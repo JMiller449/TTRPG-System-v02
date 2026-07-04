@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { FactDefinition, ItemDefinition } from "@/domain/models";
+import type { AttributeDefinition, ItemDefinition } from "@/domain/models";
 import {
   createEmptyItemValues,
   getItemEditorValidationError,
-  setItemFactProfile,
+  setItemAttributeProfile,
   toItemDefinitionPayload,
   toItemEditorValues,
   toUpdatedItemDefinitionPayload
 } from "@/features/items/itemEditorValues";
 
-const weaponFacts: Record<string, FactDefinition> = {
+const weaponAttributes: Record<string, AttributeDefinition> = {
   weapon_type: {
     id: "weapon_type",
     name: "Weapon Type",
@@ -89,8 +89,8 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: "3LBS",
-    fact_profile: null,
-    facts: {},
+    attribute_profile: null,
+    attributes: {},
     augmentation_templates: [],
     ...overrides
   };
@@ -121,8 +121,8 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
       weight: "3LBS",
-      fact_profile: null,
-      facts: {},
+      attribute_profile: null,
+      attributes: {},
       augmentation_templates: [],
       action_grants: []
     });
@@ -140,8 +140,8 @@ describe("itemEditorValues", () => {
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
       description: "A blade that conducts mana.",
-      factProfile: null,
-      facts: {},
+      attributeProfile: null,
+      attributes: {},
       augmentationTemplates: [],
       actionGrants: []
     });
@@ -272,34 +272,34 @@ describe("itemEditorValues", () => {
     expect(getItemEditorValidationError(values)).toContain("only once");
   });
 
-  it("attaches and validates backend-declared weapon profile Facts", () => {
+  it("attaches and validates backend-declared weapon profile Attributes", () => {
     let values = createEmptyItemValues();
     values.name = "Never Dulls";
-    values = setItemFactProfile(values, "weapon", weaponFacts);
+    values = setItemAttributeProfile(values, "weapon", weaponAttributes);
 
     expect(values.interactionType).toBe("equippable");
-    expect(Object.keys(values.facts)).toEqual(Object.keys(weaponFacts));
-    expect(getItemEditorValidationError(values, { definitions: weaponFacts })).toContain(
+    expect(Object.keys(values.attributes)).toEqual(Object.keys(weaponAttributes));
+    expect(getItemEditorValidationError(values, { definitions: weaponAttributes })).toContain(
       "Weapon Type"
     );
 
-    values.facts.weapon_type.value = { type: "text", value: "Long Sword" };
-    values.facts.weapon_damage_types.value = { type: "list", value: ["Slashing"] };
-    values.facts.weapon_proficiency.value = {
+    values.attributes.weapon_type.value = { type: "text", value: "Long Sword" };
+    values.attributes.weapon_damage_types.value = { type: "list", value: ["Slashing"] };
+    values.attributes.weapon_proficiency.value = {
       type: "reference",
       value: "long_swords"
     };
     expect(
       getItemEditorValidationError(values, {
-        definitions: weaponFacts,
+        definitions: weaponAttributes,
         proficiencies: {
           long_swords: { id: "long_swords", name: "Long Swords", description: "" }
         }
       })
     ).toBeNull();
     expect(toItemDefinitionPayload(values, "sword")).toMatchObject({
-      fact_profile: "weapon",
-      facts: {
+      attribute_profile: "weapon",
+      attributes: {
         weapon_type: { value: { type: "text", value: "Long Sword" } },
         weapon_proficiency: {
           value: { type: "reference", value: "long_swords" }

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict
 
-from backend.state.models.fact import FactBridge
+from backend.state.models.attribute import AttributeBridge
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -37,10 +37,11 @@ class Sheet:
     resistances: Resistances
     slayed_record: Dict[str, SheetSlayedBridge]
     actions: Dict[str, Bridge]
-    facts: Dict[str, FactBridge] = field(default_factory=dict)
+    attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Sheet":
+        raw_attributes = raw.get("attributes", raw.get("facts", {}))
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -66,9 +67,9 @@ class Sheet:
                 key: Bridge.from_dict(bridge)
                 for key, bridge in raw.get("actions", {}).items()
             },
-            facts={
-                key: FactBridge.from_dict(bridge)
-                for key, bridge in raw.get("facts", {}).items()
+            attributes={
+                key: AttributeBridge.from_dict(bridge)
+                for key, bridge in raw_attributes.items()
             },
         )
 

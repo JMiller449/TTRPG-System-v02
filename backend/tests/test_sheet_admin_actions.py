@@ -62,7 +62,7 @@ def _proficiency_payload(proficiency_id: str = "magic_prof") -> dict:
     }
 
 
-def _action_fact_bridges(proficiency_id: str = "magic_prof") -> dict:
+def _action_attribute_bridges(proficiency_id: str = "magic_prof") -> dict:
     values = {
         "action_rank": {"type": "enum", "value": "A"},
         "action_range": {"type": "number", "value": 30},
@@ -73,12 +73,12 @@ def _action_fact_bridges(proficiency_id: str = "magic_prof") -> dict:
         "action_proficiency": {"type": "reference", "value": proficiency_id},
     }
     return {
-        fact_id: {
-            "relationship_id": f"action-fact-{fact_id}",
-            "fact_id": fact_id,
+        attribute_id: {
+            "relationship_id": f"action-attribute-{attribute_id}",
+            "attribute_id": attribute_id,
             "value": value,
         }
-        for fact_id, value in values.items()
+        for attribute_id, value in values.items()
     }
 
 
@@ -166,7 +166,7 @@ def test_dm_can_create_action(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_dm_can_create_action_with_canonical_fact_configuration(monkeypatch) -> None:
+def test_dm_can_create_action_with_canonical_attribute_configuration(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -186,37 +186,37 @@ def test_dm_can_create_action_with_canonical_fact_configuration(monkeypatch) -> 
                     "type": "create_action",
                     "action": {
                         **_action_payload("fire_bolt", "Fire Bolt"),
-                        "facts": _action_fact_bridges(),
+                        "attributes": _action_attribute_bridges(),
                     },
                 },
             )
 
             action = state.actions["fire_bolt"]
-            assert action.facts["action_rank"].evaluated_value == "A"
-            assert action.facts["action_mana_cost"].evaluated_value == 100
-            assert action.facts["action_proficiency"].evaluated_value == "magic_prof"
-            assert state.facts["action_rank"].backend_owned is True
-            assert state.facts["action_rank"].required is False
+            assert action.attributes["action_rank"].evaluated_value == "A"
+            assert action.attributes["action_mana_cost"].evaluated_value == 100
+            assert action.attributes["action_proficiency"].evaluated_value == "magic_prof"
+            assert state.attributes["action_rank"].backend_owned is True
+            assert state.attributes["action_rank"].required is False
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_subject_fact_value",
+                    "type": "set_subject_attribute_value",
                     "subject_type": "action",
                     "subject_id": "fire_bolt",
-                    "fact_id": "action_target_count",
+                    "attribute_id": "action_target_count",
                     "value": {"type": "number", "value": 0},
                 },
             )
             assert websocket.sent_messages[-1]["type"] == "error"
-            assert action.facts["action_target_count"].evaluated_value == 1
+            assert action.attributes["action_target_count"].evaluated_value == 1
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_action_fact_configuration_rejects_missing_proficiency(monkeypatch) -> None:
+def test_action_attribute_configuration_rejects_missing_proficiency(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -232,7 +232,7 @@ def test_action_fact_configuration_rejects_missing_proficiency(monkeypatch) -> N
                     "type": "create_action",
                     "action": {
                         **_action_payload("fire_bolt", "Fire Bolt"),
-                        "facts": _action_fact_bridges("missing"),
+                        "attributes": _action_attribute_bridges("missing"),
                     },
                 },
             )
@@ -911,7 +911,7 @@ def test_create_action_rejects_unknown_mutation_path(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_create_action_requires_referenced_action_fact_attachment(monkeypatch) -> None:
+def test_create_action_requires_referenced_action_attribute_attachment(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -928,7 +928,7 @@ def test_create_action_requires_referenced_action_fact_attachment(monkeypatch) -
                         "name": "base_spell_damage",
                         "path": [
                             "action",
-                            "facts",
+                            "attributes",
                             "action_base_spell_damage",
                         ],
                     }
@@ -942,7 +942,7 @@ def test_create_action_requires_referenced_action_fact_attachment(monkeypatch) -
 
             assert "battle_cry" not in StateSingleton.getState().actions
             assert websocket.sent_messages[-1]["reason"] == (
-                "Formula alias 'base_spell_damage' requires Action Fact "
+                "Formula alias 'base_spell_damage' requires Action Attribute "
                 "'action_base_spell_damage' to be attached to this action."
             )
         finally:

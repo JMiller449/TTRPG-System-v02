@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 
 const definitions = {
   amount_of_reactions: {
@@ -20,8 +20,8 @@ const definitions = {
 
 const bridges = {
   amount_of_reactions: {
-    relationship_id: "required_fact_amount_of_reactions",
-    fact_id: "amount_of_reactions",
+    relationship_id: "required_attribute_amount_of_reactions",
+    attribute_id: "amount_of_reactions",
     value: {
       type: "formula" as const,
       formula: {
@@ -34,10 +34,10 @@ const bridges = {
   }
 };
 
-describe("SheetFactsSection", () => {
+describe("SheetAttributesSection", () => {
   it("renders the authoritative value without edit controls for players", () => {
     const markup = renderToStaticMarkup(
-      <SheetFactsSection
+      <SheetAttributesSection
         definitions={definitions}
         bridges={bridges}
         canEdit={false}
@@ -54,7 +54,7 @@ describe("SheetFactsSection", () => {
 
   it("renders formula editing and reset controls for a GM", () => {
     const markup = renderToStaticMarkup(
-      <SheetFactsSection
+      <SheetAttributesSection
         definitions={definitions}
         bridges={bridges}
         canEdit

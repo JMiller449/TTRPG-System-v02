@@ -19,7 +19,7 @@ from backend.state.models.augmentation import (
     FormulaModifierEffect,
 )
 from backend.state.models.formula import Formula
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.attribute import synchronize_required_sheet_attributes
 from backend.state.models.condition import ActiveCondition, ConditionPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
@@ -216,7 +216,7 @@ def _build_sheet_state() -> Sheet:
             "actions": {},
         }
     )
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
     return sheet
 
 

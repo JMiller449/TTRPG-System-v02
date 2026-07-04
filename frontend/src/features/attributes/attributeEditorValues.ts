@@ -1,13 +1,13 @@
-import type { FactDefinition, FactValue, FormulaAlias } from "@/domain/models";
-import type { FactDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
+import type { AttributeDefinition, AttributeValue, FormulaAlias } from "@/domain/models";
+import type { AttributeDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
-type FactValueType = FactDefinition["value_type"];
+type AttributeValueType = AttributeDefinition["value_type"];
 
-export interface FactDraft {
+export interface AttributeDraft {
   name: string;
   description: string;
   subjectTypes: Array<"sheet" | "item" | "action">;
-  valueType: FactValueType;
+  valueType: AttributeValueType;
   numberMode: "literal" | "formula";
   formulaAliases: FormulaAlias[];
   defaultText: string;
@@ -17,7 +17,7 @@ export interface FactDraft {
   referenceKind: string;
 }
 
-export function emptyFactDraft(): FactDraft {
+export function emptyAttributeDraft(): AttributeDraft {
   return {
     name: "",
     description: "",
@@ -33,7 +33,7 @@ export function emptyFactDraft(): FactDraft {
   };
 }
 
-function valueFromDraft(draft: FactDraft): FactValue | null {
+function valueFromDraft(draft: AttributeDraft): AttributeValue | null {
   if (draft.valueType === "number") {
     if (draft.numberMode === "formula") {
       return draft.defaultText.trim()
@@ -64,7 +64,7 @@ function valueFromDraft(draft: FactDraft): FactValue | null {
   return { type: draft.valueType, value: draft.defaultText.trim() };
 }
 
-export function factPayloadFromDraft(draft: FactDraft, id: string): FactDefinitionPayload | null {
+export function attributePayloadFromDraft(draft: AttributeDraft, id: string): AttributeDefinitionPayload | null {
   const value = valueFromDraft(draft);
   const validationOptions = draft.validationOptions
     .split(",")

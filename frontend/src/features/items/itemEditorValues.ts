@@ -1,7 +1,7 @@
 import type {
   Augmentation,
-  FactBridge,
-  FactDefinition,
+  AttributeBridge,
+  AttributeDefinition,
   ItemDefinition,
   ItemInteractionType,
   ProficiencyDefinition
@@ -19,8 +19,8 @@ export type ItemEditorValues = {
   gmNotes: string;
   gmSpecialProperties: string;
   description: string;
-  factProfile: "weapon" | null;
-  facts: Record<string, FactBridge>;
+  attributeProfile: "weapon" | null;
+  attributes: Record<string, AttributeBridge>;
   augmentationTemplates: Augmentation[];
   actionGrants: ItemActionGrantEditorValues[];
 };
@@ -62,28 +62,28 @@ export function createEmptyItemValues(): ItemEditorValues {
     gmNotes: "",
     gmSpecialProperties: "",
     description: "",
-    factProfile: null,
-    facts: {},
+    attributeProfile: null,
+    attributes: {},
     augmentationTemplates: [],
     actionGrants: []
   };
 }
 
-export function setItemFactProfile(
+export function setItemAttributeProfile(
   values: ItemEditorValues,
-  factProfile: "weapon" | null,
-  definitions: Record<string, FactDefinition>
+  attributeProfile: "weapon" | null,
+  definitions: Record<string, AttributeDefinition>
 ): ItemEditorValues {
-  const facts = Object.fromEntries(
-    Object.entries(values.facts).filter(([factId]) => !definitions[factId]?.required_profile)
+  const attributes = Object.fromEntries(
+    Object.entries(values.attributes).filter(([attributeId]) => !definitions[attributeId]?.required_profile)
   );
   for (const definition of Object.values(definitions)) {
-    if (definition.required_profile !== factProfile) {
+    if (definition.required_profile !== attributeProfile) {
       continue;
     }
-    facts[definition.id] = {
-      relationship_id: `required_fact_${definition.id}`,
-      fact_id: definition.id,
+    attributes[definition.id] = {
+      relationship_id: `required_attribute_${definition.id}`,
+      attribute_id: definition.id,
       value: structuredClone(definition.default_value),
       evaluated_value: null,
       evaluation_error: null
@@ -91,9 +91,9 @@ export function setItemFactProfile(
   }
   return {
     ...values,
-    interactionType: factProfile === "weapon" ? "equippable" : values.interactionType,
-    factProfile,
-    facts
+    interactionType: attributeProfile === "weapon" ? "equippable" : values.interactionType,
+    attributeProfile,
+    attributes
   };
 }
 
@@ -109,9 +109,9 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     gmNotes: item.gm_notes ?? "",
     gmSpecialProperties: item.gm_special_properties ?? "",
     description: item.description ?? "",
-    factProfile: item.fact_profile ?? null,
-    facts: Object.fromEntries(
-      Object.entries(item.facts ?? {}).map(([factId, bridge]) => [factId, structuredClone(bridge)])
+    attributeProfile: item.attribute_profile ?? null,
+    attributes: Object.fromEntries(
+      Object.entries(item.attributes ?? {}).map(([attributeId, bridge]) => [attributeId, structuredClone(bridge)])
     ),
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
     actionGrants: (item.action_grants ?? []).map((grant) => ({
@@ -165,27 +165,27 @@ function parseQuantity(value: string): number | null {
   return Number.isSafeInteger(quantity) ? quantity : null;
 }
 
-export interface ItemFactValidationContext {
-  definitions?: Record<string, FactDefinition>;
+export interface ItemAttributeValidationContext {
+  definitions?: Record<string, AttributeDefinition>;
   proficiencies?: Record<string, ProficiencyDefinition>;
 }
 
 export function getItemEditorValidationError(
   values: ItemEditorValues,
-  context: ItemFactValidationContext = {}
+  context: ItemAttributeValidationContext = {}
 ): string | null {
   if (!values.name.trim()) {
     return "Name is required.";
   }
-  if (values.factProfile === "weapon") {
+  if (values.attributeProfile === "weapon") {
     if (values.interactionType !== "equippable") {
       return "Weapon-profile items must be equippable.";
     }
-    const requiredFacts = Object.values(context.definitions ?? {}).filter(
+    const requiredAttributes = Object.values(context.definitions ?? {}).filter(
       (definition) => definition.required_profile === "weapon"
     );
-    for (const definition of requiredFacts) {
-      const bridge = values.facts[definition.id];
+    for (const definition of requiredAttributes) {
+      const bridge = values.attributes[definition.id];
       if (!bridge) {
         return `Weapon profile is missing ${definition.name}.`;
       }
@@ -252,8 +252,8 @@ export function toItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
-    fact_profile: values.factProfile,
-    facts: values.facts,
+    attribute_profile: values.attributeProfile,
+    attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, itemId),
     action_grants: toActionGrantPayloads(values)
   };
@@ -276,8 +276,8 @@ export function toUpdatedItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: values.weight.trim(),
-    fact_profile: values.factProfile,
-    facts: values.facts,
+    attribute_profile: values.attributeProfile,
+    attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, item.id),
     action_grants: toActionGrantPayloads(values)
   };

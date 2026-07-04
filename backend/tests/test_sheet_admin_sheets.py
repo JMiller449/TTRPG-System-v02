@@ -4,7 +4,7 @@ from copy import deepcopy
 from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.fact import FactBridge, FactDefinition, FactValue
+from backend.state.models.attribute import AttributeBridge, AttributeDefinition, AttributeValue
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -205,7 +205,7 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_sheet_create_and_update_save_authored_facts_atomically(
+def test_sheet_create_and_update_save_authored_attributes_atomically(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -219,8 +219,8 @@ def test_sheet_create_and_update_save_authored_facts_atomically(
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "combat_rating",
                         "name": "Combat Rating",
                         "subject_types": ["sheet"],
@@ -245,12 +245,12 @@ def test_sheet_create_and_update_save_authored_facts_atomically(
                 },
             )
             assert websocket.sent_messages[-1]["type"] == "state_patch"
-            assert "combat_rating" in StateSingleton.getState().facts
+            assert "combat_rating" in StateSingleton.getState().attributes
             payload = _sheet_payload()
-            payload["facts"] = {
+            payload["attributes"] = {
                 "combat_rating": {
-                    "relationship_id": "sheet-fact-combat-rating",
-                    "fact_id": "combat_rating",
+                    "relationship_id": "sheet-attribute-combat-rating",
+                    "attribute_id": "combat_rating",
                     "value": {
                         "type": "formula",
                         "formula": {
@@ -275,14 +275,14 @@ def test_sheet_create_and_update_save_authored_facts_atomically(
             )
 
             sheet = StateSingleton.getState().sheets["mage_template"]
-            assert sheet.facts["combat_rating"].evaluated_value == 21
-            assert "amount_of_reactions" in sheet.facts
+            assert sheet.attributes["combat_rating"].evaluated_value == 21
+            assert "amount_of_reactions" in sheet.attributes
             assert websocket.sent_messages[-1]["type"] == "state_patch"
             created = websocket.sent_messages[-1]["ops"][-1]["value"]
-            assert created["facts"]["combat_rating"]["evaluated_value"] == 21
+            assert created["attributes"]["combat_rating"]["evaluated_value"] == 21
 
             payload["name"] = "Updated Mage Template"
-            payload["facts"]["combat_rating"]["value"] = {
+            payload["attributes"]["combat_rating"]["value"] = {
                 "type": "number",
                 "value": 30,
             }
@@ -296,10 +296,10 @@ def test_sheet_create_and_update_save_authored_facts_atomically(
             )
             updated = StateSingleton.getState().sheets["mage_template"]
             assert updated.name == "Updated Mage Template"
-            assert updated.facts["combat_rating"].relationship_id == (
-                "sheet-fact-combat-rating"
+            assert updated.attributes["combat_rating"].relationship_id == (
+                "sheet-attribute-combat-rating"
             )
-            assert updated.facts["combat_rating"].evaluated_value == 30
+            assert updated.attributes["combat_rating"].evaluated_value == 30
             assert websocket.sent_messages[-1]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
@@ -307,7 +307,7 @@ def test_sheet_create_and_update_save_authored_facts_atomically(
     asyncio.run(scenario())
 
 
-def test_sheet_create_rejects_cross_stat_fact_dependency_cycle(monkeypatch) -> None:
+def test_sheet_create_rejects_cross_stat_attribute_dependency_cycle(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -319,8 +319,8 @@ def test_sheet_create_rejects_cross_stat_fact_dependency_cycle(monkeypatch) -> N
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "health_bonus",
                         "name": "Health Bonus",
                         "subject_types": ["sheet"],
@@ -338,16 +338,16 @@ def test_sheet_create_rejects_cross_stat_fact_dependency_cycle(monkeypatch) -> N
                 },
             )
             assert websocket.sent_messages[-1]["type"] == "state_patch"
-            assert "health_bonus" in StateSingleton.getState().facts
+            assert "health_bonus" in StateSingleton.getState().attributes
             payload = _sheet_payload()
             payload["stats"]["health"] = _formula_payload(
                 "@health_bonus",
-                [{"name": "health_bonus", "path": ["facts", "health_bonus"]}],
+                [{"name": "health_bonus", "path": ["attributes", "health_bonus"]}],
             )
-            payload["facts"] = {
+            payload["attributes"] = {
                 "health_bonus": {
-                    "relationship_id": "sheet-fact-health-bonus",
-                    "fact_id": "health_bonus",
+                    "relationship_id": "sheet-attribute-health-bonus",
+                    "attribute_id": "health_bonus",
                     "value": {
                         "type": "formula",
                         "formula": {
@@ -787,39 +787,39 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_update_sheet_replaces_fact_bridges_from_complete_payload(monkeypatch) -> None:
+def test_update_sheet_replaces_attribute_bridges_from_complete_payload(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.facts["level"] = FactDefinition(
+            state.attributes["level"] = AttributeDefinition(
                 id="level",
                 name="Level",
                 description="Character level.",
                 subject_types=["sheet"],
                 value_type="number",
-                default_value=FactValue(type="number", value=1),
+                default_value=AttributeValue(type="number", value=1),
             )
-            state.facts["movement"] = FactDefinition(
+            state.attributes["movement"] = AttributeDefinition(
                 id="movement",
                 name="Movement",
                 description="Manual movement note.",
                 subject_types=["sheet"],
                 value_type="number",
-                default_value=FactValue(type="number", value=0),
+                default_value=AttributeValue(type="number", value=0),
             )
             sheet = Sheet.from_dict(_sheet_payload())
-            sheet.facts["level"] = FactBridge(
-                relationship_id="sheet_fact_level",
-                fact_id="level",
-                value=FactValue(type="number", value=2),
+            sheet.attributes["level"] = AttributeBridge(
+                relationship_id="sheet_attribute_level",
+                attribute_id="level",
+                value=AttributeValue(type="number", value=2),
             )
-            sheet.facts["movement"] = FactBridge(
-                relationship_id="sheet_fact_movement",
-                fact_id="movement",
-                value=FactValue(type="number", value=30),
+            sheet.attributes["movement"] = AttributeBridge(
+                relationship_id="sheet_attribute_movement",
+                attribute_id="movement",
+                value=AttributeValue(type="number", value=30),
             )
             state.sheets["mage_template"] = sheet
             await websocket_sessions.reset()
@@ -827,10 +827,10 @@ def test_update_sheet_replaces_fact_bridges_from_complete_payload(monkeypatch) -
             await websocket_sessions.connect(websocket, role="dm")
 
             payload = _sheet_payload(name="Renamed Mage")
-            payload["facts"] = {
+            payload["attributes"] = {
                 "level": {
-                    "relationship_id": "sheet_fact_level",
-                    "fact_id": "level",
+                    "relationship_id": "sheet_attribute_level",
+                    "attribute_id": "level",
                     "value": {"type": "number", "value": 5},
                 }
             }
@@ -846,10 +846,10 @@ def test_update_sheet_replaces_fact_bridges_from_complete_payload(monkeypatch) -
 
             updated = state.sheets["mage_template"]
             assert updated.name == "Renamed Mage"
-            assert updated.facts["level"].value.value == 5
-            assert updated.facts["level"].evaluated_value == 5
-            assert "movement" not in updated.facts
-            assert "amount_of_reactions" in updated.facts
+            assert updated.attributes["level"].value.value == 5
+            assert updated.attributes["level"].evaluated_value == 5
+            assert "movement" not in updated.attributes
+            assert "amount_of_reactions" in updated.attributes
             assert websocket.sent_messages[0]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
@@ -1842,30 +1842,30 @@ def test_update_sheet_rejects_missing_embedded_proficiency_reference(
     asyncio.run(scenario())
 
 
-def test_create_sheet_rejects_non_sheet_fact_bridge(monkeypatch) -> None:
+def test_create_sheet_rejects_non_sheet_attribute_bridge(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.facts["item_only_fact"] = FactDefinition(
-                id="item_only_fact",
+            state.attributes["item_only_attribute"] = AttributeDefinition(
+                id="item_only_attribute",
                 name="Item Only",
                 description="Invalid for sheets.",
                 subject_types=["item"],
                 value_type="text",
-                default_value=FactValue(type="text", value=""),
+                default_value=AttributeValue(type="text", value=""),
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
             sheet = _sheet_payload()
-            sheet["facts"] = {
-                "item_only_fact": {
-                    "relationship_id": "sheet_fact_item_only",
-                    "fact_id": "item_only_fact",
+            sheet["attributes"] = {
+                "item_only_attribute": {
+                    "relationship_id": "sheet_attribute_item_only",
+                    "attribute_id": "item_only_attribute",
                     "value": {"type": "text", "value": "invalid"},
                 }
             }
@@ -1882,7 +1882,7 @@ def test_create_sheet_rejects_non_sheet_fact_bridge(monkeypatch) -> None:
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
-                    "reason": "Sheet Fact 'item_only_fact' does not exist.",
+                    "reason": "Sheet Attribute 'item_only_attribute' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }

@@ -7,7 +7,7 @@ import {
   TemplateProficienciesSection
 } from "@/features/sheets/components/TemplateAssignmentsSection";
 import { TemplateContextualCreateDialog } from "@/features/sheets/components/TemplateContextualCreateDialog";
-import { TemplateFactsSection } from "@/features/sheets/components/TemplateFactsSection";
+import { TemplateAttributesSection } from "@/features/sheets/components/TemplateAttributesSection";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 import { createEmptyTemplateEditorValues } from "@/features/sheets/templateEditorValues";
 
@@ -26,12 +26,12 @@ function renderDialog(kind: TemplateContextualEntityKind, pending = false): stri
 }
 
 describe("TemplateContextualCreateDialog", () => {
-  it("renders compact sheet-compatible Fact and Proficiency creation", () => {
-    const fact = renderDialog("fact");
-    expect(fact).toContain('role="dialog"');
-    expect(fact).toContain("Create and attach Fact");
-    expect(fact).toContain("sheet (required here)");
-    expect(fact).toContain('type="checkbox" disabled="" checked=""');
+  it("renders compact sheet-compatible Attribute and Proficiency creation", () => {
+    const attribute = renderDialog("attribute");
+    expect(attribute).toContain('role="dialog"');
+    expect(attribute).toContain("Create and attach Attribute");
+    expect(attribute).toContain("sheet (required here)");
+    expect(attribute).toContain('type="checkbox" disabled="" checked=""');
 
     const proficiency = renderDialog("proficiency");
     expect(proficiency).toContain("Create and attach Proficiency");
@@ -52,8 +52,8 @@ describe("TemplateContextualCreateDialog", () => {
   });
 
   it("locks closure and submission controls while pending", () => {
-    const pending = renderDialog("fact", true);
-    expect(pending).toContain('aria-label="Close Create and attach Fact" disabled=""');
+    const pending = renderDialog("attribute", true);
+    expect(pending).toContain('aria-label="Close Create and attach Attribute" disabled=""');
     expect(pending).toContain("Creating…");
   });
 });
@@ -65,7 +65,7 @@ describe("Template Builder contextual controls", () => {
     const onChange = () => undefined;
     const markup = [
       renderToStaticMarkup(
-        <TemplateFactsSection
+        <TemplateAttributesSection
           values={values}
           definitions={{}}
           metadata={null}
@@ -102,7 +102,7 @@ describe("Template Builder contextual controls", () => {
       )
     ].join("\n");
 
-    expect(markup).toContain("Create new Fact…");
+    expect(markup).toContain("Create new Attribute…");
     expect(markup).toContain("Create new Action…");
     expect(markup).toContain("Create new Proficiency…");
     expect(markup).toContain("Create new Item…");

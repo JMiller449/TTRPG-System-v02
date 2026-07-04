@@ -12,18 +12,18 @@ from backend.features.encounters.schema import (
     SaveEncounterPreset,
     SpawnEncounterPreset,
 )
-from backend.features.facts.schema import (
-    AttachSheetFact,
-    AttachSubjectFact,
-    CreateFact,
-    DeleteFact,
-    DetachSheetFact,
-    DetachSubjectFact,
-    ResetSubjectFactValue,
-    ResetSheetFactValue,
-    SetSheetFactValue,
-    SetSubjectFactValue,
-    UpdateFact,
+from backend.features.attributes.schema import (
+    AttachSheetAttribute,
+    AttachSubjectAttribute,
+    CreateAttribute,
+    DeleteAttribute,
+    DetachSheetAttribute,
+    DetachSubjectAttribute,
+    ResetSubjectAttributeValue,
+    ResetSheetAttributeValue,
+    SetSheetAttributeValue,
+    SetSubjectAttributeValue,
+    UpdateAttribute,
 )
 from backend.features.sheet_admin.actions.schema import (
     CreateAction,
@@ -99,7 +99,7 @@ from backend.features.xp_tracker.schema import (
 from backend.protocol.state_schema import (
     ActionStepPayload,
     BackendStateSnapshotPayload,
-    FactValuePayload,
+    AttributeValuePayload,
     FormulaPayload,
 )
 
@@ -203,7 +203,7 @@ class FormulaAliasMetadataEvent(ProtocolModel):
     path: list[str]
 
 
-class FactFormulaVariablePathMetadataEvent(ProtocolModel):
+class AttributeFormulaVariablePathMetadataEvent(ProtocolModel):
     key: str
     label: str
     subject_types: list[Literal["sheet", "item", "action"]]
@@ -271,14 +271,14 @@ class ActionPresetTemplateEvent(ProtocolModel):
     steps: list[ActionStepPayload]
     editable_formula_fields: list[str]
     roll_mode_kind: Literal["none", "check", "damage"] = "none"
-    fact_values: dict[str, FactValuePayload] = Field(default_factory=dict)
+    attribute_values: dict[str, AttributeValuePayload] = Field(default_factory=dict)
 
 
-class ActionFactPresetEvent(ProtocolModel):
+class ActionAttributePresetEvent(ProtocolModel):
     id: str
     label: str
     description: str
-    fact_values: dict[str, FactValuePayload]
+    attribute_values: dict[str, AttributeValuePayload]
 
 
 class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
@@ -293,8 +293,8 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     formula_aliases: list[FormulaAliasMetadataEvent]
     action_steps: list[ActionStepAuthoringMetadataEvent]
     action_preset_templates: list[ActionPresetTemplateEvent]
-    action_fact_presets: list[ActionFactPresetEvent]
-    fact_formula_variables: list[FactFormulaVariablePathMetadataEvent] = Field(
+    action_attribute_presets: list[ActionAttributePresetEvent]
+    attribute_formula_variables: list[AttributeFormulaVariablePathMetadataEvent] = Field(
         default_factory=list
     )
     sheet_formula_stat_defaults: list[
@@ -402,9 +402,9 @@ ApplicationRequest = Annotated[
     | CreateFormula
     | UpdateFormula
     | DeleteFormula
-    | CreateFact
-    | UpdateFact
-    | DeleteFact
+    | CreateAttribute
+    | UpdateAttribute
+    | DeleteAttribute
     | CreateItem
     | UpdateItem
     | DeleteItem
@@ -434,14 +434,14 @@ ApplicationRequest = Annotated[
     | SetSheetBaseStat
     | SetSheetFormulaStat
     | SetSheetResistances
-    | AttachSheetFact
-    | DetachSheetFact
-    | AttachSubjectFact
-    | SetSubjectFactValue
-    | ResetSubjectFactValue
-    | DetachSubjectFact
-    | SetSheetFactValue
-    | ResetSheetFactValue
+    | AttachSheetAttribute
+    | DetachSheetAttribute
+    | AttachSubjectAttribute
+    | SetSubjectAttributeValue
+    | ResetSubjectAttributeValue
+    | DetachSubjectAttribute
+    | SetSheetAttributeValue
+    | ResetSheetAttributeValue
     | GetActionFormulaAuthoringMetadata
     | GetAugmentationTargetMetadata
     | GetVariableRegistry

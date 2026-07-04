@@ -1,14 +1,14 @@
 import type {
   ActionDefinition,
   Augmentation,
-  FactDefinition,
+  AttributeDefinition,
   ItemBridge,
   ItemDefinition
 } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import {
   countItemEffectTypes,
   itemCarryStatus,
@@ -46,7 +46,7 @@ function ItemEffectSummary({
 export function SheetEquipmentSection({
   items,
   actionDefinitions,
-  factDefinitions,
+  attributeDefinitions,
   augmentations,
   itemOrder,
   selectedItemId,
@@ -61,7 +61,7 @@ export function SheetEquipmentSection({
 }: {
   items: Record<string, ItemDefinition>;
   actionDefinitions: Record<string, ActionDefinition>;
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   augmentations: Record<string, Augmentation>;
   itemOrder: string[];
   selectedItemId: string;
@@ -124,10 +124,10 @@ export function SheetEquipmentSection({
           {selectedItem.interaction_type !== "inventory_only" ? (
             <div className="muted">Granted Actions {selectedItem.action_grants?.length ?? 0}</div>
           ) : null}
-          {Object.keys(selectedItem.facts ?? {}).length > 0 ? (
-            <SheetFactsSection
-              definitions={factDefinitions}
-              bridges={selectedItem.facts ?? {}}
+          {Object.keys(selectedItem.attributes ?? {}).length > 0 ? (
+            <SheetAttributesSection
+              definitions={attributeDefinitions}
+              bridges={selectedItem.attributes ?? {}}
               canEdit={false}
               subjectType="item"
               onSaveFormula={() => undefined}
@@ -164,10 +164,10 @@ export function SheetEquipmentSection({
                 </div>
                 <div className="muted">{item.description || "(no description)"}</div>
                 <ItemEffectSummary item={item} activeEffects={activeEffects} />
-                {Object.keys(item.facts ?? {}).length > 0 ? (
-                  <SheetFactsSection
-                    definitions={factDefinitions}
-                    bridges={item.facts ?? {}}
+                {Object.keys(item.attributes ?? {}).length > 0 ? (
+                  <SheetAttributesSection
+                    definitions={attributeDefinitions}
+                    bridges={item.attributes ?? {}}
                     canEdit={false}
                     subjectType="item"
                     onSaveFormula={() => undefined}

@@ -24,7 +24,7 @@ Build a backend-authoritative Chip TTRPG character sheet and action roller.
 
 The app should be usable for local table play where:
 
-- The GM authors character/enemy templates, facts, stats, proficiencies, formulas, items, conditions, standalone effects, and actions.
+- The GM authors character/enemy templates, attributes, stats, proficiencies, formulas, items, conditions, standalone effects, and actions.
 - The GM instantiates templates into playable sheets and assigns player access codes.
 - Players view their assigned sheet, track current state, edit permitted notes/resources, and execute assigned actions.
 - Frequent low-friction state changes are tracked authoritatively, including HP, mana, conditions, equipment, item quantity, proficiency increases, and other approved action mutations.
@@ -54,11 +54,11 @@ Backend:
 - App sessions authenticate as `player` or `dm`; bridge sessions authenticate as `service`.
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
-- Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, facts, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
+- Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
-- Facts are typed backend records for sheets, items, and actions. Required facts are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
+- Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, and source-item action context are backend-authoritative.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
@@ -67,10 +67,10 @@ Frontend:
 
 - React/Vite app uses the authoritative websocket backend only; runtime mock authority has been removed.
 - Player and GM views share authoritative sheet rendering with role-specific visibility and controls.
-- GM authoring exists for templates/sheets, facts, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
-- Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Facts, Actions, Items, and Proficiencies.
+- GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
+- Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - Player entry claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
-- Character sheets display stats, resources, facts, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
+- Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Frontend shell and navigation have been reorganized for table use: persistent session status, task-oriented player tabs, compact searchable action commands, and grouped GM workspaces.
@@ -84,7 +84,7 @@ Frontend:
 
 For the MVP to be considered usable at the table:
 
-- GM can create a complete player or enemy template with stats, derived facts, proficiencies, item inventory, conditions/effects, and assigned actions.
+- GM can create a complete player or enemy template with stats, derived attributes, proficiencies, item inventory, conditions/effects, and assigned actions.
 - GM can instantiate a template into a backend-owned sheet instance.
 - GM can generate or rotate a player access code for an instance.
 - Player can claim the code and see only their permitted sheet data.
@@ -106,7 +106,7 @@ No large architecture feature is currently missing for the stated character-shee
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates
-  - core required Facts and campaign-specific optional Facts
+  - core required Attributes and campaign-specific optional Attributes
   - proficiency definitions and sheet proficiency bridges
   - common items, equipment, consumables, and inventory-only records
   - common conditions and standalone effects

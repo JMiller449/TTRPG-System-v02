@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from backend.core.transport import RequestModel
-from backend.features.facts.value_schema import FactBridgePayload
+from backend.features.attributes.value_schema import AttributeBridgePayload
 from backend.protocol.state_schema import AugmentationPayload
 
 
@@ -27,8 +27,8 @@ class ItemDefinitionPayload(BaseModel):
     gm_special_properties: str = ""
     price: str = ""
     weight: str = ""
-    fact_profile: Literal["weapon"] | None = None
-    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
+    attribute_profile: Literal["weapon"] | None = None
+    attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
 
@@ -44,7 +44,7 @@ class ItemDefinitionPayload(BaseModel):
             if self.action_grants:
                 raise ValueError("Inventory-only items cannot grant actions.")
 
-        if self.fact_profile == "weapon" and self.interaction_type != "equippable":
+        if self.attribute_profile == "weapon" and self.interaction_type != "equippable":
             raise ValueError("Weapon-profile items must be equippable.")
 
         if self.interaction_type == "consumable":

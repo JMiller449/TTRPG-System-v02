@@ -1,5 +1,5 @@
-import type { ActionDefinition, ActionStep, FactDefinition } from "@/domain/models";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import type { ActionDefinition, ActionStep, AttributeDefinition } from "@/domain/models";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 
 function stepSummary(step: ActionStep): string {
   switch (step.type) {
@@ -26,12 +26,12 @@ function stepSummary(step: ActionStep): string {
 
 export function ActionDefinitionCard({
   action,
-  factDefinitions,
+  attributeDefinitions,
   onEdit,
   onDelete
 }: {
   action: ActionDefinition;
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
@@ -55,10 +55,10 @@ export function ActionDefinitionCard({
           ))}
         </div>
       ) : null}
-      {Object.keys(action.facts ?? {}).length > 0 ? (
-        <SheetFactsSection
-          definitions={factDefinitions}
-          bridges={action.facts ?? {}}
+      {Object.keys(action.attributes ?? {}).length > 0 ? (
+        <SheetAttributesSection
+          definitions={attributeDefinitions}
+          bridges={action.attributes ?? {}}
           canEdit={false}
           subjectType="action"
           onSaveFormula={() => undefined}

@@ -14,7 +14,7 @@ import {
   dmExampleAssignedActions,
   dmExampleConcreteAugmentations,
   dmExampleEquipment,
-  dmExampleFactDefinitions,
+  dmExampleAttributeDefinitions,
   dmExampleItems
 } from "@/test/fixtures/dmExamples";
 
@@ -26,7 +26,7 @@ describe("DM example acceptance fixtures", () => {
       expect(payload.id).toBe(item.id);
       expect(payload.name).toBe(item.name);
       expect(payload.interaction_type).toBe(item.interaction_type);
-      expect(payload.facts).toEqual(item.facts ?? {});
+      expect(payload.attributes).toEqual(item.attributes ?? {});
       expect(payload.action_grants).toEqual(item.action_grants ?? []);
       expect((payload.augmentation_templates ?? []).map((effect) => effect.id)).toEqual(
         (item.augmentation_templates ?? []).map((effect) => effect.id)
@@ -43,7 +43,7 @@ describe("DM example acceptance fixtures", () => {
     expect(manaSwordModifier?.effect.selector?.same_source_item).toBe(true);
   });
 
-  it("round-trips the three supplied actions without changing ordered steps or Facts", () => {
+  it("round-trips the three supplied actions without changing ordered steps or Attributes", () => {
     for (const action of Object.values(dmExampleActions)) {
       expect(toActionDefinitionPayload(toActionEditorValues(action), action.id)).toEqual({
         id: action.id,
@@ -51,12 +51,12 @@ describe("DM example acceptance fixtures", () => {
         roll_mode_kind: action.roll_mode_kind,
         notes: action.notes,
         steps: action.steps,
-        facts: action.facts
+        attributes: action.attributes
       });
     }
   });
 
-  it("renders authoritative equipment, Facts, actions, and applied effects", () => {
+  it("renders authoritative equipment, Attributes, actions, and applied effects", () => {
     const equipmentMarkup = renderToStaticMarkup(
       <SheetEquipmentSection
         items={dmExampleItems}
@@ -64,7 +64,7 @@ describe("DM example acceptance fixtures", () => {
           weapon_damage: { id: "weapon_damage", name: "Weapon Damage" },
           weapon_parry: { id: "weapon_parry", name: "Weapon Parry" }
         }}
-        factDefinitions={dmExampleFactDefinitions}
+        attributeDefinitions={dmExampleAttributeDefinitions}
         augmentations={dmExampleConcreteAugmentations}
         itemOrder={Object.keys(dmExampleItems)}
         selectedItemId=""
@@ -99,7 +99,7 @@ describe("DM example acceptance fixtures", () => {
       <SheetActionsSection
         assignedActions={dmExampleAssignedActions}
         actionDefinitions={dmExampleActions}
-        factDefinitions={dmExampleFactDefinitions}
+        attributeDefinitions={dmExampleAttributeDefinitions}
         actionOrder={Object.keys(dmExampleActions)}
         canEdit={true}
         onCreate={() => undefined}

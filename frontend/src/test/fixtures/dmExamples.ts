@@ -2,28 +2,28 @@ import type { AssignedSheetAction, ActiveStandaloneEffect } from "@/app/state/se
 import type {
   ActionDefinition,
   Augmentation,
-  FactBridge,
-  FactDefinition,
+  AttributeBridge,
+  AttributeDefinition,
   ItemBridge,
   ItemDefinition
 } from "@/domain/models";
 
-function fact(
-  factId: string,
-  type: FactBridge["value"]["type"],
+function attribute(
+  attributeId: string,
+  type: AttributeBridge["value"]["type"],
   value: number | string
-): FactBridge {
-  const factValue =
+): AttributeBridge {
+  const attributeValue =
     type === "number"
       ? ({ type, value: Number(value) } as const)
       : type === "enum"
         ? ({ type, value: String(value) } as const)
         : ({ type: "text", value: String(value) } as const);
   return {
-    relationship_id: `fixture_fact_${factId}`,
-    fact_id: factId,
-    value: factValue,
-    evaluated_value: factValue.value,
+    relationship_id: `fixture_attribute_${attributeId}`,
+    attribute_id: attributeId,
+    value: attributeValue,
+    evaluated_value: attributeValue.value,
     evaluation_error: null
   };
 }
@@ -104,7 +104,7 @@ function rollEffect(id: string, name: string, requiredTags: string[]): Augmentat
   };
 }
 
-export const dmExampleFactDefinitions: Record<string, FactDefinition> = {
+export const dmExampleAttributeDefinitions: Record<string, AttributeDefinition> = {
   action_rank: {
     id: "action_rank",
     name: "Rank",
@@ -216,7 +216,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     weight: "15 lbs",
     augmentation_templates: lightStepsEffects,
     action_grants: [],
-    facts: {}
+    attributes: {}
   },
   never_dulls: {
     id: "never_dulls",
@@ -227,14 +227,14 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Always remains sharp and never dulls.",
     price: "500 CP",
     weight: "3 lbs",
-    fact_profile: "weapon",
+    attribute_profile: "weapon",
     augmentation_templates: neverDullsEffects,
     action_grants: [
       { action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 },
       { action_id: "weapon_parry", availability: "equipped", consume_quantity: 0 }
     ],
-    facts: {
-      weapon_base_damage: fact("weapon_base_damage", "number", 15)
+    attributes: {
+      weapon_base_damage: attribute("weapon_base_damage", "number", 15)
     }
   },
   fire_shard: {
@@ -248,7 +248,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     weight: "0.1 lbs",
     augmentation_templates: fireShardEffects,
     action_grants: [],
-    facts: { item_attribute: fact("item_attribute", "text", "Fire") }
+    attributes: { item_attribute: attribute("item_attribute", "text", "Fire") }
   },
   helm_of_sight: {
     id: "helm_of_sight",
@@ -261,7 +261,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     weight: "2 lbs",
     augmentation_templates: helmEffects,
     action_grants: [],
-    facts: {}
+    attributes: {}
   },
   pyromancy_robe: {
     id: "pyromancy_robe",
@@ -274,7 +274,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     weight: "1 lb",
     augmentation_templates: robeEffects,
     action_grants: [],
-    facts: {}
+    attributes: {}
   },
   sword_of_mana: {
     id: "sword_of_mana",
@@ -285,13 +285,13 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Conducts mana at 100% efficiency.",
     price: "N/A",
     weight: "3 lbs",
-    fact_profile: "weapon",
+    attribute_profile: "weapon",
     augmentation_templates: swordOfManaEffects,
     action_grants: [{ action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 }],
-    facts: {
-      item_mana_efficiency: fact("item_mana_efficiency", "number", 100),
-      item_flat_effect_bonus: fact("item_flat_effect_bonus", "number", 50),
-      item_mana_regeneration_modifier: fact("item_mana_regeneration_modifier", "number", 25)
+    attributes: {
+      item_mana_efficiency: attribute("item_mana_efficiency", "number", 100),
+      item_flat_effect_bonus: attribute("item_flat_effect_bonus", "number", 50),
+      item_mana_regeneration_modifier: attribute("item_mana_regeneration_modifier", "number", 25)
     }
   }
 };
@@ -319,8 +319,8 @@ export const dmExampleConcreteAugmentations: Record<string, Augmentation> = Obje
   )
 );
 
-const rankFacts = (rank: string): Record<string, FactBridge> => ({
-  action_rank: fact("action_rank", "enum", rank)
+const rankAttributes = (rank: string): Record<string, AttributeBridge> => ({
+  action_rank: attribute("action_rank", "enum", rank)
 });
 
 export const dmExampleActions: Record<string, ActionDefinition> = {
@@ -329,7 +329,7 @@ export const dmExampleActions: Record<string, ActionDefinition> = {
     name: "Parry",
     roll_mode_kind: "none",
     notes: "Allows Parry attempts and explicitly activates their advantage.",
-    facts: rankFacts("C"),
+    attributes: rankAttributes("C"),
     steps: [
       {
         step_id: "activate_parry_advantage",
@@ -345,7 +345,7 @@ export const dmExampleActions: Record<string, ActionDefinition> = {
     name: "Flames of Life",
     roll_mode_kind: "none",
     notes: "Restores 10 health for 100 mana. Limb restoration remains roleplay-only.",
-    facts: rankFacts("S"),
+    attributes: rankAttributes("S"),
     steps: [
       {
         step_id: "spend_mana",
@@ -375,7 +375,7 @@ export const dmExampleActions: Record<string, ActionDefinition> = {
     name: "Mana Manipulation",
     roll_mode_kind: "none",
     notes: "Numeric improvements require GM-authored values; timed regeneration remains manual.",
-    facts: rankFacts("A"),
+    attributes: rankAttributes("A"),
     steps: [
       {
         step_id: "activate_mana_effect_bonus",

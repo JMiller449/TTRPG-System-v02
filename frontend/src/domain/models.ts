@@ -43,20 +43,20 @@ export interface FormulaDefinition {
   formula: Formula;
 }
 
-export type FactValue =
+export type AttributeValue =
   | { type: "number"; value: number; formula?: null }
   | { type: "formula"; formula: Formula; value?: null }
   | { type: "boolean"; value: boolean; formula?: null }
   | { type: "text" | "enum" | "reference"; value: string; formula?: null }
   | { type: "list"; value: string[]; formula?: null };
 
-export interface FactDefinition {
+export interface AttributeDefinition {
   id: string;
   name: string;
   description?: string;
   subject_types: Array<"sheet" | "item" | "action">;
   value_type: "number" | "boolean" | "text" | "enum" | "reference" | "list";
-  default_value: FactValue;
+  default_value: AttributeValue;
   unit?: string;
   visibility?: "public" | "gm_only";
   validation_options?: string[];
@@ -66,10 +66,10 @@ export interface FactDefinition {
   backend_owned?: boolean;
 }
 
-export interface FactBridge {
+export interface AttributeBridge {
   relationship_id: string;
-  fact_id: string;
-  value: FactValue;
+  attribute_id: string;
+  value: AttributeValue;
   evaluated_value?: number | boolean | string | string[] | null;
   evaluation_error?: string | null;
 }
@@ -215,7 +215,7 @@ export interface ActionDefinition {
   roll_mode_kind?: ActionRollModeKind;
   notes?: string;
   steps?: ActionStep[];
-  facts?: Record<string, FactBridge>;
+  attributes?: Record<string, AttributeBridge>;
 }
 
 export type ActionRollModeKind = "none" | "check" | "damage";
@@ -362,10 +362,10 @@ export interface ItemDefinition {
   gm_special_properties?: string;
   price: string;
   weight: string;
-  fact_profile?: "weapon" | null;
+  attribute_profile?: "weapon" | null;
   augmentation_templates?: Augmentation[];
   action_grants?: ItemActionGrant[];
-  facts?: Record<string, FactBridge>;
+  attributes?: Record<string, AttributeBridge>;
 }
 
 export type ItemInteractionType = "equippable" | "consumable" | "inventory_only";
@@ -467,7 +467,7 @@ export interface Sheet {
   resistances?: Resistances;
   slayed_record: Record<string, SheetSlayedBridge>;
   actions: Record<string, Bridge>;
-  facts?: Record<string, FactBridge>;
+  attributes?: Record<string, AttributeBridge>;
 }
 
 export interface PersistentSheet {

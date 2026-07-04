@@ -16,21 +16,21 @@ from backend.features.sheet_admin.shared.schema import (
     DeleteEntity,
     UpdateEntity,
 )
-from backend.features.facts.service import (
-    validate_and_evaluate_subject_facts,
-    validate_subject_fact_value,
+from backend.features.attributes.service import (
+    validate_and_evaluate_subject_attributes,
+    validate_subject_attribute_value,
 )
 from backend.features.sheet_admin.formulas.service import validate_formula_alias_paths
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.models.augmentation import Augmentation, AugmentationSource
-from backend.state.models.fact import (
-    WEAPON_FACT_IDS,
-    WEAPON_GOVERNING_STAT_FACT_ID,
-    WEAPON_PROFICIENCY_FACT_ID,
-    FactBridge,
-    FactDefinition,
-    synchronize_required_item_facts,
+from backend.state.models.attribute import (
+    WEAPON_ATTRIBUTE_IDS,
+    WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
+    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
+    AttributeBridge,
+    AttributeDefinition,
+    synchronize_required_item_attributes,
 )
 from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.state import State
@@ -60,7 +60,7 @@ def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
         )
 
 
-def _is_valid_numeric_fact(bridge: FactBridge) -> bool:
+def _is_valid_numeric_attribute(bridge: AttributeBridge) -> bool:
     value = bridge.evaluated_value
     return (
         bridge.evaluation_error is None
@@ -69,49 +69,49 @@ def _is_valid_numeric_fact(bridge: FactBridge) -> bool:
     )
 
 
-def _validate_item_numeric_fact_alias(
+def _validate_item_numeric_attribute_alias(
     *,
     state: State,
     item: Item,
-    fact_id: str,
+    attribute_id: str,
     alias_name: str,
 ) -> None:
-    definition = state.facts.get(fact_id)
+    definition = state.attributes.get(attribute_id)
     if (
         definition is None
         or definition.value_type != "number"
         or "item" not in definition.subject_types
     ):
         raise ValueError(
-            f"Formula alias '{alias_name}' does not reference a numeric item Fact."
+            f"Formula alias '{alias_name}' does not reference a numeric item Attribute."
         )
-    _validate_item_fact_profile(definition, item, alias_name)
-    bridge = item.facts.get(fact_id)
-    if bridge is None or bridge.fact_id != fact_id:
+    _validate_item_attribute_profile(definition, item, alias_name)
+    bridge = item.attributes.get(attribute_id)
+    if bridge is None or bridge.attribute_id != attribute_id:
         raise ValueError(
-            f"Formula alias '{alias_name}' references Fact '{fact_id}', but it is "
+            f"Formula alias '{alias_name}' references Attribute '{attribute_id}', but it is "
             "not attached to this item."
         )
     if bridge.evaluation_error is not None:
         raise ValueError(
-            f"Formula alias '{alias_name}' references invalid Fact '{fact_id}': "
+            f"Formula alias '{alias_name}' references invalid Attribute '{attribute_id}': "
             f"{bridge.evaluation_error}"
         )
-    if not _is_valid_numeric_fact(bridge):
+    if not _is_valid_numeric_attribute(bridge):
         raise ValueError(
-            f"Formula alias '{alias_name}' references Fact '{fact_id}', but its "
+            f"Formula alias '{alias_name}' references Attribute '{attribute_id}', but its "
             "evaluated value is not numeric."
         )
 
 
-def _validate_item_fact_profile(
-    definition: FactDefinition,
+def _validate_item_attribute_profile(
+    definition: AttributeDefinition,
     item: Item,
     alias_name: str,
 ) -> None:
     if (
         definition.required_profile is not None
-        and definition.required_profile != item.fact_profile
+        and definition.required_profile != item.attribute_profile
     ):
         raise ValueError(
             f"Formula alias '{alias_name}' requires source-item profile "
@@ -126,16 +126,16 @@ def _validate_item_resolved_alias(
     alias_name: str,
 ) -> None:
     if path == ["source_item", "resolved", "governing_stat"]:
-        required_fact_id = WEAPON_GOVERNING_STAT_FACT_ID
+        required_attribute_id = WEAPON_GOVERNING_STAT_ATTRIBUTE_ID
     elif path == ["source_item", "resolved", "proficiency_modifier"]:
-        required_fact_id = WEAPON_PROFICIENCY_FACT_ID
+        required_attribute_id = WEAPON_PROFICIENCY_ATTRIBUTE_ID
     else:
         raise ValueError(f"Source-item alias '{alias_name}' is not supported.")
 
-    if item.fact_profile != "weapon" or required_fact_id not in item.facts:
+    if item.attribute_profile != "weapon" or required_attribute_id not in item.attributes:
         raise ValueError(
             f"Source-item alias '{alias_name}' requires a weapon item with "
-            f"Fact '{required_fact_id}'."
+            f"Attribute '{required_attribute_id}'."
         )
 
 
@@ -159,16 +159,16 @@ def _validate_item_augmentation_formula_aliases(
                     "direct wearer effect."
                 )
             continue
-        if len(path) >= 2 and path[:2] == ["source_item", "facts"]:
+        if len(path) >= 2 and path[:2] == ["source_item", "attributes"]:
             if len(path) != 3:
                 raise ValueError(
-                    f"Source-item Fact alias '{alias.name}' must reference "
-                    "source_item.facts.<fact_id>."
+                    f"Source-item Attribute alias '{alias.name}' must reference "
+                    "source_item.attributes.<attribute_id>."
                 )
-            _validate_item_numeric_fact_alias(
+            _validate_item_numeric_attribute_alias(
                 state=state,
                 item=item,
-                fact_id=path[2],
+                attribute_id=path[2],
                 alias_name=alias.name,
             )
             continue
@@ -227,7 +227,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
-        fact_profile=payload.fact_profile,
+        attribute_profile=payload.attribute_profile,
         augmentation_templates=_build_item_augmentation_templates(payload),
         action_grants=[
             ItemActionGrant(
@@ -237,44 +237,44 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
             )
             for grant in payload.action_grants
         ],
-        facts={
-            fact_id: FactBridge.from_dict(bridge.model_dump(mode="json"))
-            for fact_id, bridge in payload.facts.items()
+        attributes={
+            attribute_id: AttributeBridge.from_dict(bridge.model_dump(mode="json"))
+            for attribute_id, bridge in payload.attributes.items()
         },
     )
 
 
-def _validate_item_facts(item: Item, state: State) -> None:
-    synchronize_required_item_facts(item, state.facts)
+def _validate_item_attributes(item: Item, state: State) -> None:
+    synchronize_required_item_attributes(item, state.attributes)
     relationship_ids: set[str] = set()
-    for fact_id, bridge in item.facts.items():
-        if bridge.fact_id != fact_id:
+    for attribute_id, bridge in item.attributes.items():
+        if bridge.attribute_id != attribute_id:
             raise ValueError(
-                f"Item Fact bridge key '{fact_id}' does not match '{bridge.fact_id}'."
+                f"Item Attribute bridge key '{attribute_id}' does not match '{bridge.attribute_id}'."
             )
         if bridge.relationship_id in relationship_ids:
             raise ValueError(
-                f"Item Fact relationship '{bridge.relationship_id}' is duplicated."
+                f"Item Attribute relationship '{bridge.relationship_id}' is duplicated."
             )
         relationship_ids.add(bridge.relationship_id)
-        definition = state.facts.get(fact_id)
+        definition = state.attributes.get(attribute_id)
         if definition is None or "item" not in definition.subject_types:
-            raise ValueError(f"Item Fact '{fact_id}' does not exist.")
+            raise ValueError(f"Item Attribute '{attribute_id}' does not exist.")
         if (
             definition.required_profile is not None
-            and definition.required_profile != item.fact_profile
+            and definition.required_profile != item.attribute_profile
         ):
             raise ValueError(
-                f"Fact '{fact_id}' requires item profile "
+                f"Attribute '{attribute_id}' requires item profile "
                 f"'{definition.required_profile}'."
             )
-        validate_subject_fact_value(state, "item", item, definition, bridge.value)
+        validate_subject_attribute_value(state, "item", item, definition, bridge.value)
 
-    if item.fact_profile == "weapon":
-        missing = [fact_id for fact_id in WEAPON_FACT_IDS if fact_id not in item.facts]
+    if item.attribute_profile == "weapon":
+        missing = [attribute_id for attribute_id in WEAPON_ATTRIBUTE_IDS if attribute_id not in item.attributes]
         if missing:
-            raise ValueError("Weapon profile is missing required Facts: " + ", ".join(missing))
-    validate_and_evaluate_subject_facts(item)
+            raise ValueError("Weapon profile is missing required Attributes: " + ", ".join(missing))
+    validate_and_evaluate_subject_attributes(item)
 
 
 def _validate_item_action_grants(item: Item, state: State) -> None:
@@ -337,7 +337,7 @@ async def _create_item(
         items = _items_state(state)
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
-        _validate_item_facts(item, state)
+        _validate_item_attributes(item, state)
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
@@ -364,7 +364,7 @@ async def _update_item(
         if item_id not in items:
             raise ValueError(f"Item '{item_id}' does not exist.")
 
-        _validate_item_facts(item, state)
+        _validate_item_attributes(item, state)
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)

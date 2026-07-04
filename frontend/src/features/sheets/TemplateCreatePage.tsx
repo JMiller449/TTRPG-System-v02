@@ -33,7 +33,7 @@ interface PendingTemplateSave {
 export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
   const { serverState } = state;
-  const { actions, actionOrder, proficiencies, proficiencyOrder, items, itemOrder, facts, sheets } =
+  const { actions, actionOrder, proficiencies, proficiencyOrder, items, itemOrder, attributes, sheets } =
     serverState;
   const {
     templateBuilderSheetId,
@@ -50,7 +50,7 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
   const [values, setValues] = useState<TemplateEditorValues>(() =>
     sourceSheet
       ? toTemplateEditorValues(sourceSheet)
-      : createEmptyTemplateEditorValues("player", facts, formulaDefaults)
+      : createEmptyTemplateEditorValues("player", attributes, formulaDefaults)
   );
   const [pendingSave, setPendingSave] = useState<PendingTemplateSave | null>(null);
   const [contextualKind, setContextualKind] = useState<TemplateContextualEntityKind | null>(null);
@@ -60,8 +60,8 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
   const requestedMetadataRef = useRef(false);
   const requestedItemMetadataRef = useRef(false);
   const catalogs = useMemo(
-    () => ({ actions, proficiencies, items, facts }),
-    [actions, facts, items, proficiencies]
+    () => ({ actions, proficiencies, items, attributes }),
+    [actions, attributes, items, proficiencies]
   );
 
   useEffect(() => {
@@ -74,9 +74,9 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
     setValues(
       templateBuilderSheetId && sheets[templateBuilderSheetId]
         ? toTemplateEditorValues(sheets[templateBuilderSheetId])
-        : createEmptyTemplateEditorValues("player", facts, formulaDefaults)
+        : createEmptyTemplateEditorValues("player", attributes, formulaDefaults)
     );
-  }, [facts, formulaDefaults, formulaDefaultsReady, sheets, templateBuilderSheetId]);
+  }, [attributes, formulaDefaults, formulaDefaultsReady, sheets, templateBuilderSheetId]);
 
   useEffect(() => {
     if (!templateBuilderSheetId || sourceSheet) {
@@ -222,7 +222,7 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
           proficiencyOrder={proficiencyOrder}
           items={items}
           itemOrder={itemOrder}
-          facts={facts}
+          attributes={attributes}
           metadata={actionFormulaAuthoringMetadata}
           pending={Boolean(pendingSave)}
           onCreateReference={openContextualDialog}

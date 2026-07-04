@@ -3,23 +3,23 @@ import { describe, expect, it } from "vitest";
 import { ActionDefinitionCard } from "@/features/actions/components/ActionDefinitionCard";
 
 describe("ActionDefinitionCard", () => {
-  it("renders authoritative Action Facts", () => {
+  it("renders authoritative Action Attributes", () => {
     const markup = renderToStaticMarkup(
       <ActionDefinitionCard
         action={{
           id: "fire_bolt",
           name: "Fire Bolt",
-          facts: {
+          attributes: {
             action_mana_cost: {
               relationship_id: "fire-bolt-mana",
-              fact_id: "action_mana_cost",
+              attribute_id: "action_mana_cost",
               value: { type: "number", value: 25 },
               evaluated_value: 25,
               evaluation_error: null
             }
           }
         }}
-        factDefinitions={{
+        attributeDefinitions={{
           action_mana_cost: {
             id: "action_mana_cost",
             name: "Mana Cost",

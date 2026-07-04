@@ -1,4 +1,4 @@
-# Some possible other facts:
+# Some possible other attributes:
 level
 movement
 
@@ -12,7 +12,7 @@ Current starter records include:
 
 - Player templates: Ember Ranker Arin Vale, Shadowblade Mina Seo.
 - Enemy templates: Red Gate Goblin, Ash Wraith.
-- Campaign Facts: Campaign Role, Gate Affinity, Guild Rank.
+- Campaign Attributes: Campaign Role, Gate Affinity, Guild Rank.
 - Custom proficiencies: Pyromancy, Shadow Steps, Gate Lore, plus seeded weapon
   families such as Long Swords and Knives.
 - Items: equippable gear and weapons, consumables, and inventory-only records.

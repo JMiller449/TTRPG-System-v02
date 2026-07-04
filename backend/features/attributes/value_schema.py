@@ -4,82 +4,82 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-class FactProtocolModel(BaseModel):
+class AttributeProtocolModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class NumberFactValuePayload(FactProtocolModel):
+class NumberAttributeValuePayload(AttributeProtocolModel):
     type: Literal["number"]
     value: float
     formula: None = None
 
 
-class FactFormulaAliasPayload(FactProtocolModel):
+class AttributeFormulaAliasPayload(AttributeProtocolModel):
     name: str
     path: list[str]
 
 
-class FactFormulaPayload(FactProtocolModel):
-    aliases: list[FactFormulaAliasPayload] | None
+class AttributeFormulaPayload(AttributeProtocolModel):
+    aliases: list[AttributeFormulaAliasPayload] | None
     text: str
     tags: list[str] = Field(default_factory=list)
 
 
-class FormulaFactValuePayload(FactProtocolModel):
+class FormulaAttributeValuePayload(AttributeProtocolModel):
     type: Literal["formula"]
-    formula: FactFormulaPayload
+    formula: AttributeFormulaPayload
     value: None = None
 
 
-class BooleanFactValuePayload(FactProtocolModel):
+class BooleanAttributeValuePayload(AttributeProtocolModel):
     type: Literal["boolean"]
     value: bool
     formula: None = None
 
 
-class TextFactValuePayload(FactProtocolModel):
+class TextAttributeValuePayload(AttributeProtocolModel):
     type: Literal["text"]
     value: str
     formula: None = None
 
 
-class EnumFactValuePayload(FactProtocolModel):
+class EnumAttributeValuePayload(AttributeProtocolModel):
     type: Literal["enum"]
     value: str
     formula: None = None
 
 
-class ReferenceFactValuePayload(FactProtocolModel):
+class ReferenceAttributeValuePayload(AttributeProtocolModel):
     type: Literal["reference"]
     value: str
     formula: None = None
 
 
-class ListFactValuePayload(FactProtocolModel):
+class ListAttributeValuePayload(AttributeProtocolModel):
     type: Literal["list"]
     value: list[str]
     formula: None = None
 
 
-FactValuePayload = Annotated[
-    NumberFactValuePayload
-    | FormulaFactValuePayload
-    | BooleanFactValuePayload
-    | TextFactValuePayload
-    | EnumFactValuePayload
-    | ReferenceFactValuePayload
-    | ListFactValuePayload,
+AttributeValuePayload = Annotated[
+    NumberAttributeValuePayload
+    | FormulaAttributeValuePayload
+    | BooleanAttributeValuePayload
+    | TextAttributeValuePayload
+    | EnumAttributeValuePayload
+    | ReferenceAttributeValuePayload
+    | ListAttributeValuePayload,
     Field(discriminator="type"),
 ]
 
 
-class FactDefinitionPayload(FactProtocolModel):
+class AttributeDefinitionPayload(AttributeProtocolModel):
     id: str
     name: str
     description: str = ""
     subject_types: list[Literal["sheet", "item", "action"]]
     value_type: Literal["number", "boolean", "text", "enum", "reference", "list"]
-    default_value: FactValuePayload
+    default_value: AttributeValuePayload
     unit: str = ""
     visibility: Literal["public", "gm_only"] = "public"
     validation_options: list[str] = Field(default_factory=list)
@@ -89,9 +89,9 @@ class FactDefinitionPayload(FactProtocolModel):
     backend_owned: bool = False
 
 
-class FactBridgePayload(FactProtocolModel):
+class AttributeBridgePayload(AttributeProtocolModel):
     relationship_id: str
-    fact_id: str
-    value: FactValuePayload
+    attribute_id: str
+    value: AttributeValuePayload
     evaluated_value: float | int | bool | str | list[str] | None = None
     evaluation_error: str | None = None

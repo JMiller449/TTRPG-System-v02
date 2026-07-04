@@ -4,7 +4,7 @@ import type { ActionFormulaAuthoringMetadata, AugmentationTargetMetadata } from 
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 import { buildCreateActionSubmission } from "@/features/actions/actionAuthoringRequests";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
-import { ActionFactsEditor } from "@/features/actions/components/ActionFactsEditor";
+import { ActionAttributesEditor } from "@/features/actions/components/ActionAttributesEditor";
 import { ActionPresetPicker } from "@/features/actions/components/ActionPresetPicker";
 import {
   applyActionPresetTemplate,
@@ -22,10 +22,10 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
-import { FactEditorForm } from "@/features/facts/components/FactEditorForm";
-import { emptyFactDraft, factPayloadFromDraft } from "@/features/facts/factEditorValues";
+import { AttributeEditorForm } from "@/features/attributes/components/AttributeEditorForm";
+import { emptyAttributeDraft, attributePayloadFromDraft } from "@/features/attributes/attributeEditorValues";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
-import { ItemFactsEditor } from "@/features/items/components/ItemFactsEditor";
+import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
 import { buildCreateItemSubmission } from "@/features/items/itemMakerRequests";
 import { createEmptyItemValues, type ItemEditorValues } from "@/features/items/itemEditorValues";
 import { ProficiencyEditorForm } from "@/features/proficiencies/components/ProficiencyEditorForm";
@@ -36,7 +36,7 @@ import {
 } from "@/features/proficiencies/proficiencyEditorValues";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
-import { buildCreateFactRequest } from "@/infrastructure/ws/requestBuilders";
+import { buildCreateAttributeRequest } from "@/infrastructure/ws/requestBuilders";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
 
@@ -49,9 +49,9 @@ export interface TemplateContextualCreateSubmission {
 }
 
 const DIALOG_COPY: Record<TemplateContextualEntityKind, { title: string; description: string }> = {
-  fact: {
-    title: "Create and attach Fact",
-    description: "Create a sheet-compatible Fact. It attaches after the backend confirms it."
+  attribute: {
+    title: "Create and attach Attribute",
+    description: "Create a sheet-compatible Attribute. It attaches after the backend confirms it."
   },
   proficiency: {
     title: "Create and attach Proficiency",
@@ -91,7 +91,7 @@ export function TemplateContextualCreateDialog({
   onSubmit: (submission: TemplateContextualCreateSubmission) => void;
   onClose: () => void;
 }): JSX.Element {
-  const [factDraft, setFactDraft] = useState(() => emptyFactDraft());
+  const [attributeDraft, setAttributeDraft] = useState(() => emptyAttributeDraft());
   const [proficiencyValues, setProficiencyValues] = useState<ProficiencyEditorValues>(
     createEmptyProficiencyEditorValues
   );
@@ -149,7 +149,7 @@ export function TemplateContextualCreateDialog({
       ? augmentationTargetMetadata.targets
       : [];
   const actionValidationError = getActionEditorValidationError(actionValues, {
-    definitions: serverState.facts,
+    definitions: serverState.attributes,
     proficiencies: serverState.proficiencies
   });
   const proficiencyId = proficiencyValues.id.trim();
@@ -176,13 +176,13 @@ export function TemplateContextualCreateDialog({
     });
   };
 
-  const submitFact = (): void => {
-    const factId = makeId("fact");
-    const fact = factPayloadFromDraft(factDraft, factId);
-    if (!fact) {
+  const submitAttribute = (): void => {
+    const attributeId = makeId("attribute");
+    const attribute = attributePayloadFromDraft(attributeDraft, attributeId);
+    if (!attribute) {
       return;
     }
-    submit("fact", factId, buildCreateFactRequest({ fact }), `Create Fact: ${fact.name}`);
+    submit("attribute", attributeId, buildCreateAttributeRequest({ attribute }), `Create Attribute: ${attribute.name}`);
   };
 
   const submitProficiency = (): void => {
@@ -199,7 +199,7 @@ export function TemplateContextualCreateDialog({
   const submitItem = (): void => {
     const itemId = makeId("item");
     const submission = buildCreateItemSubmission(itemValues, itemId, {
-      definitions: serverState.facts,
+      definitions: serverState.attributes,
       proficiencies: serverState.proficiencies
     });
     if (!submission) {
@@ -211,7 +211,7 @@ export function TemplateContextualCreateDialog({
   const submitAction = (): void => {
     const actionId = makeId("action");
     const submission = buildCreateActionSubmission(actionValues, actionId, {
-      definitions: serverState.facts,
+      definitions: serverState.attributes,
       proficiencies: serverState.proficiencies
     });
     if (!submission) {
@@ -254,18 +254,18 @@ export function TemplateContextualCreateDialog({
       title={copy.title}
       description={copy.description}
       pending={pending}
-      size={kind === "fact" || kind === "proficiency" ? "compact" : "large"}
+      size={kind === "attribute" || kind === "proficiency" ? "compact" : "large"}
       onClose={onClose}
     >
-      {kind === "fact" ? (
-        <FactEditorForm
+      {kind === "attribute" ? (
+        <AttributeEditorForm
           editingId={null}
-          draft={factDraft}
+          draft={attributeDraft}
           metadata={formulaMetadata}
           pending={pending}
           requiredSubjectType="sheet"
-          onChange={setFactDraft}
-          onSubmit={submitFact}
+          onChange={setAttributeDraft}
+          onSubmit={submitAttribute}
         />
       ) : null}
       {kind === "proficiency" ? (
@@ -286,12 +286,12 @@ export function TemplateContextualCreateDialog({
           pending={pending}
           onChange={setItemValues}
           actions={actions}
-          factDefinitions={serverState.facts}
+          attributeDefinitions={serverState.attributes}
           proficiencies={serverState.proficiencies}
-          factsEditor={
-            <ItemFactsEditor
+          attributesEditor={
+            <ItemAttributesEditor
               values={itemValues}
-              definitions={serverState.facts}
+              definitions={serverState.attributes}
               proficiencies={serverState.proficiencies}
               metadata={formulaMetadata}
               onChange={setItemValues}
@@ -339,8 +339,8 @@ export function TemplateContextualCreateDialog({
                 applyActionPresetTemplate(
                   createEmptyActionEditorValues(),
                   preset,
-                  serverState.facts,
-                  () => makeId("action_fact")
+                  serverState.attributes,
+                  () => makeId("action_attribute")
                 )
               )
             }
@@ -358,10 +358,10 @@ export function TemplateContextualCreateDialog({
             standaloneEffects={standaloneEffects}
             conditions={conditions}
             validationError={actionValidationError}
-            factsEditor={
-              <ActionFactsEditor
+            attributesEditor={
+              <ActionAttributesEditor
                 values={actionValues}
-                definitions={serverState.facts}
+                definitions={serverState.attributes}
                 proficiencies={serverState.proficiencies}
                 metadata={formulaMetadata}
                 onChange={setActionValues}

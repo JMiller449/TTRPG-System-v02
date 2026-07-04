@@ -1,8 +1,8 @@
 import type {
   ActionDefinition,
-  FactBridge,
-  FactDefinition,
-  FactValue,
+  AttributeBridge,
+  AttributeDefinition,
+  AttributeValue,
   Formula,
   ItemDefinition,
   ProficiencyDefinition,
@@ -40,7 +40,7 @@ export interface TemplateReferenceCatalogs {
   actions: Record<string, ActionDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
   items: Record<string, ItemDefinition>;
-  facts: Record<string, FactDefinition>;
+  attributes: Record<string, AttributeDefinition>;
 }
 
 export interface TemplateEditorValidation {
@@ -99,17 +99,17 @@ function createFormulaStats(stats: Stats): Record<SheetFormulaStatName, Formula>
   ) as Record<SheetFormulaStatName, Formula>;
 }
 
-function createRequiredSheetFacts(
-  definitions: Record<string, FactDefinition>
-): Record<string, FactBridge> {
+function createRequiredSheetAttributes(
+  definitions: Record<string, AttributeDefinition>
+): Record<string, AttributeBridge> {
   return Object.fromEntries(
     Object.values(definitions)
       .filter((definition) => definition.required && definition.subject_types.includes("sheet"))
       .map((definition) => [
         definition.id,
         {
-          relationship_id: `required_fact_${definition.id}`,
-          fact_id: definition.id,
+          relationship_id: `required_attribute_${definition.id}`,
+          attribute_id: definition.id,
           value: structuredClone(definition.default_value),
           evaluated_value: null,
           evaluation_error: null
@@ -120,7 +120,7 @@ function createRequiredSheetFacts(
 
 export function createEmptyTemplateEditorValues(
   kind: SheetKind = "player",
-  factDefinitions: Record<string, FactDefinition> = {},
+  attributeDefinitions: Record<string, AttributeDefinition> = {},
   formulaDefaults: SheetFormulaStatDefaults = []
 ): TemplateEditorValues {
   const stats = createDefaultStats(formulaDefaults);
@@ -135,7 +135,7 @@ export function createEmptyTemplateEditorValues(
       {} as TemplateEditorValues["coreStats"]
     ),
     formulaStats: createFormulaStats(stats),
-    facts: createRequiredSheetFacts(factDefinitions),
+    attributes: createRequiredSheetAttributes(attributeDefinitions),
     resistances: toResistancePercentDraft(undefined),
     actions: [],
     proficiencies: [],
@@ -170,7 +170,7 @@ function emptyErrors(): TemplateEditorErrors {
   return {
     details: [],
     stats: [],
-    facts: [],
+    attributes: [],
     resistances: [],
     actions: [],
     proficiencies: [],
@@ -207,39 +207,39 @@ export function validateTemplateEditorValues(
     errors.stats.push("Every formula stat needs a formula and valid variable aliases.");
   }
 
-  const factDefinitions = catalogs.facts ?? {};
-  const factEntries = Object.entries(values.facts);
-  const factBridges = factEntries.map(([, bridge]) => bridge);
-  const factRelationshipIds = factBridges.map((bridge) => bridge.relationship_id);
-  if (hasDuplicates(factRelationshipIds) || factRelationshipIds.some((id) => !id)) {
-    errors.facts.push("Fact assignments must have unique relationship IDs.");
+  const attributeDefinitions = catalogs.attributes ?? {};
+  const attributeEntries = Object.entries(values.attributes);
+  const attributeBridges = attributeEntries.map(([, bridge]) => bridge);
+  const attributeRelationshipIds = attributeBridges.map((bridge) => bridge.relationship_id);
+  if (hasDuplicates(attributeRelationshipIds) || attributeRelationshipIds.some((id) => !id)) {
+    errors.attributes.push("Attribute assignments must have unique relationship IDs.");
   }
-  if (factEntries.some(([factId, bridge]) => factId !== bridge.fact_id)) {
-    errors.facts.push("Every Fact assignment key must match its Fact definition ID.");
+  if (attributeEntries.some(([attributeId, bridge]) => attributeId !== bridge.attribute_id)) {
+    errors.attributes.push("Every Attribute assignment key must match its Attribute definition ID.");
   }
   if (
-    factBridges.some(
+    attributeBridges.some(
       (bridge) =>
-        !factDefinitions[bridge.fact_id] ||
-        !factDefinitions[bridge.fact_id]?.subject_types.includes("sheet")
+        !attributeDefinitions[bridge.attribute_id] ||
+        !attributeDefinitions[bridge.attribute_id]?.subject_types.includes("sheet")
     )
   ) {
-    errors.facts.push(
-      "Every attached Fact must support sheets and reference an available definition."
+    errors.attributes.push(
+      "Every attached Attribute must support sheets and reference an available definition."
     );
   }
   if (
-    Object.values(factDefinitions).some(
+    Object.values(attributeDefinitions).some(
       (definition) =>
         definition.required &&
         definition.subject_types.includes("sheet") &&
-        !values.facts[definition.id]
+        !values.attributes[definition.id]
     )
   ) {
-    errors.facts.push("Every required sheet Fact must remain attached.");
+    errors.attributes.push("Every required sheet Attribute must remain attached.");
   }
-  if (factBridges.some((bridge) => !isValidFactValue(bridge.value))) {
-    errors.facts.push("Every Fact needs a valid value or formula.");
+  if (attributeBridges.some((bridge) => !isValidAttributeValue(bridge.value))) {
+    errors.attributes.push("Every Attribute needs a valid value or formula.");
   }
 
   if (!parseResistancePercentDraft(values.resistances)) {
@@ -325,7 +325,7 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     xpCap: sheet.xp_cap ?? "",
     coreStats,
     formulaStats: createFormulaStats(sheet.stats),
-    facts: structuredClone(sheet.facts ?? {}),
+    attributes: structuredClone(sheet.attributes ?? {}),
     resistances: toResistancePercentDraft(sheet.resistances),
     actions: Object.values(sheet.actions).map((bridge) => ({
       relationshipId: bridge.relationship_id,
@@ -409,12 +409,12 @@ export function toSheetDefinitionPayload(
         { relationship_id: entry.relationshipId, entry_id: entry.actionId }
       ])
     ),
-    facts: Object.fromEntries(
-      Object.entries(values.facts).map(([factId, bridge]) => [
-        factId,
+    attributes: Object.fromEntries(
+      Object.entries(values.attributes).map(([attributeId, bridge]) => [
+        attributeId,
         {
           relationship_id: bridge.relationship_id,
-          fact_id: bridge.fact_id,
+          attribute_id: bridge.attribute_id,
           value: structuredClone(bridge.value),
           evaluated_value: null,
           evaluation_error: null
@@ -436,7 +436,7 @@ function parseFiniteFormulaNumber(text: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function isValidFactValue(value: FactValue): boolean {
+function isValidAttributeValue(value: AttributeValue): boolean {
   if (value.type === "formula") {
     return (
       Boolean(value.formula.text.trim()) &&

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
-from backend.features.facts.value_schema import FactBridgePayload
+from backend.features.attributes.value_schema import AttributeBridgePayload
 from backend.state.models.damage import DamageType
 
 
@@ -120,7 +120,7 @@ class ActionDefinitionPayload(BaseModel):
     roll_mode_kind: Literal["none", "check", "damage"] = "none"
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
-    facts: dict[str, FactBridgePayload] = Field(default_factory=dict)
+    attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_step_ids_and_calculated_value_references(

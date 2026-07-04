@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
-  FactDefinition,
+  AttributeDefinition,
   ItemDefinition,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -12,7 +12,7 @@ import {
   TemplateProficienciesSection
 } from "@/features/sheets/components/TemplateAssignmentsSection";
 import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
-import { TemplateFactsSection } from "@/features/sheets/components/TemplateFactsSection";
+import { TemplateAttributesSection } from "@/features/sheets/components/TemplateAttributesSection";
 import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
 import { TemplateStatsSection } from "@/features/sheets/components/TemplateStatsSection";
 import type {
@@ -29,7 +29,7 @@ import type { TemplateContextualEntityKind } from "@/features/sheets/templateCon
 const SECTIONS: ReadonlyArray<{ id: TemplateEditorSection; label: string }> = [
   { id: "details", label: "Details" },
   { id: "stats", label: "Stats" },
-  { id: "facts", label: "Facts" },
+  { id: "attributes", label: "Attributes" },
   { id: "resistances", label: "Resistances" },
   { id: "actions", label: "Actions" },
   { id: "proficiencies", label: "Proficiencies" },
@@ -69,7 +69,7 @@ export function TemplateEditorForm({
   proficiencyOrder,
   items,
   itemOrder,
-  facts,
+  attributes,
   metadata,
   pending = false,
   onCreateReference,
@@ -86,7 +86,7 @@ export function TemplateEditorForm({
   proficiencyOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
-  facts: Record<string, FactDefinition>;
+  attributes: Record<string, AttributeDefinition>;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
   onCreateReference?: (kind: TemplateContextualEntityKind) => void;
@@ -96,8 +96,8 @@ export function TemplateEditorForm({
 }): JSX.Element {
   const [activeSection, setActiveSection] = useState<TemplateEditorSection>("details");
   const catalogs: TemplateReferenceCatalogs = useMemo(
-    () => ({ actions, proficiencies, items, facts }),
-    [actions, facts, items, proficiencies]
+    () => ({ actions, proficiencies, items, attributes }),
+    [actions, attributes, items, proficiencies]
   );
   const validation = useMemo(
     () => validateTemplateEditorValues(values, catalogs),
@@ -154,10 +154,10 @@ export function TemplateEditorForm({
         {activeSection === "stats" ? (
           <TemplateStatsSection values={values} metadata={metadata} onChange={onChange} />
         ) : null}
-        {activeSection === "facts" ? (
-          <TemplateFactsSection
+        {activeSection === "attributes" ? (
+          <TemplateAttributesSection
             values={values}
-            definitions={facts}
+            definitions={attributes}
             metadata={metadata}
             onCreateNew={onCreateReference}
             onChange={onChange}

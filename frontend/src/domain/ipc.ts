@@ -5,7 +5,7 @@ import type {
   Augmentation,
   ConditionPreset,
   EncounterPreset,
-  FactDefinition,
+  AttributeDefinition,
   FormulaDefinition,
   ItemDefinition,
   PersistentSheetRecord,
@@ -52,7 +52,7 @@ export interface AppSnapshot {
   proficiencies: ProficiencyDefinition[];
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];
-  facts?: FactDefinition[];
+  attributes?: AttributeDefinition[];
   augmentations?: Augmentation[];
   standaloneEffects?: StandaloneEffectDefinition[];
   standaloneEffectApplications?: StandaloneEffectApplication[];

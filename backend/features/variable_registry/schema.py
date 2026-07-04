@@ -111,7 +111,7 @@ class FormulaAliasMetadata:
 
 
 @dataclass
-class FactFormulaVariablePathMetadata:
+class AttributeFormulaVariablePathMetadata:
     key: str
     label: str
     subject_types: list[Literal["sheet", "item", "action"]]
@@ -146,15 +146,15 @@ class ActionPresetTemplate:
     steps: list[dict]
     editable_formula_fields: list[str]
     roll_mode_kind: Literal["none", "check", "damage"] = "none"
-    fact_values: dict[str, dict] = field(default_factory=dict)
+    attribute_values: dict[str, dict] = field(default_factory=dict)
 
 
 @dataclass
-class ActionFactPreset:
+class ActionAttributePreset:
     id: str
     label: str
     description: str
-    fact_values: dict[str, dict]
+    attribute_values: dict[str, dict]
 
 
 @dataclass
@@ -165,8 +165,8 @@ class ActionFormulaAuthoringMetadata(ResponseModel):
     formula_aliases: list[FormulaAliasMetadata]
     action_steps: list[ActionStepAuthoringMetadata]
     action_preset_templates: list[ActionPresetTemplate]
-    action_fact_presets: list[ActionFactPreset]
-    fact_formula_variables: list[FactFormulaVariablePathMetadata] = field(
+    action_attribute_presets: list[ActionAttributePreset]
+    attribute_formula_variables: list[AttributeFormulaVariablePathMetadata] = field(
         default_factory=list
     )
     sheet_formula_stat_defaults: list[SheetFormulaStatDefaultMetadata] = field(

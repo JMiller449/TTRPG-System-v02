@@ -2,23 +2,23 @@ import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { FormulaAlias } from "@/domain/models";
 import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
 
-type FactFormulaVariable = NonNullable<
-  ActionFormulaAuthoringMetadata["fact_formula_variables"]
+type AttributeFormulaVariable = NonNullable<
+  ActionFormulaAuthoringMetadata["attribute_formula_variables"]
 >[number];
 
-export interface FactFormulaVariableEntry {
+export interface AttributeFormulaVariableEntry {
   key: string;
   label: string;
-  subjectTypes: FactFormulaVariable["subject_types"];
+  subjectTypes: AttributeFormulaVariable["subject_types"];
   path: string[];
-  valueType: FactFormulaVariable["value_type"];
+  valueType: AttributeFormulaVariable["value_type"];
   description: string;
   shortcuts: string[];
   token: string;
   alias: FormulaAlias;
 }
 
-function aliasName(variable: FactFormulaVariable): string {
+function aliasName(variable: AttributeFormulaVariable): string {
   return (
     variable.shortcuts?.find((shortcut) => shortcut.trim().length > 0) ??
     variable.path.at(-1) ??
@@ -26,14 +26,14 @@ function aliasName(variable: FactFormulaVariable): string {
   );
 }
 
-export function buildFactFormulaVariableEntries(
+export function buildAttributeFormulaVariableEntries(
   metadata: ActionFormulaAuthoringMetadata | null,
-  subjectTypes: FactFormulaVariable["subject_types"]
-): FactFormulaVariableEntry[] {
+  subjectTypes: AttributeFormulaVariable["subject_types"]
+): AttributeFormulaVariableEntry[] {
   if (subjectTypes.length === 0) {
     return [];
   }
-  return (metadata?.fact_formula_variables ?? [])
+  return (metadata?.attribute_formula_variables ?? [])
     .filter((variable) =>
       subjectTypes.every((subjectType) => variable.subject_types.includes(subjectType))
     )
@@ -54,9 +54,9 @@ export function buildFactFormulaVariableEntries(
     .sort((left, right) => left.label.localeCompare(right.label));
 }
 
-export function toFactFormulaVariableOptions(
-  entries: FactFormulaVariableEntry[]
-): SearchPopoverOption<FactFormulaVariableEntry>[] {
+export function toAttributeFormulaVariableOptions(
+  entries: AttributeFormulaVariableEntry[]
+): SearchPopoverOption<AttributeFormulaVariableEntry>[] {
   return entries.map((entry) => ({
     id: entry.key,
     label: entry.label,

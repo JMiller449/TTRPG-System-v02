@@ -33,7 +33,7 @@ def _valid_formula_paths(state: State | None = None) -> set[tuple[str, ...]]:
     for variable in registry.variables:
         if not variable.formula_reference_allowed:
             continue
-        # Existing sheet/Fact formulas are subject-relative. Action authoring uses
+        # Existing sheet/Attribute formulas are subject-relative. Action authoring uses
         # explicit roots from the metadata picker. Accept both representations.
         paths.add(tuple(variable.path))
         paths.add((variable.root, *variable.path))

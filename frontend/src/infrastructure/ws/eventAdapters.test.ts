@@ -204,8 +204,8 @@ describe("parseProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
-      action_fact_presets: [],
-      fact_formula_variables: [],
+      action_attribute_presets: [],
+      attribute_formula_variables: [],
       sheet_formula_stat_defaults: [
         {
           stat_name: "health",
@@ -261,8 +261,8 @@ describe("parseProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
-      action_fact_presets: [],
-      fact_formula_variables: [],
+      action_attribute_presets: [],
+      attribute_formula_variables: [],
       sheet_formula_stat_defaults: [
         {
           stat_name: "health",
@@ -388,8 +388,8 @@ describe("adaptProtocolServerEvent", () => {
         }
       ],
       action_preset_templates: [],
-      action_fact_presets: [],
-      fact_formula_variables: [],
+      action_attribute_presets: [],
+      attribute_formula_variables: [],
       sheet_formula_stat_defaults: [
         {
           stat_name: "health",
@@ -430,8 +430,8 @@ describe("adaptProtocolServerEvent", () => {
             }
           ],
           action_preset_templates: [],
-          action_fact_presets: [],
-          fact_formula_variables: [],
+          action_attribute_presets: [],
+          attribute_formula_variables: [],
           sheet_formula_stat_defaults: [
             {
               stat_name: "health",
@@ -703,7 +703,7 @@ describe("adaptProtocolServerEvent", () => {
           proficiencies: [],
           actions: [],
           formulas: [],
-          facts: [],
+          attributes: [],
           augmentations: [],
           standaloneEffects: [],
           standaloneEffectApplications: [],

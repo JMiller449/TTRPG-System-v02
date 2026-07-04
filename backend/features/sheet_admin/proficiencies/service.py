@@ -58,7 +58,7 @@ async def delete_proficiency(request: DeleteProficiency) -> None:
         if request.proficiency_id not in state.proficiencies:
             raise ValueError(f"Proficiency '{request.proficiency_id}' does not exist.")
 
-        fact_references = sorted(
+        attribute_references = sorted(
             f"{subject_type} '{subject.id}'"
             for subject_type, subjects in (
                 ("sheet", state.sheets.values()),
@@ -66,15 +66,15 @@ async def delete_proficiency(request: DeleteProficiency) -> None:
                 ("action", state.actions.values()),
             )
             for subject in subjects
-            for fact_id, bridge in subject.facts.items()
-            if state.facts.get(fact_id) is not None
-            and state.facts[fact_id].reference_kind == "proficiency"
+            for attribute_id, bridge in subject.attributes.items()
+            if state.attributes.get(attribute_id) is not None
+            and state.attributes[attribute_id].reference_kind == "proficiency"
             and bridge.evaluated_value == request.proficiency_id
         )
-        if fact_references:
+        if attribute_references:
             raise ValueError(
-                f"Proficiency '{request.proficiency_id}' is referenced by Facts on: "
-                + ", ".join(fact_references)
+                f"Proficiency '{request.proficiency_id}' is referenced by Attributes on: "
+                + ", ".join(attribute_references)
                 + "."
             )
 

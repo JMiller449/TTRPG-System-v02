@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AssignedSheetAction } from "@/app/state/selectors";
-import type { ActionDefinition, FactDefinition } from "@/domain/models";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import type { ActionDefinition, AttributeDefinition } from "@/domain/models";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { RollModeControl } from "@/features/rolls/RollModeControl";
 import {
@@ -18,7 +18,7 @@ import { makeId } from "@/shared/utils/id";
 export function SheetActionsSection({
   assignedActions,
   actionDefinitions,
-  factDefinitions,
+  attributeDefinitions,
   actionOrder,
   canEdit,
   compact = false,
@@ -29,7 +29,7 @@ export function SheetActionsSection({
 }: {
   assignedActions: AssignedSheetAction[];
   actionDefinitions: Record<string, ActionDefinition>;
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   actionOrder: string[];
   canEdit: boolean;
   compact?: boolean;
@@ -179,9 +179,9 @@ export function SheetActionsSection({
                     {entry.sourceItemName ? `${entry.sourceItemName} · ` : ""}
                     {rollMode === "normal" ? "Roll normal" : `Roll ${rollMode}`}
                   </small>
-                  {Object.keys(entry.action.facts ?? {}).length > 0 ? (
-                    <span className="action-command-card__fact-count">
-                      {Object.keys(entry.action.facts ?? {}).length} facts
+                  {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
+                    <span className="action-command-card__attribute-count">
+                      {Object.keys(entry.action.attributes ?? {}).length} attributes
                     </span>
                   ) : null}
                 </button>
@@ -257,10 +257,10 @@ export function SheetActionsSection({
                 </div>
               ) : null}
               <div className="muted">Steps: {entry.action.steps?.length ?? 0}</div>
-              {Object.keys(entry.action.facts ?? {}).length > 0 ? (
-                <SheetFactsSection
-                  definitions={factDefinitions}
-                  bridges={entry.action.facts ?? {}}
+              {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
+                <SheetAttributesSection
+                  definitions={attributeDefinitions}
+                  bridges={entry.action.attributes ?? {}}
                   canEdit={false}
                   subjectType="action"
                   onSaveFormula={() => undefined}

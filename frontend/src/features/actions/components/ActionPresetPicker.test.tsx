@@ -15,7 +15,7 @@ describe("ActionPresetPicker", () => {
             roll_mode_kind: "check",
             steps: [],
             editable_formula_fields: [],
-            fact_values: {}
+            attribute_values: {}
           },
           {
             id: "spell_damage",
@@ -25,7 +25,7 @@ describe("ActionPresetPicker", () => {
             roll_mode_kind: "damage",
             steps: [],
             editable_formula_fields: [],
-            fact_values: {}
+            attribute_values: {}
           }
         ]}
         onApply={() => undefined}

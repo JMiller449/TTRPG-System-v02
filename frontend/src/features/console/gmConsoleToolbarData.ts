@@ -35,7 +35,7 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
   {
     label: "Rules Data",
     items: [
-      { view: "fact_authoring", label: "Facts" },
+      { view: "attribute_authoring", label: "Attributes" },
       { view: "formula_authoring", label: "Formulas" },
       { view: "proficiency_authoring", label: "Proficiencies" }
     ]

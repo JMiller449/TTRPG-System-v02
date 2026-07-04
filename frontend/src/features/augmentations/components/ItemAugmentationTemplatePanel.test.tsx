@@ -20,14 +20,14 @@ const target: AugmentationTargetOption = {
 const metadata: ActionFormulaAuthoringMetadata = {
   variables: [
     {
-      key: "source_item.facts.weapon_base_damage",
+      key: "source_item.attributes.weapon_base_damage",
       label: "Source Item: Base Damage",
       root: "source_item",
-      path: ["facts", "weapon_base_damage"],
+      path: ["attributes", "weapon_base_damage"],
       value_type: "number",
       editable_roles: [],
       formula_backed: false,
-      description: "Evaluated source item Fact.",
+      description: "Evaluated source item Attribute.",
       shortcuts: ["weapon_base_damage"],
       formula_reference_allowed: true,
       action_mutation_allowed: false
@@ -38,7 +38,7 @@ const metadata: ActionFormulaAuthoringMetadata = {
   formula_aliases: [],
   action_steps: [],
   action_preset_templates: [],
-  action_fact_presets: []
+  action_attribute_presets: []
 };
 
 const selectorOptions = { tags: [], actions: [], formulas: [], steps: [] };

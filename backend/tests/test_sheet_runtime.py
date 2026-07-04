@@ -13,7 +13,7 @@ from backend.state.models.augmentation import Augmentation, StandaloneEffectDefi
 from backend.state.models.action import Action
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.attribute import synchronize_required_sheet_attributes
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -191,7 +191,7 @@ def _build_sheet_state() -> Sheet:
             },
         }
     )
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
     return sheet
 
 
@@ -1063,7 +1063,7 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
     asyncio.run(scenario())
 
 
-def test_perform_action_modifier_can_read_matched_action_fact(monkeypatch) -> None:
+def test_perform_action_modifier_can_read_matched_action_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1076,10 +1076,10 @@ def test_perform_action_modifier_can_read_matched_action_fact(monkeypatch) -> No
                 {
                     "id": "fire_damage",
                     "name": "Fire Damage",
-                    "facts": {
+                    "attributes": {
                         "action_base_spell_damage": {
                             "relationship_id": "spell-damage",
-                            "fact_id": "action_base_spell_damage",
+                            "attribute_id": "action_base_spell_damage",
                             "value": {"type": "number", "value": 7},
                             "evaluated_value": 7,
                         }
@@ -1116,7 +1116,7 @@ def test_perform_action_modifier_can_read_matched_action_fact(monkeypatch) -> No
                                             "name": "spell_damage",
                                             "path": [
                                                 "action",
-                                                "facts",
+                                                "attributes",
                                                 "action_base_spell_damage",
                                             ],
                                         }
@@ -1158,7 +1158,7 @@ def test_perform_action_modifier_can_read_matched_action_fact(monkeypatch) -> No
     asyncio.run(scenario())
 
 
-def test_equipment_direct_effect_can_read_owning_item_fact(monkeypatch) -> None:
+def test_equipment_direct_effect_can_read_owning_item_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1186,11 +1186,11 @@ def test_equipment_direct_effect_can_read_owning_item_fact(monkeypatch) -> None:
                     "description": "",
                     "price": "",
                     "weight": "",
-                    "fact_profile": "weapon",
-                    "facts": {
+                    "attribute_profile": "weapon",
+                    "attributes": {
                         "weapon_base_damage": {
                             "relationship_id": "focus-bonus",
-                            "fact_id": "weapon_base_damage",
+                            "attribute_id": "weapon_base_damage",
                             "value": {"type": "number", "value": 4},
                             "evaluated_value": 4,
                         }
@@ -1220,7 +1220,7 @@ def test_equipment_direct_effect_can_read_owning_item_fact(monkeypatch) -> None:
                                             "name": "bonus",
                                             "path": [
                                                 "source_item",
-                                                "facts",
+                                                "attributes",
                                                 "weapon_base_damage",
                                             ],
                                         }
@@ -1257,7 +1257,7 @@ def test_equipment_direct_effect_can_read_owning_item_fact(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_item_modifier_source_item_fact_requires_explicit_source(monkeypatch) -> None:
+def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1299,7 +1299,7 @@ def test_item_modifier_source_item_fact_requires_explicit_source(monkeypatch) ->
                     "description": "",
                     "price": "",
                     "weight": "",
-                    "fact_profile": "weapon",
+                    "attribute_profile": "weapon",
                     "action_grants": [
                         {
                             "action_id": "weapon_damage",
@@ -1319,7 +1319,7 @@ def test_item_modifier_source_item_fact_requires_explicit_source(monkeypatch) ->
                                             "name": "base_damage",
                                             "path": [
                                                 "source_item",
-                                                "facts",
+                                                "attributes",
                                                 "weapon_base_damage",
                                             ],
                                         }
@@ -1330,10 +1330,10 @@ def test_item_modifier_source_item_fact_requires_explicit_source(monkeypatch) ->
                             source_id="test-sword",
                         )
                     ],
-                    "facts": {
+                    "attributes": {
                         "weapon_base_damage": {
                             "relationship_id": "weapon-damage",
-                            "fact_id": "weapon_base_damage",
+                            "attribute_id": "weapon_base_damage",
                             "value": {"type": "number", "value": 15},
                             "evaluated_value": 15,
                         }
@@ -2246,7 +2246,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
     asyncio.run(scenario())
 
 
-def test_action_formula_reads_evaluated_action_fact(monkeypatch) -> None:
+def test_action_formula_reads_evaluated_action_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -2263,10 +2263,10 @@ def test_action_formula_reads_evaluated_action_fact(monkeypatch) -> None:
                 {
                     "id": "spell_burst",
                     "name": "Spell Burst",
-                    "facts": {
+                    "attributes": {
                         "action_base_spell_damage": {
                             "relationship_id": "spell-damage",
-                            "fact_id": "action_base_spell_damage",
+                            "attribute_id": "action_base_spell_damage",
                             "value": {"type": "number", "value": 12},
                             "evaluated_value": None,
                             "evaluation_error": "broken test formula",
@@ -2284,7 +2284,7 @@ def test_action_formula_reads_evaluated_action_fact(monkeypatch) -> None:
                                         "name": "base_spell_damage",
                                         "path": [
                                             "action",
-                                            "facts",
+                                            "attributes",
                                             "action_base_spell_damage",
                                         ],
                                     }
@@ -2304,16 +2304,16 @@ def test_action_formula_reads_evaluated_action_fact(monkeypatch) -> None:
                 "action_id": "spell_burst",
             }
             await handle_client_payload(websocket, request)
-            assert "references invalid Fact 'action_base_spell_damage'" in (
+            assert "references invalid Attribute 'action_base_spell_damage'" in (
                 websocket.sent_messages[-1]["reason"]
             )
             assert state.instanced_sheets["mage_instance"].mana == 30
 
-            damage_fact = state.actions["spell_burst"].facts[
+            damage_attribute = state.actions["spell_burst"].attributes[
                 "action_base_spell_damage"
             ]
-            damage_fact.evaluated_value = 12
-            damage_fact.evaluation_error = None
+            damage_attribute.evaluated_value = 12
+            damage_attribute.evaluation_error = None
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].mana == 42
@@ -2374,7 +2374,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                                         "name": "base_damage",
                                         "path": [
                                             "source_item",
-                                            "facts",
+                                            "attributes",
                                             "weapon_base_damage",
                                         ],
                                     },
@@ -2417,29 +2417,29 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                     "description": "",
                     "price": "",
                     "weight": "",
-                    "fact_profile": "weapon",
+                    "attribute_profile": "weapon",
                     "action_grants": [
                         {
                             "action_id": "weapon_test",
                             "availability": "equipped",
                         }
                     ],
-                    "facts": {
+                    "attributes": {
                         "weapon_base_damage": {
                             "relationship_id": "weapon-damage",
-                            "fact_id": "weapon_base_damage",
+                            "attribute_id": "weapon_base_damage",
                             "value": {"type": "number", "value": 15},
                             "evaluated_value": 15,
                         },
                         "weapon_governing_stat": {
                             "relationship_id": "weapon-stat",
-                            "fact_id": "weapon_governing_stat",
+                            "attribute_id": "weapon_governing_stat",
                             "value": {"type": "enum", "value": "strength"},
                             "evaluated_value": "strength",
                         },
                         "weapon_proficiency": {
                             "relationship_id": "weapon-prof",
-                            "fact_id": "weapon_proficiency",
+                            "attribute_id": "weapon_proficiency",
                             "value": {"type": "reference", "value": "swords"},
                             "evaluated_value": "swords",
                         },
@@ -2461,14 +2461,14 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
 
             state.instanced_sheets["mage_instance"].mana = 30
             request["source_item_relationship_id"] = "equipped-sword"
-            state.items["test-sword"].fact_profile = None
+            state.items["test-sword"].attribute_profile = None
             await handle_client_payload(websocket, request)
             assert "requires source-item profile 'weapon'" in (
                 websocket.sent_messages[-1]["reason"]
             )
             assert state.instanced_sheets["mage_instance"].mana == 30
 
-            state.items["test-sword"].fact_profile = "weapon"
+            state.items["test-sword"].attribute_profile = "weapon"
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].mana == 55.8

@@ -184,7 +184,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
     proficiencies: Object.values(state.proficiencies ?? {}),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
-    facts: Object.values(state.facts ?? {}),
+    attributes: Object.values(state.attributes ?? {}),
     augmentations: Object.values(state.augmentations ?? {}),
     standaloneEffects: Object.values(state.standalone_effects ?? {}).map(projectStandaloneEffect),
     standaloneEffectApplications: Object.values(state.standalone_effect_applications ?? {}),
@@ -291,8 +291,8 @@ export function adaptProtocolServerEvent(
               formula_aliases: event.formula_aliases,
               action_steps: event.action_steps,
               action_preset_templates: event.action_preset_templates,
-              action_fact_presets: event.action_fact_presets,
-              fact_formula_variables: event.fact_formula_variables ?? [],
+              action_attribute_presets: event.action_attribute_presets,
+              attribute_formula_variables: event.attribute_formula_variables ?? [],
               sheet_formula_stat_defaults: event.sheet_formula_stat_defaults ?? []
             },
             requestId: event.request_id ?? undefined

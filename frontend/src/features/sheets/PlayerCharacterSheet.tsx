@@ -4,7 +4,7 @@ import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSe
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
-import { SheetFactsSection } from "@/features/sheets/components/SheetFactsSection";
+import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
@@ -20,19 +20,19 @@ import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildAttachSheetActionRequest,
-  buildAttachSheetFactRequest,
+  buildAttachSheetAttributeRequest,
   buildAttachSheetItemRequest,
   buildDetachSheetActionRequest,
-  buildDetachSheetFactRequest,
+  buildDetachSheetAttributeRequest,
   buildDetachSheetItemRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
-  buildResetSheetFactValueRequest,
+  buildResetSheetAttributeValueRequest,
   buildRelinkSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildSetInstancedSheetNotesRequest,
-  buildSetSheetFactValueRequest,
+  buildSetSheetAttributeValueRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetResistancesRequest,
   buildUnlinkSheetProficiencyRequest,
@@ -63,7 +63,7 @@ export function PlayerCharacterSheet({
     actionDefinitions,
     actionOrder,
     augmentations,
-    factDefinitions,
+    attributeDefinitions,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,
@@ -238,7 +238,7 @@ export function PlayerCharacterSheet({
                 <SheetActionsSection
                   assignedActions={assignedActions.slice(0, 6)}
                   actionDefinitions={actionDefinitions}
-                  factDefinitions={factDefinitions}
+                  attributeDefinitions={attributeDefinitions}
                   actionOrder={actionOrder}
                   canEdit={false}
                   compact
@@ -302,7 +302,7 @@ export function PlayerCharacterSheet({
             <SheetActionsSection
               assignedActions={assignedActions}
               actionDefinitions={actionDefinitions}
-              factDefinitions={factDefinitions}
+              attributeDefinitions={attributeDefinitions}
               actionOrder={actionOrder}
               canEdit={canEditActions}
               onCreate={(bridge) => {
@@ -354,62 +354,62 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-details"
             tabIndex={0}
           >
-            <SheetFactsSection
-              definitions={factDefinitions}
-              bridges={detail.sheet?.facts ?? {}}
+            <SheetAttributesSection
+              definitions={attributeDefinitions}
+              bridges={detail.sheet?.attributes ?? {}}
               canEdit={canEditStats && Boolean(sheetId)}
               compact={mode === "player"}
-              onSaveFormula={(factId, formula) => {
+              onSaveFormula={(attributeId, formula) => {
                 if (!sheetId) {
                   return;
                 }
                 client.sendProtocolRequest(
-                  buildSetSheetFactValueRequest({
+                  buildSetSheetAttributeValueRequest({
                     sheetId,
-                    factId,
+                    attributeId,
                     value: { type: "formula", formula }
                   }),
-                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                 );
               }}
-              onSaveValue={(factId, value) => {
+              onSaveValue={(attributeId, value) => {
                 if (!sheetId) {
                   return;
                 }
                 client.sendProtocolRequest(
-                  buildSetSheetFactValueRequest({ sheetId, factId, value }),
-                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                  buildSetSheetAttributeValueRequest({ sheetId, attributeId, value }),
+                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                 );
               }}
-              onReset={(factId) => {
+              onReset={(attributeId) => {
                 if (!sheetId) {
                   return;
                 }
                 client.sendProtocolRequest(
-                  buildResetSheetFactValueRequest({ sheetId, factId }),
-                  `Reset Fact: ${factDefinitions[factId]?.name ?? factId}`
+                  buildResetSheetAttributeValueRequest({ sheetId, attributeId }),
+                  `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                 );
               }}
-              onAttach={(factId) => {
+              onAttach={(attributeId) => {
                 if (!sheetId) {
                   return;
                 }
                 client.sendProtocolRequest(
-                  buildAttachSheetFactRequest({
+                  buildAttachSheetAttributeRequest({
                     sheetId,
-                    factId,
-                    relationshipId: makeId("sheet_fact")
+                    attributeId,
+                    relationshipId: makeId("sheet_attribute")
                   }),
-                  `Attach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                  `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                 );
               }}
-              onDetach={(factId) => {
+              onDetach={(attributeId) => {
                 if (!sheetId) {
                   return;
                 }
                 client.sendProtocolRequest(
-                  buildDetachSheetFactRequest({ sheetId, factId }),
-                  `Detach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                  buildDetachSheetAttributeRequest({ sheetId, attributeId }),
+                  `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                 );
               }}
             />
@@ -495,7 +495,7 @@ export function PlayerCharacterSheet({
             <SheetEquipmentSection
               items={items}
               actionDefinitions={actionDefinitions}
-              factDefinitions={factDefinitions}
+              attributeDefinitions={attributeDefinitions}
               augmentations={augmentations}
               itemOrder={itemOrder}
               selectedItemId={selectedItemId}

@@ -62,7 +62,7 @@ describe("actionAuthoringRequests", () => {
           roll_mode_kind: "none",
           notes: "Roll20 output only.",
           steps: [],
-          facts: {}
+          attributes: {}
         }
       },
       label: "Create action: Mana Burst"
@@ -93,7 +93,7 @@ describe("actionAuthoringRequests", () => {
           roll_mode_kind: "check",
           notes: "Updated notes.",
           steps: action.steps,
-          facts: {}
+          attributes: {}
         }
       },
       label: "Update action: Edited Mana Burst"

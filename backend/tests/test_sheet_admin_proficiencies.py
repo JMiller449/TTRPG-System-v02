@@ -140,7 +140,7 @@ def test_dm_can_delete_proficiency(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_delete_proficiency_rejects_live_fact_reference(monkeypatch) -> None:
+def test_delete_proficiency_rejects_live_attribute_reference(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -161,11 +161,11 @@ def test_delete_proficiency_rejects_live_fact_reference(monkeypatch) -> None:
                     "price": "",
                     "weight": "",
                     "augmentation_templates": [],
-                    "fact_profile": "weapon",
-                    "facts": {
+                    "attribute_profile": "weapon",
+                    "attributes": {
                         "weapon_proficiency": {
-                            "relationship_id": "required_fact_weapon_proficiency",
-                            "fact_id": "weapon_proficiency",
+                            "relationship_id": "required_attribute_weapon_proficiency",
+                            "attribute_id": "weapon_proficiency",
                             "value": {"type": "reference", "value": "longsword"},
                             "evaluated_value": "longsword",
                         }
@@ -183,7 +183,7 @@ def test_delete_proficiency_rejects_live_fact_reference(monkeypatch) -> None:
 
             assert "longsword" in state.proficiencies
             assert websocket.sent_messages[-1]["type"] == "error"
-            assert "referenced by Facts on: item 'sword'" in websocket.sent_messages[-1][
+            assert "referenced by Attributes on: item 'sword'" in websocket.sent_messages[-1][
                 "reason"
             ]
         finally:

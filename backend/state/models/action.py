@@ -4,7 +4,7 @@ from typing import Literal
 
 from backend.state.models.damage import DamageType, ensure_damage_type
 from backend.state.models.formula import Formula
-from backend.state.models.fact import FactBridge
+from backend.state.models.attribute import AttributeBridge
 
 ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
@@ -273,7 +273,7 @@ class Action:
     roll_mode_kind: ActionRollModeKind = "none"
     notes: str = ""
     steps: list[ActionStep] = field(default_factory=list)
-    facts: dict[str, FactBridge] = field(default_factory=dict)
+    attributes: dict[str, AttributeBridge] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         seen_step_ids: set[str] = set()
@@ -367,6 +367,7 @@ class Action:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Action":
+        raw_attributes = raw.get("attributes", raw.get("facts", {}))
         steps: list[ActionStep] = []
         for raw_step in raw.get("steps", []):
             step_type = raw_step["type"]
@@ -405,8 +406,8 @@ class Action:
             roll_mode_kind=raw.get("roll_mode_kind", "none"),
             notes=raw.get("notes", ""),
             steps=steps,
-            facts={
-                key: FactBridge.from_dict(bridge)
-                for key, bridge in raw.get("facts", {}).items()
+            attributes={
+                key: AttributeBridge.from_dict(bridge)
+                for key, bridge in raw_attributes.items()
             },
         )

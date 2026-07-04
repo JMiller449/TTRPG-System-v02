@@ -3,12 +3,12 @@ import { Field } from "@/shared/ui/Field";
 import {
   getItemEditorValidationError,
   ITEM_RANK_OPTIONS,
-  setItemFactProfile,
+  setItemAttributeProfile,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
 import type {
   ActionDefinition,
-  FactDefinition,
+  AttributeDefinition,
   ItemInteractionType,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -28,9 +28,9 @@ export function ItemEditorForm({
   values,
   onChange,
   actions,
-  factDefinitions,
+  attributeDefinitions,
   proficiencies,
-  factsEditor,
+  attributesEditor,
   effectEditor,
   pending = false,
   onSubmit,
@@ -41,9 +41,9 @@ export function ItemEditorForm({
   values: ItemEditorValues;
   onChange: (values: ItemEditorValues) => void;
   actions: ActionDefinition[];
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
-  factsEditor: ReactNode;
+  attributesEditor: ReactNode;
   effectEditor: ReactNode;
   pending?: boolean;
   onSubmit: () => void;
@@ -51,7 +51,7 @@ export function ItemEditorForm({
   onOpenActionAuthoring?: () => void;
 }): JSX.Element {
   const validationError = getItemEditorValidationError(values, {
-    definitions: factDefinitions,
+    definitions: attributeDefinitions,
     proficiencies
   });
 
@@ -68,8 +68,8 @@ export function ItemEditorForm({
             : grant.consumeQuantity
       }))
     };
-    if (interactionType !== "equippable" && nextValues.factProfile) {
-      nextValues = setItemFactProfile(nextValues, null, factDefinitions);
+    if (interactionType !== "equippable" && nextValues.attributeProfile) {
+      nextValues = setItemAttributeProfile(nextValues, null, attributeDefinitions);
     }
     onChange(nextValues);
   };
@@ -179,7 +179,7 @@ export function ItemEditorForm({
         ) : null}
       </section>
 
-      {factsEditor}
+      {attributesEditor}
 
       {values.interactionType === "equippable" ? effectEditor : null}
 

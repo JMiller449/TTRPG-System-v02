@@ -2,7 +2,7 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.attribute import synchronize_required_sheet_attributes
 from backend.state.models.sheet import Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -115,7 +115,7 @@ def _build_sheet_state() -> Sheet:
             "actions": {},
         }
     )
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
     return sheet
 
 
@@ -266,7 +266,7 @@ def test_sheet_formula_stat_rejects_instance_and_self_aliases(monkeypatch) -> No
     asyncio.run(scenario())
 
 
-def test_sheet_formula_stat_rejects_cross_fact_dependency_cycles(monkeypatch) -> None:
+def test_sheet_formula_stat_rejects_cross_attribute_dependency_cycles(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -288,7 +288,7 @@ def test_sheet_formula_stat_rejects_cross_fact_dependency_cycles(monkeypatch) ->
                         "aliases": [
                             {
                                 "name": "amount_of_reactions",
-                                "path": ["facts", "amount_of_reactions"],
+                                "path": ["attributes", "amount_of_reactions"],
                             }
                         ],
                         "text": "@amount_of_reactions",

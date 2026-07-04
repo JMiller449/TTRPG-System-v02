@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.fact import synchronize_required_sheet_facts
+from backend.state.models.attribute import synchronize_required_sheet_attributes
 from backend.state.models.action import Action
 from backend.state.models.item import Item
 from backend.state.models.sheet import Sheet
@@ -81,7 +81,7 @@ def _sheet() -> Sheet:
 def _reset_with_sheet() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
     sheet = _sheet()
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
     StateSingleton.getState().sheets[sheet.id] = sheet
 
 
@@ -89,38 +89,38 @@ def test_required_amount_of_reactions_is_seeded_and_evaluated() -> None:
     state = deepcopy(DEFAULT_STATE)
     sheet = _sheet()
     state.sheets[sheet.id] = sheet
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
 
-    definition = state.facts["amount_of_reactions"]
-    bridge = sheet.facts["amount_of_reactions"]
+    definition = state.attributes["amount_of_reactions"]
+    bridge = sheet.attributes["amount_of_reactions"]
     assert definition.required is True
     assert definition.default_value.formula is not None
     assert bridge.evaluated_value == 25
     assert bridge.evaluation_error is None
 
 
-def test_canonical_optional_sheet_fact_definitions_are_seeded() -> None:
+def test_canonical_optional_sheet_attribute_definitions_are_seeded() -> None:
     state = deepcopy(DEFAULT_STATE)
     sheet = _sheet()
-    synchronize_required_sheet_facts(sheet)
+    synchronize_required_sheet_attributes(sheet)
 
     expected = {
         "level": (1, ""),
         "movement": (30, "feet"),
         "mana_regeneration": (10, "% max mana per hour"),
     }
-    for fact_id, (default_value, unit) in expected.items():
-        definition = state.facts[fact_id]
+    for attribute_id, (default_value, unit) in expected.items():
+        definition = state.attributes[attribute_id]
         assert definition.subject_types == ["sheet"]
         assert definition.value_type == "number"
         assert definition.default_value.value == default_value
         assert definition.unit == unit
         assert definition.required is False
         assert definition.backend_owned is True
-        assert fact_id not in sheet.facts
+        assert attribute_id not in sheet.attributes
 
 
-def test_canonical_optional_item_fact_definitions_are_seeded() -> None:
+def test_canonical_optional_item_attribute_definitions_are_seeded() -> None:
     state = deepcopy(DEFAULT_STATE)
 
     expected = {
@@ -129,8 +129,8 @@ def test_canonical_optional_item_fact_definitions_are_seeded() -> None:
         "item_flat_effect_bonus": ("number", 0, "bonus"),
         "item_mana_regeneration_modifier": ("number", 0, "%"),
     }
-    for fact_id, (value_type, default_value, unit) in expected.items():
-        definition = state.facts[fact_id]
+    for attribute_id, (value_type, default_value, unit) in expected.items():
+        definition = state.attributes[attribute_id]
         assert definition.subject_types == ["item"]
         assert definition.value_type == value_type
         assert definition.default_value.value == default_value
@@ -140,7 +140,7 @@ def test_canonical_optional_item_fact_definitions_are_seeded() -> None:
         assert definition.backend_owned is True
 
 
-def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
+def test_dm_can_edit_and_reset_required_sheet_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -153,9 +153,9 @@ def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_sheet_fact_value",
+                    "type": "set_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "amount_of_reactions",
+                    "attribute_id": "amount_of_reactions",
                     "value": {
                         "type": "formula",
                         "formula": {
@@ -171,23 +171,23 @@ def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
                 },
             )
 
-            bridge = StateSingleton.getState().sheets["mage"].facts[
+            bridge = StateSingleton.getState().sheets["mage"].attributes[
                 "amount_of_reactions"
             ]
             assert bridge.evaluated_value == 28
             assert websocket.sent_messages[-1]["ops"][0]["path"] == (
-                "/sheets/mage/facts/amount_of_reactions"
+                "/sheets/mage/attributes/amount_of_reactions"
             )
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "reset_sheet_fact_value",
+                    "type": "reset_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "amount_of_reactions",
+                    "attribute_id": "amount_of_reactions",
                 },
             )
-            bridge = StateSingleton.getState().sheets["mage"].facts[
+            bridge = StateSingleton.getState().sheets["mage"].attributes[
                 "amount_of_reactions"
             ]
             assert bridge.evaluated_value == 25
@@ -199,7 +199,7 @@ def test_dm_can_edit_and_reset_required_sheet_fact(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_fact_recomputes_when_dependency_changes(monkeypatch) -> None:
+def test_attribute_recomputes_when_dependency_changes(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -219,13 +219,13 @@ def test_fact_recomputes_when_dependency_changes(monkeypatch) -> None:
                 },
             )
 
-            bridge = StateSingleton.getState().sheets["mage"].facts[
+            bridge = StateSingleton.getState().sheets["mage"].attributes[
                 "amount_of_reactions"
             ]
             assert bridge.evaluated_value == 31
             assert [op["path"] for op in websocket.sent_messages[-1]["ops"]] == [
                 "/sheets/mage/stats/arcane",
-                "/sheets/mage/facts/amount_of_reactions",
+                "/sheets/mage/attributes/amount_of_reactions",
             ]
         finally:
             StateSingleton._state = original_state
@@ -233,7 +233,7 @@ def test_fact_recomputes_when_dependency_changes(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_player_cannot_edit_sheet_fact(monkeypatch) -> None:
+def test_player_cannot_edit_sheet_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -246,9 +246,9 @@ def test_player_cannot_edit_sheet_fact(monkeypatch) -> None:
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "reset_sheet_fact_value",
+                    "type": "reset_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "amount_of_reactions",
+                    "attribute_id": "amount_of_reactions",
                 },
             )
 
@@ -260,7 +260,7 @@ def test_player_cannot_edit_sheet_fact(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch) -> None:
+def test_dm_can_author_attach_update_detach_and_delete_optional_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -273,8 +273,8 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "renown",
                         "name": "Renown",
                         "description": "Current character renown.",
@@ -290,49 +290,49 @@ def test_dm_can_author_attach_update_detach_and_delete_optional_fact(monkeypatch
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "attach_sheet_fact",
+                    "type": "attach_sheet_attribute",
                     "sheet_id": "mage",
                     "relationship_id": "mage-renown",
-                    "fact_id": "renown",
+                    "attribute_id": "renown",
                 },
             )
-            bridge = StateSingleton.getState().sheets["mage"].facts["renown"]
+            bridge = StateSingleton.getState().sheets["mage"].attributes["renown"]
             assert bridge.evaluated_value == 1
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_sheet_fact_value",
+                    "type": "set_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "renown",
+                    "attribute_id": "renown",
                     "value": {"type": "number", "value": 3},
                 },
             )
-            assert StateSingleton.getState().sheets["mage"].facts[
+            assert StateSingleton.getState().sheets["mage"].attributes[
                 "renown"
             ].evaluated_value == 3
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "detach_sheet_fact",
+                    "type": "detach_sheet_attribute",
                     "sheet_id": "mage",
-                    "fact_id": "renown",
+                    "attribute_id": "renown",
                 },
             )
             await handle_client_payload(
                 websocket,
-                {"type": "delete_fact", "fact_id": "renown"},
+                {"type": "delete_attribute", "attribute_id": "renown"},
             )
-            assert "renown" not in StateSingleton.getState().facts
-            assert "renown" not in StateSingleton.getState().sheets["mage"].facts
+            assert "renown" not in StateSingleton.getState().attributes
+            assert "renown" not in StateSingleton.getState().sheets["mage"].attributes
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> None:
+def test_optional_attribute_dependencies_recompute_and_reject_cycles(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -342,7 +342,7 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
-            for fact_id, default_value in (
+            for attribute_id, default_value in (
                 ("power", {"type": "number", "value": 1}),
                 (
                     "next_power",
@@ -350,7 +350,7 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                         "type": "formula",
                         "formula": {
                             "aliases": [
-                                {"name": "power", "path": ["facts", "power"]}
+                                {"name": "power", "path": ["attributes", "power"]}
                             ],
                             "text": "@power + 1",
                         },
@@ -360,10 +360,10 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                 await handle_client_payload(
                     websocket,
                     {
-                        "type": "create_fact",
-                        "fact": {
-                            "id": fact_id,
-                            "name": fact_id.replace("_", " ").title(),
+                        "type": "create_attribute",
+                        "attribute": {
+                            "id": attribute_id,
+                            "name": attribute_id.replace("_", " ").title(),
                             "subject_types": ["sheet"],
                             "value_type": "number",
                             "default_value": default_value,
@@ -373,39 +373,39 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                 await handle_client_payload(
                     websocket,
                     {
-                        "type": "attach_sheet_fact",
+                        "type": "attach_sheet_attribute",
                         "sheet_id": "mage",
-                        "relationship_id": f"mage-{fact_id}",
-                        "fact_id": fact_id,
+                        "relationship_id": f"mage-{attribute_id}",
+                        "attribute_id": attribute_id,
                     },
                 )
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_sheet_fact_value",
+                    "type": "set_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "power",
+                    "attribute_id": "power",
                     "value": {"type": "number", "value": 4},
                 },
             )
-            assert StateSingleton.getState().sheets["mage"].facts[
+            assert StateSingleton.getState().sheets["mage"].attributes[
                 "next_power"
             ].evaluated_value == 5
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_sheet_fact_value",
+                    "type": "set_sheet_attribute_value",
                     "sheet_id": "mage",
-                    "fact_id": "power",
+                    "attribute_id": "power",
                     "value": {
                         "type": "formula",
                         "formula": {
                             "aliases": [
                                 {
                                     "name": "next_power",
-                                    "path": ["facts", "next_power"],
+                                    "path": ["attributes", "next_power"],
                                 }
                             ],
                             "text": "@next_power",
@@ -413,7 +413,7 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
                     },
                 },
             )
-            bridge = StateSingleton.getState().sheets["mage"].facts["power"]
+            bridge = StateSingleton.getState().sheets["mage"].attributes["power"]
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "cycle detected" in websocket.sent_messages[-1]["reason"]
             assert bridge.value.type == "number"
@@ -426,7 +426,7 @@ def test_optional_fact_dependencies_recompute_and_reject_cycles(monkeypatch) -> 
     asyncio.run(scenario())
 
 
-def test_required_fact_definition_cannot_be_deleted(monkeypatch) -> None:
+def test_required_attribute_definition_cannot_be_deleted(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -437,13 +437,13 @@ def test_required_fact_definition_cannot_be_deleted(monkeypatch) -> None:
             await websocket_sessions.connect(websocket, role="dm")
             await handle_client_payload(
                 websocket,
-                {"type": "delete_fact", "fact_id": "amount_of_reactions"},
+                {"type": "delete_attribute", "attribute_id": "amount_of_reactions"},
             )
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "cannot be deleted" in websocket.sent_messages[-1]["reason"]
             await handle_client_payload(
                 websocket,
-                {"type": "delete_fact", "fact_id": "action_rank"},
+                {"type": "delete_attribute", "attribute_id": "action_rank"},
             )
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "Backend-owned" in websocket.sent_messages[-1]["reason"]
@@ -453,7 +453,7 @@ def test_required_fact_definition_cannot_be_deleted(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_fact_formula_definition_rejects_paths_invalid_for_its_subjects(
+def test_attribute_formula_definition_rejects_paths_invalid_for_its_subjects(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -467,8 +467,8 @@ def test_fact_formula_definition_rejects_paths_invalid_for_its_subjects(
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "invalid_item_rating",
                         "name": "Invalid Item Rating",
                         "subject_types": ["item"],
@@ -493,14 +493,14 @@ def test_fact_formula_definition_rejects_paths_invalid_for_its_subjects(
             assert "unsupported path 'stats.strength'" in websocket.sent_messages[-1][
                 "reason"
             ]
-            assert "invalid_item_rating" not in StateSingleton.getState().facts
+            assert "invalid_item_rating" not in StateSingleton.getState().attributes
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) -> None:
+def test_attribute_definition_default_formula_cannot_reference_itself(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -518,14 +518,14 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
             }
             await handle_client_payload(
                 websocket,
-                {"type": "create_fact", "fact": definition},
+                {"type": "create_attribute", "attribute": definition},
             )
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "update_fact",
-                    "fact_id": "custom_level",
-                    "fact": {
+                    "type": "update_attribute",
+                    "attribute_id": "custom_level",
+                    "attribute": {
                         **definition,
                         "default_value": {
                             "type": "formula",
@@ -533,7 +533,7 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
                                 "aliases": [
                                     {
                                         "name": "custom_level",
-                                        "path": ["facts", "custom_level"],
+                                        "path": ["attributes", "custom_level"],
                                     }
                                 ],
                                 "text": "@custom_level + 1",
@@ -546,7 +546,7 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "cannot reference itself" in websocket.sent_messages[-1]["reason"]
             assert (
-                StateSingleton.getState().facts["custom_level"].default_value.value
+                StateSingleton.getState().attributes["custom_level"].default_value.value
                 == 1
             )
         finally:
@@ -555,7 +555,7 @@ def test_fact_definition_default_formula_cannot_reference_itself(monkeypatch) ->
     asyncio.run(scenario())
 
 
-def test_constrained_fact_definitions_require_validation_metadata(monkeypatch) -> None:
+def test_constrained_attribute_definitions_require_validation_metadata(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -568,8 +568,8 @@ def test_constrained_fact_definitions_require_validation_metadata(monkeypatch) -
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "armor_type",
                         "name": "Armor Type",
                         "subject_types": ["item"],
@@ -584,8 +584,8 @@ def test_constrained_fact_definitions_require_validation_metadata(monkeypatch) -
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "armor_type",
                         "name": "Armor Type",
                         "subject_types": ["item"],
@@ -595,7 +595,7 @@ def test_constrained_fact_definitions_require_validation_metadata(monkeypatch) -
                     },
                 },
             )
-            assert StateSingleton.getState().facts["armor_type"].validation_options == [
+            assert StateSingleton.getState().attributes["armor_type"].validation_options == [
                 "Sword",
                 "Axe",
             ]
@@ -605,7 +605,7 @@ def test_constrained_fact_definitions_require_validation_metadata(monkeypatch) -
     asyncio.run(scenario())
 
 
-def test_item_and_action_subject_facts_persist_and_evaluate(monkeypatch) -> None:
+def test_item_and_action_subject_attributes_persist_and_evaluate(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -636,8 +636,8 @@ def test_item_and_action_subject_facts_persist_and_evaluate(monkeypatch) -> None
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "create_fact",
-                    "fact": {
+                    "type": "create_attribute",
+                    "attribute": {
                         "id": "rank",
                         "name": "Rank",
                         "subject_types": ["item", "action"],
@@ -653,40 +653,40 @@ def test_item_and_action_subject_facts_persist_and_evaluate(monkeypatch) -> None
                 await handle_client_payload(
                     websocket,
                     {
-                        "type": "attach_subject_fact",
+                        "type": "attach_subject_attribute",
                         "subject_type": subject_type,
                         "subject_id": subject_id,
                         "relationship_id": f"{subject_id}-rank",
-                        "fact_id": "rank",
+                        "attribute_id": "rank",
                         "value": {"type": "text", "value": rank},
                     },
                 )
 
-            assert state.items["sword"].facts["rank"].evaluated_value == "D"
-            assert state.actions["parry"].facts["rank"].evaluated_value == "C"
+            assert state.items["sword"].attributes["rank"].evaluated_value == "D"
+            assert state.actions["parry"].attributes["rank"].evaluated_value == "C"
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_subject_fact_value",
+                    "type": "set_subject_attribute_value",
                     "subject_type": "action",
                     "subject_id": "parry",
-                    "fact_id": "rank",
+                    "attribute_id": "rank",
                     "value": {"type": "text", "value": "B"},
                 },
             )
-            assert state.actions["parry"].facts["rank"].evaluated_value == "B"
+            assert state.actions["parry"].attributes["rank"].evaluated_value == "B"
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "reset_subject_fact_value",
+                    "type": "reset_subject_attribute_value",
                     "subject_type": "action",
                     "subject_id": "parry",
-                    "fact_id": "rank",
+                    "attribute_id": "rank",
                 },
             )
-            assert state.actions["parry"].facts["rank"].evaluated_value == "F"
+            assert state.actions["parry"].attributes["rank"].evaluated_value == "F"
 
             for subject_type, subject_id in (
                 ("item", "sword"),
@@ -695,27 +695,27 @@ def test_item_and_action_subject_facts_persist_and_evaluate(monkeypatch) -> None
                 await handle_client_payload(
                     websocket,
                     {
-                        "type": "detach_subject_fact",
+                        "type": "detach_subject_attribute",
                         "subject_type": subject_type,
                         "subject_id": subject_id,
-                        "fact_id": "rank",
+                        "attribute_id": "rank",
                     },
                 )
 
             await handle_client_payload(
                 websocket,
-                {"type": "delete_fact", "fact_id": "rank"},
+                {"type": "delete_attribute", "attribute_id": "rank"},
             )
-            assert "rank" not in state.facts
-            assert "rank" not in state.items["sword"].facts
-            assert "rank" not in state.actions["parry"].facts
+            assert "rank" not in state.attributes
+            assert "rank" not in state.items["sword"].attributes
+            assert "rank" not in state.actions["parry"].attributes
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_fact_visibility_changes_reconcile_all_subject_bridges(monkeypatch) -> None:
+def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -755,15 +755,15 @@ def test_fact_visibility_changes_reconcile_all_subject_bridges(monkeypatch) -> N
             }
             await handle_client_payload(
                 dm_socket,
-                {"type": "create_fact", "fact": definition},
+                {"type": "create_attribute", "attribute": definition},
             )
             await handle_client_payload(
                 dm_socket,
                 {
-                    "type": "attach_sheet_fact",
+                    "type": "attach_sheet_attribute",
                     "sheet_id": "mage",
                     "relationship_id": "mage-rank-label",
-                    "fact_id": "rank_label",
+                    "attribute_id": "rank_label",
                 },
             )
             for subject_type, subject_id in (
@@ -773,55 +773,55 @@ def test_fact_visibility_changes_reconcile_all_subject_bridges(monkeypatch) -> N
                 await handle_client_payload(
                     dm_socket,
                     {
-                        "type": "attach_subject_fact",
+                        "type": "attach_subject_attribute",
                         "subject_type": subject_type,
                         "subject_id": subject_id,
                         "relationship_id": f"{subject_id}-rank-label",
-                        "fact_id": "rank_label",
+                        "attribute_id": "rank_label",
                     },
                 )
 
             public_snapshot = await state_sync_service.snapshot(role="player")
-            assert "rank_label" in public_snapshot.state["facts"]
-            assert "rank_label" in public_snapshot.state["sheets"]["mage"]["facts"]
-            assert "rank_label" in public_snapshot.state["items"]["sword"]["facts"]
-            assert "rank_label" in public_snapshot.state["actions"]["parry"]["facts"]
+            assert "rank_label" in public_snapshot.state["attributes"]
+            assert "rank_label" in public_snapshot.state["sheets"]["mage"]["attributes"]
+            assert "rank_label" in public_snapshot.state["items"]["sword"]["attributes"]
+            assert "rank_label" in public_snapshot.state["actions"]["parry"]["attributes"]
 
             await handle_client_payload(
                 dm_socket,
                 {
-                    "type": "update_fact",
-                    "fact_id": "rank_label",
-                    "fact": {**definition, "visibility": "gm_only"},
+                    "type": "update_attribute",
+                    "attribute_id": "rank_label",
+                    "attribute": {**definition, "visibility": "gm_only"},
                 },
             )
             player_ops = player_socket.sent_messages[-1]["ops"]
             assert {(op["op"], op["path"]) for op in player_ops} == {
-                ("remove", "/facts/rank_label"),
-                ("remove", "/sheets/mage/facts/rank_label"),
-                ("remove", "/items/sword/facts/rank_label"),
-                ("remove", "/actions/parry/facts/rank_label"),
+                ("remove", "/attributes/rank_label"),
+                ("remove", "/sheets/mage/attributes/rank_label"),
+                ("remove", "/items/sword/attributes/rank_label"),
+                ("remove", "/actions/parry/attributes/rank_label"),
             }
             private_snapshot = await state_sync_service.snapshot(role="player")
-            assert "rank_label" not in private_snapshot.state["facts"]
-            assert "rank_label" not in private_snapshot.state["sheets"]["mage"]["facts"]
-            assert "rank_label" not in private_snapshot.state["items"]["sword"]["facts"]
-            assert "rank_label" not in private_snapshot.state["actions"]["parry"]["facts"]
+            assert "rank_label" not in private_snapshot.state["attributes"]
+            assert "rank_label" not in private_snapshot.state["sheets"]["mage"]["attributes"]
+            assert "rank_label" not in private_snapshot.state["items"]["sword"]["attributes"]
+            assert "rank_label" not in private_snapshot.state["actions"]["parry"]["attributes"]
 
             await handle_client_payload(
                 dm_socket,
                 {
-                    "type": "update_fact",
-                    "fact_id": "rank_label",
-                    "fact": definition,
+                    "type": "update_attribute",
+                    "attribute_id": "rank_label",
+                    "attribute": definition,
                 },
             )
             player_ops = player_socket.sent_messages[-1]["ops"]
             assert {(op["op"], op["path"]) for op in player_ops} == {
-                ("set", "/facts/rank_label"),
-                ("set", "/sheets/mage/facts/rank_label"),
-                ("set", "/items/sword/facts/rank_label"),
-                ("set", "/actions/parry/facts/rank_label"),
+                ("set", "/attributes/rank_label"),
+                ("set", "/sheets/mage/attributes/rank_label"),
+                ("set", "/items/sword/attributes/rank_label"),
+                ("set", "/actions/parry/attributes/rank_label"),
             }
         finally:
             StateSingleton._state = original_state

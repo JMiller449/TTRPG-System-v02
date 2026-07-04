@@ -7,7 +7,7 @@ from typing import Any
 
 from backend.state.default_actions import seeded_global_action_payloads
 
-CURRENT_STATE_SCHEMA_VERSION = 13
+CURRENT_STATE_SCHEMA_VERSION = 14
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -314,11 +314,11 @@ def _amount_of_reactions_formula_payload() -> dict[str, Any]:
 
 def _migrate_v6_to_v7(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    facts = state.setdefault("facts", {})
-    if not isinstance(facts, dict):
-        facts = {}
-        state["facts"] = facts
-    facts["amount_of_reactions"] = {
+    attributes = state.setdefault("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+        state["attributes"] = attributes
+    attributes["amount_of_reactions"] = {
         "id": "amount_of_reactions",
         "name": "Amount of Reactions",
         "description": (
@@ -340,15 +340,15 @@ def _migrate_v6_to_v7(envelope: PersistedEnvelope) -> PersistedEnvelope:
         for sheet in sheets.values():
             if not isinstance(sheet, dict):
                 continue
-            sheet_facts = sheet.setdefault("facts", {})
-            if not isinstance(sheet_facts, dict):
-                sheet_facts = {}
-                sheet["facts"] = sheet_facts
-            sheet_facts.setdefault(
+            sheet_attributes = sheet.setdefault("attributes", {})
+            if not isinstance(sheet_attributes, dict):
+                sheet_attributes = {}
+                sheet["attributes"] = sheet_attributes
+            sheet_attributes.setdefault(
                 "amount_of_reactions",
                 {
-                    "relationship_id": "required_fact_amount_of_reactions",
-                    "fact_id": "amount_of_reactions",
+                    "relationship_id": "required_attribute_amount_of_reactions",
+                    "attribute_id": "amount_of_reactions",
                     "value": _amount_of_reactions_formula_payload(),
                     "evaluated_value": None,
                     "evaluation_error": None,
@@ -358,12 +358,12 @@ def _migrate_v6_to_v7(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 7, "state": state}
 
 
-def _literal_fact_value(value_type: str, value: Any) -> dict[str, Any]:
+def _literal_attribute_value(value_type: str, value: Any) -> dict[str, Any]:
     return {"type": value_type, "value": value, "formula": None}
 
 
-def _weapon_fact_definition(
-    fact_id: str,
+def _weapon_attribute_definition(
+    attribute_id: str,
     name: str,
     value_type: str,
     default_value: Any,
@@ -374,12 +374,12 @@ def _weapon_fact_definition(
     reference_kind: str | None = None,
 ) -> dict[str, Any]:
     return {
-        "id": fact_id,
+        "id": attribute_id,
         "name": name,
         "description": description,
         "subject_types": ["item"],
         "value_type": value_type,
-        "default_value": _literal_fact_value(value_type, default_value),
+        "default_value": _literal_attribute_value(value_type, default_value),
         "unit": unit,
         "visibility": "public",
         "validation_options": validation_options or [],
@@ -391,23 +391,23 @@ def _weapon_fact_definition(
 
 def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    facts = state.setdefault("facts", {})
-    if not isinstance(facts, dict):
-        facts = {}
-        state["facts"] = facts
-    for definition in facts.values():
+    attributes = state.setdefault("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+        state["attributes"] = attributes
+    for definition in attributes.values():
         if isinstance(definition, dict):
             definition.setdefault("required_profile", None)
 
     weapon_definitions = (
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_type",
             "Weapon Type",
             "text",
             "",
             description="Authored weapon family or form, such as Sword or Bow.",
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_base_damage",
             "Base Damage",
             "number",
@@ -415,7 +415,7 @@ def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Flat weapon damage used by eligible weapon actions.",
             unit="damage",
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_governing_stat",
             "Governing Stat",
             "enum",
@@ -430,7 +430,7 @@ def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
                 "will",
             ],
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_damage_types",
             "Physical Damage Types",
             "list",
@@ -438,14 +438,14 @@ def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Physical damage types this weapon can deal.",
             validation_options=["Slashing", "Bludgeoning", "Piercing"],
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_reach",
             "Reach",
             "number",
             0,
             description="Authored reach for display and future eligible actions.",
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_proficiency",
             "Proficiency",
             "reference",
@@ -453,7 +453,7 @@ def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Proficiency definition used by eligible weapon actions.",
             reference_kind="proficiency",
         ),
-        _weapon_fact_definition(
+        _weapon_attribute_definition(
             "weapon_proficiency_growth_rate",
             "Proficiency Growth Rate",
             "number",
@@ -462,20 +462,20 @@ def _migrate_v7_to_v8(envelope: PersistedEnvelope) -> PersistedEnvelope:
         ),
     )
     for definition in weapon_definitions:
-        facts[definition["id"]] = definition
+        attributes[definition["id"]] = definition
 
     items = state.get("items", {})
     if isinstance(items, dict):
         for item in items.values():
             if isinstance(item, dict):
-                item.setdefault("fact_profile", None)
-                item.setdefault("facts", {})
+                item.setdefault("attribute_profile", None)
+                item.setdefault("attributes", {})
 
     return {"schema_version": 8, "state": state}
 
 
-def _action_fact_definition(
-    fact_id: str,
+def _action_attribute_definition(
+    attribute_id: str,
     name: str,
     value_type: str,
     default_value: Any,
@@ -486,12 +486,12 @@ def _action_fact_definition(
     reference_kind: str | None = None,
 ) -> dict[str, Any]:
     return {
-        "id": fact_id,
+        "id": attribute_id,
         "name": name,
         "description": description,
         "subject_types": ["action"],
         "value_type": value_type,
-        "default_value": _literal_fact_value(value_type, default_value),
+        "default_value": _literal_attribute_value(value_type, default_value),
         "unit": unit,
         "visibility": "public",
         "validation_options": validation_options or [],
@@ -504,14 +504,14 @@ def _action_fact_definition(
 
 def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    facts = state.setdefault("facts", {})
-    if not isinstance(facts, dict):
-        facts = {}
-        state["facts"] = facts
-    for definition in facts.values():
+    attributes = state.setdefault("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+        state["attributes"] = attributes
+    for definition in attributes.values():
         if isinstance(definition, dict):
             definition.setdefault("backend_owned", False)
-    for fact_id in (
+    for attribute_id in (
         "amount_of_reactions",
         "weapon_type",
         "weapon_base_damage",
@@ -521,7 +521,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
         "weapon_proficiency",
         "weapon_proficiency_growth_rate",
     ):
-        definition = facts.get(fact_id)
+        definition = attributes.get(attribute_id)
         if isinstance(definition, dict):
             definition["backend_owned"] = True
 
@@ -544,7 +544,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
         "SS+",
     ]
     action_definitions = (
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_rank",
             "Rank",
             "enum",
@@ -552,7 +552,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Authored action or skill rank.",
             validation_options=rank_options,
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_range",
             "Range",
             "number",
@@ -561,7 +561,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
                 "Informational action range unless a step explicitly consumes it."
             ),
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_target_count",
             "Target Count",
             "number",
@@ -569,14 +569,14 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Informational target count; it does not enforce targeting.",
             unit="targets",
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_area",
             "Area",
             "text",
             "",
             description="Informational area or shape description.",
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_mana_cost",
             "Mana Cost",
             "number",
@@ -586,7 +586,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
             ),
             unit="mana",
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_base_spell_damage",
             "Base Spell Damage",
             "number",
@@ -594,7 +594,7 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
             description="Flat spell damage available to eligible spell formulas.",
             unit="damage",
         ),
-        _action_fact_definition(
+        _action_attribute_definition(
             "action_proficiency",
             "Proficiency",
             "reference",
@@ -604,11 +604,11 @@ def _migrate_v8_to_v9(envelope: PersistedEnvelope) -> PersistedEnvelope:
         ),
     )
     for definition in action_definitions:
-        facts[definition["id"]] = definition
+        attributes[definition["id"]] = definition
 
     for action in state.get("actions", {}).values():
         if isinstance(action, dict):
-            action.setdefault("facts", {})
+            action.setdefault("attributes", {})
 
     return {"schema_version": 9, "state": state}
 
@@ -677,8 +677,8 @@ def _migrate_v9_to_v10(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 10, "state": state}
 
 
-def _sheet_fact_definition(
-    fact_id: str,
+def _sheet_attribute_definition(
+    attribute_id: str,
     name: str,
     default_value: int,
     *,
@@ -686,12 +686,12 @@ def _sheet_fact_definition(
     unit: str = "",
 ) -> dict[str, Any]:
     return {
-        "id": fact_id,
+        "id": attribute_id,
         "name": name,
         "description": description,
         "subject_types": ["sheet"],
         "value_type": "number",
-        "default_value": _literal_fact_value("number", default_value),
+        "default_value": _literal_attribute_value("number", default_value),
         "unit": unit,
         "visibility": "public",
         "validation_options": [],
@@ -704,19 +704,19 @@ def _sheet_fact_definition(
 
 def _migrate_v10_to_v11(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    facts = state.setdefault("facts", {})
-    if not isinstance(facts, dict):
-        facts = {}
-        state["facts"] = facts
+    attributes = state.setdefault("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+        state["attributes"] = attributes
 
     definitions = (
-        _sheet_fact_definition(
+        _sheet_attribute_definition(
             "level",
             "Level",
             1,
             description="Current character or creature level.",
         ),
-        _sheet_fact_definition(
+        _sheet_attribute_definition(
             "movement",
             "Movement",
             30,
@@ -726,7 +726,7 @@ def _migrate_v10_to_v11(envelope: PersistedEnvelope) -> PersistedEnvelope:
             ),
             unit="feet",
         ),
-        _sheet_fact_definition(
+        _sheet_attribute_definition(
             "mana_regeneration",
             "Mana Regeneration",
             10,
@@ -738,13 +738,13 @@ def _migrate_v10_to_v11(envelope: PersistedEnvelope) -> PersistedEnvelope:
         ),
     )
     for definition in definitions:
-        facts[definition["id"]] = definition
+        attributes[definition["id"]] = definition
 
     return {"schema_version": 11, "state": state}
 
 
-def _item_fact_definition(
-    fact_id: str,
+def _item_attribute_definition(
+    attribute_id: str,
     name: str,
     value_type: str,
     default_value: Any,
@@ -753,12 +753,12 @@ def _item_fact_definition(
     unit: str = "",
 ) -> dict[str, Any]:
     return {
-        "id": fact_id,
+        "id": attribute_id,
         "name": name,
         "description": description,
         "subject_types": ["item"],
         "value_type": value_type,
-        "default_value": _literal_fact_value(value_type, default_value),
+        "default_value": _literal_attribute_value(value_type, default_value),
         "unit": unit,
         "visibility": "public",
         "validation_options": [],
@@ -771,13 +771,13 @@ def _item_fact_definition(
 
 def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
-    facts = state.setdefault("facts", {})
-    if not isinstance(facts, dict):
-        facts = {}
-        state["facts"] = facts
+    attributes = state.setdefault("attributes", {})
+    if not isinstance(attributes, dict):
+        attributes = {}
+        state["attributes"] = attributes
 
     definitions = (
-        _item_fact_definition(
+        _item_attribute_definition(
             "item_attribute",
             "Attribute",
             "text",
@@ -787,7 +787,7 @@ def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
                 "eligible action or augmentation explicitly consumes it."
             ),
         ),
-        _item_fact_definition(
+        _item_attribute_definition(
             "item_mana_efficiency",
             "Mana Efficiency",
             "number",
@@ -798,7 +798,7 @@ def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
             ),
             unit="%",
         ),
-        _item_fact_definition(
+        _item_attribute_definition(
             "item_flat_effect_bonus",
             "Flat Effect Bonus",
             "number",
@@ -809,7 +809,7 @@ def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
             ),
             unit="bonus",
         ),
-        _item_fact_definition(
+        _item_attribute_definition(
             "item_mana_regeneration_modifier",
             "Mana Regeneration Modifier",
             "number",
@@ -822,7 +822,7 @@ def _migrate_v11_to_v12(envelope: PersistedEnvelope) -> PersistedEnvelope:
         ),
     )
     for definition in definitions:
-        facts[definition["id"]] = definition
+        attributes[definition["id"]] = definition
 
     return {"schema_version": 12, "state": state}
 
@@ -885,6 +885,70 @@ def _migrate_v12_to_v13(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 13, "state": state}
 
 
+def _normalize_legacy_attribute_references(value: Any) -> Any:
+    if isinstance(value, list):
+        if value and value[0] == "facts":
+            value[0] = "attributes"
+        for entry in value:
+            _normalize_legacy_attribute_references(entry)
+        return value
+
+    if not isinstance(value, dict):
+        return value
+
+    if "fact_id" in value and "attribute_id" not in value:
+        value["attribute_id"] = value.pop("fact_id")
+    else:
+        value.pop("fact_id", None)
+
+    relationship_id = value.get("relationship_id")
+    if isinstance(relationship_id, str):
+        value["relationship_id"] = relationship_id.replace(
+            "required_fact_",
+            "required_attribute_",
+        ).replace("_fact", "_attribute")
+
+    for entry in value.values():
+        _normalize_legacy_attribute_references(entry)
+    return value
+
+
+def _merge_legacy_attribute_collection(owner: dict[str, Any]) -> None:
+    legacy_attributes = owner.pop("facts", {})
+    current_attributes = owner.get("attributes", {})
+    if not isinstance(legacy_attributes, dict):
+        legacy_attributes = {}
+    if not isinstance(current_attributes, dict):
+        current_attributes = {}
+    owner["attributes"] = {
+        **legacy_attributes,
+        **current_attributes,
+    }
+    _normalize_legacy_attribute_references(owner["attributes"])
+
+
+def _migrate_v13_to_v14(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    _merge_legacy_attribute_collection(state)
+
+    for collection_name in ("sheets", "items", "actions"):
+        collection = state.get(collection_name, {})
+        if not isinstance(collection, dict):
+            continue
+        for entry in collection.values():
+            if not isinstance(entry, dict):
+                continue
+            _merge_legacy_attribute_collection(entry)
+            if collection_name == "items":
+                if "fact_profile" in entry and "attribute_profile" not in entry:
+                    entry["attribute_profile"] = entry.pop("fact_profile")
+                else:
+                    entry.pop("fact_profile", None)
+
+    _normalize_legacy_attribute_references(state)
+    return {"schema_version": 14, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -899,6 +963,7 @@ MIGRATIONS: dict[int, Migration] = {
     10: _migrate_v10_to_v11,
     11: _migrate_v11_to_v12,
     12: _migrate_v12_to_v13,
+    13: _migrate_v13_to_v14,
 }
 
 

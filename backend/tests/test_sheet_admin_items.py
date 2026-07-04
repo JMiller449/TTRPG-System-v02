@@ -49,7 +49,7 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
     }
 
 
-def _weapon_fact_bridges(proficiency_id: str = "long_swords") -> dict:
+def _weapon_attribute_bridges(proficiency_id: str = "long_swords") -> dict:
     values = {
         "weapon_type": {"type": "text", "value": "Long Sword"},
         "weapon_base_damage": {"type": "number", "value": 15},
@@ -60,12 +60,12 @@ def _weapon_fact_bridges(proficiency_id: str = "long_swords") -> dict:
         "weapon_proficiency_growth_rate": {"type": "number", "value": 0.8},
     }
     return {
-        fact_id: {
-            "relationship_id": f"client-{fact_id}",
-            "fact_id": fact_id,
+        attribute_id: {
+            "relationship_id": f"client-{attribute_id}",
+            "attribute_id": attribute_id,
             "value": value,
         }
-        for fact_id, value in values.items()
+        for attribute_id, value in values.items()
     }
 
 
@@ -75,8 +75,8 @@ def _item_augmentation_payload(
     value: dict | None = None,
 ) -> dict:
     return {
-        "id": "fact-powered-effect",
-        "name": "Fact Powered Effect",
+        "id": "attribute-powered-effect",
+        "name": "Attribute Powered Effect",
         "description": "",
         "source": {"type": "item", "id": "sword", "label": "Sword"},
         "scope": "sheet",
@@ -138,7 +138,7 @@ def test_dm_can_create_item(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_item_augmentation_formula_can_reference_owning_item_fact(monkeypatch) -> None:
+def test_item_augmentation_formula_can_reference_owning_item_attribute(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -157,8 +157,8 @@ def test_item_augmentation_formula_can_reference_owning_item_fact(monkeypatch) -
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "fact_profile": "weapon",
-                    "facts": _weapon_fact_bridges(),
+                    "attribute_profile": "weapon",
+                    "attributes": _weapon_attribute_bridges(),
                     "augmentation_templates": [
                         _item_augmentation_payload(
                             value={
@@ -168,7 +168,7 @@ def test_item_augmentation_formula_can_reference_owning_item_fact(monkeypatch) -
                                         "name": "base_damage",
                                         "path": [
                                             "source_item",
-                                            "facts",
+                                            "attributes",
                                             "weapon_base_damage",
                                         ],
                                     }
@@ -194,7 +194,7 @@ def test_item_augmentation_formula_can_reference_owning_item_fact(monkeypatch) -
     asyncio.run(scenario())
 
 
-def test_item_augmentation_formula_rejects_missing_owning_item_fact(
+def test_item_augmentation_formula_rejects_missing_owning_item_attribute(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -218,7 +218,7 @@ def test_item_augmentation_formula_rejects_missing_owning_item_fact(
                                         "name": "base_damage",
                                         "path": [
                                             "source_item",
-                                            "facts",
+                                            "attributes",
                                             "weapon_base_damage",
                                         ],
                                     }
@@ -268,7 +268,7 @@ def test_direct_item_augmentation_formula_rejects_action_context(
                                         "name": "mana_cost",
                                         "path": [
                                             "action",
-                                            "facts",
+                                            "attributes",
                                             "action_mana_cost",
                                         ],
                                     }
@@ -295,7 +295,7 @@ def test_direct_item_augmentation_formula_rejects_action_context(
     asyncio.run(scenario())
 
 
-def test_dm_can_create_weapon_profile_with_backend_required_facts(monkeypatch) -> None:
+def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -314,8 +314,8 @@ def test_dm_can_create_weapon_profile_with_backend_required_facts(monkeypatch) -
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "fact_profile": "weapon",
-                    "facts": _weapon_fact_bridges(),
+                    "attribute_profile": "weapon",
+                    "attributes": _weapon_attribute_bridges(),
                 }
             )
 
@@ -325,47 +325,47 @@ def test_dm_can_create_weapon_profile_with_backend_required_facts(monkeypatch) -
             )
 
             weapon = state.items["sword"]
-            assert weapon.fact_profile == "weapon"
-            assert set(weapon.facts) == set(_weapon_fact_bridges())
-            assert weapon.facts["weapon_base_damage"].evaluated_value == 15
-            assert weapon.facts["weapon_proficiency"].evaluated_value == "long_swords"
+            assert weapon.attribute_profile == "weapon"
+            assert set(weapon.attributes) == set(_weapon_attribute_bridges())
+            assert weapon.attributes["weapon_base_damage"].evaluated_value == 15
+            assert weapon.attributes["weapon_proficiency"].evaluated_value == "long_swords"
             assert all(
-                bridge.relationship_id == f"required_fact_{fact_id}"
-                for fact_id, bridge in weapon.facts.items()
+                bridge.relationship_id == f"required_attribute_{attribute_id}"
+                for attribute_id, bridge in weapon.attributes.items()
             )
-            assert state.facts["weapon_base_damage"].required_profile == "weapon"
+            assert state.attributes["weapon_base_damage"].required_profile == "weapon"
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "set_subject_fact_value",
+                    "type": "set_subject_attribute_value",
                     "subject_type": "item",
                     "subject_id": "sword",
-                    "fact_id": "weapon_base_damage",
+                    "attribute_id": "weapon_base_damage",
                     "value": {"type": "number", "value": -1},
                 },
             )
             assert websocket.sent_messages[-1]["type"] == "error"
-            assert weapon.facts["weapon_base_damage"].evaluated_value == 15
+            assert weapon.attributes["weapon_base_damage"].evaluated_value == 15
 
             await handle_client_payload(
                 websocket,
                 {
-                    "type": "detach_subject_fact",
+                    "type": "detach_subject_attribute",
                     "subject_type": "item",
                     "subject_id": "sword",
-                    "fact_id": "weapon_base_damage",
+                    "attribute_id": "weapon_base_damage",
                 },
             )
             assert websocket.sent_messages[-1]["type"] == "error"
-            assert "Required Facts cannot be detached" in websocket.sent_messages[-1]["reason"]
+            assert "Required Attributes cannot be detached" in websocket.sent_messages[-1]["reason"]
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_weapon_profile_rejects_missing_proficiency_and_removes_facts_on_clear(
+def test_weapon_profile_rejects_missing_proficiency_and_removes_attributes_on_clear(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -381,8 +381,8 @@ def test_weapon_profile_rejects_missing_proficiency_and_removes_facts_on_clear(
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "fact_profile": "weapon",
-                    "facts": _weapon_fact_bridges("missing"),
+                    "attribute_profile": "weapon",
+                    "attributes": _weapon_attribute_bridges("missing"),
                 }
             )
 
@@ -398,18 +398,18 @@ def test_weapon_profile_rejects_missing_proficiency_and_removes_facts_on_clear(
                 name="Long Swords",
                 description="",
             )
-            payload["facts"] = _weapon_fact_bridges()
+            payload["attributes"] = _weapon_attribute_bridges()
             await handle_client_payload(
                 websocket,
                 {"type": "create_item", "item": payload},
             )
-            payload["fact_profile"] = None
+            payload["attribute_profile"] = None
             await handle_client_payload(
                 websocket,
                 {"type": "update_item", "item_id": "sword", "item": payload},
             )
-            assert state.items["sword"].fact_profile is None
-            assert state.items["sword"].facts == {}
+            assert state.items["sword"].attribute_profile is None
+            assert state.items["sword"].attributes == {}
         finally:
             StateSingleton._state = original_state
 

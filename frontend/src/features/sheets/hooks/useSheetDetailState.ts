@@ -16,7 +16,7 @@ import type {
   ActionDefinition,
   ActiveCondition,
   Augmentation,
-  FactDefinition,
+  AttributeDefinition,
   ItemBridge,
   ItemDefinition,
   ProficiencyBridge,
@@ -31,7 +31,7 @@ interface UseSheetDetailStateResult {
   actionDefinitions: Record<string, ActionDefinition>;
   actionOrder: string[];
   augmentations: Record<string, Augmentation>;
-  factDefinitions: Record<string, FactDefinition>;
+  attributeDefinitions: Record<string, AttributeDefinition>;
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
@@ -61,7 +61,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     actions: actionDefinitions,
     actionOrder,
     augmentations,
-    facts: factDefinitions
+    attributes: attributeDefinitions
   } = serverState;
   const { activeSheetId, actionFormulaAuthoringMetadata } = state.uiState;
   const selectorState = useMemo(
@@ -118,7 +118,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
       actionDefinitions,
       actionOrder,
       augmentations,
-      factDefinitions,
+      attributeDefinitions,
       actionFormulaAuthoringMetadata,
       items,
       itemOrder,
@@ -143,7 +143,7 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     actionDefinitions,
     actionOrder,
     augmentations,
-    factDefinitions,
+    attributeDefinitions,
     actionFormulaAuthoringMetadata,
     items,
     itemOrder,

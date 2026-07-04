@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from backend.features.facts.service import validate_and_evaluate_sheet_facts
+from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.stats.schema import (
     SetSheetBaseStat,
@@ -22,7 +22,7 @@ async def set_base_stat(request: SetSheetBaseStat) -> None:
 
         candidate = deepcopy(state.sheets[request.sheet_id])
         setattr(candidate.stats, request.stat_name, request.value)
-        validate_and_evaluate_sheet_facts(candidate)
+        validate_and_evaluate_sheet_attributes(candidate)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -42,8 +42,8 @@ async def set_formula_stat(request: SetSheetFormulaStat) -> None:
             raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
 
         sheet = state.sheets[request.sheet_id]
-        attached_fact_paths = {
-            ("facts", fact_id) for fact_id in sheet.facts
+        attached_attribute_paths = {
+            ("attributes", attribute_id) for attribute_id in sheet.attributes
         }
         sheet_paths = {
             tuple(variable.path)
@@ -51,7 +51,7 @@ async def set_formula_stat(request: SetSheetFormulaStat) -> None:
                 state=state
             ).variables
             if variable.root == "sheet" and variable.formula_reference_allowed
-        } | attached_fact_paths
+        } | attached_attribute_paths
         for alias in request.formula.aliases or []:
             alias_path = tuple(alias.path)
             if alias_path not in sheet_paths:
@@ -65,11 +65,11 @@ async def set_formula_stat(request: SetSheetFormulaStat) -> None:
                 )
         formula = build_formula(
             request.formula,
-            additional_paths=attached_fact_paths,
+            additional_paths=attached_attribute_paths,
         )
         candidate = deepcopy(sheet)
         setattr(candidate.stats, request.stat_name, formula)
-        validate_and_evaluate_sheet_facts(candidate)
+        validate_and_evaluate_sheet_attributes(candidate)
 
         path = state_sync_service.join_path(
             "sheets",

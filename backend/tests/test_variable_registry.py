@@ -66,9 +66,9 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     action_presets = {
         preset.id: preset for preset in metadata.action_preset_templates
     }
-    fact_presets = {preset.id: preset for preset in metadata.action_fact_presets}
-    fact_formula_variables = {
-        variable.key: variable for variable in metadata.fact_formula_variables
+    attribute_presets = {preset.id: preset for preset in metadata.action_attribute_presets}
+    attribute_formula_variables = {
+        variable.key: variable for variable in metadata.attribute_formula_variables
     }
     sheet_formula_defaults = {
         default.stat_name: default.formula
@@ -83,15 +83,15 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "source_item",
     ]
     assert metadata.action_mutation_roots == ["sheet", "instance"]
-    assert fact_formula_variables["fact_formula.sheet.stats.strength"].path == [
+    assert attribute_formula_variables["attribute_formula.sheet.stats.strength"].path == [
         "stats",
         "strength",
     ]
-    amount_of_reactions = fact_formula_variables[
-        "fact_formula.facts.amount_of_reactions"
+    amount_of_reactions = attribute_formula_variables[
+        "attribute_formula.attributes.amount_of_reactions"
     ]
     assert amount_of_reactions.subject_types == ["sheet"]
-    assert amount_of_reactions.path == ["facts", "amount_of_reactions"]
+    assert amount_of_reactions.path == ["attributes", "amount_of_reactions"]
     assert {name: formula.text for name, formula in sheet_formula_defaults.items()} == {
         "lifting": "@strength",
         "carry_weight": "@strength",
@@ -118,27 +118,27 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         ("stamina", ["stats", "stamina"]),
         ("intuition", ["stats", "intuition"]),
     ]
-    assert set(fact_presets) == {"action_details", "spell_details"}
-    assert set(fact_presets["action_details"].fact_values) == {
+    assert set(attribute_presets) == {"action_details", "spell_details"}
+    assert set(attribute_presets["action_details"].attribute_values) == {
         "action_rank",
         "action_range",
         "action_target_count",
         "action_area",
     }
-    assert fact_presets["spell_details"].fact_values["action_proficiency"] == {
+    assert attribute_presets["spell_details"].attribute_values["action_proficiency"] == {
         "type": "reference",
         "value": "",
     }
 
-    action_damage = variables["action.facts.action_base_spell_damage"]
+    action_damage = variables["action.attributes.action_base_spell_damage"]
     assert action_damage.root == "action"
-    assert action_damage.path == ["facts", "action_base_spell_damage"]
+    assert action_damage.path == ["attributes", "action_base_spell_damage"]
     assert action_damage.shortcuts == ["base_spell_damage"]
     assert action_damage.action_mutation_allowed is False
 
-    weapon_damage = variables["source_item.facts.weapon_base_damage"]
+    weapon_damage = variables["source_item.attributes.weapon_base_damage"]
     assert weapon_damage.root == "source_item"
-    assert weapon_damage.path == ["facts", "weapon_base_damage"]
+    assert weapon_damage.path == ["attributes", "weapon_base_damage"]
     assert weapon_damage.shortcuts == ["weapon_base_damage"]
 
     weapon_stat = variables["source_item.resolved.governing_stat"]
@@ -240,10 +240,10 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     assert action_presets["block"].steps[0]["message"]["aliases"] == [
         {"name": "strength", "path": ["sheet", "stats", "strength"]}
     ]
-    assert action_presets["spell_to_hit"].fact_values[
+    assert action_presets["spell_to_hit"].attribute_values[
         "action_proficiency"
     ] == {"type": "reference", "value": ""}
-    assert action_presets["spell_damage"].fact_values[
+    assert action_presets["spell_damage"].attribute_values[
         "action_base_spell_damage"
     ] == {"type": "number", "value": 0}
 
@@ -416,9 +416,9 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
             preset["id"]: preset
             for preset in websocket.sent_messages[0]["action_preset_templates"]
         }
-        fact_presets = {
+        attribute_presets = {
             preset["id"]: preset
-            for preset in websocket.sent_messages[0]["action_fact_presets"]
+            for preset in websocket.sent_messages[0]["action_attribute_presets"]
         }
 
         assert variables["sheet.stats.arcane"]["shortcuts"] == ["arc", "arcane"]
@@ -445,7 +445,7 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
             "spell_to_hit",
             "spell_damage",
         }
-        assert set(fact_presets) == {"action_details", "spell_details"}
+        assert set(attribute_presets) == {"action_details", "spell_details"}
         assert action_presets["restore_mana"]["steps"][0]["type"] == (
             "increment_value"
         )

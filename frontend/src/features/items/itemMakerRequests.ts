@@ -7,7 +7,7 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import {
   getItemEditorValidationError,
-  type ItemFactValidationContext,
+  type ItemAttributeValidationContext,
   toItemDefinitionPayload,
   toUpdatedItemDefinitionPayload,
   type ItemEditorValues
@@ -30,7 +30,7 @@ export function selectOrderedItemDefinitions(
 export function buildCreateItemSubmission(
   values: ItemEditorValues,
   itemId: string,
-  context: ItemFactValidationContext = {}
+  context: ItemAttributeValidationContext = {}
 ): ItemMakerSubmission | null {
   if (getItemEditorValidationError(values, context)) {
     return null;
@@ -46,7 +46,7 @@ export function buildCreateItemSubmission(
 export function buildUpdateItemSubmission(
   item: ItemDefinition | undefined,
   values: ItemEditorValues,
-  context: ItemFactValidationContext = {}
+  context: ItemAttributeValidationContext = {}
 ): ItemMakerSubmission | null {
   if (!item || getItemEditorValidationError(values, context)) {
     return null;

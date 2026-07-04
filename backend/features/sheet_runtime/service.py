@@ -47,12 +47,12 @@ from backend.state.models.damage import (
     damage_type_resistance_key,
 )
 from backend.state.models.formula import Formula
-from backend.state.models.fact import (
-    ACTION_PROFICIENCY_FACT_ID,
-    WEAPON_GOVERNING_STAT_FACT_ID,
-    WEAPON_PROFICIENCY_FACT_ID,
-    WEAPON_FACT_PROFILE,
-    FactBridge,
+from backend.state.models.attribute import (
+    ACTION_PROFICIENCY_ATTRIBUTE_ID,
+    WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
+    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
+    WEAPON_ATTRIBUTE_PROFILE,
+    AttributeBridge,
 )
 from backend.state.models.item import Item, ItemActionGrant
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -171,14 +171,14 @@ class RuntimeFormulaContext:
         self.sheet = sheet
         self.instance = instance
         self.action = {
-            "facts": _numeric_fact_values(state, action, subject_type="action"),
+            "attributes": _numeric_attribute_values(state, action, subject_type="action"),
             "resolved": _resolved_action_values(state, sheet, action),
         }
         self.source_item = (
             None
             if source_item is None
             else {
-                "facts": _numeric_fact_values(
+                "attributes": _numeric_attribute_values(
                     state,
                     source_item,
                     subject_type="item",
@@ -193,7 +193,7 @@ class RuntimeFormulaContext:
         self.action_values = action_values if action_values is not None else {}
 
     def validate_formula(self, state: State, formula: Formula) -> None:
-        _validate_runtime_fact_aliases(
+        _validate_runtime_attribute_aliases(
             state,
             formula,
             sheet=self._sheet,
@@ -207,7 +207,7 @@ class RuntimeFormulaContext:
         return getattr(self._sheet, name)
 
 
-def _valid_numeric_fact_value(bridge: FactBridge) -> float | int | None:
+def _valid_numeric_attribute_value(bridge: AttributeBridge) -> float | int | None:
     value = bridge.evaluated_value
     if bridge.evaluation_error is not None:
         return None
@@ -216,15 +216,15 @@ def _valid_numeric_fact_value(bridge: FactBridge) -> float | int | None:
     return value
 
 
-def _numeric_fact_values(
+def _numeric_attribute_values(
     state: State,
     subject: Action | Item,
     *,
     subject_type: Literal["action", "item"],
 ) -> dict[str, float | int]:
     values: dict[str, float | int] = {}
-    for fact_id, bridge in subject.facts.items():
-        definition = state.facts.get(fact_id)
+    for attribute_id, bridge in subject.attributes.items():
+        definition = state.attributes.get(attribute_id)
         if (
             definition is None
             or definition.value_type != "number"
@@ -232,21 +232,21 @@ def _numeric_fact_values(
             or (
                 definition.required_profile is not None
                 and definition.required_profile
-                != getattr(subject, "fact_profile", None)
+                != getattr(subject, "attribute_profile", None)
             )
         ):
             continue
-        value = _valid_numeric_fact_value(bridge)
+        value = _valid_numeric_attribute_value(bridge)
         if value is not None:
-            values[fact_id] = value
+            values[attribute_id] = value
     return values
 
 
-def _fact_reference_value(subject: Action | Item, fact_id: str) -> str | None:
-    bridge = subject.facts.get(fact_id)
+def _attribute_reference_value(subject: Action | Item, attribute_id: str) -> str | None:
+    bridge = subject.attributes.get(attribute_id)
     if (
         bridge is None
-        or bridge.fact_id != fact_id
+        or bridge.attribute_id != attribute_id
         or bridge.evaluation_error is not None
     ):
         return None
@@ -270,7 +270,7 @@ def _resolved_action_values(
     sheet: Sheet,
     action: Action,
 ) -> dict[str, float | int]:
-    proficiency_id = _fact_reference_value(action, ACTION_PROFICIENCY_FACT_ID)
+    proficiency_id = _attribute_reference_value(action, ACTION_PROFICIENCY_ATTRIBUTE_ID)
     if proficiency_id is None or proficiency_id not in state.proficiencies:
         return {}
     modifier = _sheet_proficiency_modifier(sheet, proficiency_id)
@@ -282,15 +282,15 @@ def _resolved_source_item_values(
     sheet: Sheet,
     item: Item,
 ) -> dict[str, float | int]:
-    if item.fact_profile != WEAPON_FACT_PROFILE:
+    if item.attribute_profile != WEAPON_ATTRIBUTE_PROFILE:
         return {}
     values: dict[str, float | int] = {}
-    governing_stat = _fact_reference_value(item, WEAPON_GOVERNING_STAT_FACT_ID)
+    governing_stat = _attribute_reference_value(item, WEAPON_GOVERNING_STAT_ATTRIBUTE_ID)
     if governing_stat is not None:
         stat_value = getattr(sheet.stats, governing_stat, None)
         if isinstance(stat_value, int | float) and not isinstance(stat_value, bool):
             values["governing_stat"] = stat_value
-    proficiency_id = _fact_reference_value(item, WEAPON_PROFICIENCY_FACT_ID)
+    proficiency_id = _attribute_reference_value(item, WEAPON_PROFICIENCY_ATTRIBUTE_ID)
     if proficiency_id is not None and proficiency_id in state.proficiencies:
         modifier = _sheet_proficiency_modifier(sheet, proficiency_id)
         if modifier is not None:
@@ -298,7 +298,7 @@ def _resolved_source_item_values(
     return values
 
 
-def _validate_runtime_fact_aliases(
+def _validate_runtime_attribute_aliases(
     state: State,
     formula: Formula,
     *,
@@ -308,13 +308,13 @@ def _validate_runtime_fact_aliases(
 ) -> None:
     for alias in formula.aliases or []:
         path = alias.path
-        if len(path) >= 2 and path[:2] == ["action", "facts"]:
+        if len(path) >= 2 and path[:2] == ["action", "attributes"]:
             if len(path) != 3:
                 raise ValueError(
-                    f"Action Fact alias '{alias.name}' must reference "
-                    "action.facts.<fact_id>."
+                    f"Action Attribute alias '{alias.name}' must reference "
+                    "action.attributes.<attribute_id>."
                 )
-            _validate_runtime_numeric_fact(
+            _validate_runtime_numeric_attribute(
                 state,
                 action,
                 path[2],
@@ -330,7 +330,7 @@ def _validate_runtime_fact_aliases(
             ):
                 raise ValueError(
                     f"Action alias '{alias.name}' requires an attached valid Action "
-                    "Proficiency Fact and matching sheet proficiency."
+                    "Proficiency Attribute and matching sheet proficiency."
                 )
             continue
         if path and path[0] == "source_item":
@@ -339,13 +339,13 @@ def _validate_runtime_fact_aliases(
                     f"Source-item alias '{alias.name}' requires an explicit eligible "
                     "source item relationship."
                 )
-            if len(path) >= 2 and path[:2] == ["source_item", "facts"]:
+            if len(path) >= 2 and path[:2] == ["source_item", "attributes"]:
                 if len(path) != 3:
                     raise ValueError(
-                        f"Source-item Fact alias '{alias.name}' must reference "
-                        "source_item.facts.<fact_id>."
+                        f"Source-item Attribute alias '{alias.name}' must reference "
+                        "source_item.attributes.<attribute_id>."
                     )
-                _validate_runtime_numeric_fact(
+                _validate_runtime_numeric_attribute(
                     state,
                     source_item,
                     path[2],
@@ -367,19 +367,19 @@ def _validate_runtime_fact_aliases(
                 ):
                     raise ValueError(
                         f"Source-item alias '{alias.name}' requires a weapon with a "
-                        f"valid {resolved_key.replace('_', ' ')} Fact relationship."
+                        f"valid {resolved_key.replace('_', ' ')} Attribute relationship."
                     )
 
 
-def _validate_runtime_numeric_fact(
+def _validate_runtime_numeric_attribute(
     state: State,
     subject: Action | Item,
-    fact_id: str,
+    attribute_id: str,
     *,
     subject_type: Literal["action", "item"],
     alias_name: str,
 ) -> None:
-    definition = state.facts.get(fact_id)
+    definition = state.attributes.get(attribute_id)
     if (
         definition is None
         or definition.value_type != "number"
@@ -387,30 +387,30 @@ def _validate_runtime_numeric_fact(
     ):
         raise ValueError(
             f"Formula alias '{alias_name}' does not reference a numeric "
-            f"{subject_type} Fact."
+            f"{subject_type} Attribute."
         )
     if (
         definition.required_profile is not None
-        and definition.required_profile != getattr(subject, "fact_profile", None)
+        and definition.required_profile != getattr(subject, "attribute_profile", None)
     ):
         raise ValueError(
             f"Formula alias '{alias_name}' requires source-item profile "
             f"'{definition.required_profile}'."
         )
-    bridge = subject.facts.get(fact_id)
-    if bridge is None or bridge.fact_id != fact_id:
+    bridge = subject.attributes.get(attribute_id)
+    if bridge is None or bridge.attribute_id != attribute_id:
         raise ValueError(
-            f"Formula alias '{alias_name}' references Fact '{fact_id}', but it is "
+            f"Formula alias '{alias_name}' references Attribute '{attribute_id}', but it is "
             f"not attached to the current {subject_type}."
         )
     if bridge.evaluation_error is not None:
         raise ValueError(
-            f"Formula alias '{alias_name}' references invalid Fact '{fact_id}': "
+            f"Formula alias '{alias_name}' references invalid Attribute '{attribute_id}': "
             f"{bridge.evaluation_error}"
         )
-    if _valid_numeric_fact_value(bridge) is None:
+    if _valid_numeric_attribute_value(bridge) is None:
         raise ValueError(
-            f"Formula alias '{alias_name}' references Fact '{fact_id}', but its "
+            f"Formula alias '{alias_name}' references Attribute '{attribute_id}', but its "
             "evaluated value is not numeric."
         )
 

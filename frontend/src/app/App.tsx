@@ -13,7 +13,7 @@ import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { StandaloneEffectAuthoringPage } from "@/features/effects/StandaloneEffectAuthoringPage";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
-import { FactAuthoringPage } from "@/features/facts/FactAuthoringPage";
+import { AttributeAuthoringPage } from "@/features/attributes/AttributeAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
@@ -64,8 +64,8 @@ export function App(): JSX.Element {
       <ItemMakerPage client={client} />
     ) : gmView === "formula_authoring" ? (
       <FormulaAuthoringPage client={client} />
-    ) : gmView === "fact_authoring" ? (
-      <FactAuthoringPage client={client} />
+    ) : gmView === "attribute_authoring" ? (
+      <AttributeAuthoringPage client={client} />
     ) : gmView === "proficiency_authoring" ? (
       <ProficiencyAuthoringPage client={client} />
     ) : gmView === "condition_authoring" ? (

@@ -195,7 +195,7 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
         Array.isArray(payload.formula_aliases) &&
         Array.isArray(payload.action_steps) &&
         Array.isArray(payload.action_preset_templates) &&
-        Array.isArray(payload.action_fact_presets)
+        Array.isArray(payload.action_attribute_presets)
       ) {
         return {
           response_id:
@@ -213,10 +213,10 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
             payload.action_steps as ProtocolActionFormulaAuthoringMetadataEvent["action_steps"],
           action_preset_templates:
             payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
-          action_fact_presets:
-            payload.action_fact_presets as ProtocolActionFormulaAuthoringMetadataEvent["action_fact_presets"],
-          fact_formula_variables: Array.isArray(payload.fact_formula_variables)
-            ? (payload.fact_formula_variables as ProtocolActionFormulaAuthoringMetadataEvent["fact_formula_variables"])
+          action_attribute_presets:
+            payload.action_attribute_presets as ProtocolActionFormulaAuthoringMetadataEvent["action_attribute_presets"],
+          attribute_formula_variables: Array.isArray(payload.attribute_formula_variables)
+            ? (payload.attribute_formula_variables as ProtocolActionFormulaAuthoringMetadataEvent["attribute_formula_variables"])
             : [],
           sheet_formula_stat_defaults: Array.isArray(payload.sheet_formula_stat_defaults)
             ? (payload.sheet_formula_stat_defaults as ProtocolActionFormulaAuthoringMetadataEvent["sheet_formula_stat_defaults"])

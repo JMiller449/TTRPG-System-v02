@@ -3,27 +3,10 @@ import { GM_TOOLBAR_NAV_GROUPS } from "@/features/console/gmConsoleToolbarData";
 
 export function GMConsoleToolbar(): JSX.Element {
   const { state, dispatch } = useAppStore();
-  const { connection, gmView, pendingIntentIds } = state.uiState;
+  const { gmView } = state.uiState;
 
   return (
     <aside className="gm-toolbar app-nav-panel" aria-label="GM tools">
-      <div className="gm-toolbar__header">
-        <div>
-          <p className="nav-panel__eyebrow">Session Control</p>
-          <strong className="nav-panel__title">GM Tools</strong>
-        </div>
-        <div className="gm-toolbar__status" aria-label="Session status">
-          <span className={`system-status system-status--${connection.status}`}>
-            <span aria-hidden="true" />
-            {connection.status}
-          </span>
-          <span className="system-status">
-            <span aria-hidden="true" />
-            Pending {pendingIntentIds.length}
-          </span>
-        </div>
-      </div>
-
       <div className="gm-toolbar__controls">
         <nav className="gm-toolbar__nav" aria-label="GM pages">
           {GM_TOOLBAR_NAV_GROUPS.map((group) => (
@@ -34,6 +17,7 @@ export function GMConsoleToolbar(): JSX.Element {
                   key={item.view}
                   type="button"
                   className={`gm-toolbar__nav-button ${gmView === item.view ? "gm-toolbar__nav-button--active" : ""}`}
+                  aria-current={gmView === item.view ? "page" : undefined}
                   onClick={() => {
                     if (item.view === "create_template") {
                       dispatch({ type: "set_template_builder_sheet", sheetId: null });
@@ -41,7 +25,13 @@ export function GMConsoleToolbar(): JSX.Element {
                     dispatch({ type: "set_gm_view", view: item.view });
                   }}
                 >
-                  {item.label}
+                  <span className="gm-toolbar__nav-glyph" aria-hidden="true">
+                    {item.glyph}
+                  </span>
+                  <span className="gm-toolbar__nav-label">{item.label}</span>
+                  {gmView === item.view ? (
+                    <span className="gm-toolbar__nav-active" aria-hidden="true" />
+                  ) : null}
                 </button>
               ))}
             </section>

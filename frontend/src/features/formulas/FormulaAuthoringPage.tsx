@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
-import { FormulaDefinitionList } from "@/features/formulas/components/FormulaDefinitionList";
 import { FormulaEditorForm } from "@/features/formulas/components/FormulaEditorForm";
 import {
   createEmptyFormulaEditorValues,
@@ -22,6 +21,8 @@ import {
   type VariablePickerEntry
 } from "@/features/variables/variablePicker";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 
 export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -93,37 +94,55 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
       title="Formula Authoring"
       actions={
         editingFormulaId ? (
-          <button className="button button--secondary" onClick={startNewFormula}>
-            New Formula
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={startNewFormula}>
+              New Formula
+            </button>
+            <button
+              className="button button--danger"
+              onClick={() => deleteFormula(editingFormulaId)}
+            >
+              Delete Formula
+            </button>
+          </div>
         ) : null
       }
     >
-      <div className="stack">
-        <FormulaEditorForm
-          editingFormulaId={editingFormulaId}
-          values={values}
-          onChange={setValues}
-          onSubmit={onSubmit}
-          onCancel={startNewFormula}
-        />
+      <CatalogEditorLayout
+        catalogLabel="Formula Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={formulas.map((formula) => ({ id: formula.id, name: formula.id }))}
+            selectedId={editingFormulaId}
+            emptyMessage="No formulas created yet."
+            onSelect={(formulaId) => {
+              const formula = formulaRecords[formulaId];
+              if (!formula) {
+                return;
+              }
+              setEditingFormulaId(formula.id);
+              setValues(toFormulaEditorValues(formula));
+            }}
+          />
+        }
+      >
+        <div className="stack">
+          <FormulaEditorForm
+            editingFormulaId={editingFormulaId}
+            values={values}
+            onChange={setValues}
+            onSubmit={onSubmit}
+            onCancel={startNewFormula}
+          />
 
-        <VariableSearchPicker
-          metadata={actionFormulaAuthoringMetadata}
-          mode="formula"
-          label="Insert Formula Variable"
-          onPick={insertVariable}
-        />
-
-        <FormulaDefinitionList
-          formulas={formulas}
-          onEdit={(formula) => {
-            setEditingFormulaId(formula.id);
-            setValues(toFormulaEditorValues(formula));
-          }}
-          onDelete={deleteFormula}
-        />
-      </div>
+          <VariableSearchPicker
+            metadata={actionFormulaAuthoringMetadata}
+            mode="formula"
+            label="Insert Formula Variable"
+            onPick={insertVariable}
+          />
+        </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

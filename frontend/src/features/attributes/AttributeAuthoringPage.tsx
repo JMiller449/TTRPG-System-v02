@@ -15,6 +15,8 @@ import {
   buildUpdateAttributeRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 
 function attributeValueText(value: AttributeValue): string {
@@ -91,8 +93,60 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   };
 
   return (
-    <Panel title="Attribute Builder">
-      <div className="stack">
+    <Panel
+      title="Attribute Builder"
+      actions={
+        editingId ? (
+          <div className="inline-actions">
+            <button className="button button--secondary" type="button" onClick={reset}>
+              New Attribute
+            </button>
+            <button
+              className="button button--danger"
+              type="button"
+              onClick={() => {
+                const attribute = attributes[editingId];
+                if (!attribute || attribute.backend_owned) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildDeleteAttributeRequest({ attributeId: attribute.id }),
+                  `Delete Attribute: ${attribute.name}`
+                );
+                reset();
+              }}
+            >
+              Delete Attribute
+            </button>
+          </div>
+        ) : null
+      }
+    >
+      <CatalogEditorLayout
+        catalogLabel="Attribute Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={orderedAttributes.map((attribute) => ({
+              id: attribute.id,
+              name: attribute.name,
+              disabled: attribute.backend_owned,
+              disabledReason: attribute.backend_owned
+                ? `${attribute.name} is backend-owned`
+                : undefined
+            }))}
+            selectedId={editingId}
+            emptyMessage="No attributes created yet."
+            onSelect={(attributeId) => {
+              const attribute = attributes[attributeId];
+              if (!attribute || attribute.backend_owned) {
+                return;
+              }
+              setEditingId(attribute.id);
+              setDraft(draftFromAttribute(attribute));
+            }}
+          />
+        }
+      >
         <AttributeEditorForm
           editingId={editingId}
           draft={draft}
@@ -101,47 +155,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
           onSubmit={submit}
           onCancel={editingId ? reset : undefined}
         />
-
-        {orderedAttributes.map((attribute) => (
-          <article key={attribute.id} className="card stack">
-            <div className="inline-actions">
-              <strong>{attribute.name}</strong>
-              {attribute.required ? <span className="badge">Required</span> : null}
-              {attribute.backend_owned && !attribute.required ? <span className="badge">Preset</span> : null}
-            </div>
-            <p className="muted">
-              {attribute.subject_types.join(", ")} · {attribute.value_type} · default{" "}
-              {attributeValueText(attribute.default_value)}
-            </p>
-            {attribute.description ? <p>{attribute.description}</p> : null}
-            {!attribute.backend_owned ? (
-              <div className="inline-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(attribute.id);
-                    setDraft(draftFromAttribute(attribute));
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() =>
-                    client.sendProtocolRequest(
-                      buildDeleteAttributeRequest({ attributeId: attribute.id }),
-                      `Delete Attribute: ${attribute.name}`
-                    )
-                  }
-                >
-                  Delete
-                </button>
-              </div>
-            ) : null}
-          </article>
-        ))}
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

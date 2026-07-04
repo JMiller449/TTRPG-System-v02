@@ -3,6 +3,7 @@ import type { GMView } from "@/app/state/types";
 export interface GMToolbarNavItem {
   view: GMView;
   label: string;
+  glyph: string;
 }
 
 export interface GMToolbarNavGroup {
@@ -14,49 +15,49 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
   {
     label: "Session",
     items: [
-      { view: "console", label: "Dashboard" },
-      { view: "sheet_viewer", label: "Characters" }
+      { view: "console", label: "Dashboard", glyph: "DB" },
+      { view: "sheet_viewer", label: "Characters", glyph: "CH" }
     ]
   },
   {
     label: "Templates",
     items: [
-      { view: "template_library", label: "Library" },
-      { view: "create_template", label: "Builder" }
+      { view: "template_library", label: "Library", glyph: "LB" },
+      { view: "create_template", label: "Builder", glyph: "BD" }
     ]
   },
   {
     label: "Content",
     items: [
-      { view: "action_authoring", label: "Actions" },
-      { view: "item_maker", label: "Items" }
+      { view: "action_authoring", label: "Actions", glyph: "AC" },
+      { view: "item_maker", label: "Items", glyph: "IT" }
     ]
   },
   {
     label: "Rules Data",
     items: [
-      { view: "attribute_authoring", label: "Attributes" },
-      { view: "formula_authoring", label: "Formulas" },
-      { view: "proficiency_authoring", label: "Proficiencies" }
+      { view: "attribute_authoring", label: "Attributes", glyph: "AT" },
+      { view: "formula_authoring", label: "Formulas", glyph: "FX" },
+      { view: "proficiency_authoring", label: "Proficiencies", glyph: "PF" }
     ]
   },
   {
     label: "Status Effects",
     items: [
-      { view: "condition_authoring", label: "Conditions" },
-      { view: "effect_authoring", label: "Standalone Effects" }
+      { view: "condition_authoring", label: "Conditions", glyph: "CD" },
+      { view: "effect_authoring", label: "Standalone Effects", glyph: "EF" }
     ]
   },
   {
     label: "Encounters",
     items: [
-      { view: "encounter_presets", label: "Presets" },
-      { view: "xp_tracker", label: "XP" }
+      { view: "encounter_presets", label: "Presets", glyph: "EN" },
+      { view: "xp_tracker", label: "XP", glyph: "XP" }
     ]
   },
   {
     label: "Admin",
-    items: [{ view: "state_backup", label: "Backup & Undo" }]
+    items: [{ view: "state_backup", label: "Backup & Undo", glyph: "BK" }]
   }
 ];
 

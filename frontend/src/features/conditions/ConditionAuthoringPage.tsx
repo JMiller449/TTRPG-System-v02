@@ -3,7 +3,6 @@ import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ConditionAugmentationTemplatePanel } from "@/features/conditions/components/ConditionAugmentationTemplatePanel";
 import { ConditionPresetEditorForm } from "@/features/conditions/components/ConditionPresetEditorForm";
-import { ConditionPresetList } from "@/features/conditions/components/ConditionPresetList";
 import {
   createEmptyAugmentationEditorValues,
   hasValidAugmentationEditorValues,
@@ -28,6 +27,8 @@ import {
   type ConditionPresetEditorValues
 } from "@/features/conditions/conditionEditorValues";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 
 export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -180,13 +181,40 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
       title="Condition Authoring"
       actions={
         editingConditionId ? (
-          <button className="button button--secondary" onClick={startNewCondition}>
-            New Condition
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={startNewCondition}>
+              New Condition
+            </button>
+            <button
+              className="button button--danger"
+              onClick={() => deleteCondition(editingConditionId)}
+            >
+              Delete Condition
+            </button>
+          </div>
         ) : null
       }
     >
-      <div className="stack">
+      <CatalogEditorLayout
+        catalogLabel="Condition Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={conditions.map((condition) => ({ id: condition.id, name: condition.name }))}
+            selectedId={editingConditionId}
+            emptyMessage="No conditions created yet."
+            onSelect={(conditionId) => {
+              const condition = conditionPresets[conditionId];
+              if (!condition) {
+                return;
+              }
+              setEditingConditionId(condition.id);
+              setPendingCreatedConditionId(null);
+              setValues(toConditionPresetEditorValues(condition));
+              resetAugmentationEditor();
+            }}
+          />
+        }
+      >
         <ConditionPresetEditorForm
           editingConditionId={editingConditionId}
           values={values}
@@ -220,18 +248,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
             />
           }
         />
-
-        <ConditionPresetList
-          conditions={conditions}
-          onEdit={(condition) => {
-            setEditingConditionId(condition.id);
-            setPendingCreatedConditionId(null);
-            setValues(toConditionPresetEditorValues(condition));
-            resetAugmentationEditor();
-          }}
-          onDelete={deleteCondition}
-        />
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

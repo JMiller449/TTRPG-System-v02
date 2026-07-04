@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
-import { ProficiencyDefinitionList } from "@/features/proficiencies/components/ProficiencyDefinitionList";
 import { ProficiencyEditorForm } from "@/features/proficiencies/components/ProficiencyEditorForm";
 import {
   buildCreateProficiencySubmission,
@@ -15,6 +14,8 @@ import {
   type ProficiencyEditorValues
 } from "@/features/proficiencies/proficiencyEditorValues";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 
 export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -69,13 +70,41 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
       title="Proficiency Authoring"
       actions={
         editingProficiencyId ? (
-          <button className="button button--secondary" onClick={startNewProficiency}>
-            New Proficiency
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={startNewProficiency}>
+              New Proficiency
+            </button>
+            <button
+              className="button button--danger"
+              onClick={() => deleteProficiency(editingProficiencyId)}
+            >
+              Delete Proficiency
+            </button>
+          </div>
         ) : null
       }
     >
-      <div className="stack">
+      <CatalogEditorLayout
+        catalogLabel="Proficiency Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={proficiencies.map((proficiency) => ({
+              id: proficiency.id,
+              name: proficiency.name
+            }))}
+            selectedId={editingProficiencyId}
+            emptyMessage="No proficiencies created yet."
+            onSelect={(proficiencyId) => {
+              const proficiency = proficiencyRecords[proficiencyId];
+              if (!proficiency) {
+                return;
+              }
+              setEditingProficiencyId(proficiency.id);
+              setValues(toProficiencyEditorValues(proficiency));
+            }}
+          />
+        }
+      >
         <ProficiencyEditorForm
           editingProficiencyId={editingProficiencyId}
           values={values}
@@ -83,16 +112,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
           onSubmit={onSubmit}
           onCancel={startNewProficiency}
         />
-
-        <ProficiencyDefinitionList
-          proficiencies={proficiencies}
-          onEdit={(proficiency) => {
-            setEditingProficiencyId(proficiency.id);
-            setValues(toProficiencyEditorValues(proficiency));
-          }}
-          onDelete={deleteProficiency}
-        />
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

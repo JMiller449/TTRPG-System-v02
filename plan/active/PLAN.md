@@ -74,6 +74,7 @@ Frontend:
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Frontend shell and navigation have been reorganized for table use: persistent session status, task-oriented player tabs, compact searchable action commands, and grouped GM workspaces.
+- The frontend visual system now follows the dense R6 console reference layout: an edge-to-edge status header, grouped GM rail, reserved feedback strip, compact authoritative character workspace, vertical template section rail, and reusable catalog/editor authoring pages. This was a presentation-only pivot and did not add or remove application capabilities.
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.

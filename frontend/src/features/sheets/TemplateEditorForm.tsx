@@ -127,7 +127,7 @@ export function TemplateEditorForm({
       </header>
 
       <div className="template-builder__tabs" role="tablist" aria-label="Template sections">
-        {SECTIONS.map((section) => {
+        {SECTIONS.map((section, index) => {
           const errorCount = validation.errors[section.id].length;
           return (
             <button
@@ -138,9 +138,14 @@ export function TemplateEditorForm({
               className={activeSection === section.id ? "is-active" : ""}
               onClick={() => setActiveSection(section.id)}
             >
-              {section.label}
+              <span className="template-builder__tab-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <span className="template-builder__tab-label">{section.label}</span>
               {errorCount > 0 ? (
-                <span aria-label={`${errorCount} errors`}>{errorCount}</span>
+                <span className="template-builder__tab-errors" aria-label={`${errorCount} errors`}>
+                  {errorCount}
+                </span>
               ) : null}
             </button>
           );

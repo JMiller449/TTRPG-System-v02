@@ -112,7 +112,9 @@ export function IntentFeedbackBanners(): JSX.Element | null {
         <article key={item.id} className={`intent-banner intent-banner--${item.status}`}>
           <div>
             <strong className="intent-banner__status">{item.status}</strong>{" "}
-            <span className="intent-banner__message">{item.message}</span>
+            <span className="intent-banner__message" title={item.message}>
+              {item.message}
+            </span>
           </div>
           <button
             className="link-button"

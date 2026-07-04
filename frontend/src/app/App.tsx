@@ -89,7 +89,9 @@ export function App(): JSX.Element {
   return (
     <div className={`r6-theme app-shell ${role === "player" ? "app-shell--player" : ""}`}>
       <AppStatusBar role={role} client={client} />
-      <IntentFeedbackBanners />
+      <div className="app-notification-slot">
+        <IntentFeedbackBanners />
+      </div>
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />

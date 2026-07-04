@@ -1,5 +1,6 @@
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
+import systemMark from "@/assets/system-mark.svg";
 import type { Role } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 
@@ -26,8 +27,13 @@ export function AppStatusBar({
   return (
     <header className={`app-status-bar app-status-bar--${role}`} aria-label="Application status">
       <div className="app-status-bar__identity">
-        <p className="app-header__eyebrow">{role === "gm" ? "GM Workspace" : "Player Console"}</p>
-        <h1>{activeName}</h1>
+        <img className="app-status-bar__mark" src={systemMark} alt="" aria-hidden="true" />
+        <div className="app-status-bar__identity-copy">
+          <p className="app-header__eyebrow">
+            {role === "gm" ? "GM Workspace" : "Player Console"}
+          </p>
+          <h1>{activeName}</h1>
+        </div>
       </div>
       <div className="app-status-bar__statuses">
         <span className={`system-status system-status--${connection.status}`}>
@@ -48,6 +54,7 @@ export function AppStatusBar({
         </span>
       </div>
       <button
+        type="button"
         className="button button--secondary app-status-bar__exit"
         onClick={() => {
           client.endSession();

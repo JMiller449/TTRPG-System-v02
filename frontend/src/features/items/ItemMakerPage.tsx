@@ -15,7 +15,6 @@ import { buildAugmentationSelectorOptions } from "@/features/augmentations/augme
 import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
-import { ItemDefinitionList } from "@/features/items/components/ItemDefinitionList";
 import {
   createEmptyItemValues,
   toItemEditorValues,
@@ -28,6 +27,8 @@ import {
   selectOrderedItemDefinitions
 } from "@/features/items/itemMakerRequests";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 
 export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
@@ -177,13 +178,36 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       title="Item / Equipment Maker"
       actions={
         editingItemId ? (
-          <button className="button button--secondary" onClick={startNewItem}>
-            New Item
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={startNewItem}>
+              New Item
+            </button>
+            <button className="button button--danger" onClick={() => deleteItem(editingItemId)}>
+              Delete Item
+            </button>
+          </div>
         ) : null
       }
     >
-      <div className="stack">
+      <CatalogEditorLayout
+        catalogLabel="Item Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={items.map((item) => ({ id: item.id, name: item.name }))}
+            selectedId={editingItemId}
+            emptyMessage="No items created yet."
+            onSelect={(itemId) => {
+              const item = itemRecords[itemId];
+              if (!item) {
+                return;
+              }
+              setEditingItemId(item.id);
+              setValues(toItemEditorValues(item));
+              resetAugmentationEditor();
+            }}
+          />
+        }
+      >
         <ItemEditorForm
           editingItemId={editingItemId}
           values={values}
@@ -223,19 +247,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           onCancel={startNewItem}
           onOpenActionAuthoring={() => dispatch({ type: "set_gm_view", view: "action_authoring" })}
         />
-
-        <ItemDefinitionList
-          items={items}
-          actions={actionRecords}
-          attributeDefinitions={attributeDefinitions}
-          onEdit={(item) => {
-            setEditingItemId(item.id);
-            setValues(toItemEditorValues(item));
-            resetAugmentationEditor();
-          }}
-          onDelete={deleteItem}
-        />
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

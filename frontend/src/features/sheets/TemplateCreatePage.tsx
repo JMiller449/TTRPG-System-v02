@@ -199,6 +199,7 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
   return (
     <Panel
       title="Template Builder"
+      className="template-builder-panel"
       actions={
         <button className="button button--secondary" type="button" onClick={exitBuilder}>
           Template Library

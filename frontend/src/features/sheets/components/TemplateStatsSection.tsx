@@ -70,7 +70,6 @@ export function TemplateStatsSection({
               onClick={() => setSelectedFormula(key)}
             >
               <span>{DISPLAY_NAMES[key]}</span>
-              <code>{values.formulaStats[key].text || "Missing"}</code>
             </button>
           ))}
         </nav>

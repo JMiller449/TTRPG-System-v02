@@ -43,6 +43,17 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
+function sheetInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return "--";
+  }
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export function PlayerCharacterSheet({
   mode = "player",
   panelTitle,
@@ -160,32 +171,40 @@ export function PlayerCharacterSheet({
   };
 
   return (
-    <Panel title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}>
+    <Panel
+      title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}
+      className="sheet-panel"
+    >
       {mode === "gm" ? (
         <p className="character-sheet__panel-subtext muted">Sheet ID: {detail.instance.id}</p>
       ) : null}
       <article className="character-sheet">
         <header className="character-sheet__header">
+          <div className="character-sheet__identity-mark" aria-hidden="true">
+            {sheetInitials(detail.instance.name)}
+          </div>
           <div className="character-sheet__header-main">
             <h3>{detail.instance.name}</h3>
-          </div>
-          <div className="character-sheet__header-right">
-            <SheetResourceHeader
-              stats={detail.stats}
-              resources={resourceEditor.resources}
-              editingResource={resourceEditor.editingResource}
-              resourceDraftModifier={resourceEditor.resourceDraftModifier}
-              healthDamageType={resourceEditor.healthDamageType}
-              resourceEditorError={resourceEditor.resourceEditorError}
-              onBeginResourceEdit={resourceEditor.beginResourceEdit}
-              onResourceDraftModifierChange={resourceEditor.setResourceDraftModifier}
-              onHealthDamageTypeChange={resourceEditor.setHealthDamageType}
-              onApplyResourceModifier={resourceEditor.applyResourceModifier}
-              onCancelResourceEdit={resourceEditor.cancelResourceEdit}
-              onResourceEditorKeyDown={resourceEditor.onResourceEditorKeyDown}
-            />
+            <p>{mode === "gm" ? "GM-controlled sheet workspace" : "Active character sheet"}</p>
           </div>
         </header>
+
+        <div className="character-sheet__resources">
+          <SheetResourceHeader
+            stats={detail.stats}
+            resources={resourceEditor.resources}
+            editingResource={resourceEditor.editingResource}
+            resourceDraftModifier={resourceEditor.resourceDraftModifier}
+            healthDamageType={resourceEditor.healthDamageType}
+            resourceEditorError={resourceEditor.resourceEditorError}
+            onBeginResourceEdit={resourceEditor.beginResourceEdit}
+            onResourceDraftModifierChange={resourceEditor.setResourceDraftModifier}
+            onHealthDamageTypeChange={resourceEditor.setHealthDamageType}
+            onApplyResourceModifier={resourceEditor.applyResourceModifier}
+            onCancelResourceEdit={resourceEditor.cancelResourceEdit}
+            onResourceEditorKeyDown={resourceEditor.onResourceEditorKeyDown}
+          />
+        </div>
 
         {showTabs ? <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} /> : null}
 

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
   DISPLAY_NAMES,
@@ -46,8 +46,10 @@ export function SheetResourceHeader({
         const editorId = `resource-editor-${key}`;
         const errorId = `${editorId}-error`;
         const hintId = `${editorId}-hint`;
+        const fillPercent =
+          baseValue > 0 ? Math.max(0, Math.min(100, (currentValue / baseValue) * 100)) : 0;
         return (
-          <article key={key} className="resource-card">
+          <article key={key} className={`resource-card resource-card--${key}`}>
             <div className="resource-card__top">
               <span className="resource-card__label">{DISPLAY_NAMES[key]}</span>
               <button
@@ -65,6 +67,12 @@ export function SheetResourceHeader({
                 </strong>
               </button>
             </div>
+            <span className="resource-card__meter" aria-hidden="true">
+              <span
+                className="resource-card__meter-fill"
+                style={{ "--resource-fill": `${fillPercent}%` } as CSSProperties}
+              />
+            </span>
             {delta !== 0 ? (
               <div className="resource-card__delta-row">
                 <span

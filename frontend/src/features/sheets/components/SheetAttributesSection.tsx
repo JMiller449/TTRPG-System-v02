@@ -101,6 +101,7 @@ export function SheetAttributesSection({
             </select>
           </label>
           <button
+            className="button"
             type="button"
             disabled={!selectedAttributeId}
             onClick={() => {

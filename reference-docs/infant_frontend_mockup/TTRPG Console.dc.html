@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { background: #020610; }
+  @keyframes r6-notif-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes r6-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  .r6-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+  .r6-scroll::-webkit-scrollbar-track { background: rgba(3,18,33,.72); }
+  .r6-scroll::-webkit-scrollbar-thumb { background: rgba(94,238,255,.4); border-radius: 999px; border: 2px solid rgba(3,18,33,.92); }
+  .r6-scroll::-webkit-scrollbar-thumb:hover { background: rgba(94,238,255,.66); }
+  .tb-shell { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .tb-kicker { color: #5eeeff; font-size: 10.5px; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
+  .tb-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .tb-head h1 { margin: 3px 0 4px; font-size: 25px; letter-spacing: .01em; }
+  .tb-head p { margin: 0; color: #abc6d9; font-size: 12.5px; line-height: 1.45; }
+  .tb-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 29px; border-radius: 999px; padding: 4px 11px; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+  .tb-pill--ready { color: #58f0b3; border: 1px solid rgba(88,240,179,.48); background: rgba(88,240,179,.09); }
+  .tb-pill--draft { color: #ffd166; border: 1px solid rgba(255,209,102,.48); background: rgba(255,209,102,.09); }
+  .tb-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+  .tb-layout { min-height: 620px; display: grid; grid-template-columns: 250px minmax(0,1fr); border: 1px solid rgba(159,225,255,.38); border-radius: 12px; overflow: hidden; background: rgba(3,15,28,.74); box-shadow: 0 24px 70px rgba(0,0,0,.32); }
+  .tb-rail { padding: 16px 12px; border-right: 1px solid rgba(159,225,255,.2); background: rgba(2,11,22,.72); }
+  .tb-rail-label { padding: 0 8px 11px; color: #7f9fb5; font-size: 9.5px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+  .tb-step { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px; color: #7f9fb5; background: transparent; text-align: left; cursor: pointer; }
+  .tb-step:disabled { cursor: not-allowed; opacity: .58; }
+  .tb-step--current { color: #f4fbff; border-color: rgba(94,238,255,.62); background: linear-gradient(90deg,rgba(31,168,255,.19),rgba(31,168,255,.06)); box-shadow: inset 3px 0 0 #5eeeff; }
+  .tb-step--done { color: #abc6d9; }
+  .tb-step--error { color: #ffd6df; border-color: rgba(255,95,131,.26); background: rgba(255,95,131,.06); }
+  .tb-step-num { position: relative; z-index: 1; display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border: 1px solid rgba(159,225,255,.3); border-radius: 50%; color: #abc6d9; background: #071b2d; font-size: 10px; font-weight: 900; }
+  .tb-step--current .tb-step-num { color: #03111f; border-color: #5eeeff; background: #5eeeff; box-shadow: 0 0 14px rgba(94,238,255,.35); }
+  .tb-step--done .tb-step-num { color: #58f0b3; border-color: rgba(88,240,179,.55); background: rgba(88,240,179,.1); }
+  .tb-step--error .tb-step-num { color: #ff5f83; border-color: rgba(255,95,131,.6); background: rgba(255,95,131,.1); }
+  .tb-step-copy { min-width: 0; flex: 1; }
+  .tb-step-copy strong { display: block; font-size: 12.5px; }
+  .tb-step-copy span { display: block; margin-top: 2px; font-size: 9.5px; color: #7f9fb5; text-transform: uppercase; letter-spacing: .06em; }
+  .tb-error-count { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: 999px; color: #fff; background: #d83961; font-size: 10px; font-weight: 900; }
+  .tb-main { min-width: 0; display: flex; flex-direction: column; }
+  .tb-stage { flex: 1; padding: 20px 22px; }
+  .tb-stage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 15px; margin-bottom: 16px; border-bottom: 1px solid rgba(159,225,255,.18); }
+  .tb-stage-head h2 { margin: 0; font-size: 19px; }
+  .tb-stage-head p { max-width: 70ch; margin: 5px 0 0; color: #abc6d9; font-size: 12px; line-height: 1.5; }
+  .tb-field label, .tb-field-label { display: block; margin-bottom: 5px; color: #abc6d9; font-size: 10.5px; font-weight: 750; letter-spacing: .04em; }
+  .tb-field input, .tb-field select, .tb-field textarea, .tb-control { box-sizing: border-box; width: 100%; min-height: 37px; border: 1px solid rgba(159,225,255,.3); border-radius: 6px; padding: 7px 10px; color: #f4fbff; background: rgba(2,14,27,.9); font-family: Inter,sans-serif; font-size: 12.5px; color-scheme: dark; outline: none; }
+  .tb-field input:focus, .tb-field select:focus, .tb-field textarea:focus, .tb-control:focus { border-color: #5eeeff; box-shadow: 0 0 0 2px rgba(94,238,255,.09); }
+  .tb-field textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+  .tb-grid-2 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
+  .tb-grid-3 { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 11px; }
+  .tb-grid-6 { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 9px; }
+  .tb-card { border: 1px solid rgba(159,225,255,.25); border-radius: 9px; padding: 12px; background: rgba(8,31,52,.63); }
+  .tb-card strong { font-size: 12.5px; }
+  .tb-card p { margin: 4px 0 0; color: #7f9fb5; font-size: 10.5px; line-height: 1.45; }
+  .tb-section-label { margin: 18px 0 9px; color: #5eeeff; font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+  .tb-formula-layout { display: grid; grid-template-columns: 250px minmax(0,1fr); gap: 12px; }
+  .tb-formula-nav { max-height: 390px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+  .tb-formula-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 1px solid rgba(159,225,255,.2); border-radius: 7px; padding: 8px 9px; color: #abc6d9; background: rgba(2,14,27,.62); text-align: left; cursor: pointer; }
+  .tb-formula-btn--active { color: #f4fbff; border-color: #5eeeff; background: rgba(31,168,255,.14); }
+  .tb-formula-btn span { font-size: 11.5px; font-weight: 700; }
+  .tb-formula-btn-icon { color: #58758a; font-size: 15px; line-height: 1; }
+  .tb-formula-btn--active .tb-formula-btn-icon { color: #5eeeff; }
+  .tb-inline { display: flex; align-items: end; gap: 8px; }
+  .tb-inline > .tb-field { flex: 1; }
+  .tb-search { position: relative; }
+  .tb-search-results { position: absolute; z-index: 12; top: calc(100% + 5px); left: 0; right: 0; max-height: 205px; overflow-y: auto; border: 1px solid rgba(94,238,255,.55); border-radius: 7px; padding: 5px; background: #041321; box-shadow: 0 18px 40px rgba(0,0,0,.55); }
+  .tb-search-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; border: 0; border-radius: 5px; padding: 8px 9px; color: #f4fbff; background: transparent; text-align: left; cursor: pointer; }
+  .tb-search-result:hover, .tb-search-result:focus { outline: none; background: rgba(31,168,255,.17); }
+  .tb-search-result strong { font-size: 11.5px; }
+  .tb-search-result code { color: #7f9fb5; font: 9.5px 'JetBrains Mono',monospace; }
+  .tb-search-empty { padding: 10px; color: #7f9fb5; font-size: 10.5px; }
+  .tb-button { min-height: 35px; border: 1px solid rgba(174,239,255,.65); border-radius: 6px; padding: 6px 12px; color: #f4fbff; background: rgba(31,168,255,.11); font: 750 11.5px Inter,sans-serif; cursor: pointer; white-space: nowrap; }
+  .tb-button:hover { border-color: #5eeeff; background: rgba(31,168,255,.2); }
+  .tb-button:disabled { color: #58758a; border-color: rgba(159,225,255,.15); background: rgba(8,31,52,.3); cursor: not-allowed; }
+  .tb-button--primary { color: #03111f; border-color: transparent; background: #5eeeff; font-weight: 850; }
+  .tb-button--primary:hover { background: #bff9ff; }
+  .tb-button--danger { color: #ff9caf; border-color: rgba(255,95,131,.42); background: rgba(255,95,131,.07); }
+  .tb-tag { display: inline-flex; align-items: center; min-height: 23px; margin: 6px 5px 0 0; border: 1px solid rgba(159,225,255,.3); border-radius: 999px; padding: 2px 8px; color: #bff9ff; background: rgba(31,168,255,.09); font: 650 9.5px 'JetBrains Mono',monospace; }
+  .tb-picker { display: flex; gap: 8px; padding: 11px; border: 1px dashed rgba(159,225,255,.28); border-radius: 8px; background: rgba(2,14,27,.38); }
+  .tb-picker input, .tb-picker select { flex: 1; }
+  .tb-list { display: flex; flex-direction: column; gap: 8px; margin-top: 11px; }
+  .tb-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; border: 1px solid rgba(159,225,255,.24); border-radius: 8px; padding: 10px 12px; background: rgba(8,31,52,.72); }
+  .tb-row--edit { grid-template-columns: minmax(160px,1fr) 110px 120px auto; }
+  .tb-row-title strong { display: block; font-size: 12.5px; }
+  .tb-row-title span { display: block; margin-top: 3px; color: #7f9fb5; font-size: 10.5px; }
+  .tb-toggle { display: inline-flex; align-items: center; gap: 6px; color: #abc6d9; font-size: 11px; }
+  .tb-toggle input { accent-color: #5eeeff; }
+  .tb-footer { display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-top: 1px solid rgba(159,225,255,.2); background: rgba(2,11,22,.68); }
+  .tb-footer-copy { flex: 1; color: #7f9fb5; font-size: 10.5px; }
+  .tb-review-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .tb-review-card { border: 1px solid rgba(159,225,255,.25); border-radius: 9px; padding: 12px 13px; background: rgba(8,31,52,.64); }
+  .tb-review-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tb-review-card h3 { margin: 0; font-size: 12.5px; }
+  .tb-review-card p { margin: 7px 0 0; color: #abc6d9; font-size: 10.5px; line-height: 1.5; }
+  .tb-review-ok { color: #58f0b3; font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
+  .tb-alert { margin-top: 12px; border: 1px solid rgba(255,95,131,.36); border-radius: 8px; padding: 10px 12px; color: #ffd6df; background: rgba(255,95,131,.08); font-size: 11px; line-height: 1.45; }
+  .tb-modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0,4,11,.78); backdrop-filter: blur(5px); }
+  .tb-modal { width: min(560px,100%); border: 1px solid rgba(174,239,255,.72); border-radius: 12px; overflow: hidden; background: #07192a; box-shadow: 0 30px 100px rgba(0,0,0,.65); }
+  .tb-modal header { padding: 16px 18px 13px; border-bottom: 1px solid rgba(159,225,255,.2); }
+  .tb-modal h2 { margin: 0; font-size: 18px; }
+  .tb-modal header p { margin: 6px 0 0; color: #abc6d9; font-size: 11px; line-height: 1.5; }
+  .tb-modal-body { padding: 16px 18px; }
+  .tb-modal footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid rgba(159,225,255,.2); background: rgba(2,11,22,.48); }
+  @media (max-width: 1000px) { .tb-layout { grid-template-columns: 205px minmax(0,1fr); } .tb-grid-6 { grid-template-columns: repeat(3,1fr); } .tb-formula-layout { grid-template-columns: 210px minmax(0,1fr); } }
+  @media (max-width: 760px) { .tb-layout { display: block; } .tb-rail { border-right: 0; border-bottom: 1px solid rgba(159,225,255,.2); } .tb-step { min-height: 42px; } .tb-grid-2,.tb-grid-3,.tb-review-grid,.tb-formula-layout { grid-template-columns: 1fr; } .tb-row--edit { grid-template-columns: 1fr; } }
+</style>
+</helmet>
+
+<div style="height:100%;display:flex;flex-direction:column;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#f4fbff;background:radial-gradient(circle at 72% -5%, rgba(31,168,255,.16), transparent 40rem), radial-gradient(circle at 12% 40%, rgba(94,238,255,.07), transparent 32rem), linear-gradient(150deg,#06172b 0%,#020610 62%,#01040b 100%);">
+
+  <!-- ============ TOP STATUS BAR (fixed height, reserved notif slot) ============ -->
+  <header style="flex:0 0 auto;border-bottom:1px solid rgba(159,225,255,.22);background:#05131f;">
+    <div style="display:flex;align-items:center;gap:16px;padding:9px 16px;">
+      <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+        <div style="display:grid;place-items:center;width:34px;height:34px;transform:rotate(45deg);border:1.5px solid #5eeeff;background:rgba(31,168,255,.14);box-shadow:0 0 16px rgba(31,168,255,.3);">
+          <span style="transform:rotate(-45deg);font-weight:900;font-size:12px;letter-spacing:.02em;color:#bff9ff;">R6</span>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#5eeeff;line-height:1;">{{ roleEyebrow }}</div>
+          <div style="font-size:15px;font-weight:800;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ contextName }}</div>
+        </div>
+      </div>
+
+      <div style="flex:1;"></div>
+
+      <div style="display:flex;align-items:center;gap:6px;">
+        <sc-for list="{{ statusChips }}" as="chip" hint-placeholder-count="4">
+          <span style="{{ chip.style }}" title="{{ chip.title }}">
+            <span aria-hidden="true" style="{{ chip.dotStyle }}"></span>{{ chip.label }}
+          </span>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;border-left:1px solid rgba(159,225,255,.22);padding-left:12px;margin-left:4px;">
+        <span style="font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#7f9fb5;">View</span>
+        <div style="display:flex;border:1px solid rgba(159,225,255,.36);border-radius:6px;overflow:hidden;">
+          <button type="button" onClick="{{ viewAsGm }}" style="{{ gmToggleStyle }}">GM</button>
+          <button type="button" onClick="{{ viewAsPlayer }}" style="{{ playerToggleStyle }}">Player</button>
+        </div>
+        <button type="button" style="min-height:30px;border:1px solid rgba(174,239,255,.72);border-radius:6px;padding:5px 12px;font-weight:800;font-size:12px;letter-spacing:.02em;color:#f4fbff;background:rgba(31,168,255,.12);cursor:pointer;">Exit</button>
+      </div>
+    </div>
+
+    <!-- Reserved notification strip: ALWAYS present, fixed height -> never shifts layout -->
+    <div style="height:26px;display:flex;align-items:center;gap:8px;padding:0 16px;border-top:1px solid rgba(159,225,255,.1);background:rgba(2,10,20,.5);">
+      <span aria-hidden="true" style="{{ notifDotStyle }}"></span>
+      <span style="{{ notifTextStyle }}" key="{{ notif.key }}">{{ notif.text }}</span>
+      <div style="flex:1;"></div>
+      <span style="font-size:10px;font-variant-numeric:tabular-nums;color:#7f9fb5;letter-spacing:.04em;">{{ clock }}</span>
+    </div>
+  </header>
+
+  <!-- ============ BODY ============ -->
+  <div style="flex:1;min-height:0;display:flex;">
+
+    <!-- ---- LEFT RAIL ---- -->
+    <sc-if value="{{ isGm }}" hint-placeholder-val="{{ true }}">
+      <aside style="flex:0 0 224px;min-height:0;display:flex;flex-direction:column;border-right:1px solid rgba(159,225,255,.18);background:rgba(3,15,28,.6);">
+        <div class="r6-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:14px;">
+          <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="7">
+            <div>
+              <div style="display:flex;align-items:center;gap:7px;padding:0 6px 6px;">
+                <span style="font-size:10px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:#5eeeff;">{{ group.label }}</span>
+                <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(94,238,255,.3),transparent);"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="2">
+                  <button type="button" onClick="{{ item.onClick }}" style="{{ item.style }}">
+                    <span style="{{ item.glyphStyle }}">{{ item.glyph }}</span>
+                    <span style="flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.label }}</span>
+                    <sc-if value="{{ item.active }}" hint-placeholder-val="{{ false }}"><span style="width:5px;height:5px;border-radius:50%;background:#5eeeff;box-shadow:0 0 8px #5eeeff;"></span></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </aside>
+    </sc-if>
+
+    <!-- ---- MAIN ---- -->
+    <main class="r6-scroll" style="flex:1;min-width:0;min-height:0;overflow-y:auto;padding:16px;">
+
+      <!-- ======== GM DASHBOARD ======== -->
+      <sc-if value="{{ showDashboard }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#5eeeff;">Session Control</div>
+              <h1 style="margin:2px 0 0;font-size:26px;font-weight:850;letter-spacing:.02em;">GM Command Deck</h1>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" onClick="{{ goCharacters }}" style="white-space:nowrap;min-height:38px;border:1px solid transparent;border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;color:#03111f;background:#5eeeff;box-shadow:0 0 22px rgba(31,168,255,.24);cursor:pointer;">Open Characters</button>
+              <button type="button" onClick="{{ goEncounters }}" style="white-space:nowrap;min-height:38px;border:1px solid rgba(174,239,255,.72);border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;color:#f4fbff;background:rgba(31,168,255,.12);cursor:pointer;">Run Encounter</button>
+            </div>
+          </div>
+
+          <!-- session metrics -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+            <sc-for list="{{ dashMetrics }}" as="m" hint-placeholder-count="4">
+              <div style="position:relative;border:1px solid rgba(159,225,255,.36);border-radius:10px;padding:13px 15px;background:linear-gradient(145deg,rgba(8,36,58,.9),rgba(3,18,33,.86));overflow:hidden;">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#abc6d9;">{{ m.label }}</div>
+                <div style="font-size:30px;font-weight:850;line-height:1.05;margin-top:5px;font-variant-numeric:tabular-nums;">{{ m.value }}</div>
+                <div style="font-size:11px;color:{{ m.tone }};margin-top:2px;font-weight:700;">{{ m.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- grouped tool launcher -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+            <sc-for list="{{ navGroups }}" as="group" hint-placeholder-count="6">
+              <div style="border:1px solid rgba(159,225,255,.28);border-radius:11px;padding:13px;background:rgba(7,24,42,.7);">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <span style="font-size:11px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:#5eeeff;">{{ group.label }}</span>
+                  <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(94,238,255,.3),transparent);"></span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="2">
+                    <button type="button" onClick="{{ item.onClick }}" style="display:flex;align-items:center;gap:9px;text-align:left;border:1px solid rgba(159,225,255,.22);border-radius:8px;padding:9px 10px;background:rgba(8,31,52,.7);color:#f4fbff;cursor:pointer;" style-hover="border-color:#5eeeff;background:rgba(31,168,255,.14);">
+                      <span style="{{ item.glyphStyle }}">{{ item.glyph }}</span>
+                      <span style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.label }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ======== CHARACTER WORKSPACE (GM Characters + Player Console) ======== -->
+      <sc-if value="{{ showWorkspace }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;">
+
+          <sc-if value="{{ isGm }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid rgba(159,225,255,.28);border-radius:10px;padding:9px 13px;background:rgba(7,24,42,.7);flex-wrap:wrap;">
+              <div style="font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#5eeeff;">Active Sheet</div>
+              <select class="r6-select" style="min-height:36px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.36);border-radius:6px;padding:6px 10px;min-width:240px;color-scheme:dark;font-weight:600;">
+                <option>Vex Corran — Voidrunner</option>
+                <option>Sela Rook — Wetware Medic</option>
+                <option>Bulwark-9 — Frame Tank</option>
+              </select>
+              <div style="flex:1;"></div>
+            </div>
+          </sc-if>
+
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+
+            <!-- SHEET PANEL -->
+            <section style="flex:1;min-width:0;position:relative;border:1px solid rgba(174,239,255,.72);border-radius:12px;background:#071a2c;box-shadow:0 24px 70px rgba(0,0,0,.4),inset 0 0 0 1px rgba(191,249,255,.08);overflow:hidden;">
+              <!-- character header -->
+              <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(159,225,255,.22);">
+                <div style="display:grid;place-items:center;width:62px;height:62px;overflow:hidden;border-radius:12px;border:1px solid rgba(174,239,255,.72);background:linear-gradient(145deg,rgba(94,238,255,.24),rgba(31,168,255,.05));box-shadow:inset 0 0 26px rgba(94,238,255,.15);font-size:22px;font-weight:850;color:#bff9ff;">VC</div>
+                <div style="min-width:0;">
+                  <h2 style="margin:0;font-size:23px;font-weight:850;letter-spacing:.02em;line-height:1;">{{ charName }}</h2>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;color:#abc6d9;font-size:12.5px;">
+                    <span style="color:#bff9ff;font-weight:700;">{{ charClass }}</span>
+                    <span>Origin: Drift Colony</span>
+                    <span>Faction: Signal-6</span>
+                  </div>
+                </div>
+                <div style="display:grid;justify-items:center;min-width:78px;padding:0 12px;border-left:1px solid rgba(159,225,255,.28);">
+                  <div style="font-size:40px;font-weight:850;line-height:.9;text-shadow:0 0 18px rgba(94,238,255,.28);">{{ charLevel }}</div>
+                  <div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#7f9fb5;">Level</div>
+                </div>
+              </div>
+
+              <!-- RESOURCES (redesigned compact editor) -->
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:14px 16px 12px;">
+                <!-- HEALTH -->
+                <div style="border:1px solid rgba(159,225,255,.3);border-radius:10px;padding:10px 11px;background:rgba(3,18,33,.78);">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                    <span style="font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#abc6d9;">Health</span>
+                    <span style="font-variant-numeric:tabular-nums;"><strong style="font-size:19px;color:#f4fbff;">{{ hp }}</strong><span style="color:#7f9fb5;font-size:12px;"> / {{ hpMax }}</span></span>
+                  </div>
+                  <div style="position:relative;height:7px;margin-top:7px;overflow:hidden;border:1px solid rgba(191,249,255,.2);border-radius:999px;background:rgba(0,0,0,.42);">
+                    <span style="display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1fa8ff,#58f0b3);box-shadow:0 0 10px #58f0b3;transition:width 180ms ease;width:{{ hpPct }}"></span>
+                  </div>
+                  <div style="display:flex;gap:5px;margin-top:9px;">
+                    <input type="number" value="{{ adjHealth }}" onInput="{{ onAdjHealth }}" placeholder="amt" style="flex:0 0 64px;min-width:0;min-height:32px;padding:4px 7px;font-size:12px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;" />
+                    <select value="{{ damageType }}" onChange="{{ onDamageType }}" title="Damage type — resistances apply" style="flex:1;min-width:0;min-height:32px;padding:4px 6px;font-size:11.5px;font-weight:600;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;color-scheme:dark;">
+                      <sc-for list="{{ damageTypes }}" as="dt" hint-placeholder-count="6"><option>{{ dt }}</option></sc-for>
+                    </select>
+                  </div>
+                  <div style="display:flex;gap:5px;margin-top:5px;">
+                    <button type="button" onClick="{{ damageHp }}" style="flex:1;min-height:30px;padding:4px 9px;font-size:11px;font-weight:800;border:1px solid rgba(255,95,131,.5);border-radius:6px;color:#ff5f83;background:rgba(255,95,131,.1);cursor:pointer;">Damage</button>
+                    <button type="button" onClick="{{ healHp }}" style="flex:1;min-height:30px;padding:4px 9px;font-size:11px;font-weight:800;border:1px solid rgba(88,240,179,.5);border-radius:6px;color:#58f0b3;background:rgba(88,240,179,.1);cursor:pointer;">Heal</button>
+                  </div>
+                </div>
+                <!-- CHARGE -->
+                <div style="border:1px solid rgba(159,225,255,.3);border-radius:10px;padding:10px 11px;background:rgba(3,18,33,.78);">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                    <span style="font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#abc6d9;">Mana</span>
+                    <span style="font-variant-numeric:tabular-nums;"><strong style="font-size:19px;color:#f4fbff;">{{ mana }}</strong><span style="color:#7f9fb5;font-size:12px;"> / {{ manaMax }}</span></span>
+                  </div>
+                  <div style="position:relative;height:7px;margin-top:7px;overflow:hidden;border:1px solid rgba(191,249,255,.2);border-radius:999px;background:rgba(0,0,0,.42);">
+                    <span style="display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1fa8ff,#a98cff);box-shadow:0 0 10px #a98cff;transition:width 180ms ease;width:{{ manaPct }}"></span>
+                  </div>
+                  <div style="display:flex;gap:5px;margin-top:9px;">
+                    <button type="button" onClick="{{ manaMinus }}" style="flex:1;min-height:30px;font-size:14px;font-weight:800;border:1px solid rgba(159,225,255,.3);border-radius:6px;color:#bff9ff;background:rgba(31,168,255,.1);cursor:pointer;">−</button>
+                    <button type="button" onClick="{{ manaPlus }}" style="flex:1;min-height:30px;font-size:14px;font-weight:800;border:1px solid rgba(159,225,255,.3);border-radius:6px;color:#bff9ff;background:rgba(31,168,255,.1);cursor:pointer;">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TABS -->
+              <div style="display:flex;gap:4px;padding:0 16px;border-bottom:1px solid rgba(159,225,255,.22);">
+                <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ tab.onClick }}" style="{{ tab.style }}">{{ tab.label }}</button>
+                </sc-for>
+              </div>
+
+              <div style="padding:14px 16px 16px;">
+                <!-- OVERVIEW -->
+                <sc-if value="{{ showOverview }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 264px;gap:14px;align-items:start;">
+                    <div>
+                      <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin-bottom:9px;">Core Stats &amp; Substats <span style="color:#7f9fb5;font-weight:600;text-transform:none;letter-spacing:0;">· click any to roll</span></div>
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;align-items:start;">
+                        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="6">
+                          <div style="border:1px solid rgba(159,225,255,.28);border-radius:10px;background:rgba(8,31,52,.55);overflow:hidden;">
+                            <button type="button" onClick="{{ s.onRoll }}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;border-bottom:1px solid rgba(159,225,255,.16);padding:8px 9px;color:#f4fbff;background:linear-gradient(145deg,rgba(8,36,58,.92),rgba(3,18,33,.5));cursor:pointer;" style-hover="background:rgba(31,168,255,.16);">
+                              <span style="display:grid;place-items:center;width:30px;height:30px;flex:0 0 auto;transform:rotate(45deg);border:1px solid rgba(159,225,255,.3);background:rgba(31,168,255,.1);color:#5eeeff;font-size:10px;font-weight:900;"><span style="transform:rotate(-45deg);">{{ s.short }}</span></span>
+                              <span style="flex:1;min-width:0;"><span style="display:block;font-size:12px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }}</span><span style="display:block;color:#5eeeff;font-size:9.5px;font-weight:800;letter-spacing:.06em;">MOD {{ s.mod }}</span></span>
+                              <span style="font-size:22px;font-weight:850;line-height:1;font-variant-numeric:tabular-nums;">{{ s.value }}</span>
+                            </button>
+                            <div style="padding:4px 6px;display:flex;flex-direction:column;gap:1px;">
+                              <sc-for list="{{ s.subs }}" as="sub" hint-placeholder-count="3">
+                                <button type="button" onClick="{{ sub.onRoll }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:none;background:transparent;border-radius:5px;padding:4px 6px;color:#abc6d9;cursor:pointer;" style-hover="background:rgba(94,238,255,.08);color:#f4fbff;">
+                                  <span style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ sub.name }}</span>
+                                  <span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:#e7f6ff;">{{ sub.value }}</span>
+                                </button>
+                              </sc-for>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+
+                      <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin:16px 0 9px;">Pinned Actions</div>
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;">
+                        <sc-for list="{{ pinnedActions }}" as="a" hint-placeholder-count="3">
+                          <button type="button" onClick="{{ a.onRoll }}" style="display:flex;flex-direction:column;gap:3px;min-height:72px;border:1px solid rgba(159,225,255,.28);border-radius:9px;padding:9px 10px;background:rgba(8,31,52,.94);color:#f4fbff;text-align:left;cursor:pointer;" style-hover="border-color:#5eeeff;background:rgba(31,168,255,.14);">
+                            <span style="font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ a.name }}</span>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#bff9ff;">{{ a.formula }}</span>
+                            <span style="margin-top:auto;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffd166;">{{ a.cost }}</span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </div>
+
+                    <aside style="display:flex;flex-direction:column;gap:12px;">
+                      <div>
+                        <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin-bottom:8px;">Conditions</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                          <sc-for list="{{ conditions }}" as="c" hint-placeholder-count="3">
+                            <span style="display:inline-flex;align-items:center;gap:7px;min-height:34px;border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:5px 9px;background:rgba(3,18,33,.82);">
+                              <span style="{{ c.marker }}"></span>
+                              <span style="display:grid;"><span style="font-size:12px;font-weight:700;">{{ c.name }}</span><span style="font-size:10px;color:#7f9fb5;">{{ c.rounds }}</span></span>
+                            </span>
+                          </sc-for>
+                        </div>
+                      </div>
+                      <div>
+                        <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin-bottom:8px;">Standalone Effects</div>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                          <sc-for list="{{ effects }}" as="e" hint-placeholder-count="2">
+                            <div style="border:1px solid rgba(159,225,255,.22);border-radius:7px;padding:8px 10px;background:rgba(8,31,52,.7);">
+                              <div style="font-size:12px;font-weight:700;color:#bff9ff;">{{ e.name }}</div>
+                              <div style="font-size:11px;color:#abc6d9;margin-top:2px;line-height:1.35;">{{ e.desc }}</div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </sc-if>
+
+                <!-- ACTIONS -->
+                <sc-if value="{{ showActions }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:9px;">
+                    <sc-for list="{{ actions }}" as="a" hint-placeholder-count="5">
+                      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid rgba(159,225,255,.28);border-radius:9px;padding:11px 13px;background:rgba(8,31,52,.94);">
+                        <div style="min-width:0;">
+                          <div style="display:flex;align-items:center;gap:9px;">
+                            <span style="font-weight:800;font-size:14px;">{{ a.name }}</span>
+                            <span style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#03111f;background:{{ a.tagColor }};border-radius:999px;padding:2px 7px;">{{ a.tag }}</span>
+                            <span style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ffd166;">{{ a.cost }}</span>
+                          </div>
+                          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#bff9ff;border-left:2px solid #5eeeff;padding:3px 8px;margin-top:7px;background:rgba(0,0,0,.24);width:fit-content;">{{ a.formula }}</div>
+                          <div style="font-size:12px;color:#abc6d9;margin-top:6px;line-height:1.4;">{{ a.desc }}</div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
+                          <select class="r6-select" style="min-height:34px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:4px 8px;font-size:12px;color-scheme:dark;">
+                            <option>Normal</option><option>Advantage</option><option>Disadvantage</option>
+                          </select>
+                          <button type="button" onClick="{{ a.onRoll }}" style="min-height:36px;border:1px solid transparent;border-radius:7px;padding:7px 18px;font-weight:850;font-size:13px;color:#03111f;background:#5eeeff;box-shadow:0 0 18px rgba(31,168,255,.22);cursor:pointer;">Roll</button>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <!-- INVENTORY -->
+                <sc-if value="{{ showInventory }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+                    <sc-for list="{{ inventory }}" as="it" hint-placeholder-count="4">
+                      <div style="position:relative;border:1px solid rgba(159,225,255,.28);border-radius:9px;padding:11px 13px 11px 15px;background:rgba(8,31,52,.94);overflow:hidden;">
+                        <span style="position:absolute;inset:0 auto 0 0;width:3px;background:{{ it.rarityColor }};"></span>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                          <div style="font-weight:800;font-size:13.5px;">{{ it.name }}</div>
+                          <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="color:#bff9ff;font-size:15px;font-weight:850;font-variant-numeric:tabular-nums;">×{{ it.qty }}</span>
+                            <span style="{{ it.equipStyle }}">{{ it.equipLabel }}</span>
+                          </div>
+                        </div>
+                        <div style="font-size:11.5px;color:#abc6d9;margin-top:5px;line-height:1.4;">{{ it.desc }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <!-- DETAILS -->
+                <sc-if value="{{ showDetails }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div>
+                      <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin-bottom:8px;">Attributes</div>
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                        <sc-for list="{{ attributes }}" as="at" hint-placeholder-count="6">
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid rgba(159,225,255,.24);border-radius:7px;padding:8px 11px;background:rgba(8,31,52,.7);">
+                            <span style="font-size:12px;color:#abc6d9;">{{ at.name }}</span>
+                            <span style="font-weight:800;font-variant-numeric:tabular-nums;">{{ at.value }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div>
+                      <div style="font-size:11px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:#5eeeff;margin-bottom:8px;">Proficiencies</div>
+                      <div style="display:flex;flex-direction:column;gap:8px;">
+                        <sc-for list="{{ proficiencies }}" as="p" hint-placeholder-count="4">
+                          <div style="display:grid;grid-template-columns:minmax(0,1.4fr) auto minmax(120px,1fr) auto;gap:12px;align-items:center;border:1px solid rgba(159,225,255,.24);border-radius:8px;padding:9px 13px;background:rgba(8,31,52,.94);">
+                            <span style="font-weight:700;font-size:13px;">{{ p.name }}</span>
+                            <span style="display:grid;justify-items:center;"><strong style="font-size:20px;">{{ p.rank }}</strong><span style="font-size:9px;text-transform:uppercase;color:#7f9fb5;">Rank</span></span>
+                            <span style="display:grid;gap:4px;"><span style="font-size:10px;color:#7f9fb5;">{{ p.progress }}</span><span style="height:6px;border-radius:999px;overflow:hidden;background:rgba(0,0,0,.42);"><span style="display:block;height:100%;background:linear-gradient(90deg,#1fa8ff,#5eeeff);width:{{ p.pct }}"></span></span></span>
+                            <span style="color:#58f0b3;font-weight:800;white-space:nowrap;">{{ p.bonus }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- NOTES -->
+                <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ false }}">
+                  <textarea class="r6-scroll" style="width:100%;min-height:260px;resize:vertical;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:9px;padding:12px;font-size:13px;line-height:1.55;font-family:Inter,sans-serif;">Recovered a corrupted data-shard from the Drift wreck. Signal-6 wants it decrypted before the next jump. Owes Sela a favor after the med-bay incident.
+
+Rumor: the Warden frame is hunting our contract.</textarea>
+                </sc-if>
+              </div>
+            </section>
+
+            <!-- SIDE: QUICK ROLL + HISTORY -->
+            <aside style="flex:0 0 372px;display:flex;flex-direction:column;gap:12px;">
+              <section style="border:1px solid rgba(174,239,255,.72);border-radius:12px;background:rgba(7,24,42,.84);box-shadow:0 24px 70px rgba(0,0,0,.4);overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid rgba(159,225,255,.22);">
+                  <span style="font-size:12px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;">Quick Roll</span>
+                  <span style="{{ bridgeStyle }}">{{ bridgeLabel }}</span>
+                </div>
+                <div style="padding:12px 14px;display:flex;flex-direction:column;gap:11px;">
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                    <sc-for list="{{ quickRolls }}" as="q" hint-placeholder-count="6">
+                      <button type="button" onClick="{{ q.onSelect }}" style="{{ q.style }}">{{ q.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;border:1px solid rgba(159,225,255,.3);border-radius:7px;overflow:hidden;">
+                    <sc-for list="{{ rollModes }}" as="rm" hint-placeholder-count="3">
+                      <button type="button" onClick="{{ rm.onSelect }}" style="{{ rm.style }}">{{ rm.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="border:1px dashed rgba(159,225,255,.3);border-radius:8px;padding:9px 11px;background:rgba(2,14,27,.5);">
+                    <div style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#7f9fb5;">Selected</div>
+                    <div style="font-weight:800;font-size:14px;margin-top:3px;">{{ selectedLabel }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#bff9ff;margin-top:3px;">{{ selectedFormula }}</div>
+                  </div>
+                  <button type="button" onClick="{{ performRoll }}" style="min-height:42px;border:1px solid transparent;border-radius:8px;font-weight:850;font-size:14px;letter-spacing:.02em;color:#03111f;background:#5eeeff;box-shadow:0 0 22px rgba(31,168,255,.26);cursor:pointer;">Perform → Roll20</button>
+                </div>
+              </section>
+
+              <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid rgba(159,225,255,.4);border-radius:12px;background:rgba(7,24,42,.7);overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(159,225,255,.22);">
+                  <span style="font-size:12px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;">Action History</span>
+                  <span style="font-size:10px;color:#7f9fb5;">{{ logCount }} entries</span>
+                </div>
+                <div class="r6-scroll" style="max-height:340px;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                  <sc-for list="{{ log }}" as="e" hint-placeholder-count="4">
+                    <article style="border:1px solid rgba(159,225,255,.22);border-radius:8px;padding:9px 11px;background:rgba(8,31,52,.9);">
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                        <div style="min-width:0;">
+                          <div style="font-weight:800;font-size:12.5px;">{{ e.name }}</div>
+                          <div style="font-size:11px;color:#abc6d9;margin-top:2px;">{{ e.summary }}</div>
+                        </div>
+                        <span style="{{ e.statusStyle }}">{{ e.status }}</span>
+                      </div>
+                      <div style="display:flex;gap:10px;margin-top:7px;font-size:10px;color:#7f9fb5;font-variant-numeric:tabular-nums;">
+                        <span>{{ e.time }}</span><span>{{ e.result }}</span>
+                      </div>
+                    </article>
+                  </sc-for>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ======== TEMPLATE BUILDER (forced-order wizard) ======== -->
+      <sc-if value="{{ showBuilder }}" hint-placeholder-val="{{ false }}">
+        <div class="tb-shell">
+          <div class="tb-head">
+            <div>
+              <div class="tb-kicker">Templates / Guided authoring</div>
+              <h1>Template Builder</h1>
+              <p>Build a reusable player or enemy definition in order. Progress is saved in this draft.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="{{ builderReadyClass }}"><span class="tb-dot"></span>{{ builderReadyLabel }}</span>
+              <button type="button" onClick="{{ goTemplateLibrary }}" class="tb-button">Template Library</button>
+            </div>
+          </div>
+
+          <div class="tb-layout">
+            <aside class="tb-rail">
+              <div class="tb-rail-label">Template progress · {{ builderProgress }}</div>
+              <nav aria-label="Template builder steps">
+                <sc-for list="{{ builderSteps }}" as="step" hint-placeholder-count="8">
+                  <button type="button" onClick="{{ step.onClick }}" disabled="{{ step.disabled }}" class="{{ step.className }}" aria-current="{{ step.ariaCurrent }}">
+                    <span class="tb-step-num">{{ step.number }}</span>
+                    <span class="tb-step-copy"><strong>{{ step.label }}</strong><span>{{ step.status }}</span></span>
+                    <sc-if value="{{ step.hasErrors }}" hint-placeholder-val="{{ false }}"><span class="tb-error-count">{{ step.errorCount }}</span></sc-if>
+                  </button>
+                </sc-for>
+              </nav>
+            </aside>
+
+            <section class="tb-main">
+              <div class="tb-stage">
+                <!-- 1: DETAILS -->
+                <sc-if value="{{ showBuilderDetails }}" hint-placeholder-val="{{ true }}">
+                  <div class="tb-stage-head">
+                    <div><h2>1. Details</h2><p>Identity, table control, notes, and XP bookkeeping. Both player and enemy templates use the same seven-section model.</p></div>
+                    <span class="{{ activeStepPillClass }}">{{ activeStepPill }}</span>
+                  </div>
+                  <div class="tb-grid-2">
+                    <div class="tb-field"><label>Template Name</label><input value="{{ templateName }}" onChange="{{ onTemplateName }}" placeholder="e.g. Orc Brute" /></div>
+                    <div class="tb-field"><label>Kind / Control Mode</label><select value="{{ templateKind }}" onChange="{{ onTemplateKind }}"><option value="player">Player Character · Player-controlled</option><option value="enemy">Enemy · GM-controlled</option></select></div>
+                    <div class="tb-field"><label>XP Awarded When Slain</label><input type="number" min="0" step="1" value="{{ templateXpSlain }}" onChange="{{ onTemplateXpSlain }}" /></div>
+                    <div class="tb-field"><label>XP Needed For Next Level</label><input value="{{ templateXpCap }}" onChange="{{ onTemplateXpCap }}" placeholder="e.g. 100" /></div>
+                  </div>
+                  <div class="tb-field" style="margin-top:13px;"><label>Notes</label><textarea value="{{ templateNotes }}" onChange="{{ onTemplateNotes }}" placeholder="GM reference notes for this template."></textarea></div>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 2: STATS -->
+                <sc-if value="{{ showBuilderStats }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head">
+                    <div><h2>2. Stats</h2><p>Set the six integer core stats, then review every backend-authored formula substat. Formula aliases and tags remain editable.</p></div>
+                    <span class="{{ activeStepPillClass }}">{{ activeStepPill }}</span>
+                  </div>
+                  <div class="tb-section-label">Core stats</div>
+                  <div class="tb-grid-6">
+                    <sc-for list="{{ builderCoreStats }}" as="stat" hint-placeholder-count="6">
+                      <div class="tb-field"><label>{{ stat.label }}</label><input type="number" step="1" value="{{ stat.value }}" onChange="{{ stat.onChange }}" /></div>
+                    </sc-for>
+                  </div>
+                  <div class="tb-section-label">Formula substats · 17</div>
+                  <div class="tb-formula-layout">
+                    <nav class="tb-formula-nav r6-scroll" aria-label="Formula stats">
+                      <sc-for list="{{ builderFormulas }}" as="formula" hint-placeholder-count="8">
+                        <button type="button" onClick="{{ formula.onSelect }}" class="{{ formula.className }}"><span>{{ formula.label }}</span><span class="tb-formula-btn-icon" aria-hidden="true">›</span></button>
+                      </sc-for>
+                    </nav>
+                    <div class="tb-card">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;"><strong>{{ builderSelectedFormula.label }}</strong><span style="color:#7f9fb5;font-size:10px;">{{ builderSelectedFormula.group }} substat</span></div>
+                      <div class="tb-field"><label>Formula</label><textarea value="{{ builderSelectedFormula.text }}" onChange="{{ onFormulaText }}" placeholder="@constitution * 10"></textarea></div>
+                      <div class="tb-inline" style="margin-top:9px;">
+                        <div class="tb-field tb-search">
+                          <label>Insert Sheet Variable</label>
+                          <input value="{{ formulaVariableSearch }}" onChange="{{ onFormulaVariableSearch }}" onFocus="{{ openFormulaVariableSearch }}" placeholder="Search sheet variables…" autoComplete="off" />
+                          <sc-if value="{{ showVariableSearchResults }}" hint-placeholder-val="{{ false }}">
+                            <div class="tb-search-results r6-scroll" role="listbox" aria-label="Sheet variable results">
+                              <sc-for list="{{ formulaVariableResults }}" as="variable" hint-placeholder-count="5">
+                                <button type="button" class="tb-search-result" onClick="{{ variable.onSelect }}" role="option"><strong>{{ variable.label }}</strong><code>{{ variable.path }}</code></button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ showVariableSearchEmpty }}" hint-placeholder-val="{{ false }}"><div class="tb-search-results"><div class="tb-search-empty">No sheet variables match “{{ formulaVariableSearch }}”.</div></div></sc-if>
+                        </div>
+                        <button type="button" class="tb-button" onClick="{{ insertFormulaVariable }}" disabled="{{ formulaVariableDisabled }}">Insert</button>
+                      </div>
+                      <div style="margin-top:8px;"><span class="tb-field-label">Variable aliases</span><sc-for list="{{ builderSelectedFormula.aliases }}" as="alias" hint-placeholder-count="1"><button type="button" class="tb-tag" onClick="{{ alias.onRemove }}">@{{ alias.name }}: {{ alias.path }} ×</button></sc-for></div>
+                      <div class="tb-field" style="margin-top:10px;"><label>Formula Tags</label><input value="{{ builderSelectedFormula.tags }}" onChange="{{ onFormulaTags }}" placeholder="health, resource" /></div>
+                    </div>
+                  </div>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 3: ATTRIBUTES / FACTS -->
+                <sc-if value="{{ showBuilderFacts }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head">
+                    <div><h2>3. Attributes</h2><p>Attach sheet-compatible Facts, then set literal values or formulas. Required definitions stay attached and values are evaluated by the backend after save.</p></div>
+                    <button type="button" class="tb-button" onClick="{{ createFactReference }}">Create new Attribute / Fact…</button>
+                  </div>
+                  <div class="tb-picker">
+                    <select class="tb-control" value="{{ factChoice }}" onChange="{{ onFactChoice }}"><option value="">Select an optional Attribute / Fact</option><sc-for list="{{ factOptions }}" as="option" hint-placeholder-count="3"><option value="{{ option.id }}">{{ option.label }}</option></sc-for></select>
+                    <button type="button" class="tb-button" onClick="{{ attachFact }}" disabled="{{ factChoiceDisabled }}">Attach</button>
+                  </div>
+                  <div class="tb-list">
+                    <sc-for list="{{ builderFacts }}" as="fact" hint-placeholder-count="2">
+                      <article class="tb-card">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;"><div><strong>{{ fact.name }}</strong><p>{{ fact.description }}</p></div><span class="{{ fact.badgeClass }}">{{ fact.badge }}</span></div>
+                        <div class="tb-grid-2" style="margin-top:11px;">
+                          <div class="tb-field"><label>Value Type</label><select value="{{ fact.type }}" onChange="{{ fact.onType }}"><option value="number">Number</option><option value="text">Text</option><option value="boolean">Boolean</option><option value="formula">Formula</option></select></div>
+                          <div class="tb-field"><label>{{ fact.valueLabel }}</label><input value="{{ fact.value }}" onChange="{{ fact.onValue }}" /></div>
+                        </div>
+                        <div style="display:flex;gap:7px;margin-top:9px;"><button type="button" class="tb-button" onClick="{{ fact.onReset }}">Reset to Default</button><sc-if value="{{ fact.canDetach }}" hint-placeholder-val="{{ false }}"><button type="button" class="tb-button tb-button--danger" onClick="{{ fact.onDetach }}">Detach</button></sc-if></div>
+                      </article>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 4: RESISTANCES -->
+                <sc-if value="{{ showBuilderResistances }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head"><div><h2>4. Resistances</h2><p>Percent values from 0 to 100. Total, Physical, and Magical modifiers accompany all 15 supported damage types; the backend applies final caps.</p></div><span class="{{ activeStepPillClass }}">{{ activeStepPill }}</span></div>
+                  <div class="tb-section-label">Aggregate modifiers</div>
+                  <div class="tb-grid-3"><sc-for list="{{ aggregateResistances }}" as="res" hint-placeholder-count="3"><div class="tb-field"><label>{{ res.label }} (%)</label><input type="number" min="0" max="100" step="0.1" value="{{ res.value }}" onChange="{{ res.onChange }}" /></div></sc-for></div>
+                  <div class="tb-section-label">Damage types · 15</div>
+                  <div class="tb-grid-3"><sc-for list="{{ damageResistances }}" as="res" hint-placeholder-count="15"><div class="tb-field"><label>{{ res.label }} (%)</label><input type="number" min="0" max="100" step="0.1" value="{{ res.value }}" onChange="{{ res.onChange }}" /></div></sc-for></div>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 5: ACTIONS -->
+                <sc-if value="{{ showBuilderActions }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head"><div><h2>5. Actions</h2><p>Assign global action definitions. Backend baseline actions are attached when a template has no explicit starting actions.</p></div><button type="button" class="tb-button" onClick="{{ createActionReference }}">Create new Action…</button></div>
+                  <div class="tb-picker"><select class="tb-control" value="{{ actionChoice }}" onChange="{{ onActionChoice }}"><option value="">Search action definitions</option><sc-for list="{{ actionOptions }}" as="option" hint-placeholder-count="4"><option value="{{ option.id }}">{{ option.label }}</option></sc-for></select><button type="button" class="tb-button" onClick="{{ addAction }}" disabled="{{ actionChoiceDisabled }}">Add Action</button></div>
+                  <div class="tb-list"><sc-for list="{{ assignedActions }}" as="entry" hint-placeholder-count="2"><article class="tb-row"><div class="tb-row-title"><strong>{{ entry.name }}</strong><span>{{ entry.meta }}</span></div><button type="button" class="tb-button tb-button--danger" onClick="{{ entry.onRemove }}">Remove</button></article></sc-for></div>
+                  <sc-if value="{{ noAssignedActions }}" hint-placeholder-val="{{ false }}"><div class="tb-card" style="margin-top:11px;"><p>Backend baseline actions will be attached when this template is created.</p></div></sc-if>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 6: PROFICIENCIES -->
+                <sc-if value="{{ showBuilderProficiencies }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head"><div><h2>6. Proficiencies</h2><p>Assign existing definitions with starting use count and growth per use.</p></div><button type="button" class="tb-button" onClick="{{ createProficiencyReference }}">Create new Proficiency…</button></div>
+                  <div class="tb-picker"><select class="tb-control" value="{{ proficiencyChoice }}" onChange="{{ onProficiencyChoice }}"><option value="">Search proficiency definitions</option><sc-for list="{{ proficiencyOptions }}" as="option" hint-placeholder-count="4"><option value="{{ option.id }}">{{ option.label }}</option></sc-for></select><button type="button" class="tb-button" onClick="{{ addProficiency }}" disabled="{{ proficiencyChoiceDisabled }}">Add Proficiency</button></div>
+                  <div class="tb-list"><sc-for list="{{ assignedProficiencies }}" as="entry" hint-placeholder-count="2"><article class="tb-row tb-row--edit"><div class="tb-row-title"><strong>{{ entry.name }}</strong><span>{{ entry.description }}</span></div><div class="tb-field"><label>Starting Uses</label><input type="number" min="0" step="1" value="{{ entry.uses }}" onChange="{{ entry.onUses }}" /></div><div class="tb-field"><label>Growth / Use</label><input type="number" min="0" step="0.01" value="{{ entry.growth }}" onChange="{{ entry.onGrowth }}" /></div><button type="button" class="tb-button tb-button--danger" onClick="{{ entry.onRemove }}">Remove</button></article></sc-for></div>
+                  <sc-if value="{{ noAssignedProficiencies }}" hint-placeholder-val="{{ false }}"><div class="tb-card" style="margin-top:11px;"><p>No starting proficiencies assigned.</p></div></sc-if>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 7: INVENTORY -->
+                <sc-if value="{{ showBuilderInventory }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head"><div><h2>7. Inventory / Gear</h2><p>Attach item definitions with a starting quantity. Only positive-quantity equippable items may start equipped.</p></div><button type="button" class="tb-button" onClick="{{ createItemReference }}">Create new Item…</button></div>
+                  <div class="tb-picker"><select class="tb-control" value="{{ itemChoice }}" onChange="{{ onItemChoice }}"><option value="">Search inventory / gear definitions</option><sc-for list="{{ itemOptions }}" as="option" hint-placeholder-count="4"><option value="{{ option.id }}">{{ option.label }}</option></sc-for></select><button type="button" class="tb-button" onClick="{{ addItem }}" disabled="{{ itemChoiceDisabled }}">Add Item</button></div>
+                  <div class="tb-list"><sc-for list="{{ assignedItems }}" as="entry" hint-placeholder-count="2"><article class="tb-row tb-row--edit"><div class="tb-row-title"><strong>{{ entry.name }}</strong><span>{{ entry.description }}</span></div><div class="tb-field"><label>Quantity</label><input type="number" min="0" step="1" value="{{ entry.count }}" onChange="{{ entry.onCount }}" /></div><label class="tb-toggle"><input type="checkbox" checked="{{ entry.equipped }}" disabled="{{ entry.equipDisabled }}" onChange="{{ entry.onEquipped }}" /> Equipped</label><button type="button" class="tb-button tb-button--danger" onClick="{{ entry.onRemove }}">Remove</button></article></sc-for></div>
+                  <sc-if value="{{ noAssignedItems }}" hint-placeholder-val="{{ false }}"><div class="tb-card" style="margin-top:11px;"><p>No starting inventory assigned.</p></div></sc-if>
+                  <sc-if value="{{ activeStepHasErrors }}" hint-placeholder-val="{{ false }}"><div class="tb-alert">{{ activeStepErrorText }}</div></sc-if>
+                </sc-if>
+
+                <!-- 8: REVIEW -->
+                <sc-if value="{{ showBuilderReview }}" hint-placeholder-val="{{ false }}">
+                  <div class="tb-stage-head"><div><h2>8. Review / Create</h2><p>Confirm the complete authoritative payload. Create remains gated until every real editor section passes live validation.</p></div><span class="{{ builderReadyClass }}"><span class="tb-dot"></span>{{ builderReadyLabel }}</span></div>
+                  <div class="tb-review-grid"><sc-for list="{{ reviewCards }}" as="card" hint-placeholder-count="7"><article class="tb-review-card"><header><h3>{{ card.label }}</h3><span class="{{ card.statusClass }}">{{ card.status }}</span></header><p>{{ card.summary }}</p></article></sc-for></div>
+                  <sc-if value="{{ builderHasErrors }}" hint-placeholder-val="{{ true }}"><div class="tb-alert"><strong>{{ totalBuilderErrors }} issue(s) to resolve</strong><br />{{ allBuilderErrors }}</div></sc-if>
+                </sc-if>
+              </div>
+
+              <footer class="tb-footer">
+                <span class="tb-footer-copy">Step {{ builderStepNumber }} of 8 · {{ activeStepFooter }}</span>
+                <button type="button" class="tb-button" onClick="{{ builderBack }}" disabled="{{ builderBackDisabled }}">Back</button>
+                <sc-if value="{{ showBuilderNext }}" hint-placeholder-val="{{ true }}"><button type="button" class="tb-button tb-button--primary" onClick="{{ builderNext }}" disabled="{{ builderNextDisabled }}">Next: {{ nextBuilderLabel }}</button></sc-if>
+                <sc-if value="{{ showBuilderCreate }}" hint-placeholder-val="{{ false }}"><button type="button" class="tb-button tb-button--primary" onClick="{{ createTemplate }}" disabled="{{ builderCreateDisabled }}">Create Template</button></sc-if>
+              </footer>
+            </section>
+          </div>
+        </div>
+
+        <sc-if value="{{ contextualOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="tb-modal-backdrop" role="presentation">
+            <section class="tb-modal" role="dialog" aria-modal="true" aria-labelledby="tb-context-title">
+              <header><h2 id="tb-context-title">{{ contextualTitle }}</h2><p>{{ contextualDescription }}</p></header>
+              <div class="tb-modal-body"><div class="tb-field"><label>{{ contextualLabel }}</label><input value="{{ contextualName }}" onChange="{{ onContextualName }}" placeholder="{{ contextualPlaceholder }}" /></div><div class="tb-card" style="margin-top:12px;"><strong>Inline authoring preserved</strong><p>The production builder opens the complete authoring editor here, submits it to the backend, then automatically attaches the confirmed definition without losing this draft.</p></div></div>
+              <footer><button type="button" class="tb-button" onClick="{{ closeContextual }}">Cancel</button><button type="button" class="tb-button tb-button--primary" onClick="{{ confirmContextual }}" disabled="{{ contextualCreateDisabled }}">Create &amp; Attach</button></footer>
+            </section>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <!-- ======== GM AUTHORING (all other tools, consistent pattern) ======== -->
+      <sc-if value="{{ showAuthoring }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#5eeeff;">{{ tool.eyebrow }}</div>
+              <h1 style="margin:2px 0 4px;font-size:24px;font-weight:850;">{{ tool.title }}</h1>
+              <p style="margin:0;color:#abc6d9;font-size:13px;max-width:64ch;line-height:1.45;">{{ tool.desc }}</p>
+            </div>
+            <button type="button" style="white-space:nowrap;min-height:38px;border:1px solid transparent;border-radius:7px;padding:8px 16px;font-weight:800;font-size:13px;color:#03111f;background:#5eeeff;box-shadow:0 0 22px rgba(31,168,255,.24);cursor:pointer;">{{ tool.cta }}</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;align-items:start;">
+            <!-- LIST -->
+            <section style="border:1px solid rgba(159,225,255,.4);border-radius:12px;background:rgba(7,24,42,.7);overflow:hidden;">
+              <div style="padding:11px 13px;border-bottom:1px solid rgba(159,225,255,.22);">
+                <input placeholder="Search {{ tool.listLabel }}…" style="width:100%;min-height:34px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:6px 10px;font-size:12.5px;" />
+              </div>
+              <div class="r6-scroll" style="max-height:520px;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:6px;">
+                <sc-for list="{{ tool.items }}" as="it" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ it.onSelect }}" style="{{ it.style }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                      <span style="font-weight:750;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.name }}</span>
+                      <span style="{{ it.tagStyle }}">{{ it.tag }}</span>
+                    </div>
+                    <div style="font-size:11px;color:#7f9fb5;margin-top:3px;">{{ it.meta }}</div>
+                  </button>
+                </sc-for>
+              </div>
+            </section>
+
+            <!-- EDITOR -->
+            <section style="border:1px solid rgba(174,239,255,.72);border-radius:12px;background:rgba(7,24,42,.84);box-shadow:0 24px 70px rgba(0,0,0,.4);overflow:hidden;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 15px;border-bottom:1px solid rgba(159,225,255,.22);">
+                <div style="font-size:15px;font-weight:800;">{{ tool.editorTitle }}</div>
+                <div style="display:flex;gap:7px;">
+                  <button type="button" style="min-height:32px;border:1px solid rgba(174,239,255,.72);border-radius:6px;padding:5px 12px;font-weight:750;font-size:12px;color:#f4fbff;background:rgba(31,168,255,.12);cursor:pointer;">Duplicate</button>
+                  <button type="button" style="min-height:32px;border:1px solid transparent;border-radius:6px;padding:5px 14px;font-weight:800;font-size:12px;color:#03111f;background:#5eeeff;cursor:pointer;">Save</button>
+                </div>
+              </div>
+              <div style="padding:15px;display:grid;grid-template-columns:repeat(2,1fr);gap:13px;">
+                <sc-for list="{{ tool.fields }}" as="f" hint-placeholder-count="6">
+                  <div style="{{ f.wrapStyle }}">
+                    <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.04em;color:#abc6d9;margin-bottom:5px;">{{ f.label }}</label>
+                    <sc-if value="{{ f.isFormula }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#bff9ff;border:1px solid rgba(159,225,255,.3);border-left:2px solid #5eeeff;border-radius:6px;padding:9px 11px;background:rgba(0,0,0,.28);">{{ f.value }}</div>
+                    </sc-if>
+                    <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                      <input value="{{ f.value }}" style="width:100%;min-height:36px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:7px 10px;font-size:13px;" />
+                    </sc-if>
+                    <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}">
+                      <select class="r6-select" style="width:100%;min-height:36px;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:7px 10px;font-size:13px;color-scheme:dark;">
+                        <sc-for list="{{ f.options }}" as="opt" hint-placeholder-count="3"><option>{{ opt }}</option></sc-for>
+                      </select>
+                    </sc-if>
+                    <sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}">
+                      <textarea defaultValue="{{ f.value }}" style="width:100%;min-height:74px;resize:vertical;color:#f4fbff;background:rgba(2,14,27,.9);border:1px solid rgba(159,225,255,.3);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:Inter,sans-serif;"></textarea>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </div>
+        </div>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultRole&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;gm&quot;,&quot;player&quot;],&quot;default&quot;:&quot;gm&quot;,&quot;tsType&quot;:&quot;'gm' | 'player'&quot;,&quot;section&quot;:&quot;Demo&quot;}}">
+class Component extends DCLogic {
+  state = {
+    role: this.props.defaultRole ?? "gm",
+    gmView: "console",
+    tab: "overview",
+    hp: 58, hpMax: 72,
+    mana: 22, manaMax: 40,
+    focus: 3, focusMax: 5,
+    adjHealth: "",
+    damageType: "Slashing",
+    rollMode: "normal",
+    selectedQuick: "attack",
+    toolSel: {},
+    builderStep: 0,
+    builderMaxStep: 0,
+    templateName: "",
+    templateKind: "player",
+    templateXpSlain: "0",
+    templateXpCap: "",
+    templateNotes: "",
+    builderCore: { strength: "10", dexterity: "10", constitution: "10", perception: "10", arcane: "10", will: "10" },
+    formulaValues: {
+      lifting: "@strength * 2", carry_weight: "@strength * 5", acrobatics: "@dexterity", stamina: "@dexterity + @constitution", reaction_time: "@dexterity + @perception",
+      health: "@constitution * 10", endurance: "@constitution", pain_tolerance: "@constitution + @will", sight_distance: "@perception * 2", intuition: "@perception + @will", registration: "@perception",
+      mana: "@arcane * 5", control: "@arcane", sensitivity: "@arcane + @perception", charisma: "@will", mental_fortitude: "@will + @constitution", courage: "@will"
+    },
+    formulaTags: { health: "health, resource", mana: "mana, resource" },
+    selectedFormula: "lifting",
+    formulaVariable: "",
+    formulaVariableSearch: "",
+    formulaSearchOpen: false,
+    builderFacts: [
+      { id: "amount_of_reactions", name: "Amount of Reactions", description: "Number of reactions available each round.", required: true, type: "formula", value: "@registration + @reaction_time", defaultValue: "@registration + @reaction_time" }
+    ],
+    factChoice: "",
+    resistances: { resistance: "0", physical: "0", magical: "0", slashing: "0", bludgeoning: "0", piercing: "0", arcane: "0", fire: "0", water: "0", earth: "0", wind: "0", light: "0", dark: "0", lightning: "0", ice: "0", time: "0", gravity: "0", psychic: "0" },
+    actionChoice: "",
+    assignedActionIds: ["plasma_lance", "ghost_protocol"],
+    proficiencyChoice: "",
+    assignedProficiencies: [
+      { id: "ranged_weapons", uses: "3", growth: "1" },
+      { id: "wetware_hacking", uses: "1", growth: "1.25" }
+    ],
+    itemChoice: "",
+    assignedItems: [
+      { id: "ion_rifle", count: "1", equipped: true },
+      { id: "med_patch", count: "3", equipped: false }
+    ],
+    contextualKind: "",
+    contextualName: "",
+    customActions: [],
+    customProficiencies: [],
+    customItems: [],
+    customFacts: [],
+    notif: { text: "All systems nominal.", tone: "idle", key: 0 },
+    clock: this._now(),
+    log: [
+      { name: "Plasma Lance", summary: "2d6+FIN vs Warden frame", status: "success", time: "just now", result: "17 → hit" },
+      { name: "Perception", summary: "Scan for hidden drones", status: "success", time: "2m ago", result: "14" },
+      { name: "Nano-Repair", summary: "Restore Sela +1d8", status: "success", time: "5m ago", result: "+6 HP" },
+      { name: "Kinetic Slam", summary: "Melee vs sentry", status: "failed", time: "8m ago", result: "9 → miss" }
+    ]
+  };
+
+  _now() {
+    return new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  componentDidMount() {
+    this._clockTimer = setInterval(() => this.setState({ clock: this._now() }), 30000);
+  }
+  componentWillUnmount() {
+    clearInterval(this._clockTimer);
+    clearTimeout(this._notifTimer);
+  }
+
+  // ---- static data ----
+  CHAR = { name: "Vex Corran", cls: "Voidrunner / Technomancer", level: 7 };
+
+  CORE = [
+    { short: "STR", name: "Strength", value: 13, mod: "+1", subs: [["Lifting", 12], ["Carry Weight", 40]] },
+    { short: "DEX", name: "Dexterity", value: 16, mod: "+3", subs: [["Acrobatics", 15], ["Stamina", 14], ["Reaction Time", 13]] },
+    { short: "CON", name: "Constitution", value: 15, mod: "+2", subs: [["Health", 58], ["Endurance", 15], ["Pain Tolerance", 12]] },
+    { short: "PER", name: "Perception", value: 14, mod: "+2", subs: [["Sight Distance", 14], ["Intuition", 13], ["Registration", 12]] },
+    { short: "ARC", name: "Arcane", value: 12, mod: "+1", subs: [["Mana", 22], ["Control", 12], ["Sensitivity", 11]] },
+    { short: "WIL", name: "Will", value: 11, mod: "+0", subs: [["Charisma", 9], ["Mental Fortitude", 13], ["Courage", 14]] }
+  ];
+
+  DAMAGE_TYPES = ["Arcane", "Slashing", "Bludgeoning", "Piercing", "Fire", "Water", "Earth", "Wind", "Light", "Dark", "Lightning", "Ice", "Time", "Gravity", "Psychic"];
+
+  ACTIONS = [
+    { id: "lance", name: "Plasma Lance", tag: "Ranged", tagColor: "#5eeeff", cost: "3 MP", formula: "2d6 + FIN + 3", desc: "Superheated ion lance. On hit the target ignites for 1d4 per round." },
+    { id: "repair", name: "Nano-Repair", tag: "Support", tagColor: "#58f0b3", cost: "2 MP", formula: "1d8 + LOG", desc: "Deploy repair swarm to restore health to self or an adjacent ally." },
+    { id: "overclock", name: "Overclock", tag: "Buff", tagColor: "#a98cff", cost: "4 MP", formula: "—", desc: "+2 to all rolls for 3 rounds. Take 1d4 strain when it ends." },
+    { id: "slam", name: "Kinetic Slam", tag: "Melee", tagColor: "#ffd166", cost: "1 MP", formula: "1d10 + PWR", desc: "Frame-assisted strike. Knock the target prone on a result of 8 or higher." },
+    { id: "ghost", name: "Ghost Protocol", tag: "Utility", tagColor: "#1fa8ff", cost: "2 MP", formula: "1d20 + FIN", desc: "Slip surveillance and gain concealment until your next turn." }
+  ];
+
+  QUICK = [
+    { id: "attack", label: "Attack", formula: "2d6 + FIN + 3", name: "Plasma Lance" },
+    { id: "defend", label: "Defend", formula: "2d6 + VIT", name: "Brace" },
+    { id: "initiative", label: "Init", formula: "1d20 + FIN", name: "Initiative" },
+    { id: "perception", label: "Percept", formula: "2d6 + NRV", name: "Perception" },
+    { id: "save", label: "Save", formula: "2d6 + VIT", name: "Save" },
+    { id: "cast", label: "Cast", formula: "1d8 + LOG", name: "Nano-Repair" }
+  ];
+
+  INVENTORY = [
+    { name: "Ion Rifle 'Halcyon'", rarity: "epic", qty: 1, equipped: true, desc: "Signature ranged weapon. Grants Plasma Lance." },
+    { name: "Drift-Weave Cloak", rarity: "rare", qty: 1, equipped: true, desc: "+1 to Ghost Protocol. Resistant to cold." },
+    { name: "Nano-Cell", rarity: "uncommon", qty: 6, equipped: false, desc: "Consumable. Restores 2 Charge on use." },
+    { name: "Med-Patch", rarity: "common", qty: 3, equipped: false, desc: "Consumable. Heals 1d6 health." }
+  ];
+
+  ATTRIBUTES = [
+    { name: "Armor Class", value: 16 }, { name: "Initiative", value: "+3" }, { name: "Speed", value: "9m" },
+    { name: "Signal Range", value: "24m" }, { name: "Encumbrance", value: "4 / 9" }, { name: "Hack Tier", value: "III" }
+  ];
+
+  PROFICIENCIES = [
+    { name: "Ranged Weapons", rank: 3, progress: "820 / 1000 XP", pct: "82%", bonus: "+5" },
+    { name: "Wetware Hacking", rank: 2, progress: "340 / 600 XP", pct: "57%", bonus: "+3" },
+    { name: "Piloting", rank: 2, progress: "150 / 600 XP", pct: "25%", bonus: "+3" },
+    { name: "Negotiation", rank: 1, progress: "60 / 300 XP", pct: "20%", bonus: "+1" }
+  ];
+
+  CONDITIONS = [
+    { name: "Ignited", tone: "danger", rounds: "2 rounds" },
+    { name: "Overclocked", tone: "arcane", rounds: "3 rounds" },
+    { name: "Marked", tone: "warning", rounds: "1 round" }
+  ];
+
+  EFFECTS = [
+    { name: "Drift-Weave Cloak", desc: "Concealment while stationary. +1 to evasion rolls." },
+    { name: "Signal Uplink", desc: "Share targeting data. Allies gain +1 to attacks vs marked." }
+  ];
+
+  BUILDER_STEPS = [
+    { id: "details", label: "Details" },
+    { id: "stats", label: "Stats" },
+    { id: "facts", label: "Attributes" },
+    { id: "resistances", label: "Resistances" },
+    { id: "actions", label: "Actions" },
+    { id: "proficiencies", label: "Proficiencies" },
+    { id: "inventory", label: "Inventory / Gear" },
+    { id: "review", label: "Review / Create" }
+  ];
+
+  BUILDER_CORE = [
+    ["strength", "Strength"], ["dexterity", "Dexterity"], ["constitution", "Constitution"],
+    ["perception", "Perception"], ["arcane", "Arcane"], ["will", "Will"]
+  ];
+
+  BUILDER_FORMULAS = [
+    ["lifting", "Lifting", "Strength"], ["carry_weight", "Carry Weight", "Strength"],
+    ["acrobatics", "Acrobatics", "Dexterity"], ["stamina", "Stamina", "Dexterity"], ["reaction_time", "Reaction Time", "Dexterity"],
+    ["health", "Health", "Constitution"], ["endurance", "Endurance", "Constitution"], ["pain_tolerance", "Pain Tolerance", "Constitution"],
+    ["sight_distance", "Sight Distance", "Perception"], ["intuition", "Intuition", "Perception"], ["registration", "Registration", "Perception"],
+    ["mana", "Mana", "Arcane"], ["control", "Control", "Arcane"], ["sensitivity", "Sensitivity", "Arcane"],
+    ["charisma", "Charisma", "Will"], ["mental_fortitude", "Mental Fortitude", "Will"], ["courage", "Courage", "Will"]
+  ];
+
+  BUILDER_RESISTANCES = [
+    ["resistance", "Total"], ["physical", "Physical"], ["magical", "Magical"],
+    ["slashing", "Slashing"], ["bludgeoning", "Bludgeoning"], ["piercing", "Piercing"], ["arcane", "Arcane"], ["fire", "Fire"],
+    ["water", "Water"], ["earth", "Earth"], ["wind", "Wind"], ["light", "Light"], ["dark", "Dark"], ["lightning", "Lightning"],
+    ["ice", "Ice"], ["time", "Time"], ["gravity", "Gravity"], ["psychic", "Psychic"]
+  ];
+
+  FACT_CATALOG = [
+    { id: "level", label: "Level", description: "Character level.", type: "number", defaultValue: "1" },
+    { id: "armor_class", label: "Armor Class", description: "Difficulty to hit this sheet.", type: "formula", defaultValue: "10 + @dexterity" },
+    { id: "movement_speed", label: "Movement Speed", description: "Base movement distance.", type: "number", defaultValue: "9" }
+  ];
+
+  ACTION_CATALOG = [
+    { id: "plasma_lance", name: "Plasma Lance", meta: "check · ranged authored action" },
+    { id: "nano_repair", name: "Nano-Repair", meta: "check · support authored action" },
+    { id: "overclock", name: "Overclock", meta: "none · no roll mode" },
+    { id: "kinetic_slam", name: "Kinetic Slam", meta: "check · melee authored action" },
+    { id: "ghost_protocol", name: "Ghost Protocol", meta: "check · utility authored action" }
+  ];
+
+  PROFICIENCY_CATALOG = [
+    { id: "ranged_weapons", name: "Ranged Weapons", description: "Accuracy and effects with ranged weapons." },
+    { id: "wetware_hacking", name: "Wetware Hacking", description: "Intrusion, systems, and signal control." },
+    { id: "piloting", name: "Piloting", description: "Vehicle and spacecraft operation." },
+    { id: "negotiation", name: "Negotiation", description: "Social leverage and deal making." },
+    { id: "melee_weapons", name: "Melee Weapons", description: "Close-range weapon use." }
+  ];
+
+  ITEM_CATALOG = [
+    { id: "ion_rifle", name: "Ion Rifle ‘Halcyon’", description: "equippable · weapon", equippable: true },
+    { id: "drift_cloak", name: "Drift-Weave Cloak", description: "equippable · armor", equippable: true },
+    { id: "nano_cell", name: "Nano-Cell", description: "consumable", equippable: false },
+    { id: "med_patch", name: "Med-Patch", description: "consumable", equippable: false },
+    { id: "grapnel_line", name: "Grapnel Line", description: "utility item", equippable: false }
+  ];
+
+  NAV = [
+    { label: "Session", items: [ { view: "console", label: "Dashboard", glyph: "DB" }, { view: "sheet_viewer", label: "Characters", glyph: "CH" } ] },
+    { label: "Templates", items: [ { view: "template_library", label: "Library", glyph: "LB" }, { view: "create_template", label: "Builder", glyph: "BD" } ] },
+    { label: "Content", items: [ { view: "action_authoring", label: "Actions", glyph: "AC" }, { view: "item_maker", label: "Items", glyph: "IT" } ] },
+    { label: "Rules Data", items: [ { view: "attribute_authoring", label: "Attributes", glyph: "AT" }, { view: "formula_authoring", label: "Formulas", glyph: "Fx" }, { view: "proficiency_authoring", label: "Proficiencies", glyph: "PF" } ] },
+    { label: "Status Effects", items: [ { view: "condition_authoring", label: "Conditions", glyph: "CD" }, { view: "effect_authoring", label: "Standalone Effects", glyph: "EF" } ] },
+    { label: "Encounters", items: [ { view: "encounter_presets", label: "Presets", glyph: "EN" }, { view: "xp_tracker", label: "XP Tracker", glyph: "XP" } ] },
+    { label: "Admin", items: [ { view: "state_backup", label: "Backup & Undo", glyph: "BK" } ] }
+  ];
+
+  TABS = [
+    { id: "overview", label: "Overview", glyph: "OV" },
+    { id: "actions", label: "Actions", glyph: "AC" },
+    { id: "inventory", label: "Inventory", glyph: "IN" },
+    { id: "details", label: "Details", glyph: "DT" },
+    { id: "notes", label: "Notes", glyph: "NT" }
+  ];
+
+  TOOLS = {
+    template_library: {
+      eyebrow: "Templates", title: "Template Library", cta: "New Template", listLabel: "templates", editorTitle: "Voidrunner",
+      desc: "Reusable character and enemy templates. Assign stat blocks, actions, and starting equipment.",
+      items: [ ["Voidrunner","Player · 6 actions","PC"], ["Wetware Medic","Player · 5 actions","PC"], ["Warden Frame","Enemy · CR 8","NPC"], ["Drift Sentry","Enemy · CR 2","NPC"], ["Cartel Enforcer","Enemy · CR 4","NPC"] ],
+      fields: [ ["Template Name","text","Voidrunner"], ["Kind","select","Player Character|Enemy|Companion"], ["Base Health","text","72"], ["Base Charge","text","40"], ["Description","area","Agile ranged striker built around Charge management and mobility."] ]
+    },
+    create_template: {
+      eyebrow: "Templates", title: "Template Builder", cta: "Create", listLabel: "blocks", editorTitle: "New Template",
+      desc: "Compose a new template from stat blocks, attributes, and granted actions.",
+      items: [ ["Stat Block","6 core stats","SET"], ["Attributes","AC, Init, Speed…","SET"], ["Granted Actions","3 assigned","SET"], ["Resistances","Cold, EMP","SET"], ["Starting Gear","4 items","SET"] ],
+      fields: [ ["Template Name","text","Untitled Template"], ["Kind","select","Player Character|Enemy|Companion"], ["Level Range","text","1–10"], ["Primary Stat","select","Power|Finesse|Logic|Nerve"], ["Notes","area","Describe the intended role for this template."] ]
+    },
+    action_authoring: {
+      eyebrow: "Content", title: "Action Authoring", cta: "New Action", listLabel: "actions", editorTitle: "Plasma Lance",
+      desc: "Define actions: cost, roll formula, roll mode, and the mutations they emit on success.",
+      items: [ ["Plasma Lance","Ranged · 3 CHG","RNG"], ["Nano-Repair","Support · 2 CHG","SUP"], ["Overclock","Buff · 1 FOC","BUF"], ["Kinetic Slam","Melee · 1 CHG","MEL"], ["Ghost Protocol","Utility · 2 CHG","UTL"] ],
+      fields: [ ["Action Name","text","Plasma Lance"], ["Category","select","Ranged|Melee|Support|Buff|Utility"], ["Resource Cost","text","3 Charge"], ["Roll Formula","formula","2d6 + FIN + 3"], ["Roll Mode","select","None|Advantage/Disadvantage|Multi"], ["Effect Description","area","On hit the target ignites for 1d4 per round."] ]
+    },
+    item_maker: {
+      eyebrow: "Content", title: "Item Maker", cta: "New Item", listLabel: "items", editorTitle: "Ion Rifle 'Halcyon'",
+      desc: "Author items, rarity, granted actions, and stat augmentations they apply when equipped.",
+      items: [ ["Ion Rifle 'Halcyon'","Epic · Weapon","EPI"], ["Drift-Weave Cloak","Rare · Armor","RAR"], ["Nano-Cell","Uncommon · Consumable","UNC"], ["Med-Patch","Common · Consumable","COM"], ["Grapnel Line","Common · Tool","COM"] ],
+      fields: [ ["Item Name","text","Ion Rifle 'Halcyon'"], ["Rarity","select","Common|Uncommon|Rare|Epic|Legendary"], ["Slot","select","Weapon|Armor|Tool|Consumable"], ["Grants Action","select","Plasma Lance|None|Ghost Protocol"], ["Description","area","Signature ranged weapon. Grants Plasma Lance."] ]
+    },
+    attribute_authoring: {
+      eyebrow: "Rules Data", title: "Attribute Authoring", cta: "New Attribute", listLabel: "attributes", editorTitle: "Armor Class",
+      desc: "Define derived attributes and the formulas that compute them from core stats.",
+      items: [ ["Armor Class","Derived · formula","DRV"], ["Initiative","Derived · formula","DRV"], ["Speed","Static","STA"], ["Signal Range","Derived · formula","DRV"], ["Hack Tier","Static","STA"] ],
+      fields: [ ["Attribute Name","text","Armor Class"], ["Type","select","Derived (formula)|Static value"], ["Formula","formula","10 + FIN_MOD + armor"], ["Default Value","text","16"], ["Description","area","Difficulty to hit this character in melee or ranged combat."] ]
+    },
+    formula_authoring: {
+      eyebrow: "Rules Data", title: "Formula Authoring", cta: "New Formula", listLabel: "formulas", editorTitle: "Ranged Attack",
+      desc: "Central formula definitions with tagged variables, reused by actions and attributes.",
+      items: [ ["Ranged Attack","2d6 + FIN + prof","FRM"], ["Melee Attack","1d10 + PWR","FRM"], ["Heal","1d8 + LOG","FRM"], ["Save","2d6 + VIT","FRM"], ["Initiative","1d20 + FIN","FRM"] ],
+      fields: [ ["Formula Name","text","Ranged Attack"], ["Expression","formula","2d6 + FIN_MOD + prof_bonus"], ["Tags","text","attack, ranged"], ["Result Type","select","Roll|Value|Boolean"], ["Notes","area","Standard ranged attack roll used by most ranged actions."] ]
+    },
+    proficiency_authoring: {
+      eyebrow: "Rules Data", title: "Proficiency Authoring", cta: "New Proficiency", listLabel: "proficiencies", editorTitle: "Ranged Weapons",
+      desc: "Define proficiency tracks, their rank thresholds, and the bonuses each rank grants.",
+      items: [ ["Ranged Weapons","4 ranks","PRF"], ["Wetware Hacking","4 ranks","PRF"], ["Piloting","3 ranks","PRF"], ["Negotiation","3 ranks","PRF"], ["Melee Weapons","4 ranks","PRF"] ],
+      fields: [ ["Proficiency Name","text","Ranged Weapons"], ["Max Rank","text","4"], ["XP per Rank","text","300 / 600 / 1000 / 1500"], ["Bonus per Rank","text","+1 / +3 / +5 / +7"], ["Description","area","Governs accuracy and effect with all ranged weapons."] ]
+    },
+    condition_authoring: {
+      eyebrow: "Status Effects", title: "Condition Authoring", cta: "New Condition", listLabel: "conditions", editorTitle: "Ignited",
+      desc: "Author conditions: duration, tick behavior, and the augmentations applied while active.",
+      items: [ ["Ignited","Damage over time","DOT"], ["Overclocked","Stat buff","BUF"], ["Marked","Targeting debuff","DEB"], ["Stunned","Skip turn","CTL"], ["Concealed","Evasion buff","BUF"] ],
+      fields: [ ["Condition Name","text","Ignited"], ["Severity","select","Buff|Neutral|Debuff|Danger"], ["Duration","text","2 rounds"], ["Tick Effect","formula","1d4 fire each round"], ["Description","area","Target takes fire damage at the start of each of its turns."] ]
+    },
+    effect_authoring: {
+      eyebrow: "Status Effects", title: "Standalone Effects", cta: "New Effect", listLabel: "effects", editorTitle: "Signal Uplink",
+      desc: "Persistent effects not tied to a condition timer — auras, passives, and gear bonuses.",
+      items: [ ["Signal Uplink","Aura · allies","AUR"], ["Drift-Weave Cloak","Passive","PAS"], ["Frame Overheat","Trigger","TRG"], ["Adrenal Surge","Trigger","TRG"], ["Cold Ward","Resistance","RES"] ],
+      fields: [ ["Effect Name","text","Signal Uplink"], ["Type","select","Aura|Passive|Trigger|Resistance"], ["Scope","select","Self|Allies|Enemies|All"], ["Modifier","formula","+1 attack vs marked"], ["Description","area","Share targeting data with allies within signal range."] ]
+    },
+    encounter_presets: {
+      eyebrow: "Encounters", title: "Encounter Presets", cta: "New Preset", listLabel: "presets", editorTitle: "Drift Wreck Ambush",
+      desc: "Prebuild encounters with enemy rosters, counts, and initiative order for fast setup.",
+      items: [ ["Drift Wreck Ambush","4 enemies · CR 6","ENC"], ["Cartel Shakedown","3 enemies · CR 4","ENC"], ["Warden Hunt","1 boss · CR 8","ENC"], ["Sentry Gauntlet","6 enemies · CR 5","ENC"], ["Signal Interception","2 enemies · CR 3","ENC"] ],
+      fields: [ ["Preset Name","text","Drift Wreck Ambush"], ["Challenge Rating","text","6"], ["Enemy Roster","area","2× Drift Sentry, 1× Cartel Enforcer, 1× Warden Fragment"], ["Environment","select","Wreckage|Station|Open Drift|Interior"], ["Notes","area","Sentries activate on round 2 unless disabled early."] ]
+    },
+    xp_tracker: {
+      eyebrow: "Encounters", title: "XP Tracker", cta: "Award XP", listLabel: "kills", editorTitle: "Session 14 — Drift Wreck",
+      desc: "Track kills and award experience across the party. Proficiency XP is applied per-track.",
+      items: [ ["Vex Corran","Level 7 · 24,100 XP","PC"], ["Sela Rook","Level 6 · 19,400 XP","PC"], ["Bulwark-9","Level 7 · 23,050 XP","PC"], ["Warden Fragment","Defeated · 1,200 XP","KIL"], ["Drift Sentry ×2","Defeated · 400 XP","KIL"] ],
+      fields: [ ["Session Label","text","Session 14 — Drift Wreck"], ["Encounter XP","text","1,600"], ["Split","select","Even split|Per contribution|Manual"], ["Bonus XP","text","250"], ["Notes","area","Bonus for recovering the data-shard intact."] ]
+    },
+    state_backup: {
+      eyebrow: "Admin", title: "Backup & Undo", cta: "Snapshot Now", listLabel: "snapshots", editorTitle: "Auto — Round 3",
+      desc: "Authoritative state snapshots. Restore a previous point or undo the last applied mutation.",
+      items: [ ["Auto — Round 3","2m ago · v128","AUTO"], ["Manual — Pre-boss","14m ago · v121","SAVE"], ["Auto — Round 1","19m ago · v112","AUTO"], ["Session start","1h ago · v98","SAVE"], ["Prev session","1d ago · v76","SAVE"] ],
+      fields: [ ["Snapshot Label","text","Auto — Round 3"], ["State Version","text","v128"], ["Captured","text","2 minutes ago"], ["Scope","select","Full session|Active sheet only"], ["Notes","area","Automatic snapshot taken before applying combat mutations."] ]
+    }
+  };
+
+  // ---- handlers ----
+  setRole = (r) => this.setState({ role: r });
+  setGmView = (v) => this.setState({ gmView: v });
+  setTab = (t) => this.setState({ tab: t });
+  selectTool = (view, i) => this.setState((s) => ({ toolSel: { ...s.toolSel, [view]: i } }));
+
+  builderErrors(s = this.state) {
+    const errors = { details: [], stats: [], facts: [], resistances: [], actions: [], proficiencies: [], inventory: [] };
+    if (!s.templateName.trim()) errors.details.push("Template name is required.");
+    const xp = Number(s.templateXpSlain);
+    if (!s.templateXpSlain.trim() || !Number.isInteger(xp) || xp < 0) errors.details.push("XP awarded must be a whole number of zero or greater.");
+    if (this.BUILDER_CORE.some(([key]) => !s.builderCore[key].trim() || !Number.isInteger(Number(s.builderCore[key])))) errors.stats.push("Every core stat must be a finite whole number.");
+    if (this.BUILDER_FORMULAS.some(([key]) => !s.formulaValues[key]?.trim())) errors.stats.push("Every formula stat needs a formula and valid variable aliases.");
+    if (!s.builderFacts.some((fact) => fact.id === "amount_of_reactions" && fact.required)) errors.facts.push("Every required sheet Attribute / Fact must remain attached.");
+    if (s.builderFacts.some((fact) => !String(fact.value).trim())) errors.facts.push("Every Attribute / Fact needs a valid value or formula.");
+    if (this.BUILDER_RESISTANCES.some(([key]) => !Number.isFinite(Number(s.resistances[key])) || Number(s.resistances[key]) < 0 || Number(s.resistances[key]) > 100)) errors.resistances.push("Every resistance must be a number from 0 to 100 percent.");
+    if (new Set(s.assignedActionIds).size !== s.assignedActionIds.length) errors.actions.push("An action can only be assigned once.");
+    if (s.assignedProficiencies.some((entry) => !entry.uses.trim() || !Number.isInteger(Number(entry.uses)) || Number(entry.uses) < 0 || !entry.growth.trim() || !Number.isFinite(Number(entry.growth)) || Number(entry.growth) < 0)) errors.proficiencies.push("Use count and growth rate must be zero or greater.");
+    if (s.assignedItems.some((entry) => !entry.count.trim() || !Number.isInteger(Number(entry.count)) || Number(entry.count) < 0)) errors.inventory.push("Item quantities must be whole numbers of zero or greater.");
+    const itemCatalog = [...this.ITEM_CATALOG, ...s.customItems];
+    if (s.assignedItems.some((entry) => { const item = itemCatalog.find((candidate) => candidate.id === entry.id); return entry.equipped && (!item?.equippable || Number(entry.count) <= 0); })) errors.inventory.push("Only positive-quantity equippable items can start equipped.");
+    return errors;
+  }
+
+  setBuilderStep = (index) => this.setState((s) => index <= s.builderMaxStep ? { builderStep: index } : {});
+  builderBack = () => this.setState((s) => ({ builderStep: Math.max(0, s.builderStep - 1) }));
+  builderNext = () => this.setState((s) => {
+    const section = this.BUILDER_STEPS[s.builderStep].id;
+    const errors = this.builderErrors(s);
+    if (section !== "review" && errors[section].length > 0) return {};
+    const next = Math.min(this.BUILDER_STEPS.length - 1, s.builderStep + 1);
+    return { builderStep: next, builderMaxStep: Math.max(s.builderMaxStep, next) };
+  });
+
+  updateCoreStat = (key, value) => this.setState((s) => ({ builderCore: { ...s.builderCore, [key]: value } }));
+  updateFormulaText = (value) => this.setState((s) => ({ formulaValues: { ...s.formulaValues, [s.selectedFormula]: value } }));
+  updateFormulaTags = (value) => this.setState((s) => ({ formulaTags: { ...s.formulaTags, [s.selectedFormula]: value } }));
+  insertFormulaVariable = () => this.setState((s) => {
+    if (!s.formulaVariable) return {};
+    const current = s.formulaValues[s.selectedFormula] ?? "";
+    const token = `@${s.formulaVariable}`;
+    return { formulaValues: { ...s.formulaValues, [s.selectedFormula]: `${current}${current && !current.endsWith(" ") ? " " : ""}${token}` }, formulaVariable: "", formulaVariableSearch: "", formulaSearchOpen: false };
+  });
+  removeFormulaAlias = (name) => this.setState((s) => ({ formulaValues: { ...s.formulaValues, [s.selectedFormula]: (s.formulaValues[s.selectedFormula] ?? "").replace(new RegExp(`@${name}\\b`, "g"), "").replace(/\s{2,}/g, " ").trim() } }));
+
+  attachFact = () => this.setState((s) => {
+    const allFacts = [...this.FACT_CATALOG, ...s.customFacts];
+    const definition = allFacts.find((fact) => fact.id === s.factChoice);
+    if (!definition || s.builderFacts.some((fact) => fact.id === definition.id)) return {};
+    return { builderFacts: [...s.builderFacts, { id: definition.id, name: definition.label, description: definition.description, required: false, type: definition.type, value: definition.defaultValue, defaultValue: definition.defaultValue }], factChoice: "" };
+  });
+  updateFact = (id, changes) => this.setState((s) => ({ builderFacts: s.builderFacts.map((fact) => fact.id === id ? { ...fact, ...changes } : fact) }));
+  detachFact = (id) => this.setState((s) => ({ builderFacts: s.builderFacts.filter((fact) => fact.id !== id || fact.required) }));
+  updateResistance = (key, value) => this.setState((s) => ({ resistances: { ...s.resistances, [key]: value } }));
+
+  addAction = () => this.setState((s) => !s.actionChoice || s.assignedActionIds.includes(s.actionChoice) ? {} : ({ assignedActionIds: [...s.assignedActionIds, s.actionChoice], actionChoice: "" }));
+  addProficiency = () => this.setState((s) => !s.proficiencyChoice || s.assignedProficiencies.some((entry) => entry.id === s.proficiencyChoice) ? {} : ({ assignedProficiencies: [...s.assignedProficiencies, { id: s.proficiencyChoice, uses: "0", growth: "1" }], proficiencyChoice: "" }));
+  updateProficiency = (id, changes) => this.setState((s) => ({ assignedProficiencies: s.assignedProficiencies.map((entry) => entry.id === id ? { ...entry, ...changes } : entry) }));
+  addItem = () => this.setState((s) => !s.itemChoice || s.assignedItems.some((entry) => entry.id === s.itemChoice) ? {} : ({ assignedItems: [...s.assignedItems, { id: s.itemChoice, count: "1", equipped: false }], itemChoice: "" }));
+  updateItem = (id, changes) => this.setState((s) => ({ assignedItems: s.assignedItems.map((entry) => entry.id === id ? { ...entry, ...changes } : entry) }));
+
+  openContextual = (kind) => this.setState({ contextualKind: kind, contextualName: "" });
+  closeContextual = () => this.setState({ contextualKind: "", contextualName: "" });
+  confirmContextual = () => this.setState((s) => {
+    const name = s.contextualName.trim();
+    if (!name) return {};
+    const id = `${s.contextualKind}_${Date.now()}`;
+    if (s.contextualKind === "fact") {
+      const record = { id, label: name, description: "New sheet-compatible Fact.", type: "text", defaultValue: "New value" };
+      return { customFacts: [...s.customFacts, record], builderFacts: [...s.builderFacts, { id, name, description: record.description, required: false, type: "text", value: "New value", defaultValue: "New value" }], contextualKind: "", contextualName: "" };
+    }
+    if (s.contextualKind === "action") return { customActions: [...s.customActions, { id, name, meta: "new authored action" }], assignedActionIds: [...s.assignedActionIds, id], contextualKind: "", contextualName: "" };
+    if (s.contextualKind === "proficiency") return { customProficiencies: [...s.customProficiencies, { id, name, description: "New proficiency definition." }], assignedProficiencies: [...s.assignedProficiencies, { id, uses: "0", growth: "1" }], contextualKind: "", contextualName: "" };
+    return { customItems: [...s.customItems, { id, name, description: "new item · unequipped", equippable: false }], assignedItems: [...s.assignedItems, { id, count: "1", equipped: false }], contextualKind: "", contextualName: "" };
+  });
+  createTemplate = () => {
+    const errors = this.builderErrors();
+    if (Object.values(errors).some((entries) => entries.length > 0)) return;
+    this.notify(`Created ${this.state.templateKind === "enemy" ? "enemy" : "player"} template “${this.state.templateName.trim()}”.`, "success");
+    this.setGmView("template_library");
+  };
+
+  notify(text, tone) {
+    this.setState((s) => ({ notif: { text, tone, key: s.notif.key + 1 } }));
+    clearTimeout(this._notifTimer);
+    this._notifTimer = setTimeout(() => {
+      this.setState({ notif: { text: "All systems nominal.", tone: "idle", key: Date.now() } });
+    }, 5000);
+  }
+
+  clamp(v, max) { return Math.max(0, Math.min(max, v)); }
+
+  stepMana = (d) => this.setState((s) => ({ mana: this.clamp(s.mana + d, s.manaMax) }));
+  stepFocus = (d) => this.setState((s) => ({ focus: this.clamp(s.focus + d, s.focusMax) }));
+  onAdjHealth = (e) => this.setState({ adjHealth: e.target.value });
+  applyHealth = (sign) => {
+    const amt = Math.abs(parseInt(this.state.adjHealth, 10)) || 0;
+    if (!amt) return;
+    this.setState((s) => ({ hp: this.clamp(s.hp + sign * amt, s.hpMax), adjHealth: "" }));
+    this.notify(sign > 0 ? `Healed ${amt} health.` : `Took ${amt} ${this.state.damageType} damage${this.state.damageType === "Fire" || this.state.damageType === "Ice" ? " (resistances applied)" : ""}.`, sign > 0 ? "success" : "danger");
+  };
+
+  roll(name, formula) {
+    const total = 5 + Math.floor(Math.random() * 16);
+    this.setState((s) => ({
+      log: [{ name, summary: formula, status: "success", time: "just now", result: String(total) }, ...s.log].slice(0, 40)
+    }));
+    this.notify(`Rolled ${name} (${formula}) → ${total}. Sent to Roll20.`, "success");
+  }
+
+  render_navGroups() {
+    const active = this.state.gmView;
+    return this.NAV.map((g) => ({
+      label: g.label,
+      items: g.items.map((it) => {
+        const on = it.view === active;
+        return {
+          ...it,
+          active: on,
+          onClick: () => this.setGmView(it.view),
+          glyphStyle: `display:grid;place-items:center;width:24px;height:24px;flex:0 0 auto;border-radius:5px;font-size:9.5px;font-weight:900;letter-spacing:.02em;color:${on ? "#03111f" : "#5eeeff"};background:${on ? "#5eeeff" : "rgba(31,168,255,.12)"};border:1px solid ${on ? "transparent" : "rgba(159,225,255,.28)"};`,
+          style: `display:flex;align-items:center;gap:9px;width:100%;min-height:34px;border:1px solid ${on ? "rgba(94,238,255,.6)" : "transparent"};border-radius:7px;padding:6px 8px;font-weight:${on ? 800 : 650};font-size:12.5px;color:${on ? "#bff9ff" : "#abc6d9"};background:${on ? "rgba(31,168,255,.16)" : "transparent"};cursor:pointer;box-shadow:${on ? "inset 0 0 14px rgba(94,238,255,.08)" : "none"};`
+        };
+      })
+    }));
+  }
+
+  toneColor(t) {
+    return t === "danger" ? "#ff5f83" : t === "arcane" ? "#a98cff" : t === "success" ? "#58f0b3" : t === "warning" ? "#ffd166" : "#5eeeff";
+  }
+  rarityColor(r) {
+    return r === "legendary" ? "#ffd166" : r === "epic" ? "#a98cff" : r === "rare" ? "#1fa8ff" : r === "uncommon" ? "#58f0b3" : "#7f9fb5";
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isGm = s.role === "gm";
+    const isPlayer = s.role === "player";
+    const showDashboard = isGm && s.gmView === "console";
+    const showWorkspace = isPlayer || (isGm && s.gmView === "sheet_viewer");
+    const showBuilder = isGm && s.gmView === "create_template";
+    const showAuthoring = isGm && !showDashboard && !showWorkspace && !showBuilder;
+
+    const notifTone = this.toneColor(s.notif.tone === "idle" ? "info" : s.notif.tone);
+    const idle = s.notif.tone === "idle";
+
+    // tabs
+    const tabStyle = (id) => {
+      const on = s.tab === id;
+      return `position:relative;min-height:40px;border:1px solid ${on ? "rgba(159,225,255,.36)" : "transparent"};border-bottom:none;border-radius:7px 7px 0 0;padding:9px 16px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:${on ? "#bff9ff" : "#abc6d9"};background:${on ? "rgba(31,168,255,.14)" : "transparent"};cursor:pointer;margin-bottom:-1px;box-shadow:${on ? "inset 0 2px 0 #5eeeff" : "none"};`;
+    };
+    const tabs = this.TABS.map((t) => ({ ...t, onClick: () => this.setTab(t.id), style: tabStyle(t.id) }));
+    // stats
+    const stats = this.CORE.map((c) => ({
+      short: c.short, name: c.name, value: c.value, mod: c.mod,
+      onRoll: () => this.roll(c.name, `2d6 + ${c.short}(${c.mod})`),
+      subs: c.subs.map(([sn, sv]) => ({ name: sn, value: sv, onRoll: () => this.roll(sn, `2d6 + ${sn}`) }))
+    }));
+    const pinnedActions = this.ACTIONS.slice(0, 3).map((a) => ({ ...a, onRoll: () => this.roll(a.name, a.formula) }));
+    const actions = this.ACTIONS.map((a) => ({ ...a, onRoll: () => this.roll(a.name, a.formula) }));
+
+    const inventory = this.INVENTORY.map((it) => ({
+      ...it, qty: it.qty, rarityColor: this.rarityColor(it.rarity),
+      equipLabel: it.equipped ? "Equipped" : "Stowed",
+      equipStyle: `font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid ${it.equipped ? "rgba(88,240,179,.5)" : "rgba(159,225,255,.28)"};color:${it.equipped ? "#58f0b3" : "#7f9fb5"};background:${it.equipped ? "rgba(88,240,179,.1)" : "rgba(8,36,58,.6)"};`
+    }));
+
+    const conditions = this.CONDITIONS.map((c) => ({ ...c, marker: `width:9px;height:9px;transform:rotate(45deg);background:${this.toneColor(c.tone)};box-shadow:0 0 8px ${this.toneColor(c.tone)};` }));
+
+    // quick rolls
+    const quickRolls = this.QUICK.map((q) => {
+      const on = s.selectedQuick === q.id;
+      return { ...q, onSelect: () => this.setState({ selectedQuick: q.id }),
+        style: `min-height:38px;border:1px solid ${on ? "#5eeeff" : "rgba(159,225,255,.3)"};border-radius:7px;padding:6px 4px;font-size:11.5px;font-weight:800;letter-spacing:.02em;color:${on ? "#03111f" : "#bff9ff"};background:${on ? "#5eeeff" : "rgba(31,168,255,.08)"};cursor:pointer;` };
+    });
+    const rollModes = [ ["normal", "Normal"], ["advantage", "Adv"], ["disadvantage", "Dis"] ].map(([id, label], i) => {
+      const on = s.rollMode === id;
+      return { id, label, onSelect: () => this.setState({ rollMode: id }),
+        style: `flex:1;min-width:0;border:none;border-right:${i < 2 ? "1px solid rgba(159,225,255,.3)" : "none"};padding:8px 4px;font-size:11.5px;font-weight:800;color:${on ? "#03111f" : "#abc6d9"};background:${on ? "#5eeeff" : "rgba(2,14,27,.4)"};cursor:pointer;` };
+    });
+    const sel = this.QUICK.find((q) => q.id === s.selectedQuick);
+
+    // log
+    const log = s.log.map((e) => ({
+      ...e,
+      statusStyle: `flex:0 0 auto;border-radius:999px;padding:2px 8px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border:1px solid ${e.status === "success" ? "rgba(88,240,179,.5)" : "rgba(255,95,131,.5)"};color:${e.status === "success" ? "#58f0b3" : "#ff5f83"};background:${e.status === "success" ? "rgba(88,240,179,.1)" : "rgba(255,95,131,.1)"};`
+    }));
+
+    // focus pips
+    const focusPips = Array.from({ length: s.focusMax }, (_, i) => ({
+      style: `flex:1;height:8px;border-radius:3px;border:1px solid rgba(159,225,255,.3);background:${i < s.focus ? "linear-gradient(90deg,#1fa8ff,#5eeeff)" : "rgba(0,0,0,.3)"};box-shadow:${i < s.focus ? "0 0 8px rgba(94,238,255,.4)" : "none"};`
+    }));
+
+    // status chips
+    const chip = (label, tone, title) => ({
+      label, title,
+      style: `display:inline-flex;align-items:center;gap:6px;min-height:26px;border:1px solid rgba(159,225,255,.28);border-radius:6px;padding:3px 9px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#abc6d9;background:rgba(8,36,58,.55);`,
+      dotStyle: `width:7px;height:7px;border-radius:50%;background:${this.toneColor(tone)};box-shadow:0 0 8px ${this.toneColor(tone)};`
+    });
+    const statusChips = [
+      chip("Backend", "success", "Websocket connected"),
+      chip("Synced", "success", "State synced"),
+      chip("Roll20", "success", "Bridge connected"),
+      chip("Pending 0", "info", "No pending intents")
+    ];
+
+    // tool page
+    const view = s.gmView;
+    const raw = this.TOOLS[view];
+    let tool = null;
+    if (raw) {
+      const seli = s.toolSel[view] ?? 0;
+      tool = {
+        eyebrow: raw.eyebrow, title: raw.title, desc: raw.desc, cta: raw.cta, listLabel: raw.listLabel, editorTitle: raw.editorTitle,
+        items: raw.items.map((it, i) => {
+          const on = i === seli;
+          return {
+            name: it[0], meta: it[1], tag: it[2],
+            onSelect: () => this.selectTool(view, i),
+            style: `text-align:left;border:1px solid ${on ? "#5eeeff" : "rgba(159,225,255,.22)"};border-radius:8px;padding:9px 11px;background:${on ? "rgba(31,168,255,.14)" : "rgba(8,31,52,.7)"};color:#f4fbff;cursor:pointer;box-shadow:${on ? "inset 0 0 14px rgba(94,238,255,.08)" : "none"};`,
+            tagStyle: `flex:0 0 auto;font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;padding:2px 6px;color:#5eeeff;background:rgba(31,168,255,.12);border:1px solid rgba(159,225,255,.24);`
+          };
+        }),
+        fields: raw.fields.map((f, i) => ({
+          label: f[0], value: f[2],
+          isText: f[1] === "text", isSelect: f[1] === "select", isFormula: f[1] === "formula", isArea: f[1] === "area",
+          options: f[1] === "select" ? String(f[2]).split("|") : [],
+          value2: f[1] === "select" ? String(f[2]).split("|")[0] : f[2],
+          wrapStyle: (f[1] === "area" || f[1] === "formula") ? "grid-column:1 / -1;" : ""
+        }))
+      };
+      // for select, show first option as value handled in options list; text/area/formula use value directly
+      tool.fields = tool.fields.map((f) => ({ ...f, value: f.isSelect ? f.value2 : f.value }));
+    }
+
+    // template builder: mirrors the real editor validation buckets and reference catalogs
+    const builderErrors = this.builderErrors(s);
+    const builderSectionIds = this.BUILDER_STEPS.slice(0, 7).map((step) => step.id);
+    const totalBuilderErrors = builderSectionIds.reduce((total, id) => total + builderErrors[id].length, 0);
+    const builderReady = totalBuilderErrors === 0;
+    const activeBuilderStep = this.BUILDER_STEPS[s.builderStep];
+    const activeSectionErrors = activeBuilderStep.id === "review" ? [] : builderErrors[activeBuilderStep.id];
+    const builderSteps = this.BUILDER_STEPS.map((step, index) => {
+      const locked = index > s.builderMaxStep;
+      const current = index === s.builderStep;
+      const count = step.id === "review" ? totalBuilderErrors : builderErrors[step.id].length;
+      const hasErrors = count > 0 && !locked;
+      const done = index < s.builderStep && !hasErrors;
+      return {
+        ...step,
+        number: done ? "✓" : String(index + 1).padStart(2, "0"),
+        disabled: locked,
+        ariaCurrent: current ? "step" : undefined,
+        hasErrors,
+        errorCount: count,
+        status: locked ? "Locked" : current ? "Current step" : hasErrors ? `${count} issue${count === 1 ? "" : "s"}` : done ? "Complete" : "Available",
+        className: `tb-step ${current ? "tb-step--current" : ""} ${done ? "tb-step--done" : ""} ${hasErrors ? "tb-step--error" : ""}`,
+        onClick: () => this.setBuilderStep(index)
+      };
+    });
+    const builderCoreStats = this.BUILDER_CORE.map(([key, label]) => ({ key, label, value: s.builderCore[key], onChange: (event) => this.updateCoreStat(key, event.target.value) }));
+    const builderFormulas = this.BUILDER_FORMULAS.map(([key, label, group]) => ({
+      key, label, group,
+      className: `tb-formula-btn ${s.selectedFormula === key ? "tb-formula-btn--active" : ""}`,
+      onSelect: () => this.setState({ selectedFormula: key })
+    }));
+    const formulaVariableCatalog = [
+      ...this.BUILDER_CORE.map(([key, label]) => ({ id: key, label, path: `stats.${key}` })),
+      ...this.BUILDER_FORMULAS.map(([key, label]) => ({ id: key, label, path: `stats.${key}` }))
+    ];
+    const variableQuery = s.formulaVariableSearch.trim().replace(/^@/, "").toLowerCase();
+    const formulaVariableResults = formulaVariableCatalog
+      .filter((variable) => !variableQuery || `${variable.label} ${variable.id} ${variable.path}`.toLowerCase().includes(variableQuery))
+      .map((variable) => ({ ...variable, path: `@${variable.id} · ${variable.path}`, onSelect: () => this.setState({ formulaVariable: variable.id, formulaVariableSearch: `@${variable.id}`, formulaSearchOpen: false }) }));
+    const selectedFormulaMeta = this.BUILDER_FORMULAS.find(([key]) => key === s.selectedFormula) ?? this.BUILDER_FORMULAS[0];
+    const aliasNames = [...new Set(Array.from((s.formulaValues[s.selectedFormula] ?? "").matchAll(/@([a-z_]+)/g), (match) => match[1]))];
+    const builderSelectedFormula = {
+      label: selectedFormulaMeta[1], group: selectedFormulaMeta[2], text: s.formulaValues[s.selectedFormula] ?? "",
+      tags: s.formulaTags[s.selectedFormula] ?? "",
+      aliases: aliasNames.map((name) => ({ name, path: `stats.${name}`, onRemove: () => this.removeFormulaAlias(name) }))
+    };
+    const allFacts = [...this.FACT_CATALOG, ...s.customFacts];
+    const factOptions = allFacts.filter((definition) => !s.builderFacts.some((fact) => fact.id === definition.id)).map((definition) => ({ id: definition.id, label: definition.label }));
+    const builderFacts = s.builderFacts.map((fact) => ({
+      ...fact,
+      badge: fact.required ? "Required" : "Optional",
+      badgeClass: fact.required ? "tb-pill tb-pill--ready" : "tb-pill tb-pill--draft",
+      valueLabel: fact.type === "formula" ? "Formula" : "Value",
+      canDetach: !fact.required,
+      onType: (event) => this.updateFact(fact.id, { type: event.target.value }),
+      onValue: (event) => this.updateFact(fact.id, { value: event.target.value }),
+      onReset: () => this.updateFact(fact.id, { value: fact.defaultValue }),
+      onDetach: () => this.detachFact(fact.id)
+    }));
+    const builderResistances = this.BUILDER_RESISTANCES.map(([key, label]) => ({ key, label, value: s.resistances[key], onChange: (event) => this.updateResistance(key, event.target.value) }));
+    const allActions = [...this.ACTION_CATALOG, ...s.customActions];
+    const actionOptions = allActions.filter((action) => !s.assignedActionIds.includes(action.id)).map((action) => ({ id: action.id, label: `${action.name} — ${action.meta}` }));
+    const assignedActions = s.assignedActionIds.map((id) => {
+      const action = allActions.find((candidate) => candidate.id === id);
+      return { id, name: action?.name ?? id, meta: action?.meta ?? "Missing definition", onRemove: () => this.setState((current) => ({ assignedActionIds: current.assignedActionIds.filter((candidate) => candidate !== id) })) };
+    });
+    const allProficiencies = [...this.PROFICIENCY_CATALOG, ...s.customProficiencies];
+    const proficiencyOptions = allProficiencies.filter((proficiency) => !s.assignedProficiencies.some((entry) => entry.id === proficiency.id)).map((proficiency) => ({ id: proficiency.id, label: `${proficiency.name} — ${proficiency.description}` }));
+    const assignedProficiencies = s.assignedProficiencies.map((entry) => {
+      const proficiency = allProficiencies.find((candidate) => candidate.id === entry.id);
+      return { ...entry, name: proficiency?.name ?? entry.id, description: proficiency?.description ?? "Missing definition", onUses: (event) => this.updateProficiency(entry.id, { uses: event.target.value }), onGrowth: (event) => this.updateProficiency(entry.id, { growth: event.target.value }), onRemove: () => this.setState((current) => ({ assignedProficiencies: current.assignedProficiencies.filter((candidate) => candidate.id !== entry.id) })) };
+    });
+    const allItems = [...this.ITEM_CATALOG, ...s.customItems];
+    const itemOptions = allItems.filter((item) => !s.assignedItems.some((entry) => entry.id === item.id)).map((item) => ({ id: item.id, label: `${item.name} — ${item.description}` }));
+    const assignedItems = s.assignedItems.map((entry) => {
+      const item = allItems.find((candidate) => candidate.id === entry.id);
+      return { ...entry, name: item?.name ?? entry.id, description: item?.description ?? "Missing definition", equipDisabled: !item?.equippable || Number(entry.count) <= 0, onCount: (event) => this.updateItem(entry.id, { count: event.target.value, equipped: Number(event.target.value) > 0 ? entry.equipped : false }), onEquipped: (event) => this.updateItem(entry.id, { equipped: event.target.checked }), onRemove: () => this.setState((current) => ({ assignedItems: current.assignedItems.filter((candidate) => candidate.id !== entry.id) })) };
+    });
+    const sectionStatus = (id) => builderErrors[id].length ? `${builderErrors[id].length} issue${builderErrors[id].length === 1 ? "" : "s"}` : "Ready";
+    const reviewCards = [
+      { id: "details", label: "Details", summary: `${s.templateName.trim() || "Unnamed template"} · ${s.templateKind === "enemy" ? "Enemy / GM-controlled" : "Player Character / Player-controlled"} · ${s.templateXpSlain || "—"} XP when slain` },
+      { id: "stats", label: "Stats", summary: `6 core stats · 17 formula substats · ${aliasNames.length} aliases on current formula` },
+      { id: "facts", label: "Attributes", summary: `${s.builderFacts.length} sheet Fact${s.builderFacts.length === 1 ? "" : "s"} attached · values and formulas preserved` },
+      { id: "resistances", label: "Resistances", summary: "3 aggregate modifiers · all 15 damage types configured" },
+      { id: "actions", label: "Actions", summary: `${s.assignedActionIds.length} authored action${s.assignedActionIds.length === 1 ? "" : "s"} assigned` },
+      { id: "proficiencies", label: "Proficiencies", summary: `${s.assignedProficiencies.length} definition${s.assignedProficiencies.length === 1 ? "" : "s"} with starting growth data` },
+      { id: "inventory", label: "Inventory / Gear", summary: `${s.assignedItems.length} starting item${s.assignedItems.length === 1 ? "" : "s"} with quantity and equipment state` }
+    ].map((card) => ({ ...card, status: sectionStatus(card.id), statusClass: builderErrors[card.id].length ? "tb-error-count" : "tb-review-ok" }));
+    const contextCopy = {
+      fact: ["Create and attach Attribute / Fact", "Create a sheet-compatible Fact. It attaches after the backend confirms it.", "Fact Name", "e.g. Armor Class"],
+      action: ["Create and attach Action", "Create an authored action without leaving the current template draft.", "Action Name", "e.g. Plasma Lance"],
+      proficiency: ["Create and attach Proficiency", "Create a proficiency definition without leaving the current template draft.", "Proficiency Name", "e.g. Ranged Weapons"],
+      item: ["Create and attach Item", "Create a complete item, then add one unequipped copy to starting inventory.", "Item Name", "e.g. Ion Rifle"]
+    };
+    const contextualCopy = contextCopy[s.contextualKind] ?? ["", "", "Name", ""];
+
+    return {
+      isGm, isPlayer, showDashboard, showWorkspace, showBuilder, showAuthoring,
+      roleEyebrow: isGm ? "GM Workspace" : "Player Console",
+      contextName: isGm ? "Signal-6 · Drift Campaign" : this.CHAR.name,
+      charName: this.CHAR.name, charClass: this.CHAR.cls, charLevel: this.CHAR.level,
+      clock: s.clock,
+      // notif
+      notif: s.notif,
+      notifDotStyle: `width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:${idle ? "#58f0b3" : notifTone};box-shadow:0 0 8px ${idle ? "#58f0b3" : notifTone};${idle ? "" : "animation:r6-pulse 1.4s ease-in-out infinite;"}`,
+      notifTextStyle: `font-size:12px;font-weight:${idle ? 500 : 700};color:${idle ? "#7f9fb5" : "#f4fbff"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`,
+      // view toggle
+      viewAsGm: () => this.setRole("gm"),
+      viewAsPlayer: () => this.setRole("player"),
+      gmToggleStyle: `min-height:30px;border:none;padding:5px 12px;font-size:11px;font-weight:800;color:${isGm ? "#03111f" : "#abc6d9"};background:${isGm ? "#5eeeff" : "transparent"};cursor:pointer;`,
+      playerToggleStyle: `min-height:30px;border:none;border-left:1px solid rgba(159,225,255,.36);padding:5px 12px;font-size:11px;font-weight:800;color:${isPlayer ? "#03111f" : "#abc6d9"};background:${isPlayer ? "#5eeeff" : "transparent"};cursor:pointer;`,
+      statusChips,
+      navGroups: this.render_navGroups(),
+      tabs,
+      // resources
+      hp: s.hp, hpMax: s.hpMax, hpPct: `${Math.round((s.hp / s.hpMax) * 100)}%`,
+      mana: s.mana, manaMax: s.manaMax, manaPct: `${Math.round((s.mana / s.manaMax) * 100)}%`,
+      focus: s.focus, focusMax: s.focusMax, focusPips,
+      adjHealth: s.adjHealth, onAdjHealth: this.onAdjHealth,
+      damageTypes: this.DAMAGE_TYPES, damageType: s.damageType,
+      onDamageType: (e) => this.setState({ damageType: e.target.value }),
+      damageHp: () => this.applyHealth(-1), healHp: () => this.applyHealth(1),
+      manaMinus: () => this.stepMana(-1), manaPlus: () => this.stepMana(1),
+      focusMinus: () => this.stepFocus(-1), focusPlus: () => this.stepFocus(1),
+      // tab panels
+      showOverview: s.tab === "overview", showActions: s.tab === "actions",
+      showInventory: s.tab === "inventory", showDetails: s.tab === "details", showNotes: s.tab === "notes",
+      stats, pinnedActions, actions, inventory, conditions, effects: this.EFFECTS,
+      attributes: this.ATTRIBUTES, proficiencies: this.PROFICIENCIES,
+      // quick roll
+      quickRolls, rollModes,
+      selectedLabel: sel ? sel.name : "Select an action",
+      selectedFormula: sel ? sel.formula : "—",
+      performRoll: () => sel && this.roll(sel.name, sel.formula),
+      bridgeLabel: "Roll20 online",
+      bridgeStyle: "display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#58f0b3;border:1px solid rgba(88,240,179,.5);border-radius:999px;padding:2px 8px;background:rgba(88,240,179,.1);",
+      log, logCount: s.log.length,
+      // dashboard
+      goCharacters: () => this.setGmView("sheet_viewer"),
+      goEncounters: () => this.setGmView("encounter_presets"),
+      dashMetrics: [
+        { label: "Party", value: "3", sub: "all synced", tone: "#58f0b3" },
+        { label: "Encounter", value: "Round 3", sub: "Drift Wreck", tone: "#5eeeff" },
+        { label: "Pending Intents", value: "0", sub: "clear", tone: "#58f0b3" },
+        { label: "Last Snapshot", value: "2m", sub: "v128", tone: "#abc6d9" }
+      ],
+      // forced-order template builder
+      builderSteps,
+      builderProgress: `${Math.min(s.builderMaxStep + 1, 8)} / 8 unlocked`,
+      builderReadyClass: `tb-pill ${builderReady ? "tb-pill--ready" : "tb-pill--draft"}`,
+      builderReadyLabel: builderReady ? "Ready to save" : "Draft needs attention",
+      builderHasErrors: !builderReady,
+      totalBuilderErrors,
+      allBuilderErrors: builderSectionIds.flatMap((id) => builderErrors[id]).join(" · "),
+      goTemplateLibrary: () => this.setGmView("template_library"),
+      showBuilderDetails: s.builderStep === 0,
+      showBuilderStats: s.builderStep === 1,
+      showBuilderFacts: s.builderStep === 2,
+      showBuilderResistances: s.builderStep === 3,
+      showBuilderActions: s.builderStep === 4,
+      showBuilderProficiencies: s.builderStep === 5,
+      showBuilderInventory: s.builderStep === 6,
+      showBuilderReview: s.builderStep === 7,
+      activeStepHasErrors: activeSectionErrors.length > 0,
+      activeStepErrorText: activeSectionErrors.join(" · "),
+      activeStepPillClass: `tb-pill ${activeSectionErrors.length ? "tb-pill--draft" : "tb-pill--ready"}`,
+      activeStepPill: activeSectionErrors.length ? `${activeSectionErrors.length} issue${activeSectionErrors.length === 1 ? "" : "s"}` : "Step complete",
+      builderStepNumber: s.builderStep + 1,
+      activeStepFooter: s.builderStep === 7 ? (builderReady ? "Ready to create" : "Return to flagged steps") : activeSectionErrors.length ? "Resolve this step to continue" : "Validation passes",
+      builderBack: this.builderBack,
+      builderBackDisabled: s.builderStep === 0,
+      builderNext: this.builderNext,
+      builderNextDisabled: activeSectionErrors.length > 0,
+      showBuilderNext: s.builderStep < 7,
+      nextBuilderLabel: this.BUILDER_STEPS[Math.min(7, s.builderStep + 1)].label,
+      showBuilderCreate: s.builderStep === 7,
+      builderCreateDisabled: !builderReady,
+      createTemplate: this.createTemplate,
+      templateName: s.templateName,
+      templateKind: s.templateKind,
+      templateXpSlain: s.templateXpSlain,
+      templateXpCap: s.templateXpCap,
+      templateNotes: s.templateNotes,
+      onTemplateName: (event) => this.setState({ templateName: event.target.value }),
+      onTemplateKind: (event) => this.setState({ templateKind: event.target.value }),
+      onTemplateXpSlain: (event) => this.setState({ templateXpSlain: event.target.value }),
+      onTemplateXpCap: (event) => this.setState({ templateXpCap: event.target.value }),
+      onTemplateNotes: (event) => this.setState({ templateNotes: event.target.value }),
+      builderCoreStats,
+      builderFormulas,
+      builderSelectedFormula,
+      onFormulaText: (event) => this.updateFormulaText(event.target.value),
+      onFormulaTags: (event) => this.updateFormulaTags(event.target.value),
+      formulaVariableSearch: s.formulaVariableSearch,
+      onFormulaVariableSearch: (event) => this.setState({ formulaVariableSearch: event.target.value, formulaVariable: "", formulaSearchOpen: true }),
+      openFormulaVariableSearch: () => this.setState({ formulaSearchOpen: true }),
+      formulaVariableResults,
+      showVariableSearchResults: s.formulaSearchOpen && formulaVariableResults.length > 0,
+      showVariableSearchEmpty: s.formulaSearchOpen && Boolean(variableQuery) && formulaVariableResults.length === 0,
+      insertFormulaVariable: this.insertFormulaVariable,
+      formulaVariableDisabled: !s.formulaVariable,
+      factChoice: s.factChoice,
+      onFactChoice: (event) => this.setState({ factChoice: event.target.value }),
+      factChoiceDisabled: !s.factChoice,
+      factOptions,
+      builderFacts,
+      attachFact: this.attachFact,
+      createFactReference: () => this.openContextual("fact"),
+      aggregateResistances: builderResistances.slice(0, 3),
+      damageResistances: builderResistances.slice(3),
+      actionChoice: s.actionChoice,
+      onActionChoice: (event) => this.setState({ actionChoice: event.target.value }),
+      actionChoiceDisabled: !s.actionChoice,
+      actionOptions,
+      assignedActions,
+      noAssignedActions: assignedActions.length === 0,
+      addAction: this.addAction,
+      createActionReference: () => this.openContextual("action"),
+      proficiencyChoice: s.proficiencyChoice,
+      onProficiencyChoice: (event) => this.setState({ proficiencyChoice: event.target.value }),
+      proficiencyChoiceDisabled: !s.proficiencyChoice,
+      proficiencyOptions,
+      assignedProficiencies,
+      noAssignedProficiencies: assignedProficiencies.length === 0,
+      addProficiency: this.addProficiency,
+      createProficiencyReference: () => this.openContextual("proficiency"),
+      itemChoice: s.itemChoice,
+      onItemChoice: (event) => this.setState({ itemChoice: event.target.value }),
+      itemChoiceDisabled: !s.itemChoice,
+      itemOptions,
+      assignedItems,
+      noAssignedItems: assignedItems.length === 0,
+      addItem: this.addItem,
+      createItemReference: () => this.openContextual("item"),
+      reviewCards,
+      contextualOpen: Boolean(s.contextualKind),
+      contextualTitle: contextualCopy[0],
+      contextualDescription: contextualCopy[1],
+      contextualLabel: contextualCopy[2],
+      contextualPlaceholder: contextualCopy[3],
+      contextualName: s.contextualName,
+      onContextualName: (event) => this.setState({ contextualName: event.target.value }),
+      contextualCreateDisabled: !s.contextualName.trim(),
+      closeContextual: this.closeContextual,
+      confirmContextual: this.confirmContextual,
+      // tool
+      tool
+    };
+  }
+}
+</script>
+</body>
+</html>

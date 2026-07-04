@@ -105,7 +105,12 @@ export function ActionAttributesEditor({
               ))}
             </select>
           </label>
-          <button type="button" disabled={!selectedPresetId} onClick={applyPreset}>
+          <button
+            className="button"
+            type="button"
+            disabled={!selectedPresetId}
+            onClick={applyPreset}
+          >
             Apply Attribute Preset
           </button>
         </div>

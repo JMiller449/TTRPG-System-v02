@@ -44,12 +44,12 @@ export function AttributeEditorForm({
           onChange={(event) => onChange({ ...draft, description: event.target.value })}
         />
       </label>
-      <fieldset>
+      <fieldset className="attribute-subject-options">
         <legend>Allowed subjects</legend>
         {(["sheet", "item", "action"] as const).map((subjectType) => {
           const required = requiredSubjectType === subjectType;
           return (
-            <label key={subjectType}>
+            <label className="attribute-subject-option" key={subjectType}>
               <input
                 type="checkbox"
                 checked={draft.subjectTypes.includes(subjectType)}
@@ -63,8 +63,10 @@ export function AttributeEditorForm({
                   })
                 }
               />
-              {subjectType}
-              {required ? " (required here)" : ""}
+              <span>
+                {subjectType}
+                {required ? " (required here)" : ""}
+              </span>
             </label>
           );
         })}
@@ -156,7 +158,7 @@ export function AttributeEditorForm({
               </label>
               <button
                 type="button"
-                className="danger"
+                className="button button--danger"
                 onClick={() =>
                   onChange({
                     ...draft,
@@ -172,7 +174,7 @@ export function AttributeEditorForm({
           ))}
           <button
             type="button"
-            className="secondary"
+            className="button button--secondary"
             onClick={() =>
               onChange({
                 ...draft,
@@ -251,11 +253,16 @@ export function AttributeEditorForm({
         </select>
       </label>
       <div className="inline-actions">
-        <button type="button" onClick={onSubmit} disabled={!canSubmit || pending}>
+        <button className="button" type="button" onClick={onSubmit} disabled={!canSubmit || pending}>
           {pending ? "Creating…" : editingId ? "Save Attribute" : "Create Attribute"}
         </button>
         {onCancel ? (
-          <button type="button" className="secondary" onClick={onCancel} disabled={pending}>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={onCancel}
+            disabled={pending}
+          >
             Cancel
           </button>
         ) : null}

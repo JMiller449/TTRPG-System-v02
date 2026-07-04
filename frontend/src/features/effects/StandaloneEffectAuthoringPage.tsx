@@ -7,7 +7,6 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { StandaloneEffectEditorForm } from "@/features/effects/components/StandaloneEffectEditorForm";
-import { StandaloneEffectList } from "@/features/effects/components/StandaloneEffectList";
 import {
   buildCreateStandaloneEffectSubmission,
   buildDeleteStandaloneEffectSubmission,
@@ -18,6 +17,8 @@ import {
 } from "@/features/effects/standaloneEffectAuthoringRequests";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 
 export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -134,13 +135,42 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
       title="Effect Authoring"
       actions={
         editingEffectId || pendingCreatedEffectId ? (
-          <button className="button button--secondary" type="button" onClick={startNewEffect}>
-            New Effect
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" type="button" onClick={startNewEffect}>
+              New Effect
+            </button>
+            {editingEffectId ? (
+              <button
+                className="button button--danger"
+                type="button"
+                onClick={() => deleteEffect(editingEffectId)}
+              >
+                Delete Effect
+              </button>
+            ) : null}
+          </div>
         ) : null
       }
     >
-      <div className="stack">
+      <CatalogEditorLayout
+        catalogLabel="Effect Catalog"
+        catalog={
+          <CatalogTileGrid
+            items={orderedEffects.map((effect) => ({ id: effect.id, name: effect.name }))}
+            selectedId={editingEffectId}
+            emptyMessage="No effects created yet."
+            onSelect={(effectId) => {
+              const effect = standaloneEffects[effectId];
+              if (!effect) {
+                return;
+              }
+              setEditingEffectId(effect.id);
+              setPendingCreatedEffectId(null);
+              setValues(toAugmentationEditorValues(effect));
+            }}
+          />
+        }
+      >
         <StandaloneEffectEditorForm
           editingEffectId={editingEffectId}
           values={values}
@@ -151,16 +181,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
           onSubmit={submitEffect}
           onCancel={startNewEffect}
         />
-        <StandaloneEffectList
-          effects={orderedEffects}
-          onEdit={(effect) => {
-            setEditingEffectId(effect.id);
-            setPendingCreatedEffectId(null);
-            setValues(toAugmentationEditorValues(effect));
-          }}
-          onDelete={deleteEffect}
-        />
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

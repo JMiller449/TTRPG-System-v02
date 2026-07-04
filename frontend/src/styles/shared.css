@@ -109,6 +109,89 @@ textarea:disabled {
   color: var(--muted);
 }
 
+.r6-theme label:not(.field):has(> select),
+.r6-theme label:not(.field):has(> textarea),
+.r6-theme label:not(.field):has(> input:not([type="checkbox"]):not([type="radio"])) {
+  display: grid;
+  gap: 0.3rem;
+  align-items: stretch;
+  color: var(--r6-text-muted);
+  font-size: 0.78rem;
+}
+
+.r6-theme label:not(.field) > :is(select, textarea, input:not([type="checkbox"]):not([type="radio"])) {
+  color: var(--r6-text);
+  font-size: 0.95rem;
+}
+
+.r6-theme .inline-actions:has(> label > :is(select, textarea, input)) {
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.r6-theme .inline-actions > label:has(> :is(select, textarea, input)) {
+  flex: 1 1 220px;
+}
+
+.attribute-subject-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.attribute-subject-options legend {
+  padding: 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.attribute-subject-option {
+  position: relative;
+}
+
+.attribute-subject-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.attribute-subject-option span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0.4rem 0.75rem;
+  background: var(--card);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.attribute-subject-option input:checked + span {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
+.attribute-subject-option input:focus-visible + span {
+  outline: 3px solid #1f6f78;
+  outline-offset: 2px;
+}
+
+.attribute-subject-option input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .button {
   background: var(--accent);
   color: #fff;
@@ -302,6 +385,93 @@ button.formula-tag-suggestion {
   color: var(--muted);
 }
 
+.authoring-workspace {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.38fr) minmax(0, 1fr);
+  gap: 0.85rem;
+  min-width: 0;
+  align-items: start;
+}
+
+.authoring-workspace__catalog,
+.authoring-workspace__editor {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0.75rem;
+}
+
+.authoring-workspace__catalog {
+  position: sticky;
+  top: 0;
+}
+
+.authoring-workspace__catalog h3 {
+  margin: 0.15rem 0 0.7rem;
+  font-size: 0.95rem;
+}
+
+.authoring-workspace__kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.authoring-workspace__catalog-scroll {
+  max-height: calc(100dvh - 13.5rem);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.authoring-workspace__catalog .list-item,
+.authoring-workspace__catalog .card {
+  padding: 0.65rem;
+}
+
+.catalog-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.4rem;
+}
+
+.catalog-tile {
+  min-width: 0;
+  min-height: 42px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0.45rem 0.6rem;
+  color: var(--text);
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 750;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-tile--selected {
+  border-color: var(--accent);
+  background: #d8e8e9;
+}
+
+.authoring-workspace__editor > .template-editor,
+.authoring-workspace__editor > .item-editor,
+.authoring-workspace__editor > .card {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 1100px) {
+  .authoring-workspace {
+    grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   input,
   select,
@@ -347,5 +517,21 @@ button.formula-tag-suggestion {
 
   .tab {
     flex: 0 0 auto;
+  }
+
+  .authoring-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .authoring-workspace__catalog {
+    position: static;
+  }
+
+  .authoring-workspace__catalog-scroll {
+    max-height: 18rem;
+  }
+
+  .catalog-tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

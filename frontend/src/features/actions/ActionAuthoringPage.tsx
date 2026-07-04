@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
-import { ActionDefinitionList } from "@/features/actions/components/ActionDefinitionList";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
 import { ActionAttributesEditor } from "@/features/actions/components/ActionAttributesEditor";
 import { ActionPresetPicker } from "@/features/actions/components/ActionPresetPicker";
@@ -20,6 +19,8 @@ import {
   selectOrderedActionDefinitions
 } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 
@@ -132,60 +133,77 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
       title="Action Authoring"
       actions={
         editingActionId ? (
-          <button className="button button--secondary" onClick={startNewAction}>
-            New Action
-          </button>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={startNewAction}>
+              New Action
+            </button>
+            <button
+              className="button button--danger"
+              onClick={() => deleteAction(editingActionId)}
+            >
+              Delete Action
+            </button>
+          </div>
         ) : null
       }
     >
-      <div className="stack">
-        <ActionPresetPicker
-          presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
-          onApply={(preset) => {
-            setEditingActionId(null);
-            setValues(
-              applyActionPresetTemplate(
-                createEmptyActionEditorValues(),
-                preset,
-                attributeDefinitions,
-                () => makeId("action_attribute")
-              )
-            );
-          }}
-        />
-        <ActionEditorForm
-          editingActionId={editingActionId}
-          values={values}
-          onChange={setValues}
-          onSubmit={onSubmit}
-          onCancel={startNewAction}
-          metadata={actionFormulaAuthoringMetadata}
-          proficiencies={proficiencies}
-          formulas={formulas}
-          standaloneEffects={standaloneEffects}
-          conditions={conditions}
-          validationError={validationError}
-          attributesEditor={
-            <ActionAttributesEditor
-              values={values}
-              definitions={attributeDefinitions}
-              proficiencies={proficiencyRecords}
-              metadata={actionFormulaAuthoringMetadata}
-              onChange={setValues}
-            />
-          }
-        />
-
-        <ActionDefinitionList
-          actions={actions}
-          attributeDefinitions={attributeDefinitions}
-          onEdit={(action) => {
-            setEditingActionId(action.id);
-            setValues(toActionEditorValues(action));
-          }}
-          onDelete={deleteAction}
-        />
-      </div>
+      <CatalogEditorLayout
+        catalogLabel="Authored Actions"
+        catalog={
+          <CatalogTileGrid
+            items={actions.map((action) => ({ id: action.id, name: action.name }))}
+            selectedId={editingActionId}
+            emptyMessage="No actions created yet."
+            onSelect={(actionId) => {
+              const action = actionRecords[actionId];
+              if (!action) {
+                return;
+              }
+              setEditingActionId(action.id);
+              setValues(toActionEditorValues(action));
+            }}
+          />
+        }
+      >
+        <div className="stack">
+          <ActionPresetPicker
+            presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
+            onApply={(preset) => {
+              setEditingActionId(null);
+              setValues(
+                applyActionPresetTemplate(
+                  createEmptyActionEditorValues(),
+                  preset,
+                  attributeDefinitions,
+                  () => makeId("action_attribute")
+                )
+              );
+            }}
+          />
+          <ActionEditorForm
+            editingActionId={editingActionId}
+            values={values}
+            onChange={setValues}
+            onSubmit={onSubmit}
+            onCancel={startNewAction}
+            metadata={actionFormulaAuthoringMetadata}
+            proficiencies={proficiencies}
+            formulas={formulas}
+            standaloneEffects={standaloneEffects}
+            conditions={conditions}
+            validationError={validationError}
+            attributesEditor={
+              <ActionAttributesEditor
+                values={values}
+                definitions={attributeDefinitions}
+                proficiencies={proficiencyRecords}
+                metadata={actionFormulaAuthoringMetadata}
+                onChange={setValues}
+              />
+            }
+          />
+        </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

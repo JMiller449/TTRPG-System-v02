@@ -12,9 +12,18 @@ from backend.state import store as store_module
 from backend.state.store import StateSingleton
 from backend.tests.dm_examples_fixtures import (
     ACTION_IDS,
+    CAMPAIGN_FACT_IDS,
+    CONDITION_IDS,
+    CUSTOM_PROFICIENCY_IDS,
+    ENCOUNTER_IDS,
+    ENEMY_TEMPLATE_IDS,
     INSTANCE_ID,
     ITEM_IDS,
+    PLAYER_TEMPLATE_IDS,
     SHEET_ID,
+    SHADOWBLADE_INSTANCE_ID,
+    STARTER_ACTION_IDS,
+    STARTER_ITEM_IDS,
     authoring_requests,
 )
 
@@ -69,11 +78,34 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             authored = StateSingleton.getState()
             assert set(ITEM_IDS).issubset(authored.items)
             assert set(ACTION_IDS).issubset(authored.actions)
+            assert set(STARTER_ITEM_IDS).issubset(authored.items)
+            assert set(STARTER_ACTION_IDS).issubset(authored.actions)
+            assert set(PLAYER_TEMPLATE_IDS).issubset(authored.sheets)
+            assert set(ENEMY_TEMPLATE_IDS).issubset(authored.sheets)
+            assert {"amount_of_reactions", "weapon_base_damage"}.issubset(
+                authored.facts
+            )
+            assert set(CAMPAIGN_FACT_IDS).issubset(authored.facts)
+            assert set(CUSTOM_PROFICIENCY_IDS).issubset(authored.proficiencies)
+            assert set(CONDITION_IDS).issubset(authored.condition_presets)
+            assert set(ENCOUNTER_IDS).issubset(authored.encounter_presets)
             assert authored.standalone_effect_applications == {}
             assert authored.sheets[SHEET_ID].stats.perception == 12
             assert authored.sheets[SHEET_ID].resistances.resistance == pytest.approx(0.10)
             assert authored.sheets[SHEET_ID].resistances.fire == pytest.approx(0.25)
             assert authored.sheets[SHEET_ID].resistances.magical == pytest.approx(0.10)
+            assert "amount_of_reactions" in authored.sheets[SHEET_ID].facts
+            assert authored.sheets[SHEET_ID].facts[
+                "gate_affinity"
+            ].evaluated_value == "Fire"
+            assert authored.sheets["starter_shadowblade_template"].facts[
+                "gate_affinity"
+            ].evaluated_value == "Shadow"
+            assert authored.items["lesser_mana_vial"].interaction_type == "consumable"
+            assert authored.items["hunter_license"].interaction_type == "inventory_only"
+            assert authored.items["night_fang"].fact_profile == "weapon"
+            assert authored.condition_presets["shadow_bound"].visibility == "public"
+            assert authored.encounter_presets["red_gate_scouts"].entries[0].count == 3
             assert authored.items["never_dulls"].facts[
                 "weapon_base_damage"
             ].evaluated_value == 15
@@ -94,6 +126,8 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert reloaded.sheets[SHEET_ID].resistances.resistance == pytest.approx(0.10)
             assert reloaded.sheets[SHEET_ID].resistances.fire == pytest.approx(0.25)
             assert reloaded.sheets[SHEET_ID].resistances.magical == pytest.approx(0.10)
+            assert set(ENCOUNTER_IDS).issubset(reloaded.encounter_presets)
+            assert set(CONDITION_IDS).issubset(reloaded.condition_presets)
             assert len(reloaded.equipment_effect_projections) == persisted_projection_count
             assert set(reloaded.augmentations) == persisted_augmentation_ids
             assert reloaded.standalone_effect_applications == {}
@@ -263,6 +297,84 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             ]
             assert reloaded.instanced_sheets[INSTANCE_ID].mana == 100
             assert reloaded.instanced_sheets[INSTANCE_ID].health == 60
+
+            await _send(
+                dm,
+                {
+                    "type": "perform_action",
+                    "sheet_id": SHADOWBLADE_INSTANCE_ID,
+                    "action_id": "lesser_mana_vial_drink",
+                    "source_item_relationship_id": "inventory_lesser_mana_vial",
+                },
+            )
+            shadow_sheet = reloaded.sheets["starter_shadowblade_template"]
+            assert reloaded.instanced_sheets[SHADOWBLADE_INSTANCE_ID].mana == 105
+            assert shadow_sheet.items["inventory_lesser_mana_vial"].count == 1
+
+            before_shadow_step_uses = shadow_sheet.proficiencies[
+                "fixture_shadow_steps"
+            ].use_count
+            await _send(
+                dm,
+                {
+                    "type": "perform_action",
+                    "sheet_id": SHADOWBLADE_INSTANCE_ID,
+                    "action_id": "train_shadow_steps",
+                },
+            )
+            assert shadow_sheet.proficiencies[
+                "fixture_shadow_steps"
+            ].use_count == before_shadow_step_uses + 1
+
+            await _send(
+                dm,
+                {
+                    "type": "perform_action",
+                    "sheet_id": SHADOWBLADE_INSTANCE_ID,
+                    "action_id": "apply_shadow_bound",
+                },
+            )
+            assert (
+                f"condition:shadow_bound:{SHADOWBLADE_INSTANCE_ID}"
+                in reloaded.active_conditions
+            )
+            bridge.sent_messages.clear()
+            dodge_messages = await _send(
+                dm,
+                {
+                    "type": "perform_action",
+                    "sheet_id": SHADOWBLADE_INSTANCE_ID,
+                    "action_id": "dodge",
+                },
+            )
+            assert dodge_messages[0]["type"] == "action_executed"
+            assert "Disadvantage Dodge:" in bridge.sent_messages[-1]["message"]
+            await _send(
+                dm,
+                {
+                    "type": "perform_action",
+                    "sheet_id": SHADOWBLADE_INSTANCE_ID,
+                    "action_id": "remove_shadow_bound",
+                },
+            )
+            assert (
+                f"condition:shadow_bound:{SHADOWBLADE_INSTANCE_ID}"
+                not in reloaded.active_conditions
+            )
+
+            spawn_messages = await _send(
+                dm,
+                {
+                    "type": "spawn_encounter_preset",
+                    "encounter_id": "red_gate_scouts",
+                },
+            )
+            assert spawn_messages[0]["type"] == "state_patch"
+            assert {
+                "red_gate_scouts_starter_red_gate_goblin_1",
+                "red_gate_scouts_starter_red_gate_goblin_2",
+                "red_gate_scouts_starter_red_gate_goblin_3",
+            }.issubset(reloaded.instanced_sheets)
         finally:
             await websocket_sessions.reset()
             await chat_service.roll20_chat_bridge.reset()

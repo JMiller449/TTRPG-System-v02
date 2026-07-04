@@ -2,6 +2,26 @@
 level
 movement
 
+# Implemented starter campaign coverage:
+
+The validated starter session data lives in
+`backend/tests/dm_examples_fixtures.py` and is exercised by
+`backend/tests/test_dm_examples_acceptance.py`.
+
+Current starter records include:
+
+- Player templates: Ember Ranker Arin Vale, Shadowblade Mina Seo.
+- Enemy templates: Red Gate Goblin, Ash Wraith.
+- Campaign Facts: Campaign Role, Gate Affinity, Guild Rank.
+- Custom proficiencies: Pyromancy, Shadow Steps, Gate Lore, plus seeded weapon
+  families such as Long Swords and Knives.
+- Items: equippable gear and weapons, consumables, and inventory-only records.
+- Conditions/effects: Shadow Bound, Bleeding, Parry Advantage, Mana Manipulation
+  bonuses.
+- Actions: checks, spell to-hit, spell damage, weapon actions, resource costs,
+  healing, condition application/removal, consumable use, and proficiency gain.
+- Encounter presets: Red Gate Scouts, Ash Wraith Threshold.
+
 # Some presets:
 Attack = (1 + Proficiency) * (d100/100) * weapon_stat_type			
 Parry Attempt = Weapon Proficiency Modifier * (1d100/100) * Dexterity					

@@ -492,6 +492,7 @@ export function PlayerCharacterSheet({
               items={items}
               actionDefinitions={actionDefinitions}
               attributeDefinitions={attributeDefinitions}
+              proficiencyDefinitions={proficiencyDefinitions}
               augmentations={augmentations}
               itemOrder={itemOrder}
               selectedItemId={selectedItemId}

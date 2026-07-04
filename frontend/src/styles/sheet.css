@@ -21,6 +21,7 @@
 .equipment-card {
   display: grid;
   gap: 0.65rem;
+  position: relative;
 }
 
 .equipment-card--depleted {
@@ -29,6 +30,11 @@
 
 .equipment-card__body {
   min-width: 0;
+}
+
+.equipment-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .equipment-card__heading,
@@ -42,6 +48,60 @@
 
 .equipment-card__status {
   justify-content: flex-end;
+}
+
+.equipment-card__compact-stats {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.equipment-card__compact-stats span {
+  white-space: nowrap;
+}
+
+.equipment-card__hover-label {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% - 0.25rem);
+  left: 0.65rem;
+  width: min(24rem, calc(100% - 1.3rem));
+  max-height: min(22rem, 70vh);
+  overflow: auto;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.55rem 0.65rem;
+  background: var(--card);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.equipment-card:hover .equipment-card__hover-label,
+.equipment-card:focus-within .equipment-card__hover-label {
+  opacity: 1;
+  visibility: visible;
+}
+
+.equipment-card__hover-label p {
+  margin: 0;
+}
+
+.equipment-card__tooltip-grid,
+.equipment-card__tooltip-actions {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.equipment-card__tooltip-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
 .equipment-effect-summary {

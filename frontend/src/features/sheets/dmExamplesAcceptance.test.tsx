@@ -65,6 +65,7 @@ describe("DM example acceptance fixtures", () => {
           weapon_parry: { id: "weapon_parry", name: "Weapon Parry" }
         }}
         attributeDefinitions={dmExampleAttributeDefinitions}
+        proficiencyDefinitions={{}}
         augmentations={dmExampleConcreteAugmentations}
         itemOrder={Object.keys(dmExampleItems)}
         selectedItemId=""

@@ -3,42 +3,71 @@ import type {
   Augmentation,
   AttributeDefinition,
   ItemBridge,
-  ItemDefinition
+  ItemDefinition,
+  ProficiencyDefinition
 } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
-import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
-import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import {
   countItemEffectTypes,
   itemCarryStatus,
   ITEM_INTERACTION_LABELS,
   selectActiveEquipmentEffects,
+  summarizeItemAttributeDetails,
   summarizeItemActionGrants
 } from "@/features/sheets/equipmentDisplay";
 
-function ItemEffectSummary({
-  item,
-  activeEffects
+function ItemDetailHoverLabel({
+  description,
+  attributeSummaries,
+  effectCounts,
+  activeEffects,
+  actionSummaries,
+  actionNames
 }: {
-  item: ItemDefinition;
+  description: string;
+  attributeSummaries: string[];
+  effectCounts: ReturnType<typeof countItemEffectTypes>;
   activeEffects: Augmentation[];
+  actionSummaries?: ReturnType<typeof summarizeItemActionGrants>;
+  actionNames?: string[];
 }): JSX.Element | null {
-  if (item.interaction_type !== "equippable") {
+  const totalEffectCount = effectCounts.wearer + effectCounts.rollOrFormula + activeEffects.length;
+  const hasActions = Boolean(actionSummaries?.length || actionNames?.length);
+
+  if (!description && attributeSummaries.length === 0 && totalEffectCount === 0 && !hasActions) {
     return null;
   }
-  const counts = countItemEffectTypes(item);
+
   return (
-    <div className="equipment-effect-summary">
-      <div className="muted">
-        Wearer Effects {counts.wearer} · Roll / Formula Effects {counts.rollOrFormula} · Active{" "}
-        {activeEffects.length}
-      </div>
-      {activeEffects.map((augmentation) => (
-        <div className="muted" key={augmentation.id}>
-          {augmentation.name}: {formatAugmentationEffect(augmentation)}
+    <div className="equipment-card__hover-label" role="tooltip">
+      {description ? <p>{description}</p> : null}
+      {attributeSummaries.length > 0 ? (
+        <div className="equipment-card__tooltip-grid">
+          {attributeSummaries.map((summary) => (
+            <span key={summary}>{summary}</span>
+          ))}
         </div>
-      ))}
+      ) : null}
+      {totalEffectCount > 0 ? (
+        <div>
+          Effects: wearer {effectCounts.wearer}, roll/formula {effectCounts.rollOrFormula}, active{" "}
+          {activeEffects.length}
+        </div>
+      ) : null}
+      {activeEffects.length > 0 ? (
+        <div>Active: {activeEffects.map((augmentation) => augmentation.name).join(", ")}</div>
+      ) : null}
+      {actionSummaries?.length ? (
+        <div className="equipment-card__tooltip-actions">
+          {actionSummaries.map((summary) => (
+            <span key={summary.actionId}>
+              {summary.actionName}: {summary.availability}, {summary.status}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {actionNames?.length ? <div>Actions: {actionNames.join(", ")}</div> : null}
     </div>
   );
 }
@@ -47,6 +76,7 @@ export function SheetEquipmentSection({
   items,
   actionDefinitions,
   attributeDefinitions,
+  proficiencyDefinitions,
   augmentations,
   itemOrder,
   selectedItemId,
@@ -62,6 +92,7 @@ export function SheetEquipmentSection({
   items: Record<string, ItemDefinition>;
   actionDefinitions: Record<string, ActionDefinition>;
   attributeDefinitions: Record<string, AttributeDefinition>;
+  proficiencyDefinitions: Record<string, ProficiencyDefinition>;
   augmentations: Record<string, Augmentation>;
   itemOrder: string[];
   selectedItemId: string;
@@ -108,34 +139,48 @@ export function SheetEquipmentSection({
           </button>
         </div>
       ) : null}
-      {canEdit && selectedItem ? (
-        <div className="equipment-selection-preview">
-          <div className="equipment-card__heading">
-            <strong>{selectedItem.name}</strong>
-            <span className="pill">{ITEM_INTERACTION_LABELS[selectedItem.interaction_type]}</span>
-          </div>
-          <div className="muted">
-            Weight {selectedItem.weight} · Price {selectedItem.price}
-          </div>
-          <p className="muted">{selectedItem.description || "(no description)"}</p>
-          {selectedItem.interaction_type === "equippable" ? (
-            <ItemEffectSummary item={selectedItem} activeEffects={[]} />
-          ) : null}
-          {selectedItem.interaction_type !== "inventory_only" ? (
-            <div className="muted">Granted Actions {selectedItem.action_grants?.length ?? 0}</div>
-          ) : null}
-          {Object.keys(selectedItem.attributes ?? {}).length > 0 ? (
-            <SheetAttributesSection
-              definitions={attributeDefinitions}
-              bridges={selectedItem.attributes ?? {}}
-              canEdit={false}
-              subjectType="item"
-              onSaveFormula={() => undefined}
-              onReset={() => undefined}
-            />
-          ) : null}
-        </div>
-      ) : null}
+      {canEdit && selectedItem
+        ? (() => {
+            const selectedEffectCounts = countItemEffectTypes(selectedItem);
+            const selectedAttributeSummaries = summarizeItemAttributeDetails(
+              selectedItem,
+              attributeDefinitions,
+              proficiencyDefinitions
+            );
+            const selectedActionNames = (selectedItem.action_grants ?? []).map(
+              (grant) => actionDefinitions[grant.action_id]?.name ?? grant.action_id
+            );
+            const selectedEffectTotal =
+              selectedEffectCounts.wearer + selectedEffectCounts.rollOrFormula;
+            const selectedAttributeCount = Object.keys(selectedItem.attributes ?? {}).length;
+
+            return (
+              <div className="equipment-selection-preview equipment-card" tabIndex={0}>
+                <div className="equipment-card__heading">
+                  <strong>{selectedItem.name}</strong>
+                  <span className="pill">
+                    {ITEM_INTERACTION_LABELS[selectedItem.interaction_type]}
+                  </span>
+                </div>
+                <div className="muted">
+                  Weight {selectedItem.weight} · Price {selectedItem.price}
+                </div>
+                <div className="equipment-card__compact-stats muted">
+                  <span>Actions {selectedActionNames.length}</span>
+                  <span>Effects {selectedEffectTotal}</span>
+                  <span>Attributes {selectedAttributeCount}</span>
+                </div>
+                <ItemDetailHoverLabel
+                  description={selectedItem.description}
+                  attributeSummaries={selectedAttributeSummaries}
+                  effectCounts={selectedEffectCounts}
+                  activeEffects={[]}
+                  actionNames={selectedActionNames}
+                />
+              </div>
+            );
+          })()
+        : null}
       <div className="list">
         {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
         {equipment.map((entry) => {
@@ -145,10 +190,20 @@ export function SheetEquipmentSection({
           }
           const actionSummaries = summarizeItemActionGrants(item, entry, actionDefinitions);
           const activeEffects = selectActiveEquipmentEffects(augmentations, entry.relationship_id);
+          const effectCounts = countItemEffectTypes(item);
+          const attributeSummaries = summarizeItemAttributeDetails(
+            item,
+            attributeDefinitions,
+            proficiencyDefinitions
+          );
+          const totalEffectCount =
+            effectCounts.wearer + effectCounts.rollOrFormula + activeEffects.length;
+          const attributeCount = Object.keys(item.attributes ?? {}).length;
           return (
             <article
               key={entry.relationship_id}
               className={`list-item list-item--block equipment-card ${entry.count <= 0 ? "equipment-card--depleted" : ""}`}
+              tabIndex={0}
             >
               <div className="equipment-card__body">
                 <div className="equipment-card__heading">
@@ -162,37 +217,18 @@ export function SheetEquipmentSection({
                 <div className="muted">
                   Weight {item.weight} · Price {item.price}
                 </div>
-                <div className="muted">{item.description || "(no description)"}</div>
-                <ItemEffectSummary item={item} activeEffects={activeEffects} />
-                {Object.keys(item.attributes ?? {}).length > 0 ? (
-                  <SheetAttributesSection
-                    definitions={attributeDefinitions}
-                    bridges={item.attributes ?? {}}
-                    canEdit={false}
-                    subjectType="item"
-                    onSaveFormula={() => undefined}
-                    onReset={() => undefined}
-                  />
-                ) : null}
-                {actionSummaries.length > 0 ? (
-                  <div className="equipment-action-list">
-                    {actionSummaries.map((summary) => (
-                      <div
-                        className={`equipment-action-summary ${summary.available ? "" : "equipment-action-summary--unavailable"}`}
-                        key={summary.actionId}
-                      >
-                        <strong>{summary.actionName}</strong>
-                        <span>{summary.availability}</span>
-                        <span>
-                          {summary.consumeQuantity > 0
-                            ? `Consumes ${summary.consumeQuantity}`
-                            : "No consumption"}
-                        </span>
-                        <span>{summary.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                <div className="equipment-card__compact-stats muted">
+                  <span>Actions {actionSummaries.length}</span>
+                  <span>Effects {totalEffectCount}</span>
+                  <span>Attributes {attributeCount}</span>
+                </div>
+                <ItemDetailHoverLabel
+                  description={item.description}
+                  attributeSummaries={attributeSummaries}
+                  effectCounts={effectCounts}
+                  activeEffects={activeEffects}
+                  actionSummaries={actionSummaries}
+                />
               </div>
               {canEdit ? (
                 <div className="inline-actions">

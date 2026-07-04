@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Augmentation, ItemBridge, ItemDefinition } from "@/domain/models";
+import type { AttributeDefinition, Augmentation, ItemBridge, ItemDefinition } from "@/domain/models";
 import {
   countItemEffectTypes,
   itemCarryStatus,
   selectActiveEquipmentEffects,
+  summarizeKeyItemAttributes,
   summarizeItemActionGrants
 } from "@/features/sheets/equipmentDisplay";
 
@@ -47,6 +48,31 @@ const bridge: ItemBridge = {
   item_id: "item_1",
   count: 1,
   equipped: false
+};
+
+const weaponAttributeDefinitions: Record<string, AttributeDefinition> = {
+  weapon_proficiency: {
+    id: "weapon_proficiency",
+    name: "Weapon Proficiency",
+    subject_types: ["item"],
+    value_type: "reference",
+    default_value: { type: "reference", value: "" },
+    reference_kind: "proficiency"
+  },
+  weapon_proficiency_growth_rate: {
+    id: "weapon_proficiency_growth_rate",
+    name: "Weapon Proficiency Growth Rate",
+    subject_types: ["item"],
+    value_type: "number",
+    default_value: { type: "number", value: 0 }
+  },
+  weapon_reach: {
+    id: "weapon_reach",
+    name: "Weapon Reach",
+    subject_types: ["item"],
+    value_type: "number",
+    default_value: { type: "number", value: 0 }
+  }
 };
 
 describe("equipmentDisplay", () => {
@@ -104,5 +130,40 @@ describe("equipmentDisplay", () => {
       )
     ).toEqual(["concrete"]);
     expect(countItemEffectTypes(item)).toEqual({ wearer: 1, rollOrFormula: 1 });
+  });
+
+  it("summarizes the key item attributes for inventory hover details", () => {
+    expect(
+      summarizeKeyItemAttributes(
+        {
+          ...item,
+          attributes: {
+            weapon_proficiency: {
+              relationship_id: "item_attr_prof",
+              attribute_id: "weapon_proficiency",
+              value: { type: "reference", value: "longsword" }
+            },
+            weapon_proficiency_growth_rate: {
+              relationship_id: "item_attr_growth",
+              attribute_id: "weapon_proficiency_growth_rate",
+              value: { type: "number", value: 0.5 }
+            },
+            weapon_reach: {
+              relationship_id: "item_attr_reach",
+              attribute_id: "weapon_reach",
+              value: { type: "number", value: 5 }
+            }
+          }
+        },
+        weaponAttributeDefinitions,
+        {
+          longsword: {
+            id: "longsword",
+            name: "Longsword",
+            description: "Bladed weapon family"
+          }
+        }
+      )
+    ).toEqual(["Proficiency: Longsword", "Growth: 0.5", "Reach: 5"]);
   });
 });

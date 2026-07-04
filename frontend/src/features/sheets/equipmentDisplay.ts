@@ -1,9 +1,12 @@
 import type {
   ActionDefinition,
+  AttributeBridge,
+  AttributeDefinition,
   Augmentation,
   ItemBridge,
   ItemDefinition,
-  ItemInteractionType
+  ItemInteractionType,
+  ProficiencyDefinition
 } from "@/domain/models";
 
 export const ITEM_INTERACTION_LABELS: Record<ItemInteractionType, string> = {
@@ -19,6 +22,97 @@ export interface ItemActionAvailabilitySummary {
   consumeQuantity: number;
   available: boolean;
   status: string;
+}
+
+const KEY_ITEM_ATTRIBUTE_IDS = [
+  "weapon_proficiency",
+  "weapon_proficiency_growth_rate",
+  "weapon_reach"
+];
+const KEY_ITEM_ATTRIBUTE_ID_SET = new Set(KEY_ITEM_ATTRIBUTE_IDS);
+
+function displayAttributeBridgeValue(
+  bridge: AttributeBridge,
+  definition: AttributeDefinition | undefined,
+  proficiencies: Record<string, ProficiencyDefinition>
+): string {
+  const rawValue =
+    bridge.evaluated_value !== null && bridge.evaluated_value !== undefined
+      ? bridge.evaluated_value
+      : bridge.value.type === "formula"
+        ? bridge.value.formula.text
+        : bridge.value.value;
+
+  if (Array.isArray(rawValue)) {
+    return rawValue.join(", ");
+  }
+  if (typeof rawValue === "boolean") {
+    return rawValue ? "Yes" : "No";
+  }
+  if (
+    typeof rawValue === "string" &&
+    definition?.reference_kind === "proficiency" &&
+    proficiencies[rawValue]
+  ) {
+    return proficiencies[rawValue].name;
+  }
+  return String(rawValue);
+}
+
+function summarizeAttribute(
+  bridge: AttributeBridge,
+  definition: AttributeDefinition | undefined,
+  proficiencies: Record<string, ProficiencyDefinition>,
+  labelOverride?: string
+): string {
+  const label =
+    labelOverride ?? definition?.name.replace(/^Weapon\s+/i, "") ?? bridge.attribute_id;
+  const value = displayAttributeBridgeValue(bridge, definition, proficiencies);
+  const unit = definition?.unit ? ` ${definition.unit}` : "";
+  return `${label}: ${value || "None"}${unit}`;
+}
+
+export function summarizeKeyItemAttributes(
+  item: ItemDefinition,
+  attributeDefinitions: Record<string, AttributeDefinition>,
+  proficiencies: Record<string, ProficiencyDefinition>
+): string[] {
+  const attributes = item.attributes ?? {};
+
+  return KEY_ITEM_ATTRIBUTE_IDS.map((attributeId) => {
+    const bridge = attributes[attributeId];
+    if (!bridge) {
+      return null;
+    }
+
+    const definition = attributeDefinitions[attributeId];
+    const label =
+      attributeId === "weapon_proficiency_growth_rate"
+        ? "Growth"
+        : definition?.name.replace(/^Weapon\s+/i, "") ?? attributeId;
+    return summarizeAttribute(bridge, definition, proficiencies, label);
+  }).filter((summary): summary is string => Boolean(summary));
+}
+
+export function summarizeItemAttributeDetails(
+  item: ItemDefinition,
+  attributeDefinitions: Record<string, AttributeDefinition>,
+  proficiencies: Record<string, ProficiencyDefinition>
+): string[] {
+  const attributes = item.attributes ?? {};
+  const keySummaries = summarizeKeyItemAttributes(item, attributeDefinitions, proficiencies);
+  const otherSummaries = Object.values(attributes)
+    .filter((bridge) => !KEY_ITEM_ATTRIBUTE_ID_SET.has(bridge.attribute_id))
+    .sort((left, right) => {
+      const leftName = attributeDefinitions[left.attribute_id]?.name ?? left.attribute_id;
+      const rightName = attributeDefinitions[right.attribute_id]?.name ?? right.attribute_id;
+      return leftName.localeCompare(rightName);
+    })
+    .map((bridge) =>
+      summarizeAttribute(bridge, attributeDefinitions[bridge.attribute_id], proficiencies)
+    );
+
+  return [...keySummaries, ...otherSummaries];
 }
 
 export function itemCarryStatus(item: ItemDefinition, bridge: ItemBridge): string {

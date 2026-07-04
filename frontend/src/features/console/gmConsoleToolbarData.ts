@@ -1,18 +1,64 @@
 import type { GMView } from "@/app/state/types";
 
-export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<{ view: GMView; label: string }> = [
-  { view: "console", label: "GM Console" },
-  { view: "sheet_viewer", label: "Sheet Viewer" },
-  { view: "template_library", label: "Template Library" },
-  { view: "create_template", label: "Template Builder" },
-  { view: "encounter_presets", label: "Encounter Presets" },
-  { view: "xp_tracker", label: "XP Tracker" },
-  { view: "item_maker", label: "Item Maker" },
-  { view: "formula_authoring", label: "Formula Authoring" },
-  { view: "fact_authoring", label: "Fact Builder" },
-  { view: "proficiency_authoring", label: "Proficiency Authoring" },
-  { view: "condition_authoring", label: "Condition Authoring" },
-  { view: "effect_authoring", label: "Effect Authoring" },
-  { view: "action_authoring", label: "Action Authoring" },
-  { view: "state_backup", label: "State Backup" }
+export interface GMToolbarNavItem {
+  view: GMView;
+  label: string;
+}
+
+export interface GMToolbarNavGroup {
+  label: string;
+  items: readonly GMToolbarNavItem[];
+}
+
+export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
+  {
+    label: "Session",
+    items: [
+      { view: "console", label: "Dashboard" },
+      { view: "sheet_viewer", label: "Characters" }
+    ]
+  },
+  {
+    label: "Templates",
+    items: [
+      { view: "template_library", label: "Library" },
+      { view: "create_template", label: "Builder" }
+    ]
+  },
+  {
+    label: "Content",
+    items: [
+      { view: "action_authoring", label: "Actions" },
+      { view: "item_maker", label: "Items" }
+    ]
+  },
+  {
+    label: "Rules Data",
+    items: [
+      { view: "fact_authoring", label: "Facts" },
+      { view: "formula_authoring", label: "Formulas" },
+      { view: "proficiency_authoring", label: "Proficiencies" }
+    ]
+  },
+  {
+    label: "Status Effects",
+    items: [
+      { view: "condition_authoring", label: "Conditions" },
+      { view: "effect_authoring", label: "Standalone Effects" }
+    ]
+  },
+  {
+    label: "Encounters",
+    items: [
+      { view: "encounter_presets", label: "Presets" },
+      { view: "xp_tracker", label: "XP" }
+    ]
+  },
+  {
+    label: "Admin",
+    items: [{ view: "state_backup", label: "Backup & Undo" }]
+  }
 ];
+
+export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<GMToolbarNavItem> =
+  GM_TOOLBAR_NAV_GROUPS.flatMap((group) => group.items);

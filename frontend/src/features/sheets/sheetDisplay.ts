@@ -12,12 +12,10 @@ import {
 import { DAMAGE_TYPES, type DamageType } from "@/domain/models";
 
 export type PlayerSheetTab =
-  | "stats"
+  | "overview"
   | "actions"
-  | "conditions"
-  | "equipment"
-  | "proficiencies"
-  | "kills"
+  | "inventory"
+  | "details"
   | "notes";
 
 export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({

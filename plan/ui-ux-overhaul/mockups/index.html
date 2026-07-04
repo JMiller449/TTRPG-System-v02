@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TTRPG Frontend UX Overhaul Mockups</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <aside class="review-nav" aria-label="Mockup navigation">
+      <strong>UX Overhaul</strong>
+      <a href="#entry-code">Code Entry</a>
+      <a href="#entry-claim">Claim Sheet</a>
+      <a href="#player-overview">Player Overview</a>
+      <a href="#player-actions">Player Actions</a>
+      <a href="#player-inventory">Player Inventory</a>
+      <a href="#player-details">Player Details</a>
+      <a href="#player-notes">Player Notes</a>
+      <a href="#gm-session">GM Session</a>
+      <a href="#gm-characters">GM Characters</a>
+      <a href="#gm-templates-library">Templates Library</a>
+      <a href="#gm-templates-builder">Templates Builder</a>
+      <a href="#gm-content-actions">Content Actions</a>
+      <a href="#gm-content-items">Content Items</a>
+      <a href="#gm-rules-data">Rules Data</a>
+      <a href="#gm-status-effects">Status Effects</a>
+      <a href="#gm-encounters">Encounters</a>
+      <a href="#gm-admin">Admin</a>
+      <a href="#system-states">System States</a>
+    </aside>
+
+    <main class="review-main">
+      <header class="review-header">
+        <p class="eyebrow">Step 4 Review Mockups</p>
+        <h1>TTRPG Sheet Console UI/UX Overhaul</h1>
+        <p>
+          Static HTML/CSS screens showing the proposed player and GM information architecture.
+          These are review artifacts, not runtime frontend code.
+        </p>
+      </header>
+
+      <section class="mockup-screen auth-screen" id="entry-code">
+        <div class="auth-card">
+          <div class="sigil">R6</div>
+          <div>
+            <p class="eyebrow">Backend Authoritative Interface</p>
+            <h2>Enter Access Code</h2>
+            <p class="muted">Use a player or GM code to open the table console.</p>
+          </div>
+          <div class="status-strip">
+            <span class="status good">Backend connected</span>
+            <span class="status neutral">/ws</span>
+          </div>
+          <label class="field">
+            <span>Access code</span>
+            <input type="password" value="dm" aria-label="Access code" />
+          </label>
+          <button class="primary">Enter Console</button>
+          <p class="error">Example error state: code rejected by backend.</p>
+        </div>
+      </section>
+
+      <section class="mockup-screen auth-screen" id="entry-claim">
+        <div class="auth-card">
+          <div class="sigil">PC</div>
+          <div>
+            <p class="eyebrow">Player Access</p>
+            <h2>Claim Character Sheet</h2>
+            <p class="muted">Enter the sheet code provided by the GM.</p>
+          </div>
+          <label class="field">
+            <span>Sheet access code</span>
+            <input value="MAGE2026" aria-label="Sheet access code" />
+          </label>
+          <div class="button-row">
+            <button class="primary">Open Sheet</button>
+            <button class="secondary">Back</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame" id="player-overview">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Player Console</p>
+            <h2>Kael Ardent</h2>
+          </div>
+          <div class="topbar-status">
+            <span class="status good">Backend synced</span>
+            <span class="status warning">Roll20 unknown</span>
+            <span class="status neutral">Pending 0</span>
+          </div>
+        </header>
+        <nav class="tabbar" aria-label="Player tabs">
+          <button class="tab active">Overview</button>
+          <button class="tab">Actions</button>
+          <button class="tab">Inventory</button>
+          <button class="tab">Details</button>
+          <button class="tab">Notes</button>
+        </nav>
+        <div class="player-grid">
+          <section class="panel span-2">
+            <div class="character-hero">
+              <div class="portrait">KA</div>
+              <div>
+                <p class="eyebrow">Active Sheet</p>
+                <h3>Kael Ardent</h3>
+                <p class="muted">Level 4 spellblade. Player-visible sheet information only.</p>
+              </div>
+            </div>
+            <div class="resource-row">
+              <div class="resource health"><span>Health</span><strong>42 / 58</strong><i style="width:72%"></i></div>
+              <div class="resource mana"><span>Mana</span><strong>31 / 44</strong><i style="width:70%"></i></div>
+              <div class="resource"><span>Endurance</span><strong>18</strong><i style="width:52%"></i></div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat"><span>STR</span><strong>3</strong><small>Lifting 6</small></div>
+              <div class="stat"><span>DEX</span><strong>5</strong><small>Reaction 7</small></div>
+              <div class="stat"><span>CON</span><strong>4</strong><small>Stamina 8</small></div>
+              <div class="stat"><span>PER</span><strong>2</strong><small>Sight 5</small></div>
+              <div class="stat"><span>ARC</span><strong>7</strong><small>Control 8</small></div>
+              <div class="stat"><span>WILL</span><strong>4</strong><small>Courage 5</small></div>
+            </div>
+          </section>
+          <aside class="panel">
+            <h3>Pinned Actions</h3>
+            <article class="action compact"><strong>Dodge</strong><button class="primary">Roll</button></article>
+            <article class="action compact"><strong>Arcane Bolt</strong><button class="primary">Cast</button></article>
+            <article class="action compact"><strong>Health Flask</strong><button class="secondary">Use</button></article>
+          </aside>
+          <section class="panel">
+            <h3>Active Status</h3>
+            <div class="chip-row">
+              <span class="chip warning">Burning</span>
+              <span class="chip arcane">Mana Ward</span>
+              <span class="chip">Light Armor</span>
+            </div>
+          </section>
+          <section class="panel">
+            <h3>Recent Action Status</h3>
+            <p class="status-line good">Arcane Bolt sent to Roll20.</p>
+            <p class="status-line neutral">Mana updated from backend patch.</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame" id="player-actions">
+        <header class="topbar compact-topbar">
+          <h2>Kael Ardent</h2>
+          <div class="topbar-status"><span class="status good">Roll20 connected</span></div>
+        </header>
+        <nav class="tabbar"><button class="tab">Overview</button><button class="tab active">Actions</button><button class="tab">Inventory</button><button class="tab">Details</button><button class="tab">Notes</button></nav>
+        <section class="panel action-command-panel">
+          <div class="action-command-toolbar">
+            <div>
+              <h3>Available Actions</h3>
+              <div class="segment-row">
+                <button class="segment active">Pinned</button>
+                <button class="segment">Checks</button>
+                <button class="segment">Spells</button>
+                <button class="segment">Items</button>
+              </div>
+            </div>
+            <label class="field action-mode-field">
+              <span>Roll mode</span>
+              <select aria-label="Roll mode">
+                <option>Normal</option>
+                <option>Advantage</option>
+                <option>Disadvantage</option>
+              </select>
+            </label>
+            <label class="field action-search-field">
+              <span>Search</span>
+              <input class="search" value="spell" aria-label="Search actions" />
+            </label>
+          </div>
+          <div class="action-command-grid">
+            <button class="action-button action-button--primary">
+              <strong>Arcane Bolt</strong>
+              <span>Spell attack. Sends result to Roll20.</span>
+              <small>Roll normal</small>
+            </button>
+            <button class="action-button">
+              <strong>Dodge</strong>
+              <span>Check action. Uses selected roll mode.</span>
+              <small>Roll normal</small>
+            </button>
+            <button class="action-button">
+              <strong>Block</strong>
+              <span>Shield check when equipped.</span>
+              <small>Roll normal</small>
+            </button>
+            <button class="action-button">
+              <strong>Silver Edge Slash</strong>
+              <span>Weapon action from equipped item.</span>
+              <small>Roll normal</small>
+            </button>
+            <button class="action-button">
+              <strong>Health Flask</strong>
+              <span>Consumes 1. Backend applies result.</span>
+              <small>Use item</small>
+            </button>
+            <button class="action-button">
+              <strong>Arcane Guard</strong>
+              <span>Applies authored status effect.</span>
+              <small>Perform</small>
+            </button>
+            <button class="action-button">
+              <strong>Overload Check</strong>
+              <span>GM-authored check action.</span>
+              <small>Roll normal</small>
+            </button>
+            <button class="action-button">
+              <strong>Focus Recovery</strong>
+              <span>Restores authored resource amount.</span>
+              <small>Perform</small>
+            </button>
+            <button class="action-button">
+              <strong>Parry</strong>
+              <span>Reaction action if available.</span>
+              <small>Roll normal</small>
+            </button>
+          </div>
+          <footer class="action-status-strip">
+            <span class="status warning">Arcane Bolt pending...</span>
+            <span class="status good">Last action sent to Roll20</span>
+            <span class="status bad">Bridge failures appear here and are not queued</span>
+          </footer>
+        </section>
+      </section>
+
+      <section class="mockup-screen app-frame" id="player-inventory">
+        <header class="topbar compact-topbar"><h2>Inventory</h2><div class="topbar-status"><span class="status good">Backend synced</span></div></header>
+        <nav class="tabbar"><button class="tab">Overview</button><button class="tab">Actions</button><button class="tab active">Inventory</button><button class="tab">Details</button><button class="tab">Notes</button></nav>
+        <div class="inventory-grid">
+          <section class="panel">
+            <h3>Equipped</h3>
+            <article class="item"><strong>Silver Edge</strong><span class="chip">Equipped</span><p>Grants Slash and Parry actions.</p></article>
+            <article class="item"><strong>Mana Thread Coat</strong><span class="chip arcane">Wearer effect</span><p>Active formula modifier shown as passive status.</p></article>
+          </section>
+          <section class="panel">
+            <h3>Consumables</h3>
+            <article class="item"><strong>Health Flask</strong><span>Qty 2</span><button class="primary">Use</button></article>
+            <article class="item depleted"><strong>Smoke Charm</strong><span>Qty 0</span><button disabled>Unavailable</button></article>
+          </section>
+          <section class="panel">
+            <h3>Carried</h3>
+            <article class="item"><strong>Field Kit</strong><span>Inventory only</span></article>
+          </section>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame" id="player-details">
+        <header class="topbar compact-topbar"><h2>Details</h2><div class="topbar-status"><span class="status good">Backend synced</span></div></header>
+        <nav class="tabbar"><button class="tab">Overview</button><button class="tab">Actions</button><button class="tab">Inventory</button><button class="tab active">Details</button><button class="tab">Notes</button></nav>
+        <div class="three-column">
+          <section class="panel"><h3>Facts</h3><p>Race: Awakened</p><p>Affinity: Lightning</p><p>Role: Skirmisher</p></section>
+          <section class="panel"><h3>Proficiencies</h3><p>Arcane Casting Rank 3</p><p>Light Blades Rank 2</p></section>
+          <section class="panel"><h3>Progress</h3><p>Kills tracked for XP.</p><p>Next threshold visible when backend provides it.</p></section>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame" id="player-notes">
+        <header class="topbar compact-topbar"><h2>Notes</h2><div class="topbar-status"><span class="status neutral">Draft local until saved</span></div></header>
+        <nav class="tabbar"><button class="tab">Overview</button><button class="tab">Actions</button><button class="tab">Inventory</button><button class="tab">Details</button><button class="tab active">Notes</button></nav>
+        <section class="panel">
+          <label class="field">
+            <span>Session notes</span>
+            <textarea rows="10">Owes the guildmaster one favor. Track spell focus repairs after the session.</textarea>
+          </label>
+          <div class="button-row"><button class="primary">Save Notes</button><button class="secondary">Reset Draft</button></div>
+        </section>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-session">
+        <header class="topbar">
+          <div><p class="eyebrow">GM Workspace</p><h2>Session</h2></div>
+          <div class="topbar-status"><span class="status good">Backend synced</span><span class="status bad">Roll20 disconnected</span><span class="status neutral">Pending 1</span></div>
+        </header>
+        <div class="gm-layout">
+          <nav class="workspace-nav">
+            <button class="active">Session</button><button>Templates</button><button>Characters</button><button>Content</button><button>Rules Data</button><button>Status Effects</button><button>Encounters</button><button>Admin</button>
+          </nav>
+          <main class="workspace-main">
+            <div class="dashboard-grid">
+              <section class="panel"><h3>Active Characters</h3><p>Kael Ardent, Mire Vale, Enemy: Cave Stalker x3</p><button class="secondary">Open Character Manager</button></section>
+              <section class="panel"><h3>Player Access</h3><p>Kael: MAGE2026</p><button class="primary">Generate Code</button></section>
+              <section class="panel"><h3>Roll20 Bridge</h3><p class="status-line bad">Disconnected. Actions that emit chat will fail fast.</p><button class="secondary">Check Bridge</button></section>
+              <section class="panel"><h3>Recent Backend Activity</h3><p>1 pending request</p><p>Latest patch reconciled.</p></section>
+            </div>
+          </main>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-characters">
+        <header class="topbar compact-topbar"><h2>Characters</h2><div class="topbar-status"><span class="status good">GM</span></div></header>
+        <div class="gm-layout">
+          <nav class="workspace-nav"><button>Session</button><button>Templates</button><button class="active">Characters</button><button>Content</button><button>Rules Data</button><button>Status Effects</button><button>Encounters</button><button>Admin</button></nav>
+          <main class="workspace-main split">
+            <section class="panel list-panel"><h3>Instances</h3><article class="row active"><strong>Kael Ardent</strong><span>Player</span></article><article class="row"><strong>Cave Stalker A</strong><span>Enemy</span></article></section>
+            <section class="panel"><h3>Selected Sheet</h3><p>GM editable resources, equipment, conditions, notes, and assigned actions appear here.</p><div class="resource-row"><div class="resource health"><span>Health</span><strong>42 / 58</strong><i style="width:72%"></i></div><div class="resource mana"><span>Mana</span><strong>31 / 44</strong><i style="width:70%"></i></div></div></section>
+          </main>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-templates-library">
+        <header class="topbar compact-topbar"><h2>Templates</h2><button class="primary">New Template</button></header>
+        <div class="gm-layout">
+          <nav class="workspace-nav"><button>Session</button><button class="active">Templates</button><button>Characters</button><button>Content</button><button>Rules Data</button><button>Status Effects</button><button>Encounters</button><button>Admin</button></nav>
+          <main class="workspace-main">
+            <nav class="tabbar"><button class="tab active">Library</button><button class="tab">Builder</button></nav>
+            <section class="panel">
+              <div class="section-head"><h3>Template Library</h3><input class="search" value="enemy" /></div>
+              <div class="card-grid"><article class="template-card"><strong>Cave Stalker</strong><span>Enemy template</span><button class="primary">Spawn</button><button class="secondary">Edit</button></article><article class="template-card"><strong>Starter Spellblade</strong><span>Player template</span><button class="primary">Spawn</button><button class="secondary">Edit</button></article></div>
+            </section>
+          </main>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-templates-builder">
+        <header class="topbar compact-topbar"><h2>Template Builder</h2><span class="status warning">Draft needs attention</span></header>
+        <div class="builder-layout">
+          <nav class="tabbar wrap">
+            <button class="tab active">Details</button><button class="tab">Stats</button><button class="tab">Facts</button><button class="tab">Resistances</button><button class="tab">Actions</button><button class="tab">Proficiencies</button><button class="tab">Inventory</button>
+          </nav>
+          <section class="panel builder-panel">
+            <div class="form-grid">
+              <label class="field"><span>Name</span><input value="Starter Spellblade" /></label>
+              <label class="field"><span>Kind</span><select><option>Player-controlled</option><option>Enemy</option></select></label>
+              <label class="field wide"><span>Notes</span><textarea rows="5">Reusable template summary.</textarea></label>
+            </div>
+          </section>
+          <aside class="panel validation-panel"><h3>Builder Status</h3><p class="status-line warning">Stats: Health formula missing.</p><p class="status-line neutral">Actions: 4 assigned.</p><button class="primary">Save Template</button></aside>
+        </div>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-content-actions">
+        <header class="topbar compact-topbar"><h2>Content</h2><button class="primary">New Action</button></header>
+        <nav class="tabbar"><button class="tab active">Actions</button><button class="tab">Items</button></nav>
+        <main class="workspace-main split">
+          <section class="panel"><h3>Action Editor</h3><label class="field"><span>Name</span><input value="Arcane Bolt" /></label><div class="step-stack"><span>1. Calculate spell value</span><span>2. Send Roll20 message</span><span>3. Decrement mana</span></div><button class="primary">Save Action</button></section>
+          <section class="panel list-panel"><h3>Action Catalog</h3><article class="row active"><strong>Arcane Bolt</strong><span>Damage</span></article><article class="row"><strong>Dodge</strong><span>Check</span></article></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-content-items">
+        <header class="topbar compact-topbar"><h2>Content</h2><button class="primary">New Item</button></header>
+        <nav class="tabbar"><button class="tab">Actions</button><button class="tab active">Items</button></nav>
+        <main class="workspace-main split">
+          <section class="panel"><h3>Item Editor</h3><label class="field"><span>Name</span><input value="Silver Edge" /></label><div class="segment-row"><button class="segment active">Equippable</button><button class="segment">Consumable</button><button class="segment">Inventory only</button></div><p>Action grants and wearer effects stay in this editor.</p></section>
+          <section class="panel list-panel"><h3>Item Catalog</h3><article class="row active"><strong>Silver Edge</strong><span>Equippable</span></article><article class="row"><strong>Health Flask</strong><span>Consumable</span></article></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-rules-data">
+        <header class="topbar compact-topbar"><h2>Rules Data</h2><button class="primary">Create Record</button></header>
+        <nav class="tabbar"><button class="tab active">Facts</button><button class="tab">Formulas</button><button class="tab">Proficiencies</button></nav>
+        <main class="three-column">
+          <section class="panel"><h3>Facts</h3><p>Subject type, value type, visibility, defaults.</p></section>
+          <section class="panel"><h3>Formulas</h3><p>Formula text with variable picker and aliases.</p></section>
+          <section class="panel"><h3>Proficiencies</h3><p>Rank/use definitions and display metadata.</p></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-status-effects">
+        <header class="topbar compact-topbar"><h2>Status Effects</h2><button class="primary">New Effect</button></header>
+        <nav class="tabbar"><button class="tab active">Conditions</button><button class="tab">Standalone Effects</button></nav>
+        <main class="two-column">
+          <section class="panel"><h3>Condition Preset</h3><p>Condition description plus effect templates.</p><div class="chip-row"><span class="chip warning">Burning</span><span class="chip arcane">Silenced</span></div></section>
+          <section class="panel"><h3>Standalone Effect</h3><p>Runtime effect template targeting instance-safe selectors.</p></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-encounters">
+        <header class="topbar compact-topbar"><h2>Encounters</h2><button class="primary">Spawn Preset</button></header>
+        <nav class="tabbar"><button class="tab active">Presets</button><button class="tab">XP</button></nav>
+        <main class="two-column">
+          <section class="panel"><h3>Encounter Preset</h3><label class="field"><span>Name</span><input value="Cave Ambush" /></label><article class="row"><strong>Cave Stalker</strong><span>Count 3</span></article></section>
+          <section class="panel"><h3>XP Readiness</h3><p>Kael Ardent: 320 / 500 XP</p><p>Cave Stalker: 35 XP per kill</p></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame gm-frame" id="gm-admin">
+        <header class="topbar compact-topbar"><h2>Admin</h2><span class="status bad">Danger zone</span></header>
+        <main class="two-column">
+          <section class="panel danger-panel"><h3>State Safety</h3><p>Undo the last backend state change.</p><button class="danger">Undo Last Change</button></section>
+          <section class="panel"><h3>Backup</h3><p>Export and import persisted-state envelopes. Imports replace all backend state.</p><div class="button-row"><button class="primary">Export</button><button class="secondary">Download</button><button class="danger">Import Replace</button></div></section>
+        </main>
+      </section>
+
+      <section class="mockup-screen app-frame" id="system-states">
+        <header class="topbar"><div><p class="eyebrow">System States</p><h2>Status Behavior</h2></div></header>
+        <div class="state-grid">
+          <section class="panel"><h3>Disconnected</h3><p class="status-line bad">Backend disconnected. Editing and action buttons disabled.</p></section>
+          <section class="panel"><h3>Resync Required</h3><p class="status-line warning">State version gap detected. Resyncing from backend snapshot.</p></section>
+          <section class="panel"><h3>Roll20 Failure</h3><p class="status-line bad">Roll20 bridge disconnected. Chat action failed and was not queued.</p></section>
+          <section class="panel"><h3>Unauthorized</h3><p class="status-line bad">This operation requires GM access.</p></section>
+          <section class="panel"><h3>Empty State</h3><p class="muted">No actions assigned. GM can add actions from the Template Builder or Characters workspace.</p></section>
+          <section class="panel"><h3>Success</h3><p class="status-line good">Resource update synced from backend patch.</p></section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

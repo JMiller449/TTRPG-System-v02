@@ -3,6 +3,7 @@ import systemMark from "@/assets/system-mark.svg";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildClaimSheetAccessCodeRequest } from "@/infrastructure/ws/requestBuilders";
 import { Field } from "@/shared/ui/Field";
+import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 import { Panel } from "@/shared/ui/Panel";
 
 export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
@@ -69,6 +70,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
           </button>
         </div>
       </div>
+      <IntentFeedbackBanners />
     </div>
   );
 }

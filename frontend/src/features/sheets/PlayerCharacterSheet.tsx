@@ -80,7 +80,7 @@ export function PlayerCharacterSheet({
     setSelectedItemId
   } = useSheetDetailState();
 
-  const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("stats");
+  const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("overview");
   const requestedFormulaMetadataRef = useRef(false);
   const activeTab = controlledActiveTab ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
@@ -102,7 +102,7 @@ export function PlayerCharacterSheet({
 
   useEffect(() => {
     if (!controlledActiveTab) {
-      setLocalActiveTab("stats");
+      setLocalActiveTab("overview");
     }
   }, [controlledActiveTab, detail?.instance.id]);
 
@@ -125,12 +125,10 @@ export function PlayerCharacterSheet({
     );
   }
 
-  const showStatsSection = activeTab === "stats";
+  const showOverviewSection = activeTab === "overview";
   const showActionsSection = activeTab === "actions";
-  const showConditionsSection = activeTab === "conditions";
-  const showEquipmentSection = activeTab === "equipment";
-  const showProficienciesSection = activeTab === "proficiencies";
-  const showKillsSection = activeTab === "kills";
+  const showInventorySection = activeTab === "inventory";
+  const showDetailsSection = activeTab === "details";
   const showNotesSection = activeTab === "notes";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
@@ -191,88 +189,76 @@ export function PlayerCharacterSheet({
 
         {showTabs ? <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} /> : null}
 
-        {showStatsSection ? (
+        {showOverviewSection ? (
           <div
             role="tabpanel"
-            id="sheet-panel-stats"
-            aria-labelledby="sheet-tab-stats"
+            id="sheet-panel-overview"
+            aria-labelledby="sheet-tab-overview"
             tabIndex={0}
           >
-            <SheetStatsSection
-              canEditStats={canEditStats}
-              compact={mode === "player"}
-              stats={detail.stats}
-              editingKey={statEditor.editingKey}
-              draftModifier={statEditor.draftModifier}
-              editorError={statEditor.editorError}
-              getModifier={statEditor.getModifier}
-              getCurrentValue={statEditor.getCurrentValue}
-              onBeginEditing={statEditor.beginEditing}
-              onApplyModifier={statEditor.applyModifier}
-              onResetModifier={statEditor.resetModifier}
-              onDraftModifierChange={statEditor.setDraftModifier}
-              onCancelEditing={statEditor.cancelEditing}
-              onEditorKeyDown={statEditor.onEditorKeyDown}
-            />
-            <SheetFactsSection
-              definitions={factDefinitions}
-              bridges={detail.sheet?.facts ?? {}}
-              canEdit={canEditStats && Boolean(sheetId)}
-              compact={mode === "player"}
-              onSaveFormula={(factId, formula) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildSetSheetFactValueRequest({
-                    sheetId,
-                    factId,
-                    value: { type: "formula", formula }
-                  }),
-                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
-                );
-              }}
-              onSaveValue={(factId, value) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildSetSheetFactValueRequest({ sheetId, factId, value }),
-                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
-                );
-              }}
-              onReset={(factId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildResetSheetFactValueRequest({ sheetId, factId }),
-                  `Reset Fact: ${factDefinitions[factId]?.name ?? factId}`
-                );
-              }}
-              onAttach={(factId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildAttachSheetFactRequest({
-                    sheetId,
-                    factId,
-                    relationshipId: makeId("sheet_fact")
-                  }),
-                  `Attach Fact: ${factDefinitions[factId]?.name ?? factId}`
-                );
-              }}
-              onDetach={(factId) => {
-                if (!sheetId) {
-                  return;
-                }
-                client.sendProtocolRequest(
-                  buildDetachSheetFactRequest({ sheetId, factId }),
-                  `Detach Fact: ${factDefinitions[factId]?.name ?? factId}`
-                );
-              }}
-            />
+            <div className="character-sheet__overview-grid">
+              <div className="character-sheet__overview-main">
+                <SheetStatsSection
+                  canEditStats={canEditStats}
+                  compact={mode === "player"}
+                  stats={detail.stats}
+                  editingKey={statEditor.editingKey}
+                  draftModifier={statEditor.draftModifier}
+                  editorError={statEditor.editorError}
+                  getModifier={statEditor.getModifier}
+                  getCurrentValue={statEditor.getCurrentValue}
+                  onBeginEditing={statEditor.beginEditing}
+                  onApplyModifier={statEditor.applyModifier}
+                  onResetModifier={statEditor.resetModifier}
+                  onDraftModifierChange={statEditor.setDraftModifier}
+                  onCancelEditing={statEditor.cancelEditing}
+                  onEditorKeyDown={statEditor.onEditorKeyDown}
+                />
+              </div>
+              <aside className="character-sheet__overview-side">
+                <SheetConditionsSection
+                  conditions={activeConditions}
+                  canRemove={mode === "gm"}
+                  onRemove={(applicationId) =>
+                    client.sendProtocolRequest(
+                      buildRemoveActiveConditionRequest({
+                        instanceId: detail.instance.id,
+                        applicationId
+                      }),
+                      "Remove active condition"
+                    )
+                  }
+                />
+                <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
+              </aside>
+            </div>
+            {mode === "player" && assignedActions.length > 0 ? (
+              <section className="character-sheet__section">
+                <h4>Pinned Actions</h4>
+                <SheetActionsSection
+                  assignedActions={assignedActions.slice(0, 6)}
+                  actionDefinitions={actionDefinitions}
+                  factDefinitions={factDefinitions}
+                  actionOrder={actionOrder}
+                  canEdit={false}
+                  compact
+                  onCreate={() => undefined}
+                  onUpdate={() => undefined}
+                  onDelete={() => undefined}
+                  onPerformAction={(action, rollMode) => {
+                    client.sendProtocolRequest(
+                      buildPerformActionRequest({
+                        sheetId: detail.instance.id,
+                        actionId: action.actionId,
+                        sourceItemRelationshipId: action.sourceItemRelationshipId,
+                        rollMode
+                      }),
+                      `Perform action: ${action.action.name}`
+                    );
+                  }}
+                />
+              </section>
+            ) : null}
             {canEditStats && detail.sheet && sheetId ? (
               <div className="stack">
                 <SheetFormulaStatsEditor
@@ -361,64 +347,72 @@ export function PlayerCharacterSheet({
           </div>
         ) : null}
 
-        {showConditionsSection ? (
+        {showDetailsSection ? (
           <div
             role="tabpanel"
-            id="sheet-panel-conditions"
-            aria-labelledby="sheet-tab-conditions"
+            id="sheet-panel-details"
+            aria-labelledby="sheet-tab-details"
             tabIndex={0}
           >
-            <SheetConditionsSection
-              conditions={activeConditions}
-              canRemove={mode === "gm"}
-              onRemove={(applicationId) =>
+            <SheetFactsSection
+              definitions={factDefinitions}
+              bridges={detail.sheet?.facts ?? {}}
+              canEdit={canEditStats && Boolean(sheetId)}
+              compact={mode === "player"}
+              onSaveFormula={(factId, formula) => {
+                if (!sheetId) {
+                  return;
+                }
                 client.sendProtocolRequest(
-                  buildRemoveActiveConditionRequest({
-                    instanceId: detail.instance.id,
-                    applicationId
+                  buildSetSheetFactValueRequest({
+                    sheetId,
+                    factId,
+                    value: { type: "formula", formula }
                   }),
-                  "Remove active condition"
-                )
-              }
-            />
-            <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
-          </div>
-        ) : null}
-
-        {showNotesSection ? (
-          <div
-            role="tabpanel"
-            id="sheet-panel-notes"
-            aria-labelledby="sheet-tab-notes"
-            tabIndex={0}
-          >
-            <SheetNotesSection
-              sheetId={detail.instance.id}
-              note={runtimeNote}
-              onSave={(note) =>
+                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onSaveValue={(factId, value) => {
+                if (!sheetId) {
+                  return;
+                }
                 client.sendProtocolRequest(
-                  buildSetInstancedSheetNotesRequest({
-                    instanceId: detail.instance.id,
-                    notes: note
+                  buildSetSheetFactValueRequest({ sheetId, factId, value }),
+                  `Update Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onReset={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildResetSheetFactValueRequest({ sheetId, factId }),
+                  `Reset Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onAttach={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildAttachSheetFactRequest({
+                    sheetId,
+                    factId,
+                    relationshipId: makeId("sheet_fact")
                   }),
-                  "Update instance notes"
-                )
-              }
+                  `Attach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
+              onDetach={(factId) => {
+                if (!sheetId) {
+                  return;
+                }
+                client.sendProtocolRequest(
+                  buildDetachSheetFactRequest({ sheetId, factId }),
+                  `Detach Fact: ${factDefinitions[factId]?.name ?? factId}`
+                );
+              }}
             />
-          </div>
-        ) : null}
-
-        {showKillsSection && sheetId ? (
-          <SheetKillsSection client={client} instanceId={detail.instance.id} sheetId={sheetId} />
-        ) : null}
-
-        {showProficienciesSection ? (
-          <div
-            role="tabpanel"
-            id="sheet-panel-proficiencies"
-            aria-labelledby="sheet-tab-proficiencies"
-            tabIndex={0}
-          >
             <SheetProficienciesSection
               proficiencyDefinitions={proficiencyDefinitions}
               proficiencyOrder={proficiencyOrder}
@@ -462,14 +456,40 @@ export function PlayerCharacterSheet({
                 );
               }}
             />
+            {sheetId ? (
+              <SheetKillsSection client={client} instanceId={detail.instance.id} sheetId={sheetId} />
+            ) : null}
           </div>
         ) : null}
 
-        {showEquipmentSection ? (
+        {showNotesSection ? (
           <div
             role="tabpanel"
-            id="sheet-panel-equipment"
-            aria-labelledby="sheet-tab-equipment"
+            id="sheet-panel-notes"
+            aria-labelledby="sheet-tab-notes"
+            tabIndex={0}
+          >
+            <SheetNotesSection
+              sheetId={detail.instance.id}
+              note={runtimeNote}
+              onSave={(note) =>
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetNotesRequest({
+                    instanceId: detail.instance.id,
+                    notes: note
+                  }),
+                  "Update instance notes"
+                )
+              }
+            />
+          </div>
+        ) : null}
+
+        {showInventorySection ? (
+          <div
+            role="tabpanel"
+            id="sheet-panel-inventory"
+            aria-labelledby="sheet-tab-inventory"
             tabIndex={0}
           >
             <SheetEquipmentSection

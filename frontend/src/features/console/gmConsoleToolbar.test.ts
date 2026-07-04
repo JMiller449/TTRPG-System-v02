@@ -4,7 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { initialState } from "@/app/state/initialState";
 import { StoreContext } from "@/app/state/storeContext";
 import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
-import { GM_TOOLBAR_NAV_ITEMS } from "@/features/console/gmConsoleToolbarData";
+import {
+  GM_TOOLBAR_NAV_GROUPS,
+  GM_TOOLBAR_NAV_ITEMS
+} from "@/features/console/gmConsoleToolbarData";
 
 describe("gmConsoleToolbar", () => {
   it("defines one unique option for every GM page", () => {
@@ -16,16 +19,28 @@ describe("gmConsoleToolbar", () => {
       "sheet_viewer",
       "template_library",
       "create_template",
-      "encounter_presets",
-      "xp_tracker",
+      "action_authoring",
       "item_maker",
-      "formula_authoring",
       "fact_authoring",
+      "formula_authoring",
       "proficiency_authoring",
       "condition_authoring",
       "effect_authoring",
-      "action_authoring",
+      "encounter_presets",
+      "xp_tracker",
       "state_backup"
+    ]);
+  });
+
+  it("groups GM pages into task-oriented workspaces", () => {
+    expect(GM_TOOLBAR_NAV_GROUPS.map((group) => group.label)).toEqual([
+      "Session",
+      "Templates",
+      "Content",
+      "Rules Data",
+      "Status Effects",
+      "Encounters",
+      "Admin"
     ]);
   });
 

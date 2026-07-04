@@ -73,6 +73,7 @@ Frontend:
 - Character sheets display stats, resources, facts, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
+- Frontend shell and navigation have been reorganized for table use: persistent session status, task-oriented player tabs, compact searchable action commands, and grouped GM workspaces.
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.

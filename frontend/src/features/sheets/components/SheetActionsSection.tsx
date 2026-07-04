@@ -21,6 +21,7 @@ export function SheetActionsSection({
   factDefinitions,
   actionOrder,
   canEdit,
+  compact = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -31,12 +32,16 @@ export function SheetActionsSection({
   factDefinitions: Record<string, FactDefinition>;
   actionOrder: string[];
   canEdit: boolean;
+  compact?: boolean;
   onCreate: (bridge: SheetActionBridgePayload) => void;
   onUpdate: (relationshipId: string, bridge: SheetActionBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
   onPerformAction: (action: AssignedSheetAction, rollMode: ActionRollMode) => void;
 }): JSX.Element {
   const [rollModes, setRollModes] = useState<Record<string, ActionRollMode>>({});
+  const [commandRollMode, setCommandRollMode] = useState<ActionRollMode>("normal");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"all" | "check" | "damage" | "item">("all");
   const [selectedActionId, setSelectedActionId] = useState("");
   const [draftActionIds, setDraftActionIds] = useState<Record<string, string>>({});
   const orderedActions = useMemo(
@@ -67,6 +72,126 @@ export function SheetActionsSection({
     }
     onCreate(toSheetActionBridgePayload(makeId("action_bridge"), selectedActionId));
   };
+
+  if (!canEdit || compact) {
+    const query = search.trim().toLowerCase();
+    const visibleActions = assignedActions.filter((entry) => {
+      const categoryMatches =
+        category === "all" ||
+        (category === "item" && Boolean(entry.sourceItemName)) ||
+        (category !== "item" && (entry.action.roll_mode_kind ?? "none") === category);
+      if (!categoryMatches) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      return [entry.action.name, entry.action.notes, entry.sourceItemName]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(query));
+    });
+    const controlModeKind =
+      category === "damage" ? "damage" : category === "check" ? "check" : "check";
+
+    return (
+      <section className={`sheet-actions-section sheet-actions-section--command ${compact ? "sheet-actions-section--compact" : ""}`}>
+        <div className="action-command-toolbar">
+          <div className="action-command-toolbar__primary">
+            <div className="action-command-toolbar__heading">
+              <h4>{compact ? "Pinned Actions" : "Available Actions"}</h4>
+              <span className="muted">{visibleActions.length} shown</span>
+            </div>
+            <div className="segment-row action-command-categories" aria-label="Action categories">
+              <button
+                type="button"
+                className={`segment ${category === "all" ? "segment--active" : ""}`}
+                onClick={() => setCategory("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`segment ${category === "check" ? "segment--active" : ""}`}
+                onClick={() => setCategory("check")}
+              >
+                Checks
+              </button>
+              <button
+                type="button"
+                className={`segment ${category === "damage" ? "segment--active" : ""}`}
+                onClick={() => setCategory("damage")}
+              >
+                Damage
+              </button>
+              <button
+                type="button"
+                className={`segment ${category === "item" ? "segment--active" : ""}`}
+                onClick={() => setCategory("item")}
+              >
+                Items
+              </button>
+            </div>
+          </div>
+          <div className="action-command-toolbar__mode">
+            <RollModeControl
+              value={
+                actionRollModes(controlModeKind).includes(commandRollMode)
+                  ? commandRollMode
+                  : "normal"
+              }
+              modeKind={controlModeKind}
+              onChange={setCommandRollMode}
+            />
+          </div>
+          <Field label="Search">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Find action"
+              aria-label="Search assigned actions"
+            />
+          </Field>
+        </div>
+
+        {visibleActions.length === 0 ? (
+          <EmptyState message={assignedActions.length === 0 ? "No actions assigned to this sheet." : "No actions match the current filters."} />
+        ) : (
+          <div className="action-command-grid">
+            {visibleActions.map((entry) => {
+              const allowedModes = actionRollModes(entry.action.roll_mode_kind ?? "none");
+              const rollMode = allowedModes.includes(commandRollMode) ? commandRollMode : "normal";
+              return (
+                <button
+                  key={entry.relationshipId}
+                  type="button"
+                  className="action-command-card"
+                  onClick={() => onPerformAction(entry, rollMode)}
+                  aria-label={`Perform ${entry.action.name} using ${rollMode} mode`}
+                >
+                  <strong>{entry.action.name}</strong>
+                  <span>
+                    {entry.action.notes ||
+                      (entry.sourceItemName
+                        ? `Granted by ${entry.sourceItemName}`
+                        : `${entry.action.steps?.length ?? 0} authored steps`)}
+                  </span>
+                  <small>
+                    {entry.sourceItemName ? `${entry.sourceItemName} · ` : ""}
+                    {rollMode === "normal" ? "Roll normal" : `Roll ${rollMode}`}
+                  </small>
+                  {Object.keys(entry.action.facts ?? {}).length > 0 ? (
+                    <span className="action-command-card__fact-count">
+                      {Object.keys(entry.action.facts ?? {}).length} facts
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="sheet-actions-section">

@@ -8,6 +8,7 @@ import { SessionLanding } from "@/features/auth/SessionLanding";
 import { SheetAccessCodesPanel } from "@/features/auth/SheetAccessCodesPanel";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
 import { ConsolePage } from "@/features/console/ConsolePage";
+import { AppStatusBar } from "@/features/console/AppStatusBar";
 import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { StandaloneEffectAuthoringPage } from "@/features/effects/StandaloneEffectAuthoringPage";
@@ -87,25 +88,7 @@ export function App(): JSX.Element {
 
   return (
     <div className={`r6-theme app-shell ${role === "player" ? "app-shell--player" : ""}`}>
-      <header className={`app-header app-header--${role}`}>
-        <p className="app-header__eyebrow">Backend Authoritative Interface</p>
-        <h1>{role === "player" ? "Player Status Console" : "TTRPG Sheet Console"}</h1>
-        <div className="header-row">
-          <p>
-            {role === "gm"
-              ? "GM console: full template, encounter, sheet, and rolling controls."
-              : "Player console: view your sheet and submit rolls into chat."}
-          </p>
-          <button
-            className="button button--secondary"
-            onClick={() => {
-              client.endSession();
-            }}
-          >
-            Exit to Code Entry
-          </button>
-        </div>
-      </header>
+      <AppStatusBar role={role} client={client} />
       <IntentFeedbackBanners />
 
       {role === "player" ? (

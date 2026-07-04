@@ -101,7 +101,7 @@ describe("DM example acceptance fixtures", () => {
         actionDefinitions={dmExampleActions}
         factDefinitions={dmExampleFactDefinitions}
         actionOrder={Object.keys(dmExampleActions)}
-        canEdit={false}
+        canEdit={true}
         onCreate={() => undefined}
         onUpdate={() => undefined}
         onDelete={() => undefined}

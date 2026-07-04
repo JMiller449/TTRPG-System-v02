@@ -331,7 +331,12 @@
 .r6-theme .intent-banner {
   border-color: var(--r6-line);
   color: var(--r6-text);
-  background: rgba(3, 18, 33, 0.92);
+  background: rgba(3, 18, 33, 0.96);
+  box-shadow:
+    var(--r6-shadow),
+    var(--r6-glow),
+    inset 0 0 0 1px rgba(191, 249, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(125%);
 }
 .r6-theme .intent-banner--pending {
   border-color: rgba(255, 209, 102, 0.5);

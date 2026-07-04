@@ -1,27 +1,66 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
+import type { IntentFeedbackItem } from "@/app/state/types";
 import { shouldDisplayIntentFeedback } from "@/shared/ui/intentFeedbackVisibility";
 
 const INTENT_BANNER_TTL_MS = {
   pending: 4000,
-  success: 3500,
-  error: 6000
+  success: 3500
 } as const;
+
+function dedupeFeedback(items: IntentFeedbackItem[]): IntentFeedbackItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.status}:${item.message}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
 
 export function IntentFeedbackBanners(): JSX.Element | null {
   const {
     state: {
-      uiState: { intentFeedback }
+      uiState: { connection, intentFeedback, roll20Bridge }
     },
     dispatch
   } = useAppStore();
+  const [dismissedSystemIds, setDismissedSystemIds] = useState<string[]>([]);
   const timeoutIdsRef = useRef<Record<string, number>>({});
-  const visibleFeedback = intentFeedback.filter(shouldDisplayIntentFeedback);
+  const systemFeedback = useMemo<IntentFeedbackItem[]>(() => {
+    const items: IntentFeedbackItem[] = [];
+    if (connection.error) {
+      items.push({
+        id: `system-connection:${connection.error}`,
+        status: "error",
+        message: connection.error,
+        createdAt: new Date().toISOString()
+      });
+    }
+    if (roll20Bridge.lastError) {
+      items.push({
+        id: `system-roll20:${roll20Bridge.lastError}`,
+        status: "error",
+        message: roll20Bridge.lastError,
+        createdAt: roll20Bridge.lastCheckedAt ?? new Date().toISOString()
+      });
+    }
+    return items.filter((item) => !dismissedSystemIds.includes(item.id));
+  }, [connection.error, dismissedSystemIds, roll20Bridge.lastCheckedAt, roll20Bridge.lastError]);
+  const visibleFeedback = dedupeFeedback([
+    ...intentFeedback.filter(shouldDisplayIntentFeedback),
+    ...systemFeedback
+  ]);
 
   useEffect(() => {
     const activeIds = new Set(intentFeedback.map((item) => item.id));
 
     intentFeedback.forEach((item) => {
+      if (item.status === "error") {
+        return;
+      }
       if (timeoutIdsRef.current[item.id]) {
         return;
       }
@@ -41,6 +80,18 @@ export function IntentFeedbackBanners(): JSX.Element | null {
     });
   }, [dispatch, intentFeedback]);
 
+  useEffect(() => {
+    setDismissedSystemIds((current) =>
+      current.filter((id) =>
+        id.startsWith("system-connection:")
+          ? id === `system-connection:${connection.error}`
+          : id.startsWith("system-roll20:")
+            ? id === `system-roll20:${roll20Bridge.lastError}`
+            : true
+      )
+    );
+  }, [connection.error, roll20Bridge.lastError]);
+
   useEffect(
     () => () => {
       Object.values(timeoutIdsRef.current).forEach((timeoutId) => {
@@ -56,7 +107,7 @@ export function IntentFeedbackBanners(): JSX.Element | null {
   }
 
   return (
-    <section className="intent-banner-stack" aria-live="polite">
+    <section className="intent-banner-stack" aria-live="polite" aria-label="System messages">
       {visibleFeedback.map((item) => (
         <article key={item.id} className={`intent-banner intent-banner--${item.status}`}>
           <div>
@@ -65,7 +116,15 @@ export function IntentFeedbackBanners(): JSX.Element | null {
           </div>
           <button
             className="link-button"
-            onClick={() => dispatch({ type: "dismiss_intent_feedback", id: item.id })}
+            onClick={() => {
+              if (item.id.startsWith("system-")) {
+                setDismissedSystemIds((current) =>
+                  current.includes(item.id) ? current : [...current, item.id]
+                );
+                return;
+              }
+              dispatch({ type: "dismiss_intent_feedback", id: item.id });
+            }}
           >
             Dismiss
           </button>

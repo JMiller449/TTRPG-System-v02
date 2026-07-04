@@ -1,5 +1,5 @@
 import { useAppStore } from "@/app/state/useAppStore";
-import { GM_TOOLBAR_NAV_ITEMS } from "@/features/console/gmConsoleToolbarData";
+import { GM_TOOLBAR_NAV_GROUPS } from "@/features/console/gmConsoleToolbarData";
 
 export function GMConsoleToolbar(): JSX.Element {
   const { state, dispatch } = useAppStore();
@@ -26,20 +26,25 @@ export function GMConsoleToolbar(): JSX.Element {
 
       <div className="gm-toolbar__controls">
         <nav className="gm-toolbar__nav" aria-label="GM pages">
-          {GM_TOOLBAR_NAV_ITEMS.map((item) => (
-            <button
-              key={item.view}
-              type="button"
-              className={`gm-toolbar__nav-button ${gmView === item.view ? "gm-toolbar__nav-button--active" : ""}`}
-              onClick={() => {
-                if (item.view === "create_template") {
-                  dispatch({ type: "set_template_builder_sheet", sheetId: null });
-                }
-                dispatch({ type: "set_gm_view", view: item.view });
-              }}
-            >
-              {item.label}
-            </button>
+          {GM_TOOLBAR_NAV_GROUPS.map((group) => (
+            <section className="gm-toolbar__nav-group" key={group.label}>
+              <p className="gm-toolbar__nav-group-label">{group.label}</p>
+              {group.items.map((item) => (
+                <button
+                  key={item.view}
+                  type="button"
+                  className={`gm-toolbar__nav-button ${gmView === item.view ? "gm-toolbar__nav-button--active" : ""}`}
+                  onClick={() => {
+                    if (item.view === "create_template") {
+                      dispatch({ type: "set_template_builder_sheet", sheetId: null });
+                    }
+                    dispatch({ type: "set_gm_view", view: item.view });
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </section>
           ))}
         </nav>
       </div>

@@ -3,6 +3,7 @@ import { useAppStore } from "@/app/state/useAppStore";
 import systemMark from "@/assets/system-mark.svg";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
+import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 import { Panel } from "@/shared/ui/Panel";
 
 export function SessionLanding({ client }: { client: GameClient }): JSX.Element {
@@ -83,10 +84,10 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
             </button>
 
             {localError ? <p className="error-text">{localError}</p> : null}
-            {connection.error ? <p className="error-text">{connection.error}</p> : null}
           </div>
         </Panel>
       </div>
+      <IntentFeedbackBanners />
     </div>
   );
 }

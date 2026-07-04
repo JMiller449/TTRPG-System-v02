@@ -140,9 +140,6 @@ export function RollPanel({ client }: { client: GameClient }): JSX.Element {
             Check Bridge
           </button>
         </div>
-        {roll20Bridge.lastError ? (
-          <p className="error-text roll-panel__bridge-error">{roll20Bridge.lastError}</p>
-        ) : null}
       </div>
     </Panel>
   );

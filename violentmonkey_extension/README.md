@@ -8,11 +8,13 @@ Roll20 bot or browser runs on the server.
 
 ### Install
 
-1. Install Violentmonkey from the official Firefox Add-ons site.
-2. Sign in to the TTRPG application as the DM and open **Extension**.
-3. Choose **Install Roll20 Bridge** and approve Violentmonkey's prompt.
-4. Return to the Extension page, reload it, and choose **Sync Bridge**.
-5. Open or reload the Roll20 editor.
+1. Sign in to the TTRPG application as the DM and open **Extension**. The page
+   immediately checks for the bridge userscript.
+2. If the bridge is not detected, install Violentmonkey if needed, choose
+   **Install or Update Roll20 Bridge**, and approve Violentmonkey's prompt.
+3. Return to the Extension page and choose **Reload to Activate** once after a
+   new installation, then choose **Sync Bridge**.
+4. Open or reload the Roll20 editor.
 
 ### Backend Socket
 

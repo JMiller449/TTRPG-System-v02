@@ -143,12 +143,13 @@ through app websocket requests and the `/ws/chat` bridge only.
 
 ## Install And Sync The Firefox Userscript
 
-1. Install Violentmonkey from the official Firefox Add-ons site.
-2. Run the backend and frontend, authenticate to the frontend as the DM, and
-   open the **Extension** tab.
-3. Choose **Install Roll20 Bridge** and approve Violentmonkey's prompt.
-4. Return to or reload the Extension tab, then choose **Sync Bridge**.
-5. Open or reload the Roll20 editor and use **Refresh Status** or **Send Test
+1. Run the backend and frontend, authenticate to the frontend as the DM, and
+   open the **Extension** tab. It immediately checks for the bridge userscript.
+2. If the bridge is not detected, install Violentmonkey if needed, choose
+   **Install or Update Roll20 Bridge**, and approve Violentmonkey's prompt.
+3. Return to the Extension tab and choose **Reload to Activate** once after a
+   new installation, then choose **Sync Bridge**.
+4. Open or reload the Roll20 editor and use **Refresh Status** or **Send Test
    Message** to verify delivery.
 
 Local development serves the install artifact at

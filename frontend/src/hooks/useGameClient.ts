@@ -4,6 +4,7 @@ import type { Role } from "@/domain/models";
 import { resolveApplicationWebSocketUrl } from "@/infrastructure/config/websocketConfig";
 import { ManagedGameClient, type ManagedGameClientOptions } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
+import { buildGetRoll20BridgeStatusRequest } from "@/infrastructure/ws/requestBuilders";
 import { makeId } from "@/shared/utils/id";
 
 export interface GameClient {
@@ -138,6 +139,9 @@ export function useGameClient(): GameClient {
         dispatch({ type: "connection_error", error: event.reason ? event.reason : undefined });
         if (!event.authenticated && event.reason) {
           return;
+        }
+        if (event.authenticated) {
+          client.sendProtocolRequest(buildGetRoll20BridgeStatusRequest());
         }
         return;
       }

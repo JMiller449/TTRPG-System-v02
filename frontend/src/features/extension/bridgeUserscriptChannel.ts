@@ -4,6 +4,7 @@ const CHANNEL = "ttrpg-roll20-bridge";
 const REQUEST_EVENT = `${CHANNEL}:request`;
 const RESPONSE_EVENT = `${CHANNEL}:response`;
 const DEFAULT_TIMEOUT_MS = 2000;
+const DISCOVERY_RETRY_MS = 200;
 
 export interface UserscriptDiscovery {
   nonce: string;
@@ -73,6 +74,7 @@ export function discoverBridgeUserscript(
   return new Promise((resolve) => {
     const cleanup = (): void => {
       window.clearTimeout(timeoutId);
+      window.clearInterval(retryId);
       window.removeEventListener("message", handleMessage);
       document.removeEventListener(RESPONSE_EVENT, handleCustomEvent);
     };
@@ -107,10 +109,14 @@ export function discoverBridgeUserscript(
       cleanup();
       resolve(null);
     }, timeoutMs);
+    const sendDiscovery = (): void => {
+      sendToUserscript({ type: "discover", nonce });
+    };
+    const retryId = window.setInterval(sendDiscovery, DISCOVERY_RETRY_MS);
 
     window.addEventListener("message", handleMessage);
     document.addEventListener(RESPONSE_EVENT, handleCustomEvent);
-    sendToUserscript({ type: "discover", nonce });
+    sendDiscovery();
   });
 }
 

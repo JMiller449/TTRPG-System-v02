@@ -68,6 +68,19 @@ describe("useGameClient Roll20 status", () => {
     runtime.reset();
   });
 
+  it("requests current bridge status immediately after workspace authentication", () => {
+    runtime.beginRender();
+    useGameClient();
+
+    runtime.eventListener?.({
+      type: "authenticated",
+      authenticated: true,
+      role: "gm"
+    });
+
+    expect(runtime.sentRequests).toContainEqual({ type: "get_roll20_bridge_status" });
+  });
+
   it("treats a disconnected status response as valid state instead of an error", () => {
     runtime.beginRender();
     const client = useGameClient();

@@ -33,7 +33,6 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
       uiState: { roll20Bridge }
     }
   } = useAppStore();
-  const [continued, setContinued] = useState(false);
   const [detectionState, setDetectionState] = useState<DetectionState>("checking");
   const [discovery, setDiscovery] = useState<UserscriptDiscovery | null>(null);
   const [syncState, setSyncState] = useState<SyncState>("idle");
@@ -128,7 +127,6 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
     );
   };
 
-  const showViolentmonkeyStage = !continued && detectionState !== "detected";
   const synchronized = discovery?.synchronized === true || syncState === "synced";
 
   return (
@@ -137,55 +135,39 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
       subtitle="Install, synchronize, and verify the Firefox Roll20 chat bridge."
     >
       <div className="stack">
-        {showViolentmonkeyStage ? (
-          <section className="stack" aria-labelledby="violentmonkey-stage-title">
-            <h3 id="violentmonkey-stage-title">1. Install Violentmonkey</h3>
+        {detectionState === "checking" ? (
+          <p className="muted">Checking for the Roll20 bridge userscript…</p>
+        ) : detectionState === "not_detected" ? (
+          <section className="stack" aria-labelledby="userscript-stage-title">
+            <h3 id="userscript-stage-title">Install Roll20 Bridge</h3>
             <p className="muted">
-              Violentmonkey keeps the Roll20 userscript installed and applies userscript updates
-              without Firefox debugging mode.
+              No active bridge userscript responded. Install Violentmonkey if needed, then install
+              or update the bridge. A newly installed userscript requires this already-open page to
+              reload before it can respond.
             </p>
             <div className="inline-group">
+              <a className="button" href={installUrl} target="_blank" rel="noreferrer">
+                Install or Update Roll20 Bridge
+              </a>
               <a
-                className="button"
+                className="button button--secondary"
                 href={VIOLENTMONKEY_FIREFOX_URL}
                 target="_blank"
                 rel="noreferrer"
               >
                 Install Violentmonkey
               </a>
-              <button
-                className="button button--secondary"
-                onClick={() => {
-                  setContinued(true);
-                  void detect();
-                }}
-              >
-                Continue
-              </button>
-            </div>
-          </section>
-        ) : detectionState === "checking" ? (
-          <p className="muted">Checking for the Roll20 bridge userscript…</p>
-        ) : detectionState === "not_detected" ? (
-          <section className="stack" aria-labelledby="userscript-stage-title">
-            <h3 id="userscript-stage-title">2. Install Roll20 Bridge</h3>
-            <p className="muted">
-              Violentmonkey will show an installation confirmation. Return here and reload or detect
-              again after approving it. If the script is already listed in Violentmonkey, confirm
-              that its toggle is enabled and install again to update it.
-            </p>
-            <div className="inline-group">
-              <a className="button" href={installUrl} target="_blank" rel="noreferrer">
-                Install or Update Roll20 Bridge
-              </a>
               <button className="button button--secondary" onClick={() => void detect()}>
                 Detect Again
+              </button>
+              <button className="button button--secondary" onClick={() => window.location.reload()}>
+                Reload to Activate
               </button>
             </div>
           </section>
         ) : (
           <section className="stack" aria-labelledby="sync-stage-title">
-            <h3 id="sync-stage-title">3. Synchronize Bridge</h3>
+            <h3 id="sync-stage-title">Synchronize Bridge</h3>
             <p className="muted">
               Userscript version {discovery?.version}. Syncing from this console replaces the active
               endpoint and credential in the one installed userscript.

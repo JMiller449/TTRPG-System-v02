@@ -86,13 +86,18 @@ Frontend:
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.
 - The GM **Extension** workspace stages Violentmonkey installation, installs
-  the hosted userscript, detects its version, synchronizes the current
+  the hosted userscript, automatically detects its version on navigation without
+  an intermediate Continue gate, synchronizes the current
   development or production endpoint, refreshes status, and sends a
   best-effort test message without persisting the service credential in
   frontend state. Its discovery/sync handshake supports Violentmonkey's
   isolated content context and retains compatibility with userscript 1.0.0.
+  Discovery retries during its bounded timeout so page/userscript startup
+  ordering cannot force a refresh for an already-installed bridge.
   Configuration sync is independent of the live Roll20 editor connection;
   disconnected status is represented as state rather than a failed request.
+  Every authenticated workspace requests the current bridge status immediately,
+  then receives backend broadcasts for subsequent connection changes.
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
 - GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.

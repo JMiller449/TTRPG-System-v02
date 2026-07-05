@@ -65,19 +65,15 @@ async function renderPage(): Promise<void> {
 }
 
 describe("ExtensionPage", () => {
-  it("stages Violentmonkey before userscript installation", async () => {
+  it("checks immediately and shows one setup stage when the userscript is absent", async () => {
     channelMocks.discover.mockResolvedValue(null);
     await renderPage();
 
     expect(container.textContent).toContain("Install Violentmonkey");
-    const continueButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Continue"
-    );
-    await act(async () => {
-      continueButton?.click();
-      await Promise.resolve();
-    });
-    expect(container.textContent).toContain("Install Roll20 Bridge");
+    expect(container.textContent).toContain("Install or Update Roll20 Bridge");
+    expect(container.textContent).toContain("Reload to Activate");
+    expect(container.textContent).not.toContain("Continue");
+    expect(channelMocks.discover).toHaveBeenCalledTimes(1);
   });
 
   it("shows detected synchronized configuration without exposing a credential", async () => {

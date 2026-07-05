@@ -100,6 +100,46 @@ describe("bridgeUserscriptChannel", () => {
     });
   });
 
+  it("retries discovery when the userscript listener starts after the page", async () => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    vi.spyOn(window, "postMessage").mockImplementation((message) => {
+      const request = message as { nonce: string; type: string };
+      if (request.type !== "discover") {
+        return;
+      }
+      attempts += 1;
+      if (attempts !== 2) {
+        return;
+      }
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          origin: window.location.origin,
+          data: {
+            channel: "ttrpg-roll20-bridge",
+            type: "discovered",
+            nonce: request.nonce,
+            version: "1.0.1",
+            synchronized: true,
+            environment: "development",
+            endpoint: "ws://127.0.0.1:6767/ws/chat"
+          }
+        })
+      );
+    });
+
+    const pending = discoverBridgeUserscript(1000);
+    expect(attempts).toBe(1);
+    await vi.advanceTimersByTimeAsync(200);
+
+    await expect(pending).resolves.toMatchObject({
+      version: "1.0.1",
+      synchronized: true
+    });
+    expect(attempts).toBe(2);
+  });
+
   it("passes the credential only in the sync request and returns a non-secret ack", async () => {
     const posted: unknown[] = [];
     vi.spyOn(window, "postMessage").mockImplementation((message) => {

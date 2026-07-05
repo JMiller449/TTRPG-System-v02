@@ -279,6 +279,12 @@ describe("itemEditorValues", () => {
 
     expect(values.interactionType).toBe("equippable");
     expect(Object.keys(values.attributes)).toEqual(Object.keys(weaponAttributes));
+    expect(values.actionGrants.map((grant) => grant.actionId)).toEqual([
+      "weapon_attack",
+      "weapon_damage",
+      "weapon_parry",
+      "weapon_contest"
+    ]);
     expect(getItemEditorValidationError(values, { definitions: weaponAttributes })).toContain(
       "Weapon Type"
     );
@@ -299,6 +305,12 @@ describe("itemEditorValues", () => {
     ).toBeNull();
     expect(toItemDefinitionPayload(values, "sword")).toMatchObject({
       attribute_profile: "weapon",
+      action_grants: [
+        { action_id: "weapon_attack", availability: "equipped", consume_quantity: 0 },
+        { action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 },
+        { action_id: "weapon_parry", availability: "equipped", consume_quantity: 0 },
+        { action_id: "weapon_contest", availability: "equipped", consume_quantity: 0 }
+      ],
       attributes: {
         weapon_type: { value: { type: "text", value: "Long Sword" } },
         weapon_proficiency: {

@@ -143,6 +143,54 @@ describe("quickRolls", () => {
     });
   });
 
+  it("prefers item sources and ignores direct sheet bridges for weapon quick actions", () => {
+    const sheet = testSheet({
+      actions: {
+        stale_weapon_attack: {
+          relationship_id: "stale_weapon_attack",
+          entry_id: "weapon_attack"
+        }
+      },
+      items: {
+        sword_bridge: {
+          relationship_id: "sword_bridge",
+          item_id: "sword",
+          count: 1,
+          equipped: true
+        }
+      }
+    });
+
+    expect(
+      resolveQuickRollAction(sheet, actions, "weapon_attack", {
+        sword: {
+          id: "sword",
+          name: "Sword",
+          interaction_type: "equippable",
+          description: "",
+          price: "",
+          weight: "",
+          action_grants: [
+            {
+              action_id: "weapon_attack",
+              availability: "equipped",
+              consume_quantity: 0
+            }
+          ]
+        }
+      })
+    ).toEqual({
+      action: "weapon_attack",
+      actionId: "weapon_attack",
+      actionName: "Weapon Attack",
+      relationshipId: "item:sword_bridge:weapon_attack",
+      sourceItemRelationshipId: "sword_bridge"
+    });
+
+    sheet.items = {};
+    expect(resolveQuickRollAction(sheet, actions, "weapon_attack")).toBeNull();
+  });
+
   it("does not resolve removed or missing quick actions", () => {
     expect(resolveQuickRollAction(testSheet(), actions, "block")).toBeNull();
     expect(resolveQuickRollAction(testSheet(), {}, "weapon_attack")).toBeNull();

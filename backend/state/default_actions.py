@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Literal
+from collections.abc import Iterable, Mapping
+from typing import Any, Literal
 
 from backend.state.models.action import Action
 
@@ -14,6 +15,13 @@ ActionPresetCategory = Literal[
     "contest",
     "spell",
 ]
+
+WEAPON_ACTION_IDS: tuple[str, ...] = (
+    "weapon_attack",
+    "weapon_damage",
+    "weapon_parry",
+    "weapon_contest",
+)
 
 
 @dataclass(frozen=True)
@@ -268,3 +276,30 @@ def default_sheet_action_ids() -> tuple[str, ...]:
         for preset in CANONICAL_ACTION_PRESETS
         if preset.attach_to_new_sheet
     )
+
+
+def canonical_weapon_action_grant_payloads() -> tuple[dict[str, Any], ...]:
+    return tuple(
+        {
+            "action_id": action_id,
+            "availability": "equipped",
+            "consume_quantity": 0,
+        }
+        for action_id in WEAPON_ACTION_IDS
+    )
+
+
+def normalize_weapon_action_grant_payloads(
+    grants: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    normalized = [
+        {
+            "action_id": grant["action_id"],
+            "availability": grant.get("availability", "equipped"),
+            "consume_quantity": grant.get("consume_quantity", 0),
+        }
+        for grant in grants
+        if grant.get("action_id") not in WEAPON_ACTION_IDS
+    ]
+    normalized.extend(deepcopy(list(canonical_weapon_action_grant_payloads())))
+    return normalized

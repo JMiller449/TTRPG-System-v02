@@ -134,6 +134,10 @@ function stateFixture(): AppState {
               action_bridge_missing: {
                 relationship_id: "action_bridge_missing",
                 entry_id: "missing_action"
+              },
+              stale_weapon_damage: {
+                relationship_id: "stale_weapon_damage",
+                entry_id: "weapon_damage"
               }
             }
           }
@@ -161,6 +165,12 @@ function stateFixture(): AppState {
           id: "action_attack",
           name: "Arc Strike",
           notes: "A focused attack.",
+          steps: []
+        },
+        weapon_damage: {
+          id: "weapon_damage",
+          name: "Weapon Damage",
+          notes: "Requires a source item.",
           steps: []
         }
       },

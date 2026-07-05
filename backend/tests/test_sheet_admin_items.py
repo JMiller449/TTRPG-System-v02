@@ -326,6 +326,22 @@ def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypat
 
             weapon = state.items["sword"]
             assert weapon.attribute_profile == "weapon"
+            assert [grant.action_id for grant in weapon.action_grants] == [
+                "weapon_attack",
+                "weapon_damage",
+                "weapon_parry",
+                "weapon_contest",
+            ]
+            assert all(
+                grant.availability == "equipped" and grant.consume_quantity == 0
+                for grant in weapon.action_grants
+            )
+            assert {
+                "weapon_attack",
+                "weapon_damage",
+                "weapon_parry",
+                "weapon_contest",
+            }.issubset(state.actions)
             assert set(weapon.attributes) == set(_weapon_attribute_bridges())
             assert weapon.attributes["weapon_base_damage"].evaluated_value == 15
             assert weapon.attributes["weapon_proficiency"].evaluated_value == "long_swords"

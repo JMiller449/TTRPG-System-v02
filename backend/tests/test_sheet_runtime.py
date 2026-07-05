@@ -1265,7 +1265,12 @@ def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatc
             _reset_state()
             state = StateSingleton.getState()
             sheet = _build_sheet_state()
-            sheet.actions = {}
+            sheet.actions = {
+                "stale-weapon-action": Bridge(
+                    relationship_id="stale-weapon-action",
+                    entry_id="weapon_test",
+                )
+            }
             sheet.items = {
                 "sword": ItemBridge(
                     relationship_id="equipped-sword",

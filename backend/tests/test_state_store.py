@@ -365,6 +365,122 @@ def test_v8_migration_adds_backend_owned_action_attribute_definitions() -> None:
     assert migrated.state["actions"]["parry"]["attributes"] == {}
 
 
+def test_v15_migration_normalizes_weapon_actions_and_equipped_proficiencies() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 14,
+            "state": {
+                "proficiencies": {
+                    "axes": {
+                        "id": "axes",
+                        "name": "Axes",
+                        "description": "",
+                        "category": "weapon_family",
+                    }
+                },
+                "actions": {
+                    "weapon_damage": {
+                        "id": "weapon_damage",
+                        "name": "Weapon Damage",
+                        "steps": [
+                            {
+                                "step_id": "roll",
+                                "type": "send_message",
+                                "message": {
+                                    "aliases": [
+                                        {
+                                            "name": "weapon_base_damage",
+                                            "path": [
+                                                "source_item",
+                                                "facts",
+                                                "weapon_base_damage",
+                                            ],
+                                        }
+                                    ],
+                                    "text": "@weapon_base_damage",
+                                },
+                            }
+                        ],
+                    }
+                },
+                "items": {
+                    "axe": {
+                        "id": "axe",
+                        "name": "Axe",
+                        "interaction_type": "equippable",
+                        "description": "",
+                        "price": "",
+                        "weight": "",
+                        "attribute_profile": "weapon",
+                        "action_grants": [],
+                        "attributes": {
+                            "weapon_proficiency": {
+                                "relationship_id": "weapon-prof",
+                                "attribute_id": "weapon_proficiency",
+                                "value": {"type": "reference", "value": "axes"},
+                                "evaluated_value": "axes",
+                            },
+                            "weapon_proficiency_growth_rate": {
+                                "relationship_id": "weapon-growth",
+                                "attribute_id": "weapon_proficiency_growth_rate",
+                                "value": {"type": "number", "value": 0.2},
+                                "evaluated_value": 0.2,
+                            },
+                        },
+                    }
+                },
+                "sheets": {
+                    "hero": {
+                        "actions": {
+                            "stale-weapon": {
+                                "relationship_id": "stale-weapon",
+                                "entry_id": "weapon_damage",
+                            },
+                            "default_dodge": {
+                                "relationship_id": "default_dodge",
+                                "entry_id": "dodge",
+                            },
+                        },
+                        "items": {
+                            "axe-bridge": {
+                                "relationship_id": "axe-bridge",
+                                "item_id": "axe",
+                                "count": 1,
+                                "equipped": True,
+                            }
+                        },
+                        "proficiencies": {},
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["items"]["axe"]["action_grants"] == [
+        {"action_id": "weapon_attack", "availability": "equipped", "consume_quantity": 0},
+        {"action_id": "weapon_damage", "availability": "equipped", "consume_quantity": 0},
+        {"action_id": "weapon_parry", "availability": "equipped", "consume_quantity": 0},
+        {"action_id": "weapon_contest", "availability": "equipped", "consume_quantity": 0},
+    ]
+    assert migrated.state["sheets"]["hero"]["actions"] == {
+        "default_dodge": {
+            "relationship_id": "default_dodge",
+            "entry_id": "dodge",
+        }
+    }
+    assert migrated.state["actions"]["weapon_damage"]["steps"][0]["message"]["aliases"][0][
+        "path"
+    ] == ["source_item", "attributes", "weapon_base_damage"]
+    assert migrated.state["sheets"]["hero"]["proficiencies"][
+        "weapon_proficiency_axes"
+    ] == {
+        "relationship_id": "weapon_proficiency_axes",
+        "prof_id": "axes",
+        "use_count": 0,
+        "growth_rate": 0.2,
+    }
+
+
 def test_v10_migration_adds_backend_owned_optional_sheet_attributes() -> None:
     migrated = migrate_persisted_state(
         {

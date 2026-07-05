@@ -43,6 +43,13 @@ export interface ActiveStandaloneEffect {
   sourceStep: ActionStep | null;
 }
 
+const WEAPON_ACTION_IDS = new Set([
+  "weapon_attack",
+  "weapon_damage",
+  "weapon_parry",
+  "weapon_contest"
+]);
+
 function getSheetKind(sheet: Sheet | null): SheetKind {
   if (!sheet) {
     return "player";
@@ -237,6 +244,9 @@ export function selectSheetAssignedActions(
 
   const assignedActions = Object.values(sheet.actions ?? {})
     .map((bridge): AssignedSheetAction | null => {
+      if (WEAPON_ACTION_IDS.has(bridge.entry_id)) {
+        return null;
+      }
       const action = state.serverState.actions[bridge.entry_id];
       if (!action) {
         return null;

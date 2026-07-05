@@ -23,6 +23,10 @@ from backend.features.attributes.service import (
 from backend.features.sheet_admin.formulas.service import validate_formula_alias_paths
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
+from backend.state.default_actions import (
+    normalize_weapon_action_grant_payloads,
+    seeded_global_actions,
+)
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.attribute import (
     WEAPON_ATTRIBUTE_IDS,
@@ -215,6 +219,13 @@ def _build_item_augmentation_templates(
 
 
 def _build_item(payload: ItemDefinitionPayload) -> Item:
+    action_grants = (
+        normalize_weapon_action_grant_payloads(
+            grant.model_dump(mode="json") for grant in payload.action_grants
+        )
+        if payload.attribute_profile == "weapon"
+        else [grant.model_dump(mode="json") for grant in payload.action_grants]
+    )
     return Item(
         id=payload.id,
         name=payload.name,
@@ -231,11 +242,11 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         augmentation_templates=_build_item_augmentation_templates(payload),
         action_grants=[
             ItemActionGrant(
-                action_id=grant.action_id,
-                availability=grant.availability,
-                consume_quantity=grant.consume_quantity,
+                action_id=grant["action_id"],
+                availability=grant["availability"],
+                consume_quantity=grant["consume_quantity"],
             )
-            for grant in payload.action_grants
+            for grant in action_grants
         ],
         attributes={
             attribute_id: AttributeBridge.from_dict(bridge.model_dump(mode="json"))
@@ -278,9 +289,26 @@ def _validate_item_attributes(item: Item, state: State) -> None:
 
 
 def _validate_item_action_grants(item: Item, state: State) -> None:
+    valid_action_ids = set(state.actions) | set(seeded_global_actions())
     for grant in item.action_grants:
-        if grant.action_id not in state.actions:
+        if grant.action_id not in valid_action_ids:
             raise ValueError(f"Action '{grant.action_id}' does not exist.")
+
+
+def _add_missing_default_action_mutations(
+    state: State,
+    *,
+    required_action_ids: set[str],
+) -> list:
+    ops = []
+    for action_id, action in seeded_global_actions().items():
+        if action_id not in required_action_ids:
+            continue
+        if action_id in state.actions:
+            continue
+        path = state_sync_service.join_path("actions", action_id)
+        ops.append(state_sync_service.add_mutation(state, path, action))
+    return ops
 
 
 def _validate_existing_item_bridges(item: Item, state: State) -> None:
@@ -341,9 +369,13 @@ async def _create_item(
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
+        action_ops = _add_missing_default_action_mutations(
+            state,
+            required_action_ids={grant.action_id for grant in item.action_grants},
+        )
         path = state_sync_service.join_path("items", payload.id)
         op = state_sync_service.add_mutation(state, path, item)
-        return None, [op]
+        return None, [*action_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -368,9 +400,13 @@ async def _update_item(
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
         _validate_existing_item_bridges(item, state)
+        action_ops = _add_missing_default_action_mutations(
+            state,
+            required_action_ids={grant.action_id for grant in item.action_grants},
+        )
         path = state_sync_service.join_path("items", item_id)
         op = state_sync_service.set_mutation(state, path, item)
-        return None, [op]
+        return None, [*action_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 

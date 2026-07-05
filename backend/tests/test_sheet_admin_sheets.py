@@ -7,6 +7,7 @@ from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import AttributeBridge, AttributeDefinition, AttributeValue
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.encounter import EncounterPreset
+from backend.state.models.item import Item
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -1697,6 +1698,94 @@ def test_create_sheet_rejects_missing_embedded_action_reference(monkeypatch) -> 
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["axes"] = Proficiency(
+                id="axes",
+                name="Axes",
+                description="Axe proficiency.",
+            )
+            state.items["axe"] = Item.from_dict(
+                {
+                    "id": "axe",
+                    "name": "Axe",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                    "attribute_profile": "weapon",
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_attack",
+                            "availability": "equipped",
+                            "consume_quantity": 0,
+                        }
+                    ],
+                    "attributes": {
+                        "weapon_proficiency": {
+                            "relationship_id": "weapon-prof",
+                            "attribute_id": "weapon_proficiency",
+                            "value": {"type": "reference", "value": "axes"},
+                            "evaluated_value": "axes",
+                        },
+                        "weapon_proficiency_growth_rate": {
+                            "relationship_id": "weapon-growth",
+                            "attribute_id": "weapon_proficiency_growth_rate",
+                            "value": {"type": "number", "value": 0.25},
+                            "evaluated_value": 0.25,
+                        },
+                    },
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet",
+                    "sheet": _sheet_payload(),
+                },
+            )
+            websocket.sent_messages.clear()
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_item_bridge",
+                    "sheet_id": "mage_template",
+                    "bridge": {
+                        "relationship_id": "equipped-axe",
+                        "count": 1,
+                        "equipped": True,
+                        "item_id": "axe",
+                    },
+                },
+            )
+
+            bridge = state.sheets["mage_template"].proficiencies[
+                "weapon_proficiency_axes"
+            ]
+            assert bridge.prof_id == "axes"
+            assert bridge.use_count == 0
+            assert bridge.growth_rate == 0.25
+            assert {
+                op["path"] for op in websocket.sent_messages[0]["ops"]
+            } == {
+                "/sheets/mage_template/items/equipped-axe",
+                "/sheets/mage_template/proficiencies/weapon_proficiency_axes",
+            }
         finally:
             StateSingleton._state = original_state
 

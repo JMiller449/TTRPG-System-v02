@@ -20,6 +20,11 @@ const QUICK_ROLL_LABELS: Record<QuickRollAction, string> = {
   block: "Block"
 };
 
+const SOURCE_ITEM_QUICK_ROLL_ACTIONS = new Set<QuickRollAction>([
+  "weapon_attack",
+  "weapon_parry"
+]);
+
 export interface ResolvedQuickRollAction {
   action: QuickRollAction;
   actionId: string;
@@ -47,22 +52,6 @@ export function resolveQuickRollAction(
     return null;
   }
 
-  const relationshipId = getQuickRollRelationshipId(action);
-  const bridge =
-    sheet.actions[relationshipId] ??
-    Object.values(sheet.actions).find((entry) => entry.entry_id === action);
-  if (bridge) {
-    const actionDefinition = actions[bridge.entry_id];
-    if (actionDefinition) {
-      return {
-        action,
-        actionId: actionDefinition.id,
-        actionName: actionDefinition.name,
-        relationshipId: bridge.relationship_id
-      };
-    }
-  }
-
   const itemSources = Object.values(sheet.items).flatMap((itemBridge) => {
     if (itemBridge.count <= 0) {
       return [];
@@ -81,16 +70,36 @@ export function resolveQuickRollAction(
     return [itemBridge];
   });
   const actionDefinition = actions[action];
-  if (itemSources.length !== 1 || !actionDefinition) {
+  if (itemSources.length === 1 && actionDefinition) {
+    const itemSource = itemSources[0];
+    return {
+      action,
+      actionId: actionDefinition.id,
+      actionName: actionDefinition.name,
+      relationshipId: `item:${itemSource.relationship_id}:${action}`,
+      sourceItemRelationshipId: itemSource.relationship_id
+    };
+  }
+  if (SOURCE_ITEM_QUICK_ROLL_ACTIONS.has(action)) {
     return null;
   }
-  const itemSource = itemSources[0];
+
+  const relationshipId = getQuickRollRelationshipId(action);
+  const bridge =
+    sheet.actions[relationshipId] ??
+    Object.values(sheet.actions).find((entry) => entry.entry_id === action);
+  if (!bridge) {
+    return null;
+  }
+  const directActionDefinition = actions[bridge.entry_id];
+  if (!directActionDefinition) {
+    return null;
+  }
   return {
     action,
-    actionId: actionDefinition.id,
-    actionName: actionDefinition.name,
-    relationshipId: `item:${itemSource.relationship_id}:${action}`,
-    sourceItemRelationshipId: itemSource.relationship_id
+    actionId: directActionDefinition.id,
+    actionName: directActionDefinition.name,
+    relationshipId: bridge.relationship_id
   };
 }
 

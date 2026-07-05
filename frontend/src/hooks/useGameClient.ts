@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppDispatch } from "@/app/state/useAppStore";
 import type { Role } from "@/domain/models";
+import { resolveApplicationWebSocketUrl } from "@/infrastructure/config/websocketConfig";
 import { ManagedGameClient, type ManagedGameClientOptions } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { makeId } from "@/shared/utils/id";
@@ -12,6 +13,7 @@ export interface GameClient {
   sendProtocolRequest: (request: ProtocolApplicationRequest, label: string) => void;
   authenticate: (role: Role, token?: string) => void;
   authenticateWithCode: (code: string) => void;
+  onEvent: ManagedGameClient["onEvent"];
 }
 
 interface PendingIntentMetadata {
@@ -25,6 +27,7 @@ const QUIET_REQUEST_TYPES = new Set<ProtocolApplicationRequest["type"]>([
   "get_action_formula_authoring_metadata",
   "get_augmentation_target_metadata",
   "get_roll20_bridge_status",
+  "get_roll20_bridge_sync_config",
   "get_sheet_access_codes",
   "get_variable_registry",
   "get_xp_tracker"
@@ -35,6 +38,9 @@ export function requestUsesQuietFeedback(request: ProtocolApplicationRequest): b
 }
 
 export function requestResolvesOnSnapshot(request: ProtocolApplicationRequest): boolean {
+  if (request.type === "get_roll20_bridge_sync_config") {
+    return false;
+  }
   if (request.type === "perform_action") {
     return false;
   }
@@ -49,7 +55,7 @@ function isRoll20BridgeUnavailableError(message: string): boolean {
 }
 
 const ROLL20_BRIDGE_SETUP_HINT =
-  "Open Roll20 with the extension loaded, then confirm its options use the backend's Roll20 bridge WebSocket URL and matching SERVICE_AUTH_CODE.";
+  "Open the DM console's Extension tab, sync the bridge, then open or reload Roll20.";
 
 export function buildIntentSuccessMessage(label: string): string {
   return label === "State resync" ? "State resynced." : `${label} synced.`;
@@ -85,7 +91,7 @@ export function useGameClient(): GameClient {
   const facadeRef = useRef<GameClient | null>(null);
   if (!clientRef.current) {
     const options: ManagedGameClientOptions = {
-      wsUrl: import.meta.env.VITE_WS_URL
+      wsUrl: resolveApplicationWebSocketUrl(import.meta.env.VITE_WS_URL)
     };
     clientRef.current = new ManagedGameClient(options);
   }
@@ -207,10 +213,7 @@ export function useGameClient(): GameClient {
         dispatch({
           type: "set_roll20_bridge_status",
           status: event.connected ? "connected" : "disconnected",
-          checkedAt: new Date().toISOString(),
-          error: event.connected
-            ? undefined
-            : `Roll20 chat bridge is not connected. ${ROLL20_BRIDGE_SETUP_HINT}`
+          checkedAt: new Date().toISOString()
         });
         if (event.connected) {
           dispatch({
@@ -219,23 +222,13 @@ export function useGameClient(): GameClient {
           });
         }
         if (event.requestId) {
-          if (event.connected) {
-            resolveIntent(event.requestId);
-          } else {
-            const metadata = pendingIntentMapRef.current[event.requestId];
-            delete pendingIntentMapRef.current[event.requestId];
-            dispatch({
-              type: "push_intent_feedback",
-              item: {
-                id: makeId("feedback"),
-                intentId: event.requestId,
-                status: "error",
-                message: `${metadata?.label ?? "Roll20 bridge status"} failed: Roll20 bridge disconnected. ${ROLL20_BRIDGE_SETUP_HINT}`,
-                createdAt: new Date().toISOString()
-              }
-            });
-            dispatch({ type: "clear_intent", intentId: event.requestId });
-          }
+          resolveIntent(event.requestId);
+        }
+        return;
+      }
+      if (event.type === "roll20_bridge_sync_config") {
+        if (event.requestId) {
+          resolveIntent(event.requestId);
         }
         return;
       }
@@ -353,6 +346,8 @@ export function useGameClient(): GameClient {
     client.authenticateWithCode(code);
   };
 
+  const onEvent: ManagedGameClient["onEvent"] = (listener) => client.onEvent(listener);
+
   if (!facadeRef.current) {
     facadeRef.current = {
       connect,
@@ -360,7 +355,8 @@ export function useGameClient(): GameClient {
       endSession,
       sendProtocolRequest,
       authenticate,
-      authenticateWithCode
+      authenticateWithCode,
+      onEvent
     };
   }
 
@@ -370,6 +366,7 @@ export function useGameClient(): GameClient {
   facadeRef.current.sendProtocolRequest = sendProtocolRequest;
   facadeRef.current.authenticate = authenticate;
   facadeRef.current.authenticateWithCode = authenticateWithCode;
+  facadeRef.current.onEvent = onEvent;
 
   return facadeRef.current;
 }

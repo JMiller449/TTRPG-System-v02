@@ -18,6 +18,7 @@ nginx_config_repo := "../server_config"
 public_url := "https://bossadapt.org/ttrpg/"
 public_app_ws_url := "wss://bossadapt.org/ttrpg/ws"
 public_chat_ws_url := "wss://bossadapt.org/ttrpg/ws/chat"
+public_userscript_url := "https://bossadapt.org/ttrpg/roll20-bridge.user.js"
 
 default:
     @just --list
@@ -47,13 +48,18 @@ build-frontend: install-frontend generate-protocol
     cd {{frontend_dir}} && VITE_WS_URL={{public_app_ws_url}} VITE_PLAYER_AUTH_TOKEN= VITE_DM_AUTH_TOKEN= npm run build
     rg -q -F '{{public_app_ws_url}}' {{frontend_dir}}/dist/assets
     rg -q '="/ttrpg/assets/' {{frontend_dir}}/dist/index.html
+    test -f {{frontend_dir}}/dist/roll20-bridge.user.js
+    head -n 1 {{frontend_dir}}/dist/roll20-bridge.user.js | rg -q '^// ==UserScript==$'
+    rg -q '^// @version[[:space:]]+1\.0\.1$' {{frontend_dir}}/dist/roll20-bridge.user.js
+    rg -q -F '// @downloadURL https://bossadapt.org/ttrpg/roll20-bridge.user.js' {{frontend_dir}}/dist/roll20-bridge.user.js
 
 check: test-backend test-frontend lint-frontend build-frontend
 
 pack-frontend: check
     rm -f {{frontend_archive_name}}
     tar -czf {{frontend_archive_name}} -C {{frontend_dir}}/dist .
-    tar -tzf {{frontend_archive_name}} | rg -q '(^|/)index\.html$'
+    tar -tzf {{frontend_archive_name}} ./index.html >/dev/null
+    tar -tzf {{frontend_archive_name}} ./roll20-bridge.user.js >/dev/null
 
 upload-frontend: pack-frontend
     scp {{frontend_archive_name}} {{host}}:/tmp/{{frontend_archive_name}}
@@ -177,7 +183,18 @@ _deploy-frontend-uploaded:
     ssh {{host}} "test -r {{frontend_site_root}}/index.html"
 
 verify-public:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    headers="$(mktemp)"
+    body="$(mktemp)"
+    trap 'rm -f "$headers" "$body"' EXIT
     curl --fail --silent --show-error --output /dev/null -H 'Cache-Control: no-cache' {{public_url}}
+    curl --fail --silent --show-error --dump-header "$headers" --output "$body" -H 'Cache-Control: no-cache' {{public_userscript_url}}
+    rg -qi '^content-type:[[:space:]]*(application|text)/(x-)?javascript' "$headers"
+    rg -qi '^cache-control:.*no-cache' "$headers"
+    head -n 1 "$body" | rg -q '^// ==UserScript==$'
+    rg -q '^// @version[[:space:]]+1\.0\.1$' "$body"
+    rg -q -F '// @downloadURL {{public_userscript_url}}' "$body"
     ssh {{host}} "set -a; . {{remote_env_file}}; set +a; {{backend_dir}}/backend/.venv/bin/python {{backend_dir}}/deploy/verify_websockets.py --app-url {{public_app_ws_url}} --chat-url {{public_chat_ws_url}}"
 
 deploy-all: upload-frontend upload-backend deploy-backend-env

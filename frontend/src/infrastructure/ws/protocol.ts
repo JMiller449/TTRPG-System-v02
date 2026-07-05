@@ -9,6 +9,7 @@ import type {
   ProtocolApplicationRequest,
   ProtocolServerEvent,
   Roll20BridgeStatusEvent as ProtocolRoll20BridgeStatusEvent,
+  Roll20BridgeSyncConfigEvent as ProtocolRoll20BridgeSyncConfigEvent,
   SheetAccessCodesEvent as ProtocolSheetAccessCodesEvent,
   StateBackupExportedEvent as ProtocolStateBackupExportedEvent,
   StatePatchEvent as ProtocolStatePatchEvent,
@@ -26,6 +27,7 @@ export type {
   ProtocolErrorEvent,
   ProtocolPatchOperation,
   ProtocolRoll20BridgeStatusEvent,
+  ProtocolRoll20BridgeSyncConfigEvent,
   ProtocolSheetAccessCodesEvent,
   ProtocolServerEvent,
   ProtocolStateBackupExportedEvent,
@@ -264,6 +266,23 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
               : null,
           connected: payload.connected,
           type: "roll20_bridge_status",
+          request_id:
+            typeof payload.request_id === "string" || payload.request_id === null
+              ? payload.request_id
+              : undefined
+        };
+      }
+      return null;
+
+    case "roll20_bridge_sync_config":
+      if (typeof payload.service_auth_code === "string" && payload.service_auth_code.length > 0) {
+        return {
+          response_id:
+            typeof payload.response_id === "string" || payload.response_id === null
+              ? payload.response_id
+              : null,
+          service_auth_code: payload.service_auth_code,
+          type: "roll20_bridge_sync_config",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null
               ? payload.request_id

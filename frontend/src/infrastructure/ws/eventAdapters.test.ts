@@ -64,6 +64,22 @@ describe("parseProtocolServerEvent", () => {
     });
   });
 
+  it("parses Roll20 bridge sync configuration events", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      service_auth_code: "service-secret",
+      type: "roll20_bridge_sync_config",
+      request_id: "req-sync"
+    });
+
+    expect(event).toEqual({
+      response_id: null,
+      service_auth_code: "service-secret",
+      type: "roll20_bridge_sync_config",
+      request_id: "req-sync"
+    });
+  });
+
   it("parses and adapts sheet access-code events", () => {
     const event = parseProtocolServerEvent({
       response_id: null,
@@ -513,6 +529,26 @@ describe("adaptProtocolServerEvent", () => {
         type: "roll20_bridge_status",
         connected: false,
         requestId: "req-status"
+      }
+    ]);
+  });
+
+  it("maps Roll20 bridge sync configuration into an ephemeral app event", () => {
+    const protocolEvent = parseProtocolServerEvent({
+      response_id: null,
+      service_auth_code: "service-secret",
+      type: "roll20_bridge_sync_config",
+      request_id: "req-sync"
+    });
+    if (!protocolEvent || protocolEvent.type !== "roll20_bridge_sync_config") {
+      throw new Error("Expected roll20_bridge_sync_config event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent).events).toEqual([
+      {
+        type: "roll20_bridge_sync_config",
+        serviceAuthCode: "service-secret",
+        requestId: "req-sync"
       }
     ]);
   });

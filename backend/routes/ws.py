@@ -22,6 +22,8 @@ from backend.state.migrations import PersistedStateError
 router = APIRouter()
 logger = logging.getLogger(__name__)
 AUTH_CLOSE_CODE = 1008
+BRIDGE_REPLACED_CLOSE_CODE = 4001
+BRIDGE_REPLACED_CLOSE_REASON = "bridge_replaced"
 
 
 def generate_request_id() -> str:
@@ -266,7 +268,18 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
     if not is_authenticated:
         return
 
-    await chat_service.roll20_chat_bridge.connect(websocket, accept=False)
+    previous_connection = await chat_service.roll20_chat_bridge.connect(
+        websocket,
+        accept=False,
+    )
+    if previous_connection is not None:
+        try:
+            await previous_connection.close(
+                code=BRIDGE_REPLACED_CLOSE_CODE,
+                reason=BRIDGE_REPLACED_CLOSE_REASON,
+            )
+        except RuntimeError:
+            logger.info("Previous Roll20 bridge was already closed during replacement.")
     await chat_service.broadcast_bridge_status(connected=True)
 
     try:

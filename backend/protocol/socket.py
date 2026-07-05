@@ -6,7 +6,11 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from backend.features.auth.schema import Authenticate, AuthRole
-from backend.features.chat.schema import GetRoll20BridgeStatus, SendRoll20ChatMessage
+from backend.features.chat.schema import (
+    GetRoll20BridgeStatus,
+    GetRoll20BridgeSyncConfig,
+    SendRoll20ChatMessage,
+)
 from backend.features.encounters.schema import (
     DeleteEncounterPreset,
     SaveEncounterPreset,
@@ -160,6 +164,13 @@ class Roll20BridgeStatusEvent(ProtocolModel):
     response_id: str | None = None
     connected: bool
     type: Literal["roll20_bridge_status"] = "roll20_bridge_status"
+    request_id: str | None = None
+
+
+class Roll20BridgeSyncConfigEvent(ProtocolModel):
+    response_id: str | None = None
+    service_auth_code: str = Field(min_length=1)
+    type: Literal["roll20_bridge_sync_config"] = "roll20_bridge_sync_config"
     request_id: str | None = None
 
 
@@ -387,6 +398,7 @@ ApplicationRequest = Annotated[
     | ImportStateBackup
     | SendRoll20ChatMessage
     | GetRoll20BridgeStatus
+    | GetRoll20BridgeSyncConfig
     | SaveEncounterPreset
     | DeleteEncounterPreset
     | SpawnEncounterPreset
@@ -460,6 +472,7 @@ ServerEvent = Annotated[
     | StatePatchEvent
     | ActionExecutedEvent
     | Roll20BridgeStatusEvent
+    | Roll20BridgeSyncConfigEvent
     | ActionFormulaAuthoringMetadataEvent
     | AugmentationTargetMetadataEvent
     | VariableRegistryEvent

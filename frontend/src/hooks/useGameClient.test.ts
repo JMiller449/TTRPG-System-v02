@@ -39,11 +39,16 @@ describe("useGameClient feedback messages", () => {
         isRoll20BridgeError: true
       })
     ).toBe(
-      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open Roll20 with the extension loaded, then confirm its options use the backend's Roll20 bridge WebSocket URL and matching SERVICE_AUTH_CODE."
+      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open the DM console's Extension tab, sync the bridge, then open or reload Roll20."
     );
   });
 
   it("waits for terminal action and generated-code events instead of resolving from patches", () => {
+    expect(
+      requestResolvesOnSnapshot({
+        type: "get_roll20_bridge_sync_config"
+      })
+    ).toBe(false);
     expect(
       requestResolvesOnSnapshot({
         type: "perform_action",
@@ -84,6 +89,7 @@ describe("useGameClient feedback messages", () => {
       })
     ).toBe(true);
     expect(requestUsesQuietFeedback({ type: "get_xp_tracker" })).toBe(true);
+    expect(requestUsesQuietFeedback({ type: "get_roll20_bridge_sync_config" })).toBe(true);
     expect(
       requestUsesQuietFeedback({
         type: "delete_attribute",

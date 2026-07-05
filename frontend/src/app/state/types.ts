@@ -41,7 +41,8 @@ export type GMView =
   | "effect_authoring"
   | "action_authoring"
   | "xp_tracker"
-  | "state_backup";
+  | "state_backup"
+  | "extension";
 
 export interface IntentFeedbackItem {
   id: string;

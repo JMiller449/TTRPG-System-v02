@@ -66,6 +66,15 @@ export function buildGetRoll20BridgeStatusRequest({
   };
 }
 
+export function buildGetRoll20BridgeSyncConfigRequest({
+  requestId
+}: OptionalRequestId = {}): ProtocolRequest<"get_roll20_bridge_sync_config"> {
+  return {
+    ...requestIdField(requestId),
+    type: "get_roll20_bridge_sync_config"
+  };
+}
+
 export function buildGetXpTrackerRequest({
   requestId
 }: OptionalRequestId = {}): ProtocolRequest<"get_xp_tracker"> {

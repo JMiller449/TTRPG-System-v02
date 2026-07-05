@@ -2,13 +2,16 @@
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
-Backend-first TTRPG system with authoritative state, websocket-driven gameplay, DM-only content authoring, and a local Firefox extension that bridges backend chat messages into Roll20.
+Backend-first TTRPG system with authoritative state, websocket-driven gameplay,
+DM-only content authoring, and a Violentmonkey userscript that bridges backend
+chat messages into Roll20 on Firefox.
 
 ## Current Shape
 
 - `backend/`: FastAPI backend, websocket transport, state sync, runtime logic, and DM admin features
 - `frontend/`: frontend workspace
-- `firefox_extension/`: local Firefox extension for Roll20 chat delivery
+- `violentmonkey_extension/`: installable Firefox/Violentmonkey userscript for
+  Roll20 chat delivery
 
 ## What Exists Today
 
@@ -22,7 +25,8 @@ Backend-first TTRPG system with authoritative state, websocket-driven gameplay, 
 - Basic runtime support for:
   - baseline checks represented as authored actions
   - performing authored actions
-- Firefox extension that connects to the backend on Roll20 editor pages and sends chat messages into Roll20
+- DM-console installation and synchronization for a Violentmonkey userscript
+  that connects Roll20 editor pages to the backend
 - Roll20 chat acts as the table play log; the app is not keeping a second authoritative roll log.
 
 ## Run The Backend
@@ -137,33 +141,27 @@ The backend websocket endpoints are:
 There is intentionally no HTTP chat debug endpoint. Roll20 chat delivery goes
 through app websocket requests and the `/ws/chat` bridge only.
 
-## Load The Firefox Extension
+## Install And Sync The Firefox Userscript
 
-For local use on your machine, you do not need to package or sign it.
+1. Install Violentmonkey from the official Firefox Add-ons site.
+2. Run the backend and frontend, authenticate to the frontend as the DM, and
+   open the **Extension** tab.
+3. Choose **Install Roll20 Bridge** and approve Violentmonkey's prompt.
+4. Return to or reload the Extension tab, then choose **Sync Bridge**.
+5. Open or reload the Roll20 editor and use **Refresh Status** or **Send Test
+   Message** to verify delivery.
 
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click `Load Temporary Add-on`
-3. Select [manifest.json](/home/devinphillips20/Desktop/Projects/TTRPG-System-v02/firefox_extension/manifest.json)
+Local development serves the install artifact at
+`http://127.0.0.1:5173/roll20-bridge.user.js` and synchronizes
+`ws://127.0.0.1:6767/ws/chat`. Production serves the same userscript identity at
+`https://bossadapt.org/ttrpg/roll20-bridge.user.js` and synchronizes
+`wss://bossadapt.org/ttrpg/ws/chat`.
 
-Then:
-
-1. Keep the backend running on port `6767`
-2. Open the extension preferences/options page and confirm:
-   - Backend WebSocket URL: `ws://127.0.0.1:6767/ws/chat`
-   - Service authentication code: the backend `SERVICE_AUTH_CODE` value, defaulting to `service` for local development
-3. Open or reload your Roll20 game at `https://app.roll20.net/editor/...`
-4. The extension will connect automatically when that page is open
-
-For the hosted application, configure the extension options with:
-
-- Backend WebSocket URL: `wss://bossadapt.org/ttrpg/ws/chat`
-- Service authentication code: the production `SERVICE_AUTH_CODE` from
-  `production-secret.env`
-
-The extension and Roll20 interaction still run locally in Firefox; only the
-backend WebSocket is hosted.
-
-The extension only runs on `https://app.roll20.net/editor/*`.
+Sync Bridge requests the service credential through a backend-enforced DM-only
+route and passes it directly to the detected userscript. The frontend does not
+render or persist it. Violentmonkey stores one active configuration; syncing
+from development or production replaces the previous endpoint and credential.
+The userscript and Roll20 interaction still run locally in Firefox.
 
 ## Development Notes
 
@@ -189,8 +187,10 @@ The extension only runs on `https://app.roll20.net/editor/*`.
   - backend-authoritative server state comes from auth/snapshot/patch events
   - active sheet selection, page/view state, drafts, and pending UX stay frontend-local
 - Roll20 chat delivery is fail-fast:
-  - if the extension bridge is connected, chat sends immediately
+  - if the userscript bridge is connected, chat sends immediately
   - if not, the backend returns an error instead of queueing messages
+  - the newest authenticated Roll20 tab is the sole active bridge, preventing
+    duplicate delivery
 
 ## Backend-First Contract Model
 
@@ -372,7 +372,8 @@ Do not:
 ### Auth Notes
 
 - App clients authenticate as their first application message on `/ws` with a player or DM code.
-- The Firefox extension authenticates first on `/ws/chat` with the service code.
+- The Violentmonkey userscript authenticates first on `/ws/chat` with the
+  synchronized service code.
 - Route-level DM requirements should be declared on `RequestRoute`.
 - Do not trust role claims from client payloads.
 - Backend auth codes are configured with `PLAYER_JOIN_CODE`, `DM_ADMIN_CODE`, and
@@ -382,7 +383,9 @@ Do not:
   Any other environment requires all three codes to be explicitly configured and distinct.
 - Optional frontend role shortcuts use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN` from
   `frontend/.env.local`; compiled fallback codes are intentionally not provided.
-- Configure the Roll20 bridge URL and service code through the Firefox extension options page.
+- Configure the Roll20 bridge through the DM console's **Extension** tab and
+  **Sync Bridge** action; do not place `SERVICE_AUTH_CODE` in frontend state or
+  userscript source.
 
 ## Testing
 

@@ -22,46 +22,46 @@ logger = logging.getLogger(__name__)
 class Roll20ChatBridge:
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._connections: set[WebSocket] = set()
+        self._active_connection: WebSocket | None = None
 
-    async def connect(self, websocket: WebSocket, *, accept: bool = True) -> None:
+    async def connect(
+        self,
+        websocket: WebSocket,
+        *,
+        accept: bool = True,
+    ) -> WebSocket | None:
         if accept:
             await websocket.accept()
         async with self._lock:
-            self._connections.add(websocket)
+            previous = self._active_connection
+            self._active_connection = websocket
+        return previous if previous is not websocket else None
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
-            self._connections.discard(websocket)
+            if self._active_connection is websocket:
+                self._active_connection = None
 
     async def send(self, message: Roll20ChatMessage) -> None:
         async with self._lock:
-            connections = tuple(self._connections)
-        if not connections:
+            connection = self._active_connection
+        if connection is None:
             raise RuntimeError("Roll20 chat bridge is not connected.")
 
-        delivered = False
-        failed_connections: list[WebSocket] = []
-        for websocket in connections:
-            try:
-                await websocket.send_json(asdict(message))
-                delivered = True
-            except RuntimeError:
-                failed_connections.append(websocket)
-
-        for websocket in failed_connections:
-            await self.disconnect(websocket)
-
-        if not delivered:
+        try:
+            await connection.send_json(asdict(message))
+        except RuntimeError:
+            await self.disconnect(connection)
+            await broadcast_bridge_status(connected=await self.is_connected())
             raise RuntimeError("Roll20 chat bridge is not connected.")
 
     async def reset(self) -> None:
         async with self._lock:
-            self._connections.clear()
+            self._active_connection = None
 
     async def is_connected(self) -> bool:
         async with self._lock:
-            return bool(self._connections)
+            return self._active_connection is not None
 
 roll20_chat_bridge = Roll20ChatBridge()
 
@@ -100,11 +100,7 @@ def parse_bridge_event(payload: Any) -> Roll20BridgeHello | Roll20ChatDelivery:
 
 def handle_bridge_event(event: Roll20BridgeHello | Roll20ChatDelivery) -> None:
     if isinstance(event, Roll20BridgeHello):
-        logger.info(
-            "Roll20 bridge connected from %s at %s",
-            event.source,
-            event.page_url,
-        )
+        logger.info("Roll20 bridge connected from %s", event.source)
         return
 
     if event.success:
@@ -112,7 +108,7 @@ def handle_bridge_event(event: Roll20BridgeHello | Roll20ChatDelivery) -> None:
         return
 
     logger.warning(
-        "Roll20 chat message delivery failed for %s: %s",
+        "Roll20 chat message delivery failed for %s (%s)",
         event.message_id,
-        event.error or "Unknown error",
+        event.reason or "unknown",
     )

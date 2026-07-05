@@ -85,6 +85,7 @@ export type ServerEvent =
     }
   | { type: "xp_tracker"; tracker: XpTrackerView; requestId?: string }
   | { type: "roll20_bridge_status"; connected: boolean; requestId?: string }
+  | { type: "roll20_bridge_sync_config"; serviceAuthCode: string; requestId?: string }
   | {
       type: "snapshot";
       snapshot: AppSnapshot;

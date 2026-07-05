@@ -1,6 +1,7 @@
 import type { ServerEvent } from "@/domain/ipc";
 import type { Role } from "@/domain/models";
 import { resolveDefaultAuthToken } from "@/infrastructure/config/authConfig";
+import { resolveApplicationWebSocketUrl } from "@/infrastructure/config/websocketConfig";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { WebSocketGameTransport } from "@/infrastructure/transport/WebSocketGameTransport";
 import {
@@ -28,7 +29,6 @@ export interface ManagedGameClientOptions {
 type ConnectionListener = (state: ClientConnectionState) => void;
 type EventListener = (event: ServerEvent) => void;
 
-const DEFAULT_WS_URL = "ws://127.0.0.1:6767/ws";
 const DEFAULT_RECONNECT_DELAYS_MS = [500, 1000, 2000, 5000, 10000] as const;
 
 function scheduleReconnect(callback: () => void, delayMs: number): TransportUnsubscribe {
@@ -65,7 +65,7 @@ export class ManagedGameClient {
   private connectInFlight: Promise<void> | null = null;
 
   constructor(options: ManagedGameClientOptions = {}) {
-    this.wsUrl = options.wsUrl ?? DEFAULT_WS_URL;
+    this.wsUrl = resolveApplicationWebSocketUrl(options.wsUrl);
     this.transportFactory = options.transportFactory ?? createTransport;
     this.autoReconnect = options.autoReconnect ?? true;
     this.reconnectDelaysMs = options.reconnectDelaysMs?.length

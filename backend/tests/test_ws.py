@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import asdict
 
 import pytest
+from pydantic import ValidationError
 
 from backend.features.auth.tokens import (
     DM_ADMIN_CODE,
@@ -15,6 +16,8 @@ from backend.features.state_sync import handler as state_sync_handler
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import (
     AUTH_CLOSE_CODE,
+    BRIDGE_REPLACED_CLOSE_CODE,
+    BRIDGE_REPLACED_CLOSE_REASON,
     _assign_request_id,
     authenticate_application_websocket,
     authenticate_service_websocket,
@@ -33,12 +36,14 @@ class FakeWebSocket:
         self.accepted = False
         self.sent_messages: list[dict] = []
         self.closed_code: int | None = None
+        self.closed_reason: str | None = None
 
     async def accept(self) -> None:
         self.accepted = True
 
-    async def close(self, code: int) -> None:
+    async def close(self, code: int, reason: str | None = None) -> None:
         self.closed_code = code
+        self.closed_reason = reason
 
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
@@ -293,6 +298,37 @@ def test_authenticate_application_websocket_rejects_invalid_code() -> None:
     asyncio.run(scenario())
 
 
+def test_authenticate_application_websocket_rejects_service_code() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        websocket = FakeWebSocket()
+        await websocket.accept()
+        await websocket_sessions.connect(websocket, accept=False)
+
+        session = await authenticate_application_websocket(
+            websocket,
+            {
+                "type": "authenticate",
+                "token": SERVICE_AUTH_CODE,
+                "request_id": "req-service-app-auth",
+            },
+        )
+
+        assert session is None
+        assert websocket.sent_messages == [
+            {
+                "response_id": None,
+                "authenticated": False,
+                "role": None,
+                "reason": "Invalid player or DM code.",
+                "type": "authenticate_response",
+                "request_id": "req-service-app-auth",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
 def test_authenticate_service_websocket_accepts_service_code() -> None:
     async def scenario() -> None:
         websocket = FakeWebSocket()
@@ -428,6 +464,115 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
                 "connected": True,
                 "type": "roll20_bridge_status",
                 "request_id": "req-status",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_get_roll20_bridge_sync_config_returns_credential_only_to_dm() -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "get_roll20_bridge_sync_config",
+                "request_id": "req-sync-dm",
+            },
+        )
+        await handle_client_payload(
+            player_socket,
+            {
+                "type": "get_roll20_bridge_sync_config",
+                "request_id": "req-sync-player",
+            },
+        )
+
+        assert dm_socket.sent_messages == [
+            {
+                "response_id": None,
+                "service_auth_code": SERVICE_AUTH_CODE,
+                "type": "roll20_bridge_sync_config",
+                "request_id": "req-sync-dm",
+            }
+        ]
+        assert player_socket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "This request requires an authenticated DM session.",
+                "type": "error",
+                "request_id": "req-sync-player",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_roll20_bridge_newest_connection_wins_without_stale_disconnect() -> None:
+    async def scenario() -> None:
+        await chat_service.roll20_chat_bridge.reset()
+        first_socket = FakeWebSocket()
+        second_socket = FakeWebSocket()
+
+        assert await chat_service.roll20_chat_bridge.connect(first_socket) is None
+        replaced = await chat_service.roll20_chat_bridge.connect(second_socket)
+        assert replaced is first_socket
+
+        await replaced.close(
+            code=BRIDGE_REPLACED_CLOSE_CODE,
+            reason=BRIDGE_REPLACED_CLOSE_REASON,
+        )
+        await chat_service.roll20_chat_bridge.disconnect(first_socket)
+        await chat_service.roll20_chat_bridge.send(
+            chat_service.Roll20ChatMessage(message_id="msg-newest", message="once")
+        )
+
+        assert first_socket.closed_code == 4001
+        assert first_socket.closed_reason == "bridge_replaced"
+        assert first_socket.sent_messages == []
+        assert second_socket.sent_messages == [
+            {
+                "message_id": "msg-newest",
+                "message": "once",
+                "type": "chat_message",
+                "request_id": None,
+            }
+        ]
+        assert await chat_service.roll20_chat_bridge.is_connected() is True
+
+    asyncio.run(scenario())
+
+
+def test_roll20_bridge_send_failure_clears_and_broadcasts_status() -> None:
+    class FailingWebSocket(FakeWebSocket):
+        async def send_json(self, payload: dict) -> None:
+            raise RuntimeError("socket closed")
+
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        app_socket = FakeWebSocket()
+        failing_bridge = FailingWebSocket()
+        await websocket_sessions.connect(app_socket, role="player")
+        await chat_service.roll20_chat_bridge.connect(failing_bridge)
+
+        with pytest.raises(RuntimeError, match="not connected"):
+            await chat_service.roll20_chat_bridge.send(
+                chat_service.Roll20ChatMessage(message_id="msg-fail", message="fail")
+            )
+
+        assert await chat_service.roll20_chat_bridge.is_connected() is False
+        assert app_socket.sent_messages == [
+            {
+                "response_id": None,
+                "connected": False,
+                "type": "roll20_bridge_status",
+                "request_id": None,
             }
         ]
 
@@ -698,8 +843,7 @@ def test_roll20_bridge_events_are_parsed_and_logged(caplog) -> None:
     hello_event = chat_service.parse_bridge_event(
         {
             "type": "hello",
-            "source": "roll20_firefox_extension",
-            "page_url": "https://app.roll20.net/editor/",
+            "source": "roll20_violentmonkey_userscript",
         }
     )
     delivery_event = chat_service.parse_bridge_event(
@@ -714,8 +858,29 @@ def test_roll20_bridge_events_are_parsed_and_logged(caplog) -> None:
         chat_service.handle_bridge_event(hello_event)
         chat_service.handle_bridge_event(delivery_event)
 
-    assert "Roll20 bridge connected from roll20_firefox_extension" in caplog.text
+    assert "Roll20 bridge connected from roll20_violentmonkey_userscript" in caplog.text
     assert "Roll20 chat message delivered: msg-1" in caplog.text
+
+
+def test_roll20_bridge_rejects_legacy_page_urls_and_raw_errors() -> None:
+    with pytest.raises(ValidationError):
+        chat_service.parse_bridge_event(
+            {
+                "type": "hello",
+                "source": "roll20_violentmonkey_userscript",
+                "page_url": "https://app.roll20.net/editor/secret",
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        chat_service.parse_bridge_event(
+            {
+                "type": "chat_delivery",
+                "message_id": "msg-legacy",
+                "success": False,
+                "error": "raw browser exception",
+            }
+        )
 
 
 def test_unknown_request_type_returns_error() -> None:

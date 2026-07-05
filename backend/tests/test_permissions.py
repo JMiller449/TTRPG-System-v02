@@ -50,6 +50,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "get_action_formula_authoring_metadata": "player",
     "get_augmentation_target_metadata": "player",
     "get_roll20_bridge_status": "player",
+    "get_roll20_bridge_sync_config": "dm",
     "get_sheet_access_codes": "dm",
     "get_variable_registry": "player",
     "get_xp_tracker": "player",

@@ -342,6 +342,18 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "roll20_bridge_sync_config":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          {
+            type: "roll20_bridge_sync_config",
+            serviceAuthCode: event.service_auth_code,
+            requestId: event.request_id ?? undefined
+          }
+        ]
+      };
+
     case "sheet_access_codes":
       return {
         nextProtocolState: protocolState,

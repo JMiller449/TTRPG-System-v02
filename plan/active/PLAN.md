@@ -28,7 +28,9 @@ The app should be usable for local table play where:
 - The GM instantiates templates into playable sheets and assigns player access codes.
 - Players view their assigned sheet, track current state, edit permitted notes/resources, and execute assigned actions.
 - Frequent low-friction state changes are tracked authoritatively, including HP, mana, conditions, equipment, item quantity, proficiency increases, and other approved action mutations.
-- Ability, skill, spell, item, and weapon rolls are represented as authored actions, executed through the backend, and emitted to Roll20 chat through the Firefox extension.
+- Ability, skill, spell, item, and weapon rolls are represented as authored
+  actions, executed through the backend, and emitted to Roll20 chat through the
+  Firefox/Violentmonkey userscript.
 - Roll20 remains the table surface and play log for MVP.
 
 The app is not a full VTT. Maps, token targeting, initiative, turn automation, cross-sheet attack resolution, and full combat automation remain outside the character-sheet/dice-roller MVP.
@@ -41,7 +43,8 @@ The app is not a full VTT. Maps, token targeting, initiative, turn automation, c
 - Public app operations cross the websocket boundary through explicit backend transport schemas registered in the request registry.
 - Frontend protocol types and request helpers are generated from backend route contracts.
 - Raw mutation paths are internal backend primitives. User-facing authoring uses backend metadata, typed payloads, and validated selectors.
-- Roll20 integration is output-only chat delivery through the authenticated Firefox extension bridge. Roll20 never mutates backend state.
+- Roll20 integration is output-only chat delivery through the authenticated
+  Violentmonkey userscript bridge. Roll20 never mutates backend state.
 - Roll20 chat is the table play log. The in-app action history is a bounded backend-owned audit/status stream, not a second authoritative roll log.
 
 ## 3. Current Usable Baseline
@@ -52,6 +55,10 @@ Backend:
 
 - FastAPI websocket app clients connect on `/ws`; the Roll20 bridge connects on `/ws/chat`.
 - App sessions authenticate as `player` or `dm`; bridge sessions authenticate as `service`.
+- DM-only `get_roll20_bridge_sync_config` returns the service credential only
+  to the requesting authenticated DM session for immediate userscript sync.
+- The newest authenticated `/ws/chat` connection is the sole delivery bridge;
+  replaced Roll20 tabs receive a terminal close signal and do not oscillate.
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
@@ -78,6 +85,14 @@ Frontend:
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.
+- The GM **Extension** workspace stages Violentmonkey installation, installs
+  the hosted userscript, detects its version, synchronizes the current
+  development or production endpoint, refreshes status, and sends a
+  best-effort test message without persisting the service credential in
+  frontend state. Its discovery/sync handshake supports Violentmonkey's
+  isolated content context and retains compatibility with userscript 1.0.0.
+  Configuration sync is independent of the live Roll20 editor connection;
+  disconnected status is represented as state rather than a failed request.
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
 - GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.
@@ -122,10 +137,11 @@ No large architecture feature is currently missing for the stated character-shee
     preserved the generated production checkpoint.
   - Direct readiness, public HTTPS, SPA fallback, production-default rejection,
     and both authenticated public WebSockets were verified on 2026-07-04.
-- [ ] Complete the final hosted Roll20 browser smoke test by loading the local
-  Firefox extension in an active Roll20 editor tab, configuring
-  `wss://bossadapt.org/ttrpg/ws/chat` plus the production service code, and
-  confirming a real authored action reaches Roll20 chat.
+- [ ] Complete the final hosted Roll20 browser smoke test by installing
+  Violentmonkey and the production-hosted userscript from the GM **Extension**
+  tab, running **Sync Bridge**, opening an active Roll20 editor tab, and
+  confirming both the test message and a real authored action reach Roll20
+  chat exactly once.
 
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
@@ -145,7 +161,8 @@ No large architecture feature is currently missing for the stated character-shee
     spawns an encounter preset.
 - [ ] Run an end-to-end local table smoke test:
   - start backend and frontend
-  - load the Firefox extension on a Roll20 editor page
+  - install Violentmonkey and the userscript through the GM Extension tab
+  - run Sync Bridge and reload the Roll20 editor page
   - authenticate as GM
   - create or import a complete player template
   - instantiate it and generate a player access code
@@ -162,7 +179,7 @@ No large architecture feature is currently missing for the stated character-shee
 - [ ] Fix any defects found by that smoke test before calling the sheet/roller table-ready.
 - [ ] Add or update focused tests for smoke-test defects that represent contract, permission, persistence, formula, equipment, or action-execution regressions.
 - [ ] Write a short table-use runbook in the README or a dedicated doc covering:
-  - required backend/frontend/extension startup steps
+  - required backend/frontend/userscript startup steps
   - local auth code setup
   - GM sheet creation and player access-code workflow
   - how rolls are represented as authored actions

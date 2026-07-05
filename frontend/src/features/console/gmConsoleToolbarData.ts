@@ -57,9 +57,13 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
   },
   {
     label: "Admin",
-    items: [{ view: "state_backup", label: "Backup & Undo", glyph: "BK" }]
+    items: [
+      { view: "state_backup", label: "Backup & Undo", glyph: "BK" },
+      { view: "extension", label: "Extension", glyph: "EX" }
+    ]
   }
 ];
 
-export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<GMToolbarNavItem> =
-  GM_TOOLBAR_NAV_GROUPS.flatMap((group) => group.items);
+export const GM_TOOLBAR_NAV_ITEMS: ReadonlyArray<GMToolbarNavItem> = GM_TOOLBAR_NAV_GROUPS.flatMap(
+  (group) => group.items
+);

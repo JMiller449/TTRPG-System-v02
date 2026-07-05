@@ -12,6 +12,7 @@ import { GMConsoleToolbar } from "@/features/console/GMConsoleToolbar";
 import { EncounterPanel } from "@/features/encounters/EncounterPanel";
 import { StandaloneEffectAuthoringPage } from "@/features/effects/StandaloneEffectAuthoringPage";
 import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
+import { ExtensionPage } from "@/features/extension/ExtensionPage";
 import { AttributeAuthoringPage } from "@/features/attributes/AttributeAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
@@ -78,6 +79,8 @@ export function App(): JSX.Element {
         <StateSafetyPanel client={client} />
         <StateBackupPage client={client} />
       </div>
+    ) : gmView === "extension" ? (
+      <ExtensionPage client={client} />
     ) : (
       <div className="main-panel-stack main-panel-stack--dashboard">
         <ConsolePage role="gm" client={client} />

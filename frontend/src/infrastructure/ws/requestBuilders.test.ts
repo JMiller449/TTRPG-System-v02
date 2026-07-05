@@ -35,6 +35,7 @@ import {
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
+  buildGetRoll20BridgeSyncConfigRequest,
   buildGetSheetAccessCodesRequest,
   buildGetVariableRegistryRequest,
   buildGetXpTrackerRequest,
@@ -276,6 +277,7 @@ const requestBuilderByType = {
   get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
   get_augmentation_target_metadata: buildGetAugmentationTargetMetadataRequest,
   get_roll20_bridge_status: buildGetRoll20BridgeStatusRequest,
+  get_roll20_bridge_sync_config: buildGetRoll20BridgeSyncConfigRequest,
   get_sheet_access_codes: buildGetSheetAccessCodesRequest,
   get_variable_registry: buildGetVariableRegistryRequest,
   get_xp_tracker: buildGetXpTrackerRequest,
@@ -335,6 +337,13 @@ describe("requestBuilders", () => {
     expect(buildGetRoll20BridgeStatusRequest({ requestId: "req-status" })).toEqual({
       type: "get_roll20_bridge_status",
       request_id: "req-status"
+    });
+  });
+
+  it("builds Roll20 bridge sync configuration requests", () => {
+    expect(buildGetRoll20BridgeSyncConfigRequest({ requestId: "req-sync" })).toEqual({
+      type: "get_roll20_bridge_sync_config",
+      request_id: "req-sync"
     });
   });
 

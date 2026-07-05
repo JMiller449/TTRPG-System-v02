@@ -72,6 +72,11 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientMethodName": "sendRoll20ChatMessage"' in output
     assert '"type": "get_roll20_bridge_status"' in output
     assert '"clientMethodName": "getRoll20BridgeStatus"' in output
+    assert '"type": "get_roll20_bridge_sync_config"' in output
+    assert '"clientMethodName": "getRoll20BridgeSyncConfig"' in output
+    assert '"minimumRole": "dm"' in output
+    assert "export type Roll20BridgeSyncConfigEvent = {" in output
+    assert '"service_auth_code": string;' in output
     assert '"type": "save_encounter_preset"' in output
     assert '"clientNamespace": "encounterPresets"' in output
     assert '"clientMethodName": "spawnEncounterPreset"' in output

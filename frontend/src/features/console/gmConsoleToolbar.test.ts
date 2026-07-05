@@ -28,7 +28,8 @@ describe("gmConsoleToolbar", () => {
       "effect_authoring",
       "encounter_presets",
       "xp_tracker",
-      "state_backup"
+      "state_backup",
+      "extension"
     ]);
   });
 

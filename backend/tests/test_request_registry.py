@@ -16,6 +16,7 @@ from backend.protocol.socket import (
     ActionFormulaAuthoringMetadataEvent,
     AuthenticateResponseEvent,
     Roll20BridgeStatusEvent,
+    Roll20BridgeSyncConfigEvent,
     SheetAccessCodesEvent,
     SheetAccessClaimedEvent,
     StatePatchEvent,
@@ -31,6 +32,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "Authenticate",
         "SendRoll20ChatMessage",
         "GetRoll20BridgeStatus",
+        "GetRoll20BridgeSyncConfig",
         "ResyncState",
         "PerformAction",
         "CreateAction",
@@ -89,6 +91,7 @@ def test_request_registry_exposes_deduplicated_emitted_event_models() -> None:
     assert StatePatchEvent in emitted_models
     assert ActionExecutedEvent in emitted_models
     assert Roll20BridgeStatusEvent in emitted_models
+    assert Roll20BridgeSyncConfigEvent in emitted_models
     assert ActionFormulaAuthoringMetadataEvent in emitted_models
     assert AuthenticateResponseEvent in emitted_models
     assert VariableRegistryEvent in emitted_models
@@ -188,6 +191,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["get_roll20_bridge_status"].emitted_event_models == (
         Roll20BridgeStatusEvent,
+    )
+    assert contracts["get_roll20_bridge_sync_config"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="chat",
+            method_name="getRoll20BridgeSyncConfig",
+        )
+    )
+    assert contracts["get_roll20_bridge_sync_config"].minimum_role == "dm"
+    assert contracts["get_roll20_bridge_sync_config"].emitted_event_models == (
+        Roll20BridgeSyncConfigEvent,
     )
     assert contracts["save_encounter_preset"].client_generation == (
         ClientGenerationMetadata(

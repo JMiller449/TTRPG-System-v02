@@ -31,6 +31,13 @@ export type ItemActionGrantEditorValues = {
   consumeQuantity: string;
 };
 
+export const WEAPON_ACTION_IDS = [
+  "weapon_attack",
+  "weapon_damage",
+  "weapon_parry",
+  "weapon_contest"
+] as const;
+
 export const ITEM_RANK_OPTIONS = [
   "F",
   "F+",
@@ -69,6 +76,23 @@ export function createEmptyItemValues(): ItemEditorValues {
   };
 }
 
+function canonicalWeaponActionGrants(): ItemActionGrantEditorValues[] {
+  return WEAPON_ACTION_IDS.map((actionId) => ({
+    actionId,
+    availability: "equipped",
+    consumeQuantity: "0"
+  }));
+}
+
+function normalizeWeaponActionGrantValues(
+  grants: ItemActionGrantEditorValues[]
+): ItemActionGrantEditorValues[] {
+  return [
+    ...grants.filter((grant) => !(WEAPON_ACTION_IDS as readonly string[]).includes(grant.actionId)),
+    ...canonicalWeaponActionGrants()
+  ];
+}
+
 export function setItemAttributeProfile(
   values: ItemEditorValues,
   attributeProfile: "weapon" | null,
@@ -93,7 +117,11 @@ export function setItemAttributeProfile(
     ...values,
     interactionType: attributeProfile === "weapon" ? "equippable" : values.interactionType,
     attributeProfile,
-    attributes
+    attributes,
+    actionGrants:
+      attributeProfile === "weapon"
+        ? normalizeWeaponActionGrantValues(values.actionGrants)
+        : values.actionGrants
   };
 }
 
@@ -114,11 +142,20 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
       Object.entries(item.attributes ?? {}).map(([attributeId, bridge]) => [attributeId, structuredClone(bridge)])
     ),
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
-    actionGrants: (item.action_grants ?? []).map((grant) => ({
-      actionId: grant.action_id,
-      availability: grant.availability,
-      consumeQuantity: String(grant.consume_quantity ?? 0)
-    }))
+    actionGrants:
+      item.attribute_profile === "weapon"
+        ? normalizeWeaponActionGrantValues(
+            (item.action_grants ?? []).map((grant) => ({
+              actionId: grant.action_id,
+              availability: grant.availability,
+              consumeQuantity: String(grant.consume_quantity ?? 0)
+            }))
+          )
+        : (item.action_grants ?? []).map((grant) => ({
+            actionId: grant.action_id,
+            availability: grant.availability,
+            consumeQuantity: String(grant.consume_quantity ?? 0)
+          }))
   };
 }
 
@@ -127,7 +164,12 @@ function toActionGrantPayloads(values: ItemEditorValues): ItemDefinitionPayload[
     return [];
   }
 
-  return values.actionGrants
+  const grants =
+    values.attributeProfile === "weapon"
+      ? normalizeWeaponActionGrantValues(values.actionGrants)
+      : values.actionGrants;
+
+  return grants
     .filter((grant) => grant.actionId.trim())
     .map((grant) => ({
       action_id: grant.actionId.trim(),

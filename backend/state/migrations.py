@@ -5,9 +5,13 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from backend.state.default_actions import seeded_global_action_payloads
+from backend.state.default_actions import (
+    WEAPON_ACTION_IDS,
+    normalize_weapon_action_grant_payloads,
+    seeded_global_action_payloads,
+)
 
-CURRENT_STATE_SCHEMA_VERSION = 14
+CURRENT_STATE_SCHEMA_VERSION = 15
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -949,6 +953,149 @@ def _migrate_v13_to_v14(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 14, "state": state}
 
 
+def _normalize_formula_path_references(value: Any) -> None:
+    if isinstance(value, list):
+        for entry in value:
+            _normalize_formula_path_references(entry)
+        return
+
+    if not isinstance(value, dict):
+        return
+
+    path = value.get("path")
+    if isinstance(path, list):
+        value["path"] = [
+            "attributes" if segment == "facts" else segment
+            for segment in path
+        ]
+
+    for entry in value.values():
+        _normalize_formula_path_references(entry)
+
+
+def _proficiency_bridge_relationship_id(
+    proficiencies: dict[str, Any],
+    proficiency_id: str,
+) -> str:
+    base = f"weapon_proficiency_{proficiency_id}"
+    existing = proficiencies.get(base)
+    if not isinstance(existing, dict) or existing.get("prof_id") == proficiency_id:
+        return base
+
+    suffix = 2
+    while True:
+        candidate = f"{base}_{suffix}"
+        existing = proficiencies.get(candidate)
+        if not isinstance(existing, dict) or existing.get("prof_id") == proficiency_id:
+            return candidate
+        suffix += 1
+
+
+def _weapon_attribute_value(item: dict[str, Any], attribute_id: str) -> Any:
+    attributes = item.get("attributes")
+    if not isinstance(attributes, dict):
+        return None
+    bridge = attributes.get(attribute_id)
+    if not isinstance(bridge, dict) or bridge.get("evaluation_error") is not None:
+        return None
+    return bridge.get("evaluated_value", bridge.get("value", {}).get("value"))
+
+
+def _sync_equipped_weapon_proficiencies_payload(state: dict[str, Any]) -> None:
+    items = state.get("items", {})
+    sheets = state.get("sheets", {})
+    global_proficiencies = state.get("proficiencies", {})
+    if (
+        not isinstance(items, dict)
+        or not isinstance(sheets, dict)
+        or not isinstance(global_proficiencies, dict)
+    ):
+        return
+
+    for sheet in sheets.values():
+        if not isinstance(sheet, dict):
+            continue
+        sheet_items = sheet.get("items", {})
+        sheet_proficiencies = sheet.setdefault("proficiencies", {})
+        if not isinstance(sheet_items, dict) or not isinstance(sheet_proficiencies, dict):
+            continue
+        for item_bridge in sheet_items.values():
+            if not isinstance(item_bridge, dict) or not item_bridge.get("equipped"):
+                continue
+            item = items.get(item_bridge.get("item_id"))
+            if not isinstance(item, dict) or item.get("attribute_profile") != "weapon":
+                continue
+            proficiency_id = _weapon_attribute_value(item, "weapon_proficiency")
+            growth_rate = _weapon_attribute_value(
+                item,
+                "weapon_proficiency_growth_rate",
+            )
+            if (
+                not isinstance(proficiency_id, str)
+                or not proficiency_id
+                or proficiency_id not in global_proficiencies
+            ):
+                continue
+            if (
+                isinstance(growth_rate, bool)
+                or not isinstance(growth_rate, int | float)
+                or growth_rate < 0
+            ):
+                continue
+            if any(
+                isinstance(bridge, dict) and bridge.get("prof_id") == proficiency_id
+                for bridge in sheet_proficiencies.values()
+            ):
+                continue
+            relationship_id = _proficiency_bridge_relationship_id(
+                sheet_proficiencies,
+                proficiency_id,
+            )
+            sheet_proficiencies[relationship_id] = {
+                "relationship_id": relationship_id,
+                "prof_id": proficiency_id,
+                "use_count": 0,
+                "growth_rate": growth_rate,
+            }
+
+
+def _migrate_v14_to_v15(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    _normalize_formula_path_references(state)
+
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if not isinstance(item, dict) or item.get("attribute_profile") != "weapon":
+                continue
+            grants = item.get("action_grants", [])
+            if not isinstance(grants, list):
+                grants = []
+            item["action_grants"] = normalize_weapon_action_grant_payloads(
+                grant for grant in grants if isinstance(grant, dict)
+            )
+
+    sheets = state.get("sheets", {})
+    if isinstance(sheets, dict):
+        for sheet in sheets.values():
+            if not isinstance(sheet, dict):
+                continue
+            actions = sheet.get("actions", {})
+            if not isinstance(actions, dict):
+                continue
+            sheet["actions"] = {
+                relationship_id: bridge
+                for relationship_id, bridge in actions.items()
+                if not (
+                    isinstance(bridge, dict)
+                    and bridge.get("entry_id") in WEAPON_ACTION_IDS
+                )
+            }
+
+    _sync_equipped_weapon_proficiencies_payload(state)
+    return {"schema_version": 15, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -964,6 +1111,7 @@ MIGRATIONS: dict[int, Migration] = {
     11: _migrate_v11_to_v12,
     12: _migrate_v12_to_v13,
     13: _migrate_v13_to_v14,
+    14: _migrate_v14_to_v15,
 }
 
 

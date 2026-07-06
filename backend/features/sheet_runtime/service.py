@@ -653,6 +653,54 @@ def _resolve_item_action_source(
     return bridge_key, grant, item
 
 
+def _formula_requires_source_item(formula: Formula) -> bool:
+    return any(
+        bool(alias.path) and alias.path[0] == "source_item"
+        for alias in formula.aliases or []
+    )
+
+
+def _formula_value_requires_source_item(
+    value: FormulaValueSource | NumericValueSource | None,
+    state: State,
+) -> bool:
+    if isinstance(value, Formula):
+        return _formula_requires_source_item(value)
+    if isinstance(value, FormulaReference):
+        definition = state.formulas.get(value.formula_id)
+        return (
+            definition is not None
+            and _formula_requires_source_item(definition.formula)
+        )
+    return False
+
+
+def _action_requires_source_item(action: Action, state: State) -> bool:
+    for step in action.steps:
+        values: list[FormulaValueSource | NumericValueSource | None] = []
+        if isinstance(step, SendMessageStep):
+            values.append(step.message)
+        elif isinstance(step, CalculateValueStep):
+            values.append(step.value)
+        elif isinstance(step, SetValueStep):
+            values.extend((step.value, step.min_value, step.max_value))
+        elif isinstance(
+            step,
+            (
+                IncrementValueStep,
+                DecrementValueStep,
+                ResolveDamageStep,
+                GainProficiencyUseStep,
+            ),
+        ):
+            values.append(step.amount)
+            if isinstance(step, IncrementValueStep | DecrementValueStep):
+                values.extend((step.min_value, step.max_value))
+        if any(_formula_value_requires_source_item(value, state) for value in values):
+            return True
+    return False
+
+
 def _resolve_action(
     sheet: Sheet,
     action_id: str,
@@ -680,11 +728,14 @@ def _resolve_action(
             source_item=item,
         )
 
-    if actor_role == "dm":
-        return ResolvedAction(action=action)
+    source_item_required = _action_requires_source_item(action, current_state)
 
-    if any(bridge.entry_id == action_id for bridge in sheet.actions.values()):
-        return ResolvedAction(action=action)
+    if not source_item_required:
+        if actor_role == "dm":
+            return ResolvedAction(action=action)
+
+        if any(bridge.entry_id == action_id for bridge in sheet.actions.values()):
+            return ResolvedAction(action=action)
 
     eligible_sources: list[tuple[str, ItemActionGrant, Item]] = []
     for bridge_key in sheet.items:
@@ -712,6 +763,12 @@ def _resolve_action(
         raise ValueError(
             f"Multiple items grant action '{action_id}'; provide a source item "
             "relationship ID."
+        )
+
+    if source_item_required:
+        raise ValueError(
+            f"Action '{action_id}' requires an explicit eligible source item "
+            "relationship."
         )
 
     raise ValueError(

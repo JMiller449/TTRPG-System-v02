@@ -67,6 +67,7 @@ Backend:
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, and source-item action context are backend-authoritative.
+- Weapon-profile items automatically grant canonical equipped weapon actions, and equipping a weapon adds the matching sheet proficiency bridge when it is missing so source-item weapon rolls can resolve `weapon_proficiency`.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
@@ -80,6 +81,7 @@ Frontend:
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
+- Weapon action controls resolve through item-granted source items rather than direct sheet action bridges.
 - Frontend shell and navigation have been reorganized for table use: persistent session status, task-oriented player tabs, compact searchable action commands, and grouped GM workspaces.
 - The frontend visual system now follows the dense R6 console reference layout: an edge-to-edge status header, grouped GM rail, reserved feedback strip, compact authoritative character workspace, vertical template section rail, and reusable catalog/editor authoring pages. This was a presentation-only pivot and did not add or remove application capabilities.
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.

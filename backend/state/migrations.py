@@ -11,7 +11,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 15
+CURRENT_STATE_SCHEMA_VERSION = 16
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1096,6 +1096,104 @@ def _migrate_v14_to_v15(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 15, "state": state}
 
 
+def _restore_projected_base_value(
+    state: dict[str, Any],
+    target_path: str,
+    base_value: Any,
+) -> None:
+    if not target_path.startswith("/"):
+        return
+    segments = [
+        segment.replace("~1", "/").replace("~0", "~")
+        for segment in target_path[1:].split("/")
+    ]
+    if not segments:
+        return
+
+    current: Any = state
+    for segment in segments[:-1]:
+        if isinstance(current, dict):
+            current = current.get(segment)
+        elif isinstance(current, list):
+            try:
+                current = current[int(segment)]
+            except (IndexError, TypeError, ValueError):
+                return
+        else:
+            return
+        if current is None:
+            return
+
+    leaf = segments[-1]
+    if isinstance(current, dict) and leaf in current:
+        current[leaf] = deepcopy(base_value)
+    elif isinstance(current, list):
+        try:
+            current[int(leaf)] = deepcopy(base_value)
+        except (IndexError, TypeError, ValueError):
+            return
+
+
+def _migrate_v15_to_v16(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+
+    projections = state.get("equipment_effect_projections", {})
+    if isinstance(projections, dict):
+        for projection in projections.values():
+            if not isinstance(projection, dict):
+                continue
+            target_path = projection.get("target_path")
+            if isinstance(target_path, str) and "base_value" in projection:
+                _restore_projected_base_value(
+                    state,
+                    target_path,
+                    projection["base_value"],
+                )
+    state["equipment_effect_projections"] = {}
+
+    augmentations = state.get("augmentations")
+    equipment_augmentation_ids: set[str] = set()
+    if isinstance(augmentations, dict):
+        equipment_augmentation_ids = {
+            augmentation_id
+            for augmentation_id, augmentation in augmentations.items()
+            if isinstance(augmentation, dict)
+            and augmentation.get("lifecycle_owner") == "equipment"
+        }
+        state["augmentations"] = {
+            augmentation_id: augmentation
+            for augmentation_id, augmentation in augmentations.items()
+            if augmentation_id not in equipment_augmentation_ids
+        }
+
+    sheets = state.get("sheets", {})
+    instances = state.get("instanced_sheets", {})
+    if isinstance(sheets, dict) and isinstance(instances, dict):
+        for instance in instances.values():
+            if not isinstance(instance, dict):
+                continue
+            template = sheets.get(instance.get("parent_id"))
+            if not isinstance(template, dict):
+                continue
+            instance.setdefault("items", deepcopy(template.get("items", {})))
+            instance.setdefault("stats", deepcopy(template.get("stats", {})))
+            augments = instance.get("augments", {})
+            if isinstance(augments, dict):
+                instance["augments"] = {
+                    relationship_id: bridge
+                    for relationship_id, bridge in augments.items()
+                    if not (
+                        relationship_id in equipment_augmentation_ids
+                        or (
+                            isinstance(bridge, dict)
+                            and bridge.get("entry_id") in equipment_augmentation_ids
+                        )
+                    )
+                }
+
+    return {"schema_version": 16, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1112,6 +1210,7 @@ MIGRATIONS: dict[int, Migration] = {
     12: _migrate_v12_to_v13,
     13: _migrate_v13_to_v14,
     14: _migrate_v14_to_v15,
+    15: _migrate_v15_to_v16,
 }
 
 

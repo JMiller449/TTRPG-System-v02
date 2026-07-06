@@ -23,6 +23,13 @@ class ApplyInstancedSheetDamage(RequestModel):
     type: Literal["apply_instanced_sheet_damage"]
 
 
+class SetInstancedSheetItemEquipped(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    equipped: bool
+    type: Literal["set_instanced_sheet_item_equipped"]
+
+
 @dataclass
 class ActionExecuted:
     response_id: str | None

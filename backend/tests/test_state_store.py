@@ -732,6 +732,48 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert current.state == {"actions": {}}
 
 
+def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 15,
+            "state": {
+                "sheets": {
+                    "sheet-1": {
+                        "items": {
+                            "sword": {
+                                "relationship_id": "sword",
+                                "count": 1,
+                                "equipped": True,
+                                "item_id": "sword",
+                            }
+                        },
+                        "stats": {"strength": 15},
+                    }
+                },
+                "instanced_sheets": {
+                    "instance-1": {"parent_id": "sheet-1", "augments": {"old": {"entry_id": "old"}}}
+                },
+                "augmentations": {"old": {"lifecycle_owner": "equipment"}},
+                "equipment_effect_projections": {
+                    "projection": {
+                        "target_path": "/sheets/sheet-1/stats/strength",
+                        "base_value": 10,
+                        "effective_value": 15,
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["sheets"]["sheet-1"]["stats"]["strength"] == 10
+    instance = migrated.state["instanced_sheets"]["instance-1"]
+    assert instance["stats"]["strength"] == 10
+    assert instance["items"]["sword"]["equipped"] is True
+    assert instance["augments"] == {}
+    assert migrated.state["augmentations"] == {}
+    assert migrated.state["equipment_effect_projections"] == {}
+
+
 def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
     def old_action(action_id: str, stat_name: str) -> dict:
         label = action_id.title()

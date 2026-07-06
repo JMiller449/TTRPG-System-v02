@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Dict
 
@@ -84,9 +85,29 @@ class InstancedSheet:
     mana: int
     resistances: Resistances
     augments: Dict[str, Bridge]  # TODO add augments dict
+    stats: Stats | None = None
+    items: Dict[str, ItemBridge] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "InstancedSheet":
+    def from_dict(
+        cls,
+        raw: dict,
+        *,
+        template: Sheet | None = None,
+    ) -> "InstancedSheet":
+        raw_stats = raw.get("stats")
+        raw_items = raw.get("items")
+        if raw_stats is None:
+            stats = deepcopy(template.stats) if template is not None else None
+        else:
+            stats = Stats.from_dict(raw_stats)
+        if raw_items is None:
+            items = deepcopy(template.items) if template is not None else {}
+        else:
+            items = {
+                key: ItemBridge.from_dict(bridge)
+                for key, bridge in raw_items.items()
+            }
         return cls(
             parent_id=raw["parent_id"],
             notes=raw.get("notes", ""),
@@ -97,4 +118,6 @@ class InstancedSheet:
                 key: Bridge.from_dict(bridge)
                 for key, bridge in raw.get("augments", {}).items()
             },
+            stats=stats,
+            items=items,
         )

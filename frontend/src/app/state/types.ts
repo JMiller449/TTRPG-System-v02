@@ -30,6 +30,7 @@ export type Roll20BridgeConnectionStatus = "unknown" | "connected" | "disconnect
 export type GMView =
   | "console"
   | "sheet_viewer"
+  | "action_history"
   | "template_library"
   | "create_template"
   | "encounter_presets"

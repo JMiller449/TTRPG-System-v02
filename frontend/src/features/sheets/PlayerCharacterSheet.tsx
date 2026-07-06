@@ -23,10 +23,10 @@ import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildAttachSheetActionRequest,
   buildAttachSheetAttributeRequest,
-  buildAttachSheetItemRequest,
+  buildAttachInstancedSheetItemRequest,
+  buildDetachInstancedSheetItemRequest,
   buildDetachSheetActionRequest,
   buildDetachSheetAttributeRequest,
-  buildDetachSheetItemRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkSheetProficiencyRequest,
   buildPerformActionRequest,
@@ -34,11 +34,11 @@ import {
   buildRelinkSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetInstancedSheetItemEquippedRequest,
   buildSetSheetAttributeValueRequest,
   buildSetSheetFormulaStatRequest,
   buildSetSheetResistancesRequest,
   buildUnlinkSheetProficiencyRequest,
-  buildUpdateAttachedSheetItemRequest,
   buildUpdateLinkedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
@@ -100,7 +100,7 @@ export function PlayerCharacterSheet({
 
   const statEditor = useStatModifierEditor({
     resetToken: detail?.instance.id,
-    sheetId: detail?.sheet?.id,
+    instanceId: detail?.instance.id,
     baseStats: detail?.stats ?? {},
     client
   });
@@ -148,28 +148,16 @@ export function PlayerCharacterSheet({
   const showResistancesSection = mode === "gm" && activeTab === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
-  const canEditEquipment = mode === "gm";
+  const canManageEquipment = mode === "gm";
   const canEditProficiencies = mode === "gm";
   const sheetId = detail.sheet?.id;
 
   const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
-    if (!sheetId) {
-      return;
-    }
-
-    const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
-    if (!bridge) {
-      return;
-    }
-
     client.sendProtocolRequest(
-      buildUpdateAttachedSheetItemRequest({
-        sheetId,
+      buildSetInstancedSheetItemEquippedRequest({
+        instanceId: detail.instance.id,
         relationshipId,
-        bridge: {
-          ...bridge,
-          equipped
-        }
+        equipped
       }),
       equipped ? "Equip item" : "Unequip item"
     );
@@ -512,17 +500,18 @@ export function PlayerCharacterSheet({
               selectedItemId={selectedItemId}
               selectedItem={selectedItem}
               equipment={equipment}
-              canEdit={canEditEquipment}
+              canManageInventory={canManageEquipment}
+              canToggleEquipped
               onSelectedItemIdChange={setSelectedItemId}
               onAddSelectedItem={() => {
-                if (!sheetId || !selectedItem) {
+                if (!selectedItem) {
                   return;
                 }
 
                 const relationshipId = makeId("item_bridge");
                 client.sendProtocolRequest(
-                  buildAttachSheetItemRequest({
-                    sheetId,
+                  buildAttachInstancedSheetItemRequest({
+                    instanceId: detail.instance.id,
                     bridge: {
                       relationship_id: relationshipId,
                       item_id: selectedItem.id,
@@ -534,16 +523,13 @@ export function PlayerCharacterSheet({
                 );
               }}
               onQuantityChange={(relationshipId, count) => {
-                if (!sheetId) {
-                  return;
-                }
                 const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
                 const item = bridge ? items[bridge.item_id] : undefined;
                 if (!bridge || !item) {
                   return;
                 }
                 const submission = buildEquipmentQuantitySubmission({
-                  sheetId,
+                  instanceId: detail.instance.id,
                   bridge,
                   count,
                   itemName: item.name
@@ -561,12 +547,9 @@ export function PlayerCharacterSheet({
                 updateEquipmentBridgeEquipped(relationshipId, !bridge.equipped);
               }}
               onRemoveInventoryItem={(relationshipId) => {
-                if (!sheetId) {
-                  return;
-                }
                 client.sendProtocolRequest(
-                  buildDetachSheetItemRequest({
-                    sheetId,
+                  buildDetachInstancedSheetItemRequest({
+                    instanceId: detail.instance.id,
                     relationshipId
                   }),
                   "Remove equipment"
@@ -584,7 +567,7 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-action_history"
             tabIndex={0}
           >
-            <RollLog />
+            <RollLog sheetId={detail.sheet?.id} instanceId={detail.instance.id} />
           </div>
         ) : null}
 

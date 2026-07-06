@@ -476,6 +476,9 @@ export interface PersistentSheet {
   notes?: string;
   health: number;
   mana: number;
+  stats?: Stats | null;
+  evaluated_stats?: Partial<Record<StatKey, number>>;
+  items?: Record<string, ItemBridge>;
   resistances?: Resistances;
   augments: Record<string, Bridge>;
 }

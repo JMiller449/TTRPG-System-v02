@@ -16,6 +16,7 @@ import { ExtensionPage } from "@/features/extension/ExtensionPage";
 import { AttributeAuthoringPage } from "@/features/attributes/AttributeAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
+import { RollLog } from "@/features/rolls/RollLog";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
 import { StateSafetyPanel } from "@/features/stateSync/StateSafetyPanel";
 import { StateBackupPage } from "@/features/stateBackup/StateBackupPage";
@@ -52,6 +53,8 @@ export function App(): JSX.Element {
   const gmContent =
     gmView === "sheet_viewer" ? (
       <SheetViewerPage client={client} />
+    ) : gmView === "action_history" ? (
+      <RollLog />
     ) : gmView === "template_library" ? (
       <TemplateLibrary client={client} />
     ) : gmView === "create_template" ? (

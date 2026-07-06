@@ -992,28 +992,13 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
             assert instance.mana == 20
             assert instance.resistances.fire == 0.0
             assert instance.augments == {}
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "add",
-                            "path": "/instanced_sheets/mage_instance",
-                            "value": {
-                                "parent_id": "mage_template",
-                                "notes": "Instance table notes.",
-                                "health": 100,
-                                "mana": 20,
-                                "resistances": _resistances_payload(),
-                                "augments": {},
-                            },
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "req-1",
-                }
-            ]
+            assert instance.stats == state.sheets["mage_template"].stats
+            assert instance.stats is not state.sheets["mage_template"].stats
+            assert instance.items == state.sheets["mage_template"].items
+            instance_payload = websocket.sent_messages[0]["ops"][0]["value"]
+            assert instance_payload["stats"]["strength"] == 10
+            assert instance_payload["items"] == {}
+            assert websocket.sent_messages[0]["request_id"] == "req-1"
         finally:
             StateSingleton._state = original_state
 

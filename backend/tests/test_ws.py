@@ -1441,6 +1441,7 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
             }
         }
         instance_payload = asdict(_build_instance_state())
+        instance_payload["items"] = deepcopy(sheet_payload["items"])
 
         persisted_state_json = json.dumps(
             build_persisted_state(

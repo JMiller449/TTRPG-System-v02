@@ -348,6 +348,25 @@ export function buildSetSheetBaseStatRequest({
   };
 }
 
+export function buildSetInstancedSheetBaseStatRequest({
+  instanceId,
+  statName,
+  value,
+  requestId
+}: {
+  instanceId: string;
+  statName: SheetCoreStatName;
+  value: number;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_base_stat"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_base_stat",
+    instance_id: instanceId,
+    stat_name: statName,
+    value
+  };
+}
+
 export function buildSetSheetFormulaStatRequest({
   sheetId,
   statName,
@@ -717,6 +736,76 @@ export function buildDetachSheetItemRequest({
     type: "delete_sheet_item_bridge",
     sheet_id: sheetId,
     relationship_id: relationshipId
+  };
+}
+
+export function buildAttachInstancedSheetItemRequest({
+  instanceId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  bridge: SheetItemBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"create_instanced_sheet_item_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_instanced_sheet_item_bridge",
+    instance_id: instanceId,
+    bridge
+  };
+}
+
+export function buildUpdateInstancedSheetItemRequest({
+  instanceId,
+  relationshipId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  bridge: SheetItemBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"update_instanced_sheet_item_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_instanced_sheet_item_bridge",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    bridge
+  };
+}
+
+export function buildDetachInstancedSheetItemRequest({
+  instanceId,
+  relationshipId,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_instanced_sheet_item_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_instanced_sheet_item_bridge",
+    instance_id: instanceId,
+    relationship_id: relationshipId
+  };
+}
+
+export function buildSetInstancedSheetItemEquippedRequest({
+  instanceId,
+  relationshipId,
+  equipped,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  equipped: boolean;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_item_equipped"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_item_equipped",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    equipped
   };
 }
 

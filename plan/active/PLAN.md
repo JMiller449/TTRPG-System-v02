@@ -103,7 +103,7 @@ Frontend:
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
 - GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.
-- GM dashboard hosts session-level active sheet selection, player access codes, and quick actions without embedding the character sheet; GM Characters owns sheet detail plus dedicated tabs for action history, formula stats, and resistances.
+- GM dashboard hosts session-level active sheet selection, player access codes, and quick actions without embedding the character sheet; GM Action History owns the global actor-labelled audit stream, while GM Characters owns sheet detail plus filtered per-sheet history, formula-stat, and resistance tabs.
 - GM sheet Actions uses the player-style searchable command grid for execution while retaining GM assignment management below it.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
@@ -163,7 +163,13 @@ No large architecture feature is currently missing for the stated character-shee
     install, reload, and re-login sequence.
   - Successful authored actions populate the persisted, bounded action-history audit
     stream through non-undoable authoritative patches; live patches use the same
-    role-filtered string payloads as snapshots for both DMs and assigned players.
+    role-filtered string payloads as snapshots for both DMs and assigned players. The
+    GM has a global actor-labelled history page, and character history tabs filter by
+    their selected sheet and instance.
+  - Template inventory bridges now define spawn defaults while character instances own
+    live item quantities, equipped state, and runtime stats. Item use and equipment
+    effects are isolated per instance; assigned players may equip or unequip their own
+    items while inventory management remains DM-only.
 
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates

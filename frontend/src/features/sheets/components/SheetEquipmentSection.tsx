@@ -82,7 +82,8 @@ export function SheetEquipmentSection({
   selectedItemId,
   selectedItem,
   equipment,
-  canEdit,
+  canManageInventory,
+  canToggleEquipped,
   onSelectedItemIdChange,
   onAddSelectedItem,
   onQuantityChange,
@@ -98,7 +99,8 @@ export function SheetEquipmentSection({
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
   equipment: ItemBridge[];
-  canEdit: boolean;
+  canManageInventory: boolean;
+  canToggleEquipped: boolean;
   onSelectedItemIdChange: (itemId: string) => void;
   onAddSelectedItem: () => void;
   onQuantityChange: (inventoryItemId: string, count: number) => void;
@@ -108,7 +110,7 @@ export function SheetEquipmentSection({
   return (
     <section className="character-sheet__section">
       <h4>Inventory &amp; Equipment</h4>
-      {canEdit ? (
+      {canManageInventory ? (
         <div className="equipment-add-row">
           <Field label="Item">
             <select
@@ -139,7 +141,7 @@ export function SheetEquipmentSection({
           </button>
         </div>
       ) : null}
-      {canEdit && selectedItem
+      {canManageInventory && selectedItem
         ? (() => {
             const selectedEffectCounts = countItemEffectTypes(selectedItem);
             const selectedAttributeSummaries = summarizeItemAttributeDetails(
@@ -230,34 +232,36 @@ export function SheetEquipmentSection({
                   actionSummaries={actionSummaries}
                 />
               </div>
-              {canEdit ? (
+              {canManageInventory || canToggleEquipped ? (
                 <div className="inline-actions">
-                  <div
-                    className="equipment-quantity-stepper"
-                    role="group"
-                    aria-label={`${item.name} quantity`}
-                  >
-                    <button
-                      type="button"
-                      title={`Decrease ${item.name} quantity`}
-                      aria-label={`Decrease ${item.name} quantity`}
-                      disabled={entry.count === 0}
-                      onClick={() => onQuantityChange(entry.relationship_id, entry.count - 1)}
+                  {canManageInventory ? (
+                    <div
+                      className="equipment-quantity-stepper"
+                      role="group"
+                      aria-label={`${item.name} quantity`}
                     >
-                      -
-                    </button>
-                    <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
-                    <button
-                      type="button"
-                      title={`Increase ${item.name} quantity`}
-                      aria-label={`Increase ${item.name} quantity`}
-                      disabled={entry.count >= Number.MAX_SAFE_INTEGER}
-                      onClick={() => onQuantityChange(entry.relationship_id, entry.count + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                  {item.interaction_type === "equippable" ? (
+                      <button
+                        type="button"
+                        title={`Decrease ${item.name} quantity`}
+                        aria-label={`Decrease ${item.name} quantity`}
+                        disabled={entry.count === 0}
+                        onClick={() => onQuantityChange(entry.relationship_id, entry.count - 1)}
+                      >
+                        -
+                      </button>
+                      <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
+                      <button
+                        type="button"
+                        title={`Increase ${item.name} quantity`}
+                        aria-label={`Increase ${item.name} quantity`}
+                        disabled={entry.count >= Number.MAX_SAFE_INTEGER}
+                        onClick={() => onQuantityChange(entry.relationship_id, entry.count + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : null}
+                  {canToggleEquipped && item.interaction_type === "equippable" ? (
                     <button
                       type="button"
                       className="button button--secondary"
@@ -269,14 +273,16 @@ export function SheetEquipmentSection({
                       {entry.equipped ? "Unequip" : "Equip"}
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    className="button button--secondary"
-                    onClick={() => onRemoveInventoryItem(entry.relationship_id)}
-                    aria-label={`Remove ${item.name} from inventory`}
-                  >
-                    Remove
-                  </button>
+                  {canManageInventory ? (
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() => onRemoveInventoryItem(entry.relationship_id)}
+                      aria-label={`Remove ${item.name} from inventory`}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </article>

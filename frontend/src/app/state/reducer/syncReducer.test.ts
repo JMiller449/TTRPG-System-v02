@@ -865,7 +865,8 @@ describe("authoritative server-state sync", () => {
             health: 100,
             mana: 20,
             resistances: {},
-            augments: {}
+            augments: {},
+            items: {}
           }
         },
         items: {},
@@ -1088,7 +1089,8 @@ describe("authoritative server-state sync", () => {
             health: 100,
             mana: 20,
             resistances: {},
-            augments: {}
+            augments: {},
+            items: {}
           }
         },
         items: {
@@ -1117,7 +1119,7 @@ describe("authoritative server-state sync", () => {
       ops: [
         {
           op: "add",
-          path: "/sheets/sheet_1/items/main_hand",
+          path: "/instanced_sheets/instance_1/items/main_hand",
           value: {
             relationship_id: "main_hand",
             count: 1,
@@ -1167,12 +1169,12 @@ describe("authoritative server-state sync", () => {
       ops: [
         {
           op: "set",
-          path: "/sheets/sheet_1/items/main_hand/count",
+          path: "/instanced_sheets/instance_1/items/main_hand/count",
           value: 2
         },
         {
           op: "set",
-          path: "/sheets/sheet_1/items/main_hand/equipped",
+          path: "/instanced_sheets/instance_1/items/main_hand/equipped",
           value: false
         },
         {
@@ -1202,7 +1204,7 @@ describe("authoritative server-state sync", () => {
       ops: [
         {
           op: "remove",
-          path: "/sheets/sheet_1/items/main_hand"
+          path: "/instanced_sheets/instance_1/items/main_hand"
         }
       ],
       state_version: 3,

@@ -65,14 +65,15 @@ function buildBaseStatValues(
     return {};
   }
 
-  const evaluatedStats = sheet.evaluated_stats ?? {};
+  const runtimeStats = persistentSheet?.stats ?? sheet.stats;
+  const evaluatedStats = persistentSheet?.evaluated_stats ?? sheet.evaluated_stats ?? {};
   return {
-    strength: sheet.stats.strength,
-    dexterity: sheet.stats.dexterity,
-    constitution: sheet.stats.constitution,
-    perception: sheet.stats.perception,
-    arcane: sheet.stats.arcane,
-    will: sheet.stats.will,
+    strength: runtimeStats.strength,
+    dexterity: runtimeStats.dexterity,
+    constitution: runtimeStats.constitution,
+    perception: runtimeStats.perception,
+    arcane: runtimeStats.arcane,
+    will: runtimeStats.will,
     ...evaluatedStats,
     ...(persistentSheet ? { health: persistentSheet.health, mana: persistentSheet.mana } : {})
   };
@@ -161,6 +162,10 @@ function resolveSheetFromSheetOrInstanceId(
 }
 
 export function selectSheetEquipment(state: AppState, sheetOrInstanceId: string): ItemBridge[] {
+  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
+  if (instance) {
+    return Object.values(instance.items ?? {});
+  }
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
   return Object.values(sheet?.items ?? {});
 }
@@ -242,7 +247,9 @@ export function selectSheetAssignedActions(
     })
     .filter((entry): entry is AssignedSheetAction => Boolean(entry));
 
-  const itemGrantedActions = Object.values(sheet.items ?? {}).flatMap((itemBridge) => {
+  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
+  const inventory = instance?.items ?? sheet.items ?? {};
+  const itemGrantedActions = Object.values(inventory).flatMap((itemBridge) => {
     if (itemBridge.count <= 0) {
       return [];
     }

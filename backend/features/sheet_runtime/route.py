@@ -11,7 +11,11 @@ from backend.features.session.models import WebSocketSession
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_runtime import handler
 from backend.features.sheet_runtime import service
-from backend.features.sheet_runtime.schema import ApplyInstancedSheetDamage, PerformAction
+from backend.features.sheet_runtime.schema import (
+    ApplyInstancedSheetDamage,
+    PerformAction,
+    SetInstancedSheetItemEquipped,
+)
 from backend.protocol.socket import ActionExecutedEvent, StatePatchEvent
 
 
@@ -53,6 +57,32 @@ class ApplyInstancedSheetDamageRoute(RequestRoute[ApplyInstancedSheetDamage]):
         await service.apply_instanced_sheet_damage(request)
 
 
+class SetInstancedSheetItemEquippedRoute(
+    RequestRoute[SetInstancedSheetItemEquipped]
+):
+    type_name = "set_instanced_sheet_item_equipped"
+    request_model = SetInstancedSheetItemEquipped
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_use")
+    permission_denied_reason = permission_denied_reason("equipment_use")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceItems",
+        method_name="setEquipped",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetItemEquipped,
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
+        await service.set_instanced_sheet_item_equipped(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(PerformActionRoute())
     registry.register(ApplyInstancedSheetDamageRoute())
+    registry.register(SetInstancedSheetItemEquippedRoute())

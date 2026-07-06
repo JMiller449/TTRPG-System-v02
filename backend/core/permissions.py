@@ -9,6 +9,7 @@ PermissionKey = Literal[
     "notes_edit",
     "instance_notes_edit",
     "equipment_edit",
+    "equipment_use",
     "proficiency_edit",
     "stat_edit",
     "resource_edit",
@@ -50,6 +51,12 @@ PERMISSION_RULES: dict[PermissionKey, PermissionRule] = {
         label="Equipment edits",
         allowed_roles=("dm",),
         denied_reason="Only a DM can edit equipment.",
+    ),
+    "equipment_use": PermissionRule(
+        key="equipment_use",
+        label="Instance equipment use",
+        allowed_roles=("player", "dm"),
+        denied_reason="Authenticate first to equip character items.",
     ),
     "proficiency_edit": PermissionRule(
         key="proficiency_edit",

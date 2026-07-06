@@ -67,6 +67,17 @@ class State:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
         raw_attributes = raw.get("attributes", raw.get("facts", {}))
+        sheets = {
+            key: Sheet.from_dict(sheet)
+            for key, sheet in raw.get("sheets", {}).items()
+        }
+        instanced_sheets = {
+            key: InstancedSheet.from_dict(
+                sheet,
+                template=sheets.get(sheet.get("parent_id")),
+            )
+            for key, sheet in raw.get("instanced_sheets", {}).items()
+        }
         return cls(
             action_history=prune_action_history(
                 {
@@ -74,14 +85,8 @@ class State:
                     for key, entry in raw.get("action_history", {}).items()
                 }
             ),
-            sheets={
-                key: Sheet.from_dict(sheet)
-                for key, sheet in raw.get("sheets", {}).items()
-            },
-            instanced_sheets={
-                key: InstancedSheet.from_dict(sheet)
-                for key, sheet in raw.get("instanced_sheets", {}).items()
-            },
+            sheets=sheets,
+            instanced_sheets=instanced_sheets,
             formulas={
                 key: FormulaDefinition.from_dict(formula)
                 for key, formula in raw.get("formulas", {}).items()

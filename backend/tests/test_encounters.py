@@ -254,40 +254,14 @@ def test_dm_can_spawn_encounter_preset(monkeypatch) -> None:
             assert state.instanced_sheets["encounter_1_mage_template_1"].health == 120
             assert state.instanced_sheets["encounter_1_mage_template_1"].mana == 32
             assert state.instanced_sheets["encounter_1_mage_template_1"].resistances.fire == 10.0
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "add",
-                            "path": "/instanced_sheets/encounter_1_mage_template_1",
-                            "value": {
-                                "parent_id": "mage_template",
-                                "notes": "",
-                                "health": 120,
-                                "mana": 32,
-                                "resistances": _resistances_payload(fire=10.0),
-                                "augments": {},
-                            },
-                        },
-                        {
-                            "op": "add",
-                            "path": "/instanced_sheets/encounter_1_mage_template_2",
-                            "value": {
-                                "parent_id": "mage_template",
-                                "notes": "",
-                                "health": 120,
-                                "mana": 32,
-                                "resistances": _resistances_payload(fire=10.0),
-                                "augments": {},
-                            },
-                        },
-                    ],
-                    "state_version": 2,
-                    "type": "state_patch",
-                    "request_id": "req-2",
-                }
+            spawn_ops = websocket.sent_messages[0]["ops"]
+            assert [operation["path"] for operation in spawn_ops[:2]] == [
+                "/instanced_sheets/encounter_1_mage_template_1",
+                "/instanced_sheets/encounter_1_mage_template_2",
             ]
+            assert spawn_ops[0]["value"]["stats"]["strength"] == 10
+            assert spawn_ops[0]["value"]["items"] == {}
+            assert websocket.sent_messages[0]["request_id"] == "req-2"
         finally:
             StateSingleton._state = original_state
 

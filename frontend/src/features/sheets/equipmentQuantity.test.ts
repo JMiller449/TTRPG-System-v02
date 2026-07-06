@@ -12,15 +12,15 @@ describe("equipment quantity submissions", () => {
   it("unequips an item when its quantity reaches zero", () => {
     expect(
       buildEquipmentQuantitySubmission({
-        sheetId: "sheet_1",
+        instanceId: "instance_1",
         bridge,
         count: 0,
         itemName: "Sword"
       })
     ).toEqual({
       request: {
-        type: "update_sheet_item_bridge",
-        sheet_id: "sheet_1",
+        type: "update_instanced_sheet_item_bridge",
+        instance_id: "instance_1",
         relationship_id: "main_hand",
         bridge: {
           relationship_id: "main_hand",
@@ -38,7 +38,7 @@ describe("equipment quantity submissions", () => {
     (count) => {
       expect(
         buildEquipmentQuantitySubmission({
-          sheetId: "sheet_1",
+          instanceId: "instance_1",
           bridge,
           count,
           itemName: "Sword"

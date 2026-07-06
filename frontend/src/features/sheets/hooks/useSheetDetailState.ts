@@ -73,22 +73,20 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
     [activeSheetId, serverState]
   );
 
-  const detail = useMemo(
-    () => selectActiveSheetDetail(selectorState),
-    [selectorState]
-  );
+  const detail = useMemo(() => selectActiveSheetDetail(selectorState), [selectorState]);
   const sheetOrInstanceId = detail?.sheet?.id ?? detail?.instance.id ?? null;
+  const instanceId = detail?.instance.id ?? null;
   const equipment = useMemo(
-    () => (sheetOrInstanceId ? selectSheetEquipment(selectorState, sheetOrInstanceId) : []),
-    [selectorState, sheetOrInstanceId]
+    () => (instanceId ? selectSheetEquipment(selectorState, instanceId) : []),
+    [instanceId, selectorState]
   );
   const sheetProficiencies = useMemo(
     () => (sheetOrInstanceId ? selectSheetProficiencies(selectorState, sheetOrInstanceId) : []),
     [selectorState, sheetOrInstanceId]
   );
   const assignedActions = useMemo(
-    () => (sheetOrInstanceId ? selectSheetAssignedActions(selectorState, sheetOrInstanceId) : []),
-    [selectorState, sheetOrInstanceId]
+    () => (instanceId ? selectSheetAssignedActions(selectorState, instanceId) : []),
+    [instanceId, selectorState]
   );
   const activeConditions = useMemo(
     () => (detail ? selectActiveConditions(selectorState, detail.instance.id) : []),

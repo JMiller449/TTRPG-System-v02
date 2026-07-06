@@ -171,8 +171,10 @@ def matching_evaluation_effects(
     sheet = state.sheets.get(sheet_id)
     if sheet is None:
         return tuple(effects)
+    instance = state.instanced_sheets.get(instance_id) if instance_id is not None else None
+    inventory = instance.items if instance is not None else sheet.items
 
-    for bridge in sheet.items.values():
+    for bridge in inventory.values():
         if not bridge.equipped or bridge.count <= 0:
             continue
         item = state.items.get(bridge.item_id)
@@ -211,49 +213,44 @@ def _equipment_augmentation_id(
 
 def _desired_equipment_augmentations(state: State) -> dict[str, Augmentation]:
     desired: dict[str, Augmentation] = {}
-    instances_by_sheet: dict[str, list[str]] = defaultdict(list)
     for instance_id, instance in sorted(state.instanced_sheets.items()):
-        instances_by_sheet[instance.parent_id].append(instance_id)
-
-    for sheet_id, sheet in sorted(state.sheets.items()):
-        for bridge_key, bridge in sorted(sheet.items.items()):
+        if instance.parent_id not in state.sheets:
+            continue
+        for bridge_key, bridge in sorted(instance.items.items()):
             if not bridge.equipped or bridge.count <= 0:
                 continue
             item = state.items.get(bridge.item_id)
             if item is None or item.interaction_type != "equippable":
                 continue
 
-            application_id = f"equipment:{sheet_id}:{bridge.relationship_id}"
+            application_id = f"equipment:{instance_id}:{bridge.relationship_id}"
             for template in item.augmentation_templates:
                 if not template.active:
                     continue
                 _validate_runtime_augmentation_target(template)
-                target_ids = (
-                    [sheet_id]
-                    if template.target.root == "sheet"
-                    else instances_by_sheet.get(sheet_id, [])
+                augmentation = deepcopy(template)
+                if augmentation.target.root == "sheet":
+                    augmentation.target.root = "instance"
+                    augmentation.scope = "instance"
+                augmentation.id = _equipment_augmentation_id(
+                    sheet_id=instance_id,
+                    relationship_id=bridge.relationship_id,
+                    item_id=item.id,
+                    target_id=instance_id,
+                    template_id=template.id,
                 )
-                for target_id in target_ids:
-                    augmentation = deepcopy(template)
-                    augmentation.id = _equipment_augmentation_id(
-                        sheet_id=sheet_id,
-                        relationship_id=bridge.relationship_id,
-                        item_id=item.id,
-                        target_id=target_id,
-                        template_id=template.id,
-                    )
-                    augmentation.source = AugmentationSource(
-                        type="item",
-                        id=item.id,
-                        label=item.name,
-                        relationship_id=bridge.relationship_id,
-                        application_id=application_id,
-                    )
-                    augmentation.lifecycle_owner = "equipment"
-                    augmentation.active = True
-                    augmentation.applied = True
-                    augmentation.applied_target_id = target_id
-                    desired[augmentation.id] = augmentation
+                augmentation.source = AugmentationSource(
+                    type="item",
+                    id=item.id,
+                    label=item.name,
+                    relationship_id=bridge.relationship_id,
+                    application_id=application_id,
+                )
+                augmentation.lifecycle_owner = "equipment"
+                augmentation.active = True
+                augmentation.applied = True
+                augmentation.applied_target_id = instance_id
+                desired[augmentation.id] = augmentation
 
     return desired
 

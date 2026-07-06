@@ -17,6 +17,7 @@ from backend.features.sheet_admin.sheets.schema import (
     ActionBridgePayload,
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
+    CreateInstancedSheetItemBridge,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
@@ -25,6 +26,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
     DeleteSheet,
+    DeleteInstancedSheetItemBridge,
     ItemBridgePayload,
     ProficiencyBridgePayload,
     ResistancesPayload,
@@ -39,6 +41,7 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheetItemBridge,
     UpdateSheetProficiencyBridge,
     UpdateSheet,
+    UpdateInstancedSheetItemBridge,
 )
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_access.schema import SheetAccessCodes
@@ -872,6 +875,8 @@ async def instantiate_sheet(
                 else deepcopy(template.resistances)
             ),
             augments={},
+            stats=deepcopy(template.stats),
+            items=deepcopy(template.items),
         )
 
         path = state_sync_service.join_path("instanced_sheets", request.instance_id)
@@ -1045,6 +1050,81 @@ async def detach_sheet_item(request: DeleteSheetItemBridge) -> None:
         path = state_sync_service.join_path(
             "sheets",
             request.sheet_id,
+            "items",
+            request.relationship_id,
+        )
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def attach_instanced_sheet_item(
+    request: CreateInstancedSheetItemBridge,
+) -> None:
+    bridge = _build_sheet_item_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        _validate_item_bridge(request.bridge, state)
+        if request.bridge.relationship_id in instance.items:
+            raise ValueError(
+                f"Instance item bridge '{request.bridge.relationship_id}' already exists."
+            )
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "items",
+            request.bridge.relationship_id,
+        )
+        return None, [state_sync_service.add_mutation(state, path, bridge)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def update_instanced_sheet_item(
+    request: UpdateInstancedSheetItemBridge,
+) -> None:
+    if request.bridge.relationship_id != request.relationship_id:
+        raise ValueError("Instance item bridge ID cannot be changed.")
+    bridge = _build_sheet_item_bridge(request.bridge)
+
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        _validate_item_bridge(request.bridge, state)
+        if request.relationship_id not in instance.items:
+            raise ValueError(
+                f"Instance item bridge '{request.relationship_id}' does not exist."
+            )
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "items",
+            request.relationship_id,
+        )
+        return None, [state_sync_service.set_mutation(state, path, bridge)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def detach_instanced_sheet_item(
+    request: DeleteInstancedSheetItemBridge,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        if request.relationship_id not in instance.items:
+            raise ValueError(
+                f"Instance item bridge '{request.relationship_id}' does not exist."
+            )
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
             "items",
             request.relationship_id,
         )

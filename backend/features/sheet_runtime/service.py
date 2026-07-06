@@ -26,6 +26,7 @@ from backend.features.sheet_runtime.schema import (
     ActionExecuted,
     ApplyInstancedSheetDamage,
     PerformAction,
+    SetInstancedSheetItemEquipped,
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
@@ -58,7 +59,7 @@ from backend.state.models.attribute import (
     WEAPON_ATTRIBUTE_PROFILE,
     AttributeBridge,
 )
-from backend.state.models.item import Item, ItemActionGrant
+from backend.state.models.item import Item, ItemActionGrant, ItemBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
@@ -207,7 +208,9 @@ class RuntimeFormulaContext:
 
     def __getattr__(self, name: str) -> Any:
         if self._instance is not None and hasattr(self._instance, name):
-            return getattr(self._instance, name)
+            instance_value = getattr(self._instance, name)
+            if instance_value is not None:
+                return instance_value
         return getattr(self._sheet, name)
 
 
@@ -606,10 +609,12 @@ def _resolve_item_action_source(
     *,
     state: State,
     relationship_id: str,
+    item_bridges: dict[str, ItemBridge] | None = None,
 ) -> tuple[str, ItemActionGrant, Item]:
+    inventory = sheet.items if item_bridges is None else item_bridges
     matches = [
         (bridge_key, bridge)
-        for bridge_key, bridge in sheet.items.items()
+        for bridge_key, bridge in inventory.items()
         if bridge_key == relationship_id or bridge.relationship_id == relationship_id
     ]
     if not matches:
@@ -707,6 +712,7 @@ def _resolve_action(
     *,
     actor_role: SessionRole,
     source_item_relationship_id: str | None = None,
+    item_bridges: dict[str, ItemBridge] | None = None,
     state: State | None = None,
 ) -> ResolvedAction:
     current_state = _state() if state is None else state
@@ -720,6 +726,7 @@ def _resolve_action(
             action_id,
             state=current_state,
             relationship_id=source_item_relationship_id,
+            item_bridges=item_bridges,
         )
         return ResolvedAction(
             action=action,
@@ -738,7 +745,8 @@ def _resolve_action(
             return ResolvedAction(action=action)
 
     eligible_sources: list[tuple[str, ItemActionGrant, Item]] = []
-    for bridge_key in sheet.items:
+    inventory = sheet.items if item_bridges is None else item_bridges
+    for bridge_key in inventory:
         try:
             eligible_sources.append(
                 _resolve_item_action_source(
@@ -746,6 +754,7 @@ def _resolve_action(
                     action_id,
                     state=current_state,
                     relationship_id=bridge_key,
+                    item_bridges=inventory,
                 )
             )
         except ValueError:
@@ -914,6 +923,41 @@ def _resolve_damage_amount(
     )
 
 
+async def set_instanced_sheet_item_equipped(
+    request: SetInstancedSheetItemEquipped,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        bridge = instance.items.get(request.relationship_id)
+        if bridge is None:
+            raise ValueError(
+                f"Instance item bridge '{request.relationship_id}' does not exist."
+            )
+        item = state.items.get(bridge.item_id)
+        if item is None:
+            raise ValueError(f"Item '{bridge.item_id}' does not exist.")
+        if item.interaction_type != "equippable":
+            raise ValueError(f"Item '{item.name}' cannot be equipped.")
+        if request.equipped and bridge.count <= 0:
+            raise ValueError(f"Item '{item.name}' has no remaining quantity.")
+        if bridge.equipped == request.equipped:
+            return None, []
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "items",
+            request.relationship_id,
+            "equipped",
+        )
+        op = state_sync_service.set_mutation(state, path, request.equipped)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
 async def apply_instanced_sheet_damage(
     request: ApplyInstancedSheetDamage,
 ) -> None:
@@ -1015,6 +1059,7 @@ async def perform_action(
         request.action_id,
         actor_role=actor_role,
         source_item_relationship_id=request.source_item_relationship_id,
+        item_bridges=actor.instance.items if actor.instance is not None else None,
     )
     action = resolution.action
     _validate_action_roll_mode(action, request.roll_mode)
@@ -1034,6 +1079,11 @@ async def perform_action(
             request.action_id,
             actor_role=actor_role,
             source_item_relationship_id=request.source_item_relationship_id,
+            item_bridges=(
+                current_actor.instance.items
+                if current_actor.instance is not None
+                else None
+            ),
             state=state,
         )
         current_action = current_resolution.action
@@ -1427,9 +1477,17 @@ async def perform_action(
             and current_resolution.source_item_grant.consume_quantity > 0
         ):
             consume_quantity = current_resolution.source_item_grant.consume_quantity
+            inventory_root = (
+                "instanced_sheets" if current_actor.instance is not None else "sheets"
+            )
+            inventory_owner_id = (
+                current_actor.actor_id
+                if current_actor.instance is not None
+                else current_actor.sheet_id
+            )
             path = state_sync_service.join_path(
-                "sheets",
-                current_actor.sheet_id,
+                inventory_root,
+                inventory_owner_id,
                 "items",
                 current_resolution.source_item_bridge_key,
                 "count",
@@ -1444,13 +1502,16 @@ async def perform_action(
                 f"items.{current_resolution.source_item_bridge_key}.count"
                 f"-={consume_quantity}"
             )
-            source_bridge = current_actor.sheet.items[
-                current_resolution.source_item_bridge_key
-            ]
+            current_inventory = (
+                current_actor.instance.items
+                if current_actor.instance is not None
+                else current_actor.sheet.items
+            )
+            source_bridge = current_inventory[current_resolution.source_item_bridge_key]
             if source_bridge.count == 0 and source_bridge.equipped:
                 equipped_path = state_sync_service.join_path(
-                    "sheets",
-                    current_actor.sheet_id,
+                    inventory_root,
+                    inventory_owner_id,
                     "items",
                     current_resolution.source_item_bridge_key,
                     "equipped",

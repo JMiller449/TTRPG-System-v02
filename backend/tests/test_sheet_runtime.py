@@ -220,14 +220,15 @@ def _build_sheet_state() -> Sheet:
     return sheet
 
 
-def _build_instance_state() -> InstancedSheet:
+def _build_instance_state(template: Sheet | None = None) -> InstancedSheet:
     return InstancedSheet.from_dict(
         {
             "parent_id": "mage_template",
             "health": 90,
             "mana": 30,
             "augments": {},
-        }
+        },
+        template=template or _build_sheet_state(),
     )
 
 
@@ -312,6 +313,72 @@ def test_dm_can_apply_typed_damage_to_any_instance(monkeypatch) -> None:
                     "value": 0,
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            template.items["sword"] = ItemBridge(
+                relationship_id="sword",
+                count=1,
+                equipped=False,
+                item_id="sword",
+            )
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = _build_instance_state(template)
+            state.instanced_sheets["other_instance"] = _build_instance_state(template)
+            state.items["sword"] = Item.from_dict(
+                {
+                    "id": "sword",
+                    "name": "Sword",
+                    "interaction_type": "equippable",
+                    "description": "",
+                    "price": "",
+                    "weight": "",
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_item_equipped",
+                    "instance_id": "mage_instance",
+                    "relationship_id": "sword",
+                    "equipped": True,
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].items["sword"].equipped
+            assert not state.instanced_sheets["other_instance"].items["sword"].equipped
+            assert not state.sheets["mage_template"].items["sword"].equipped
+            assert websocket.sent_messages[0]["ops"][0]["path"] == (
+                "/instanced_sheets/mage_instance/items/sword/equipped"
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_item_equipped",
+                    "instance_id": "other_instance",
+                    "relationship_id": "sword",
+                    "equipped": True,
+                },
+            )
+            assert websocket.sent_messages[-1]["reason"] == (
+                "You can only edit your assigned sheet instance."
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -1089,6 +1156,9 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                     item_id="inactive-focus",
                 ),
             }
+            state.instanced_sheets["mage_instance"].items = deepcopy(
+                state.sheets["mage_template"].items
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -1191,6 +1261,9 @@ def test_perform_action_modifier_can_read_matched_action_attribute(monkeypatch) 
                     item_id="focus",
                 )
             }
+            state.instanced_sheets["mage_instance"].items = deepcopy(
+                state.sheets["mage_template"].items
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -1229,6 +1302,7 @@ def test_equipment_direct_effect_can_read_owning_item_attribute(monkeypatch) -> 
                 )
             }
             state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["sync_probe"] = Action.from_dict(
                 {"id": "sync_probe", "name": "Sync Probe", "steps": []}
             )
@@ -1293,14 +1367,15 @@ def test_equipment_direct_effect_can_read_owning_item_attribute(monkeypatch) -> 
                 websocket,
                 {
                     "type": "perform_action",
-                    "sheet_id": "mage_template",
+                    "sheet_id": "mage_instance",
                     "action_id": "sync_probe",
                 },
             )
 
-            assert state.sheets["mage_template"].stats.strength == 14
+            assert state.instanced_sheets["mage_instance"].stats is not None
+            assert state.instanced_sheets["mage_instance"].stats.strength == 14
             assert any(
-                op["path"] == "/sheets/mage_template/stats/strength"
+                op["path"] == "/instanced_sheets/mage_instance/stats/strength"
                 for message in websocket.sent_messages
                 if message["type"] == "state_patch"
                 for op in message["ops"]
@@ -1334,7 +1409,7 @@ def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatc
                 )
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["weapon_damage"] = Action.from_dict(
                 {
                     "id": "weapon_damage",
@@ -1450,7 +1525,7 @@ def test_same_source_item_modifier_only_matches_executing_item(
                 ),
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["weapon_damage"] = Action.from_dict(
                 {
                     "id": "weapon_damage",
@@ -1581,7 +1656,7 @@ def test_same_source_item_modifier_treats_same_definition_bridges_as_distinct(
                 ),
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["weapon_damage"] = Action.from_dict(
                 {
                     "id": "weapon_damage",
@@ -1781,7 +1856,7 @@ def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
                     "augmentation_templates": [shield_template, shield_check_bonus],
                 }
             )
-            state.sheets["mage_template"].items["shield"] = ItemBridge(
+            state.instanced_sheets["mage_instance"].items["shield"] = ItemBridge(
                 relationship_id="shield",
                 count=1,
                 equipped=True,
@@ -2226,7 +2301,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                 ),
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["drink_potion"] = Action.from_dict(
                 {
                     "id": "drink_potion",
@@ -2285,8 +2360,9 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
             )
 
             assert state.instanced_sheets["mage_instance"].health == 95
-            assert sheet.items["potion-a"].count == 1
-            assert sheet.items["potion-b"].count == 0
+            instance_items = state.instanced_sheets["mage_instance"].items
+            assert instance_items["potion-a"].count == 1
+            assert instance_items["potion-b"].count == 0
             assert _request_messages(websocket)[-1]["ops"] == [
                 {
                     "op": "inc",
@@ -2295,7 +2371,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                 },
                 {
                     "op": "inc",
-                    "path": "/sheets/mage_template/items/potion-b/count",
+                    "path": "/instanced_sheets/mage_instance/items/potion-b/count",
                     "value": -1,
                 },
             ]
@@ -2416,7 +2492,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                 description="Sword proficiency.",
             )
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["weapon_test"] = Action.from_dict(
                 {
                     "id": "weapon_test",
@@ -2556,7 +2632,7 @@ def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> N
                 )
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["moon_strike"] = Action.from_dict(
                 {"id": "moon_strike", "name": "Moon Strike", "steps": []}
             )
@@ -2590,22 +2666,23 @@ def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> N
             await handle_client_payload(websocket, request)
             assert "must be equipped" in websocket.sent_messages[-1]["reason"]
 
-            sheet.items["sword"].equipped = True
+            instance_item = state.instanced_sheets["mage_instance"].items["sword"]
+            instance_item.equipped = True
             await handle_client_payload(websocket, request)
             assert _request_messages(websocket)[-1]["ops"] == [
                 {
                     "op": "inc",
-                    "path": "/sheets/mage_template/items/sword/count",
+                    "path": "/instanced_sheets/mage_instance/items/sword/count",
                     "value": -1,
                 },
                 {
                     "op": "set",
-                    "path": "/sheets/mage_template/items/sword/equipped",
+                    "path": "/instanced_sheets/mage_instance/items/sword/equipped",
                     "value": False,
                 },
             ]
-            assert sheet.items["sword"].count == 0
-            assert sheet.items["sword"].equipped is False
+            assert instance_item.count == 0
+            assert instance_item.equipped is False
         finally:
             StateSingleton._state = original_state
 

@@ -76,6 +76,8 @@ def _initial_instance_for_template(
         mana=int(mana),
         resistances=deepcopy(template.resistances),
         augments={},
+        stats=deepcopy(template.stats),
+        items=deepcopy(template.items),
     )
 
 

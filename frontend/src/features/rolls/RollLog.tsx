@@ -5,6 +5,11 @@ import { Panel } from "@/shared/ui/Panel";
 
 const ACTION_HISTORY_RENDER_LIMIT = 50;
 
+interface RollLogProps {
+  sheetId?: string;
+  instanceId?: string;
+}
+
 function formatCreatedAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -18,8 +23,9 @@ function formatCreatedAt(value: string): string {
   });
 }
 
-export function RollLog(): JSX.Element {
+export function RollLog({ sheetId, instanceId }: RollLogProps = {}): JSX.Element {
   const { state } = useAppStore();
+  const isSheetScoped = Boolean(sheetId || instanceId);
   const allEntries = useMemo(
     () =>
       [...state.serverState.actionHistoryOrder]
@@ -27,8 +33,19 @@ export function RollLog(): JSX.Element {
         .flatMap((id) => {
           const entry = state.serverState.actionHistory[id];
           return entry ? [entry] : [];
-        }),
-    [state.serverState.actionHistory, state.serverState.actionHistoryOrder]
+        })
+        .filter(
+          (entry) =>
+            !isSheetScoped ||
+            (instanceId ? entry.actor_instance_id === instanceId : entry.actor_sheet_id === sheetId)
+        ),
+    [
+      instanceId,
+      isSheetScoped,
+      sheetId,
+      state.serverState.actionHistory,
+      state.serverState.actionHistoryOrder
+    ]
   );
   const entries = allEntries.slice(0, ACTION_HISTORY_RENDER_LIMIT);
   const hiddenEntryCount = Math.max(0, allEntries.length - entries.length);
@@ -36,7 +53,11 @@ export function RollLog(): JSX.Element {
   return (
     <Panel title="Action History">
       {entries.length === 0 ? (
-        <EmptyState message="No action history yet." />
+        <EmptyState
+          message={
+            isSheetScoped ? "No action history for this sheet yet." : "No action history yet."
+          }
+        />
       ) : (
         <div className="stack">
           {hiddenEntryCount > 0 ? (
@@ -57,6 +78,23 @@ export function RollLog(): JSX.Element {
                   </span>
                 </div>
                 <div className="status-row action-history-entry__meta">
+                  <span>
+                    Actor:{" "}
+                    {state.serverState.sheets[entry.actor_sheet_id]?.name ?? entry.actor_sheet_id}
+                    {entry.actor_instance_id ? ` (${entry.actor_instance_id})` : ""} ·{" "}
+                    {entry.actor_role === "dm" ? "GM" : "Player"}
+                  </span>
+                  {entry.target_sheet_id ? (
+                    <span>
+                      Target:{" "}
+                      {state.serverState.persistentSheets[entry.target_sheet_id]
+                        ? (state.serverState.sheets[
+                            state.serverState.persistentSheets[entry.target_sheet_id].parent_id
+                          ]?.name ?? entry.target_sheet_id)
+                        : (state.serverState.sheets[entry.target_sheet_id]?.name ??
+                          entry.target_sheet_id)}
+                    </span>
+                  ) : null}
                   <span>{formatCreatedAt(entry.created_at)}</span>
                   <span>v{entry.state_version}</span>
                   {entry.redacted ? <span>Limited</span> : <span>Audit</span>}

@@ -544,6 +544,16 @@ class StateSyncService:
             sheet_payload = state_payload.get("sheets", {}).get(sheet_id)
             if isinstance(sheet_payload, dict):
                 sheet_payload["evaluated_stats"] = evaluate_sheet_stats(sheet)
+        for instance_id, instance in state_model.instanced_sheets.items():
+            instance_payload = state_payload.get("instanced_sheets", {}).get(instance_id)
+            if isinstance(instance_payload, dict):
+                template = state_model.sheets.get(instance.parent_id)
+                runtime_stat_owner = instance if instance.stats is not None else template
+                if runtime_stat_owner is not None:
+                    instance_payload["stats"] = asdict(runtime_stat_owner.stats)
+                    instance_payload["evaluated_stats"] = evaluate_sheet_stats(
+                        runtime_stat_owner
+                    )
         state = self._redact_state_for_role(
             state_payload,
             role=role,
@@ -963,22 +973,27 @@ class StateSyncService:
                 )
         return attribute_operations
 
-    def _sheet_stat_projection_operations(
+    def _stat_projection_operations(
         self,
         state: State,
         operations: list[PatchOp],
     ) -> list[PatchOp]:
         affected_sheet_ids: set[str] = set()
+        affected_instance_ids: set[str] = set()
         for operation in operations:
             segments = self._parse_path(operation.path)
-            if len(segments) < 2 or segments[0] != "sheets":
+            if len(segments) < 2:
                 continue
-            if len(segments) == 2 or (
+            if segments[0] == "sheets" and (len(segments) == 2 or (
                 len(segments) >= 3 and segments[2] in {"stats", "attributes"}
-            ):
+            )):
                 affected_sheet_ids.add(segments[1])
+            if segments[0] == "instanced_sheets" and (
+                len(segments) == 2 or (len(segments) >= 3 and segments[2] == "stats")
+            ):
+                affected_instance_ids.add(segments[1])
 
-        return [
+        sheet_operations = [
             PatchOp(
                 op="set",
                 path=self.join_path("sheets", sheet_id, "evaluated_stats"),
@@ -987,6 +1002,19 @@ class StateSyncService:
             for sheet_id in sorted(affected_sheet_ids)
             if sheet_id in state.sheets
         ]
+        instance_operations = [
+            PatchOp(
+                op="set",
+                path=self.join_path(
+                    "instanced_sheets", instance_id, "evaluated_stats"
+                ),
+                value=evaluate_sheet_stats(state.instanced_sheets[instance_id]),
+            )
+            for instance_id in sorted(affected_instance_ids)
+            if instance_id in state.instanced_sheets
+            and state.instanced_sheets[instance_id].stats is not None
+        ]
+        return [*sheet_operations, *instance_operations]
 
     async def apply_mutation(
         self,
@@ -1023,7 +1051,7 @@ class StateSyncService:
                 inverse_ops = self._build_inverse_ops(previous_state, ops)
                 if inverse_ops:
                     self._undo_history.append(inverse_ops)
-                patch_ops = [*ops, *self._sheet_stat_projection_operations(state, ops)]
+                patch_ops = [*ops, *self._stat_projection_operations(state, ops)]
                 StateSingleton.dumpState()
                 patch = self._next_patch(patch_ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
@@ -1087,7 +1115,7 @@ class StateSyncService:
             )
             patch_ops = [
                 *applied_ops,
-                *self._sheet_stat_projection_operations(state, applied_ops),
+                *self._stat_projection_operations(state, applied_ops),
             ]
             StateSingleton.dumpState()
             patch = self._next_patch(patch_ops, request_id=request_id)

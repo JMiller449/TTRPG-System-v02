@@ -13,6 +13,7 @@ from backend.features.sheet_admin.sheets import service
 from backend.features.sheet_admin.sheets.schema import (
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
+    CreateInstancedSheetItemBridge,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
@@ -21,6 +22,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
     DeleteSheet,
+    DeleteInstancedSheetItemBridge,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
     SetSheetSlayedCount,
@@ -29,6 +31,7 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheetItemBridge,
     UpdateSheetProficiencyBridge,
     UpdateSheet,
+    UpdateInstancedSheetItemBridge,
 )
 from backend.features.session.service import websocket_sessions
 from backend.protocol.socket import SheetAccessCodesEvent, StatePatchEvent
@@ -318,6 +321,69 @@ class DeleteSheetItemBridgeRoute(RequestRoute[DeleteSheetItemBridge]):
         await service.detach_sheet_item(request)
 
 
+class CreateInstancedSheetItemBridgeRoute(
+    RequestRoute[CreateInstancedSheetItemBridge]
+):
+    type_name = "create_instanced_sheet_item_bridge"
+    request_model = CreateInstancedSheetItemBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_edit")
+    permission_denied_reason = permission_denied_reason("equipment_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceItems",
+        method_name="attachItem",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateInstancedSheetItemBridge,
+    ) -> None:
+        await service.attach_instanced_sheet_item(request)
+
+
+class UpdateInstancedSheetItemBridgeRoute(
+    RequestRoute[UpdateInstancedSheetItemBridge]
+):
+    type_name = "update_instanced_sheet_item_bridge"
+    request_model = UpdateInstancedSheetItemBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_edit")
+    permission_denied_reason = permission_denied_reason("equipment_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceItems",
+        method_name="updateAttachedItem",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: UpdateInstancedSheetItemBridge,
+    ) -> None:
+        await service.update_instanced_sheet_item(request)
+
+
+class DeleteInstancedSheetItemBridgeRoute(
+    RequestRoute[DeleteInstancedSheetItemBridge]
+):
+    type_name = "delete_instanced_sheet_item_bridge"
+    request_model = DeleteInstancedSheetItemBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_edit")
+    permission_denied_reason = permission_denied_reason("equipment_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceItems",
+        method_name="detachItem",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DeleteInstancedSheetItemBridge,
+    ) -> None:
+        await service.detach_instanced_sheet_item(request)
+
+
 class CreateSheetProficiencyBridgeRoute(RequestRoute[CreateSheetProficiencyBridge]):
     type_name = "create_sheet_proficiency_bridge"
     request_model = CreateSheetProficiencyBridge
@@ -391,6 +457,9 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateSheetItemBridgeRoute())
     registry.register(UpdateSheetItemBridgeRoute())
     registry.register(DeleteSheetItemBridgeRoute())
+    registry.register(CreateInstancedSheetItemBridgeRoute())
+    registry.register(UpdateInstancedSheetItemBridgeRoute())
+    registry.register(DeleteInstancedSheetItemBridgeRoute())
     registry.register(CreateSheetProficiencyBridgeRoute())
     registry.register(UpdateSheetProficiencyBridgeRoute())
     registry.register(DeleteSheetProficiencyBridgeRoute())

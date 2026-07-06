@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { SheetStatKey } from "@/domain/stats";
-import {
-  isCoreStatKey,
-  parseModifierInput
-} from "@/features/sheets/sheetDisplay";
+import { isCoreStatKey, parseModifierInput } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildSetSheetBaseStatRequest } from "@/infrastructure/ws/requestBuilders";
+import { buildSetInstancedSheetBaseStatRequest } from "@/infrastructure/ws/requestBuilders";
 
 interface UseStatModifierEditorOptions {
   resetToken: string | undefined;
-  sheetId: string | undefined;
+  instanceId: string | undefined;
   baseStats: Partial<Record<SheetStatKey, number>>;
   client: Pick<GameClient, "sendProtocolRequest">;
 }
@@ -31,7 +28,7 @@ interface UseStatModifierEditorResult {
 
 export function useStatModifierEditor({
   resetToken,
-  sheetId,
+  instanceId,
   baseStats,
   client
 }: UseStatModifierEditorOptions): UseStatModifierEditorResult {
@@ -80,8 +77,8 @@ export function useStatModifierEditor({
       return;
     }
 
-    if (!sheetId) {
-      setEditorError("No parent sheet selected for stat editing.");
+    if (!instanceId) {
+      setEditorError("No character instance selected for stat editing.");
       return;
     }
 
@@ -92,8 +89,8 @@ export function useStatModifierEditor({
     }
 
     client.sendProtocolRequest(
-      buildSetSheetBaseStatRequest({
-        sheetId,
+      buildSetInstancedSheetBaseStatRequest({
+        instanceId,
         statName: key,
         value: baseValue + parsed
       }),

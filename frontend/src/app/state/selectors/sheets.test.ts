@@ -165,7 +165,12 @@ function stateFixture(): AppState {
       },
       sheetOrder: ["sheet_player", "sheet_enemy"],
       persistentSheets: {
-        instance_player: persistentSheet(),
+        instance_player: persistentSheet({
+          items: {
+            [staff.relationship_id]: staff,
+            [lantern.relationship_id]: lantern
+          }
+        }),
         instance_orphan: persistentSheet({
           parent_id: "missing_parent",
           notes: undefined,
@@ -262,7 +267,7 @@ describe("sheet selectors", () => {
     expect(selectActiveSheetDetail(state)?.stats).toEqual({});
   });
 
-  it("resolves template equipment from sheet or instance ids", () => {
+  it("resolves template defaults separately from instance inventory", () => {
     const state = stateFixture();
 
     expect(selectSheetEquipment(state, "sheet_player")).toEqual([
@@ -425,7 +430,11 @@ describe("sheet selectors", () => {
       }
     ]);
 
-    state.serverState.sheets.sheet_player.items.bridge_staff.count = 0;
+    const instanceItems = state.serverState.persistentSheets.instance_player.items;
+    if (!instanceItems) {
+      throw new Error("Expected instance inventory fixture.");
+    }
+    instanceItems.bridge_staff.count = 0;
     expect(
       selectSheetAssignedActions(state, "instance_player").map((entry) => entry.actionId)
     ).toEqual(["action_attack"]);

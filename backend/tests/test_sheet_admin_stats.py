@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import synchronize_required_sheet_attributes
-from backend.state.models.sheet import Sheet
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -150,6 +150,53 @@ def test_dm_can_set_sheet_base_stat(monkeypatch) -> None:
             projection = websocket.sent_messages[0]["ops"][1]
             assert projection["path"] == "/sheets/mage_template/evaluated_stats"
             assert projection["value"]["strength"] == 18
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_instanced_sheet_base_stat(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            state.sheets[template.id] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": template.id,
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_base_stat",
+                    "instance_id": "mage_instance",
+                    "stat_name": "strength",
+                    "value": 18,
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].stats is not None
+            assert state.instanced_sheets["mage_instance"].stats.strength == 18
+            assert template.stats.strength == 10
+            assert websocket.sent_messages[0]["ops"][0]["path"] == (
+                "/instanced_sheets/mage_instance/stats/strength"
+            )
+            assert websocket.sent_messages[0]["ops"][1]["path"] == (
+                "/instanced_sheets/mage_instance/evaluated_stats"
+            )
         finally:
             StateSingleton._state = original_state
 

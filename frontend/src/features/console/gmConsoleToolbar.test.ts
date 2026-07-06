@@ -17,6 +17,7 @@ describe("gmConsoleToolbar", () => {
     expect(views).toEqual([
       "console",
       "sheet_viewer",
+      "action_history",
       "template_library",
       "create_template",
       "action_authoring",

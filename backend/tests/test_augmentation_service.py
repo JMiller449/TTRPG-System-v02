@@ -37,14 +37,15 @@ def _reset_state() -> None:
     StateSingleton._state = deepcopy(DEFAULT_STATE)
 
 
-def _build_instance() -> InstancedSheet:
+def _build_instance(template: Sheet | None = None) -> InstancedSheet:
     return InstancedSheet.from_dict(
         {
             "parent_id": "sheet-1",
             "health": 10,
             "mana": 5,
             "augments": {},
-        }
+        },
+        template=template or _build_sheet(),
     )
 
 
@@ -141,11 +142,16 @@ def _build_equipment_item(
     *,
     value: str,
     operation: str = "add",
+    target_root: str = "instance",
+    target_path: list[str] | None = None,
 ) -> Item:
     template = _build_augmentation(
         augmentation_id=f"{item_id}-health",
         value=value,
         operation=operation,
+        root=target_root,
+        scope=target_root,
+        path=target_path,
     )
     template.source = AugmentationSource(type="item", id=item_id, label=item_id)
     return Item.from_dict(
@@ -547,7 +553,7 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
                 ),
             }
             state.sheets[sheet.id] = sheet
-            state.instanced_sheets["inst-1"] = _build_instance()
+            state.instanced_sheets["inst-1"] = _build_instance(sheet)
             state.items["flame-helm"] = _build_equipment_item(
                 "flame-helm",
                 value="5",
@@ -560,8 +566,8 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
             async def set_equipped(relationship_id: str, equipped: bool) -> None:
                 def mutation(current_state):
                     path = state_sync_service.join_path(
-                        "sheets",
-                        "sheet-1",
+                        "instanced_sheets",
+                        "inst-1",
                         "items",
                         relationship_id,
                         "equipped",
@@ -582,7 +588,7 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
             assert concrete.lifecycle_owner == "equipment"
             assert concrete.source.id == "flame-helm"
             assert concrete.source.relationship_id == "helm"
-            assert concrete.source.application_id == "equipment:sheet-1:helm"
+            assert concrete.source.application_id == "equipment:inst-1:helm"
             assert concrete.id in state.instanced_sheets["inst-1"].augments
             assert all(
                 not op["path"].startswith("/equipment_effect_projections")
@@ -671,7 +677,7 @@ def test_equipment_effect_applies_when_instance_is_created(monkeypatch) -> None:
                 op = state_sync_service.add_mutation(
                     current_state,
                     state_sync_service.join_path("instanced_sheets", "inst-1"),
-                    _build_instance(),
+                    _build_instance(sheet),
                 )
                 return None, [op]
 
@@ -680,6 +686,57 @@ def test_equipment_effect_applies_when_instance_is_created(monkeypatch) -> None:
             assert state.instanced_sheets["inst-1"].health == 15
             assert len(state.augmentations) == 1
             assert len(state.equipment_effect_projections) == 1
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_equipment_stat_effect_is_isolated_to_equipped_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await state_sync_service.reset()
+            state = StateSingleton.getState()
+            sheet = _build_sheet()
+            sheet.items["focus"] = ItemBridge(
+                relationship_id="focus",
+                count=1,
+                equipped=False,
+                item_id="focus",
+            )
+            state.sheets[sheet.id] = sheet
+            first = _build_instance(sheet)
+            second = _build_instance(sheet)
+            first.items["focus"].equipped = True
+            state.instanced_sheets["inst-1"] = first
+            state.instanced_sheets["inst-2"] = second
+            state.items["focus"] = _build_equipment_item(
+                "focus",
+                value="5",
+                target_root="sheet",
+                target_path=["stats", "strength"],
+            )
+
+            def mutation(current_state):
+                op = state_sync_service.set_mutation(
+                    current_state,
+                    state_sync_service.join_path(
+                        "instanced_sheets", "inst-1", "items", "focus", "equipped"
+                    ),
+                    True,
+                )
+                return None, [op]
+
+            await state_sync_service.apply_mutation(mutation)
+
+            assert first.stats is not None
+            assert second.stats is not None
+            assert first.stats.strength == 15
+            assert second.stats.strength == 10
+            assert sheet.stats.strength == 10
         finally:
             StateSingleton._state = original_state
 
@@ -702,7 +759,7 @@ def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
                 item_id="broken-ring",
             )
             state.sheets[sheet.id] = sheet
-            state.instanced_sheets["inst-1"] = _build_instance()
+            state.instanced_sheets["inst-1"] = _build_instance(sheet)
             state.items["broken-ring"] = _build_equipment_item(
                 "broken-ring",
                 value="0",
@@ -713,7 +770,11 @@ def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
                 op = state_sync_service.set_mutation(
                     current_state,
                     state_sync_service.join_path(
-                        "sheets", "sheet-1", "items", "broken", "equipped"
+                        "instanced_sheets",
+                        "inst-1",
+                        "items",
+                        "broken",
+                        "equipped",
                     ),
                     True,
                 )
@@ -722,7 +783,7 @@ def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
             with pytest.raises(ValueError, match="divide operation cannot use zero"):
                 await state_sync_service.apply_mutation(mutation)
 
-            assert state.sheets["sheet-1"].items["broken"].equipped is False
+            assert state.instanced_sheets["inst-1"].items["broken"].equipped is False
             assert state.instanced_sheets["inst-1"].health == 10
             assert state.augmentations == {}
             assert state.equipment_effect_projections == {}

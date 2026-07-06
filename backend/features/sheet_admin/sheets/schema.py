@@ -214,6 +214,25 @@ class DeleteSheetItemBridge(RequestModel):
     type: Literal["delete_sheet_item_bridge"]
 
 
+class CreateInstancedSheetItemBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    bridge: ItemBridgePayload
+    type: Literal["create_instanced_sheet_item_bridge"]
+
+
+class UpdateInstancedSheetItemBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: ItemBridgePayload
+    type: Literal["update_instanced_sheet_item_bridge"]
+
+
+class DeleteInstancedSheetItemBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_instanced_sheet_item_bridge"]
+
+
 class CreateSheetProficiencyBridge(RequestModel):
     sheet_id: str = Field(min_length=1)
     bridge: ProficiencyBridgePayload

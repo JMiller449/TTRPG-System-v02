@@ -46,6 +46,13 @@ class SetSheetBaseStat(RequestModel):
     type: Literal["set_sheet_base_stat"]
 
 
+class SetInstancedSheetBaseStat(RequestModel):
+    instance_id: str = Field(min_length=1)
+    stat_name: BaseStatName
+    value: int
+    type: Literal["set_instanced_sheet_base_stat"]
+
+
 class SetSheetFormulaStat(RequestModel):
     sheet_id: str = Field(min_length=1)
     stat_name: FormulaStatName

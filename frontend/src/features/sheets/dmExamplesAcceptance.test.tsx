@@ -4,7 +4,11 @@ import {
   toActionDefinitionPayload,
   toActionEditorValues
 } from "@/features/actions/actionEditorValues";
-import { toItemDefinitionPayload, toItemEditorValues } from "@/features/items/itemEditorValues";
+import {
+  toItemDefinitionPayload,
+  toItemEditorValues,
+  WEAPON_ACTION_IDS
+} from "@/features/items/itemEditorValues";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
@@ -27,7 +31,11 @@ describe("DM example acceptance fixtures", () => {
       expect(payload.name).toBe(item.name);
       expect(payload.interaction_type).toBe(item.interaction_type);
       expect(payload.attributes).toEqual(item.attributes ?? {});
-      expect(payload.action_grants).toEqual(item.action_grants ?? []);
+      if (item.attribute_profile === "weapon") {
+        expect(payload.action_grants?.map((grant) => grant.action_id)).toEqual(WEAPON_ACTION_IDS);
+      } else {
+        expect(payload.action_grants).toEqual(item.action_grants ?? []);
+      }
       expect((payload.augmentation_templates ?? []).map((effect) => effect.id)).toEqual(
         (item.augmentation_templates ?? []).map((effect) => effect.id)
       );
@@ -71,7 +79,8 @@ describe("DM example acceptance fixtures", () => {
         selectedItemId=""
         selectedItem={null}
         equipment={dmExampleEquipment}
-        canEdit={false}
+        canManageInventory={false}
+        canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
         onQuantityChange={() => undefined}

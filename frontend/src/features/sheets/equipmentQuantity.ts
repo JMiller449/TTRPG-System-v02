@@ -1,18 +1,18 @@
 import type { ItemBridge } from "@/domain/models";
-import { buildUpdateAttachedSheetItemRequest } from "@/infrastructure/ws/requestBuilders";
+import { buildUpdateInstancedSheetItemRequest } from "@/infrastructure/ws/requestBuilders";
 
 export function buildEquipmentQuantitySubmission({
-  sheetId,
+  instanceId,
   bridge,
   count,
   itemName
 }: {
-  sheetId: string;
+  instanceId: string;
   bridge: ItemBridge;
   count: number;
   itemName: string;
 }): {
-  request: ReturnType<typeof buildUpdateAttachedSheetItemRequest>;
+  request: ReturnType<typeof buildUpdateInstancedSheetItemRequest>;
   label: string;
 } | null {
   if (!Number.isSafeInteger(count) || count < 0) {
@@ -20,8 +20,8 @@ export function buildEquipmentQuantitySubmission({
   }
 
   return {
-    request: buildUpdateAttachedSheetItemRequest({
-      sheetId,
+    request: buildUpdateInstancedSheetItemRequest({
+      instanceId,
       relationshipId: bridge.relationship_id,
       bridge: {
         ...bridge,

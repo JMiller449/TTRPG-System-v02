@@ -339,6 +339,18 @@ def _sheet_formula_stat(name: str, label: str) -> VariablePathMetadata:
     )
 
 
+def _instance_base_stat(name: str, label: str) -> VariablePathMetadata:
+    return VariablePathMetadata(
+        key=f"instance.stats.{name}",
+        label=f"Current {label}",
+        root="instance",
+        path=["stats", name],
+        value_type="number",
+        editable_roles=_PLAYER_AND_DM,
+        description=f"Runtime instance stat: {label}.",
+    )
+
+
 def _instance_resource(name: str, label: str) -> VariablePathMetadata:
     shortcuts = ("hp", "health") if name == "health" else ("mana",)
     return VariablePathMetadata(
@@ -394,6 +406,10 @@ def build_variable_registry(*, request_id: str | None = None) -> VariableRegistr
         ],
         _instance_resource("health", "Current Health"),
         _instance_resource("mana", "Current Mana"),
+        *[
+            _instance_base_stat(name, label)
+            for name, label, _shortcuts in _BASE_STATS
+        ],
         *[
             _resistance_variable(
                 root="instance",

@@ -5,6 +5,7 @@ from copy import deepcopy
 from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.stats.schema import (
+    SetInstancedSheetBaseStat,
     SetSheetBaseStat,
     SetSheetFormulaStat,
     SetSheetResistances,
@@ -27,6 +28,25 @@ async def set_base_stat(request: SetSheetBaseStat) -> None:
         path = state_sync_service.join_path(
             "sheets",
             request.sheet_id,
+            "stats",
+            request.stat_name,
+        )
+        op = state_sync_service.set_mutation(state, path, request.value)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_instanced_base_stat(request: SetInstancedSheetBaseStat) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        if instance.stats is None:
+            raise ValueError(f"Instance '{request.instance_id}' has no runtime stats.")
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
             "stats",
             request.stat_name,
         )

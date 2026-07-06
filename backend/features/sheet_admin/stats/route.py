@@ -10,6 +10,7 @@ from backend.core.permissions import (
 from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.stats import service
 from backend.features.sheet_admin.stats.schema import (
+    SetInstancedSheetBaseStat,
     SetSheetBaseStat,
     SetSheetFormulaStat,
     SetSheetResistances,
@@ -34,6 +35,25 @@ class SetSheetBaseStatRoute(RequestRoute[SetSheetBaseStat]):
         request: SetSheetBaseStat,
     ) -> None:
         await service.set_base_stat(request)
+
+
+class SetInstancedSheetBaseStatRoute(RequestRoute[SetInstancedSheetBaseStat]):
+    type_name = "set_instanced_sheet_base_stat"
+    request_model = SetInstancedSheetBaseStat
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceStats",
+        method_name="setBaseStat",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetBaseStat,
+    ) -> None:
+        await service.set_instanced_base_stat(request)
 
 
 class SetSheetFormulaStatRoute(RequestRoute[SetSheetFormulaStat]):
@@ -76,5 +96,6 @@ class SetSheetResistancesRoute(RequestRoute[SetSheetResistances]):
 
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetSheetBaseStatRoute())
+    registry.register(SetInstancedSheetBaseStatRoute())
     registry.register(SetSheetFormulaStatRoute())
     registry.register(SetSheetResistancesRoute())

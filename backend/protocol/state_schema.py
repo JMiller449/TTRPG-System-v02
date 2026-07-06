@@ -147,6 +147,9 @@ class InstancedSheetPayload(ProtocolModel):
     notes: str = ""
     health: float
     mana: int
+    stats: StatsPayload | None = None
+    evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     augments: dict[str, BridgePayload]
 

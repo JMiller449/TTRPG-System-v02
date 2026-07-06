@@ -103,10 +103,12 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert set(CONDITION_IDS).issubset(authored.condition_presets)
             assert set(ENCOUNTER_IDS).issubset(authored.encounter_presets)
             assert authored.standalone_effect_applications == {}
-            assert authored.sheets[SHEET_ID].stats.perception == 12
-            assert authored.sheets[SHEET_ID].resistances.resistance == pytest.approx(0.10)
-            assert authored.sheets[SHEET_ID].resistances.fire == pytest.approx(0.25)
-            assert authored.sheets[SHEET_ID].resistances.magical == pytest.approx(0.10)
+            authored_instance = authored.instanced_sheets[INSTANCE_ID]
+            assert authored_instance.stats is not None
+            assert authored_instance.stats.perception == 12
+            assert authored_instance.resistances.resistance == pytest.approx(0.10)
+            assert authored_instance.resistances.fire == pytest.approx(0.25)
+            assert authored_instance.resistances.magical == pytest.approx(0.10)
             assert "amount_of_reactions" in authored.sheets[SHEET_ID].attributes
             assert authored.sheets[SHEET_ID].attributes[
                 "gate_affinity"
@@ -135,10 +137,12 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
 
             StateSingleton._state = None
             reloaded = StateSingleton.initializeState()
-            assert reloaded.sheets[SHEET_ID].stats.perception == 12
-            assert reloaded.sheets[SHEET_ID].resistances.resistance == pytest.approx(0.10)
-            assert reloaded.sheets[SHEET_ID].resistances.fire == pytest.approx(0.25)
-            assert reloaded.sheets[SHEET_ID].resistances.magical == pytest.approx(0.10)
+            reloaded_instance = reloaded.instanced_sheets[INSTANCE_ID]
+            assert reloaded_instance.stats is not None
+            assert reloaded_instance.stats.perception == 12
+            assert reloaded_instance.resistances.resistance == pytest.approx(0.10)
+            assert reloaded_instance.resistances.fire == pytest.approx(0.25)
+            assert reloaded_instance.resistances.magical == pytest.approx(0.10)
             assert set(ENCOUNTER_IDS).issubset(reloaded.encounter_presets)
             assert set(CONDITION_IDS).issubset(reloaded.condition_presets)
             assert len(reloaded.equipment_effect_projections) == persisted_projection_count
@@ -322,7 +326,10 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             )
             shadow_sheet = reloaded.sheets["starter_shadowblade_template"]
             assert reloaded.instanced_sheets[SHADOWBLADE_INSTANCE_ID].mana == 105
-            assert shadow_sheet.items["inventory_lesser_mana_vial"].count == 1
+            assert shadow_sheet.items["inventory_lesser_mana_vial"].count == 2
+            assert reloaded.instanced_sheets[SHADOWBLADE_INSTANCE_ID].items[
+                "inventory_lesser_mana_vial"
+            ].count == 1
 
             before_shadow_step_uses = shadow_sheet.proficiencies[
                 "fixture_shadow_steps"

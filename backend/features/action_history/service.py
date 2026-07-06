@@ -16,12 +16,14 @@ def record_action_history_entry(
     entry: ActionHistoryEntry,
     *,
     retention_limit: int = ACTION_HISTORY_RETENTION_LIMIT,
-) -> None:
+) -> tuple[str, ...]:
+    previous_ids = set(state.action_history)
     add_action_history_entry(
         state.action_history,
         entry,
         retention_limit=retention_limit,
     )
+    return tuple(sorted(previous_ids - set(state.action_history)))
 
 
 def _visible_texts(

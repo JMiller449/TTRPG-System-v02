@@ -141,29 +141,52 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
           <section className="stack" aria-labelledby="userscript-stage-title">
             <h3 id="userscript-stage-title">Install Roll20 Bridge</h3>
             <p className="muted">
-              No active bridge userscript responded. Install Violentmonkey if needed, then install
-              or update the bridge. A newly installed userscript requires this already-open page to
-              reload before it can respond.
+              No active bridge userscript responded. Complete these steps in order.
             </p>
-            <div className="inline-group">
-              <a className="button" href={installUrl} target="_blank" rel="noreferrer">
-                Install or Update Roll20 Bridge
-              </a>
-              <a
-                className="button button--secondary"
-                href={VIOLENTMONKEY_FIREFOX_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Install Violentmonkey
-              </a>
-              <button className="button button--secondary" onClick={() => void detect()}>
-                Detect Again
-              </button>
-              <button className="button button--secondary" onClick={() => window.location.reload()}>
-                Reload to Activate
-              </button>
-            </div>
+            <ol className="stack extension-install-steps">
+              <li>
+                <strong>Install Violentmonkey and approve its requested permissions.</strong>
+                <div>
+                  <a
+                    className="button button--secondary"
+                    href={VIOLENTMONKEY_FIREFOX_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Install Violentmonkey
+                  </a>
+                </div>
+              </li>
+              <li>
+                <strong>Install the Roll20 bridge script.</strong>
+                <p className="muted">
+                  Violentmonkey will open the script installer. Use the Install button on the left
+                  side.
+                </p>
+                <div>
+                  <a className="button" href={installUrl} target="_blank" rel="noreferrer">
+                    Install Roll20 Bridge
+                  </a>
+                </div>
+              </li>
+              <li>
+                <strong>Reload this page after the script is installed.</strong>
+                <div>
+                  <button
+                    className="button button--secondary"
+                    onClick={() => window.location.reload()}
+                  >
+                    Reload Page
+                  </button>
+                </div>
+              </li>
+              <li>
+                <strong>Log in again. The bridge will then appear here.</strong>
+              </li>
+            </ol>
+            <button className="button button--secondary" onClick={() => void detect()}>
+              Detect Again
+            </button>
           </section>
         ) : (
           <section className="stack" aria-labelledby="sync-stage-title">

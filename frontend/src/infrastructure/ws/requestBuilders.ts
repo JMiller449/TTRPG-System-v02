@@ -825,8 +825,8 @@ export function buildInstantiateSheetRequest({
 }: {
   instanceId: string;
   parentSheetId: string;
-  health: number;
-  mana: number;
+  health?: number;
+  mana?: number;
   notes?: string;
   resistances?: InstancedSheetResistancesPayload;
   generateAccessCode?: boolean;
@@ -836,8 +836,8 @@ export function buildInstantiateSheetRequest({
     type: "create_instanced_sheet",
     instance_id: instanceId,
     parent_sheet_id: parentSheetId,
-    health,
-    mana,
+    ...(health === undefined ? {} : { health }),
+    ...(mana === undefined ? {} : { mana }),
     ...(notes === undefined ? {} : { notes }),
     ...(resistances === undefined ? {} : { resistances }),
     ...(generateAccessCode === undefined ? {} : { generate_access_code: generateAccessCode })

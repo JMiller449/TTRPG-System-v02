@@ -8,6 +8,7 @@ from backend.state.models.attribute import AttributeBridge, AttributeDefinition,
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.default_actions import required_sheet_action_ids
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -174,15 +175,20 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             assert "default_attack" not in sheet.actions
             assert "default_parry" not in sheet.actions
             assert "default_weapon_attack" not in sheet.actions
-            assert websocket.sent_messages[0]["ops"][-1]["op"] == "add"
-            assert websocket.sent_messages[0]["ops"][-1]["path"] == (
-                "/sheets/mage_template"
+            sheet_op = next(
+                op
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"] == "/sheets/mage_template"
             )
-            assert websocket.sent_messages[0]["ops"][-1]["value"]["id"] == (
-                "mage_template"
-            )
+            assert sheet_op["op"] == "add"
+            assert sheet_op["value"]["id"] == "mage_template"
+            projection_op = websocket.sent_messages[0]["ops"][-1]
+            assert projection_op["path"] == "/sheets/mage_template/evaluated_stats"
+            assert projection_op["value"]["strength"] == 10
             assert {
-                op["path"] for op in websocket.sent_messages[0]["ops"][:-1]
+                op["path"]
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"].startswith("/actions/")
             } == {
                 "/actions/baseline_check_strength",
                 "/actions/baseline_check_dexterity",
@@ -278,7 +284,11 @@ def test_sheet_create_and_update_save_authored_attributes_atomically(
             assert sheet.attributes["combat_rating"].evaluated_value == 21
             assert "amount_of_reactions" in sheet.attributes
             assert websocket.sent_messages[-1]["type"] == "state_patch"
-            created = websocket.sent_messages[-1]["ops"][-1]["value"]
+            created = next(
+                op["value"]
+                for op in websocket.sent_messages[-1]["ops"]
+                if op["path"] == "/sheets/mage_template"
+            )
             assert created["attributes"]["combat_rating"]["evaluated_value"] == 21
 
             payload["name"] = "Updated Mage Template"
@@ -771,16 +781,23 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
             )
 
             assert state.sheets["mage_template"].name == "Renamed Mage"
-            assert websocket.sent_messages[0]["ops"] == [
-                {
-                    "op": "set",
-                    "path": "/sheets/mage_template",
-                    "value": websocket.sent_messages[0]["ops"][0]["value"],
-                }
-            ]
-            assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
-                "Renamed Mage"
+            sheet_op = next(
+                op
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"] == "/sheets/mage_template"
             )
+            assert sheet_op == {
+                "op": "set",
+                "path": "/sheets/mage_template",
+                "value": sheet_op["value"],
+            }
+            assert {
+                bridge.entry_id for bridge in state.sheets["mage_template"].actions.values()
+            }.issuperset(required_sheet_action_ids())
+            assert websocket.sent_messages[0]["ops"][-1]["path"] == (
+                "/sheets/mage_template/evaluated_stats"
+            )
+            assert sheet_op["value"]["name"] == "Renamed Mage"
         finally:
             StateSingleton._state = original_state
 
@@ -996,6 +1013,45 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_instanced_sheet_defaults_are_evaluated_and_copied_by_backend(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            payload = _sheet_payload()
+            payload["stats"]["health"]["aliases"] = [
+                {"name": "constitution", "path": ["stats", "constitution"]}
+            ]
+            payload["stats"]["mana"]["aliases"] = [
+                {"name": "arcane", "path": ["stats", "arcane"]}
+            ]
+            payload["resistances"]["fire"] = 0.25
+            state.sheets["mage_template"] = Sheet.from_dict(payload)
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_instanced_sheet",
+                    "instance_id": "mage_instance",
+                    "parent_sheet_id": "mage_template",
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.health == 120
+            assert instance.mana == 112
+            assert instance.resistances.fire == 0.25
         finally:
             StateSingleton._state = original_state
 

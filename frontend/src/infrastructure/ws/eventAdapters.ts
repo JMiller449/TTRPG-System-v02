@@ -292,6 +292,7 @@ export function adaptProtocolServerEvent(
               action_steps: event.action_steps,
               action_preset_templates: event.action_preset_templates,
               action_attribute_presets: event.action_attribute_presets,
+              default_sheet_actions: event.default_sheet_actions ?? [],
               attribute_formula_variables: event.attribute_formula_variables ?? [],
               sheet_formula_stat_defaults: event.sheet_formula_stat_defaults ?? []
             },

@@ -10,7 +10,11 @@ from typing import Any, TypeVar
 
 from backend.core.request_context import RequestSource, current_request_source
 from backend.core.transport import PatchOp
-from backend.features.action_history.service import serialize_action_history
+from backend.features.action_history.service import (
+    serialize_action_history,
+    serialize_action_history_entry,
+)
+from backend.features.formula_runtime.service import evaluate_sheet_stats
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
@@ -289,6 +293,52 @@ class StateSyncService:
             segments = self._parse_path(op.path)
             if segments and segments[0] in PRIVATE_STATE_ROOTS:
                 continue
+            if segments and segments[0] == "action_history":
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+
+                if len(segments) == 1:
+                    serialized_entries = serialize_action_history(
+                        StateSingleton.getState().action_history,
+                        role=role,
+                        assigned_instance_id=assigned_instance_id,
+                    )
+                    op.value = {
+                        key: value.model_dump(mode="json")
+                        for key, value in serialized_entries.items()
+                    }
+                    redacted_ops.append(op)
+                    continue
+
+                entry_id = segments[1]
+                entry = StateSingleton.getState().action_history.get(entry_id)
+                serialized_entry = (
+                    serialize_action_history_entry(
+                        entry,
+                        role=role,
+                        assigned_instance_id=assigned_instance_id,
+                    )
+                    if entry is not None
+                    else None
+                )
+                if serialized_entry is None:
+                    if op.op == "set":
+                        redacted_ops.append(PatchOp(op="remove", path=op.path))
+                    continue
+
+                redacted_ops.append(
+                    PatchOp(
+                        op=op.op if len(segments) == 2 else "set",
+                        path=(
+                            op.path
+                            if len(segments) == 2
+                            else self.join_path("action_history", entry_id)
+                        ),
+                        value=serialized_entry.model_dump(mode="json"),
+                    )
+                )
+                continue
             if role == "dm":
                 redacted_ops.append(op)
                 continue
@@ -452,9 +502,6 @@ class StateSyncService:
                     elif op.op == "set":
                         redacted_ops.append(PatchOp(op="remove", path=op.path))
                     continue
-            if segments and segments[0] == "action_history":
-                continue
-
             if (
                 len(segments) >= 3
                 and segments[0] == "sheets"
@@ -462,7 +509,7 @@ class StateSyncService:
             ):
                 continue
 
-            if len(segments) >= 2 and segments[0] == "sheets":
+            if len(segments) == 2 and segments[0] == "sheets":
                 op.value = self._redact_sheet_payload(op.value)
 
             if (
@@ -492,8 +539,13 @@ class StateSyncService:
         request_id: str | None = None,
     ) -> StateSnapshot:
         state_model = StateSingleton.getState()
+        state_payload = state_model.to_dict()
+        for sheet_id, sheet in state_model.sheets.items():
+            sheet_payload = state_payload.get("sheets", {}).get(sheet_id)
+            if isinstance(sheet_payload, dict):
+                sheet_payload["evaluated_stats"] = evaluate_sheet_stats(sheet)
         state = self._redact_state_for_role(
-            state_model.to_dict(),
+            state_payload,
             role=role,
             assigned_instance_id=assigned_instance_id,
         )
@@ -911,6 +963,31 @@ class StateSyncService:
                 )
         return attribute_operations
 
+    def _sheet_stat_projection_operations(
+        self,
+        state: State,
+        operations: list[PatchOp],
+    ) -> list[PatchOp]:
+        affected_sheet_ids: set[str] = set()
+        for operation in operations:
+            segments = self._parse_path(operation.path)
+            if len(segments) < 2 or segments[0] != "sheets":
+                continue
+            if len(segments) == 2 or (
+                len(segments) >= 3 and segments[2] in {"stats", "attributes"}
+            ):
+                affected_sheet_ids.add(segments[1])
+
+        return [
+            PatchOp(
+                op="set",
+                path=self.join_path("sheets", sheet_id, "evaluated_stats"),
+                value=evaluate_sheet_stats(state.sheets[sheet_id]),
+            )
+            for sheet_id in sorted(affected_sheet_ids)
+            if sheet_id in state.sheets
+        ]
+
     async def apply_mutation(
         self,
         mutation: Callable[[State], tuple[MutationResultT, list[PatchOp]]],
@@ -944,9 +1021,11 @@ class StateSyncService:
                 raise
             if ops:
                 inverse_ops = self._build_inverse_ops(previous_state, ops)
-                self._undo_history.append(inverse_ops)
+                if inverse_ops:
+                    self._undo_history.append(inverse_ops)
+                patch_ops = [*ops, *self._sheet_stat_projection_operations(state, ops)]
                 StateSingleton.dumpState()
-                patch = self._next_patch(ops, request_id=request_id)
+                patch = self._next_patch(patch_ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
                 if request_id is not None:
                     self._remember_processed_request(request_id)
@@ -961,6 +1040,40 @@ class StateSyncService:
                 self._remember_processed_request(request_id)
             return result
 
+    async def apply_audit_mutation(
+        self,
+        mutation: Callable[[State], tuple[MutationResultT, list[PatchOp]]],
+    ) -> MutationResultT:
+        """Persist and broadcast audit state without creating an undo entry."""
+        async with self._lock:
+            state = StateSingleton.getState()
+            previous_state = deepcopy(state)
+            try:
+                result, ops = mutation(state)
+            except Exception:
+                for state_field in fields(state):
+                    setattr(
+                        state,
+                        state_field.name,
+                        deepcopy(getattr(previous_state, state_field.name)),
+                    )
+                raise
+
+            if not ops:
+                return result
+
+            StateSingleton.dumpState()
+            patch = self._next_patch(ops)
+            self._record_mutation(patch, source=current_request_source())
+            await websocket_sessions.broadcast_per_session(
+                lambda session: self._redact_patch_for_role(
+                    patch,
+                    role=session.role,
+                    assigned_instance_id=session.assigned_instance_id,
+                )
+            )
+            return result
+
     async def undo_last_change(self, *, request_id: str | None = None) -> bool:
         async with self._lock:
             if not self._undo_history:
@@ -972,8 +1085,12 @@ class StateSyncService:
             applied_ops.extend(
                 self._synchronize_sheet_attribute_projections(state, applied_ops)
             )
+            patch_ops = [
+                *applied_ops,
+                *self._sheet_stat_projection_operations(state, applied_ops),
+            ]
             StateSingleton.dumpState()
-            patch = self._next_patch(applied_ops, request_id=request_id)
+            patch = self._next_patch(patch_ops, request_id=request_id)
             self._record_mutation(patch, source=current_request_source())
             if request_id is not None:
                 self._remember_processed_request(request_id)

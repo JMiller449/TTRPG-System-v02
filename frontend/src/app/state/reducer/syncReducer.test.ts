@@ -57,6 +57,11 @@ function sheet(items = {}) {
     proficiencies: {},
     items,
     stats: stats(),
+    evaluated_stats: {
+      reaction_time: 10,
+      health: 100,
+      mana: 20
+    },
     resistances: {},
     slayed_record: {},
     actions: {}
@@ -761,11 +766,15 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(attached.state.serverState.attributeOrder).toEqual(["rank_label"]);
-    expect(attached.state.serverState.sheets.sheet_1?.attributes?.rank_label.evaluated_value).toBe("C");
-    expect(attached.state.serverState.items.item_1?.attributes?.rank_label.evaluated_value).toBe("D");
-    expect(attached.state.serverState.actions.action_1?.attributes?.rank_label.evaluated_value).toBe(
-      "A"
+    expect(attached.state.serverState.sheets.sheet_1?.attributes?.rank_label.evaluated_value).toBe(
+      "C"
     );
+    expect(attached.state.serverState.items.item_1?.attributes?.rank_label.evaluated_value).toBe(
+      "D"
+    );
+    expect(
+      attached.state.serverState.actions.action_1?.attributes?.rank_label.evaluated_value
+    ).toBe("A");
 
     const detached = applyAuthoritativeEvent(attached.state, attached.protocolState, {
       response_id: null,
@@ -2035,6 +2044,11 @@ describe("authoritative server-state sync", () => {
             aliases: null,
             text: "37"
           }
+        },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/evaluated_stats",
+          value: { reaction_time: 37, health: 100, mana: 20 }
         }
       ],
       state_version: 1,
@@ -2058,6 +2072,11 @@ describe("authoritative server-state sync", () => {
             aliases: null,
             text: "10 + 5"
           }
+        },
+        {
+          op: "set",
+          path: "/sheets/sheet_1/evaluated_stats",
+          value: { reaction_time: 15, health: 100, mana: 20 }
         }
       ],
       state_version: 2,
@@ -2069,6 +2088,6 @@ describe("authoritative server-state sync", () => {
       aliases: null,
       text: "10 + 5"
     });
-    expect(selectActiveSheetDetail(formulaTextResult.state)?.stats.reaction_time).toBe(0);
+    expect(selectActiveSheetDetail(formulaTextResult.state)?.stats.reaction_time).toBe(15);
   });
 });

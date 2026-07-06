@@ -7,6 +7,7 @@ from backend.features.sheet_admin.formulas.service import (
     build_formula,
     validate_formula_payload_paths,
 )
+from backend.features.formula_runtime.service import evaluate_numeric_formula
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -48,7 +49,8 @@ from backend.features.attributes.service import (
     validate_subject_attribute_value,
 )
 from backend.state.default_actions import (
-    default_sheet_action_ids,
+    BASELINE_SHEET_CHECKS,
+    required_sheet_action_ids,
     seeded_global_actions,
 )
 from backend.state.models.action import Action, SendMessageStep
@@ -61,15 +63,6 @@ from backend.state.models.shared import Bridge
 from backend.state.models.sheet import InstancedSheet, Sheet, SheetSlayedBridge
 from backend.state.models.stat import Stats
 from backend.state.models.state import State
-
-_BASELINE_CHECK_STATS: tuple[tuple[str, str], ...] = (
-    ("strength", "Strength"),
-    ("dexterity", "Dexterity"),
-    ("constitution", "Constitution"),
-    ("perception", "Perception"),
-    ("arcane", "Arcane"),
-    ("will", "Will"),
-)
 
 def _build_stats(
     payload: StatsPayload,
@@ -258,7 +251,7 @@ def _baseline_check_actions() -> dict[str, Action]:
             stat_name,
             label,
         )
-        for stat_name, label in _BASELINE_CHECK_STATS
+        for stat_name, label in BASELINE_SHEET_CHECKS
     }
 
 
@@ -270,10 +263,7 @@ def _default_action_definitions() -> dict[str, Action]:
 
 
 def _new_sheet_default_action_ids() -> tuple[str, ...]:
-    return (
-        *(_baseline_check_action_id(name) for name, _ in _BASELINE_CHECK_STATS),
-        *default_sheet_action_ids(),
-    )
+    return required_sheet_action_ids()
 
 
 def _with_default_action_bridges(
@@ -489,6 +479,8 @@ async def _update_sheet(
     *,
     request_id: str | None = None,
 ) -> None:
+    payload = _with_default_action_bridges(payload)
+    default_actions = _default_action_definitions()
     if payload.id != sheet_id:
         raise ValueError("Sheet ID cannot be changed.")
 
@@ -497,12 +489,17 @@ async def _update_sheet(
         if sheet_id not in sheets:
             raise ValueError(f"Sheet '{sheet_id}' does not exist.")
 
-        _validate_sheet_references(payload, state)
+        _validate_sheet_references(
+            payload,
+            state,
+            extra_action_ids=set(default_actions),
+        )
         sheet = _build_sheet(payload)
         _validate_sheet_attributes(sheet, state)
+        default_action_ops = _add_missing_default_action_mutations(state)
         path = state_sync_service.join_path("sheets", sheet_id)
         op = state_sync_service.set_mutation(state, path, sheet)
-        return None, [op]
+        return None, [*default_action_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -717,20 +714,39 @@ async def adjust_instanced_sheet_resource(
 async def instantiate_sheet(
     request: CreateInstancedSheet,
 ) -> SheetAccessCodes | None:
-    instance = InstancedSheet(
-        parent_id=request.parent_sheet_id,
-        notes=request.notes,
-        health=request.health,
-        mana=request.mana,
-        resistances=_build_resistances(request.resistances),
-        augments={},
-    )
-
     def mutation(state: State) -> tuple[None, list]:
-        if request.parent_sheet_id not in state.sheets:
+        template = state.sheets.get(request.parent_sheet_id)
+        if template is None:
             raise ValueError(f"Sheet '{request.parent_sheet_id}' does not exist.")
         if request.instance_id in state.instanced_sheets:
             raise ValueError(f"Instance '{request.instance_id}' already exists.")
+
+        health = (
+            request.health
+            if request.health is not None
+            else evaluate_numeric_formula(template, template.stats.health)
+        )
+        mana_value = (
+            request.mana
+            if request.mana is not None
+            else evaluate_numeric_formula(template, template.stats.mana)
+        )
+        if not float(mana_value).is_integer():
+            raise ValueError(
+                f"Sheet '{request.parent_sheet_id}' mana formula must resolve to a whole number."
+            )
+        instance = InstancedSheet(
+            parent_id=request.parent_sheet_id,
+            notes=request.notes,
+            health=health,
+            mana=int(mana_value),
+            resistances=(
+                _build_resistances(request.resistances)
+                if request.resistances is not None
+                else deepcopy(template.resistances)
+            ),
+            augments={},
+        )
 
         path = state_sync_service.join_path("instanced_sheets", request.instance_id)
         op = state_sync_service.add_mutation(state, path, instance)

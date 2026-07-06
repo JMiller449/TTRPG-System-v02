@@ -47,7 +47,7 @@ describe("TemplateEditorForm", () => {
     expect(markup).toContain("Advanced");
     expect(markup).toContain("Required");
     expect(markup).toContain("Optional");
-    expect(markup).toContain("Review Template");
+    expect(markup).toContain("Continue to Stats");
     expect(markup).not.toContain(">Enemy<");
   });
 
@@ -69,11 +69,7 @@ describe("TemplateEditorForm", () => {
       attributes: {}
     });
     const markup = renderToStaticMarkup(
-      <TemplateReviewSection
-        values={values}
-        validation={validation}
-        onNavigate={() => undefined}
-      />
+      <TemplateReviewSection values={values} validation={validation} onNavigate={() => undefined} />
     );
 
     expect(markup).toContain("Template name is required.");

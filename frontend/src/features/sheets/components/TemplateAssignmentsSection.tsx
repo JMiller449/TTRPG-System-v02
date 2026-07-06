@@ -1,4 +1,5 @@
 import type { ActionDefinition, ItemDefinition, ProficiencyDefinition } from "@/domain/models";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   TemplateActionAssignment,
   TemplateEditorValues,
@@ -28,23 +29,31 @@ export function TemplateActionsSection({
   values,
   actions,
   actionOrder,
+  defaultActions,
   onCreateNew,
   onChange
 }: {
   values: TemplateEditorValues;
   actions: Record<string, ActionDefinition>;
   actionOrder: string[];
+  defaultActions: NonNullable<ActionFormulaAuthoringMetadata["default_sheet_actions"]>;
   onCreateNew?: (kind: TemplateContextualEntityKind) => void;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const assignedIds = new Set(values.actions.map((entry) => entry.actionId));
+  const defaultActionIds = new Set(defaultActions.map((entry) => entry.action_id));
+  const extraAssignments = values.actions.filter((entry) => !defaultActionIds.has(entry.actionId));
   const options: SearchPopoverOption<ActionDefinition>[] = orderedRecords(actions, actionOrder).map(
     (action) => ({
       id: action.id,
       label: action.name,
       secondary: action.roll_mode_kind === "none" ? "No roll mode" : action.roll_mode_kind,
       keywords: [action.id, action.notes ?? ""],
-      disabledReason: assignedIds.has(action.id) ? "Already assigned" : undefined,
+      disabledReason: defaultActionIds.has(action.id)
+        ? "Included automatically"
+        : assignedIds.has(action.id)
+          ? "Already assigned"
+          : undefined,
       value: action
     })
   );
@@ -84,13 +93,34 @@ export function TemplateActionsSection({
           })
         }
       />
-      {values.actions.length === 0 ? (
+      {defaultActions.length > 0 ? (
+        <div className="stack" aria-label="Actions included automatically">
+          <div>
+            <strong>Included on every sheet</strong>
+            <p className="muted">
+              These system actions are always attached and cannot be added twice or removed here.
+            </p>
+          </div>
+          <div className="template-builder__assignment-list">
+            {defaultActions.map((action) => (
+              <article className="template-builder__assignment-row" key={action.action_id}>
+                <div>
+                  <strong>{action.name}</strong>
+                  <span className="muted">{action.description}</span>
+                </div>
+                <span className="pill pill--resolved">Always included</span>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {extraAssignments.length === 0 ? (
         <AssignmentEmpty title="No extra starting actions">
-          Standard checks and other system actions will still be available after creation.
+          Add only campaign or character-specific actions beyond the included system actions above.
         </AssignmentEmpty>
       ) : (
         <div className="template-builder__assignment-list">
-          {values.actions.map((entry) => {
+          {extraAssignments.map((entry) => {
             const action = actions[entry.actionId];
             return (
               <article className="template-builder__assignment-row" key={entry.relationshipId}>
@@ -317,8 +347,8 @@ export function TemplateInventorySection({
         <div>
           <h3 id="template-inventory-title">Starting Inventory &amp; Equipment</h3>
           <p className="muted">
-            Add items that every new character created from this template should receive. Items
-            can be carried or start equipped.
+            Add items that every new character created from this template should receive. Items can
+            be carried or start equipped.
           </p>
         </div>
         {onCreateNew ? (

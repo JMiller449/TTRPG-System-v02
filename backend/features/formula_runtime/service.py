@@ -5,13 +5,16 @@ import math
 import random
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from backend.state.models.augmentation import (
     EvaluationFormulaModifierEffect,
     RollModeModifierEffect,
 )
 from backend.state.models.formula import Formula, normalize_formula_tags
+
+if TYPE_CHECKING:
+    from backend.state.models.sheet import Sheet
 
 _DICE_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])(?P<count>\d*)d(?P<sides>\d+)"
@@ -239,6 +242,26 @@ def evaluate_numeric_formula(
         modifier = evaluate_numeric_expression(effect.value.expand_formula(formula_root))
         result = apply_numeric_operation(result, modifier, effect.operation)
     return normalize_numeric_result(result)
+
+
+def evaluate_sheet_stats(sheet: Sheet) -> dict[str, float | int]:
+    """Return backend-evaluated sheet stats, omitting invalid legacy formulas."""
+    evaluated: dict[str, float | int] = {}
+    for stat_name, value in vars(sheet.stats).items():
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int | float):
+            evaluated[stat_name] = value
+            continue
+        if not isinstance(value, Formula):
+            continue
+        try:
+            evaluated[stat_name] = evaluate_numeric_formula(sheet, value)
+        except (ArithmeticError, SyntaxError, TypeError, ValueError):
+            # Persisted legacy formulas may be invalid. They remain authoring data,
+            # but must not be projected to clients as a misleading numeric zero.
+            continue
+    return evaluated
 
 
 def compose_roll20_message(

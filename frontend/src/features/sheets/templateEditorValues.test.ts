@@ -277,7 +277,9 @@ describe("templateEditorValues", () => {
       attributes: sheetAttributes
     });
 
-    expect(validation.errors.attributes).toContain("Every required sheet Attribute must remain attached.");
+    expect(validation.errors.attributes).toContain(
+      "Every required sheet Attribute must remain attached."
+    );
   });
 
   it("hydrates every editable section from an authoritative sheet", () => {
@@ -386,7 +388,7 @@ describe("templateEditorValues", () => {
     );
   });
 
-  it("maps player templates to instanced sheet creation values with access codes", () => {
+  it("leaves default player instance resources for the backend to evaluate", () => {
     const sheet = completeSheet();
     sheet.stats.health = { aliases: null, text: "32.5" };
     sheet.stats.mana = { aliases: null, text: "12" };
@@ -394,14 +396,12 @@ describe("templateEditorValues", () => {
     expect(toInstancedSheetCreationValues(sheet, "player", "instance_1")).toEqual({
       instanceId: "instance_1",
       parentSheetId: "template_1",
-      health: 32.5,
-      mana: 12,
       notes: "",
       generateAccessCode: true
     });
   });
 
-  it("falls back to core stats for nonnumeric spawn resource formulas", () => {
+  it("leaves default enemy instance resources for the backend to evaluate", () => {
     const sheet = completeSheet();
     sheet.stats.constitution = 9;
     sheet.stats.arcane = 5.8;
@@ -411,8 +411,6 @@ describe("templateEditorValues", () => {
     expect(toInstancedSheetCreationValues(sheet, "enemy", "instance_1")).toEqual({
       instanceId: "instance_1",
       parentSheetId: "template_1",
-      health: 9,
-      mana: 5,
       notes: "",
       generateAccessCode: false
     });

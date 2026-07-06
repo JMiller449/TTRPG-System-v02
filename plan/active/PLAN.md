@@ -148,6 +148,21 @@ No large architecture feature is currently missing for the stated character-shee
   confirming both the test message and a real authored action reach Roll20
   chat exactly once.
 
+- [x] Resolve the 2026-07-05 builder and table-readiness defects:
+  - Template Builder footer actions now walk through sections with destination-specific
+    labels and provide an explicit early-review option throughout optional content.
+  - The Actions section lists mandatory system checks, Dodge, and Block as locked defaults;
+    backend create/update paths enforce them so they cannot be duplicated or removed.
+  - Formula-backed sheet stats are evaluated by the backend and projected through
+    snapshots and patches instead of being parsed as numeric formula text by the frontend.
+  - Default instance Health, Mana, and resistances are initialized from the template by
+    the backend when the DM does not explicitly override them.
+  - The Extension workspace presents the Violentmonkey/userscript setup as an ordered
+    install, reload, and re-login sequence.
+  - Successful authored actions populate the persisted, bounded action-history audit
+    stream through non-undoable authoritative patches; live patches use the same
+    role-filtered string payloads as snapshots for both DMs and assigned players.
+
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates

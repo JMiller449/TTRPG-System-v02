@@ -135,9 +135,9 @@ class CreateInstancedSheet(RequestModel):
     instance_id: str = Field(min_length=1)
     parent_sheet_id: str = Field(min_length=1)
     notes: str = ""
-    health: float
-    mana: int
-    resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
+    health: float | None = None
+    mana: int | None = None
+    resistances: ResistancesPayload | None = None
     generate_access_code: bool = False
     type: Literal["create_instanced_sheet"]
 

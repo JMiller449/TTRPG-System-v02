@@ -701,7 +701,6 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "request_id": None,
             },
         ]
-
     asyncio.run(scenario())
 
 
@@ -936,7 +935,6 @@ def test_websocket_contract_player_cannot_call_dm_only_route(monkeypatch) -> Non
                 "request_id": "req-1",
             }
         ]
-
     asyncio.run(scenario())
 
 
@@ -1205,7 +1203,12 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
         )
 
         assert state.instanced_sheets["mage_instance"].mana == 26
-        assert websocket.sent_messages == [
+        request_messages = [
+            message
+            for message in websocket.sent_messages
+            if message.get("request_id") == "req-1"
+        ]
+        assert request_messages == [
             {
                 "response_id": None,
                 "ops": [
@@ -1220,6 +1223,13 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
                 "request_id": "req-1",
             },
         ]
+        assert websocket.sent_messages[-1]["request_id"] is None
+        history_op = websocket.sent_messages[-1]["ops"][0]
+        assert history_op["op"] == "add"
+        assert history_op["path"].startswith("/action_history/action_history_")
+        assert history_op["value"]["action_id"] == "spend_mana"
+        assert history_op["value"]["mutation_summaries"] == []
+        assert history_op["value"]["redacted"] is True
 
     asyncio.run(scenario())
 
@@ -1262,7 +1272,12 @@ def test_websocket_contract_roll20_only_action_returns_action_executed() -> None
         )
 
         assert state.instanced_sheets["mage_instance"].mana == 30
-        assert websocket.sent_messages == [
+        request_messages = [
+            message
+            for message in websocket.sent_messages
+            if message.get("request_id") == "req-1"
+        ]
+        assert request_messages == [
             {
                 "response_id": None,
                 "sheet_id": "mage_instance",
@@ -1273,6 +1288,13 @@ def test_websocket_contract_roll20_only_action_returns_action_executed() -> None
                 "request_id": "req-1",
             }
         ]
+        assert websocket.sent_messages[0]["request_id"] is None
+        history_op = websocket.sent_messages[0]["ops"][0]
+        assert history_op["op"] == "add"
+        assert history_op["path"].startswith("/action_history/action_history_")
+        assert history_op["value"]["action_id"] == "announce"
+        assert history_op["value"]["emitted_messages"] == ["Mana is (30)"]
+        assert history_op["value"]["redacted"] is True
         assert bridge_socket.sent_messages == [
             {
                 "message_id": bridge_socket.sent_messages[0]["message_id"],

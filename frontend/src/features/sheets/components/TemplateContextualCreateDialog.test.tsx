@@ -82,6 +82,13 @@ describe("Template Builder contextual controls", () => {
           values={values}
           actions={{}}
           actionOrder={[]}
+          defaultActions={[
+            {
+              action_id: "baseline_check_strength",
+              name: "Strength Check",
+              description: "Standard system check included on every sheet."
+            }
+          ]}
           onCreateNew={onCreateNew}
           onChange={onChange}
         />
@@ -108,6 +115,9 @@ describe("Template Builder contextual controls", () => {
 
     expect(markup).toContain("Create reusable Attribute…");
     expect(markup).toContain("Create reusable Action…");
+    expect(markup).toContain("Included on every sheet");
+    expect(markup).toContain("Strength Check");
+    expect(markup).toContain("Always included");
     expect(markup).toContain("Create reusable Proficiency…");
     expect(markup).toContain("Create reusable Item…");
   });

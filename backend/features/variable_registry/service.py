@@ -19,8 +19,12 @@ from backend.features.variable_registry.schema import (
     VariablePathMetadata,
     VariableRegistry,
     VariableRoot,
+    DefaultSheetActionMetadata,
 )
-from backend.state.default_actions import CANONICAL_ACTION_PRESETS
+from backend.state.default_actions import (
+    CANONICAL_ACTION_PRESETS,
+    required_sheet_action_metadata,
+)
 from backend.state.models.attribute import (
     ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
     ACTION_MANA_COST_ATTRIBUTE_ID,
@@ -688,6 +692,14 @@ def build_action_formula_authoring_metadata(
         action_steps=list(_ACTION_STEPS),
         action_preset_templates=list(_ACTION_PRESET_TEMPLATES),
         action_attribute_presets=list(_ACTION_ATTRIBUTE_PRESETS),
+        default_sheet_actions=[
+            DefaultSheetActionMetadata(
+                action_id=entry.action_id,
+                name=entry.name,
+                description=entry.description,
+            )
+            for entry in required_sheet_action_metadata()
+        ],
         attribute_formula_variables=_attribute_formula_variables(
             state,
             include_gm_only=include_gm_only,

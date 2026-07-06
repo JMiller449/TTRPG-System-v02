@@ -154,14 +154,15 @@ export function SheetStatsSection({
 
               <div className="core-block__subs">
                 {group.subs.map((subKey) => {
-                  const subBase = stats[subKey] ?? 0;
+                  const subBase = stats[subKey];
+                  const displaySubBase = subBase ?? "—";
                   if (isResourceKey(subKey)) {
                     return (
                       <div key={subKey} className="core-sub-row core-sub-row--base-only">
                         <div className="core-sub-row__top">
                           <div className="core-sub-row__main core-sub-row__main--static">
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
-                            <span className="core-sub-row__value">{subBase}</span>
+                            <span className="core-sub-row__value">{displaySubBase}</span>
                           </div>
                           <div className="core-sub-row__actions core-sub-row__actions--placeholder" />
                         </div>
@@ -171,7 +172,8 @@ export function SheetStatsSection({
 
                   const canEditSubStat = canEditStats && isCoreStatKey(subKey);
                   const subModifier = getModifier(subKey);
-                  const subCurrent = getCurrentValue(subKey, subBase);
+                  const subCurrent =
+                    subBase === undefined ? null : getCurrentValue(subKey, subBase);
                   const subEditorId = `stat-editor-${subKey}`;
                   const subErrorId = `${subEditorId}-error`;
                   const subHintId = `${subEditorId}-hint`;
@@ -203,7 +205,7 @@ export function SheetStatsSection({
                         ) : (
                           <div className="core-sub-row__main core-sub-row__main--static">
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
-                            <span className="core-sub-row__value">{subBase}</span>
+                            <span className="core-sub-row__value">{displaySubBase}</span>
                           </div>
                         )}
                         <div className="core-sub-row__actions">

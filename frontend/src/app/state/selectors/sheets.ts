@@ -50,11 +50,6 @@ function getSheetKind(sheet: Sheet | null): SheetKind {
   return sheet.dm_only ? "enemy" : "player";
 }
 
-function readFormulaNumber(text: string): number {
-  const parsed = Number(text);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function buildBaseStatValues(
   sheet: Sheet | null,
   persistentSheet?: PersistentSheet | null
@@ -63,6 +58,7 @@ function buildBaseStatValues(
     return {};
   }
 
+  const evaluatedStats = sheet.evaluated_stats ?? {};
   return {
     strength: sheet.stats.strength,
     dexterity: sheet.stats.dexterity,
@@ -70,23 +66,8 @@ function buildBaseStatValues(
     perception: sheet.stats.perception,
     arcane: sheet.stats.arcane,
     will: sheet.stats.will,
-    lifting: readFormulaNumber(sheet.stats.lifting.text),
-    carry_weight: readFormulaNumber(sheet.stats.carry_weight.text),
-    acrobatics: readFormulaNumber(sheet.stats.acrobatics.text),
-    stamina: readFormulaNumber(sheet.stats.stamina.text),
-    reaction_time: readFormulaNumber(sheet.stats.reaction_time.text),
-    health: persistentSheet?.health ?? readFormulaNumber(sheet.stats.health.text),
-    endurance: readFormulaNumber(sheet.stats.endurance.text),
-    pain_tolerance: readFormulaNumber(sheet.stats.pain_tolerance.text),
-    sight_distance: readFormulaNumber(sheet.stats.sight_distance.text),
-    intuition: readFormulaNumber(sheet.stats.intuition.text),
-    registration: readFormulaNumber(sheet.stats.registration.text),
-    mana: persistentSheet?.mana ?? readFormulaNumber(sheet.stats.mana.text),
-    control: readFormulaNumber(sheet.stats.control.text),
-    sensitivity: readFormulaNumber(sheet.stats.sensitivity.text),
-    charisma: readFormulaNumber(sheet.stats.charisma.text),
-    mental_fortitude: readFormulaNumber(sheet.stats.mental_fortitude.text),
-    courage: readFormulaNumber(sheet.stats.courage.text)
+    ...evaluatedStats,
+    ...(persistentSheet ? { health: persistentSheet.health, mana: persistentSheet.mana } : {})
   };
 }
 

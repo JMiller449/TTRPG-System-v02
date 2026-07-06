@@ -217,6 +217,9 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
             payload.action_preset_templates as ProtocolActionFormulaAuthoringMetadataEvent["action_preset_templates"],
           action_attribute_presets:
             payload.action_attribute_presets as ProtocolActionFormulaAuthoringMetadataEvent["action_attribute_presets"],
+          default_sheet_actions: Array.isArray(payload.default_sheet_actions)
+            ? (payload.default_sheet_actions as ProtocolActionFormulaAuthoringMetadataEvent["default_sheet_actions"])
+            : [],
           attribute_formula_variables: Array.isArray(payload.attribute_formula_variables)
             ? (payload.attribute_formula_variables as ProtocolActionFormulaAuthoringMetadataEvent["attribute_formula_variables"])
             : [],

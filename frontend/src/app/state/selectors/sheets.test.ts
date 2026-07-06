@@ -92,6 +92,25 @@ function sheet(
     proficiencies: {},
     items,
     stats: stats(),
+    evaluated_stats: {
+      lifting: 14,
+      carry_weight: 20,
+      acrobatics: 9,
+      stamina: 11,
+      reaction_time: 10,
+      health: 45,
+      endurance: 9,
+      pain_tolerance: 8,
+      sight_distance: 7,
+      intuition: 6,
+      registration: 5,
+      mana: 30,
+      control: 4,
+      sensitivity: 3,
+      charisma: 2,
+      mental_fortitude: 1,
+      courage: 13
+    },
     slayed_record: {},
     actions: {},
     ...overrides
@@ -190,7 +209,7 @@ describe("sheet selectors", () => {
       notes: "Mage template notes"
     });
     expect(playerTemplate?.stats.health).toBe(45);
-    expect(playerTemplate?.stats.acrobatics).toBe(0);
+    expect(playerTemplate?.stats.acrobatics).toBe(9);
 
     expect(selectSheetTemplateView(state, "sheet_enemy")?.kind).toBe("enemy");
     expect(selectSheetTemplateView(state, "missing")).toBeNull();
@@ -210,7 +229,7 @@ describe("sheet selectors", () => {
     expect(detail?.stats.health).toBe(37);
     expect(detail?.stats.mana).toBe(9);
     expect(detail?.stats.strength).toBe(12);
-    expect(detail?.stats.acrobatics).toBe(0);
+    expect(detail?.stats.acrobatics).toBe(9);
   });
 
   it("keeps orphan instances selectable without inventing parent sheet data", () => {

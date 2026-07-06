@@ -292,6 +292,12 @@ class ActionAttributePresetEvent(ProtocolModel):
     attribute_values: dict[str, AttributeValuePayload]
 
 
+class DefaultSheetActionMetadataEvent(ProtocolModel):
+    action_id: str
+    name: str
+    description: str
+
+
 class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     response_id: str | None = None
     variables: list[AuthoringVariablePathMetadataEvent]
@@ -305,6 +311,9 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     action_steps: list[ActionStepAuthoringMetadataEvent]
     action_preset_templates: list[ActionPresetTemplateEvent]
     action_attribute_presets: list[ActionAttributePresetEvent]
+    default_sheet_actions: list[DefaultSheetActionMetadataEvent] = Field(
+        default_factory=list
+    )
     attribute_formula_variables: list[AttributeFormulaVariablePathMetadataEvent] = Field(
         default_factory=list
     )

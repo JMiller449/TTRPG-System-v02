@@ -142,21 +142,14 @@ def test_dm_can_set_sheet_base_stat(monkeypatch) -> None:
             )
 
             assert StateSingleton.getState().sheets["mage_template"].stats.strength == 18
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "set",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": 18,
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "client-id-ignored",
-                }
-            ]
+            assert websocket.sent_messages[0]["ops"][0] == {
+                "op": "set",
+                "path": "/sheets/mage_template/stats/strength",
+                "value": 18,
+            }
+            projection = websocket.sent_messages[0]["ops"][1]
+            assert projection["path"] == "/sheets/mage_template/evaluated_stats"
+            assert projection["value"]["strength"] == 18
         finally:
             StateSingleton._state = original_state
 
@@ -199,30 +192,23 @@ def test_dm_can_set_sheet_formula_stat(monkeypatch) -> None:
                 .stats.health.text
                 == "@constitution * 12"
             )
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
+            assert websocket.sent_messages[0]["ops"][0] == {
+                "op": "set",
+                "path": "/sheets/mage_template/stats/health",
+                "value": {
+                    "aliases": [
                         {
-                            "op": "set",
-                            "path": "/sheets/mage_template/stats/health",
-                            "value": {
-                                "aliases": [
-                                    {
-                                        "name": "constitution",
-                                        "path": ["stats", "constitution"],
-                                    }
-                                ],
-                                "text": "@constitution * 12",
-                                "tags": [],
-                            },
+                            "name": "constitution",
+                            "path": ["stats", "constitution"],
                         }
                     ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "client-id-ignored",
-                }
-            ]
+                    "text": "@constitution * 12",
+                    "tags": [],
+                },
+            }
+            projection = websocket.sent_messages[0]["ops"][1]
+            assert projection["path"] == "/sheets/mage_template/evaluated_stats"
+            assert projection["value"]["health"] == 144
         finally:
             StateSingleton._state = original_state
 

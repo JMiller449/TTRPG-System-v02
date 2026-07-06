@@ -15,6 +15,22 @@ ActionPresetCategory = Literal[
     "spell",
 ]
 
+BASELINE_SHEET_CHECKS: tuple[tuple[str, str], ...] = (
+    ("strength", "Strength"),
+    ("dexterity", "Dexterity"),
+    ("constitution", "Constitution"),
+    ("perception", "Perception"),
+    ("arcane", "Arcane"),
+    ("will", "Will"),
+)
+
+
+@dataclass(frozen=True)
+class DefaultSheetActionMetadata:
+    action_id: str
+    name: str
+    description: str
+
 
 @dataclass(frozen=True)
 class CanonicalActionPreset:
@@ -268,3 +284,31 @@ def default_sheet_action_ids() -> tuple[str, ...]:
         for preset in CANONICAL_ACTION_PRESETS
         if preset.attach_to_new_sheet
     )
+
+
+def required_sheet_action_ids() -> tuple[str, ...]:
+    return (
+        *(f"baseline_check_{stat_name}" for stat_name, _ in BASELINE_SHEET_CHECKS),
+        *default_sheet_action_ids(),
+    )
+
+
+def required_sheet_action_metadata() -> tuple[DefaultSheetActionMetadata, ...]:
+    baseline_actions = tuple(
+        DefaultSheetActionMetadata(
+            action_id=f"baseline_check_{stat_name}",
+            name=f"{label} Check",
+            description="Standard system check included on every sheet.",
+        )
+        for stat_name, label in BASELINE_SHEET_CHECKS
+    )
+    preset_actions = tuple(
+        DefaultSheetActionMetadata(
+            action_id=preset.id,
+            name=preset.label,
+            description=preset.description,
+        )
+        for preset in CANONICAL_ACTION_PRESETS
+        if preset.attach_to_new_sheet
+    )
+    return (*baseline_actions, *preset_actions)

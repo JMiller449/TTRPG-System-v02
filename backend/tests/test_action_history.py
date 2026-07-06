@@ -4,12 +4,14 @@ from dataclasses import asdict
 from copy import deepcopy
 
 import backend.state.store as store_module
+from backend.core.transport import PatchOp
 from backend.features.action_history.service import (
     record_action_history_entry,
     serialize_action_history,
     serialize_action_history_entry,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.state_sync.schema import StatePatch
 from backend.state.models.action_history import (
     ACTION_HISTORY_RETENTION_LIMIT,
     ActionHistoryEntry,
@@ -157,6 +159,51 @@ def test_state_snapshot_redacts_action_history_by_session_assignment() -> None:
         "Fire Bolt succeeded."
     )
     assert player_state["action_history"]["history-1"]["mutation_summaries"] == []
+
+
+def test_live_action_history_patch_serializes_text_for_dm() -> None:
+    _reset_state()
+    entry = _entry()
+    StateSingleton.getState().action_history[entry.id] = entry
+    patch = StatePatch(
+        response_id=None,
+        state_version=8,
+        ops=[PatchOp(op="add", path="/action_history/history-1", value=entry)],
+    )
+
+    projected = state_sync_service._redact_patch_for_role(patch, role="dm")
+
+    assert projected.ops is not None
+    assert projected.ops[0].value["emitted_messages"] == [
+        "Fire Bolt: /r 1d100",
+        "GM detail: arcane=14",
+    ]
+    assert projected.ops[0].value["mutation_summaries"] == [
+        "health=12;damage=8;type=Fire;resistance=20",
+    ]
+
+
+def test_live_action_history_patch_is_filtered_for_assigned_player() -> None:
+    _reset_state()
+    entry = _entry()
+    StateSingleton.getState().action_history[entry.id] = entry
+    patch = StatePatch(
+        response_id=None,
+        state_version=8,
+        ops=[PatchOp(op="add", path="/action_history/history-1", value=entry)],
+    )
+
+    projected = state_sync_service._redact_patch_for_role(
+        patch,
+        role="player",
+        assigned_instance_id="mage-instance",
+    )
+
+    assert projected.ops is not None
+    assert projected.ops[0].value["summary"] == "Fire Bolt succeeded."
+    assert projected.ops[0].value["emitted_messages"] == ["Fire Bolt: /r 1d100"]
+    assert projected.ops[0].value["mutation_summaries"] == []
+    assert projected.ops[0].value["redacted"] is True
 
 
 def test_record_action_history_entry_trims_to_newest_entries() -> None:

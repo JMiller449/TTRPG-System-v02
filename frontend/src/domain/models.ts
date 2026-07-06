@@ -464,6 +464,7 @@ export interface Sheet {
   proficiencies: Record<string, ProficiencyBridge>;
   items: Record<string, ItemBridge>;
   stats: Stats;
+  evaluated_stats?: Partial<Record<StatKey, number>>;
   resistances?: Resistances;
   slayed_record: Record<string, SheetSlayedBridge>;
   actions: Record<string, Bridge>;

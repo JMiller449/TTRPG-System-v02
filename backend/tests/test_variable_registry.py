@@ -74,6 +74,9 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         default.stat_name: default.formula
         for default in metadata.sheet_formula_stat_defaults
     }
+    default_sheet_actions = {
+        action.action_id: action for action in metadata.default_sheet_actions
+    }
 
     assert metadata.type == "action_formula_authoring_metadata"
     assert metadata.formula_roots == [
@@ -83,6 +86,17 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "source_item",
     ]
     assert metadata.action_mutation_roots == ["sheet", "instance"]
+    assert set(default_sheet_actions) == {
+        "baseline_check_strength",
+        "baseline_check_dexterity",
+        "baseline_check_constitution",
+        "baseline_check_perception",
+        "baseline_check_arcane",
+        "baseline_check_will",
+        "dodge",
+        "block",
+    }
+    assert default_sheet_actions["dodge"].name == "Dodge"
     assert attribute_formula_variables["attribute_formula.sheet.stats.strength"].path == [
         "stats",
         "strength",

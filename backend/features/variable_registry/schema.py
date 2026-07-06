@@ -158,6 +158,13 @@ class ActionAttributePreset:
 
 
 @dataclass
+class DefaultSheetActionMetadata:
+    action_id: str
+    name: str
+    description: str
+
+
+@dataclass
 class ActionFormulaAuthoringMetadata(ResponseModel):
     variables: list[AuthoringVariablePathMetadata]
     formula_roots: list[VariableRoot]
@@ -166,6 +173,7 @@ class ActionFormulaAuthoringMetadata(ResponseModel):
     action_steps: list[ActionStepAuthoringMetadata]
     action_preset_templates: list[ActionPresetTemplate]
     action_attribute_presets: list[ActionAttributePreset]
+    default_sheet_actions: list[DefaultSheetActionMetadata] = field(default_factory=list)
     attribute_formula_variables: list[AttributeFormulaVariablePathMetadata] = field(
         default_factory=list
     )

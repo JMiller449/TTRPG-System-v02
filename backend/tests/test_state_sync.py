@@ -680,34 +680,20 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
             assert (
                 StateSingleton.getState().sheets["mage_template"].stats.strength == 11
             )
-            assert dm_socket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": 2,
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "req-1",
-                },
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": -1,
-                        }
-                    ],
-                    "state_version": 2,
-                    "type": "state_patch",
-                    "request_id": "req-2",
-                },
+            assert [message["ops"][0]["value"] for message in dm_socket.sent_messages] == [
+                2,
+                -1,
             ]
+            assert [
+                message["ops"][1]["path"] for message in dm_socket.sent_messages
+            ] == [
+                "/sheets/mage_template/evaluated_stats",
+                "/sheets/mage_template/evaluated_stats",
+            ]
+            assert [
+                message["ops"][1]["value"]["strength"]
+                for message in dm_socket.sent_messages
+            ] == [12, 11]
             assert player_socket.sent_messages == dm_socket.sent_messages
             assert [
                 (
@@ -722,13 +708,19 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                     1,
                     "req-1",
                     None,
-                    ("/sheets/mage_template/stats/strength",),
+                    (
+                        "/sheets/mage_template/stats/strength",
+                        "/sheets/mage_template/evaluated_stats",
+                    ),
                 ),
                 (
                     2,
                     "req-2",
                     None,
-                    ("/sheets/mage_template/stats/strength",),
+                    (
+                        "/sheets/mage_template/stats/strength",
+                        "/sheets/mage_template/evaluated_stats",
+                    ),
                 ),
             ]
         finally:
@@ -760,34 +752,14 @@ def test_state_sync_undo_reverses_last_mutation_and_broadcasts_patch(monkeypatch
                 StateSingleton.getState().sheets["mage_template"].stats.strength == 10
             )
             assert state_sync_service.undo_depth == 0
-            assert dm_socket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": 2,
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "req-1",
-                },
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": -2,
-                        }
-                    ],
-                    "state_version": 2,
-                    "type": "state_patch",
-                    "request_id": "req-undo",
-                },
+            assert [message["ops"][0]["value"] for message in dm_socket.sent_messages] == [
+                2,
+                -2,
             ]
+            assert [
+                message["ops"][1]["value"]["strength"]
+                for message in dm_socket.sent_messages
+            ] == [12, 10]
             assert player_socket.sent_messages == dm_socket.sent_messages
         finally:
             StateSingleton._state = original_state
@@ -863,34 +835,17 @@ def test_resync_state_replays_missing_patches(monkeypatch) -> None:
                 ),
             )
 
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": 2,
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "req-3",
-                },
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "inc",
-                            "path": "/sheets/mage_template/stats/strength",
-                            "value": -1,
-                        }
-                    ],
-                    "state_version": 2,
-                    "type": "state_patch",
-                    "request_id": "req-3",
-                },
+            assert [message["ops"][0]["value"] for message in websocket.sent_messages] == [
+                2,
+                -1,
             ]
+            assert [
+                message["ops"][1]["value"]["strength"]
+                for message in websocket.sent_messages
+            ] == [12, 11]
+            assert all(
+                message["request_id"] == "req-3" for message in websocket.sent_messages
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -925,6 +880,14 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
             expected_state = StateSingleton.getState().to_dict()
             expected_state["sheets"]["mage_template"]["xp_given_when_slayed"] = 0
             expected_state["sheets"]["mage_template"]["xp_cap"] = ""
+            expected_state["sheets"]["mage_template"]["evaluated_stats"] = {
+                "strength": 12,
+                "dexterity": 11,
+                "constitution": 12,
+                "perception": 13,
+                "arcane": 14,
+                "will": 15,
+            }
             assert websocket.sent_messages == [
                 {
                     "response_id": None,

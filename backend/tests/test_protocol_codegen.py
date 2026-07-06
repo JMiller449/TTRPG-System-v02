@@ -118,6 +118,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert "export type SheetDefinitionPayload = {" in output
     assert "export type ActionHistoryEntryPayload = {" in output
     assert '"sheet_formula_stat_defaults"?: SheetFormulaStatDefaultMetadataEvent[];' in output
+    assert '"default_sheet_actions"?: DefaultSheetActionMetadataEvent[];' in output
+    assert "export type DefaultSheetActionMetadataEvent = {" in output
     assert "export type SheetFormulaStatDefaultMetadataEvent = {" in output
     assert '"summary": string;' in output
     assert '"mutation_summaries"?: string[];' in output

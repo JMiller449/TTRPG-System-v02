@@ -221,6 +221,13 @@ describe("parseProtocolServerEvent", () => {
       ],
       action_preset_templates: [],
       action_attribute_presets: [],
+      default_sheet_actions: [
+        {
+          action_id: "baseline_check_strength",
+          name: "Strength Check",
+          description: "Standard system check included on every sheet."
+        }
+      ],
       attribute_formula_variables: [],
       sheet_formula_stat_defaults: [
         {
@@ -278,6 +285,13 @@ describe("parseProtocolServerEvent", () => {
       ],
       action_preset_templates: [],
       action_attribute_presets: [],
+      default_sheet_actions: [
+        {
+          action_id: "baseline_check_strength",
+          name: "Strength Check",
+          description: "Standard system check included on every sheet."
+        }
+      ],
       attribute_formula_variables: [],
       sheet_formula_stat_defaults: [
         {
@@ -447,6 +461,7 @@ describe("adaptProtocolServerEvent", () => {
           ],
           action_preset_templates: [],
           action_attribute_presets: [],
+          default_sheet_actions: [],
           attribute_formula_variables: [],
           sheet_formula_stat_defaults: [
             {

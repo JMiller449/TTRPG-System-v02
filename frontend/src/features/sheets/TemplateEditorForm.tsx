@@ -94,6 +94,16 @@ export function TemplateEditorForm({
     () => validateTemplateEditorValues(values, catalogs),
     [catalogs, values]
   );
+  const activeSectionIndex = SECTIONS.findIndex((section) => section.id === activeSection);
+  const nextSection = SECTIONS[activeSectionIndex + 1] ?? null;
+  const canReviewEarly = activeSectionIndex >= 1 && nextSection?.id !== "review";
+
+  const navigateTo = (section: BuilderSection): void => {
+    if (section === "review") {
+      setReviewRequested(true);
+    }
+    setActiveSection(section);
+  };
 
   return (
     <form
@@ -101,8 +111,10 @@ export function TemplateEditorForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
+        if (activeSection !== "review") {
+          return;
+        }
         setReviewRequested(true);
-        setActiveSection("review");
         if (validation.isValid && !pending) {
           onSubmit();
         }
@@ -124,8 +136,7 @@ export function TemplateEditorForm({
         {SECTIONS.map((section, index) => {
           const previousSection = SECTIONS[index - 1];
           const showGroup = !previousSection || previousSection.group !== section.group;
-          const errorCount =
-            section.id === "review" ? 0 : validation.errors[section.id].length;
+          const errorCount = section.id === "review" ? 0 : validation.errors[section.id].length;
           return [
             showGroup ? (
               <span className="template-builder__tab-group" key={`${section.group}-label`}>
@@ -138,12 +149,7 @@ export function TemplateEditorForm({
               role="tab"
               aria-selected={activeSection === section.id}
               className={activeSection === section.id ? "is-active" : ""}
-              onClick={() => {
-                if (section.id === "review") {
-                  setReviewRequested(true);
-                }
-                setActiveSection(section.id);
-              }}
+              onClick={() => navigateTo(section.id)}
             >
               <span className="template-builder__tab-number" aria-hidden="true">
                 {index + 1}
@@ -186,6 +192,7 @@ export function TemplateEditorForm({
             values={values}
             actions={actions}
             actionOrder={actionOrder}
+            defaultActions={metadata?.default_sheet_actions ?? []}
             onCreateNew={onCreateReference}
             onChange={onChange}
           />
@@ -235,16 +242,24 @@ export function TemplateEditorForm({
             {pending ? "Saving..." : submitLabel}
           </button>
         ) : (
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              setReviewRequested(true);
-              setActiveSection("review");
-            }}
-          >
-            Review Template
-          </button>
+          <>
+            {canReviewEarly ? (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => navigateTo("review")}
+              >
+                Review and Finish
+              </button>
+            ) : null}
+            {nextSection ? (
+              <button type="button" className="button" onClick={() => navigateTo(nextSection.id)}>
+                {nextSection.id === "review"
+                  ? "Review Template"
+                  : `Continue to ${nextSection.label}`}
+              </button>
+            ) : null}
+          </>
         )}
       </footer>
     </form>

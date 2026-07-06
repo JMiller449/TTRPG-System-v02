@@ -43,7 +43,14 @@ class FakeWebSocket:
 async def _send(websocket: FakeWebSocket, payload: dict) -> list[dict]:
     start = len(websocket.sent_messages)
     await handle_client_payload(websocket, payload)
-    return websocket.sent_messages[start:]
+    return [
+        message
+        for message in websocket.sent_messages[start:]
+        if not (
+            message.get("type") == "state_patch"
+            and message.get("request_id") is None
+        )
+    ]
 
 
 def test_dm_examples_author_persist_reload_equip_and_execute(

@@ -3,11 +3,14 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from math import floor
 from typing import Any, Literal
 from uuid import uuid4
 
+from backend.core.transport import PatchOp
 from backend.features.augmentations import service as augmentation_service
+from backend.features.action_history.service import record_action_history_entry
 from backend.features.chat import service as chat_service
 from backend.features.chat.schema import Roll20ChatMessage
 from backend.features.formula_runtime.service import (
@@ -41,6 +44,7 @@ from backend.state.models.action import (
     SendMessageStep,
     SetValueStep,
 )
+from backend.state.models.action_history import ActionHistoryEntry, ActionHistoryText
 from backend.state.models.damage import (
     DamageType,
     damage_type_category,
@@ -1418,6 +1422,53 @@ async def perform_action(
                 request_id=request.request_id,
             )
         )
+
+    def history_mutation(state: State) -> tuple[None, list[Any]]:
+        entry_id = f"action_history_{uuid4()}"
+        entry = ActionHistoryEntry(
+            id=entry_id,
+            request_id=request.request_id,
+            action_id=action.id,
+            action_name=action.name,
+            actor_role=actor_role,
+            actor_sheet_id=actor.sheet_id,
+            actor_instance_id=(actor.actor_id if actor.instance is not None else None),
+            target_sheet_id=request.target_sheet_id,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            state_version=state_sync_service.current_version + 1,
+            status="success",
+            public_summary=f"{action.name} completed.",
+            gm_summary=(
+                f"{action.name} completed with {len(emitted_messages)} message(s) "
+                f"and {len(applied_mutations)} mutation(s)."
+            ),
+            emitted_messages=[
+                ActionHistoryText(message, visibility="public")
+                for message in emitted_messages
+            ],
+            mutation_summaries=[
+                ActionHistoryText(summary, visibility="gm_only")
+                for summary in applied_mutations
+            ],
+        )
+        removed_ids = record_action_history_entry(state, entry)
+        ops: list[Any] = [
+            PatchOp(
+                op="remove",
+                path=state_sync_service.join_path("action_history", removed_id),
+            )
+            for removed_id in removed_ids
+        ]
+        ops.append(
+            PatchOp(
+                op="add",
+                path=state_sync_service.join_path("action_history", entry_id),
+                value=entry,
+            )
+        )
+        return None, ops
+
+    await state_sync_service.apply_audit_mutation(history_mutation)
 
     if emitted_state_patch:
         return None

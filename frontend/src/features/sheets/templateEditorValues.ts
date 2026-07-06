@@ -30,8 +30,6 @@ import type { SheetDefinitionPayload } from "@/infrastructure/ws/requestBuilders
 export interface InstancedSheetCreationValues {
   instanceId: string;
   parentSheetId: string;
-  health: number;
-  mana: number;
   notes: string;
   generateAccessCode: boolean;
 }
@@ -215,7 +213,9 @@ export function validateTemplateEditorValues(
     errors.attributes.push("Attribute assignments must have unique relationship IDs.");
   }
   if (attributeEntries.some(([attributeId, bridge]) => attributeId !== bridge.attribute_id)) {
-    errors.attributes.push("Every Attribute assignment key must match its Attribute definition ID.");
+    errors.attributes.push(
+      "Every Attribute assignment key must match its Attribute definition ID."
+    );
   }
   if (
     attributeBridges.some(
@@ -431,11 +431,6 @@ export function toUpdatedSheetDefinitionPayload(
   return toSheetDefinitionPayload(values, sheet.id);
 }
 
-function parseFiniteFormulaNumber(text: string): number | null {
-  const parsed = Number(text);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function isValidAttributeValue(value: AttributeValue): boolean {
   if (value.type === "formula") {
     return (
@@ -454,11 +449,6 @@ function isValidAttributeValue(value: AttributeValue): boolean {
   return value.type !== "reference" || Boolean(value.value.trim());
 }
 
-function parseIntegerFormulaNumber(text: string): number | null {
-  const parsed = Number(text);
-  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : null;
-}
-
 export function toInstancedSheetCreationValues(
   sheet: Sheet,
   kind: SheetKind,
@@ -467,8 +457,6 @@ export function toInstancedSheetCreationValues(
   return {
     instanceId,
     parentSheetId: sheet.id,
-    health: parseFiniteFormulaNumber(sheet.stats.health.text) ?? sheet.stats.constitution,
-    mana: parseIntegerFormulaNumber(sheet.stats.mana.text) ?? Math.trunc(sheet.stats.arcane),
     notes: "",
     generateAccessCode: kind === "player"
   };

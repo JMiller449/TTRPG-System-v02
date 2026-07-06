@@ -135,6 +135,7 @@ class SheetPayload(ProtocolModel):
     proficiencies: dict[str, ProficiencyBridgePayload]
     items: dict[str, ItemBridgePayload]
     stats: StatsPayload
+    evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     slayed_record: dict[str, SheetSlayedBridgePayload]
     actions: dict[str, BridgePayload]

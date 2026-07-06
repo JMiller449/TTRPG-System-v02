@@ -226,6 +226,7 @@ def test_attribute_recomputes_when_dependency_changes(monkeypatch) -> None:
             assert [op["path"] for op in websocket.sent_messages[-1]["ops"]] == [
                 "/sheets/mage/stats/arcane",
                 "/sheets/mage/attributes/amount_of_reactions",
+                "/sheets/mage/evaluated_stats",
             ]
         finally:
             StateSingleton._state = original_state
@@ -801,6 +802,7 @@ def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch)
                 ("remove", "/sheets/mage/attributes/rank_label"),
                 ("remove", "/items/sword/attributes/rank_label"),
                 ("remove", "/actions/parry/attributes/rank_label"),
+                ("set", "/sheets/mage/evaluated_stats"),
             }
             private_snapshot = await state_sync_service.snapshot(role="player")
             assert "rank_label" not in private_snapshot.state["attributes"]
@@ -822,6 +824,7 @@ def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch)
                 ("set", "/sheets/mage/attributes/rank_label"),
                 ("set", "/items/sword/attributes/rank_label"),
                 ("set", "/actions/parry/attributes/rank_label"),
+                ("set", "/sheets/mage/evaluated_stats"),
             }
         finally:
             StateSingleton._state = original_state

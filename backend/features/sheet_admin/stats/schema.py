@@ -60,6 +60,13 @@ class SetSheetFormulaStat(RequestModel):
     type: Literal["set_sheet_formula_stat"]
 
 
+class SetInstancedSheetFormulaStat(RequestModel):
+    instance_id: str = Field(min_length=1)
+    stat_name: FormulaStatName
+    formula: FormulaPayload
+    type: Literal["set_instanced_sheet_formula_stat"]
+
+
 class SetSheetResistances(RequestModel):
     sheet_id: str = Field(min_length=1)
     resistances: ResistancesPayload
@@ -67,6 +74,21 @@ class SetSheetResistances(RequestModel):
 
     @model_validator(mode="after")
     def validate_resistance_range(self) -> "SetSheetResistances":
+        for name, value in self.resistances.model_dump(mode="python").items():
+            if not isfinite(value) or value < 0 or value > 1:
+                raise ValueError(
+                    f"Resistance '{name}' must be a finite fraction from 0 to 1."
+                )
+        return self
+
+
+class SetInstancedSheetResistances(RequestModel):
+    instance_id: str = Field(min_length=1)
+    resistances: ResistancesPayload
+    type: Literal["set_instanced_sheet_resistances"]
+
+    @model_validator(mode="after")
+    def validate_resistance_range(self) -> "SetInstancedSheetResistances":
         for name, value in self.resistances.model_dump(mode="python").items():
             if not isfinite(value) or value < 0 or value > 1:
                 raise ValueError(

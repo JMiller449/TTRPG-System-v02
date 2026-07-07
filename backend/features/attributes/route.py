@@ -6,14 +6,18 @@ from backend.core.request_registry import (
 from backend.features.attributes import service
 from backend.features.attributes.schema import (
     AttachSheetAttribute,
+    AttachInstancedSheetAttribute,
     AttachSubjectAttribute,
     CreateAttribute,
     DeleteAttribute,
     DetachSheetAttribute,
+    DetachInstancedSheetAttribute,
     DetachSubjectAttribute,
     ResetSubjectAttributeValue,
     ResetSheetAttributeValue,
+    ResetInstancedSheetAttributeValue,
     SetSheetAttributeValue,
+    SetInstancedSheetAttributeValue,
     SetSubjectAttributeValue,
     UpdateAttribute,
 )
@@ -84,6 +88,40 @@ class DetachSheetAttributeRoute(RequestRoute[DetachSheetAttribute]):
 
     async def handle(self, session: WebSocketSession, request: DetachSheetAttribute) -> None:
         await service.detach_sheet_attribute(request)
+
+
+class AttachInstancedSheetAttributeRoute(RequestRoute[AttachInstancedSheetAttribute]):
+    type_name = "attach_instanced_sheet_attribute"
+    request_model = AttachInstancedSheetAttribute
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="attributes", method_name="attachInstancedSheetAttribute"
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: AttachInstancedSheetAttribute,
+    ) -> None:
+        await service.attach_instanced_sheet_attribute(request)
+
+
+class DetachInstancedSheetAttributeRoute(RequestRoute[DetachInstancedSheetAttribute]):
+    type_name = "detach_instanced_sheet_attribute"
+    request_model = DetachInstancedSheetAttribute
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="attributes", method_name="detachInstancedSheetAttribute"
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DetachInstancedSheetAttribute,
+    ) -> None:
+        await service.detach_instanced_sheet_attribute(request)
 
 
 class AttachSubjectAttributeRoute(RequestRoute[AttachSubjectAttribute]):
@@ -174,15 +212,55 @@ class ResetSheetAttributeValueRoute(RequestRoute[ResetSheetAttributeValue]):
         await service.reset_sheet_attribute_value(request)
 
 
+class SetInstancedSheetAttributeValueRoute(RequestRoute[SetInstancedSheetAttributeValue]):
+    type_name = "set_instanced_sheet_attribute_value"
+    request_model = SetInstancedSheetAttributeValue
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="attributes",
+        method_name="setInstancedSheetAttributeValue",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetAttributeValue,
+    ) -> None:
+        await service.set_instanced_sheet_attribute_value(request)
+
+
+class ResetInstancedSheetAttributeValueRoute(RequestRoute[ResetInstancedSheetAttributeValue]):
+    type_name = "reset_instanced_sheet_attribute_value"
+    request_model = ResetInstancedSheetAttributeValue
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="attributes",
+        method_name="resetInstancedSheetAttributeValue",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: ResetInstancedSheetAttributeValue,
+    ) -> None:
+        await service.reset_instanced_sheet_attribute_value(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateAttributeRoute())
     registry.register(UpdateAttributeRoute())
     registry.register(DeleteAttributeRoute())
     registry.register(AttachSheetAttributeRoute())
     registry.register(DetachSheetAttributeRoute())
+    registry.register(AttachInstancedSheetAttributeRoute())
+    registry.register(DetachInstancedSheetAttributeRoute())
     registry.register(AttachSubjectAttributeRoute())
     registry.register(SetSubjectAttributeValueRoute())
     registry.register(ResetSubjectAttributeValueRoute())
     registry.register(DetachSubjectAttributeRoute())
     registry.register(SetSheetAttributeValueRoute())
     registry.register(ResetSheetAttributeValueRoute())
+    registry.register(SetInstancedSheetAttributeValueRoute())
+    registry.register(ResetInstancedSheetAttributeValueRoute())

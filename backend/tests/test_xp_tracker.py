@@ -148,7 +148,7 @@ def test_dm_tracker_includes_backend_calculated_progress(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_player_tracker_hides_all_xp_progress(monkeypatch) -> None:
+def test_player_tracker_exposes_own_progress_without_mob_xp_values(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -166,10 +166,10 @@ def test_player_tracker_hides_all_xp_progress(monkeypatch) -> None:
             await handle_client_payload(websocket, {"type": "get_xp_tracker"})
 
             tracker = websocket.sent_messages[0]
-            assert tracker["can_view_progress"] is False
-            assert tracker["sheets"][0]["current_xp"] is None
-            assert tracker["sheets"][0]["xp_required"] is None
-            assert tracker["sheets"][0]["ready_to_level"] is None
+            assert tracker["can_view_progress"] is True
+            assert tracker["sheets"][0]["current_xp"] == 50
+            assert tracker["sheets"][0]["xp_required"] == 100
+            assert tracker["sheets"][0]["ready_to_level"] is False
             assert tracker["sheets"][0]["mobs"] == [
                 {
                     "sheet_id": "goblin",
@@ -221,7 +221,8 @@ def test_player_can_update_own_mob_kill_count(monkeypatch) -> None:
             tracker = websocket.sent_messages[1]
             assert tracker["type"] == "xp_tracker"
             assert tracker["sheets"][0]["mobs"][0]["count"] == 4
-            assert tracker["sheets"][0]["current_xp"] is None
+            assert tracker["sheets"][0]["current_xp"] == 100
+            assert tracker["sheets"][0]["ready_to_level"] is True
         finally:
             StateSingleton._state = original_state
 

@@ -19,10 +19,16 @@ export type InstancedSheetDamageType =
 export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_name"];
 export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
 export type SheetResistancesPayload = ProtocolRequest<"set_sheet_resistances">["resistances"];
+export type InstancedSheetResistancesUpdatePayload =
+  ProtocolRequest<"set_instanced_sheet_resistances">["resistances"];
 export type SheetItemBridgePayload = ProtocolRequest<"create_sheet_item_bridge">["bridge"];
 export type SheetActionBridgePayload = ProtocolRequest<"create_sheet_action_bridge">["bridge"];
+export type InstancedSheetActionBridgePayload =
+  ProtocolRequest<"create_instanced_sheet_action_bridge">["bridge"];
 export type SheetProficiencyBridgePayload =
   ProtocolRequest<"create_sheet_proficiency_bridge">["bridge"];
+export type InstancedSheetProficiencyBridgePayload =
+  ProtocolRequest<"create_instanced_sheet_proficiency_bridge">["bridge"];
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
 export type InstancedSheetResistancesPayload =
   ProtocolRequest<"create_instanced_sheet">["resistances"];
@@ -386,6 +392,25 @@ export function buildSetSheetFormulaStatRequest({
   };
 }
 
+export function buildSetInstancedSheetFormulaStatRequest({
+  instanceId,
+  statName,
+  formula,
+  requestId
+}: {
+  instanceId: string;
+  statName: SheetFormulaStatName;
+  formula: FormulaPayload;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_formula_stat"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_formula_stat",
+    instance_id: instanceId,
+    stat_name: statName,
+    formula
+  };
+}
+
 export function buildSetSheetAttributeValueRequest({
   sheetId,
   attributeId,
@@ -400,6 +425,25 @@ export function buildSetSheetAttributeValueRequest({
     ...requestIdField(requestId),
     type: "set_sheet_attribute_value",
     sheet_id: sheetId,
+    attribute_id: attributeId,
+    value
+  };
+}
+
+export function buildSetInstancedSheetAttributeValueRequest({
+  instanceId,
+  attributeId,
+  value,
+  requestId
+}: {
+  instanceId: string;
+  attributeId: string;
+  value: AttributeValuePayload;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_attribute_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_attribute_value",
+    instance_id: instanceId,
     attribute_id: attributeId,
     value
   };
@@ -469,6 +513,28 @@ export function buildAttachSheetAttributeRequest({
   };
 }
 
+export function buildAttachInstancedSheetAttributeRequest({
+  instanceId,
+  relationshipId,
+  attributeId,
+  value,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  attributeId: string;
+  value?: AttributeValuePayload;
+} & OptionalRequestId): ProtocolRequest<"attach_instanced_sheet_attribute"> {
+  return {
+    ...requestIdField(requestId),
+    type: "attach_instanced_sheet_attribute",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    attribute_id: attributeId,
+    ...(value === undefined ? {} : { value })
+  };
+}
+
 export function buildDetachSheetAttributeRequest({
   sheetId,
   attributeId,
@@ -481,6 +547,22 @@ export function buildDetachSheetAttributeRequest({
     ...requestIdField(requestId),
     type: "detach_sheet_attribute",
     sheet_id: sheetId,
+    attribute_id: attributeId
+  };
+}
+
+export function buildDetachInstancedSheetAttributeRequest({
+  instanceId,
+  attributeId,
+  requestId
+}: {
+  instanceId: string;
+  attributeId: string;
+} & OptionalRequestId): ProtocolRequest<"detach_instanced_sheet_attribute"> {
+  return {
+    ...requestIdField(requestId),
+    type: "detach_instanced_sheet_attribute",
+    instance_id: instanceId,
     attribute_id: attributeId
   };
 }
@@ -586,6 +668,22 @@ export function buildResetSheetAttributeValueRequest({
   };
 }
 
+export function buildResetInstancedSheetAttributeValueRequest({
+  instanceId,
+  attributeId,
+  requestId
+}: {
+  instanceId: string;
+  attributeId: string;
+} & OptionalRequestId): ProtocolRequest<"reset_instanced_sheet_attribute_value"> {
+  return {
+    ...requestIdField(requestId),
+    type: "reset_instanced_sheet_attribute_value",
+    instance_id: instanceId,
+    attribute_id: attributeId
+  };
+}
+
 export function buildSetSheetResistancesRequest({
   sheetId,
   resistances,
@@ -598,6 +696,22 @@ export function buildSetSheetResistancesRequest({
     ...requestIdField(requestId),
     type: "set_sheet_resistances",
     sheet_id: sheetId,
+    resistances
+  };
+}
+
+export function buildSetInstancedSheetResistancesRequest({
+  instanceId,
+  resistances,
+  requestId
+}: {
+  instanceId: string;
+  resistances: InstancedSheetResistancesUpdatePayload;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_resistances"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_resistances",
+    instance_id: instanceId,
     resistances
   };
 }
@@ -653,6 +767,22 @@ export function buildAttachSheetActionRequest({
   };
 }
 
+export function buildAttachInstancedSheetActionRequest({
+  instanceId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  bridge: InstancedSheetActionBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"create_instanced_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_instanced_sheet_action_bridge",
+    instance_id: instanceId,
+    bridge
+  };
+}
+
 export function buildRelinkSheetActionRequest({
   sheetId,
   relationshipId,
@@ -672,6 +802,25 @@ export function buildRelinkSheetActionRequest({
   };
 }
 
+export function buildRelinkInstancedSheetActionRequest({
+  instanceId,
+  relationshipId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  bridge: InstancedSheetActionBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"update_instanced_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_instanced_sheet_action_bridge",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    bridge
+  };
+}
+
 export function buildDetachSheetActionRequest({
   sheetId,
   relationshipId,
@@ -684,6 +833,22 @@ export function buildDetachSheetActionRequest({
     ...requestIdField(requestId),
     type: "delete_sheet_action_bridge",
     sheet_id: sheetId,
+    relationship_id: relationshipId
+  };
+}
+
+export function buildDetachInstancedSheetActionRequest({
+  instanceId,
+  relationshipId,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_instanced_sheet_action_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_instanced_sheet_action_bridge",
+    instance_id: instanceId,
     relationship_id: relationshipId
   };
 }
@@ -825,6 +990,22 @@ export function buildLinkSheetProficiencyRequest({
   };
 }
 
+export function buildLinkInstancedSheetProficiencyRequest({
+  instanceId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  bridge: InstancedSheetProficiencyBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"create_instanced_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_instanced_sheet_proficiency_bridge",
+    instance_id: instanceId,
+    bridge
+  };
+}
+
 export function buildUpdateLinkedSheetProficiencyRequest({
   sheetId,
   relationshipId,
@@ -839,6 +1020,25 @@ export function buildUpdateLinkedSheetProficiencyRequest({
     ...requestIdField(requestId),
     type: "update_sheet_proficiency_bridge",
     sheet_id: sheetId,
+    relationship_id: relationshipId,
+    bridge
+  };
+}
+
+export function buildUpdateLinkedInstancedSheetProficiencyRequest({
+  instanceId,
+  relationshipId,
+  bridge,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  bridge: InstancedSheetProficiencyBridgePayload;
+} & OptionalRequestId): ProtocolRequest<"update_instanced_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_instanced_sheet_proficiency_bridge",
+    instance_id: instanceId,
     relationship_id: relationshipId,
     bridge
   };
@@ -860,6 +1060,22 @@ export function buildUnlinkSheetProficiencyRequest({
   };
 }
 
+export function buildUnlinkInstancedSheetProficiencyRequest({
+  instanceId,
+  relationshipId,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_instanced_sheet_proficiency_bridge"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_instanced_sheet_proficiency_bridge",
+    instance_id: instanceId,
+    relationship_id: relationshipId
+  };
+}
+
 export function buildCreateSheetRequest({
   sheet,
   requestId
@@ -870,6 +1086,31 @@ export function buildCreateSheetRequest({
     ...requestIdField(requestId),
     type: "create_sheet",
     sheet
+  };
+}
+
+export function buildCreateSheetFromInstanceRequest({
+  instanceId,
+  sheetId,
+  name,
+  notes,
+  dmOnly,
+  requestId
+}: {
+  instanceId: string;
+  sheetId: string;
+  name: string;
+  notes?: string | null;
+  dmOnly?: boolean | null;
+} & OptionalRequestId): ProtocolRequest<"create_sheet_from_instance"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_sheet_from_instance",
+    instance_id: instanceId,
+    sheet_id: sheetId,
+    name,
+    ...(notes === undefined ? {} : { notes }),
+    ...(dmOnly === undefined ? {} : { dm_only: dmOnly })
   };
 }
 
@@ -936,12 +1177,23 @@ export function buildInstantiateSheetRequest({
 export const buildCreateSheetActionBridgeRequest = buildAttachSheetActionRequest;
 export const buildUpdateSheetActionBridgeRequest = buildRelinkSheetActionRequest;
 export const buildDeleteSheetActionBridgeRequest = buildDetachSheetActionRequest;
+export const buildCreateInstancedSheetActionBridgeRequest = buildAttachInstancedSheetActionRequest;
+export const buildUpdateInstancedSheetActionBridgeRequest =
+  buildRelinkInstancedSheetActionRequest;
+export const buildDeleteInstancedSheetActionBridgeRequest =
+  buildDetachInstancedSheetActionRequest;
 export const buildCreateSheetItemBridgeRequest = buildAttachSheetItemRequest;
 export const buildUpdateSheetItemBridgeRequest = buildUpdateAttachedSheetItemRequest;
 export const buildDeleteSheetItemBridgeRequest = buildDetachSheetItemRequest;
 export const buildCreateSheetProficiencyBridgeRequest = buildLinkSheetProficiencyRequest;
 export const buildUpdateSheetProficiencyBridgeRequest = buildUpdateLinkedSheetProficiencyRequest;
 export const buildDeleteSheetProficiencyBridgeRequest = buildUnlinkSheetProficiencyRequest;
+export const buildCreateInstancedSheetProficiencyBridgeRequest =
+  buildLinkInstancedSheetProficiencyRequest;
+export const buildUpdateInstancedSheetProficiencyBridgeRequest =
+  buildUpdateLinkedInstancedSheetProficiencyRequest;
+export const buildDeleteInstancedSheetProficiencyBridgeRequest =
+  buildUnlinkInstancedSheetProficiencyRequest;
 export const buildCreateInstancedSheetRequest = buildInstantiateSheetRequest;
 
 export function buildCreateItemRequest({

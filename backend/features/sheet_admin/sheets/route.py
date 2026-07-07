@@ -13,7 +13,10 @@ from backend.features.sheet_admin.sheets import service
 from backend.features.sheet_admin.sheets.schema import (
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
+    CreateInstancedSheetActionBridge,
     CreateInstancedSheetItemBridge,
+    CreateInstancedSheetProficiencyBridge,
+    CreateSheetFromInstance,
     CreateSheetActionBridge,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
@@ -22,7 +25,9 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
     DeleteSheet,
+    DeleteInstancedSheetActionBridge,
     DeleteInstancedSheetItemBridge,
+    DeleteInstancedSheetProficiencyBridge,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
     SetSheetSlayedCount,
@@ -31,7 +36,9 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheetItemBridge,
     UpdateSheetProficiencyBridge,
     UpdateSheet,
+    UpdateInstancedSheetActionBridge,
     UpdateInstancedSheetItemBridge,
+    UpdateInstancedSheetProficiencyBridge,
 )
 from backend.features.session.service import websocket_sessions
 from backend.protocol.socket import SheetAccessCodesEvent, StatePatchEvent
@@ -210,6 +217,24 @@ class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
             await websocket_sessions.send(session, response)
 
 
+class CreateSheetFromInstanceRoute(RequestRoute[CreateSheetFromInstance]):
+    type_name = "create_sheet_from_instance"
+    request_model = CreateSheetFromInstance
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminSheets",
+        method_name="createSheetFromInstance",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateSheetFromInstance,
+    ) -> None:
+        await service.create_sheet_from_instance(request)
+
+
 class CreateSheetActionBridgeRoute(RequestRoute[CreateSheetActionBridge]):
     type_name = "create_sheet_action_bridge"
     request_model = CreateSheetActionBridge
@@ -262,6 +287,66 @@ class DeleteSheetActionBridgeRoute(RequestRoute[DeleteSheetActionBridge]):
         request: DeleteSheetActionBridge,
     ) -> None:
         await service.detach_sheet_action(request)
+
+
+class CreateInstancedSheetActionBridgeRoute(
+    RequestRoute[CreateInstancedSheetActionBridge]
+):
+    type_name = "create_instanced_sheet_action_bridge"
+    request_model = CreateInstancedSheetActionBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceActionBridges",
+        method_name="attachAction",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateInstancedSheetActionBridge,
+    ) -> None:
+        await service.attach_instanced_sheet_action(request)
+
+
+class UpdateInstancedSheetActionBridgeRoute(
+    RequestRoute[UpdateInstancedSheetActionBridge]
+):
+    type_name = "update_instanced_sheet_action_bridge"
+    request_model = UpdateInstancedSheetActionBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceActionBridges",
+        method_name="relinkAction",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: UpdateInstancedSheetActionBridge,
+    ) -> None:
+        await service.relink_instanced_sheet_action(request)
+
+
+class DeleteInstancedSheetActionBridgeRoute(
+    RequestRoute[DeleteInstancedSheetActionBridge]
+):
+    type_name = "delete_instanced_sheet_action_bridge"
+    request_model = DeleteInstancedSheetActionBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceActionBridges",
+        method_name="detachAction",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DeleteInstancedSheetActionBridge,
+    ) -> None:
+        await service.detach_instanced_sheet_action(request)
 
 
 class CreateSheetItemBridgeRoute(RequestRoute[CreateSheetItemBridge]):
@@ -441,6 +526,69 @@ class DeleteSheetProficiencyBridgeRoute(RequestRoute[DeleteSheetProficiencyBridg
         await service.unlink_sheet_proficiency(request)
 
 
+class CreateInstancedSheetProficiencyBridgeRoute(
+    RequestRoute[CreateInstancedSheetProficiencyBridge]
+):
+    type_name = "create_instanced_sheet_proficiency_bridge"
+    request_model = CreateInstancedSheetProficiencyBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("proficiency_edit")
+    permission_denied_reason = permission_denied_reason("proficiency_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceProficiencyBridges",
+        method_name="linkProficiency",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateInstancedSheetProficiencyBridge,
+    ) -> None:
+        await service.link_instanced_sheet_proficiency(request)
+
+
+class UpdateInstancedSheetProficiencyBridgeRoute(
+    RequestRoute[UpdateInstancedSheetProficiencyBridge]
+):
+    type_name = "update_instanced_sheet_proficiency_bridge"
+    request_model = UpdateInstancedSheetProficiencyBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("proficiency_edit")
+    permission_denied_reason = permission_denied_reason("proficiency_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceProficiencyBridges",
+        method_name="updateLinkedProficiency",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: UpdateInstancedSheetProficiencyBridge,
+    ) -> None:
+        await service.update_linked_instanced_sheet_proficiency(request)
+
+
+class DeleteInstancedSheetProficiencyBridgeRoute(
+    RequestRoute[DeleteInstancedSheetProficiencyBridge]
+):
+    type_name = "delete_instanced_sheet_proficiency_bridge"
+    request_model = DeleteInstancedSheetProficiencyBridge
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("proficiency_edit")
+    permission_denied_reason = permission_denied_reason("proficiency_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceProficiencyBridges",
+        method_name="unlinkProficiency",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DeleteInstancedSheetProficiencyBridge,
+    ) -> None:
+        await service.unlink_instanced_sheet_proficiency(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateSheetRoute())
     registry.register(UpdateSheetRoute())
@@ -451,9 +599,13 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetInstancedSheetResourceRoute())
     registry.register(AdjustInstancedSheetResourceRoute())
     registry.register(CreateInstancedSheetRoute())
+    registry.register(CreateSheetFromInstanceRoute())
     registry.register(CreateSheetActionBridgeRoute())
     registry.register(UpdateSheetActionBridgeRoute())
     registry.register(DeleteSheetActionBridgeRoute())
+    registry.register(CreateInstancedSheetActionBridgeRoute())
+    registry.register(UpdateInstancedSheetActionBridgeRoute())
+    registry.register(DeleteInstancedSheetActionBridgeRoute())
     registry.register(CreateSheetItemBridgeRoute())
     registry.register(UpdateSheetItemBridgeRoute())
     registry.register(DeleteSheetItemBridgeRoute())
@@ -463,3 +615,6 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateSheetProficiencyBridgeRoute())
     registry.register(UpdateSheetProficiencyBridgeRoute())
     registry.register(DeleteSheetProficiencyBridgeRoute())
+    registry.register(CreateInstancedSheetProficiencyBridgeRoute())
+    registry.register(UpdateInstancedSheetProficiencyBridgeRoute())
+    registry.register(DeleteInstancedSheetProficiencyBridgeRoute())

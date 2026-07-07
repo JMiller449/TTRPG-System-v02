@@ -209,6 +209,11 @@ export function selectSheetProficiencies(
   state: AppState,
   sheetOrInstanceId: string
 ): ProficiencyBridge[] {
+  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
+  if (instance) {
+    const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
+    return Object.values(instance.proficiencies ?? sheet?.proficiencies ?? {});
+  }
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
   return Object.values(sheet?.proficiencies ?? {});
 }
@@ -223,12 +228,14 @@ export function selectSheetAssignedActions(
   state: AppState,
   sheetOrInstanceId: string
 ): AssignedSheetAction[] {
+  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
   const sheet = resolveSheetFromSheetOrInstanceId(state, sheetOrInstanceId);
-  if (!sheet) {
+  const actionBridges = instance ? (instance.actions ?? sheet?.actions) : sheet?.actions;
+  if (!actionBridges || !sheet) {
     return [];
   }
 
-  const assignedActions = Object.values(sheet.actions ?? {})
+  const assignedActions = Object.values(actionBridges)
     .map((bridge): AssignedSheetAction | null => {
       if (WEAPON_ACTION_IDS.has(bridge.entry_id)) {
         return null;
@@ -247,7 +254,6 @@ export function selectSheetAssignedActions(
     })
     .filter((entry): entry is AssignedSheetAction => Boolean(entry));
 
-  const instance = state.serverState.persistentSheets[sheetOrInstanceId];
   const inventory = instance?.items ?? sheet.items ?? {};
   const itemGrantedActions = Object.values(inventory).flatMap((itemBridge) => {
     if (itemBridge.count <= 0) {

@@ -74,6 +74,7 @@ def _tracker_sheet(
     mobs: list[Sheet],
     *,
     can_view_progress: bool,
+    can_view_mob_values: bool,
 ) -> XpTrackerSheet:
     mob_rows: list[XpTrackerMob] = []
     current_xp = 0
@@ -87,8 +88,8 @@ def _tracker_sheet(
                 sheet_id=mob.id,
                 name=mob.name,
                 count=count,
-                xp_value=mob.xp_given_when_slayed if can_view_progress else None,
-                xp_earned=earned if can_view_progress else None,
+                xp_value=mob.xp_given_when_slayed if can_view_mob_values else None,
+                xp_earned=earned if can_view_mob_values else None,
             )
         )
 
@@ -120,13 +121,15 @@ def build_xp_tracker(
             key=lambda sheet: (sheet.name.casefold(), sheet.id),
         )
         can_view_progress = True
+        can_view_mob_values = True
     else:
         if assigned_instance_id is None:
             raise PermissionError(
                 "Claim a sheet access code before recording mob kills."
             )
         sheets = [_player_sheet_for_instance(current_state, assigned_instance_id)]
-        can_view_progress = False
+        can_view_progress = True
+        can_view_mob_values = False
 
     return XpTracker(
         response_id=None,
@@ -136,6 +139,7 @@ def build_xp_tracker(
                 sheet,
                 mobs,
                 can_view_progress=can_view_progress,
+                can_view_mob_values=can_view_mob_values,
             )
             for sheet in sheets
         ],

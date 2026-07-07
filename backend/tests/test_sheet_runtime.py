@@ -244,7 +244,9 @@ def test_player_can_apply_typed_damage_with_resistance_and_final_floor(
             state.sheets["mage_template"] = _build_sheet_state()
             state.sheets["mage_template"].resistances.resistance = 0.1
             state.sheets["mage_template"].resistances.magical = 0.1
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.instanced_sheets["mage_instance"].resistances.fire = 0.05
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
@@ -260,7 +262,7 @@ def test_player_can_apply_typed_damage_with_resistance_and_final_floor(
                 },
             )
 
-            assert state.instanced_sheets["mage_instance"].health == 82
+            assert state.instanced_sheets["mage_instance"].health == 79
             assert _request_messages(websocket) == [
                 {
                     "response_id": None,
@@ -268,7 +270,7 @@ def test_player_can_apply_typed_damage_with_resistance_and_final_floor(
                         {
                             "op": "set",
                             "path": "/instanced_sheets/mage_instance/health",
-                            "value": 82,
+                            "value": 79,
                         }
                     ],
                     "state_version": 1,
@@ -290,7 +292,9 @@ def test_dm_can_apply_typed_damage_to_any_instance(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -597,7 +601,9 @@ def test_perform_action_resolves_current_global_formula_by_id(monkeypatch) -> No
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.formulas["battle_message"] = FormulaDefinition.from_dict(
                 {
                     "id": "battle_message",
@@ -3419,7 +3425,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
                 },
             )
 
-            assert state.instanced_sheets["mage_instance"].health == 80
+            assert state.instanced_sheets["mage_instance"].health == 20
             assert _request_messages(websocket) == [
                 {
                     "response_id": None,
@@ -3427,7 +3433,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
                         {
                             "op": "set",
                             "path": "/instanced_sheets/mage_instance/health",
-                            "value": 80,
+                            "value": 20,
                         },
                     ],
                     "state_version": 1,
@@ -3486,12 +3492,12 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
                 },
             )
 
-            assert state.instanced_sheets["mage_instance"].health == 90
+            assert state.instanced_sheets["mage_instance"].health == 65
             assert _request_messages(websocket)[0]["ops"] == [
                 {
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/health",
-                    "value": 90,
+                    "value": 65,
                 }
             ]
             assert len(_request_messages(websocket)) == 1

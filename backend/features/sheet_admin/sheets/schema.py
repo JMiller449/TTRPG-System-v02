@@ -142,6 +142,15 @@ class CreateInstancedSheet(RequestModel):
     type: Literal["create_instanced_sheet"]
 
 
+class CreateSheetFromInstance(RequestModel):
+    instance_id: str = Field(min_length=1)
+    sheet_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    notes: str | None = None
+    dm_only: bool | None = None
+    type: Literal["create_sheet_from_instance"]
+
+
 class SetInstancedSheetNotes(RequestModel):
     instance_id: str = Field(min_length=1)
     notes: str
@@ -193,6 +202,25 @@ class DeleteSheetActionBridge(RequestModel):
     sheet_id: str = Field(min_length=1)
     relationship_id: str = Field(min_length=1)
     type: Literal["delete_sheet_action_bridge"]
+
+
+class CreateInstancedSheetActionBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    bridge: SheetActionBridgePayload
+    type: Literal["create_instanced_sheet_action_bridge"]
+
+
+class UpdateInstancedSheetActionBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: SheetActionBridgePayload
+    type: Literal["update_instanced_sheet_action_bridge"]
+
+
+class DeleteInstancedSheetActionBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_instanced_sheet_action_bridge"]
 
 
 class CreateSheetItemBridge(RequestModel):
@@ -250,3 +278,22 @@ class DeleteSheetProficiencyBridge(RequestModel):
     sheet_id: str = Field(min_length=1)
     relationship_id: str = Field(min_length=1)
     type: Literal["delete_sheet_proficiency_bridge"]
+
+
+class CreateInstancedSheetProficiencyBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    bridge: ProficiencyBridgePayload
+    type: Literal["create_instanced_sheet_proficiency_bridge"]
+
+
+class UpdateInstancedSheetProficiencyBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    bridge: ProficiencyBridgePayload
+    type: Literal["update_instanced_sheet_proficiency_bridge"]
+
+
+class DeleteInstancedSheetProficiencyBridge(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    type: Literal["delete_instanced_sheet_proficiency_bridge"]

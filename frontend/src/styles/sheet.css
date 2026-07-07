@@ -206,6 +206,28 @@
   margin-top: 0.55rem;
 }
 
+.character-sheet__snapshot {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent),
+    var(--r6-control-bg-soft, var(--card));
+}
+
+.character-sheet__snapshot-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.2fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.character-sheet__snapshot-fields .field {
+  margin: 0;
+}
+
 .sheet-xp-section__header {
   display: flex;
   justify-content: space-between;
@@ -274,6 +296,21 @@
   border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 45%);
   border-radius: 0;
   padding: 0.45rem 0.2rem;
+}
+
+.sheet-resistances--readonly .field {
+  gap: 0.35rem;
+}
+
+.sheet-resistance-readout {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.55rem 0.65rem;
+  color: var(--accent-strong);
+  background: var(--r6-control-bg-soft, var(--card));
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .character-sheet {

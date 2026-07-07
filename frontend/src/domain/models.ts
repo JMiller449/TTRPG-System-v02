@@ -479,6 +479,9 @@ export interface PersistentSheet {
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
   items?: Record<string, ItemBridge>;
+  proficiencies?: Record<string, ProficiencyBridge>;
+  actions?: Record<string, Bridge>;
+  attributes?: Record<string, AttributeBridge>;
   resistances?: Resistances;
   augments: Record<string, Bridge>;
 }

@@ -14,6 +14,7 @@ import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSectio
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
 import { RollLog } from "@/features/rolls/RollLog";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
+import { SheetXpProgressBar } from "@/features/xp/SheetXpProgressBar";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
@@ -21,27 +22,29 @@ import { buildEquipmentQuantitySubmission } from "@/features/sheets/equipmentQua
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
-  buildAttachSheetActionRequest,
-  buildAttachSheetAttributeRequest,
+  buildAttachInstancedSheetActionRequest,
+  buildAttachInstancedSheetAttributeRequest,
   buildAttachInstancedSheetItemRequest,
+  buildCreateSheetFromInstanceRequest,
+  buildDetachInstancedSheetActionRequest,
+  buildDetachInstancedSheetAttributeRequest,
   buildDetachInstancedSheetItemRequest,
-  buildDetachSheetActionRequest,
-  buildDetachSheetAttributeRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
-  buildLinkSheetProficiencyRequest,
+  buildLinkInstancedSheetProficiencyRequest,
   buildPerformActionRequest,
-  buildResetSheetAttributeValueRequest,
-  buildRelinkSheetActionRequest,
+  buildResetInstancedSheetAttributeValueRequest,
+  buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildSetInstancedSheetNotesRequest,
   buildSetInstancedSheetItemEquippedRequest,
-  buildSetSheetAttributeValueRequest,
-  buildSetSheetFormulaStatRequest,
-  buildSetSheetResistancesRequest,
-  buildUnlinkSheetProficiencyRequest,
-  buildUpdateLinkedSheetProficiencyRequest
+  buildSetInstancedSheetAttributeValueRequest,
+  buildSetInstancedSheetFormulaStatRequest,
+  buildSetInstancedSheetResistancesRequest,
+  buildUnlinkInstancedSheetProficiencyRequest,
+  buildUpdateLinkedInstancedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
 
@@ -94,9 +97,13 @@ export function PlayerCharacterSheet({
   } = useSheetDetailState();
 
   const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("overview");
+  const [snapshotSheetId, setSnapshotSheetId] = useState("");
+  const [snapshotName, setSnapshotName] = useState("");
   const requestedFormulaMetadataRef = useRef(false);
   const activeTab = controlledActiveTab ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
+  const activeInstanceId = detail?.instance.id;
+  const activeInstanceName = detail?.instance.name;
 
   const statEditor = useStatModifierEditor({
     resetToken: detail?.instance.id,
@@ -112,12 +119,23 @@ export function PlayerCharacterSheet({
     baseMana: detail?.stats.mana ?? 0,
     client
   });
+  const visibleResistances = detail?.persistentSheet.resistances ?? detail?.sheet?.resistances;
 
   useEffect(() => {
     if (!controlledActiveTab) {
       setLocalActiveTab("overview");
     }
   }, [controlledActiveTab, detail?.instance.id]);
+
+  useEffect(() => {
+    if (!activeInstanceId || !activeInstanceName) {
+      setSnapshotSheetId("");
+      setSnapshotName("");
+      return;
+    }
+    setSnapshotSheetId(makeId("sheet_snapshot"));
+    setSnapshotName(`${activeInstanceName} Snapshot`);
+  }, [activeInstanceId, activeInstanceName]);
 
   useEffect(() => {
     if (mode !== "gm" || actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
@@ -145,12 +163,15 @@ export function PlayerCharacterSheet({
   const showNotesSection = activeTab === "notes";
   const showActionHistorySection = mode === "gm" && activeTab === "action_history";
   const showFormulaStatsSection = mode === "gm" && activeTab === "formula_stats";
-  const showResistancesSection = mode === "gm" && activeTab === "resistances";
+  const showResistancesSection = activeTab === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
   const canManageEquipment = mode === "gm";
   const canEditProficiencies = mode === "gm";
+  const canEditResistances = mode === "gm";
   const sheetId = detail.sheet?.id;
+  const instanceAttributeBridges = detail.persistentSheet.attributes ?? detail.sheet?.attributes ?? {};
+  const instanceFormulaStats = detail.persistentSheet.stats ?? detail.sheet?.stats ?? null;
 
   const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
     client.sendProtocolRequest(
@@ -175,7 +196,7 @@ export function PlayerCharacterSheet({
           </div>
           <div className="character-sheet__header-main">
             <h3>{detail.instance.name}</h3>
-            <p>{mode === "gm" ? "GM-controlled sheet workspace" : "Active character sheet"}</p>
+            <p>{mode === "gm" ? "Instanced sheet workspace" : "Active character sheet"}</p>
           </div>
           <div className="character-sheet__header-resources">
             <SheetResourceHeader
@@ -194,6 +215,61 @@ export function PlayerCharacterSheet({
             />
           </div>
         </header>
+
+        {mode === "player" && sheetId ? (
+          <SheetXpProgressBar client={client} instanceId={detail.instance.id} sheetId={sheetId} />
+        ) : null}
+
+        {mode === "gm" ? (
+          <section className="character-sheet__snapshot" aria-label="Snapshot as template">
+            <div>
+              <p className="template-editor__title">Snapshot as Template</p>
+              <p className="muted">
+                Save this instanced sheet as a new template checkpoint. Current health, mana, and
+                active runtime effects are not copied.
+              </p>
+            </div>
+            <div className="character-sheet__snapshot-fields">
+              <Field label="Template ID">
+                <input
+                  value={snapshotSheetId}
+                  onChange={(event) => setSnapshotSheetId(event.target.value)}
+                  placeholder="sheet_snapshot_..."
+                />
+              </Field>
+              <Field label="Template Name">
+                <input
+                  value={snapshotName}
+                  onChange={(event) => setSnapshotName(event.target.value)}
+                  placeholder="Checkpoint name"
+                />
+              </Field>
+              <button
+                type="button"
+                className="button"
+                disabled={!snapshotSheetId.trim() || !snapshotName.trim()}
+                onClick={() => {
+                  const nextId = snapshotSheetId.trim();
+                  const nextName = snapshotName.trim();
+                  if (!nextId || !nextName) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildCreateSheetFromInstanceRequest({
+                      instanceId: detail.instance.id,
+                      sheetId: nextId,
+                      name: nextName
+                    }),
+                    `Snapshot template: ${nextName}`
+                  );
+                  setSnapshotSheetId(makeId("sheet_snapshot"));
+                }}
+              >
+                Create Template Snapshot
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {showTabs ? (
           <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
@@ -288,29 +364,30 @@ export function PlayerCharacterSheet({
               canEdit={canEditActions}
               commandLayout={mode === "gm"}
               onCreate={(bridge) => {
-                if (!sheetId) {
-                  return;
-                }
                 client.sendProtocolRequest(
-                  buildAttachSheetActionRequest({ sheetId, bridge }),
+                  buildAttachInstancedSheetActionRequest({
+                    instanceId: detail.instance.id,
+                    bridge
+                  }),
                   `Assign action: ${actionDefinitions[bridge.action_id]?.name ?? bridge.action_id}`
                 );
               }}
               onUpdate={(relationshipId, bridge) => {
-                if (!sheetId) {
-                  return;
-                }
                 client.sendProtocolRequest(
-                  buildRelinkSheetActionRequest({ sheetId, relationshipId, bridge }),
+                  buildRelinkInstancedSheetActionRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId,
+                    bridge
+                  }),
                   `Replace action: ${actionDefinitions[bridge.action_id]?.name ?? bridge.action_id}`
                 );
               }}
               onDelete={(relationshipId) => {
-                if (!sheetId) {
-                  return;
-                }
                 client.sendProtocolRequest(
-                  buildDetachSheetActionRequest({ sheetId, relationshipId }),
+                  buildDetachInstancedSheetActionRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId
+                  }),
                   "Remove action assignment"
                 );
               }}
@@ -339,20 +416,17 @@ export function PlayerCharacterSheet({
           >
             <SheetDetailDisclosure
               title="Attributes"
-              count={Object.keys(detail.sheet?.attributes ?? {}).length}
+              count={Object.keys(instanceAttributeBridges).length}
             >
               <SheetAttributesSection
                 definitions={attributeDefinitions}
-                bridges={detail.sheet?.attributes ?? {}}
-                canEdit={canEditStats && Boolean(sheetId)}
+                bridges={instanceAttributeBridges}
+                canEdit={canEditStats}
                 compact={mode === "player"}
                 onSaveFormula={(attributeId, formula) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildSetSheetAttributeValueRequest({
-                      sheetId,
+                    buildSetInstancedSheetAttributeValueRequest({
+                      instanceId: detail.instance.id,
                       attributeId,
                       value: { type: "formula", formula }
                     }),
@@ -360,30 +434,28 @@ export function PlayerCharacterSheet({
                   );
                 }}
                 onSaveValue={(attributeId, value) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildSetSheetAttributeValueRequest({ sheetId, attributeId, value }),
+                    buildSetInstancedSheetAttributeValueRequest({
+                      instanceId: detail.instance.id,
+                      attributeId,
+                      value
+                    }),
                     `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                   );
                 }}
                 onReset={(attributeId) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildResetSheetAttributeValueRequest({ sheetId, attributeId }),
+                    buildResetInstancedSheetAttributeValueRequest({
+                      instanceId: detail.instance.id,
+                      attributeId
+                    }),
                     `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                   );
                 }}
                 onAttach={(attributeId) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildAttachSheetAttributeRequest({
-                      sheetId,
+                    buildAttachInstancedSheetAttributeRequest({
+                      instanceId: detail.instance.id,
                       attributeId,
                       relationshipId: makeId("sheet_attribute")
                     }),
@@ -391,11 +463,11 @@ export function PlayerCharacterSheet({
                   );
                 }}
                 onDetach={(attributeId) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildDetachSheetAttributeRequest({ sheetId, attributeId }),
+                    buildDetachInstancedSheetAttributeRequest({
+                      instanceId: detail.instance.id,
+                      attributeId
+                    }),
                     `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                   );
                 }}
@@ -408,24 +480,18 @@ export function PlayerCharacterSheet({
                 sheetProficiencies={sheetProficiencies}
                 canEdit={canEditProficiencies}
                 onCreate={(bridge) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildLinkSheetProficiencyRequest({
-                      sheetId,
+                    buildLinkInstancedSheetProficiencyRequest({
+                      instanceId: detail.instance.id,
                       bridge
                     }),
                     `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
                   );
                 }}
                 onUpdate={(relationshipId, bridge) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildUpdateLinkedSheetProficiencyRequest({
-                      sheetId,
+                    buildUpdateLinkedInstancedSheetProficiencyRequest({
+                      instanceId: detail.instance.id,
                       relationshipId,
                       bridge
                     }),
@@ -433,12 +499,9 @@ export function PlayerCharacterSheet({
                   );
                 }}
                 onDelete={(relationshipId) => {
-                  if (!sheetId) {
-                    return;
-                  }
                   client.sendProtocolRequest(
-                    buildUnlinkSheetProficiencyRequest({
-                      sheetId,
+                    buildUnlinkInstancedSheetProficiencyRequest({
+                      instanceId: detail.instance.id,
                       relationshipId
                     }),
                     "Remove proficiency"
@@ -579,14 +642,14 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-formula_stats"
             tabIndex={0}
           >
-            {canEditStats && detail.sheet && sheetId ? (
+            {canEditStats && instanceFormulaStats ? (
               <SheetFormulaStatsEditor
-                stats={detail.sheet.stats}
+                stats={instanceFormulaStats}
                 metadata={actionFormulaAuthoringMetadata}
                 onSave={(statName, formula) =>
                   client.sendProtocolRequest(
-                    buildSetSheetFormulaStatRequest({
-                      sheetId,
+                    buildSetInstancedSheetFormulaStatRequest({
+                      instanceId: detail.instance.id,
                       statName,
                       formula
                     }),
@@ -595,7 +658,7 @@ export function PlayerCharacterSheet({
                 }
               />
             ) : (
-              <EmptyState message="No template formula stats available." />
+              <EmptyState message="No formula stats available for this instance." />
             )}
           </div>
         ) : null}
@@ -608,21 +671,23 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-resistances"
             tabIndex={0}
           >
-            {canEditStats && detail.sheet && sheetId ? (
+            {visibleResistances ? (
               <SheetResistancesEditor
-                resistances={detail.sheet.resistances}
+                resistances={visibleResistances}
+                readOnly={!canEditResistances}
+                title={canEditResistances ? "Instance Resistances" : "Current Resistances"}
                 onSave={(resistances) =>
                   client.sendProtocolRequest(
-                    buildSetSheetResistancesRequest({
-                      sheetId,
+                    buildSetInstancedSheetResistancesRequest({
+                      instanceId: detail.instance.id,
                       resistances
                     }),
-                    "Update template resistances"
+                    "Update instance resistances"
                   )
                 }
               />
             ) : (
-              <EmptyState message="No template resistances available." />
+              <EmptyState message="No character resistances available." />
             )}
           </div>
         ) : null}

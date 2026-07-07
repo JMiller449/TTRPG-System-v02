@@ -87,6 +87,9 @@ class InstancedSheet:
     augments: Dict[str, Bridge]  # TODO add augments dict
     stats: Stats | None = None
     items: Dict[str, ItemBridge] = field(default_factory=dict)
+    proficiencies: Dict[str, ProficiencyBridge] = field(default_factory=dict)
+    actions: Dict[str, Bridge] = field(default_factory=dict)
+    attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
 
     @classmethod
     def from_dict(
@@ -97,6 +100,9 @@ class InstancedSheet:
     ) -> "InstancedSheet":
         raw_stats = raw.get("stats")
         raw_items = raw.get("items")
+        raw_proficiencies = raw.get("proficiencies")
+        raw_actions = raw.get("actions")
+        raw_attributes = raw.get("attributes")
         if raw_stats is None:
             stats = deepcopy(template.stats) if template is not None else None
         else:
@@ -107,6 +113,27 @@ class InstancedSheet:
             items = {
                 key: ItemBridge.from_dict(bridge)
                 for key, bridge in raw_items.items()
+            }
+        if raw_proficiencies is None:
+            proficiencies = deepcopy(template.proficiencies) if template is not None else {}
+        else:
+            proficiencies = {
+                key: ProficiencyBridge.from_dict(bridge)
+                for key, bridge in raw_proficiencies.items()
+            }
+        if raw_actions is None:
+            actions = deepcopy(template.actions) if template is not None else {}
+        else:
+            actions = {
+                key: Bridge.from_dict(bridge)
+                for key, bridge in raw_actions.items()
+            }
+        if raw_attributes is None:
+            attributes = deepcopy(template.attributes) if template is not None else {}
+        else:
+            attributes = {
+                key: AttributeBridge.from_dict(bridge)
+                for key, bridge in raw_attributes.items()
             }
         return cls(
             parent_id=raw["parent_id"],
@@ -120,4 +147,7 @@ class InstancedSheet:
             },
             stats=stats,
             items=items,
+            proficiencies=proficiencies,
+            actions=actions,
+            attributes=attributes,
         )

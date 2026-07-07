@@ -11,6 +11,8 @@ from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.stats import service
 from backend.features.sheet_admin.stats.schema import (
     SetInstancedSheetBaseStat,
+    SetInstancedSheetFormulaStat,
+    SetInstancedSheetResistances,
     SetSheetBaseStat,
     SetSheetFormulaStat,
     SetSheetResistances,
@@ -75,6 +77,25 @@ class SetSheetFormulaStatRoute(RequestRoute[SetSheetFormulaStat]):
         await service.set_formula_stat(request)
 
 
+class SetInstancedSheetFormulaStatRoute(RequestRoute[SetInstancedSheetFormulaStat]):
+    type_name = "set_instanced_sheet_formula_stat"
+    request_model = SetInstancedSheetFormulaStat
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceStats",
+        method_name="setFormulaStat",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetFormulaStat,
+    ) -> None:
+        await service.set_instanced_formula_stat(request)
+
+
 class SetSheetResistancesRoute(RequestRoute[SetSheetResistances]):
     type_name = "set_sheet_resistances"
     request_model = SetSheetResistances
@@ -94,8 +115,29 @@ class SetSheetResistancesRoute(RequestRoute[SetSheetResistances]):
         await service.set_resistances(request)
 
 
+class SetInstancedSheetResistancesRoute(RequestRoute[SetInstancedSheetResistances]):
+    type_name = "set_instanced_sheet_resistances"
+    request_model = SetInstancedSheetResistances
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceStats",
+        method_name="setResistances",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetResistances,
+    ) -> None:
+        await service.set_instanced_resistances(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetSheetBaseStatRoute())
     registry.register(SetInstancedSheetBaseStatRoute())
     registry.register(SetSheetFormulaStatRoute())
+    registry.register(SetInstancedSheetFormulaStatRoute())
     registry.register(SetSheetResistancesRoute())
+    registry.register(SetInstancedSheetResistancesRoute())

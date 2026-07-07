@@ -150,6 +150,9 @@ class InstancedSheetPayload(ProtocolModel):
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
+    proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
+    actions: dict[str, BridgePayload] = Field(default_factory=dict)
+    attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     augments: dict[str, BridgePayload]
 

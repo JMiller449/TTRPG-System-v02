@@ -5,14 +5,18 @@ from copy import deepcopy
 from backend.core.transport import PatchOp
 from backend.features.attributes.schema import (
     AttachSheetAttribute,
+    AttachInstancedSheetAttribute,
     AttachSubjectAttribute,
     CreateAttribute,
     DeleteAttribute,
     DetachSheetAttribute,
+    DetachInstancedSheetAttribute,
     DetachSubjectAttribute,
     ResetSubjectAttributeValue,
     ResetSheetAttributeValue,
+    ResetInstancedSheetAttributeValue,
     SetSheetAttributeValue,
+    SetInstancedSheetAttributeValue,
     SetSubjectAttributeValue,
     UpdateAttribute,
 )
@@ -263,6 +267,11 @@ def _attribute_references(state: State, attribute_id: str) -> list[tuple[str, st
         if attribute_id in sheet.attributes
     )
     references.extend(
+        ("instanced_sheets", instance_id, instance)
+        for instance_id, instance in state.instanced_sheets.items()
+        if attribute_id in instance.attributes
+    )
+    references.extend(
         ("items", item.id, item)
         for item in state.items.values()
         if attribute_id in item.attributes
@@ -292,6 +301,25 @@ def _required_sheet_and_definition(
     if bridge is None:
         raise ValueError(f"Attribute '{attribute_id}' is not attached to sheet '{sheet_id}'.")
     return sheet, definition, bridge
+
+
+def _required_instance_and_definition(
+    state: State,
+    instance_id: str,
+    attribute_id: str,
+) -> tuple[object, AttributeDefinition, AttributeBridge]:
+    instance = state.instanced_sheets.get(instance_id)
+    if instance is None:
+        raise ValueError(f"Instance '{instance_id}' does not exist.")
+    definition = state.attributes.get(attribute_id)
+    if definition is None or "sheet" not in definition.subject_types:
+        raise ValueError(f"Sheet Attribute '{attribute_id}' does not exist.")
+    if AMOUNT_OF_REACTIONS_ATTRIBUTE_ID not in instance.attributes:
+        synchronize_required_sheet_attributes(instance)
+    bridge = instance.attributes.get(attribute_id)
+    if bridge is None:
+        raise ValueError(f"Attribute '{attribute_id}' is not attached to instance '{instance_id}'.")
+    return instance, definition, bridge
 
 
 def _build_definition(
@@ -355,6 +383,31 @@ def _apply_candidate_sheet_attributes(
     for attribute_id in sorted(set(sheet.attributes) | set(candidate.attributes)):
         path = state_sync_service.join_path("sheets", sheet_id, "attributes", attribute_id)
         current = sheet.attributes.get(attribute_id)
+        updated = candidate.attributes.get(attribute_id)
+        if current == updated:
+            continue
+        if current is None and updated is not None:
+            operations.append(state_sync_service.add_mutation(state, path, updated))
+        elif updated is None:
+            _, operation = state_sync_service.remove_mutation(state, path)
+            operations.append(operation)
+        else:
+            operations.append(state_sync_service.set_mutation(state, path, updated))
+    return operations
+
+
+def _apply_candidate_instance_attributes(
+    state: State,
+    instance_id: str,
+    candidate: object,
+) -> list[PatchOp]:
+    instance = state.instanced_sheets[instance_id]
+    operations: list[PatchOp] = []
+    for attribute_id in sorted(set(instance.attributes) | set(candidate.attributes)):
+        path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "attributes", attribute_id
+        )
+        current = instance.attributes.get(attribute_id)
         updated = candidate.attributes.get(attribute_id)
         if current == updated:
             continue
@@ -436,6 +489,18 @@ def reevaluate_sheet_attributes_mutations(
     return _apply_candidate_sheet_attributes(state, sheet_id, candidate)
 
 
+def reevaluate_instance_attributes_mutations(
+    state: State,
+    instance_id: str,
+) -> list[PatchOp]:
+    instance = state.instanced_sheets.get(instance_id)
+    if instance is None:
+        raise ValueError(f"Instance '{instance_id}' does not exist.")
+    candidate = deepcopy(instance)
+    synchronize_all_sheet_attributes(candidate)
+    return _apply_candidate_instance_attributes(state, instance_id, candidate)
+
+
 def validate_and_evaluate_sheet_attributes(
     sheet: Sheet,
     attribute_ids: set[str] | None = None,
@@ -487,7 +552,11 @@ async def update_attribute(request: UpdateAttribute) -> None:
         definition = _build_definition(request.attribute, state=state)
         attribute_references = _attribute_references(state, request.attribute_id)
         for root, _, subject in attribute_references:
-            subject_type = "sheet" if root == "sheets" else root.removesuffix("s")
+            subject_type = (
+                "sheet"
+                if root in {"sheets", "instanced_sheets"}
+                else root.removesuffix("s")
+            )
             validate_subject_attribute_value(
                 state,
                 subject_type,
@@ -500,6 +569,11 @@ async def update_attribute(request: UpdateAttribute) -> None:
             for sheet in state.sheets.values()
             if request.attribute_id in sheet.attributes
         ]
+        referencing_subjects.extend(
+            instance_id
+            for instance_id, instance in state.instanced_sheets.items()
+            if request.attribute_id in instance.attributes
+        )
         if referencing_subjects and "sheet" not in definition.subject_types:
             raise ValueError(
                 f"Attribute '{request.attribute_id}' is attached to sheets: "
@@ -559,6 +633,17 @@ async def delete_attribute(request: DeleteAttribute) -> None:
             raise ValueError(
                 f"Attribute '{request.attribute_id}' is attached to sheets: "
                 + ", ".join(referencing_sheets)
+                + "."
+            )
+        referencing_instances = sorted(
+            instance_id
+            for instance_id, instance in state.instanced_sheets.items()
+            if request.attribute_id in instance.attributes
+        )
+        if referencing_instances:
+            raise ValueError(
+                f"Attribute '{request.attribute_id}' is attached to instances: "
+                + ", ".join(referencing_instances)
                 + "."
             )
         for subject_type, collection in (
@@ -638,6 +723,70 @@ async def detach_sheet_attribute(request: DetachSheetAttribute) -> None:
         candidate.attributes.pop(request.attribute_id)
         validate_and_evaluate_sheet_attributes(candidate)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def attach_instanced_sheet_attribute(request: AttachInstancedSheetAttribute) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        definition = state.attributes.get(request.attribute_id)
+        if definition is None or "sheet" not in definition.subject_types:
+            raise ValueError(f"Sheet Attribute '{request.attribute_id}' does not exist.")
+        if request.attribute_id in instance.attributes:
+            raise ValueError(
+                f"Attribute '{request.attribute_id}' is already attached to instance "
+                f"'{request.instance_id}'."
+            )
+        if any(
+            bridge.relationship_id == request.relationship_id
+            for bridge in instance.attributes.values()
+        ):
+            raise ValueError(
+                f"Attribute relationship '{request.relationship_id}' already exists."
+            )
+        value = (
+            _build_attribute_value(request.value)
+            if request.value is not None
+            else deepcopy(definition.default_value)
+        )
+        validate_subject_attribute_value(
+            state,
+            "sheet",
+            instance,
+            definition,
+            value,
+            attached_attribute_ids={*instance.attributes, request.attribute_id},
+        )
+        candidate = deepcopy(instance)
+        candidate.attributes[request.attribute_id] = AttributeBridge(
+            relationship_id=request.relationship_id,
+            attribute_id=request.attribute_id,
+            value=value,
+        )
+        validate_and_evaluate_sheet_attributes(candidate)
+        return None, _apply_candidate_instance_attributes(
+            state, request.instance_id, candidate
+        )
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def detach_instanced_sheet_attribute(request: DetachInstancedSheetAttribute) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance, definition, _ = _required_instance_and_definition(
+            state, request.instance_id, request.attribute_id
+        )
+        if definition.required:
+            raise ValueError("Required Attributes cannot be detached.")
+        candidate = deepcopy(instance)
+        candidate.attributes.pop(request.attribute_id)
+        validate_and_evaluate_sheet_attributes(candidate)
+        return None, _apply_candidate_instance_attributes(
+            state, request.instance_id, candidate
+        )
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -800,5 +949,51 @@ async def reset_sheet_attribute_value(request: ResetSheetAttributeValue) -> None
         candidate.attributes[request.attribute_id].value = deepcopy(definition.default_value)
         validate_and_evaluate_sheet_attributes(candidate)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_instanced_sheet_attribute_value(
+    request: SetInstancedSheetAttributeValue,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance, definition, _ = _required_instance_and_definition(
+            state,
+            request.instance_id,
+            request.attribute_id,
+        )
+        value = _build_attribute_value(request.value)
+        validate_subject_attribute_value(
+            state,
+            "sheet",
+            instance,
+            definition,
+            value,
+        )
+        candidate = deepcopy(instance)
+        candidate.attributes[request.attribute_id].value = deepcopy(value)
+        validate_and_evaluate_sheet_attributes(candidate)
+        return None, _apply_candidate_instance_attributes(
+            state, request.instance_id, candidate
+        )
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def reset_instanced_sheet_attribute_value(
+    request: ResetInstancedSheetAttributeValue,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance, definition, _ = _required_instance_and_definition(
+            state,
+            request.instance_id,
+            request.attribute_id,
+        )
+        candidate = deepcopy(instance)
+        candidate.attributes[request.attribute_id].value = deepcopy(definition.default_value)
+        validate_and_evaluate_sheet_attributes(candidate)
+        return None, _apply_candidate_instance_attributes(
+            state, request.instance_id, candidate
+        )
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

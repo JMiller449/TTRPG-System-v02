@@ -74,15 +74,14 @@ export function useSheetDetailState(): UseSheetDetailStateResult {
   );
 
   const detail = useMemo(() => selectActiveSheetDetail(selectorState), [selectorState]);
-  const sheetOrInstanceId = detail?.sheet?.id ?? detail?.instance.id ?? null;
   const instanceId = detail?.instance.id ?? null;
   const equipment = useMemo(
     () => (instanceId ? selectSheetEquipment(selectorState, instanceId) : []),
     [instanceId, selectorState]
   );
   const sheetProficiencies = useMemo(
-    () => (sheetOrInstanceId ? selectSheetProficiencies(selectorState, sheetOrInstanceId) : []),
-    [selectorState, sheetOrInstanceId]
+    () => (instanceId ? selectSheetProficiencies(selectorState, instanceId) : []),
+    [selectorState, instanceId]
   );
   const assignedActions = useMemo(
     () => (instanceId ? selectSheetAssignedActions(selectorState, instanceId) : []),

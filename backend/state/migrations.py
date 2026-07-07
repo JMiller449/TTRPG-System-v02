@@ -11,7 +11,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 16
+CURRENT_STATE_SCHEMA_VERSION = 17
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1194,6 +1194,27 @@ def _migrate_v15_to_v16(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 16, "state": state}
 
 
+def _migrate_v16_to_v17(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    sheets = state.get("sheets", {})
+    instances = state.get("instanced_sheets", {})
+    if isinstance(sheets, dict) and isinstance(instances, dict):
+        for instance in instances.values():
+            if not isinstance(instance, dict):
+                continue
+            template = sheets.get(instance.get("parent_id"))
+            if not isinstance(template, dict):
+                continue
+            instance.setdefault("actions", deepcopy(template.get("actions", {})))
+            instance.setdefault("attributes", deepcopy(template.get("attributes", {})))
+            instance.setdefault(
+                "proficiencies",
+                deepcopy(template.get("proficiencies", {})),
+            )
+
+    return {"schema_version": 17, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1211,6 +1232,7 @@ MIGRATIONS: dict[int, Migration] = {
     13: _migrate_v13_to_v14,
     14: _migrate_v14_to_v15,
     15: _migrate_v15_to_v16,
+    16: _migrate_v16_to_v17,
 }
 
 

@@ -16,7 +16,7 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
     label: "Session",
     items: [
       { view: "console", label: "Dashboard", glyph: "DB" },
-      { view: "sheet_viewer", label: "Characters", glyph: "CH" },
+      { view: "sheet_viewer", label: "Spawned Sheets", glyph: "SP" },
       { view: "action_history", label: "Action History", glyph: "AH" }
     ]
   },

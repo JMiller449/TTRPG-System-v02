@@ -883,17 +883,12 @@ def effective_damage_resistance(
 ) -> float:
     category = damage_type_category(damage_type)
     resistance_key = damage_type_resistance_key(damage_type)
+    source = actor.instance.resistances if actor.instance is not None else actor.sheet.resistances
     resistance = (
-        actor.sheet.resistances.resistance
-        + getattr(actor.sheet.resistances, category)
-        + getattr(actor.sheet.resistances, resistance_key)
+        source.resistance
+        + getattr(source, category)
+        + getattr(source, resistance_key)
     )
-    if actor.instance is not None:
-        resistance += (
-            actor.instance.resistances.resistance
-            + getattr(actor.instance.resistances, category)
-            + getattr(actor.instance.resistances, resistance_key)
-        )
     return min(resistance, 1.0)
 
 

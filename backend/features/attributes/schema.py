@@ -38,6 +38,20 @@ class DetachSheetAttribute(RequestModel):
     type: Literal["detach_sheet_attribute"]
 
 
+class AttachInstancedSheetAttribute(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    attribute_id: str = Field(min_length=1)
+    value: AttributeValuePayload | None = None
+    type: Literal["attach_instanced_sheet_attribute"]
+
+
+class DetachInstancedSheetAttribute(RequestModel):
+    instance_id: str = Field(min_length=1)
+    attribute_id: str = Field(min_length=1)
+    type: Literal["detach_instanced_sheet_attribute"]
+
+
 class AttachSubjectAttribute(RequestModel):
     subject_type: Literal["item", "action"]
     subject_id: str = Field(min_length=1)
@@ -80,3 +94,16 @@ class ResetSheetAttributeValue(RequestModel):
     sheet_id: str = Field(min_length=1)
     attribute_id: str = Field(min_length=1)
     type: Literal["reset_sheet_attribute_value"]
+
+
+class SetInstancedSheetAttributeValue(RequestModel):
+    instance_id: str = Field(min_length=1)
+    attribute_id: str = Field(min_length=1)
+    value: AttributeValuePayload
+    type: Literal["set_instanced_sheet_attribute_value"]
+
+
+class ResetInstancedSheetAttributeValue(RequestModel):
+    instance_id: str = Field(min_length=1)
+    attribute_id: str = Field(min_length=1)
+    type: Literal["reset_instanced_sheet_attribute_value"]

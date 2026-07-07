@@ -5,6 +5,7 @@ const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = 
   { id: "overview", label: "Overview" },
   { id: "actions", label: "Actions" },
   { id: "inventory", label: "Inventory" },
+  { id: "resistances", label: "Resistances" },
   { id: "details", label: "Details" },
   { id: "notes", label: "Notes" }
 ];
@@ -12,8 +13,7 @@ const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = 
 const GM_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
   ...PLAYER_SHEET_TABS,
   { id: "action_history", label: "Action History" },
-  { id: "formula_stats", label: "Formula Stats" },
-  { id: "resistances", label: "Resistances" }
+  { id: "formula_stats", label: "Formula Stats" }
 ];
 
 export function CharacterSheetTabs({

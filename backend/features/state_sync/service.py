@@ -250,9 +250,14 @@ class StateSyncService:
                 continue
             augments = instance.get("augments")
             if not isinstance(augments, dict):
-                continue
-            for augmentation_id in hidden_augmentation_ids:
-                augments.pop(augmentation_id, None)
+                augments = None
+            if isinstance(augments, dict):
+                for augmentation_id in hidden_augmentation_ids:
+                    augments.pop(augmentation_id, None)
+            instance_attributes = instance.get("attributes")
+            if isinstance(instance_attributes, dict):
+                for attribute_id in hidden_attribute_ids:
+                    instance_attributes.pop(attribute_id, None)
 
         for sheet in state.get("sheets", {}).values():
             if not isinstance(sheet, dict):
@@ -952,6 +957,7 @@ class StateSyncService:
         operations: list[PatchOp],
     ) -> list[PatchOp]:
         affected_sheet_ids: set[str] = set()
+        affected_instance_ids: set[str] = set()
         for operation in operations:
             segments = self._parse_path(operation.path)
             if (
@@ -960,16 +966,30 @@ class StateSyncService:
                 and segments[2] == "stats"
             ):
                 affected_sheet_ids.add(segments[1])
-        if not affected_sheet_ids:
+            if (
+                len(segments) >= 3
+                and segments[0] == "instanced_sheets"
+                and segments[2] == "stats"
+            ):
+                affected_instance_ids.add(segments[1])
+        if not affected_sheet_ids and not affected_instance_ids:
             return []
 
-        from backend.features.attributes.service import reevaluate_sheet_attributes_mutations
+        from backend.features.attributes.service import (
+            reevaluate_instance_attributes_mutations,
+            reevaluate_sheet_attributes_mutations,
+        )
 
         attribute_operations: list[PatchOp] = []
         for sheet_id in sorted(affected_sheet_ids):
             if sheet_id in state.sheets:
                 attribute_operations.extend(
                     reevaluate_sheet_attributes_mutations(state, sheet_id)
+                )
+        for instance_id in sorted(affected_instance_ids):
+            if instance_id in state.instanced_sheets:
+                attribute_operations.extend(
+                    reevaluate_instance_attributes_mutations(state, instance_id)
                 )
         return attribute_operations
 
@@ -989,7 +1009,9 @@ class StateSyncService:
             )):
                 affected_sheet_ids.add(segments[1])
             if segments[0] == "instanced_sheets" and (
-                len(segments) == 2 or (len(segments) >= 3 and segments[2] == "stats")
+                len(segments) == 2 or (
+                    len(segments) >= 3 and segments[2] in {"stats", "attributes"}
+                )
             ):
                 affected_instance_ids.add(segments[1])
 

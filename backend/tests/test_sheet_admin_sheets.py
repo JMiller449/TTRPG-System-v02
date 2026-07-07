@@ -5,9 +5,12 @@ from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import AttributeBridge, AttributeDefinition, AttributeValue
+from backend.state.models.action import Action
 from backend.state.models.proficiency import Proficiency
+from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.item import Item
+from backend.state.models.shared import Bridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.default_actions import required_sheet_action_ids
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -1465,6 +1468,65 @@ def test_dm_can_create_instanced_sheet_with_resistances(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_instanced_sheet_copies_template_owned_content(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.actions["custom_action"] = Action.from_dict(
+                {"id": "custom_action", "name": "Custom Action", "steps": []}
+            )
+            state.proficiencies["magic_prof"] = Proficiency.from_dict(
+                _proficiency_payload("magic_prof")
+            )
+            payload = _sheet_payload()
+            payload["stats"]["health"]["aliases"] = [
+                {"name": "constitution", "path": ["stats", "constitution"]}
+            ]
+            payload["stats"]["mana"]["aliases"] = [
+                {"name": "arcane", "path": ["stats", "arcane"]}
+            ]
+            sheet = Sheet.from_dict(payload)
+            sheet.actions["custom_action_bridge"] = Bridge(
+                relationship_id="custom_action_bridge",
+                entry_id="custom_action",
+            )
+            sheet.proficiencies["magic_prof_bridge"] = ProficiencyBridge(
+                relationship_id="magic_prof_bridge",
+                prof_id="magic_prof",
+                use_count=3,
+                growth_rate=1.5,
+            )
+            sheet.resistances.fire = 0.25
+            state.sheets["mage_template"] = sheet
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_instanced_sheet",
+                    "instance_id": "mage_instance",
+                    "parent_sheet_id": "mage_template",
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.actions == sheet.actions
+            assert instance.proficiencies == sheet.proficiencies
+            assert instance.attributes == sheet.attributes
+            assert instance.resistances.fire == 0.25
+            instance.actions["custom_action_bridge"].entry_id = "changed"
+            assert sheet.actions["custom_action_bridge"].entry_id == "custom_action"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_create_instanced_sheet_with_access_code(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -1511,6 +1573,76 @@ def test_dm_can_create_instanced_sheet_with_access_code(monkeypatch) -> None:
                 "type": "sheet_access_codes",
                 "request_id": "req-1",
             }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.actions["custom_action"] = Action.from_dict(
+                {"id": "custom_action", "name": "Custom Action", "steps": []}
+            )
+            state.proficiencies["magic_prof"] = Proficiency.from_dict(
+                _proficiency_payload("magic_prof")
+            )
+            template = Sheet.from_dict(_sheet_payload())
+            template.actions["custom_action_bridge"] = Bridge(
+                relationship_id="custom_action_bridge",
+                entry_id="custom_action",
+            )
+            template.proficiencies["magic_prof_bridge"] = ProficiencyBridge(
+                relationship_id="magic_prof_bridge",
+                prof_id="magic_prof",
+                use_count=1,
+                growth_rate=1.0,
+            )
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "Evolved character notes.",
+                    "health": 1,
+                    "mana": 2,
+                    "augments": {"temporary": {"relationship_id": "temporary", "entry_id": "buff"}},
+                },
+                template=template,
+            )
+            instance = state.instanced_sheets["mage_instance"]
+            instance.stats.strength = 18
+            instance.resistances.fire = 0.4
+            instance.proficiencies["magic_prof_bridge"].use_count = 7
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_sheet_from_instance",
+                    "instance_id": "mage_instance",
+                    "sheet_id": "mage_checkpoint",
+                    "name": "Mage Checkpoint",
+                },
+            )
+
+            snapshot = state.sheets["mage_checkpoint"]
+            assert snapshot.name == "Mage Checkpoint"
+            assert snapshot.notes == "Evolved character notes."
+            assert snapshot.stats.strength == 18
+            assert snapshot.resistances.fire == 0.4
+            assert snapshot.actions == instance.actions
+            assert snapshot.proficiencies["magic_prof_bridge"].use_count == 7
+            assert snapshot.xp_cap == ""
+            assert snapshot.xp_given_when_slayed == 0
+            assert snapshot.slayed_record == {}
+            assert "augments" not in websocket.sent_messages[0]["ops"][0]["value"]
         finally:
             StateSingleton._state = original_state
 

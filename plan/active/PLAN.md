@@ -62,6 +62,7 @@ Backend:
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
+- Sheet instances now own the spawned copy of template-built content, including stats, resistances, actions, attributes, proficiencies, and inventory. GM instance edits mutate the spawned sheet rather than the source template, and a DM can snapshot an evolved instance back into a new checkpoint template without copying runtime-only health, mana, augments, or active effects.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
@@ -79,6 +80,7 @@ Frontend:
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - Player entry claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
+- Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Weapon action controls resolve through item-granted source items rather than direct sheet action bridges.

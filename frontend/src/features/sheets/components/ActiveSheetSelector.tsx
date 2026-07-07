@@ -13,15 +13,15 @@ export function ActiveSheetSelector(): JSX.Element {
     : (sheetOptions[0]?.id ?? "");
 
   return (
-    <section className="sheet-context-selector" aria-label="Active sheet context">
+    <section className="sheet-context-selector" aria-label="Active spawned sheet context">
       <div>
-        <p className="sheet-context-selector__eyebrow">Sheet Context</p>
+        <p className="sheet-context-selector__eyebrow">Spawned Sheet Context</p>
         <p className="sheet-context-selector__description">
-          Choose the sheet instance used by this workspace.
+          Choose the spawned sheet instance used by this workspace.
         </p>
       </div>
       <label className="sheet-context-selector__field">
-        <span>Active sheet</span>
+        <span>Active spawned sheet</span>
         <select
           value={selectedSheetId ?? ""}
           disabled={sheetOptions.length === 0}
@@ -32,7 +32,7 @@ export function ActiveSheetSelector(): JSX.Element {
             })
           }
         >
-          {sheetOptions.length === 0 ? <option value="">No sheets available</option> : null}
+          {sheetOptions.length === 0 ? <option value="">No spawned sheets available</option> : null}
           {sheetOptions.map((sheet) => (
             <option key={sheet.id} value={sheet.id}>
               {sheet.name}

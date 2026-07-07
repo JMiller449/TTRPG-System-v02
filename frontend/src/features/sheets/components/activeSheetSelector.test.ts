@@ -40,10 +40,10 @@ describe("ActiveSheetSelector", () => {
       )
     );
 
-    expect(markup).toContain("Active sheet");
+    expect(markup).toContain("Active spawned sheet");
     expect(markup.indexOf("instance_2")).toBeLessThan(markup.indexOf("instance_1"));
     expect(markup).toContain('value="instance_1" selected=""');
-    expect(markup).not.toContain("No active sheet");
+    expect(markup).not.toContain("No active spawned sheet");
   });
 
   it("defaults to the first available sheet and offers no empty selection", () => {
@@ -78,7 +78,7 @@ describe("ActiveSheetSelector", () => {
 
     expect(markup).toContain('value="instance_2" selected=""');
     expect(markup).not.toContain('value=""');
-    expect(markup).not.toContain("No active sheet");
+    expect(markup).not.toContain("No active spawned sheet");
   });
 
   it("shows a disabled empty state only when no sheets are available", () => {
@@ -90,7 +90,7 @@ describe("ActiveSheetSelector", () => {
       )
     );
 
-    expect(markup).toContain("No sheets available");
+    expect(markup).toContain("No spawned sheets available");
     expect(markup).toContain("disabled");
   });
 });

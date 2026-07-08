@@ -10,6 +10,7 @@ import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSectio
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
+import { SheetStatPointAllocator } from "@/features/sheets/components/SheetStatPointAllocator";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
 import { RollLog } from "@/features/rolls/RollLog";
@@ -32,6 +33,7 @@ import {
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkInstancedSheetProficiencyRequest,
   buildPerformActionRequest,
+  buildAllocateInstancedSheetStatPointsRequest,
   buildResetInstancedSheetAttributeValueRequest,
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
@@ -40,6 +42,7 @@ import {
   buildSetInstancedSheetAttributeValueRequest,
   buildSetInstancedSheetFormulaStatRequest,
   buildSetInstancedSheetResistancesRequest,
+  buildSetInstancedSheetUnassignedStatPointsRequest,
   buildUnlinkInstancedSheetProficiencyRequest,
   buildUpdateLinkedInstancedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
@@ -99,6 +102,7 @@ export function PlayerCharacterSheet({
   const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("overview");
   const [snapshotSheetId, setSnapshotSheetId] = useState("");
   const [snapshotName, setSnapshotName] = useState("");
+  const [unassignedStatPointsDraft, setUnassignedStatPointsDraft] = useState("0");
   const requestedFormulaMetadataRef = useRef(false);
   const activeTab = controlledActiveTab ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
@@ -148,6 +152,10 @@ export function PlayerCharacterSheet({
     );
   }, [actionFormulaAuthoringMetadata, client, mode]);
 
+  useEffect(() => {
+    setUnassignedStatPointsDraft(String(detail?.persistentSheet.unassigned_stat_points ?? 0));
+  }, [detail?.instance.id, detail?.persistentSheet.unassigned_stat_points]);
+
   if (!detail) {
     return (
       <Panel title="Character Sheet">
@@ -170,8 +178,13 @@ export function PlayerCharacterSheet({
   const canEditProficiencies = mode === "gm";
   const canEditResistances = mode === "gm";
   const sheetId = detail.sheet?.id;
-  const instanceAttributeBridges = detail.persistentSheet.attributes ?? detail.sheet?.attributes ?? {};
+  const instanceAttributeBridges =
+    detail.persistentSheet.attributes ?? detail.sheet?.attributes ?? {};
   const instanceFormulaStats = detail.persistentSheet.stats ?? detail.sheet?.stats ?? null;
+  const unassignedStatPoints = detail.persistentSheet.unassigned_stat_points ?? 0;
+  const parsedUnassignedStatPointsDraft = Number(unassignedStatPointsDraft);
+  const canSaveUnassignedStatPoints =
+    Number.isInteger(parsedUnassignedStatPointsDraft) && parsedUnassignedStatPointsDraft >= 0;
 
   const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
     client.sendProtocolRequest(
@@ -285,6 +298,58 @@ export function PlayerCharacterSheet({
           >
             <div className="character-sheet__overview-grid">
               <div className="character-sheet__overview-main">
+                {mode === "gm" ? (
+                  <section className="character-sheet__section character-sheet__section--compact">
+                    <h4>Unassigned Stat Points</h4>
+                    <div className="inline-actions">
+                      <Field label="Current Pool">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          inputMode="numeric"
+                          value={unassignedStatPointsDraft}
+                          onChange={(event) => setUnassignedStatPointsDraft(event.target.value)}
+                        />
+                      </Field>
+                      <button
+                        type="button"
+                        className="button"
+                        disabled={!canSaveUnassignedStatPoints}
+                        onClick={() => {
+                          if (!canSaveUnassignedStatPoints) {
+                            return;
+                          }
+                          client.sendProtocolRequest(
+                            buildSetInstancedSheetUnassignedStatPointsRequest({
+                              instanceId: detail.instance.id,
+                              value: parsedUnassignedStatPointsDraft
+                            }),
+                            "Set unassigned stat points"
+                          );
+                        }}
+                      >
+                        Set Points
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
+                {mode === "player" ? (
+                  <SheetStatPointAllocator
+                    instanceId={detail.instance.id}
+                    stats={detail.stats}
+                    unassignedPoints={unassignedStatPoints}
+                    onCommit={(allocations) =>
+                      client.sendProtocolRequest(
+                        buildAllocateInstancedSheetStatPointsRequest({
+                          instanceId: detail.instance.id,
+                          allocations
+                        }),
+                        "Allocate stat points"
+                      )
+                    }
+                  />
+                ) : null}
                 <SheetStatsSection
                   canEditStats={canEditStats}
                   compact={mode === "player"}

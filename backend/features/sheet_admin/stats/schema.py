@@ -53,6 +53,31 @@ class SetInstancedSheetBaseStat(RequestModel):
     type: Literal["set_instanced_sheet_base_stat"]
 
 
+class SetInstancedSheetUnassignedStatPoints(RequestModel):
+    instance_id: str = Field(min_length=1)
+    value: int = Field(ge=0)
+    type: Literal["set_instanced_sheet_unassigned_stat_points"]
+
+
+class AllocateInstancedSheetStatPoints(RequestModel):
+    instance_id: str = Field(min_length=1)
+    allocations: dict[BaseStatName, int]
+    type: Literal["allocate_instanced_sheet_stat_points"]
+
+    @model_validator(mode="after")
+    def validate_allocations(self) -> "AllocateInstancedSheetStatPoints":
+        total = 0
+        for stat_name, value in self.allocations.items():
+            if value < 0:
+                raise ValueError(
+                    f"Allocation for '{stat_name}' must not be negative."
+                )
+            total += value
+        if total <= 0:
+            raise ValueError("Allocate at least one stat point.")
+        return self
+
+
 class SetSheetFormulaStat(RequestModel):
     sheet_id: str = Field(min_length=1)
     stat_name: FormulaStatName

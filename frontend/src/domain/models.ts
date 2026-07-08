@@ -476,6 +476,7 @@ export interface PersistentSheet {
   notes?: string;
   health: number;
   mana: number;
+  unassigned_stat_points?: number;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
   items?: Record<string, ItemBridge>;

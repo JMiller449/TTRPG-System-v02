@@ -4,8 +4,11 @@ from copy import deepcopy
 from backend.features.chat import service as chat_service
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.access_code import SheetAccessCode
+from backend.state.models.augmentation import Augmentation, StandaloneEffectApplication
 from backend.state.models.attribute import AttributeBridge, AttributeDefinition, AttributeValue
 from backend.state.models.action import Action
+from backend.state.models.condition import ActiveCondition
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.encounter import EncounterPreset
@@ -1041,6 +1044,311 @@ def test_instanced_sheet_defaults_are_evaluated_and_copied_by_backend(monkeypatc
             assert instance.health == 120
             assert instance.mana == 112
             assert instance.resistances.fire == 0.25
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_unassigned_stat_points_on_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_unassigned_stat_points",
+                    "instance_id": "mage_instance",
+                    "value": 6,
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].unassigned_stat_points == 6
+            assert websocket.sent_messages[0]["ops"][0] == {
+                "op": "set",
+                "path": "/instanced_sheets/mage_instance/unassigned_stat_points",
+                "value": 6,
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_can_allocate_unassigned_core_stat_points(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                    "unassigned_stat_points": 4,
+                },
+                template=state.sheets["mage_template"],
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "allocate_instanced_sheet_stat_points",
+                    "instance_id": "mage_instance",
+                    "allocations": {
+                        "strength": 2,
+                        "arcane": 1,
+                        "will": 0,
+                    },
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.stats is not None
+            assert instance.stats.strength == 12
+            assert instance.stats.arcane == 15
+            assert instance.stats.will == 15
+            assert instance.unassigned_stat_points == 1
+            paths = {op["path"] for op in websocket.sent_messages[0]["ops"]}
+            assert {
+                "/instanced_sheets/mage_instance/stats/strength",
+                "/instanced_sheets/mage_instance/stats/arcane",
+                "/instanced_sheets/mage_instance/unassigned_stat_points",
+                "/instanced_sheets/mage_instance/evaluated_stats",
+            }.issubset(paths)
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_stat_point_allocation_rejects_overspend(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                    "unassigned_stat_points": 1,
+                },
+                template=state.sheets["mage_template"],
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "allocate_instanced_sheet_stat_points",
+                    "instance_id": "mage_instance",
+                    "allocations": {
+                        "strength": 2,
+                    },
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.stats is not None
+            assert instance.stats.strength == 10
+            assert instance.unassigned_stat_points == 1
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Instance 'mage_instance' only has 1 unassigned stat point(s)."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_delete_instanced_sheet_and_runtime_dependencies(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "At table",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                }
+            )
+            state.active_conditions["condition:burning:mage_instance"] = (
+                ActiveCondition(
+                    application_id="condition:burning:mage_instance",
+                    condition_id="burning",
+                    condition_name="Burning",
+                    description="On fire.",
+                    visibility="public",
+                    instance_id="mage_instance",
+                    augmentation_ids=["condition_aug"],
+                )
+            )
+            state.standalone_effect_applications["standalone:mage_instance:bless"] = (
+                StandaloneEffectApplication.from_dict(
+                    {
+                        "application_id": "standalone:mage_instance:bless",
+                        "definition_id": "bless",
+                        "instance_id": "mage_instance",
+                        "source": {"type": "action", "id": "bless_action"},
+                    }
+                )
+            )
+            state.augmentations["condition_aug"] = Augmentation.from_dict(
+                {
+                    "id": "condition_aug",
+                    "name": "Burning Damage",
+                    "source": {
+                        "type": "condition",
+                        "id": "burning",
+                        "application_id": "condition:burning:mage_instance",
+                    },
+                    "scope": "instance",
+                    "target": {"root": "instance", "path": ["health"]},
+                    "effect": {
+                        "type": "formula_modifier",
+                        "operation": "subtract",
+                        "value": {"text": "1"},
+                    },
+                    "applied": False,
+                    "applied_target_id": None,
+                    "lifecycle_owner": "condition",
+                }
+            )
+            state.augmentations["standalone:mage_instance:bless"] = Augmentation.from_dict(
+                {
+                    "id": "standalone:mage_instance:bless",
+                    "name": "Bless",
+                    "source": {
+                        "type": "action",
+                        "id": "bless_action",
+                        "application_id": "standalone:mage_instance:bless",
+                    },
+                    "scope": "instance",
+                    "target": {"root": "instance", "path": ["mana"]},
+                    "effect": {
+                        "type": "formula_modifier",
+                        "operation": "add",
+                        "value": {"text": "1"},
+                    },
+                    "applied": True,
+                    "applied_target_id": "mage_instance",
+                    "lifecycle_owner": "action",
+                }
+            )
+            state.sheet_access_codes["PLAYER1"] = SheetAccessCode(
+                code="PLAYER1",
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "delete_instanced_sheet",
+                    "instance_id": "mage_instance",
+                },
+            )
+
+            assert "mage_instance" not in state.instanced_sheets
+            assert "condition:burning:mage_instance" not in state.active_conditions
+            assert "standalone:mage_instance:bless" not in (
+                state.standalone_effect_applications
+            )
+            assert "condition_aug" not in state.augmentations
+            assert "standalone:mage_instance:bless" not in state.augmentations
+            assert "PLAYER1" not in state.sheet_access_codes
+            assert websocket.sent_messages[0]["type"] == "state_patch"
+            assert websocket.sent_messages[0]["request_id"] == "req-1"
+            assert {op["path"] for op in websocket.sent_messages[0]["ops"]} >= {
+                "/active_conditions/condition:burning:mage_instance",
+                "/standalone_effect_applications/standalone:mage_instance:bless",
+                "/augmentations/condition_aug",
+                "/augmentations/standalone:mage_instance:bless",
+                "/instanced_sheets/mage_instance",
+            }
+            assert websocket.sent_messages[1] == {
+                "response_id": None,
+                "codes": [],
+                "request_id": "req-1",
+                "type": "sheet_access_codes",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_instanced_sheet_rejects_missing_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "delete_instanced_sheet",
+                    "instance_id": "missing_instance",
+                },
+            )
+
+            assert websocket.sent_messages[0]["type"] == "error"
+            assert websocket.sent_messages[0]["reason"] == (
+                "Instanced sheet 'missing_instance' does not exist."
+            )
         finally:
             StateSingleton._state = original_state
 

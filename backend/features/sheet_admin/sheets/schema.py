@@ -142,6 +142,11 @@ class CreateInstancedSheet(RequestModel):
     type: Literal["create_instanced_sheet"]
 
 
+class DeleteInstancedSheet(RequestModel):
+    instance_id: str = Field(min_length=1)
+    type: Literal["delete_instanced_sheet"]
+
+
 class CreateSheetFromInstance(RequestModel):
     instance_id: str = Field(min_length=1)
     sheet_id: str = Field(min_length=1)

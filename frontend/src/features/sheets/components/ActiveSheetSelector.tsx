@@ -1,8 +1,10 @@
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
+import type { GameClient } from "@/hooks/useGameClient";
+import { buildDeleteInstancedSheetRequest } from "@/infrastructure/ws/requestBuilders";
 
-export function ActiveSheetSelector(): JSX.Element {
+export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
   const { activeSheetId } = state.uiState;
   const sheetOptions = state.serverState.persistentSheetOrder
@@ -11,6 +13,20 @@ export function ActiveSheetSelector(): JSX.Element {
   const selectedSheetId = sheetOptions.some((sheet) => sheet.id === activeSheetId)
     ? activeSheetId
     : (sheetOptions[0]?.id ?? "");
+  const selectedSheet = sheetOptions.find((sheet) => sheet.id === selectedSheetId) ?? null;
+
+  const despawnSelectedSheet = (): void => {
+    if (!client || !selectedSheet) {
+      return;
+    }
+    if (!window.confirm(`Despawn "${selectedSheet.name}"? This cannot be undone.`)) {
+      return;
+    }
+    client.sendProtocolRequest(
+      buildDeleteInstancedSheetRequest({ instanceId: selectedSheet.id }),
+      `Despawn ${selectedSheet.name}`
+    );
+  };
 
   return (
     <section className="sheet-context-selector" aria-label="Active spawned sheet context">
@@ -20,26 +36,40 @@ export function ActiveSheetSelector(): JSX.Element {
           Choose the spawned sheet instance used by this workspace.
         </p>
       </div>
-      <label className="sheet-context-selector__field">
-        <span>Active spawned sheet</span>
-        <select
-          value={selectedSheetId ?? ""}
-          disabled={sheetOptions.length === 0}
-          onChange={(event) =>
-            dispatch({
-              type: "set_active_sheet_local",
-              sheetId: event.target.value
-            })
-          }
-        >
-          {sheetOptions.length === 0 ? <option value="">No spawned sheets available</option> : null}
-          {sheetOptions.map((sheet) => (
-            <option key={sheet.id} value={sheet.id}>
-              {sheet.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="sheet-context-selector__controls">
+        <label className="sheet-context-selector__field">
+          <span>Active spawned sheet</span>
+          <select
+            value={selectedSheetId ?? ""}
+            disabled={sheetOptions.length === 0}
+            onChange={(event) =>
+              dispatch({
+                type: "set_active_sheet_local",
+                sheetId: event.target.value
+              })
+            }
+          >
+            {sheetOptions.length === 0 ? (
+              <option value="">No spawned sheets available</option>
+            ) : null}
+            {sheetOptions.map((sheet) => (
+              <option key={sheet.id} value={sheet.id}>
+                {sheet.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {client ? (
+          <button
+            type="button"
+            className="button button--danger"
+            onClick={despawnSelectedSheet}
+            disabled={!selectedSheet}
+          >
+            Despawn
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }

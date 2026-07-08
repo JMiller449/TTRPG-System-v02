@@ -25,6 +25,7 @@ from backend.features.sheet_admin.sheets.schema import (
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
     CreateSheet,
+    DeleteInstancedSheet,
     DeleteSheetActionBridge,
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
@@ -771,6 +772,69 @@ async def update_typed_sheet(request: UpdateSheet) -> None:
 
 async def delete_typed_sheet(request: DeleteSheet) -> None:
     await _delete_sheet(request.sheet_id, request_id=request.request_id)
+
+
+async def delete_instanced_sheet(request: DeleteInstancedSheet) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        if request.instance_id not in state.instanced_sheets:
+            raise ValueError(f"Instanced sheet '{request.instance_id}' does not exist.")
+
+        ops: list = []
+        removed_application_ids: set[str] = set()
+
+        for application_id, active_condition in sorted(
+            list(state.active_conditions.items())
+        ):
+            if active_condition.instance_id != request.instance_id:
+                continue
+            removed_application_ids.add(application_id)
+            _, remove_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path("active_conditions", application_id),
+            )
+            ops.append(remove_op)
+
+        for application_id, application in sorted(
+            list(state.standalone_effect_applications.items())
+        ):
+            if application.instance_id != request.instance_id:
+                continue
+            removed_application_ids.add(application_id)
+            _, remove_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path(
+                    "standalone_effect_applications",
+                    application_id,
+                ),
+            )
+            ops.append(remove_op)
+
+        for augmentation_id, augmentation in sorted(list(state.augmentations.items())):
+            source_application_id = augmentation.source.application_id
+            if (
+                augmentation.applied_target_id != request.instance_id
+                and source_application_id not in removed_application_ids
+            ):
+                continue
+            _, remove_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path("augmentations", augmentation_id),
+            )
+            ops.append(remove_op)
+
+        for code, access_code in sorted(list(state.sheet_access_codes.items())):
+            if access_code.instance_id != request.instance_id:
+                continue
+            del state.sheet_access_codes[code]
+
+        _, remove_instance_op = state_sync_service.remove_mutation(
+            state,
+            state_sync_service.join_path("instanced_sheets", request.instance_id),
+        )
+        ops.append(remove_instance_op)
+        return None, ops
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
 async def set_sheet_notes(request: SetSheetNotes) -> None:

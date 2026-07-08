@@ -63,6 +63,7 @@ from backend.features.sheet_admin.sheets.schema import (
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
     CreateSheet,
+    DeleteInstancedSheet,
     DeleteSheetActionBridge,
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
@@ -77,6 +78,11 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheet,
 )
 from backend.features.sheet_admin.stats.schema import (
+    AllocateInstancedSheetStatPoints,
+    SetInstancedSheetBaseStat,
+    SetInstancedSheetFormulaStat,
+    SetInstancedSheetResistances,
+    SetInstancedSheetUnassignedStatPoints,
     SetSheetBaseStat,
     SetSheetFormulaStat,
     SetSheetResistances,
@@ -441,6 +447,7 @@ ApplicationRequest = Annotated[
     | SetInstancedSheetResource
     | AdjustInstancedSheetResource
     | CreateInstancedSheet
+    | DeleteInstancedSheet
     | CreateSheetActionBridge
     | UpdateSheetActionBridge
     | DeleteSheetActionBridge
@@ -452,9 +459,14 @@ ApplicationRequest = Annotated[
     | DeleteSheetProficiencyBridge
     | UpsertItemAugmentationTemplate
     | RemoveItemAugmentationTemplate
+    | AllocateInstancedSheetStatPoints
     | SetSheetBaseStat
+    | SetInstancedSheetBaseStat
+    | SetInstancedSheetUnassignedStatPoints
     | SetSheetFormulaStat
+    | SetInstancedSheetFormulaStat
     | SetSheetResistances
+    | SetInstancedSheetResistances
     | AttachSheetAttribute
     | DetachSheetAttribute
     | AttachSubjectAttribute

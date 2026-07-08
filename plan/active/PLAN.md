@@ -81,6 +81,8 @@ Frontend:
 - Player entry claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
+- GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
+- GM Characters can grant arbitrary unassigned core stat points to a spawned sheet instance; assigned players can stage those points across core stats only, undo only staged additions, and lock them in through a backend-authoritative allocation request.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Weapon action controls resolve through item-granted source items rather than direct sheet action bridges.

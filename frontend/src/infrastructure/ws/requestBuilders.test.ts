@@ -18,6 +18,7 @@ import {
   buildCreateInstancedSheetRequest,
   buildCreateInstancedSheetActionBridgeRequest,
   buildAttachInstancedSheetItemRequest,
+  buildAllocateInstancedSheetStatPointsRequest,
   buildCreateInstancedSheetProficiencyBridgeRequest,
   buildCreateItemRequest,
   buildCreateProficiencyRequest,
@@ -32,6 +33,7 @@ import {
   buildDeleteEncounterPresetRequest,
   buildDeleteFormulaRequest,
   buildDeleteAttributeRequest,
+  buildDeleteInstancedSheetRequest,
   buildDeleteItemRequest,
   buildDeleteInstancedSheetActionBridgeRequest,
   buildDetachInstancedSheetItemRequest,
@@ -70,6 +72,7 @@ import {
   buildSetInstancedSheetFormulaStatRequest,
   buildSetInstancedSheetItemEquippedRequest,
   buildSetInstancedSheetResistancesRequest,
+  buildSetInstancedSheetUnassignedStatPointsRequest,
   buildSetInstancedSheetResourceRequest,
   buildSetSheetBaseStatRequest,
   buildSetSheetAttributeValueRequest,
@@ -259,6 +262,7 @@ const testSheet: SheetDefinitionPayload = {
 
 const requestBuilderByType = {
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
+  allocate_instanced_sheet_stat_points: buildAllocateInstancedSheetStatPointsRequest,
   apply_instanced_sheet_damage: buildApplyInstancedSheetDamageRequest,
   attach_instanced_sheet_attribute: buildAttachInstancedSheetAttributeRequest,
   attach_sheet_attribute: buildAttachSheetAttributeRequest,
@@ -286,6 +290,7 @@ const requestBuilderByType = {
   delete_encounter_preset: buildDeleteEncounterPresetRequest,
   delete_formula: buildDeleteFormulaRequest,
   delete_attribute: buildDeleteAttributeRequest,
+  delete_instanced_sheet: buildDeleteInstancedSheetRequest,
   delete_item: buildDeleteItemRequest,
   delete_instanced_sheet_action_bridge: buildDeleteInstancedSheetActionBridgeRequest,
   delete_instanced_sheet_item_bridge: buildDetachInstancedSheetItemRequest,
@@ -324,6 +329,7 @@ const requestBuilderByType = {
   set_instanced_sheet_formula_stat: buildSetInstancedSheetFormulaStatRequest,
   set_instanced_sheet_item_equipped: buildSetInstancedSheetItemEquippedRequest,
   set_instanced_sheet_resistances: buildSetInstancedSheetResistancesRequest,
+  set_instanced_sheet_unassigned_stat_points: buildSetInstancedSheetUnassignedStatPointsRequest,
   set_instanced_sheet_resource: buildSetInstancedSheetResourceRequest,
   set_mob_xp_value: buildSetMobXpValueRequest,
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
@@ -553,6 +559,40 @@ describe("requestBuilders", () => {
       sheet_id: "sheet_1",
       stat_name: "strength",
       value: 14
+    });
+  });
+
+  it("builds instanced stat point pool and allocation requests", () => {
+    expect(
+      buildSetInstancedSheetUnassignedStatPointsRequest({
+        requestId: "req-stat-pool",
+        instanceId: "instance_1",
+        value: 4
+      })
+    ).toEqual({
+      request_id: "req-stat-pool",
+      type: "set_instanced_sheet_unassigned_stat_points",
+      instance_id: "instance_1",
+      value: 4
+    });
+
+    expect(
+      buildAllocateInstancedSheetStatPointsRequest({
+        requestId: "req-stat-allocation",
+        instanceId: "instance_1",
+        allocations: {
+          strength: 2,
+          arcane: 1
+        }
+      })
+    ).toEqual({
+      request_id: "req-stat-allocation",
+      type: "allocate_instanced_sheet_stat_points",
+      instance_id: "instance_1",
+      allocations: {
+        strength: 2,
+        arcane: 1
+      }
     });
   });
 
@@ -852,6 +892,19 @@ describe("requestBuilders", () => {
       mana: 12,
       notes: "",
       generate_access_code: true
+    });
+  });
+
+  it("builds instanced sheet delete requests", () => {
+    expect(
+      buildDeleteInstancedSheetRequest({
+        instanceId: "instance_1",
+        requestId: "req-delete-instance"
+      })
+    ).toEqual({
+      request_id: "req-delete-instance",
+      type: "delete_instanced_sheet",
+      instance_id: "instance_1"
     });
   });
 

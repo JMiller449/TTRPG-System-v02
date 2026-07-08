@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { AttributeBridge, AttributeDefinition, AttributeValue, Formula } from "@/domain/models";
+import type {
+  AttributeBridge,
+  AttributeDefinition,
+  AttributeValue,
+  Formula
+} from "@/domain/models";
 import { AttributeFormulaVariablePicker } from "@/features/attributes/AttributeFormulaVariablePicker";
 import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
 
@@ -181,9 +186,21 @@ function SheetAttributeCard({
   const name = definition?.name ?? bridge.attribute_id;
   const unit = definition?.unit ? ` ${definition.unit}` : "";
   const displayedValue = displayedBridgeValue(bridge);
+  const validationOptions = definition?.validation_options ?? [];
+  const shouldUseOptionSelect =
+    bridge.value.type !== "list" &&
+    (validationOptions.length > 0 ||
+      (bridge.value.type === "reference" && Boolean(definition?.reference_kind)));
+  const optionSelectValue =
+    shouldUseOptionSelect && validationOptions.includes(literalText) ? literalText : "";
+  const canSaveLiteralValue =
+    !shouldUseOptionSelect || (Boolean(literalText) && validationOptions.includes(literalText));
+  const validationOptionLabelMap = definition ? validationOptionLabels?.[definition.id] : undefined;
 
   return (
-    <article className={`card stack sheet-attribute-card ${compact ? "sheet-attribute-card--compact" : ""}`}>
+    <article
+      className={`card stack sheet-attribute-card ${compact ? "sheet-attribute-card--compact" : ""}`}
+    >
       <div className="inline-actions">
         <strong>{name}</strong>
         {definition?.required && !compact ? <span className="badge">Required</span> : null}
@@ -195,7 +212,9 @@ function SheetAttributeCard({
           {displayedValue === null || displayedValue === undefined ? "" : unit}
         </strong>
       </div>
-      {definition?.description && !compact ? <p className="muted">{definition.description}</p> : null}
+      {definition?.description && !compact ? (
+        <p className="muted">{definition.description}</p>
+      ) : null}
       {bridge.evaluation_error ? (
         <p role="alert" className="form-error">
           {bridge.evaluation_error}
@@ -230,7 +249,11 @@ function SheetAttributeCard({
             >
               Save Formula
             </button>
-            <button type="button" className="secondary" onClick={() => onReset(bridge.attribute_id)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onReset(bridge.attribute_id)}
+            >
               Reset to Default
             </button>
           </div>
@@ -249,14 +272,18 @@ function SheetAttributeCard({
                   <option value="false">False</option>
                   <option value="true">True</option>
                 </select>
-              ) : definition?.validation_options?.length && bridge.value.type !== "list" ? (
+              ) : shouldUseOptionSelect ? (
                 <select
-                  value={literalText}
+                  value={optionSelectValue}
                   onChange={(event) => setLiteralText(event.target.value)}
+                  disabled={validationOptions.length === 0}
                 >
-                  {definition.validation_options.map((option) => (
+                  <option value="">
+                    {validationOptions.length === 0 ? "No options available" : "Select a value"}
+                  </option>
+                  {validationOptions.map((option) => (
                     <option key={option} value={option}>
-                      {validationOptionLabels?.[definition.id]?.[option] ?? option}
+                      {validationOptionLabelMap?.[option] ?? option}
                     </option>
                   ))}
                 </select>
@@ -269,6 +296,7 @@ function SheetAttributeCard({
             </label>
             <button
               type="button"
+              disabled={!canSaveLiteralValue}
               onClick={() => {
                 const current = bridge.value;
                 if (current.type === "formula") {
@@ -282,7 +310,11 @@ function SheetAttributeCard({
             >
               Save Value
             </button>
-            <button type="button" className="secondary" onClick={() => onReset(bridge.attribute_id)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onReset(bridge.attribute_id)}
+            >
               Reset to Default
             </button>
           </div>

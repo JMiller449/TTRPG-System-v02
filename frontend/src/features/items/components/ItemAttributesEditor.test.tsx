@@ -48,4 +48,41 @@ describe("ItemAttributesEditor", () => {
     expect(markup).toContain('value="long_swords" selected=""');
     expect(markup).toContain("Required");
   });
+
+  it("does not offer missing proficiency references as selectable choices", () => {
+    const values = createEmptyItemValues();
+    values.attributeProfile = "weapon";
+    values.attributes.weapon_proficiency = {
+      relationship_id: "required_attribute_weapon_proficiency",
+      attribute_id: "weapon_proficiency",
+      value: { type: "reference", value: "deleted_proficiency" },
+      evaluated_value: null,
+      evaluation_error: null
+    };
+
+    const markup = renderToStaticMarkup(
+      <ItemAttributesEditor
+        values={values}
+        definitions={{
+          weapon_proficiency: {
+            id: "weapon_proficiency",
+            name: "Proficiency",
+            subject_types: ["item"],
+            value_type: "reference",
+            default_value: { type: "reference", value: "" },
+            reference_kind: "proficiency",
+            required: true,
+            required_profile: "weapon"
+          }
+        }}
+        proficiencies={{}}
+        metadata={null}
+        onChange={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("No options available");
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain('value="deleted_proficiency"');
+  });
 });

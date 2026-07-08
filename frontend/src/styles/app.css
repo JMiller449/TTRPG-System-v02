@@ -699,6 +699,12 @@
   gap: 0.25rem;
 }
 
+.sheet-context-selector__controls {
+  display: flex;
+  align-items: end;
+  gap: 0.6rem;
+}
+
 .sheet-context-selector__field span {
   color: var(--r6-text-muted);
   font-size: 0.75rem;
@@ -1197,6 +1203,11 @@
 
   .sheet-context-selector__field {
     min-width: 0;
+  }
+
+  .sheet-context-selector__controls {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .landing-card__header {

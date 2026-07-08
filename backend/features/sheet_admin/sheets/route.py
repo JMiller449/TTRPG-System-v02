@@ -21,6 +21,7 @@ from backend.features.sheet_admin.sheets.schema import (
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
     CreateSheet,
+    DeleteInstancedSheet,
     DeleteSheetActionBridge,
     DeleteSheetItemBridge,
     DeleteSheetProficiencyBridge,
@@ -215,6 +216,30 @@ class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
         response = await service.instantiate_sheet(request)
         if response is not None:
             await websocket_sessions.send(session, response)
+
+
+class DeleteInstancedSheetRoute(RequestRoute[DeleteInstancedSheet]):
+    type_name = "delete_instanced_sheet"
+    request_model = DeleteInstancedSheet
+    emitted_event_models = (StatePatchEvent, SheetAccessCodesEvent)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminSheets",
+        method_name="deleteInstancedSheet",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DeleteInstancedSheet,
+    ) -> None:
+        await service.delete_instanced_sheet(request)
+        await websocket_sessions.send(
+            session,
+            await sheet_access_service.list_sheet_access_codes(
+                request_id=request.request_id,
+            ),
+        )
 
 
 class CreateSheetFromInstanceRoute(RequestRoute[CreateSheetFromInstance]):
@@ -599,6 +624,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetInstancedSheetResourceRoute())
     registry.register(AdjustInstancedSheetResourceRoute())
     registry.register(CreateInstancedSheetRoute())
+    registry.register(DeleteInstancedSheetRoute())
     registry.register(CreateSheetFromInstanceRoute())
     registry.register(CreateSheetActionBridgeRoute())
     registry.register(UpdateSheetActionBridgeRoute())

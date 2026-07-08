@@ -148,6 +148,9 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"parent_sheet_id": string;' in output
     assert '"notes"?: string;' in output
     assert '"generate_access_code"?: boolean;' in output
+    assert "export type DeleteInstancedSheet = {" in output
+    assert '"type": "delete_instanced_sheet";' in output
+    assert '"clientMethodName": "deleteInstancedSheet"' in output
     assert "export type SetInstancedSheetNotes = {" in output
     assert '"type": "set_instanced_sheet_notes";' in output
     assert '"clientNamespace": "sheetInstanceNotes"' in output
@@ -155,6 +158,14 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert "export type SetInstancedSheetResource = {" in output
     assert '"resource": "health" | "mana";' in output
     assert '"type": "set_instanced_sheet_resource";' in output
+    assert "export type SetInstancedSheetUnassignedStatPoints = {" in output
+    assert '"type": "set_instanced_sheet_unassigned_stat_points";' in output
+    assert '"clientMethodName": "setUnassignedStatPoints"' in output
+    assert "export type AllocateInstancedSheetStatPoints = {" in output
+    assert '"allocations": Record<string, number>;' in output
+    assert '"type": "allocate_instanced_sheet_stat_points";' in output
+    assert '"clientMethodName": "allocateStatPoints"' in output
+    assert '"unassigned_stat_points"?: number;' in output
     assert "export type AdjustInstancedSheetResource = {" in output
     assert '"delta": number;' in output
     assert '"type": "adjust_instanced_sheet_resource";' in output

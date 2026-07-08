@@ -52,6 +52,9 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "DeleteSheet",
         "SetSheetNotes",
         "CreateInstancedSheet",
+        "DeleteInstancedSheet",
+        "SetInstancedSheetUnassignedStatPoints",
+        "AllocateInstancedSheetStatPoints",
         "SetInstancedSheetNotes",
         "SetInstancedSheetResource",
         "AdjustInstancedSheetResource",
@@ -409,6 +412,17 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
         StatePatchEvent,
         SheetAccessCodesEvent,
     )
+    assert contracts["delete_instanced_sheet"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetAdminSheets",
+            method_name="deleteInstancedSheet",
+        )
+    )
+    assert contracts["delete_instanced_sheet"].minimum_role == "dm"
+    assert contracts["delete_instanced_sheet"].emitted_event_models == (
+        StatePatchEvent,
+        SheetAccessCodesEvent,
+    )
     assert contracts["set_instanced_sheet_notes"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetInstanceNotes",
@@ -437,6 +451,26 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["adjust_instanced_sheet_resource"].minimum_role == "player"
     assert contracts["adjust_instanced_sheet_resource"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["set_instanced_sheet_unassigned_stat_points"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceStats",
+            method_name="setUnassignedStatPoints",
+        )
+    )
+    assert contracts["set_instanced_sheet_unassigned_stat_points"].minimum_role == "dm"
+    assert contracts["set_instanced_sheet_unassigned_stat_points"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["allocate_instanced_sheet_stat_points"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceStats",
+            method_name="allocateStatPoints",
+        )
+    )
+    assert contracts["allocate_instanced_sheet_stat_points"].minimum_role == "player"
+    assert contracts["allocate_instanced_sheet_stat_points"].emitted_event_models == (
         StatePatchEvent,
     )
     assert contracts["apply_instanced_sheet_damage"].client_generation == (

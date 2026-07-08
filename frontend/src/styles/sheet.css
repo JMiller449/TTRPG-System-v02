@@ -549,6 +549,70 @@
   grid-template-columns: repeat(3, minmax(160px, 1fr));
 }
 
+.stat-point-allocator {
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  background: var(--card);
+  padding: 0.65rem;
+}
+
+.stat-point-allocator__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin-bottom: 0.55rem;
+}
+
+.stat-point-allocator__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.45rem;
+}
+
+.stat-point-allocator__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.42rem;
+  background: var(--r6-control-bg-soft, var(--card));
+}
+
+.stat-point-allocator__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.stat-point-allocator__value {
+  min-width: 2ch;
+  font-weight: 800;
+  text-align: right;
+}
+
+.stat-point-allocator__delta {
+  min-width: 2ch;
+  color: var(--r6-success, #58f0b3);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.stat-point-allocator__actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.stat-point-allocator__actions .button {
+  min-width: 2rem;
+  padding-inline: 0.45rem;
+}
+
 .character-sheet__overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
@@ -962,7 +1026,21 @@
   overflow-y: auto;
 }
 
-.character-sheet__tab-panel :is(.list-item, .equipment-card, .action-command-card, .sheet-xp-card, .field, label, .inline-group, .inline-actions, .sheet-proficiency-add-row, .sheet-proficiency-editor, .equipment-add-row, .action-command-toolbar) {
+.character-sheet__tab-panel
+  :is(
+    .list-item,
+    .equipment-card,
+    .action-command-card,
+    .sheet-xp-card,
+    .field,
+    label,
+    .inline-group,
+    .inline-actions,
+    .sheet-proficiency-add-row,
+    .sheet-proficiency-editor,
+    .equipment-add-row,
+    .action-command-toolbar
+  ) {
   break-inside: avoid;
 }
 
@@ -982,14 +1060,20 @@
    distribute across columns (grid/flex boxes cannot fragment in Firefox).
    The Actions tab is excluded: it has its own purpose-built layout below. */
 .character-sheet__tab-panel:not(#sheet-panel-overview):not(#sheet-panel-actions)
-  :is(.list, .sheet-xp-grid, .level-grid, .stats-grid,
-      .equipment-action-list, .character-sheet__section) {
+  :is(
+    .list,
+    .sheet-xp-grid,
+    .level-grid,
+    .stats-grid,
+    .equipment-action-list,
+    .character-sheet__section
+  ) {
   display: block;
 }
 
 .character-sheet__tab-panel:not(#sheet-panel-overview):not(#sheet-panel-actions)
-  :is(.list, .sheet-xp-grid, .level-grid, .stats-grid,
-      .equipment-action-list) > * {
+  :is(.list, .sheet-xp-grid, .level-grid, .stats-grid, .equipment-action-list)
+  > * {
   width: 100%;
   margin-bottom: 0.5rem;
 }

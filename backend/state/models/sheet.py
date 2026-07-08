@@ -90,6 +90,7 @@ class InstancedSheet:
     proficiencies: Dict[str, ProficiencyBridge] = field(default_factory=dict)
     actions: Dict[str, Bridge] = field(default_factory=dict)
     attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
+    unassigned_stat_points: int = 0
 
     @classmethod
     def from_dict(
@@ -150,4 +151,5 @@ class InstancedSheet:
             proficiencies=proficiencies,
             actions=actions,
             attributes=attributes,
+            unassigned_stat_points=raw.get("unassigned_stat_points", 0),
         )

@@ -13,6 +13,7 @@ from backend.features.session.models import SessionRole, WebSocketSession
 
 
 EXPECTED_ROUTE_MINIMUM_ROLES = {
+    "allocate_instanced_sheet_stat_points": "player",
     "adjust_instanced_sheet_resource": "player",
     "apply_instanced_sheet_damage": "player",
     "attach_instanced_sheet_attribute": "dm",
@@ -42,6 +43,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "delete_formula": "dm",
     "delete_attribute": "dm",
     "delete_item": "dm",
+    "delete_instanced_sheet": "dm",
     "delete_instanced_sheet_action_bridge": "dm",
     "delete_instanced_sheet_item_bridge": "dm",
     "delete_instanced_sheet_proficiency_bridge": "dm",
@@ -80,6 +82,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "set_instanced_sheet_item_equipped": "player",
     "set_instanced_sheet_resistances": "dm",
     "set_instanced_sheet_resource": "player",
+    "set_instanced_sheet_unassigned_stat_points": "dm",
     "set_sheet_base_stat": "dm",
     "set_sheet_formula_stat": "dm",
     "set_sheet_attribute_value": "dm",

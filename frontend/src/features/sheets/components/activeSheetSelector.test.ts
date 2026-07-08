@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { initialState } from "@/app/state/initialState";
 import { StoreContext } from "@/app/state/storeContext";
 import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
+import type { GameClient } from "@/hooks/useGameClient";
 
 describe("ActiveSheetSelector", () => {
   it("renders authoritative instances in their backend order", () => {
@@ -92,5 +93,33 @@ describe("ActiveSheetSelector", () => {
 
     expect(markup).toContain("No spawned sheets available");
     expect(markup).toContain("disabled");
+  });
+
+  it("shows a despawn control when a client is provided", () => {
+    const state = {
+      ...initialState,
+      serverState: {
+        ...initialState.serverState,
+        persistentSheets: {
+          instance_1: {
+            parent_id: "missing_sheet",
+            health: 10,
+            mana: 5,
+            augments: {}
+          }
+        },
+        persistentSheetOrder: ["instance_1"]
+      }
+    };
+    const client = { sendProtocolRequest: () => undefined } as unknown as GameClient;
+    const markup = renderToStaticMarkup(
+      createElement(
+        StoreContext.Provider,
+        { value: { state, dispatch: () => undefined } },
+        createElement(ActiveSheetSelector, { client })
+      )
+    );
+
+    expect(markup).toContain("Despawn");
   });
 });

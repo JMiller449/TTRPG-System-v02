@@ -17,6 +17,8 @@ export type SheetResourceName = ProtocolRequest<"adjust_instanced_sheet_resource
 export type InstancedSheetDamageType =
   ProtocolRequest<"apply_instanced_sheet_damage">["damage_type"];
 export type SheetCoreStatName = ProtocolRequest<"set_sheet_base_stat">["stat_name"];
+export type SheetStatPointAllocations =
+  ProtocolRequest<"allocate_instanced_sheet_stat_points">["allocations"];
 export type SheetFormulaStatName = ProtocolRequest<"set_sheet_formula_stat">["stat_name"];
 export type SheetResistancesPayload = ProtocolRequest<"set_sheet_resistances">["resistances"];
 export type InstancedSheetResistancesUpdatePayload =
@@ -370,6 +372,38 @@ export function buildSetInstancedSheetBaseStatRequest({
     instance_id: instanceId,
     stat_name: statName,
     value
+  };
+}
+
+export function buildSetInstancedSheetUnassignedStatPointsRequest({
+  instanceId,
+  value,
+  requestId
+}: {
+  instanceId: string;
+  value: number;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_unassigned_stat_points"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_unassigned_stat_points",
+    instance_id: instanceId,
+    value
+  };
+}
+
+export function buildAllocateInstancedSheetStatPointsRequest({
+  instanceId,
+  allocations,
+  requestId
+}: {
+  instanceId: string;
+  allocations: SheetStatPointAllocations;
+} & OptionalRequestId): ProtocolRequest<"allocate_instanced_sheet_stat_points"> {
+  return {
+    ...requestIdField(requestId),
+    type: "allocate_instanced_sheet_stat_points",
+    instance_id: instanceId,
+    allocations
   };
 }
 
@@ -1174,14 +1208,25 @@ export function buildInstantiateSheetRequest({
   };
 }
 
+export function buildDeleteInstancedSheetRequest({
+  instanceId,
+  requestId
+}: {
+  instanceId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_instanced_sheet"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_instanced_sheet",
+    instance_id: instanceId
+  };
+}
+
 export const buildCreateSheetActionBridgeRequest = buildAttachSheetActionRequest;
 export const buildUpdateSheetActionBridgeRequest = buildRelinkSheetActionRequest;
 export const buildDeleteSheetActionBridgeRequest = buildDetachSheetActionRequest;
 export const buildCreateInstancedSheetActionBridgeRequest = buildAttachInstancedSheetActionRequest;
-export const buildUpdateInstancedSheetActionBridgeRequest =
-  buildRelinkInstancedSheetActionRequest;
-export const buildDeleteInstancedSheetActionBridgeRequest =
-  buildDetachInstancedSheetActionRequest;
+export const buildUpdateInstancedSheetActionBridgeRequest = buildRelinkInstancedSheetActionRequest;
+export const buildDeleteInstancedSheetActionBridgeRequest = buildDetachInstancedSheetActionRequest;
 export const buildCreateSheetItemBridgeRequest = buildAttachSheetItemRequest;
 export const buildUpdateSheetItemBridgeRequest = buildUpdateAttachedSheetItemRequest;
 export const buildDeleteSheetItemBridgeRequest = buildDetachSheetItemRequest;

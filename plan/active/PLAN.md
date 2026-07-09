@@ -236,6 +236,11 @@ These are not required for the app to be usable as the MVP character sheet and a
 
 Future work should be prioritized only after the table-readiness pass proves the MVP workflow.
 
+- [ ] Effects & conditions system conceptual cleanup — phased plan tracked in
+  `plan/active/effects_conditions_review.md`. Phase 1 (tests + pipeline documentation, no
+  behavior change) is in progress; later phases rename `equipment_effect_projections`,
+  unify the runtime application layer, add executable lifecycle/stacking, and refresh the
+  authoring UI.
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode and alternative handling.
 - [ ] Mastery unlock enforcement and visibility for disabled/hidden content.

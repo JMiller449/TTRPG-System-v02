@@ -3,6 +3,7 @@ import type {
   AugmentationEffectType,
   AugmentationOperation,
   FormulaAlias,
+  LifecycleMode,
   RollModeModifier,
   StandaloneEffectDefinition
 } from "@/domain/models";
@@ -11,6 +12,15 @@ import type { AugmentationTargetMetadata } from "@/domain/ipc";
 import type { AugmentationPayload } from "@/infrastructure/ws/requestBuilders";
 
 export type ItemAugmentationTargetRoot = "sheet" | "instance";
+
+export const LIFECYCLE_MODE_OPTIONS: { value: LifecycleMode; label: string }[] = [
+  { value: "manual", label: "Manual (GM removes)" },
+  { value: "rounds", label: "Rounds" },
+  { value: "turns", label: "Turns" },
+  { value: "until_rest", label: "Until rest" },
+  { value: "until_source_removed", label: "Until source removed" },
+  { value: "scene", label: "Scene" }
+];
 export type AugmentationTargetOption = AugmentationTargetMetadata["targets"][number];
 
 export interface AugmentationEditorValues {
@@ -30,9 +40,11 @@ export interface AugmentationEditorValues {
   selectorFormulaId: string;
   selectorStepId: string;
   selectorSameSourceItem: boolean;
-  duration: string;
+  lifecycleMode: LifecycleMode;
+  lifecycleRemaining: string;
   expiresAt: string;
-  removalCondition: string;
+  removeWhenSourceInactive: boolean;
+  lifecycleNotes: string;
 }
 
 export function createEmptyAugmentationEditorValues(): AugmentationEditorValues {
@@ -53,9 +65,11 @@ export function createEmptyAugmentationEditorValues(): AugmentationEditorValues 
     selectorFormulaId: "",
     selectorStepId: "",
     selectorSameSourceItem: false,
-    duration: "",
+    lifecycleMode: "manual",
+    lifecycleRemaining: "",
     expiresAt: "",
-    removalCondition: ""
+    removeWhenSourceInactive: false,
+    lifecycleNotes: ""
   };
 }
 
@@ -171,6 +185,27 @@ function optionalText(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function optionalRemaining(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function toAugmentationLifecyclePayload(
+  values: AugmentationEditorValues
+): AugmentationPayload["lifecycle"] {
+  return {
+    mode: values.lifecycleMode,
+    remaining: optionalRemaining(values.lifecycleRemaining),
+    expires_at: optionalText(values.expiresAt),
+    remove_when_source_inactive: values.removeWhenSourceInactive,
+    notes: optionalText(values.lifecycleNotes)
+  };
+}
+
 function readItemTargetRoot(augmentation: EffectDefinitionLike): ItemAugmentationTargetRoot {
   if (augmentation.target.root === "sheet" || augmentation.target.root === "instance") {
     return augmentation.target.root;
@@ -208,9 +243,15 @@ export function toAugmentationEditorValues(
     selectorFormulaId: augmentation.effect.selector?.formula_id ?? "",
     selectorStepId: augmentation.effect.selector?.step_id ?? "",
     selectorSameSourceItem: augmentation.effect.selector?.same_source_item ?? false,
-    duration: augmentation.lifecycle?.duration ?? "",
+    lifecycleMode: augmentation.lifecycle?.mode ?? "manual",
+    lifecycleRemaining:
+      augmentation.lifecycle?.remaining != null
+        ? String(augmentation.lifecycle.remaining)
+        : "",
     expiresAt: augmentation.lifecycle?.expires_at ?? "",
-    removalCondition: augmentation.lifecycle?.removal_condition ?? ""
+    removeWhenSourceInactive:
+      augmentation.lifecycle?.remove_when_source_inactive ?? false,
+    lifecycleNotes: augmentation.lifecycle?.notes ?? ""
   };
 }
 
@@ -287,10 +328,6 @@ export function toItemAugmentationTemplatePayload({
     active: values.active,
     applied: false,
     applied_target_id: null,
-    lifecycle: {
-      duration: optionalText(values.duration),
-      expires_at: optionalText(values.expiresAt),
-      removal_condition: optionalText(values.removalCondition)
-    }
+    lifecycle: toAugmentationLifecyclePayload(values)
   };
 }

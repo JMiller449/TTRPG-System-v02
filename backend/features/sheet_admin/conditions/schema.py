@@ -13,7 +13,6 @@ class ConditionPresetPayload(BaseModel):
     name: str = Field(min_length=1)
     description: str = ""
     visibility: Literal["public", "gm_only"] = "public"
-    augmentation_ids: list[str] = Field(default_factory=list)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
 
 

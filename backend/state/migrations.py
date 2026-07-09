@@ -11,7 +11,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 17
+CURRENT_STATE_SCHEMA_VERSION = 22
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1215,6 +1215,108 @@ def _migrate_v16_to_v17(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 17, "state": state}
 
 
+def _migrate_v17_to_v18(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # The projection collection is no longer equipment-only: it also backs
+    # standalone/action-controlled direct effects. Rename the persisted key to
+    # match, preserving any populated projections.
+    state = deepcopy(envelope["state"])
+    if "equipment_effect_projections" in state:
+        state["direct_effect_projections"] = state.pop("equipment_effect_projections")
+    else:
+        state.setdefault("direct_effect_projections", {})
+    return {"schema_version": 18, "state": state}
+
+
+def _migrate_v18_to_v19(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Condition presets are pure definitions: their effects are authored inline as
+    # augmentation_templates. The parallel augmentation_ids list was never consumed by
+    # the apply path, so drop it. (ActiveCondition.augmentation_ids remains — that is the
+    # live per-application list.)
+    state = deepcopy(envelope["state"])
+    presets = state.get("condition_presets", {})
+    if isinstance(presets, dict):
+        for preset in presets.values():
+            if isinstance(preset, dict):
+                preset.pop("augmentation_ids", None)
+    return {"schema_version": 19, "state": state}
+
+
+def _migrate_v19_to_v20(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Active conditions gained source/timing metadata (why/who/when applied). Backfill
+    # explicit defaults for pre-existing applications; their true origin is unknown.
+    state = deepcopy(envelope["state"])
+    active_conditions = state.get("active_conditions", {})
+    if isinstance(active_conditions, dict):
+        for active_condition in active_conditions.values():
+            if not isinstance(active_condition, dict):
+                continue
+            active_condition.setdefault("source", {"type": "other", "id": None, "label": None})
+            active_condition.setdefault("applied_at", None)
+            active_condition.setdefault("applied_by_role", None)
+            active_condition.setdefault("applied_at_state_version", None)
+    return {"schema_version": 20, "state": state}
+
+
+def _iter_dicts(collection: Any) -> list[dict]:
+    if not isinstance(collection, dict):
+        return []
+    return [value for value in collection.values() if isinstance(value, dict)]
+
+
+def _upgrade_lifecycle_dict(lifecycle: Any) -> None:
+    # Old shape: {duration, expires_at, removal_condition} (all free text, notes-only).
+    # New shape: {mode, remaining, expires_at, remove_when_source_inactive, notes}. Old free
+    # text can't be reliably parsed into a mode, so preserve it in `notes` and default to manual.
+    if not isinstance(lifecycle, dict) or "mode" in lifecycle:
+        return
+    duration = lifecycle.pop("duration", None)
+    removal_condition = lifecycle.pop("removal_condition", None)
+    note_parts = [
+        str(part).strip()
+        for part in (duration, removal_condition)
+        if isinstance(part, str) and part.strip()
+    ]
+    lifecycle["mode"] = "manual"
+    lifecycle["remaining"] = None
+    lifecycle.setdefault("expires_at", None)
+    lifecycle["remove_when_source_inactive"] = False
+    lifecycle["notes"] = " / ".join(note_parts) if note_parts else None
+
+
+def _migrate_v20_to_v21(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Structure the augmentation lifecycle: descriptive free-text fields become an explicit
+    # (declarative) mode + counter. Applies everywhere a lifecycle is persisted.
+    state = deepcopy(envelope["state"])
+
+    for augmentation in _iter_dicts(state.get("augmentations")):
+        _upgrade_lifecycle_dict(augmentation.get("lifecycle"))
+
+    for definition in _iter_dicts(state.get("standalone_effects")):
+        _upgrade_lifecycle_dict(definition.get("lifecycle"))
+
+    for preset in _iter_dicts(state.get("condition_presets")):
+        for template in preset.get("augmentation_templates", []) or []:
+            if isinstance(template, dict):
+                _upgrade_lifecycle_dict(template.get("lifecycle"))
+
+    for item in _iter_dicts(state.get("items")):
+        for template in item.get("augmentation_templates", []) or []:
+            if isinstance(template, dict):
+                _upgrade_lifecycle_dict(template.get("lifecycle"))
+
+    return {"schema_version": 21, "state": state}
+
+
+def _migrate_v21_to_v22(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Standalone effects gained a declarative stacking config; applications gained a stack index.
+    state = deepcopy(envelope["state"])
+    for definition in _iter_dicts(state.get("standalone_effects")):
+        definition.setdefault("stacking", {"mode": "unique", "max_stacks": None})
+    for application in _iter_dicts(state.get("standalone_effect_applications")):
+        application.setdefault("stack_index", 0)
+    return {"schema_version": 22, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1233,6 +1335,11 @@ MIGRATIONS: dict[int, Migration] = {
     14: _migrate_v14_to_v15,
     15: _migrate_v15_to_v16,
     16: _migrate_v16_to_v17,
+    17: _migrate_v17_to_v18,
+    18: _migrate_v18_to_v19,
+    19: _migrate_v19_to_v20,
+    20: _migrate_v20_to_v21,
+    21: _migrate_v21_to_v22,
 }
 
 

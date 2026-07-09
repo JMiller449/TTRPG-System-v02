@@ -1,11 +1,12 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { AugmentationOperation } from "@/domain/models";
+import type { AugmentationOperation, LifecycleMode } from "@/domain/models";
 import {
   applyAugmentationTargetOption,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
   formatAugmentationTargetOption,
   isKnownAugmentationEditorTarget,
+  LIFECYCLE_MODE_OPTIONS,
   type AugmentationEditorValues,
   type AugmentationTargetOption
 } from "@/features/augmentations/augmentationEditorValues";
@@ -201,13 +202,34 @@ export function StandaloneEffectEditorForm({
       ) : null}
 
       <details className="condition-effect-lifecycle">
-        <summary>Manual lifecycle notes</summary>
+        <summary>Lifecycle (GM-tracked)</summary>
         <div className="inline-group">
-          <Field label="Duration note">
+          <Field label="Lifecycle">
+            <select
+              value={values.lifecycleMode}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  lifecycleMode: event.target.value as LifecycleMode
+                })
+              }
+            >
+              {LIFECYCLE_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Remaining">
             <input
-              value={values.duration}
-              onChange={(event) => onChange({ ...values, duration: event.target.value })}
-              placeholder="e.g. encounter"
+              type="number"
+              min={0}
+              value={values.lifecycleRemaining}
+              onChange={(event) =>
+                onChange({ ...values, lifecycleRemaining: event.target.value })
+              }
+              placeholder="e.g. 3"
             />
           </Field>
           <Field label="Expiration note">
@@ -217,10 +239,21 @@ export function StandaloneEffectEditorForm({
               placeholder="e.g. end of scene"
             />
           </Field>
-          <Field label="Removal note">
+          <Field label="Remove when source inactive">
             <input
-              value={values.removalCondition}
-              onChange={(event) => onChange({ ...values, removalCondition: event.target.value })}
+              type="checkbox"
+              checked={values.removeWhenSourceInactive}
+              onChange={(event) =>
+                onChange({ ...values, removeWhenSourceInactive: event.target.checked })
+              }
+            />
+          </Field>
+          <Field label="Notes">
+            <input
+              value={values.lifecycleNotes}
+              onChange={(event) =>
+                onChange({ ...values, lifecycleNotes: event.target.value })
+              }
               placeholder="e.g. action removes effect"
             />
           </Field>

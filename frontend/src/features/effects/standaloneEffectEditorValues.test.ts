@@ -21,8 +21,8 @@ describe("standaloneEffectEditorValues", () => {
     values.formulaAliases = [{ name: "arcane", path: ["sheet", "stats", "arcane"] }];
     values.selectorRequiredTags = [" Fire ", "attack", "fire"];
     values.selectorExcludedTags = ["healing"];
-    values.duration = " encounter ";
-    values.removalCondition = " action removes effect ";
+    values.lifecycleMode = "manual";
+    values.lifecycleNotes = " action removes effect ";
 
     expect(hasValidStandaloneEffectValues(values)).toBe(true);
     expect(toStandaloneEffectDefinitionPayload(values, "effect_1")).toEqual({
@@ -49,9 +49,11 @@ describe("standaloneEffectEditorValues", () => {
       },
       active: true,
       lifecycle: {
-        duration: "encounter",
+        mode: "manual",
+        remaining: null,
         expires_at: null,
-        removal_condition: "action removes effect"
+        remove_when_source_inactive: false,
+        notes: "action removes effect"
       }
     });
   });
@@ -84,9 +86,11 @@ describe("standaloneEffectEditorValues", () => {
       },
       active: false,
       lifecycle: {
-        duration: null,
+        mode: "manual",
+        remaining: null,
         expires_at: "end of scene",
-        removal_condition: null
+        remove_when_source_inactive: false,
+        notes: null
       }
     };
 

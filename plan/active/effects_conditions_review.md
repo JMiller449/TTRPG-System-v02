@@ -20,18 +20,20 @@ These ground the plan in what already exists so we don't re-solve solved problem
 
 - `Augmentation` (`backend/state/models/augmentation.py`) is already the single core runtime
   modifier. Conditions, equipment, and standalone effects all *project* into
-  `state.augmentations` and/or `state.equipment_effect_projections`. The "unified runtime
-  layer" (Change 1) is therefore largely a **rename/reframe**, not a rebuild.
-- `ConditionPreset` carries **both** `augmentation_ids` (legacy, unused by the apply path)
-  and `augmentation_templates` (what apply actually uses). `augmentation_ids` is dead weight
-  → Change 4.
+  `state.augmentations` and/or `state.direct_effect_projections` (renamed from
+  `equipment_effect_projections` in Phase 2). The "unified runtime layer" (Change 1) is
+  therefore largely a **rename/reframe**, not a rebuild.
+- `ConditionPreset` formerly carried **both** `augmentation_ids` (legacy, unused by the apply
+  path) and `augmentation_templates` (what apply actually uses). The dead `augmentation_ids` was
+  removed in Phase 3 (Change 4, schema v19); `augmentation_templates` is now the sole effect
+  source. (`ActiveCondition.augmentation_ids` — the live per-application list — is unchanged.)
 - `AugmentationLifecycle` is explicitly descriptive-only (`duration`, `expires_at`,
   `removal_condition`); no executable lifecycle or stacking model exists. Application IDs
   (`standalone:{instance}:{definition}`, `condition:{condition}:{instance}`) enforce
   one-application-per-source-per-instance → basis for Change 5 (lifecycle) and stacking.
-- `equipment_effect_projections` is already fed by **both** equipment and standalone direct
-  effects (`_desired_projected_augmentations`), and is private/redacted. Its name is stale
-  → Change 3.
+- `direct_effect_projections` (was `equipment_effect_projections`) is fed by **both** equipment
+  and standalone direct effects (`_desired_projected_augmentations`), and is private/redacted.
+  The stale name motivated Change 3 (done in Phase 2).
 - Cleanup is already robust and tested: `delete_instanced_sheet` clears
   conditions/effects/augmentations/access codes; condition removal reverses effects;
   equipment sync tears down on unequip; standalone removal restores projected values.
@@ -56,9 +58,13 @@ These ground the plan in what already exists so we don't re-solve solved problem
       three layers (definitions / runtime applications / derived projections); the equip/unequip,
       condition apply/remove, standalone apply/remove, delete-instance, redaction, and
       export/import flows; source-of-truth vs derived table.
-- [x] Gap test: export → import round-trip with active conditions, standalone applications,
-      and direct projections leaves **no orphaned** modifiers and identical effective values.
-      → `test_augmentation_service.py::test_export_import_round_trip_leaves_no_orphaned_effects`.
+- [x] Gap test: private-state serialization round trip with active conditions, standalone
+      applications, and direct projections leaves **no orphaned** modifiers, identical effective
+      values, and can still fully unwind after reload.
+      → `test_augmentation_service.py::test_private_state_round_trip_leaves_no_orphaned_effects`.
+      Scope note: this covers `State.to_dict(include_private=True)`/`from_dict` only, **not** the
+      export/import service, migration, or state-store paths — a dedicated import/migration test
+      belongs with the Phase 2 rename (see below).
 - [x] Gap test: equipment effect + standalone effect targeting the **same** numeric path
       stack and unwind predictably (apply both, remove one, remove other → base restored).
       → `test_augmentation_service.py::test_equipment_and_standalone_direct_effects_share_path_and_unwind`.
@@ -77,38 +83,137 @@ These ground the plan in what already exists so we don't re-solve solved problem
       the pre-existing `test_state_store` failures — likely to block Phase 2's rename migration
       test, which touches the same persistence path.
 
-## Phase 2 — Internal rename & cleanup
+## Phase 2 — Internal rename & cleanup  ← DONE
 
-- [ ] Rename `equipment_effect_projections` → `direct_effect_projections` (state field,
-      `EquipmentEffectProjection` → `DirectEffectProjection`, `_equipment_projection_path`,
-      `PRIVATE_STATE_ROOTS`, `to_dict` redaction, protocol/state_schema). Add schema
-      migration v17→v18 that renames the persisted key.
-- [ ] Rename equipment-only-flavored helpers that are now general
-      (`_sync_equipment_direct_effects` → `_sync_direct_effects`, etc.).
-- [ ] Document which runtime collections are source-of-truth vs derived (in ARCHITECTURE.md).
-- [ ] Regenerate protocol types (`just codegen` / documented workflow); frontend consumers
-      of the renamed field/types updated.
+- [x] Rename `equipment_effect_projections` → `direct_effect_projections` (state field,
+      `EquipmentEffectProjection` → `DirectEffectProjection`, `PRIVATE_STATE_ROOTS`,
+      `to_dict` redaction). Added schema migration v17→v18 (`_migrate_v17_to_v18`) that renames
+      the persisted key while preserving any populated projections; bumped
+      `CURRENT_STATE_SCHEMA_VERSION` to 18. Historical migrations (v2→v3, v15→v16) keep the old
+      key name because they operate on their own era's schema.
+- [x] Rename equipment-only-flavored helpers that are now general
+      (`_sync_equipment_direct_effects` → `_sync_direct_effects`,
+      `_equipment_projection_path` → `_direct_effect_projection_path`). Note:
+      `synchronize_equipment_augmentations_mutation` keeps its name — it genuinely reconciles
+      equipment-owned augmentations (it just also calls the general direct-effect sync).
+- [x] Source-of-truth vs derived collections documented in `ARCHITECTURE.md`.
+- [x] Migration test: `test_state_store.py::test_v18_migration_renames_projection_collection_and_preserves_contents`
+      (hermetic migration-logic test — no disk, matching Phase 1's approach given the Windows
+      `_fsync_directory` bug, flagged separately as `task_3d1ae373`).
+- [x] Protocol/frontend: **no change required.** `direct_effect_projections` is private/redacted
+      state (`PRIVATE_STATE_ROOTS`, stripped from public `to_dict` and all snapshots/patches). It
+      is absent from `backend/protocol/state_schema.py` and has zero frontend references, so the
+      rename never crosses the codegen boundary. (The pre-existing `test_protocol_codegen`
+      drift is unrelated to this work.)
 
-## Phase 3 — Unified runtime application layer (reframe)
+### Deferred to a later phase (needs the Windows fsync fix first)
+- [ ] Full state-backup **service** round-trip test (`export_state_backup` → `import_state_backup`)
+      with active effects. Blocked because `import`/`replaceState` exercise the on-disk checkpoint
+      path that currently raises `PermissionError` on Windows (`task_3d1ae373`). The migration
+      rename itself is already covered by the hermetic test above.
 
-- [ ] Decide naming: keep `Augmentation` internally vs introduce `EffectApplication` alias.
-      (See Change 2 — user-facing rename is separate from the internal model.)
-- [ ] Make `ConditionPreset` a pure definition (Change 4): drop unused `augmentation_ids`
-      from the apply path; keep `augmentation_templates` as the inline effect source. Add
-      migration to strip the dead field. Decide inline-templates vs shared-definition refs.
-- [ ] Add source/timing metadata to `ActiveCondition` (Change 5 fields: `source`,
-      `applied_at`, `applied_by_role`, `applied_at_state_version`) as persisted, redaction-safe fields.
-- [ ] Compatibility migration for existing `active_conditions` / `standalone_effect_applications`.
+## Phase 3 — Unified runtime application layer (reframe)  ← DONE
 
-## Phase 4 — Lifecycle & stacking
+**Prerequisite done first:** regenerated the stale checked-in protocol codegen
+(`frontend/src/generated/backendProtocol.ts`). Prior commits changed backend contracts
+(stat-point allocation, instance bridges, nullable instance health/mana, bridge-sync events,
+`default_sheet_actions`, …) without regenerating, so the frontend did **not** typecheck
+(~30 `tsc` errors) and `test_protocol_codegen` failed. Regenerating fixed both with zero code
+changes — the frontend already targeted the current contracts. This unblocked Phase 3's
+protocol-facing edits and dropped the pre-existing failure count from 9 to 8.
 
-- [ ] Make lifecycle executable OR explicitly label notes-only (Change 5): lifecycle
-      `mode` enum (`manual|rounds|turns|until_rest|until_source_removed|scene`), `remaining`,
-      `remove_when_source_inactive`.
-- [ ] Add stacking model (`mode: unique|stack|refresh|replace`, `stack_key`, `max_stacks`).
-- [ ] GM controls for refresh / remove / expire.
+- [x] **Naming decision — keep `Augmentation` as the internal model name.** It is embedded across
+      the protocol (`AugmentationPayload`, `ApplyAugmentation*Step`, `AugmentationTargetMetadata`),
+      the frontend, action steps, item templates, and authoring. A blanket rename to
+      `EffectApplication` is a large cross-boundary change with no functional benefit, and an alias
+      would add confusion. The user-facing "Effect" wording (Change 2) is a Phase 5 UI-label
+      concern that does not require renaming the internal model.
+- [x] Make `ConditionPreset` a pure definition (Change 4): removed the unused
+      `augmentation_ids` field (backend dataclass, request schema, state-snapshot payload,
+      frontend `ConditionPreset` type, `conditionEditorValues` payload builder, and all
+      preset fixtures/assertions). Added migration v18→v19 (`_migrate_v18_to_v19`) stripping the
+      dead key; bumped `CURRENT_STATE_SCHEMA_VERSION` to 19. `augmentation_templates` remains the
+      inline effect source; `ActiveCondition.augmentation_ids` (the live list) is untouched.
+      Regenerated codegen. Backend: `test_v19_migration_drops_condition_preset_augmentation_ids`
+      plus updated condition-preset tests pass. Frontend: `tsc` clean; unit tests updated by
+      inspection (vitest can't run in the Windows shell — Linux rollup binary only).
+- [x] Decided inline-templates vs shared-definition refs: **inline templates** stay the model
+      (matches current authoring and avoids a cross-cutting reference-resolution layer).
 
-## Phase 5 — UI review
+### Part C — source/timing metadata on `ActiveCondition` (Change 5)  ← DONE
+- [x] Added `ConditionSource` (`type`/`id`/`label`) plus `applied_at`, `applied_by_role`,
+      `applied_at_state_version` to `ActiveCondition` (backend model + `ActiveConditionPayload`
+      state-snapshot payload + `ConditionSourcePayload`). Regenerated codegen; carried the fields
+      into the frontend domain `ActiveCondition` + `projectActiveCondition` adapter (data is now
+      available for the Phase 5 Active Effects inspector, not yet displayed).
+- [x] Plumbed acting-context through `apply_condition_preset_mutation` /
+      `_apply_condition_preset_mutation` / async `apply_condition_preset` (optional params). The
+      production apply path (`sheet_runtime` `ApplyConditionPresetStep`) fills
+      `source={type:"action", id/label from the action}`, `applied_by_role=actor_role`, and
+      `applied_at_state_version=current_version+1` (same version the action-history entry uses).
+      `applied_at` is set to the UTC timestamp at apply time. Unspecified callers default to an
+      `other` source.
+- [x] Compatibility migration v19→v20 (`_migrate_v19_to_v20`) backfills metadata defaults on
+      existing `active_conditions`; bumped `CURRENT_STATE_SCHEMA_VERSION` to 20.
+      (`standalone_effect_applications` need no backfill — they gained no fields.)
+- [x] Tests: `test_apply_condition_preset_records_source_and_timing`,
+      `test_apply_condition_preset_defaults_source_when_unspecified`,
+      `test_v20_migration_backfills_active_condition_metadata`, and an action-path assertion in
+      `test_sheet_runtime` (source/role/version recorded via `perform_action`). Backend 454
+      passed; frontend `tsc` clean (vitest not runnable in the Windows shell).
+
+## Phase 4 — Lifecycle & stacking  ← LIFECYCLE MODEL DONE; STACKING + GM CONTROLS DEFERRED
+
+**Decision (confirmed with the user):** lifecycle is **declarative + GM-driven**, not an
+executable engine — automatic turn/round/rest tracking is a stated product non-goal. Scope this
+run was the lifecycle *model* only; stacking and GM refresh/expire controls are deferred.
+
+- [x] Restructured `AugmentationLifecycle` from free-text `duration`/`expires_at`/
+      `removal_condition` to a declarative shape: `mode`
+      (`manual|rounds|turns|until_rest|until_source_removed|scene`), `remaining`, `expires_at`,
+      `remove_when_source_inactive`, and `notes` (preserves old free-text). Backend model +
+      `AugmentationLifecyclePayload` (shared by augmentation/standalone/condition/item template
+      schemas) + frontend domain type + the three editor payload builders (via a shared
+      `toAugmentationLifecyclePayload`) + the condition/standalone editor forms (mode dropdown,
+      remaining, expires-at, remove-when-source-inactive checkbox, notes). Regenerated codegen.
+- [x] The backend enforces **no** auto-tick: `rounds`/`turns`/`until_rest`/`scene`/`remaining`
+      are GM-tracked labels; only source-linked teardown (already real for equipment/conditions)
+      is enforced. Documented in `ARCHITECTURE.md`.
+- [x] Migration v20→v21 (`_migrate_v20_to_v21`) upgrades every persisted lifecycle
+      (augmentations, standalone_effects, condition/item `augmentation_templates`), folding old
+      `duration`+`removal_condition` into `notes`. Bumped `CURRENT_STATE_SCHEMA_VERSION` to 21.
+      Seed (`dm_examples.py`) updated to the new shape (incl. a `rounds`/`remaining=3` example).
+      Test: `test_v21_migration_structures_augmentation_lifecycle`. Backend 455 passed (8
+      pre-existing Windows-fsync failures unchanged); frontend `tsc` clean (vitest not runnable
+      in the Windows shell).
+
+### Stacking — standalone `unique`/`stack` DONE; rest deferred
+- [x] Standalone effect stacking (schema v22): added `StackingConfig` (`mode: unique|stack`,
+      `max_stacks`) to `StandaloneEffectDefinition` and `stack_index` to
+      `StandaloneEffectApplication`. `apply_standalone_effect_mutation` enforces unique (one per
+      definition/instance) vs stack (multiple `…:s{n}` applications capped by `max_stacks`);
+      cumulative effect falls out of the existing projection/evaluation paths since applications
+      are stateless. `remove_standalone_effect_mutation` now clears the whole stack. Protocol
+      payloads + migration v21→v22 + tests
+      (`test_stack_mode_applies_cumulatively_and_respects_max_stacks`,
+      `test_v22_migration_adds_standalone_stacking_defaults`). Frontend: domain
+      `StackingConfig`/`stack_index` types + adapter pass-through (authoring-form field deferred
+      with the paused Phase 5 UI). Backend 457 passed; frontend `tsc` clean.
+- [ ] `refresh` / `replace` reapplication modes — deferred: standalone applications are stateless
+      (lifecycle derives from the definition), so these are meaningless without **per-application
+      lifecycle state**. That storage change is the real prerequisite and should land first.
+- [ ] Condition stacking — deferred: needs multi-`ActiveCondition` per condition/instance with a
+      stack-suffixed application/augmentation id scheme; its own focused run.
+- [ ] GM controls for refresh / remove / expire (new routes + UI) — pairs with the paused Phase 5.
+      Removal already exists; refresh/expire and a `remaining` decrement control are new.
+
+## Phase 5 — UI review  ← PAUSED (needs a UI-capable environment)
+
+> Paused by decision: the current dev environment can't run the frontend UI (Vite/vitest fail on
+> a missing Windows rollup native binary), so UI work can't be visually verified here. Resume in a
+> Linux/WSL environment. Continuing meanwhile with verifiable backend work (effect stacking).
+
+
 
 - [ ] Rename user-facing "Augmentation" → "Effect" in authoring/UI (Change 2).
 - [ ] Separate direct / evaluation-time / roll-mode effects in the authoring editor (Change 6).

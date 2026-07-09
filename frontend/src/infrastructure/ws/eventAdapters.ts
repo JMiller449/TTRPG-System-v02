@@ -158,7 +158,15 @@ function projectActiveCondition(value: ActiveConditionPayload): ActiveCondition 
     description: value.description ?? "",
     visibility: value.visibility ?? "public",
     instance_id: value.instance_id,
-    augmentation_ids: value.augmentation_ids ?? []
+    augmentation_ids: value.augmentation_ids ?? [],
+    source: {
+      type: value.source?.type ?? "other",
+      id: value.source?.id ?? null,
+      label: value.source?.label ?? null
+    },
+    applied_at: value.applied_at ?? null,
+    applied_by_role: value.applied_by_role ?? null,
+    applied_at_state_version: value.applied_at_state_version ?? null
   };
 }
 

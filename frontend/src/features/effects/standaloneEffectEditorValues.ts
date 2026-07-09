@@ -2,6 +2,7 @@ import type { StandaloneEffectDefinition } from "@/domain/models";
 import {
   hasValidAugmentationEditorValues,
   toAugmentationEffectPayload,
+  toAugmentationLifecyclePayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import type { StandaloneEffectDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
@@ -34,11 +35,7 @@ export function toStandaloneEffectDefinitionPayload(
     },
     effect: toAugmentationEffectPayload(values),
     active: values.active,
-    lifecycle: {
-      duration: optionalText(values.duration),
-      expires_at: optionalText(values.expiresAt),
-      removal_condition: optionalText(values.removalCondition)
-    }
+    lifecycle: toAugmentationLifecyclePayload(values)
   };
 }
 

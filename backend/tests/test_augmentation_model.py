@@ -46,9 +46,11 @@ def _augmentation_payload() -> dict:
         "applied_target_id": None,
         "lifecycle_owner": "manual",
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": "Remove when the item is unequipped.",
+            "remove_when_source_inactive": False,
+            "notes": "Remove when the item is unequipped.",
         },
     }
 

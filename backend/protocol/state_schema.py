@@ -395,9 +395,18 @@ AugmentationEffectPayload = Annotated[
 
 
 class AugmentationLifecyclePayload(ProtocolModel):
-    duration: str | None = None
+    mode: Literal[
+        "manual",
+        "rounds",
+        "turns",
+        "until_rest",
+        "until_source_removed",
+        "scene",
+    ] = "manual"
+    remaining: int | None = None
     expires_at: str | None = None
-    removal_condition: str | None = None
+    remove_when_source_inactive: bool = False
+    notes: str | None = None
 
 
 class AugmentationPayload(ProtocolModel):
@@ -417,6 +426,11 @@ class AugmentationPayload(ProtocolModel):
     )
 
 
+class StackingConfigPayload(ProtocolModel):
+    mode: Literal["unique", "stack"] = "unique"
+    max_stacks: int | None = None
+
+
 class StandaloneEffectDefinitionPayload(ProtocolModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -428,6 +442,7 @@ class StandaloneEffectDefinitionPayload(ProtocolModel):
     lifecycle: AugmentationLifecyclePayload = Field(
         default_factory=AugmentationLifecyclePayload
     )
+    stacking: StackingConfigPayload = Field(default_factory=StackingConfigPayload)
 
 
 class StandaloneEffectApplicationPayload(ProtocolModel):
@@ -436,6 +451,7 @@ class StandaloneEffectApplicationPayload(ProtocolModel):
     instance_id: str
     source: AugmentationSourcePayload
     active: bool = True
+    stack_index: int = 0
 
 
 class ItemActionGrantPayload(ProtocolModel):
@@ -467,8 +483,13 @@ class ConditionPresetPayload(ProtocolModel):
     name: str
     description: str = ""
     visibility: Literal["public", "gm_only"] = "public"
-    augmentation_ids: list[str] = Field(default_factory=list)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
+
+
+class ConditionSourcePayload(ProtocolModel):
+    type: Literal["action", "manual", "item", "condition", "other"] = "other"
+    id: str | None = None
+    label: str | None = None
 
 
 class ActiveConditionPayload(ProtocolModel):
@@ -479,6 +500,10 @@ class ActiveConditionPayload(ProtocolModel):
     visibility: Literal["public", "gm_only"] = "public"
     instance_id: str
     augmentation_ids: list[str] = Field(default_factory=list)
+    source: ConditionSourcePayload = Field(default_factory=ConditionSourcePayload)
+    applied_at: str | None = None
+    applied_by_role: Literal["dm", "player"] | None = None
+    applied_at_state_version: int | None = None
 
 
 class EncounterEntryPayload(ProtocolModel):

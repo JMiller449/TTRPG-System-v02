@@ -242,9 +242,11 @@ def augmentation(
     path: list[str],
     effect: dict[str, Any],
     description: str = "",
-    duration: str | None = None,
+    mode: str = "manual",
+    remaining: int | None = None,
     expires_at: str | None = None,
-    removal_condition: str | None = None,
+    remove_when_source_inactive: bool = False,
+    notes: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": augmentation_id,
@@ -259,9 +261,11 @@ def augmentation(
         "applied_target_id": None,
         "lifecycle_owner": "equipment",
         "lifecycle": {
-            "duration": duration,
+            "mode": mode,
+            "remaining": remaining,
             "expires_at": expires_at,
-            "removal_condition": removal_condition,
+            "remove_when_source_inactive": remove_when_source_inactive,
+            "notes": notes,
         },
     }
 
@@ -441,7 +445,6 @@ def condition_payloads() -> list[dict[str, Any]]:
                 "Restrained by living shadow; manual duration until escaped or removed."
             ),
             "visibility": "public",
-            "augmentation_ids": [],
             "augmentation_templates": [
                 augmentation(
                     "shadow_bound_dodge_penalty",
@@ -456,8 +459,9 @@ def condition_payloads() -> list[dict[str, Any]]:
                     description=(
                         "Dodge checks roll with disadvantage while restrained."
                     ),
-                    duration="Until the character escapes",
-                    removal_condition="Escape succeeds or the binding source ends",
+                    mode="until_source_removed",
+                    remove_when_source_inactive=True,
+                    notes="Escape succeeds or the binding source ends.",
                 )
             ],
         },
@@ -469,7 +473,6 @@ def condition_payloads() -> list[dict[str, Any]]:
                 "effect while applied."
             ),
             "visibility": "public",
-            "augmentation_ids": [],
             "augmentation_templates": [
                 augmentation(
                     "bleeding_health_pressure",
@@ -481,8 +484,8 @@ def condition_payloads() -> list[dict[str, Any]]:
                         "Reduces current health by 2 while Bleeding is applied; "
                         "removal restores that temporary reduction."
                     ),
-                    duration="Until treated",
-                    removal_condition="Bleeding is treated or otherwise stopped",
+                    mode="manual",
+                    notes="Until treated: bleeding is treated or otherwise stopped.",
                 )
             ],
         },
@@ -493,7 +496,6 @@ def condition_payloads() -> list[dict[str, Any]]:
                 "A short-lived spell surge that strengthens Ember Bolt damage."
             ),
             "visibility": "public",
-            "augmentation_ids": [],
             "augmentation_templates": [
                 augmentation(
                     "arcane_surge_ember_bolt_damage",
@@ -511,9 +513,10 @@ def condition_payloads() -> list[dict[str, Any]]:
                     description=(
                         "Adds 4 only when the Ember Bolt damage formula is evaluated."
                     ),
-                    duration="Three rounds",
+                    mode="rounds",
+                    remaining=3,
                     expires_at="End of the affected character's third turn",
-                    removal_condition="The surge expires or is dispelled",
+                    notes="The surge expires or is dispelled.",
                 )
             ],
         },
@@ -524,7 +527,6 @@ def condition_payloads() -> list[dict[str, Any]]:
                 "A GM-only narrative marker with no automatic mechanical effect."
             ),
             "visibility": "gm_only",
-            "augmentation_ids": [],
             "augmentation_templates": [],
         },
     ]
@@ -856,9 +858,11 @@ def standalone_effect_payloads(
             "effect": direct_effect("add", "0.10"),
             "active": True,
             "lifecycle": {
-                "duration": "Until the stance ends",
+                "mode": "manual",
+                "remaining": None,
                 "expires_at": None,
-                "removal_condition": "An action removes Guarded Stance",
+                "remove_when_source_inactive": False,
+                "notes": "Until the stance ends: an action removes Guarded Stance.",
             },
         },
         {
@@ -874,8 +878,11 @@ def standalone_effect_payloads(
             ),
             "active": True,
             "lifecycle": {
-                "duration": "Until removed",
-                "removal_condition": "Parry training effect is dismissed",
+                "mode": "manual",
+                "remaining": None,
+                "expires_at": None,
+                "remove_when_source_inactive": False,
+                "notes": "Until removed: parry training effect is dismissed.",
             },
         },
         {

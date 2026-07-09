@@ -193,21 +193,42 @@ def augmentation_effect_from_dict(raw: dict) -> AugmentationEffect:
     return effect_model.from_dict(raw)
 
 
+LifecycleMode = Literal[
+    "manual",
+    "rounds",
+    "turns",
+    "until_rest",
+    "until_source_removed",
+    "scene",
+]
+
+
 @dataclass
 class AugmentationLifecycle:
-    # MVP lifecycle fields are descriptive metadata only; no predicate syntax is executed.
-    duration: str | None = None
+    # Declarative authoring intent. The backend does NOT run a turn/round/rest engine — that
+    # is an explicit product non-goal — so `rounds`/`turns`/`until_rest`/`scene` and `remaining`
+    # are GM-tracked labels surfaced in the UI, not auto-executed. The only lifecycle behaviour
+    # actually enforced today is source-linked teardown (equipment unequip / condition removal),
+    # which the equipment/condition derive logic already performs regardless of these fields;
+    # `remove_when_source_inactive` documents that intent for other sources.
+    mode: LifecycleMode = "manual"
+    remaining: int | None = None
     expires_at: str | None = None
-    removal_condition: str | None = None
+    remove_when_source_inactive: bool = False
+    notes: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict | None) -> "AugmentationLifecycle":
         if raw is None:
             return cls()
         return cls(
-            duration=raw.get("duration"),
+            mode=raw.get("mode", "manual"),
+            remaining=raw.get("remaining"),
             expires_at=raw.get("expires_at"),
-            removal_condition=raw.get("removal_condition"),
+            remove_when_source_inactive=bool(
+                raw.get("remove_when_source_inactive", False)
+            ),
+            notes=raw.get("notes"),
         )
 
 
@@ -244,6 +265,27 @@ class Augmentation:
         )
 
 
+StackingMode = Literal["unique", "stack"]
+
+
+@dataclass
+class StackingConfig:
+    # unique: at most one active application per definition per instance (reapply is a no-op).
+    # stack: multiple concurrent applications whose effects accumulate, capped by max_stacks
+    #        (None = unlimited). Removal clears the whole stack for that definition/instance.
+    mode: StackingMode = "unique"
+    max_stacks: int | None = None
+
+    @classmethod
+    def from_dict(cls, raw: dict | None) -> "StackingConfig":
+        if raw is None:
+            return cls()
+        return cls(
+            mode=raw.get("mode", "unique"),
+            max_stacks=raw.get("max_stacks"),
+        )
+
+
 @dataclass
 class StandaloneEffectDefinition:
     id: str
@@ -254,6 +296,7 @@ class StandaloneEffectDefinition:
     description: str = ""
     active: bool = True
     lifecycle: AugmentationLifecycle = field(default_factory=AugmentationLifecycle)
+    stacking: StackingConfig = field(default_factory=StackingConfig)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "StandaloneEffectDefinition":
@@ -266,6 +309,7 @@ class StandaloneEffectDefinition:
             effect=augmentation_effect_from_dict(raw["effect"]),
             active=raw.get("active", True),
             lifecycle=AugmentationLifecycle.from_dict(raw.get("lifecycle")),
+            stacking=StackingConfig.from_dict(raw.get("stacking")),
         )
 
 
@@ -276,6 +320,7 @@ class StandaloneEffectApplication:
     instance_id: str
     source: AugmentationSource
     active: bool = True
+    stack_index: int = 0
 
     @classmethod
     def from_dict(cls, raw: dict) -> "StandaloneEffectApplication":
@@ -284,18 +329,19 @@ class StandaloneEffectApplication:
             definition_id=raw["definition_id"],
             instance_id=raw["instance_id"],
             source=AugmentationSource.from_dict(raw["source"]),
+            stack_index=raw.get("stack_index", 0),
             active=raw.get("active", True),
         )
 
 
 @dataclass
-class EquipmentEffectProjection:
+class DirectEffectProjection:
     target_path: str
     base_value: int | float
     effective_value: int | float
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "EquipmentEffectProjection":
+    def from_dict(cls, raw: dict) -> "DirectEffectProjection":
         return cls(
             target_path=raw["target_path"],
             base_value=raw["base_value"],

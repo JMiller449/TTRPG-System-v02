@@ -73,9 +73,11 @@ def _augmentation_template(
         "applied_target_id": None,
         "lifecycle_owner": "manual",
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": "Remove when poison is cured.",
+            "remove_when_source_inactive": False,
+            "notes": "Remove when poison is cured.",
         },
     }
 
@@ -86,7 +88,6 @@ def _condition_payload(*, augmentation_template: dict | None = None) -> dict:
         "name": "Poisoned",
         "description": "Ongoing poison effect.",
         "visibility": "public",
-        "augmentation_ids": ["poisoned-penalty"],
         "augmentation_templates": [augmentation_template or _augmentation_template()],
     }
 
@@ -103,7 +104,6 @@ def test_state_round_trips_condition_presets() -> None:
     condition = state.condition_presets["poisoned"]
     assert condition.name == "Poisoned"
     assert condition.visibility == "public"
-    assert condition.augmentation_ids == ["poisoned-penalty"]
     assert condition.augmentation_templates[0].source.type == "condition"
 
     assert state.to_dict()["condition_presets"]["poisoned"] == _condition_payload()

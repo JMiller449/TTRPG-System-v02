@@ -11,7 +11,7 @@ from backend.state.models.action import Action
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import (
     Augmentation,
-    EquipmentEffectProjection,
+    DirectEffectProjection,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
@@ -47,7 +47,7 @@ class State:
     standalone_effect_applications: dict[str, StandaloneEffectApplication] = field(
         default_factory=dict
     )
-    equipment_effect_projections: dict[str, EquipmentEffectProjection] = field(
+    direct_effect_projections: dict[str, DirectEffectProjection] = field(
         default_factory=dict
     )
     condition_presets: dict[str, ConditionPreset] = field(default_factory=dict)
@@ -120,10 +120,10 @@ class State:
                     "standalone_effect_applications", {}
                 ).items()
             },
-            equipment_effect_projections={
-                key: EquipmentEffectProjection.from_dict(projection)
+            direct_effect_projections={
+                key: DirectEffectProjection.from_dict(projection)
                 for key, projection in raw.get(
-                    "equipment_effect_projections", {}
+                    "direct_effect_projections", {}
                 ).items()
             },
             condition_presets={
@@ -148,5 +148,5 @@ class State:
         state = asdict(self)
         if not include_private:
             state.pop("sheet_access_codes", None)
-            state.pop("equipment_effect_projections", None)
+            state.pop("direct_effect_projections", None)
         return state

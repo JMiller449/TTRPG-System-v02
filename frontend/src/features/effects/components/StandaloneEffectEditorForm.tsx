@@ -1,12 +1,14 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
-import type { AugmentationOperation, LifecycleMode } from "@/domain/models";
+import type { AugmentationOperation, LifecycleMode, StackingMode } from "@/domain/models";
 import {
   applyAugmentationTargetOption,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
+  describeAugmentationEffectType,
   formatAugmentationTargetOption,
   isKnownAugmentationEditorTarget,
   LIFECYCLE_MODE_OPTIONS,
+  STACKING_MODE_OPTIONS,
   type AugmentationEditorValues,
   type AugmentationTargetOption
 } from "@/features/augmentations/augmentationEditorValues";
@@ -162,6 +164,7 @@ export function StandaloneEffectEditorForm({
           </Field>
         )}
       </div>
+      <p className="muted">{describeAugmentationEffectType(values.effectType)}</p>
 
       <Field label="Description">
         <textarea
@@ -257,6 +260,42 @@ export function StandaloneEffectEditorForm({
               placeholder="e.g. action removes effect"
             />
           </Field>
+        </div>
+      </details>
+
+      <details className="condition-effect-lifecycle">
+        <summary>Stacking</summary>
+        <div className="inline-group">
+          <Field label="Stacking Mode">
+            <select
+              value={values.stackingMode}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  stackingMode: event.target.value as StackingMode
+                })
+              }
+            >
+              {STACKING_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {values.stackingMode === "stack" ? (
+            <Field label="Max Stacks">
+              <input
+                type="number"
+                min={1}
+                value={values.stackingMaxStacks}
+                onChange={(event) =>
+                  onChange({ ...values, stackingMaxStacks: event.target.value })
+                }
+                placeholder="e.g. 3 (blank = unlimited)"
+              />
+            </Field>
+          ) : null}
         </div>
       </details>
 

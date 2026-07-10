@@ -111,6 +111,11 @@ These ground the plan in what already exists so we don't re-solve solved problem
       with active effects. Blocked because `import`/`replaceState` exercise the on-disk checkpoint
       path that currently raises `PermissionError` on Windows (`task_3d1ae373`). The migration
       rename itself is already covered by the hermetic test above.
+      **Verified on Linux (2026-07-09):** `_fsync_directory` (`backend/state/store.py`) only omits
+      `os.O_DIRECTORY` when the platform lacks it (Windows); on Linux the flag is present and
+      `os.open`/`os.fsync` on the parent directory work fine — confirmed by the full backend suite
+      (`test_state_store.py`, 465 total) passing with zero failures. This test is still worth
+      writing since Linux is a real deployment target, but it's no longer blocked here.
 
 ## Phase 3 — Unified runtime application layer (reframe)  ← DONE
 
@@ -207,20 +212,52 @@ run was the lifecycle *model* only; stacking and GM refresh/expire controls are 
 - [ ] GM controls for refresh / remove / expire (new routes + UI) — pairs with the paused Phase 5.
       Removal already exists; refresh/expire and a `remaining` decrement control are new.
 
-## Phase 5 — UI review  ← PAUSED (needs a UI-capable environment)
+## Phase 5 — UI review  ← DONE (verified on Linux/WSL)
 
-> Paused by decision: the current dev environment can't run the frontend UI (Vite/vitest fail on
-> a missing Windows rollup native binary), so UI work can't be visually verified here. Resume in a
-> Linux/WSL environment. Continuing meanwhile with verifiable backend work (effect stacking).
+> Resumed on Linux/WSL, where the frontend actually runs. First real run of `npm test` +
+> `npm run build` after schema v18–v22 surfaced 3 stale unit-test assertions (pre-dating this
+> phase — CRLF-vs-LF line-split assumption in a userscript test, and two lifecycle-editor tests
+> asserting the old free-text `duration`/`removal_condition` labels instead of the Phase 4
+> `mode`/`remaining`/`expires_at` shape); fixed in place. Backend 465 passed, frontend 390 passed,
+> `tsc`/build/protocol-codegen all clean.
 
-
-
-- [ ] Rename user-facing "Augmentation" → "Effect" in authoring/UI (Change 2).
-- [ ] Separate direct / evaluation-time / roll-mode effects in the authoring editor (Change 6).
-- [ ] Active Effects inspector: name, source, target, visibility, duration, stack count,
-      remove/expire controls (Change 8).
-- [ ] Player-safe active condition/effect display.
-- [ ] Audit-log entries for effect lifecycle events (Change 9) — action history already exists.
+- [x] Rename user-facing "Augmentation" → "Effect" in authoring/UI (Change 2). Audited: all
+      visible copy already says "Effect"/"Effects" (`StandaloneEffectEditorForm`,
+      `ConditionAugmentationTemplatePanel`, page titles/subtitles); remaining `Augmentation*`
+      occurrences are code identifiers (types, functions, CSS classes) per the "keep code
+      identifiers" instruction — no changes needed.
+- [x] Separate direct / evaluation-time / roll-mode effects in the authoring editor (Change 6).
+      Added a one-line behavior hint (`describeAugmentationEffectType` in
+      `augmentationEditorValues.ts`) under the Effect Type dropdown in all three effect editors
+      (`StandaloneEffectEditorForm`, `ConditionAugmentationTemplatePanel`,
+      `ItemAugmentationTemplatePanel`) clarifying that direct modifies the value itself,
+      evaluation-time adjusts formula results without touching the value, and roll-mode changes
+      no value and only grants advantage/disadvantage.
+- [x] Standalone effect stacking authoring field: added `stackingMode`/`stackingMaxStacks` to
+      `AugmentationEditorValues` + `toStackingConfigPayload`, and a "Stacking" details section in
+      `StandaloneEffectEditorForm` (mode dropdown, max-stacks input shown only in `stack` mode).
+      Condition/item templates don't get the field — stacking is standalone-effect-only per the
+      backend model.
+- [x] Active Effects inspector: name, source, target, visibility, duration, stack count added to
+      `SheetConditionsSection` and `SheetStandaloneEffectsSection`. Conditions show a GM-only
+      source/applied-at/applied-by line (via new `mode`/`augmentations` props — lifecycle looked
+      up from the condition's `augmentation_ids` against the runtime `augmentations` map) plus a
+      lifecycle summary visible to everyone; standalone effects show lifecycle + stack position
+      (`formatAugmentationLifecycle`/`formatStackingSummary` in `augmentationEditorValues.ts`).
+      Remove control already existed for conditions; standalone effects have no remove control
+      because no GM-facing route exists yet for it (matches the already-deferred "GM controls for
+      refresh/remove/expire" item above).
+- [x] Player-safe active condition/effect display: verified visually — a player's own visible
+      (non-`gm_only`) conditions/effects show duration but not source/timing; `gm_only` and
+      other-instance data stay redacted server-side as already tested. **Found and fixed a bug
+      while verifying this**: claiming a sheet access code (`sheet_access_claimed`) only assigns
+      the session server-side — it never told the client to refetch state, so a player's own
+      pre-existing active conditions/effects (present before that browser session connected)
+      stayed invisible until an unrelated patch happened to touch them. Fixed in
+      `hooks/useGameClient.ts` by requesting a full (non-incremental) `resync_state` right after
+      the claim response, which re-runs redaction against the newly-assigned instance.
+- [ ] Audit-log entries for effect lifecycle events (Change 9) — action history already exists;
+      not additionally scoped this run.
 
 ## Cleanup invariants to guarantee (Change 7 — assert across phases)
 

@@ -3,6 +3,7 @@ import {
   hasValidAugmentationEditorValues,
   toAugmentationEffectPayload,
   toAugmentationLifecyclePayload,
+  toStackingConfigPayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import type { StandaloneEffectDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
@@ -35,7 +36,8 @@ export function toStandaloneEffectDefinitionPayload(
     },
     effect: toAugmentationEffectPayload(values),
     active: values.active,
-    lifecycle: toAugmentationLifecyclePayload(values)
+    lifecycle: toAugmentationLifecyclePayload(values),
+    stacking: toStackingConfigPayload(values)
   };
 }
 

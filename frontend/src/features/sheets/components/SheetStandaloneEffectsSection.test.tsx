@@ -55,6 +55,25 @@ describe("SheetStandaloneEffectsSection", () => {
     expect(markup).toContain("Blessing");
     expect(markup).toContain("Behavior: Add 5 to the target value on instance.health");
     expect(markup).toContain("Protective Ward · Apply or remove effect (apply_blessing)");
+    expect(markup).toContain("Duration: Manual (GM removes)");
     expect(markup).not.toContain("<button");
+  });
+
+  it("shows lifecycle and stack position for a stacking effect", () => {
+    const stackedEffect: ActiveStandaloneEffect = {
+      ...activeEffect,
+      application: { ...activeEffect.application, stack_index: 1 },
+      definition: {
+        ...activeEffect.definition,
+        lifecycle: { mode: "rounds", remaining: 2 },
+        stacking: { mode: "stack", max_stacks: 3 }
+      }
+    };
+    const markup = renderToStaticMarkup(
+      <SheetStandaloneEffectsSection effects={[stackedEffect]} />
+    );
+
+    expect(markup).toContain("Duration: Rounds · 2 remaining");
+    expect(markup).toContain("Stack 2 of 3");
   });
 });

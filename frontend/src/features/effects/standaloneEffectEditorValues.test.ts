@@ -54,7 +54,25 @@ describe("standaloneEffectEditorValues", () => {
         expires_at: null,
         remove_when_source_inactive: false,
         notes: "action removes effect"
+      },
+      stacking: {
+        mode: "unique",
+        max_stacks: null
       }
+    });
+  });
+
+  it("builds a stacking config with max_stacks when stacking mode is stack", () => {
+    const values = createEmptyAugmentationEditorValues();
+    values.name = "Bleeding";
+    values.formulaText = "1";
+    values.targetPath = ["resources", "health"];
+    values.stackingMode = "stack";
+    values.stackingMaxStacks = "3";
+
+    expect(toStandaloneEffectDefinitionPayload(values, "effect_1").stacking).toEqual({
+      mode: "stack",
+      max_stacks: 3
     });
   });
 

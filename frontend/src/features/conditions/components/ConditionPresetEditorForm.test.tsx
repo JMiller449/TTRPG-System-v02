@@ -60,13 +60,12 @@ describe("ConditionPresetEditorForm", () => {
     expect(markup).toContain("disabled");
   });
 
-  it("labels lifecycle fields as manual notes and validates incomplete effects", () => {
+  it("labels lifecycle fields and validates incomplete effects", () => {
     const markup = renderEditor(true);
 
-    expect(markup).toContain("Manual lifecycle notes");
-    expect(markup).toContain("Duration note");
+    expect(markup).toContain("Lifecycle (GM-tracked)");
     expect(markup).toContain("Expiration note");
-    expect(markup).toContain("Removal note");
+    expect(markup).toContain("Remove when source inactive");
     expect(markup).toContain("Effect name is required.");
     expect(markup).toContain("Save or cancel the open effect before saving the condition.");
   });

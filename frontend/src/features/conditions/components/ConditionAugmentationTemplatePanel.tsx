@@ -9,6 +9,7 @@ import {
   augmentationEffectUsesTarget,
   augmentationEditorTargetKey,
   augmentationTargetOptionKey,
+  describeAugmentationEffectType,
   formatAugmentationEffect,
   formatFormulaModifierSelector,
   formatAugmentationTargetOption,
@@ -212,6 +213,7 @@ export function ConditionAugmentationTemplatePanel({
               </Field>
             )}
           </div>
+          <p className="muted">{describeAugmentationEffectType(values.effectType)}</p>
 
           <Field label="Description">
             <textarea

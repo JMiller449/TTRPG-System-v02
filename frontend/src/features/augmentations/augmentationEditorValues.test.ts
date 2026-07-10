@@ -90,7 +90,9 @@ describe("augmentationEditorValues", () => {
       lifecycleRemaining: "3",
       expiresAt: "",
       removeWhenSourceInactive: false,
-      lifecycleNotes: "item removed"
+      lifecycleNotes: "item removed",
+      stackingMode: "unique",
+      stackingMaxStacks: ""
     });
   });
 

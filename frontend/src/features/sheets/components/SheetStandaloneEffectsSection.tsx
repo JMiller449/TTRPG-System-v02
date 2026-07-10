@@ -2,7 +2,9 @@ import type { ActiveStandaloneEffect } from "@/app/state/selectors";
 import { actionStepLabel } from "@/features/actions/actionStepMenu";
 import {
   augmentationEffectUsesTarget,
-  formatAugmentationEffect
+  formatAugmentationEffect,
+  formatAugmentationLifecycle,
+  formatStackingSummary
 } from "@/features/augmentations/augmentationEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
 
@@ -33,6 +35,10 @@ export function SheetStandaloneEffectsSection({
         {effects.length === 0 ? <EmptyState message="No active standalone effects." /> : null}
         {effects.map(({ application, definition, sourceAction, sourceStep }) => {
           const effect = { application, definition, sourceAction, sourceStep };
+          const stackingSummary = formatStackingSummary(
+            definition.stacking,
+            application.stack_index
+          );
           return (
             <article className="list-item list-item--block" key={application.application_id}>
               <div className="list-item__top">
@@ -50,6 +56,8 @@ export function SheetStandaloneEffectsSection({
                   ? ` on ${definition.target.root}.${definition.target.path.join(".")}`
                   : ""}
               </div>
+              <div className="muted">Duration: {formatAugmentationLifecycle(definition.lifecycle)}</div>
+              {stackingSummary ? <div className="muted">{stackingSummary}</div> : null}
               <div className="muted">Source: {sourceLabel(effect)}</div>
             </article>
           );

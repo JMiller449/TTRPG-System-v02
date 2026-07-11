@@ -571,23 +571,21 @@ describe("adaptProtocolServerEvent", () => {
   it("maps role-redacted XP tracker events into app events", () => {
     const protocolEvent = parseProtocolServerEvent({
       response_id: null,
-      can_view_progress: false,
+      can_manage: false,
+      parties: [],
+      kills: [],
+      adjustments: [],
+      mobs: [],
       sheets: [
         {
+          instance_id: "hero_instance",
           sheet_id: "hero",
           name: "Hero",
-          current_xp: null,
-          xp_required: null,
-          ready_to_level: null,
-          mobs: [
-            {
-              sheet_id: "goblin",
-              name: "Goblin",
-              count: 3,
-              xp_value: null,
-              xp_earned: null
-            }
-          ]
+          current_xp: 0,
+          xp_required: 100,
+          ready_to_level: false,
+          kills: [],
+          adjustments: []
         }
       ],
       type: "xp_tracker",
@@ -602,8 +600,12 @@ describe("adaptProtocolServerEvent", () => {
       {
         type: "xp_tracker",
         tracker: {
-          can_view_progress: false,
-          sheets: protocolEvent.sheets
+          can_manage: false,
+          sheets: protocolEvent.sheets,
+          parties: [],
+          kills: [],
+          adjustments: [],
+          mobs: []
         },
         requestId: "req-xp"
       }
@@ -659,7 +661,7 @@ describe("adaptProtocolServerEvent", () => {
             name: "Mage",
             dm_only: false,
             xp_given_when_slayed: 0,
-            xp_cap: "",
+            xp_cap: 0,
             proficiencies: {},
             items: {},
             stats: {
@@ -687,7 +689,6 @@ describe("adaptProtocolServerEvent", () => {
               mental_fortitude: { aliases: [], text: "1" },
               courage: { aliases: [], text: "1" }
             },
-            slayed_record: {},
             actions: {}
           }
         },
@@ -819,7 +820,7 @@ describe("adaptProtocolServerEvent", () => {
             name: "Goblin",
             dm_only: true,
             xp_given_when_slayed: 10,
-            xp_cap: "",
+            xp_cap: 0,
             proficiencies: {},
             items: {},
             stats: {
@@ -847,7 +848,6 @@ describe("adaptProtocolServerEvent", () => {
               mental_fortitude: { aliases: [], text: "1" },
               courage: { aliases: [], text: "1" }
             },
-            slayed_record: {},
             actions: {}
           }
         }

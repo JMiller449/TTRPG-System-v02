@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
 from backend.state.default_actions import (
@@ -11,7 +12,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 17
+CURRENT_STATE_SCHEMA_VERSION = 18
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1215,6 +1216,32 @@ def _migrate_v16_to_v17(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 17, "state": state}
 
 
+def _migrate_v17_to_v18(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    state["parties"] = {}
+    state["kill_registry"] = {}
+    state["xp_adjustments"] = {}
+
+    sheets = state.get("sheets", {})
+    if isinstance(sheets, dict):
+        for sheet in sheets.values():
+            if not isinstance(sheet, dict):
+                continue
+            sheet.pop("slayed_record", None)
+            for field_name in ("xp_given_when_slayed", "xp_cap"):
+                try:
+                    value = Decimal(str(sheet.get(field_name, 0)))
+                    if not value.is_finite():
+                        raise InvalidOperation
+                    sheet[field_name] = float(
+                        value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    )
+                except (InvalidOperation, ValueError):
+                    sheet[field_name] = 0.0
+
+    return {"schema_version": 18, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1233,6 +1260,7 @@ MIGRATIONS: dict[int, Migration] = {
     14: _migrate_v14_to_v15,
     15: _migrate_v15_to_v16,
     16: _migrate_v16_to_v17,
+    17: _migrate_v17_to_v18,
 }
 
 

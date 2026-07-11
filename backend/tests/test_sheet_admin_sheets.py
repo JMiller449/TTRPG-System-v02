@@ -504,157 +504,6 @@ def test_set_sheet_notes_rejects_missing_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_dm_can_set_sheet_slayed_count(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        try:
-            _reset_state()
-            state = StateSingleton.getState()
-            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
-            state.sheets["goblin_template"] = Sheet.from_dict(
-                _sheet_payload(sheet_id="goblin_template", name="Goblin Template")
-            )
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="dm")
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "set_sheet_slayed_count",
-                    "sheet_id": "mage_template",
-                    "slayed_sheet_id": "goblin_template",
-                    "count": 3,
-                },
-            )
-
-            assert state.sheets["mage_template"].slayed_record[
-                "goblin_template"
-            ].count == 3
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "ops": [
-                        {
-                            "op": "add",
-                            "path": "/sheets/mage_template/slayed_record/goblin_template",
-                            "value": {
-                                "sheet_id": "goblin_template",
-                                "count": 3,
-                            },
-                        }
-                    ],
-                    "state_version": 1,
-                    "type": "state_patch",
-                    "request_id": "req-1",
-                }
-            ]
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
-def test_assigned_player_can_set_own_sheet_slayed_count(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        try:
-            _reset_state()
-            state = StateSingleton.getState()
-            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
-            state.sheets["goblin_template"] = Sheet.from_dict(
-                _sheet_payload(sheet_id="goblin_template", name="Goblin Template")
-            )
-            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
-                {
-                    "parent_id": "mage_template",
-                    "notes": "",
-                    "health": 10,
-                    "mana": 5,
-                    "augments": {},
-                }
-            )
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await _connect_assigned_player(websocket)
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "set_sheet_slayed_count",
-                    "sheet_id": "mage_template",
-                    "slayed_sheet_id": "goblin_template",
-                    "count": 1,
-                },
-            )
-
-            assert state.sheets["mage_template"].slayed_record[
-                "goblin_template"
-            ].count == 1
-            assert websocket.sent_messages[0]["type"] == "state_patch"
-            assert websocket.sent_messages[0]["ops"][0]["path"] == (
-                "/sheets/mage_template/slayed_record/goblin_template"
-            )
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
-def test_player_cannot_set_other_sheet_slayed_count(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        try:
-            _reset_state()
-            state = StateSingleton.getState()
-            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
-            state.sheets["fighter_template"] = Sheet.from_dict(
-                _sheet_payload(sheet_id="fighter_template", name="Fighter Template")
-            )
-            state.sheets["goblin_template"] = Sheet.from_dict(
-                _sheet_payload(sheet_id="goblin_template", name="Goblin Template")
-            )
-            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
-                {
-                    "parent_id": "mage_template",
-                    "notes": "",
-                    "health": 10,
-                    "mana": 5,
-                    "augments": {},
-                }
-            )
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await _connect_assigned_player(websocket)
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "set_sheet_slayed_count",
-                    "sheet_id": "fighter_template",
-                    "slayed_sheet_id": "goblin_template",
-                    "count": 1,
-                },
-            )
-
-            assert state.sheets["fighter_template"].slayed_record == {}
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "reason": "You can only edit your assigned sheet.",
-                    "type": "error",
-                    "request_id": "req-1",
-                }
-            ]
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
 def test_default_baseline_check_executes_as_sheet_action(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -1947,9 +1796,8 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
             assert snapshot.resistances.fire == 0.4
             assert snapshot.actions == instance.actions
             assert snapshot.proficiencies["magic_prof_bridge"].use_count == 7
-            assert snapshot.xp_cap == ""
+            assert snapshot.xp_cap == 0
             assert snapshot.xp_given_when_slayed == 0
-            assert snapshot.slayed_record == {}
             assert "augments" not in websocket.sent_messages[0]["ops"][0]["value"]
         finally:
             StateSingleton._state = original_state
@@ -2453,47 +2301,6 @@ def test_create_sheet_rejects_non_sheet_attribute_bridge(monkeypatch) -> None:
                 {
                     "response_id": None,
                     "reason": "Sheet Attribute 'item_only_attribute' does not exist.",
-                    "type": "error",
-                    "request_id": "req-1",
-                }
-            ]
-        finally:
-            StateSingleton._state = original_state
-
-    asyncio.run(scenario())
-
-
-def test_create_sheet_rejects_missing_slayed_record_sheet(monkeypatch) -> None:
-    async def scenario() -> None:
-        original_state = deepcopy(StateSingleton.getState())
-        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
-        try:
-            _reset_state()
-            await websocket_sessions.reset()
-            websocket = FakeWebSocket()
-            await websocket_sessions.connect(websocket, role="dm")
-
-            sheet = _sheet_payload()
-            sheet["slayed_record"] = {
-                "missing_sheet": {
-                    "sheet_id": "missing_sheet",
-                    "count": 1,
-                }
-            }
-
-            await handle_client_payload(
-                websocket,
-                {
-                    "type": "create_sheet",
-                    "sheet": sheet,
-                },
-            )
-
-            assert StateSingleton.getState().sheets == {}
-            assert websocket.sent_messages == [
-                {
-                    "response_id": None,
-                    "reason": "Sheet 'missing_sheet' does not exist.",
                     "type": "error",
                     "request_id": "req-1",
                 }

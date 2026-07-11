@@ -34,11 +34,6 @@ class ProficiencyBridgePayload(BaseModel):
     growth_rate: float
 
 
-class SheetSlayedBridgePayload(BaseModel):
-    sheet_id: str = Field(min_length=1)
-    count: int = Field(ge=0)
-
-
 class StatsPayload(BaseModel):
     strength: int
     dexterity: int
@@ -91,15 +86,22 @@ class SheetDefinitionPayload(BaseModel):
     name: str = Field(min_length=1)
     notes: str = ""
     dm_only: bool = False
-    xp_given_when_slayed: int = Field(ge=0)
-    xp_cap: str = ""
+    xp_given_when_slayed: float = Field(default=0, ge=0)
+    xp_cap: float = Field(default=0, ge=0)
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     stats: StatsPayload
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
-    slayed_record: dict[str, SheetSlayedBridgePayload] = Field(default_factory=dict)
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
+
+    @field_validator("xp_given_when_slayed", "xp_cap", mode="before")
+    @classmethod
+    def normalize_legacy_xp_fields(cls, value: object) -> float:
+        try:
+            return max(0.0, float(value or 0))
+        except (TypeError, ValueError):
+            return 0.0
 
 
 class CreateSheet(RequestModel):
@@ -122,13 +124,6 @@ class SetSheetNotes(RequestModel):
     sheet_id: str = Field(min_length=1)
     notes: str
     type: Literal["set_sheet_notes"]
-
-
-class SetSheetSlayedCount(RequestModel):
-    sheet_id: str = Field(min_length=1)
-    slayed_sheet_id: str = Field(min_length=1)
-    count: int = Field(ge=0)
-    type: Literal["set_sheet_slayed_count"]
 
 
 class CreateInstancedSheet(RequestModel):

@@ -323,8 +323,12 @@ export function adaptProtocolServerEvent(
           {
             type: "xp_tracker",
             tracker: {
-              can_view_progress: event.can_view_progress,
-              sheets: event.sheets
+              can_manage: event.can_manage,
+              sheets: event.sheets,
+              parties: event.parties,
+              kills: event.kills,
+              adjustments: event.adjustments,
+              mobs: event.mobs
             },
             requestId: event.request_id ?? undefined
           }

@@ -31,7 +31,6 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteInstancedSheetProficiencyBridge,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
-    SetSheetSlayedCount,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -42,7 +41,8 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateInstancedSheetProficiencyBridge,
 )
 from backend.features.session.service import websocket_sessions
-from backend.protocol.socket import SheetAccessCodesEvent, StatePatchEvent
+from backend.features.xp_tracker import service as xp_tracker_service
+from backend.protocol.socket import SheetAccessCodesEvent, StatePatchEvent, XpTrackerEvent
 
 
 class CreateSheetRoute(RequestRoute[CreateSheet]):
@@ -104,29 +104,6 @@ class SetSheetNotesRoute(RequestRoute[SetSheetNotes]):
         request: SetSheetNotes,
     ) -> None:
         await service.set_sheet_notes(request)
-
-
-class SetSheetSlayedCountRoute(RequestRoute[SetSheetSlayedCount]):
-    type_name = "set_sheet_slayed_count"
-    request_model = SetSheetSlayedCount
-    emitted_event_models = (StatePatchEvent,)
-    minimum_role = "player"
-    client_generation = ClientGenerationMetadata(
-        namespace="sheetXpTracker",
-        method_name="setSlayedCount",
-    )
-
-    async def handle(
-        self,
-        session: WebSocketSession,
-        request: SetSheetSlayedCount,
-    ) -> None:
-        if session.role != "dm":
-            sheet_access_service.ensure_session_can_access_sheet(
-                session,
-                request.sheet_id,
-            )
-        await service.set_sheet_slayed_count(request)
 
 
 class SetInstancedSheetNotesRoute(RequestRoute[SetInstancedSheetNotes]):
@@ -221,7 +198,7 @@ class CreateInstancedSheetRoute(RequestRoute[CreateInstancedSheet]):
 class DeleteInstancedSheetRoute(RequestRoute[DeleteInstancedSheet]):
     type_name = "delete_instanced_sheet"
     request_model = DeleteInstancedSheet
-    emitted_event_models = (StatePatchEvent, SheetAccessCodesEvent)
+    emitted_event_models = (StatePatchEvent, SheetAccessCodesEvent, XpTrackerEvent)
     minimum_role = "dm"
     client_generation = ClientGenerationMetadata(
         namespace="sheetAdminSheets",
@@ -239,6 +216,12 @@ class DeleteInstancedSheetRoute(RequestRoute[DeleteInstancedSheet]):
             await sheet_access_service.list_sheet_access_codes(
                 request_id=request.request_id,
             ),
+        )
+        await websocket_sessions.broadcast_per_session(
+            lambda target_session: xp_tracker_service.build_xp_tracker(
+                role=target_session.role,
+                assigned_instance_id=target_session.assigned_instance_id,
+            )
         )
 
 
@@ -619,7 +602,6 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(UpdateSheetRoute())
     registry.register(DeleteSheetRoute())
     registry.register(SetSheetNotesRoute())
-    registry.register(SetSheetSlayedCountRoute())
     registry.register(SetInstancedSheetNotesRoute())
     registry.register(SetInstancedSheetResourceRoute())
     registry.register(AdjustInstancedSheetResourceRoute())

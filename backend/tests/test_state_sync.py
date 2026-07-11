@@ -879,7 +879,7 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
 
             expected_state = StateSingleton.getState().to_dict()
             expected_state["sheets"]["mage_template"]["xp_given_when_slayed"] = 0
-            expected_state["sheets"]["mage_template"]["xp_cap"] = ""
+            expected_state["sheets"]["mage_template"]["xp_cap"] = 0
             expected_state["sheets"]["mage_template"]["evaluated_stats"] = {
                 "strength": 12,
                 "dexterity": 11,

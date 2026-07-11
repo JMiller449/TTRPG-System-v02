@@ -254,9 +254,12 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "get_xp_tracker";' in output
     assert '"type": "set_sheet_xp_required";' in output
     assert '"type": "set_mob_xp_value";' in output
-    assert '"type": "set_sheet_mob_kill_count";' in output
+    assert '"type": "save_party";' in output
+    assert '"type": "record_kill";' in output
+    assert '"type": "update_kill";' in output
+    assert '"type": "save_xp_adjustment";' in output
     assert "export type XpTrackerEvent = {" in output
-    assert '"can_view_progress": boolean;' in output
+    assert '"can_manage": boolean;' in output
     assert "export type ClaimSheetAccessCode = {" in output
     assert '"type": "claim_sheet_access_code";' in output
     assert '"clientMethodName": "claimSheetAccessCode"' in output

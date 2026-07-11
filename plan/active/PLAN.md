@@ -62,6 +62,7 @@ Backend:
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
+- XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, and apply explicit XP adjustments; equal per-participant awards are snapshotted at kill time with two-decimal precision, while character totals are derived from the registry rather than stored independently.
 - Sheet instances now own the spawned copy of template-built content, including stats, resistances, actions, attributes, proficiencies, and inventory. GM instance edits mutate the spawned sheet rather than the source template, and a DM can snapshot an evolved instance back into a new checkpoint template without copying runtime-only health, mana, augments, or active effects.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
@@ -77,9 +78,11 @@ Frontend:
 - React/Vite app uses the authoritative websocket backend only; runtime mock authority has been removed.
 - Player and GM views share authoritative sheet rendering with role-specific visibility and controls.
 - GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
+- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, and character thresholds. Party identity is never persisted into historical kills; only participant instance/name snapshots, party size, percentage, and award are retained.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - Player entry claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
+- Character kill history and XP progress are read-only projections filtered from the authoritative registry for the selected spawned instance. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party changes do not rewrite history.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
 - GM Characters can grant arbitrary unassigned core stat points to a spawned sheet instance; assigned players can stage those points across core stats only, undo only staged additions, and lock them in through a backend-authoritative allocation request.

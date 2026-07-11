@@ -28,11 +28,15 @@ from backend.state.models.attribute import (
 from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.xp import KillRecord, Party, XpAdjustment
 
 
 @dataclass
 class State:
     action_history: dict[str, ActionHistoryEntry] = field(default_factory=dict)
+    parties: dict[str, Party] = field(default_factory=dict)
+    kill_registry: dict[str, KillRecord] = field(default_factory=dict)
+    xp_adjustments: dict[str, XpAdjustment] = field(default_factory=dict)
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
     formulas: dict[str, FormulaDefinition] = field(default_factory=dict)
@@ -63,6 +67,23 @@ class State:
             synchronize_required_item_attributes(item, self.attributes)
         for action in self.actions.values():
             evaluate_all_subject_attributes(action)
+        assigned_party_members: set[str] = set()
+        for party in self.parties.values():
+            if len(party.member_instance_ids) != len(set(party.member_instance_ids)):
+                raise ValueError(f"Party '{party.id}' contains duplicate members.")
+            for instance_id in party.member_instance_ids:
+                if instance_id in assigned_party_members:
+                    raise ValueError(
+                        f"Instance '{instance_id}' belongs to more than one party."
+                    )
+                instance = self.instanced_sheets.get(instance_id)
+                parent = self.sheets.get(instance.parent_id) if instance else None
+                if instance is None or parent is None or parent.dm_only:
+                    raise ValueError(
+                        f"Party '{party.id}' references invalid player instance "
+                        f"'{instance_id}'."
+                    )
+                assigned_party_members.add(instance_id)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
@@ -85,6 +106,18 @@ class State:
                     for key, entry in raw.get("action_history", {}).items()
                 }
             ),
+            parties={
+                key: Party.from_dict(party)
+                for key, party in raw.get("parties", {}).items()
+            },
+            kill_registry={
+                key: KillRecord.from_dict(record)
+                for key, record in raw.get("kill_registry", {}).items()
+            },
+            xp_adjustments={
+                key: XpAdjustment.from_dict(adjustment)
+                for key, adjustment in raw.get("xp_adjustments", {}).items()
+            },
             sheets=sheets,
             instanced_sheets=instanced_sheets,
             formulas={

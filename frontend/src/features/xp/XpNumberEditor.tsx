@@ -16,7 +16,7 @@ export function XpNumberEditor({
     setDraft(String(value));
   }, [value]);
 
-  const parsed = /^\d+$/.test(draft.trim()) ? Number(draft) : null;
+  const parsed = /^\d+(\.\d{0,2})?$/.test(draft.trim()) ? Number(draft) : null;
 
   return (
     <div className="xp-number-editor">
@@ -24,7 +24,7 @@ export function XpNumberEditor({
         <input
           type="number"
           min={0}
-          step={1}
+          step={0.01}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />

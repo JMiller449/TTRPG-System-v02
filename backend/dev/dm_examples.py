@@ -1412,7 +1412,7 @@ def sheet_payload() -> dict[str, Any]:
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": "100",
+        "xp_cap": 100,
         "proficiencies": {
             "fixture_long_swords": proficiency_bridge("long_swords", use_count=0),
             "fixture_pyromancy": proficiency_bridge("pyromancy", use_count=30),
@@ -1450,7 +1450,7 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": "60",
+        "xp_cap": 60,
         "proficiencies": {
             "fixture_knives": proficiency_bridge("knives", use_count=42),
             "fixture_shadow_steps": proficiency_bridge(
@@ -1503,7 +1503,7 @@ def goblin_sheet_payload() -> dict[str, Any]:
         "notes": "Starter enemy template: fast minion from an unstable red gate.",
         "dm_only": True,
         "xp_given_when_slayed": 15,
-        "xp_cap": "D",
+        "xp_cap": 0,
         "proficiencies": {},
         "items": {},
         "stats": stats_payload(
@@ -1537,7 +1537,7 @@ def wraith_sheet_payload() -> dict[str, Any]:
         "notes": "Starter enemy template: elite ash caster guarding a gate core.",
         "dm_only": True,
         "xp_given_when_slayed": 45,
-        "xp_cap": "C",
+        "xp_cap": 0,
         "proficiencies": {
             "fixture_pyromancy": proficiency_bridge("pyromancy", use_count=20),
         },
@@ -1637,34 +1637,6 @@ def authoring_requests(
         for sheet in sheet_payloads()
     )
     requests.extend(
-        [
-            {
-                "type": "set_sheet_mob_kill_count",
-                "sheet_id": SHEET_ID,
-                "mob_sheet_id": GOBLIN_SHEET_ID,
-                "count": 2,
-            },
-            {
-                "type": "set_sheet_mob_kill_count",
-                "sheet_id": SHEET_ID,
-                "mob_sheet_id": WRAITH_SHEET_ID,
-                "count": 1,
-            },
-            {
-                "type": "set_sheet_mob_kill_count",
-                "sheet_id": SHADOWBLADE_SHEET_ID,
-                "mob_sheet_id": GOBLIN_SHEET_ID,
-                "count": 1,
-            },
-            {
-                "type": "set_sheet_mob_kill_count",
-                "sheet_id": SHADOWBLADE_SHEET_ID,
-                "mob_sheet_id": WRAITH_SHEET_ID,
-                "count": 1,
-            },
-        ]
-    )
-    requests.extend(
         {"type": "save_encounter_preset", "encounter": encounter}
         for encounter in encounter_payloads()
     )
@@ -1691,5 +1663,44 @@ def authoring_requests(
             "resistances": {},
             "generate_access_code": False,
         }
+    )
+    requests.extend(
+        [
+            {
+                "type": "record_kill",
+                "kill_id": "seed_example_1_goblin_1",
+                "credited_instance_id": INSTANCE_ID,
+                "monster_sheet_id": GOBLIN_SHEET_ID,
+                "occurred_at": "2026-07-01T19:00:00+00:00",
+            },
+            {
+                "type": "record_kill",
+                "kill_id": "seed_example_1_goblin_2",
+                "credited_instance_id": INSTANCE_ID,
+                "monster_sheet_id": GOBLIN_SHEET_ID,
+                "occurred_at": "2026-07-01T19:05:00+00:00",
+            },
+            {
+                "type": "record_kill",
+                "kill_id": "seed_example_1_wraith",
+                "credited_instance_id": INSTANCE_ID,
+                "monster_sheet_id": WRAITH_SHEET_ID,
+                "occurred_at": "2026-07-01T19:10:00+00:00",
+            },
+            {
+                "type": "record_kill",
+                "kill_id": "seed_example_2_goblin",
+                "credited_instance_id": SHADOWBLADE_INSTANCE_ID,
+                "monster_sheet_id": GOBLIN_SHEET_ID,
+                "occurred_at": "2026-07-01T19:15:00+00:00",
+            },
+            {
+                "type": "record_kill",
+                "kill_id": "seed_example_2_wraith",
+                "credited_instance_id": SHADOWBLADE_INSTANCE_ID,
+                "monster_sheet_id": WRAITH_SHEET_ID,
+                "occurred_at": "2026-07-01T19:20:00+00:00",
+            },
+        ]
     )
     return requests

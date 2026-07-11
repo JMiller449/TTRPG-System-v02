@@ -88,7 +88,7 @@ function completeSheet(): Sheet {
     notes: "Backend template notes",
     dm_only: false,
     xp_given_when_slayed: 25,
-    xp_cap: "100",
+    xp_cap: 100,
     proficiencies: {
       prof_bridge_1: {
         relationship_id: "prof_bridge_1",
@@ -116,7 +116,6 @@ function completeSheet(): Sheet {
       }
     },
     resistances: { resistance: 0.1, fire: 0.25 },
-    slayed_record: { enemy_1: { sheet_id: "enemy_1", count: 1 } },
     actions: {
       action_bridge_1: {
         relationship_id: "action_bridge_1",
@@ -203,7 +202,7 @@ describe("templateEditorValues", () => {
       notes: "GM-facing notes",
       dm_only: true,
       xp_given_when_slayed: 25,
-      xp_cap: "100",
+      xp_cap: 100,
       stats: {
         strength: 12,
         arcane: 8,
@@ -313,7 +312,6 @@ describe("templateEditorValues", () => {
       }
     });
     expect(values.formulaStats.health.text).toBe("@constitution * 10");
-    expect(values.slayedRecord).toEqual({ enemy_1: { sheet_id: "enemy_1", count: 1 } });
   });
 
   it("preserves stable bridge IDs and hidden slay records during a complete edit", () => {
@@ -342,7 +340,6 @@ describe("templateEditorValues", () => {
         evaluation_error: null
       }
     });
-    expect(payload.slayed_record).toEqual(sheet.slayed_record);
   });
 
   it("rejects missing or non-sheet Attribute assignments", () => {

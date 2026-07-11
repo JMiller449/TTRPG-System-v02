@@ -33,6 +33,9 @@ import {
   buildDeleteEncounterPresetRequest,
   buildDeleteFormulaRequest,
   buildDeleteAttributeRequest,
+  buildDeleteKillRequest,
+  buildDeletePartyRequest,
+  buildDeleteXpAdjustmentRequest,
   buildDeleteInstancedSheetRequest,
   buildDeleteItemRequest,
   buildDeleteInstancedSheetActionBridgeRequest,
@@ -51,6 +54,8 @@ import {
   buildGetXpTrackerRequest,
   buildImportStateBackupRequest,
   buildSaveEncounterPresetRequest,
+  buildSavePartyRequest,
+  buildSaveXpAdjustmentRequest,
   buildDeleteSheetRequest,
   buildDetachSheetAttributeRequest,
   buildDetachSubjectAttributeRequest,
@@ -81,9 +86,8 @@ import {
   buildSetSheetResistancesRequest,
   buildSetSheetNotesRequest,
   buildSetMobXpValueRequest,
-  buildSetSheetMobKillCountRequest,
   buildSetSheetXpRequiredRequest,
-  buildSetSheetSlayedCountRequest,
+  buildRecordKillRequest,
   buildSpawnEncounterPresetRequest,
   buildUndoLastStateChangeRequest,
   buildUpdateActionRequest,
@@ -91,6 +95,7 @@ import {
   buildUpdateFormulaRequest,
   buildUpdateAttributeRequest,
   buildUpdateItemRequest,
+  buildUpdateKillRequest,
   buildUpdateInstancedSheetActionBridgeRequest,
   buildUpdateInstancedSheetItemRequest,
   buildUpdateInstancedSheetProficiencyBridgeRequest,
@@ -228,7 +233,7 @@ const testSheet: SheetDefinitionPayload = {
   notes: "GM-only template notes",
   dm_only: false,
   xp_given_when_slayed: 0,
-  xp_cap: "",
+  xp_cap: 0,
   proficiencies: {},
   items: {},
   stats: {
@@ -256,7 +261,6 @@ const testSheet: SheetDefinitionPayload = {
     mental_fortitude: testFormula,
     courage: testFormula
   },
-  slayed_record: {},
   actions: {}
 };
 
@@ -304,6 +308,9 @@ const requestBuilderByType = {
   delete_sheet_item_bridge: buildDeleteSheetItemBridgeRequest,
   delete_sheet_proficiency_bridge: buildDeleteSheetProficiencyBridgeRequest,
   delete_standalone_effect: buildDeleteStandaloneEffectRequest,
+  delete_kill: buildDeleteKillRequest,
+  delete_party: buildDeletePartyRequest,
+  delete_xp_adjustment: buildDeleteXpAdjustmentRequest,
   export_state_backup: buildExportStateBackupRequest,
   generate_sheet_access_code: buildGenerateSheetAccessCodeRequest,
   get_action_formula_authoring_metadata: buildGetActionFormulaAuthoringMetadataRequest,
@@ -315,6 +322,7 @@ const requestBuilderByType = {
   get_xp_tracker: buildGetXpTrackerRequest,
   import_state_backup: buildImportStateBackupRequest,
   perform_action: buildPerformActionRequest,
+  record_kill: buildRecordKillRequest,
   remove_active_condition: buildRemoveActiveConditionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   reset_instanced_sheet_attribute_value: buildResetInstancedSheetAttributeValueRequest,
@@ -322,6 +330,8 @@ const requestBuilderByType = {
   reset_subject_attribute_value: buildResetSubjectAttributeValueRequest,
   resync_state: buildResyncStateRequest,
   save_encounter_preset: buildSaveEncounterPresetRequest,
+  save_party: buildSavePartyRequest,
+  save_xp_adjustment: buildSaveXpAdjustmentRequest,
   send_roll20_chat_message: buildSendRoll20ChatMessageRequest,
   set_instanced_sheet_notes: buildSetInstancedSheetNotesRequest,
   set_instanced_sheet_base_stat: buildSetInstancedSheetBaseStatRequest,
@@ -338,9 +348,7 @@ const requestBuilderByType = {
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
   set_sheet_resistances: buildSetSheetResistancesRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
-  set_sheet_mob_kill_count: buildSetSheetMobKillCountRequest,
   set_sheet_xp_required: buildSetSheetXpRequiredRequest,
-  set_sheet_slayed_count: buildSetSheetSlayedCountRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
   undo_last_state_change: buildUndoLastStateChangeRequest,
   update_action: buildUpdateActionRequest,
@@ -348,6 +356,7 @@ const requestBuilderByType = {
   update_formula: buildUpdateFormulaRequest,
   update_attribute: buildUpdateAttributeRequest,
   update_item: buildUpdateItemRequest,
+  update_kill: buildUpdateKillRequest,
   update_instanced_sheet_action_bridge: buildUpdateInstancedSheetActionBridgeRequest,
   update_instanced_sheet_item_bridge: buildUpdateInstancedSheetItemRequest,
   update_instanced_sheet_proficiency_bridge: buildUpdateInstancedSheetProficiencyBridgeRequest,
@@ -402,16 +411,20 @@ describe("requestBuilders", () => {
       xp_value: 25
     });
     expect(
-      buildSetSheetMobKillCountRequest({
-        sheetId: "hero_instance",
-        mobSheetId: "goblin",
-        count: 3
+      buildRecordKillRequest({
+        killId: "kill_1",
+        creditedInstanceId: "hero_instance",
+        monsterSheetId: "goblin"
       })
     ).toEqual({
-      type: "set_sheet_mob_kill_count",
-      sheet_id: "hero_instance",
-      mob_sheet_id: "goblin",
-      count: 3
+      type: "record_kill",
+      kill_id: "kill_1",
+      credited_instance_id: "hero_instance",
+      monster_sheet_id: "goblin",
+      monster_name: null,
+      base_xp: null,
+      occurred_at: null,
+      notes: ""
     });
   });
 
@@ -647,20 +660,6 @@ describe("requestBuilders", () => {
       type: "set_sheet_notes",
       sheet_id: "sheet_1",
       notes: "GM template note."
-    });
-    expect(
-      buildSetSheetSlayedCountRequest({
-        requestId: "req-xp",
-        sheetId: "sheet_1",
-        slayedSheetId: "enemy_1",
-        count: 3
-      })
-    ).toEqual({
-      request_id: "req-xp",
-      type: "set_sheet_slayed_count",
-      sheet_id: "sheet_1",
-      slayed_sheet_id: "enemy_1",
-      count: 3
     });
     expect(
       buildSetSheetFormulaStatRequest({

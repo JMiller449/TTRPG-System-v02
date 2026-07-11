@@ -682,6 +682,9 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                 "response_id": None,
                 "state": {
                     "action_history": {},
+                    "parties": {},
+                    "kill_registry": {},
+                    "xp_adjustments": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -732,6 +735,9 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                 "response_id": None,
                 "state": {
                     "action_history": {},
+                    "parties": {},
+                    "kill_registry": {},
+                    "xp_adjustments": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -783,6 +789,9 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                 "response_id": None,
                 "state": {
                     "action_history": {},
+                    "parties": {},
+                    "kill_registry": {},
+                    "xp_adjustments": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -1320,6 +1329,9 @@ def test_state_sync_bootstrap_sends_snapshot() -> None:
                 "response_id": None,
                 "state": {
                     "action_history": {},
+                    "parties": {},
+                    "kill_registry": {},
+                    "xp_adjustments": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -1362,6 +1374,9 @@ def test_resync_state_returns_state_snapshot() -> None:
                 "response_id": None,
                 "state": {
                     "action_history": {},
+                    "parties": {},
+                    "kill_registry": {},
+                    "xp_adjustments": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},

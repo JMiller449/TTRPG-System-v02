@@ -13,8 +13,7 @@ function clampPercent(value: number, max: number): number {
 
 export function SheetXpProgressBar({
   client,
-  instanceId,
-  sheetId
+  instanceId
 }: {
   client: GameClient;
   instanceId: string;
@@ -22,26 +21,21 @@ export function SheetXpProgressBar({
 }): JSX.Element {
   const {
     state: {
-      serverState: { sheets },
       uiState: { xpTracker }
     }
   } = useAppStore();
   const requestedRefreshKeyRef = useRef<string | null>(null);
-  const killRecordSignature = Object.entries(sheets[sheetId]?.slayed_record ?? {})
-    .map(([mobId, bridge]) => `${mobId}:${bridge.count}`)
-    .sort()
-    .join("|");
 
   useEffect(() => {
-    const refreshKey = `${instanceId}:${killRecordSignature}`;
+    const refreshKey = instanceId;
     if (requestedRefreshKeyRef.current === refreshKey) {
       return;
     }
     requestedRefreshKeyRef.current = refreshKey;
     client.sendProtocolRequest(buildGetXpTrackerRequest(), "Load XP progress");
-  }, [client, instanceId, killRecordSignature]);
+  }, [client, instanceId]);
 
-  const trackerSheet = xpTracker?.sheets.find((entry) => entry.sheet_id === sheetId);
+  const trackerSheet = xpTracker?.sheets.find((entry) => entry.instance_id === instanceId);
   const currentXp = trackerSheet?.current_xp ?? 0;
   const xpRequired = trackerSheet?.xp_required ?? 0;
   const fillPercent = clampPercent(currentXp, xpRequired);

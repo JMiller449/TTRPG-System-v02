@@ -402,11 +402,6 @@ export interface ProficiencyDefinition {
   category?: "custom" | "weapon_family";
 }
 
-export interface SheetSlayedBridge {
-  sheet_id: string;
-  count: number;
-}
-
 export interface Stats {
   strength: number;
   dexterity: number;
@@ -460,13 +455,12 @@ export interface Sheet {
   notes?: string;
   dm_only: boolean;
   xp_given_when_slayed: number;
-  xp_cap: string;
+  xp_cap: number;
   proficiencies: Record<string, ProficiencyBridge>;
   items: Record<string, ItemBridge>;
   stats: Stats;
   evaluated_stats?: Partial<Record<StatKey, number>>;
   resistances?: Resistances;
-  slayed_record: Record<string, SheetSlayedBridge>;
   actions: Record<string, Bridge>;
   attributes?: Record<string, AttributeBridge>;
 }

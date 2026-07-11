@@ -105,6 +105,38 @@ def test_initialize_migrates_legacy_unversioned_state(isolate_state) -> None:
     assert loaded.actions["legacy_action"].name == "Legacy Action"
 
 
+def test_v17_xp_migration_purges_legacy_kills_and_adds_registries() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 17,
+            "state": {
+                "sheets": {
+                    "hero": {
+                        "xp_cap": "100.555",
+                        "xp_given_when_slayed": 0,
+                        "slayed_record": {
+                            "goblin": {"sheet_id": "goblin", "count": 4}
+                        },
+                    },
+                    "goblin": {
+                        "xp_cap": "A",
+                        "xp_given_when_slayed": 25.555,
+                        "slayed_record": {},
+                    },
+                }
+            },
+        }
+    )
+
+    assert migrated.state["parties"] == {}
+    assert migrated.state["kill_registry"] == {}
+    assert migrated.state["xp_adjustments"] == {}
+    assert "slayed_record" not in migrated.state["sheets"]["hero"]
+    assert migrated.state["sheets"]["hero"]["xp_cap"] == 100.56
+    assert migrated.state["sheets"]["goblin"]["xp_cap"] == 0
+    assert migrated.state["sheets"]["goblin"]["xp_given_when_slayed"] == 25.56
+
+
 def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> None:
     migrated = migrate_persisted_state(
         {
@@ -726,6 +758,9 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
         "active_conditions": {},
         "standalone_effects": {},
         "standalone_effect_applications": {},
+        "parties": {},
+        "kill_registry": {},
+        "xp_adjustments": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False

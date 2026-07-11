@@ -164,7 +164,7 @@ describe("SocketProtocolClient", () => {
               name: "Goblin",
               dm_only: true,
               xp_given_when_slayed: 10,
-              xp_cap: "",
+              xp_cap: 0,
               proficiencies: {},
               items: {},
               stats: {
@@ -192,7 +192,6 @@ describe("SocketProtocolClient", () => {
                 mental_fortitude: { aliases: [], text: "1" },
                 courage: { aliases: [], text: "1" }
               },
-              slayed_record: {},
               actions: {}
             }
           }

@@ -30,6 +30,7 @@ PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
 PRIVATE_STATE_ROOTS = {"equipment_effect_projections"}
+DM_ONLY_STATE_ROOTS = {"parties", "kill_registry", "xp_adjustments"}
 _MISSING = object()
 
 
@@ -172,7 +173,7 @@ class StateSyncService:
 
         for field_name in PRIVATE_SHEET_FIELDS:
             value.pop(field_name, None)
-        value["xp_cap"] = ""
+        value["xp_cap"] = 0
         value["xp_given_when_slayed"] = 0
         sheet_attributes = value.get("attributes")
         if isinstance(sheet_attributes, dict):
@@ -194,6 +195,9 @@ class StateSyncService:
     ) -> dict[str, Any]:
         if role == "dm":
             return state
+
+        for root in PRIVATE_STATE_ROOTS | DM_ONLY_STATE_ROOTS:
+            state.pop(root, None)
 
         hidden_attribute_ids = {
             attribute_id
@@ -264,7 +268,7 @@ class StateSyncService:
                 continue
             for field_name in PRIVATE_SHEET_FIELDS:
                 sheet.pop(field_name, None)
-            sheet["xp_cap"] = ""
+            sheet["xp_cap"] = 0
             sheet["xp_given_when_slayed"] = 0
             sheet_attributes = sheet.get("attributes")
             if isinstance(sheet_attributes, dict):
@@ -346,6 +350,9 @@ class StateSyncService:
                 continue
             if role == "dm":
                 redacted_ops.append(op)
+                continue
+
+            if segments and segments[0] in DM_ONLY_STATE_ROOTS:
                 continue
 
             if len(segments) >= 2 and segments[0] == "attributes":

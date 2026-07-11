@@ -73,11 +73,6 @@ class ItemBridgePayload(ProtocolModel):
     item_id: str
 
 
-class SheetSlayedBridgePayload(ProtocolModel):
-    sheet_id: str
-    count: int
-
-
 class StatsPayload(ProtocolModel):
     strength: int
     dexterity: int
@@ -130,14 +125,13 @@ class SheetPayload(ProtocolModel):
     name: str
     notes: str = ""
     dm_only: bool
-    xp_given_when_slayed: int
-    xp_cap: str
+    xp_given_when_slayed: float
+    xp_cap: float
     proficiencies: dict[str, ProficiencyBridgePayload]
     items: dict[str, ItemBridgePayload]
     stats: StatsPayload
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
-    slayed_record: dict[str, SheetSlayedBridgePayload]
     actions: dict[str, BridgePayload]
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
 
@@ -493,8 +487,44 @@ class EncounterPresetPayload(ProtocolModel):
     updated_at: str
 
 
+class PartyPayload(ProtocolModel):
+    id: str
+    name: str
+    member_instance_ids: list[str] = Field(default_factory=list)
+
+
+class KillParticipantPayload(ProtocolModel):
+    instance_id: str
+    name: str
+
+
+class KillRecordPayload(ProtocolModel):
+    id: str
+    monster_name: str
+    base_xp: float
+    participants: list[KillParticipantPayload]
+    participant_count: int
+    xp_percentage: float
+    xp_per_participant: float
+    occurred_at: str
+    monster_sheet_id: str | None = None
+    notes: str = ""
+
+
+class XpAdjustmentPayload(ProtocolModel):
+    id: str
+    instance_id: str
+    instance_name: str
+    amount: float
+    reason: str
+    occurred_at: str
+
+
 class BackendStateSnapshotPayload(ProtocolModel):
     action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
+    parties: dict[str, PartyPayload] = Field(default_factory=dict)
+    kill_registry: dict[str, KillRecordPayload] = Field(default_factory=dict)
+    xp_adjustments: dict[str, XpAdjustmentPayload] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)
     formulas: dict[str, FormulaDefinitionPayload] = Field(default_factory=dict)

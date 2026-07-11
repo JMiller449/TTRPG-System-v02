@@ -295,14 +295,25 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
       return null;
 
     case "xp_tracker":
-      if (typeof payload.can_view_progress === "boolean" && Array.isArray(payload.sheets)) {
+      if (
+        typeof payload.can_manage === "boolean" &&
+        Array.isArray(payload.sheets) &&
+        Array.isArray(payload.parties) &&
+        Array.isArray(payload.kills) &&
+        Array.isArray(payload.adjustments) &&
+        Array.isArray(payload.mobs)
+      ) {
         return {
           response_id:
             typeof payload.response_id === "string" || payload.response_id === null
               ? payload.response_id
               : null,
-          can_view_progress: payload.can_view_progress,
+          can_manage: payload.can_manage,
           sheets: payload.sheets as ProtocolXpTrackerEvent["sheets"],
+          parties: payload.parties as ProtocolXpTrackerEvent["parties"],
+          kills: payload.kills as ProtocolXpTrackerEvent["kills"],
+          adjustments: payload.adjustments as ProtocolXpTrackerEvent["adjustments"],
+          mobs: payload.mobs as ProtocolXpTrackerEvent["mobs"],
           type: "xp_tracker",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null

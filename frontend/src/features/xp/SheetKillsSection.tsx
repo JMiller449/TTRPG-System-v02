@@ -1,16 +1,16 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
-import {
-  buildGetXpTrackerRequest,
-  buildSetSheetMobKillCountRequest
-} from "@/infrastructure/ws/requestBuilders";
+import { buildGetXpTrackerRequest } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
+
+function formatXp(value: number): string {
+  return value.toFixed(2).replace(/\.00$/, "");
+}
 
 export function SheetKillsSection({
   client,
-  instanceId,
-  sheetId
+  instanceId
 }: {
   client: GameClient;
   instanceId: string;
@@ -24,14 +24,12 @@ export function SheetKillsSection({
   const requestedInstanceRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (requestedInstanceRef.current === instanceId) {
-      return;
-    }
+    if (requestedInstanceRef.current === instanceId) return;
     requestedInstanceRef.current = instanceId;
-    client.sendProtocolRequest(buildGetXpTrackerRequest(), "Load tracked kills");
+    client.sendProtocolRequest(buildGetXpTrackerRequest(), "Load kill registry");
   }, [client, instanceId]);
 
-  const trackerSheet = xpTracker?.sheets.find((entry) => entry.sheet_id === sheetId);
+  const trackerSheet = xpTracker?.sheets.find((entry) => entry.instance_id === instanceId);
 
   return (
     <section className="sheet-kills-section">
@@ -39,56 +37,37 @@ export function SheetKillsSection({
         <button
           className="button button--secondary"
           type="button"
-          onClick={() => client.sendProtocolRequest(buildGetXpTrackerRequest(), "Refresh tracked kills")}
+          onClick={() =>
+            client.sendProtocolRequest(buildGetXpTrackerRequest(), "Refresh kill registry")
+          }
         >
           Refresh
         </button>
       </div>
-      {!trackerSheet ? <EmptyState message="Tracked kills have not loaded." /> : null}
-      {trackerSheet?.mobs.length === 0 ? (
-        <EmptyState message="No mobs are configured for XP tracking." />
-      ) : null}
-      {trackerSheet && trackerSheet.mobs.length > 0 ? (
-        <div className="xp-kill-list">
-          {trackerSheet.mobs.map((mob) => (
-            <div className="xp-kill-row" key={mob.sheet_id}>
-              <strong>{mob.name}</strong>
-              <div className="xp-kill-stepper">
-                <button
-                  type="button"
-                  aria-label={`Decrease ${mob.name} kill count`}
-                  disabled={mob.count === 0}
-                  onClick={() =>
-                    client.sendProtocolRequest(
-                      buildSetSheetMobKillCountRequest({
-                        sheetId: instanceId,
-                        mobSheetId: mob.sheet_id,
-                        count: Math.max(0, mob.count - 1)
-                      }),
-                      `Update kills: ${mob.name}`
-                    )
-                  }
-                >
-                  -
-                </button>
-                <output aria-label={`${mob.name} kill count`}>{mob.count}</output>
-                <button
-                  type="button"
-                  aria-label={`Increase ${mob.name} kill count`}
-                  onClick={() =>
-                    client.sendProtocolRequest(
-                      buildSetSheetMobKillCountRequest({
-                        sheetId: instanceId,
-                        mobSheetId: mob.sheet_id,
-                        count: mob.count + 1
-                      }),
-                      `Update kills: ${mob.name}`
-                    )
-                  }
-                >
-                  +
-                </button>
-              </div>
+      {!trackerSheet ? <EmptyState message="Kill history has not loaded." /> : null}
+      {trackerSheet?.kills.length === 0 ? <EmptyState message="No recorded kills." /> : null}
+      {trackerSheet?.kills.map((kill) => (
+        <article className="xp-kill-row" key={kill.id}>
+          <div>
+            <strong>{kill.monster_name}</strong>
+            <span>{new Date(kill.occurred_at).toLocaleString()}</span>
+          </div>
+          <div className="xp-kill-row__award">
+            <strong>{formatXp(kill.xp_per_participant)} XP</strong>
+            <span>
+              {formatXp(kill.xp_percentage)}% · {kill.participant_count} participant
+              {kill.participant_count === 1 ? "" : "s"}
+            </span>
+          </div>
+        </article>
+      ))}
+      {trackerSheet && trackerSheet.adjustments.length > 0 ? (
+        <div className="xp-adjustment-list">
+          <h4>XP Adjustments</h4>
+          {trackerSheet.adjustments.map((adjustment) => (
+            <div className="xp-adjustment-row" key={adjustment.id}>
+              <span>{adjustment.reason || "Manual adjustment"}</span>
+              <strong>{formatXp(adjustment.amount)} XP</strong>
             </div>
           ))}
         </div>

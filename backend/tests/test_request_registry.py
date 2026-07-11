@@ -22,6 +22,7 @@ from backend.protocol.socket import (
     StatePatchEvent,
     StateSnapshotEvent,
     VariableRegistryEvent,
+    XpTrackerEvent,
 )
 
 
@@ -422,6 +423,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     assert contracts["delete_instanced_sheet"].emitted_event_models == (
         StatePatchEvent,
         SheetAccessCodesEvent,
+        XpTrackerEvent,
     )
     assert contracts["set_instanced_sheet_notes"].client_generation == (
         ClientGenerationMetadata(

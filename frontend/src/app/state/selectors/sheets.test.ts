@@ -88,7 +88,7 @@ function sheet(
     notes: `${name} template notes`,
     dm_only: false,
     xp_given_when_slayed: 0,
-    xp_cap: "",
+    xp_cap: 0,
     proficiencies: {},
     items,
     stats: stats(),
@@ -111,7 +111,6 @@ function sheet(
       mental_fortitude: 1,
       courage: 13
     },
-    slayed_record: {},
     actions: {},
     ...overrides
   };

@@ -1,4 +1,4 @@
-import type { AttributeBridge, Formula, SheetKind, SheetSlayedBridge } from "@/domain/models";
+import type { AttributeBridge, Formula, SheetKind } from "@/domain/models";
 import type {
   ResistancePercentDraft,
   SheetFormulaStatName
@@ -43,7 +43,6 @@ export interface TemplateEditorValues {
   actions: TemplateActionAssignment[];
   proficiencies: TemplateProficiencyAssignment[];
   items: TemplateItemAssignment[];
-  slayedRecord: Record<string, SheetSlayedBridge>;
 }
 
 export interface TemplateActionAssignment {

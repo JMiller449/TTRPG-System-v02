@@ -24,11 +24,10 @@ function testSheet(overrides: Partial<Sheet> = {}): Sheet {
     name: "Fighter",
     dm_only: false,
     xp_given_when_slayed: 0,
-    xp_cap: "",
+    xp_cap: 0,
     proficiencies: {},
     items: {},
     stats: createDefaultStats(formulaDefaults),
-    slayed_record: {},
     actions: {
       default_dodge: {
         relationship_id: "default_dodge",

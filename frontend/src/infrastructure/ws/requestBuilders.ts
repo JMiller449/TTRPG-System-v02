@@ -124,22 +124,134 @@ export function buildSetMobXpValueRequest({
   };
 }
 
-export function buildSetSheetMobKillCountRequest({
-  sheetId,
-  mobSheetId,
-  count,
+export function buildSavePartyRequest({
+  partyId,
+  name,
+  memberInstanceIds,
   requestId
 }: {
-  sheetId: string;
-  mobSheetId: string;
-  count: number;
-} & OptionalRequestId): ProtocolRequest<"set_sheet_mob_kill_count"> {
+  partyId: string;
+  name: string;
+  memberInstanceIds: string[];
+} & OptionalRequestId): ProtocolRequest<"save_party"> {
   return {
     ...requestIdField(requestId),
-    type: "set_sheet_mob_kill_count",
-    sheet_id: sheetId,
-    mob_sheet_id: mobSheetId,
-    count
+    type: "save_party",
+    party_id: partyId,
+    name,
+    member_instance_ids: memberInstanceIds
+  };
+}
+
+export function buildDeletePartyRequest({
+  partyId,
+  requestId
+}: { partyId: string } & OptionalRequestId): ProtocolRequest<"delete_party"> {
+  return { ...requestIdField(requestId), type: "delete_party", party_id: partyId };
+}
+
+export function buildRecordKillRequest({
+  killId,
+  creditedInstanceId,
+  monsterSheetId,
+  monsterName,
+  baseXp,
+  occurredAt,
+  notes,
+  requestId
+}: {
+  killId: string;
+  creditedInstanceId: string;
+  monsterSheetId?: string | null;
+  monsterName?: string | null;
+  baseXp?: number | null;
+  occurredAt?: string | null;
+  notes?: string;
+} & OptionalRequestId): ProtocolRequest<"record_kill"> {
+  return {
+    ...requestIdField(requestId),
+    type: "record_kill",
+    kill_id: killId,
+    credited_instance_id: creditedInstanceId,
+    monster_sheet_id: monsterSheetId ?? null,
+    monster_name: monsterName ?? null,
+    base_xp: baseXp ?? null,
+    occurred_at: occurredAt ?? null,
+    notes: notes ?? ""
+  };
+}
+
+export function buildUpdateKillRequest({
+  killId,
+  monsterSheetId,
+  monsterName,
+  baseXp,
+  participantInstanceIds,
+  occurredAt,
+  notes,
+  requestId
+}: {
+  killId: string;
+  monsterSheetId?: string | null;
+  monsterName: string;
+  baseXp: number;
+  participantInstanceIds: string[];
+  occurredAt: string;
+  notes?: string;
+} & OptionalRequestId): ProtocolRequest<"update_kill"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_kill",
+    kill_id: killId,
+    monster_sheet_id: monsterSheetId ?? null,
+    monster_name: monsterName,
+    base_xp: baseXp,
+    participant_instance_ids: participantInstanceIds,
+    occurred_at: occurredAt,
+    notes: notes ?? ""
+  };
+}
+
+export function buildDeleteKillRequest({
+  killId,
+  requestId
+}: { killId: string } & OptionalRequestId): ProtocolRequest<"delete_kill"> {
+  return { ...requestIdField(requestId), type: "delete_kill", kill_id: killId };
+}
+
+export function buildSaveXpAdjustmentRequest({
+  adjustmentId,
+  instanceId,
+  amount,
+  reason,
+  occurredAt,
+  requestId
+}: {
+  adjustmentId: string;
+  instanceId: string;
+  amount: number;
+  reason?: string;
+  occurredAt?: string | null;
+} & OptionalRequestId): ProtocolRequest<"save_xp_adjustment"> {
+  return {
+    ...requestIdField(requestId),
+    type: "save_xp_adjustment",
+    adjustment_id: adjustmentId,
+    instance_id: instanceId,
+    amount,
+    reason: reason ?? "",
+    occurred_at: occurredAt ?? null
+  };
+}
+
+export function buildDeleteXpAdjustmentRequest({
+  adjustmentId,
+  requestId
+}: { adjustmentId: string } & OptionalRequestId): ProtocolRequest<"delete_xp_adjustment"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_xp_adjustment",
+    adjustment_id: adjustmentId
   };
 }
 
@@ -763,25 +875,6 @@ export function buildSetSheetNotesRequest({
     type: "set_sheet_notes",
     sheet_id: sheetId,
     notes
-  };
-}
-
-export function buildSetSheetSlayedCountRequest({
-  sheetId,
-  slayedSheetId,
-  count,
-  requestId
-}: {
-  sheetId: string;
-  slayedSheetId: string;
-  count: number;
-} & OptionalRequestId): ProtocolRequest<"set_sheet_slayed_count"> {
-  return {
-    ...requestIdField(requestId),
-    type: "set_sheet_slayed_count",
-    sheet_id: sheetId,
-    slayed_sheet_id: slayedSheetId,
-    count
   };
 }
 

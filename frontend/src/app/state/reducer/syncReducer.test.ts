@@ -53,7 +53,7 @@ function sheet(items = {}) {
     notes: "",
     dm_only: false,
     xp_given_when_slayed: 0,
-    xp_cap: "",
+    xp_cap: 0,
     proficiencies: {},
     items,
     stats: stats(),
@@ -63,7 +63,6 @@ function sheet(items = {}) {
       mana: 20
     },
     resistances: {},
-    slayed_record: {},
     actions: {}
   };
 }

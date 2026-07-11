@@ -137,8 +137,7 @@ export function createEmptyTemplateEditorValues(
     resistances: toResistancePercentDraft(undefined),
     actions: [],
     proficiencies: [],
-    items: [],
-    slayedRecord: {}
+    items: []
   };
 }
 
@@ -158,6 +157,11 @@ function parseCoreStats(
 function parseNonnegativeInteger(raw: string): number | null {
   const parsed = Number(raw.trim());
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseNonnegativeNumber(raw: string): number | null {
+  const parsed = Number(raw.trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function hasDuplicates(values: string[]): boolean {
@@ -185,8 +189,8 @@ export function validateTemplateEditorValues(
   if (!values.name.trim()) {
     errors.details.push("Template name is required.");
   }
-  if (parseNonnegativeInteger(values.xpGivenWhenSlayed) === null) {
-    errors.details.push("XP awarded must be a whole number of zero or greater.");
+  if (parseNonnegativeNumber(values.xpGivenWhenSlayed) === null) {
+    errors.details.push("XP awarded must be a number of zero or greater.");
   }
 
   if (!parseCoreStats(values.coreStats)) {
@@ -322,7 +326,7 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     name: sheet.name,
     notes: sheet.notes ?? "",
     xpGivenWhenSlayed: String(sheet.xp_given_when_slayed),
-    xpCap: sheet.xp_cap ?? "",
+    xpCap: String(sheet.xp_cap ?? 0),
     coreStats,
     formulaStats: createFormulaStats(sheet.stats),
     attributes: structuredClone(sheet.attributes ?? {}),
@@ -342,10 +346,7 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
       itemId: bridge.item_id,
       count: String(bridge.count),
       equipped: bridge.equipped
-    })),
-    slayedRecord: Object.fromEntries(
-      Object.entries(sheet.slayed_record).map(([key, bridge]) => [key, { ...bridge }])
-    )
+    }))
   };
 }
 
@@ -355,8 +356,9 @@ export function toSheetDefinitionPayload(
 ): SheetDefinitionPayload {
   const coreStats = parseCoreStats(values.coreStats);
   const resistances = parseResistancePercentDraft(values.resistances);
-  const xpGivenWhenSlayed = parseNonnegativeInteger(values.xpGivenWhenSlayed);
-  if (!coreStats || !resistances || xpGivenWhenSlayed === null) {
+  const xpGivenWhenSlayed = parseNonnegativeNumber(values.xpGivenWhenSlayed);
+  const xpCap = parseNonnegativeNumber(values.xpCap || "0");
+  if (!coreStats || !resistances || xpGivenWhenSlayed === null || xpCap === null) {
     throw new Error("Cannot build a sheet payload from an invalid template draft.");
   }
 
@@ -377,7 +379,7 @@ export function toSheetDefinitionPayload(
     notes: values.notes.trim(),
     dm_only: values.kind === "enemy",
     xp_given_when_slayed: xpGivenWhenSlayed,
-    xp_cap: values.xpCap.trim(),
+    xp_cap: xpCap,
     proficiencies: Object.fromEntries(
       values.proficiencies.map((entry) => [
         entry.relationshipId,
@@ -402,7 +404,6 @@ export function toSheetDefinitionPayload(
     ),
     stats: { ...coreStats, ...formulaStats },
     resistances,
-    slayed_record: values.slayedRecord,
     actions: Object.fromEntries(
       values.actions.map((entry) => [
         entry.relationshipId,

@@ -70,7 +70,6 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheet,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
-    SetSheetSlayedCount,
     SetSheetNotes,
     UpdateSheetActionBridge,
     UpdateSheetItemBridge,
@@ -101,10 +100,16 @@ from backend.features.variable_registry.schema import (
     GetVariableRegistry,
 )
 from backend.features.xp_tracker.schema import (
+    DeleteKill,
+    DeleteParty,
+    DeleteXpAdjustment,
     GetXpTracker,
+    RecordKill,
+    SaveParty,
+    SaveXpAdjustment,
     SetMobXpValue,
-    SetSheetMobKillCount,
     SetSheetXpRequired,
+    UpdateKill,
 )
 from backend.protocol.state_schema import (
     ActionStepPayload,
@@ -372,27 +377,69 @@ class SheetAccessClaimedEvent(ProtocolModel):
     request_id: str | None = None
 
 
-class XpTrackerMobEvent(ProtocolModel):
-    sheet_id: str
+class XpTrackerPartyMemberEvent(ProtocolModel):
+    instance_id: str
     name: str
-    count: int
-    xp_value: int | None = None
-    xp_earned: int | None = None
+
+
+class XpTrackerPartyEvent(ProtocolModel):
+    id: str
+    name: str
+    members: list[XpTrackerPartyMemberEvent]
+
+
+class XpTrackerKillParticipantEvent(ProtocolModel):
+    instance_id: str
+    name: str
+
+
+class XpTrackerKillEvent(ProtocolModel):
+    id: str
+    monster_name: str
+    base_xp: float
+    participants: list[XpTrackerKillParticipantEvent]
+    participant_count: int
+    xp_percentage: float
+    xp_per_participant: float
+    occurred_at: str
+    monster_sheet_id: str | None = None
+    notes: str = ""
+
+
+class XpTrackerAdjustmentEvent(ProtocolModel):
+    id: str
+    instance_id: str
+    instance_name: str
+    amount: float
+    reason: str
+    occurred_at: str
 
 
 class XpTrackerSheetEvent(ProtocolModel):
+    instance_id: str
     sheet_id: str
     name: str
-    mobs: list[XpTrackerMobEvent]
-    current_xp: int | None = None
-    xp_required: int | None = None
-    ready_to_level: bool | None = None
+    kills: list[XpTrackerKillEvent]
+    adjustments: list[XpTrackerAdjustmentEvent]
+    current_xp: float
+    xp_required: float
+    ready_to_level: bool
+
+
+class XpTrackerMobEvent(ProtocolModel):
+    sheet_id: str
+    name: str
+    xp_value: float
 
 
 class XpTrackerEvent(ProtocolModel):
     response_id: str | None = None
-    can_view_progress: bool
+    can_manage: bool
     sheets: list[XpTrackerSheetEvent]
+    parties: list[XpTrackerPartyEvent]
+    kills: list[XpTrackerKillEvent]
+    adjustments: list[XpTrackerAdjustmentEvent]
+    mobs: list[XpTrackerMobEvent]
     type: Literal["xp_tracker"] = "xp_tracker"
     request_id: str | None = None
 
@@ -442,7 +489,6 @@ ApplicationRequest = Annotated[
     | UpdateSheet
     | DeleteSheet
     | SetSheetNotes
-    | SetSheetSlayedCount
     | SetInstancedSheetNotes
     | SetInstancedSheetResource
     | AdjustInstancedSheetResource
@@ -482,7 +528,13 @@ ApplicationRequest = Annotated[
     | GetXpTracker
     | SetSheetXpRequired
     | SetMobXpValue
-    | SetSheetMobKillCount,
+    | SaveParty
+    | DeleteParty
+    | RecordKill
+    | UpdateKill
+    | DeleteKill
+    | SaveXpAdjustment
+    | DeleteXpAdjustment,
     Field(discriminator="type"),
 ]
 

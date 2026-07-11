@@ -36,16 +36,18 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
     example_1 = first_state.sheets["dm_examples_sheet"]
     example_2 = first_state.sheets["starter_shadowblade_template"]
     assert example_1.name == "Example Player 1"
-    assert example_1.xp_cap == "100"
+    assert example_1.xp_cap == 100
     assert sum(
-        bridge.count * first_state.sheets[mob_id].xp_given_when_slayed
-        for mob_id, bridge in example_1.slayed_record.items()
+        record.xp_per_participant
+        for record in first_state.kill_registry.values()
+        if any(participant.instance_id == "dm_examples_instance" for participant in record.participants)
     ) == 75
     assert example_2.name == "Example Player 2"
-    assert example_2.xp_cap == "60"
+    assert example_2.xp_cap == 60
     assert sum(
-        bridge.count * first_state.sheets[mob_id].xp_given_when_slayed
-        for mob_id, bridge in example_2.slayed_record.items()
+        record.xp_per_participant
+        for record in first_state.kill_registry.values()
+        if any(participant.instance_id == "starter_shadowblade_instance" for participant in record.participants)
     ) == 60
     effect_types = {
         template.effect.type

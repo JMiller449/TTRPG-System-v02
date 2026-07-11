@@ -10,17 +10,11 @@ from backend.state.models.shared import Bridge
 from backend.state.models.stat import Stats
 
 
-@dataclass
-class SheetSlayedBridge:
-    sheet_id: str
-    count: int
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "SheetSlayedBridge":
-        return cls(
-            sheet_id=raw["sheet_id"],
-            count=raw["count"],
-        )
+def _numeric_xp(value: object) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 # Static sheet, contains basic data like max health, base statistics, max actions, etc.
@@ -30,13 +24,12 @@ class Sheet:
     name: str
     notes: str
     dm_only: bool  # toogle to hide from other users
-    xp_given_when_slayed: int
-    xp_cap: str
+    xp_given_when_slayed: float
+    xp_cap: float
     proficiencies: Dict[str, ProficiencyBridge]
     items: Dict[str, ItemBridge]
     stats: Stats
     resistances: Resistances
-    slayed_record: Dict[str, SheetSlayedBridge]
     actions: Dict[str, Bridge]
     attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
 
@@ -48,8 +41,8 @@ class Sheet:
             name=raw["name"],
             notes=raw.get("notes", ""),
             dm_only=raw["dm_only"],
-            xp_given_when_slayed=raw["xp_given_when_slayed"],
-            xp_cap=raw["xp_cap"],
+            xp_given_when_slayed=_numeric_xp(raw.get("xp_given_when_slayed", 0)),
+            xp_cap=_numeric_xp(raw.get("xp_cap", 0)),
             proficiencies={
                 key: ProficiencyBridge.from_dict(bridge)
                 for key, bridge in raw.get("proficiencies", {}).items()
@@ -60,10 +53,6 @@ class Sheet:
             },
             stats=Stats.from_dict(raw["stats"]),
             resistances=Resistances.from_dict(raw.get("resistances")),
-            slayed_record={
-                key: SheetSlayedBridge.from_dict(bridge)
-                for key, bridge in raw.get("slayed_record", {}).items()
-            },
             actions={
                 key: Bridge.from_dict(bridge)
                 for key, bridge in raw.get("actions", {}).items()

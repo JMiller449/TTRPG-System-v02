@@ -38,7 +38,6 @@ from backend.features.sheet_admin.sheets.schema import (
     ResistancesPayload,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
-    SetSheetSlayedCount,
     SetSheetNotes,
     SheetDefinitionPayload,
     SheetActionBridgePayload,
@@ -78,7 +77,7 @@ from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
 from backend.state.models.shared import Bridge
-from backend.state.models.sheet import InstancedSheet, Sheet, SheetSlayedBridge
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.stat import Stats
 from backend.state.models.state import State
 
@@ -169,13 +168,6 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
         },
         stats=_build_stats(payload.stats, attached_attribute_ids=set(payload.attributes)),
         resistances=_build_resistances(payload.resistances),
-        slayed_record={
-            key: SheetSlayedBridge(
-                sheet_id=bridge.sheet_id,
-                count=bridge.count,
-            )
-            for key, bridge in payload.slayed_record.items()
-        },
         actions={
             key: Bridge(
                 relationship_id=bridge.relationship_id,
@@ -209,7 +201,7 @@ def _sheet_payload_from_instance(
             "notes": notes,
             "dm_only": dm_only,
             "xp_given_when_slayed": 0,
-            "xp_cap": "",
+            "xp_cap": 0,
             "proficiencies": {
                 key: asdict(bridge)
                 for key, bridge in instance.proficiencies.items()
@@ -220,7 +212,6 @@ def _sheet_payload_from_instance(
             },
             "stats": asdict(instance.stats),
             "resistances": asdict(instance.resistances),
-            "slayed_record": {},
             "actions": {
                 key: asdict(bridge)
                 for key, bridge in instance.actions.items()
@@ -444,17 +435,6 @@ def _validate_sheet_references(
             relationship_id=bridge.relationship_id,
         )
         _validate_proficiency_reference(bridge.prof_id, state)
-
-    valid_sheet_ids = set(state.sheets) | {payload.id}
-    for key, bridge in payload.slayed_record.items():
-        if key != bridge.sheet_id:
-            raise ValueError(
-                f"Sheet slayed record key '{key}' must match sheet_id "
-                f"'{bridge.sheet_id}'."
-            )
-        if bridge.sheet_id not in valid_sheet_ids:
-            raise ValueError(f"Sheet '{bridge.sheet_id}' does not exist.")
-
 
 def _build_sheet_action_bridge(payload: SheetActionBridgePayload) -> Bridge:
     return Bridge(
@@ -782,6 +762,24 @@ async def delete_instanced_sheet(request: DeleteInstancedSheet) -> None:
         ops: list = []
         removed_application_ids: set[str] = set()
 
+        for party_id, party in sorted(state.parties.items()):
+            if request.instance_id not in party.member_instance_ids:
+                continue
+            updated_members = [
+                instance_id
+                for instance_id in party.member_instance_ids
+                if instance_id != request.instance_id
+            ]
+            ops.append(
+                state_sync_service.set_mutation(
+                    state,
+                    state_sync_service.join_path(
+                        "parties", party_id, "member_instance_ids"
+                    ),
+                    updated_members,
+                )
+            )
+
         for application_id, active_condition in sorted(
             list(state.active_conditions.items())
         ):
@@ -844,41 +842,6 @@ async def set_sheet_notes(request: SetSheetNotes) -> None:
 
         path = state_sync_service.join_path("sheets", request.sheet_id, "notes")
         op = state_sync_service.set_mutation(state, path, request.notes)
-        return None, [op]
-
-    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
-
-
-async def set_sheet_slayed_count(request: SetSheetSlayedCount) -> None:
-    bridge = SheetSlayedBridge(
-        sheet_id=request.slayed_sheet_id,
-        count=request.count,
-    )
-
-    def mutation(state: State) -> tuple[None, list]:
-        sheet = state.sheets.get(request.sheet_id)
-        if sheet is None:
-            raise ValueError(f"Sheet '{request.sheet_id}' does not exist.")
-        if request.slayed_sheet_id not in state.sheets:
-            raise ValueError(f"Sheet '{request.slayed_sheet_id}' does not exist.")
-
-        path = state_sync_service.join_path(
-            "sheets",
-            request.sheet_id,
-            "slayed_record",
-            request.slayed_sheet_id,
-        )
-        if request.count == 0:
-            if request.slayed_sheet_id not in sheet.slayed_record:
-                return None, []
-            _, op = state_sync_service.remove_mutation(state, path)
-            return None, [op]
-
-        if request.slayed_sheet_id in sheet.slayed_record:
-            op = state_sync_service.set_mutation(state, path, bridge)
-            return None, [op]
-
-        op = state_sync_service.add_mutation(state, path, bridge)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

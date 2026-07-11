@@ -100,23 +100,21 @@ describe("uiReducer", () => {
 
   it("stores and resets the XP tracker read model", () => {
     const tracker = {
-      can_view_progress: false,
+      can_manage: false,
+      parties: [],
+      kills: [],
+      adjustments: [],
+      mobs: [],
       sheets: [
         {
+          instance_id: "hero_1",
           sheet_id: "hero",
           name: "Hero",
-          mobs: [
-            {
-              sheet_id: "goblin",
-              name: "Goblin",
-              count: 2,
-              xp_value: null,
-              xp_earned: null
-            }
-          ],
-          current_xp: null,
-          xp_required: null,
-          ready_to_level: null
+          kills: [],
+          adjustments: [],
+          current_xp: 0,
+          xp_required: 0,
+          ready_to_level: false
         }
       ]
     };

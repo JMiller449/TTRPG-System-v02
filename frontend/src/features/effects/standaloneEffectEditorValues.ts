@@ -8,11 +8,6 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import type { StandaloneEffectDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
 
-function optionalText(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function cleanPath(path: string[]): string[] {
   return path.map((segment) => segment.trim()).filter(Boolean);
 }

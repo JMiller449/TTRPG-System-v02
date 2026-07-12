@@ -16,7 +16,7 @@ describe("SheetStatPointAllocator", () => {
     expect(markup).toBe("");
   });
 
-  it("renders core stat allocation controls only", () => {
+  it("renders allocation controls for core and formula stats", () => {
     const markup = renderToStaticMarkup(
       <SheetStatPointAllocator
         instanceId="hero"
@@ -39,8 +39,8 @@ describe("SheetStatPointAllocator", () => {
     expect(markup).toContain("2 of 2 available");
     expect(markup).toContain("Strength");
     expect(markup).toContain("Will");
-    expect(markup).not.toContain("Health");
-    expect(markup).not.toContain("Mana");
+    expect(markup).toContain("Health");
+    expect(markup).toContain("Mana");
     expect(markup).toContain("disabled");
   });
 });

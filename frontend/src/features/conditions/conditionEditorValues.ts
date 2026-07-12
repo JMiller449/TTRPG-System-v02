@@ -27,11 +27,6 @@ function cleanPath(path: string[]): string[] {
   return path.map((segment) => segment.trim()).filter(Boolean);
 }
 
-function optionalText(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 export function toConditionPresetEditorValues(
   condition: ConditionPreset
 ): ConditionPresetEditorValues {

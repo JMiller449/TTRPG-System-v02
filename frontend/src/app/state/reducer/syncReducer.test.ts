@@ -1895,7 +1895,7 @@ describe("authoritative server-state sync", () => {
     expect(detail?.instance.notes).toBe("Edited instance notes.");
   });
 
-  it("reconciles current instance resources from authoritative patches", () => {
+  it("reconciles current resources without overwriting formula-derived stats", () => {
     const selectedState = reducer(initialState, {
       type: "set_active_sheet_local",
       sheetId: "instance_1"
@@ -1948,8 +1948,9 @@ describe("authoritative server-state sync", () => {
     const detail = selectActiveSheetDetail(result.state);
     expect(detail?.persistentSheet.health).toBe(82);
     expect(detail?.persistentSheet.mana).toBe(14);
-    expect(detail?.stats.health).toBe(82);
-    expect(detail?.stats.mana).toBe(14);
+    expect(detail?.resources).toEqual({ health: 82, mana: 14 });
+    expect(detail?.stats.health).toBe(100);
+    expect(detail?.stats.mana).toBe(20);
   });
 
   it("reconciles base stat patches from authoritative state", () => {

@@ -520,7 +520,6 @@ button.formula-tag-suggestion {
 .authoring-workspace__editor,
 .authoring-workspace__catalog-scroll,
 .character-sheet__tab-panel,
-#sheet-panel-actions .action-command-grid,
 #sheet-panel-actions .sheet-actions-section__manager-body > .list,
 .app-notification-slot .intent-banner-stack {
   cursor: grab;
@@ -529,7 +528,6 @@ button.formula-tag-suggestion {
 .r6-theme .authoring-workspace__editor,
 .r6-theme .authoring-workspace__catalog-scroll,
 .r6-theme .character-sheet__tab-panel,
-.r6-theme #sheet-panel-actions .action-command-grid,
 .r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list,
 .r6-theme .app-notification-slot .intent-banner-stack {
   scrollbar-width: none;
@@ -538,7 +536,6 @@ button.formula-tag-suggestion {
 .r6-theme .authoring-workspace__editor::-webkit-scrollbar,
 .r6-theme .authoring-workspace__catalog-scroll::-webkit-scrollbar,
 .r6-theme .character-sheet__tab-panel::-webkit-scrollbar,
-.r6-theme #sheet-panel-actions .action-command-grid::-webkit-scrollbar,
 .r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list::-webkit-scrollbar,
 .r6-theme .app-notification-slot .intent-banner-stack::-webkit-scrollbar {
   display: none;

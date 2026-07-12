@@ -33,8 +33,16 @@ interface PendingTemplateSave {
 export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
   const { serverState } = state;
-  const { actions, actionOrder, proficiencies, proficiencyOrder, items, itemOrder, attributes, sheets } =
-    serverState;
+  const {
+    actions,
+    actionOrder,
+    proficiencies,
+    proficiencyOrder,
+    items,
+    itemOrder,
+    attributes,
+    sheets
+  } = serverState;
   const {
     templateBuilderSheetId,
     actionFormulaAuthoringMetadata,
@@ -47,10 +55,11 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
     [actionFormulaAuthoringMetadata]
   );
   const formulaDefaultsReady = formulaDefaults.length > 0;
+  const resourceDefaults = actionFormulaAuthoringMetadata?.sheet_resource_formula_defaults;
   const [values, setValues] = useState<TemplateEditorValues>(() =>
     sourceSheet
       ? toTemplateEditorValues(sourceSheet)
-      : createEmptyTemplateEditorValues("player", attributes, formulaDefaults)
+      : createEmptyTemplateEditorValues("player", attributes, formulaDefaults, resourceDefaults)
   );
   const [pendingSave, setPendingSave] = useState<PendingTemplateSave | null>(null);
   const [contextualKind, setContextualKind] = useState<TemplateContextualEntityKind | null>(null);
@@ -74,9 +83,16 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
     setValues(
       templateBuilderSheetId && sheets[templateBuilderSheetId]
         ? toTemplateEditorValues(sheets[templateBuilderSheetId])
-        : createEmptyTemplateEditorValues("player", attributes, formulaDefaults)
+        : createEmptyTemplateEditorValues("player", attributes, formulaDefaults, resourceDefaults)
     );
-  }, [attributes, formulaDefaults, formulaDefaultsReady, sheets, templateBuilderSheetId]);
+  }, [
+    attributes,
+    formulaDefaults,
+    formulaDefaultsReady,
+    resourceDefaults,
+    sheets,
+    templateBuilderSheetId
+  ]);
 
   useEffect(() => {
     if (!templateBuilderSheetId || sourceSheet) {

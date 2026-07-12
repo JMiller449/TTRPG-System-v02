@@ -131,6 +131,12 @@ class SheetPayload(ProtocolModel):
     items: dict[str, ItemBridgePayload]
     stats: StatsPayload
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    racial_hp_multiplier: float = 1.0
+    max_health: FormulaPayload
+    max_mana: FormulaPayload
+    evaluated_max_health: int = 0
+    evaluated_max_mana: int = 0
+    stat_bonuses: dict[str, int] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     actions: dict[str, BridgePayload]
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
@@ -144,6 +150,12 @@ class InstancedSheetPayload(ProtocolModel):
     unassigned_stat_points: int = 0
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    racial_hp_multiplier: float = 1.0
+    max_health: FormulaPayload
+    max_mana: FormulaPayload
+    evaluated_max_health: int = 0
+    evaluated_max_mana: int = 0
+    stat_bonuses: dict[str, int] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     actions: dict[str, BridgePayload] = Field(default_factory=dict)

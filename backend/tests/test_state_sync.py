@@ -713,6 +713,8 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                     (
                         "/sheets/mage_template/stats/strength",
                         "/sheets/mage_template/evaluated_stats",
+                        "/sheets/mage_template/evaluated_max_health",
+                        "/sheets/mage_template/evaluated_max_mana",
                     ),
                 ),
                 (
@@ -722,6 +724,8 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                     (
                         "/sheets/mage_template/stats/strength",
                         "/sheets/mage_template/evaluated_stats",
+                        "/sheets/mage_template/evaluated_max_health",
+                        "/sheets/mage_template/evaluated_max_mana",
                     ),
                 ),
             ]
@@ -890,6 +894,8 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
                 "arcane": 14,
                 "will": 15,
             }
+            expected_state["sheets"]["mage_template"]["evaluated_max_health"] = 120
+            expected_state["sheets"]["mage_template"]["evaluated_max_mana"] = 112
             assert websocket.sent_messages == [
                 {
                     "response_id": None,

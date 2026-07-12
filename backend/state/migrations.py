@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import re
 from typing import Any
 
 from backend.state.default_actions import (
@@ -12,7 +13,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 23
+CURRENT_STATE_SCHEMA_VERSION = 24
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1345,17 +1346,138 @@ def _migrate_v21_to_v22(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 22, "state": state}
 
 
+def _formula_payload(text: str, aliases: list[tuple[str, list[str]]]) -> dict[str, Any]:
+    return {
+        "text": text,
+        "aliases": [
+            {"name": name, "path": path}
+            for name, path in aliases
+        ],
+        "tags": [],
+    }
+
+
+def _corrected_health_formula_payload() -> dict[str, Any]:
+    return _formula_payload(
+        "floor(@constitution)",
+        [("constitution", ["stats", "constitution"])],
+    )
+
+
+def _corrected_mana_formula_payload() -> dict[str, Any]:
+    return _formula_payload(
+        "floor(@arcane)",
+        [("arcane", ["stats", "arcane"])],
+    )
+
+
+_LEGACY_STAT_NAMES = {
+    "strength",
+    "dexterity",
+    "constitution",
+    "perception",
+    "arcane",
+    "will",
+    "lifting",
+    "carry_weight",
+    "acrobatics",
+    "stamina",
+    "reaction_time",
+    "health",
+    "endurance",
+    "pain_tolerance",
+    "sight_distance",
+    "intuition",
+    "registration",
+    "mana",
+    "control",
+    "sensitivity",
+    "charisma",
+    "mental_fortitude",
+    "courage",
+}
+
+
+def _normalize_legacy_resource_formula(value: Any) -> dict[str, Any]:
+    formula = deepcopy(value) if isinstance(value, dict) else {"text": str(value)}
+    aliases = formula.get("aliases")
+    if isinstance(aliases, list):
+        for alias in aliases:
+            if not isinstance(alias, dict):
+                continue
+            path = alias.get("path")
+            if (
+                isinstance(path, list)
+                and len(path) == 1
+                and path[0] in _LEGACY_STAT_NAMES
+            ):
+                alias["path"] = ["stats", path[0]]
+    else:
+        text = formula.get("text", "")
+        names = sorted(
+            name
+            for name in set(re.findall(r"@([A-Za-z_][A-Za-z0-9_]*)", text))
+            if name in _LEGACY_STAT_NAMES
+        )
+        formula["aliases"] = [
+            {"name": name, "path": ["stats", name]}
+            for name in names
+        ] or None
+    formula.setdefault("tags", [])
+    return formula
+
+
+def _rewrite_resource_bound_formula_aliases(value: Any) -> None:
+    if isinstance(value, list):
+        for entry in value:
+            _rewrite_resource_bound_formula_aliases(entry)
+        return
+    if not isinstance(value, dict):
+        return
+
+    aliases = value.get("aliases")
+    if isinstance(aliases, list):
+        for alias in aliases:
+            if not isinstance(alias, dict):
+                continue
+            path = alias.get("path")
+            if path == ["stats", "health"]:
+                alias["path"] = ["max_health"]
+            elif path == ["stats", "mana"]:
+                alias["path"] = ["max_mana"]
+
+    for entry in value.values():
+        _rewrite_resource_bound_formula_aliases(entry)
+
+
+def _rewrite_legacy_action_resource_bounds(value: Any) -> None:
+    if isinstance(value, list):
+        for entry in value:
+            _rewrite_legacy_action_resource_bounds(entry)
+        return
+    if not isinstance(value, dict):
+        return
+
+    for key, entry in value.items():
+        if key == "max_value":
+            _rewrite_resource_bound_formula_aliases(entry)
+        else:
+            _rewrite_legacy_action_resource_bounds(entry)
+
+
 def _migrate_v22_to_v23(envelope: PersistedEnvelope) -> PersistedEnvelope:
-    # Version 18 was also used by the XP-tracking branch. Reapply its shape
-    # changes idempotently so checkpoints from either branch converge here.
     state = deepcopy(envelope["state"])
+    # Version 23 was independently used for XP tracking and resource formulas.
+    # Apply both shape changes here so version-22 checkpoints receive both.
     state.setdefault("parties", {})
     state.setdefault("kill_registry", {})
     state.setdefault("xp_adjustments", {})
 
     sheets = state.get("sheets", {})
+    legacy_maxima: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+
     if isinstance(sheets, dict):
-        for sheet in sheets.values():
+        for sheet_id, sheet in sheets.items():
             if not isinstance(sheet, dict):
                 continue
             sheet.pop("slayed_record", None)
@@ -1369,8 +1491,77 @@ def _migrate_v22_to_v23(envelope: PersistedEnvelope) -> PersistedEnvelope:
                     )
                 except (InvalidOperation, ValueError):
                     sheet[field_name] = 0.0
+            stats = sheet.get("stats")
+            if not isinstance(stats, dict):
+                continue
+            legacy_health = _normalize_legacy_resource_formula(
+                stats.get("health", _corrected_health_formula_payload())
+            )
+            legacy_mana = _normalize_legacy_resource_formula(
+                stats.get("mana", _corrected_mana_formula_payload())
+            )
+            legacy_maxima[sheet_id] = (legacy_health, legacy_mana)
+            sheet.setdefault("racial_hp_multiplier", 1.0)
+            sheet.setdefault("max_health", legacy_health)
+            sheet.setdefault("max_mana", legacy_mana)
+            sheet.setdefault("stat_bonuses", {})
+            stats["health"] = _corrected_health_formula_payload()
+            stats["mana"] = _corrected_mana_formula_payload()
 
+    instances = state.get("instanced_sheets", {})
+    if isinstance(instances, dict):
+        for instance in instances.values():
+            if not isinstance(instance, dict):
+                continue
+            parent_id = instance.get("parent_id")
+            parent_maxima = legacy_maxima.get(parent_id)
+            stats = instance.get("stats")
+            if isinstance(stats, dict):
+                legacy_health = _normalize_legacy_resource_formula(
+                    stats.get(
+                        "health",
+                        parent_maxima[0]
+                        if parent_maxima is not None
+                        else _corrected_health_formula_payload(),
+                    )
+                )
+                legacy_mana = _normalize_legacy_resource_formula(
+                    stats.get(
+                        "mana",
+                        parent_maxima[1]
+                        if parent_maxima is not None
+                        else _corrected_mana_formula_payload(),
+                    )
+                )
+                stats["health"] = _corrected_health_formula_payload()
+                stats["mana"] = _corrected_mana_formula_payload()
+            else:
+                legacy_health = _normalize_legacy_resource_formula(
+                    parent_maxima[0]
+                    if parent_maxima is not None
+                    else _corrected_health_formula_payload()
+                )
+                legacy_mana = _normalize_legacy_resource_formula(
+                    parent_maxima[1]
+                    if parent_maxima is not None
+                    else _corrected_mana_formula_payload()
+                )
+            instance.setdefault("racial_hp_multiplier", 1.0)
+            instance.setdefault("max_health", legacy_health)
+            instance.setdefault("max_mana", legacy_mana)
+            instance.setdefault("stat_bonuses", {})
+
+    _rewrite_legacy_action_resource_bounds(state.get("actions", {}))
     return {"schema_version": 23, "state": state}
+
+
+def _migrate_v23_to_v24(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Existing version-23 checkpoints may come from either pre-merge history.
+    # The version-23 migration is idempotent, so replay it to converge their shapes.
+    migrated = _migrate_v22_to_v23(
+        {"schema_version": 22, "state": envelope["state"]}
+    )
+    return {"schema_version": 24, "state": migrated["state"]}
 
 
 MIGRATIONS: dict[int, Migration] = {
@@ -1397,6 +1588,7 @@ MIGRATIONS: dict[int, Migration] = {
     20: _migrate_v20_to_v21,
     21: _migrate_v21_to_v22,
     22: _migrate_v22_to_v23,
+    23: _migrate_v23_to_v24,
 }
 
 

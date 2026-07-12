@@ -162,6 +162,7 @@ describe("templateEditorValues", () => {
   it("maps a complete template draft to one backend sheet definition", () => {
     const values = createEmptyTemplateEditorValues("enemy", {}, formulaDefaults);
     values.name = "  Ember Guard  ";
+    values.racialHpMultiplier = "50";
     values.notes = "  GM-facing notes  ";
     values.xpGivenWhenSlayed = "25";
     values.xpCap = " 100 ";
@@ -203,6 +204,9 @@ describe("templateEditorValues", () => {
       dm_only: true,
       xp_given_when_slayed: 25,
       xp_cap: 100,
+      racial_hp_multiplier: 50,
+      max_health: { text: "floor(@health * @racial_hp_multiplier)" },
+      max_mana: { text: "floor(@arcane * @mana)" },
       stats: {
         strength: 12,
         arcane: 8,
@@ -247,6 +251,7 @@ describe("templateEditorValues", () => {
   it("seeds required Attributes and includes them in the atomic sheet payload", () => {
     const values = createEmptyTemplateEditorValues("player", sheetAttributes, formulaDefaults);
     values.name = "Reactive Guard";
+    values.racialHpMultiplier = "50";
     const validation = validateTemplateEditorValues(values, {
       ...catalogs,
       attributes: sheetAttributes

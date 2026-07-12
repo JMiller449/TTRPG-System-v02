@@ -258,6 +258,11 @@ class SheetFormulaStatDefaultMetadataEvent(ProtocolModel):
     formula: FormulaPayload
 
 
+class SheetResourceFormulaDefaultsMetadataEvent(ProtocolModel):
+    max_health: FormulaPayload
+    max_mana: FormulaPayload
+
+
 class ActionStepAuthoringMetadataEvent(ProtocolModel):
     type: str
     label: str
@@ -331,6 +336,7 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     sheet_formula_stat_defaults: list[
         SheetFormulaStatDefaultMetadataEvent
     ] = Field(default_factory=list)
+    sheet_resource_formula_defaults: SheetResourceFormulaDefaultsMetadataEvent | None = None
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"

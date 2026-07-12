@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.attributes.value_schema import AttributeBridgePayload
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
-from backend.features.attributes.value_schema import AttributeBridgePayload
+from backend.state.models.stat import FormulaStatName
 
 
 class ActionBridgePayload(BaseModel):
@@ -80,6 +81,13 @@ class ResistancesPayload(BaseModel):
     gravity: float = 0.0
     psychic: float = 0.0
 
+    @field_validator("*")
+    @classmethod
+    def validate_resistance_value(cls, value: float) -> float:
+        if not isfinite(value) or value < 0 or value > 1:
+            raise ValueError("Resistance must be a finite fraction from 0 to 1.")
+        return value
+
 
 class SheetDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
@@ -91,6 +99,10 @@ class SheetDefinitionPayload(BaseModel):
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     stats: StatsPayload
+    racial_hp_multiplier: float = Field(gt=0)
+    max_health: FormulaPayload | None = None
+    max_mana: FormulaPayload | None = None
+    stat_bonuses: dict[FormulaStatName, int] = Field(default_factory=dict)
     resistances: ResistancesPayload = Field(default_factory=ResistancesPayload)
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
@@ -102,6 +114,12 @@ class SheetDefinitionPayload(BaseModel):
             return max(0.0, float(value or 0))
         except (TypeError, ValueError):
             return 0.0
+
+    @model_validator(mode="after")
+    def validate_stat_bonuses(self) -> "SheetDefinitionPayload":
+        if any(value < 0 for value in self.stat_bonuses.values()):
+            raise ValueError("Permanent substat bonuses must not be negative.")
+        return self
 
 
 class CreateSheet(RequestModel):

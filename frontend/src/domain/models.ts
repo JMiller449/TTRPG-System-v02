@@ -358,12 +358,7 @@ export interface ConditionPreset {
   augmentation_templates?: Augmentation[];
 }
 
-export type ConditionSourceType =
-  | "action"
-  | "manual"
-  | "item"
-  | "condition"
-  | "other";
+export type ConditionSourceType = "action" | "manual" | "item" | "condition" | "other";
 
 export interface ConditionSource {
   type: ConditionSourceType;
@@ -495,6 +490,12 @@ export interface Sheet {
   items: Record<string, ItemBridge>;
   stats: Stats;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  racial_hp_multiplier?: number;
+  max_health?: Formula;
+  max_mana?: Formula;
+  evaluated_max_health?: number;
+  evaluated_max_mana?: number;
+  stat_bonuses?: Partial<Record<StatKey, number>>;
   resistances?: Resistances;
   actions: Record<string, Bridge>;
   attributes?: Record<string, AttributeBridge>;
@@ -508,6 +509,12 @@ export interface PersistentSheet {
   unassigned_stat_points?: number;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  racial_hp_multiplier?: number;
+  max_health?: Formula;
+  max_mana?: Formula;
+  evaluated_max_health?: number;
+  evaluated_max_mana?: number;
+  stat_bonuses?: Partial<Record<StatKey, number>>;
   items?: Record<string, ItemBridge>;
   proficiencies?: Record<string, ProficiencyBridge>;
   actions?: Record<string, Bridge>;

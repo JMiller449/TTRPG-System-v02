@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import get_args
 
 from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
 from backend.features.sheet_admin.formulas.service import build_formula
@@ -18,6 +19,7 @@ from backend.features.variable_registry import service as variable_registry_serv
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.resistance import Resistances
 from backend.state.models.state import State
+from backend.state.models.stat import FormulaStatName
 
 
 async def set_base_stat(request: SetSheetBaseStat) -> None:
@@ -102,13 +104,25 @@ async def allocate_instanced_stat_points(
 
         ops = []
         for stat_name, value in sorted(allocations.items()):
-            path = state_sync_service.join_path(
-                "instanced_sheets",
-                request.instance_id,
-                "stats",
-                stat_name,
-            )
-            ops.append(state_sync_service.increment_mutation(state, path, value))
+            if stat_name in get_args(FormulaStatName):
+                path = state_sync_service.join_path(
+                    "instanced_sheets",
+                    request.instance_id,
+                    "stat_bonuses",
+                    stat_name,
+                )
+                if stat_name in instance.stat_bonuses:
+                    ops.append(state_sync_service.increment_mutation(state, path, value))
+                else:
+                    ops.append(state_sync_service.add_mutation(state, path, value))
+            else:
+                path = state_sync_service.join_path(
+                    "instanced_sheets",
+                    request.instance_id,
+                    "stats",
+                    stat_name,
+                )
+                ops.append(state_sync_service.increment_mutation(state, path, value))
 
         points_path = state_sync_service.join_path(
             "instanced_sheets",

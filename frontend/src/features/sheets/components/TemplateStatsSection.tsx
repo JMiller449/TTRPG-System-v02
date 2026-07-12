@@ -62,6 +62,30 @@ export function TemplateStatsSection({
           </Field>
         ))}
       </div>
+      <div className="template-builder__core-grid">
+        <Field label="Maximum Health Formula">
+          <textarea
+            rows={3}
+            value={values.maxHealth.text}
+            onChange={(event) =>
+              onChange({ ...values, maxHealth: { ...values.maxHealth, text: event.target.value } })
+            }
+          />
+        </Field>
+        <Field label="Maximum Mana Formula">
+          <textarea
+            rows={3}
+            value={values.maxMana.text}
+            onChange={(event) =>
+              onChange({ ...values, maxMana: { ...values.maxMana, text: event.target.value } })
+            }
+          />
+        </Field>
+      </div>
+      <p className="muted">
+        Maximum Health uses the racial multiplier; Maximum Mana uses Arcane and the Mana substat.
+        Existing variable aliases are preserved when formulas are edited.
+      </p>
       <details className="template-builder__advanced-disclosure">
         <summary>
           <span>
@@ -70,8 +94,8 @@ export function TemplateStatsSection({
           </span>
         </summary>
         <p className="muted">
-          Change these only when this template calculates a derived stat differently from the
-          normal system rules.
+          Change these only when this template calculates a derived stat differently from the normal
+          system rules.
         </p>
         <div className="template-builder__formula-workspace">
           <nav className="template-builder__formula-nav" aria-label="Formula stats">

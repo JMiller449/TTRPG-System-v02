@@ -119,8 +119,8 @@ export function PlayerCharacterSheet({
   const resourceEditor = useResourceEditor({
     resetToken: detail?.instance.id,
     instanceId: detail?.instance.id,
-    baseHealth: detail?.stats.health ?? 0,
-    baseMana: detail?.stats.mana ?? 0,
+    baseHealth: detail?.resources.health ?? 0,
+    baseMana: detail?.resources.mana ?? 0,
     client
   });
   const visibleResistances = detail?.persistentSheet.resistances ?? detail?.sheet?.resistances;
@@ -213,7 +213,7 @@ export function PlayerCharacterSheet({
           </div>
           <div className="character-sheet__header-resources">
             <SheetResourceHeader
-              stats={detail.stats}
+              maximums={detail.resourceMaximums}
               resources={resourceEditor.resources}
               editingResource={resourceEditor.editingResource}
               resourceDraftModifier={resourceEditor.resourceDraftModifier}

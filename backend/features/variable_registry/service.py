@@ -15,6 +15,7 @@ from backend.features.variable_registry.schema import (
     FormulaAliasMetadata,
     AttributeFormulaVariablePathMetadata,
     SheetFormulaStatDefaultMetadata,
+    SheetResourceFormulaDefaultsMetadata,
     VariableEditableRole,
     VariablePathMetadata,
     VariableRegistry,
@@ -36,7 +37,11 @@ from backend.state.models.attribute import (
     AttributeDefinition,
 )
 from backend.state.models.state import State
-from backend.state.models.stat import default_sheet_formula_stats
+from backend.state.models.stat import (
+    default_max_health_formula,
+    default_max_mana_formula,
+    default_sheet_formula_stats,
+)
 
 _BASE_STATS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("strength", "Strength", ("str", "strength")),
@@ -339,6 +344,31 @@ def _sheet_formula_stat(name: str, label: str) -> VariablePathMetadata:
     )
 
 
+def _sheet_resource_formula(name: str, label: str) -> VariablePathMetadata:
+    return VariablePathMetadata(
+        key=f"sheet.{name}",
+        label=label,
+        root="sheet",
+        path=[name],
+        value_type="formula",
+        editable_roles=_DM_ONLY,
+        formula_backed=True,
+        description=f"Formula-backed sheet resource maximum: {label}.",
+    )
+
+
+def _sheet_racial_hp_multiplier() -> VariablePathMetadata:
+    return VariablePathMetadata(
+        key="sheet.racial_hp_multiplier",
+        label="Racial HP Multiplier",
+        root="sheet",
+        path=["racial_hp_multiplier"],
+        value_type="number",
+        editable_roles=_DM_ONLY,
+        description="Template-specific multiplier used to calculate maximum HP.",
+    )
+
+
 def _instance_base_stat(name: str, label: str) -> VariablePathMetadata:
     return VariablePathMetadata(
         key=f"instance.stats.{name}",
@@ -395,6 +425,9 @@ def build_variable_registry(*, request_id: str | None = None) -> VariableRegistr
             for name, label, shortcuts in _BASE_STATS
         ],
         *[_sheet_formula_stat(name, label) for name, label in _FORMULA_STATS],
+        _sheet_resource_formula("max_health", "Maximum Health"),
+        _sheet_resource_formula("max_mana", "Maximum Mana"),
+        _sheet_racial_hp_multiplier(),
         *[
             _resistance_variable(
                 root="sheet",
@@ -724,5 +757,9 @@ def build_action_formula_authoring_metadata(
             SheetFormulaStatDefaultMetadata(stat_name=stat_name, formula=formula)
             for stat_name, formula in default_sheet_formula_stats().items()
         ],
+        sheet_resource_formula_defaults=SheetResourceFormulaDefaultsMetadata(
+            max_health=default_max_health_formula(),
+            max_mana=default_max_mana_formula(),
+        ),
         request_id=request_id,
     )

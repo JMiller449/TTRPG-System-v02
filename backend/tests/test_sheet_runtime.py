@@ -2600,7 +2600,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             }
 
             await handle_client_payload(websocket, request)
-            assert state.instanced_sheets["mage_instance"].mana == 55.8
+            assert state.instanced_sheets["mage_instance"].mana == 55
             assert _request_messages(websocket)[-1]["type"] == "state_patch"
 
             state.instanced_sheets["mage_instance"].mana = 30
@@ -2615,7 +2615,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             state.items["test-sword"].attribute_profile = "weapon"
             await handle_client_payload(websocket, request)
 
-            assert state.instanced_sheets["mage_instance"].mana == 55.8
+            assert state.instanced_sheets["mage_instance"].mana == 55
             assert _request_messages(websocket)[-1]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state

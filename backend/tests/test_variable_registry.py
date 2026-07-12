@@ -86,6 +86,13 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "source_item",
     ]
     assert metadata.action_mutation_roots == ["sheet", "instance"]
+    assert metadata.sheet_resource_formula_defaults is not None
+    assert metadata.sheet_resource_formula_defaults.max_health.text == (
+        "floor(@health * @racial_hp_multiplier)"
+    )
+    assert metadata.sheet_resource_formula_defaults.max_mana.text == (
+        "floor(@arcane * @mana)"
+    )
     assert set(default_sheet_actions) == {
         "baseline_check_strength",
         "baseline_check_dexterity",
@@ -107,29 +114,29 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     assert amount_of_reactions.subject_types == ["sheet"]
     assert amount_of_reactions.path == ["attributes", "amount_of_reactions"]
     assert {name: formula.text for name, formula in sheet_formula_defaults.items()} == {
-        "lifting": "@strength",
-        "carry_weight": "@strength",
-        "acrobatics": "(@dexterity + @registration) / 2",
-        "stamina": "@dexterity",
-        "reaction_time": "(@stamina + @intuition) / 2",
-        "health": "@constitution",
-        "endurance": "(@stamina + @constitution) / 2",
-        "pain_tolerance": "(@endurance + @strength) / 2",
-        "sight_distance": "@perception",
-        "intuition": "(@perception + @registration) / 2",
-        "registration": "@perception",
-        "mana": "@arcane",
-        "control": "(@arcane + @mana) / 2",
-        "sensitivity": "(@intuition + @arcane) / 2",
-        "charisma": "@will",
-        "mental_fortitude": "(@will + @charisma) / 2",
-        "courage": "(@mental_fortitude + @charisma) / 2",
+        "lifting": "floor(@strength)",
+        "carry_weight": "floor(@strength)",
+        "acrobatics": "floor((@dexterity + @registration) / 2)",
+        "stamina": "floor(@dexterity)",
+        "reaction_time": "floor((@dexterity + @intuition) / 2)",
+        "health": "floor(@constitution)",
+        "endurance": "floor((@health + @constitution) / 2)",
+        "pain_tolerance": "floor((@endurance + @strength) / 2)",
+        "sight_distance": "floor(@perception)",
+        "intuition": "floor(@perception)",
+        "registration": "floor(@perception)",
+        "mana": "floor(@arcane)",
+        "control": "floor((@arcane + @mana) / 2)",
+        "sensitivity": "floor((@intuition + @arcane) / 2)",
+        "charisma": "floor(@will)",
+        "mental_fortitude": "floor((@will + @charisma) / 2)",
+        "courage": "floor((@mental_fortitude + @charisma) / 2)",
     }
     assert [
         (alias.name, alias.path)
         for alias in sheet_formula_defaults["reaction_time"].aliases or []
     ] == [
-        ("stamina", ["stats", "stamina"]),
+        ("dexterity", ["stats", "dexterity"]),
         ("intuition", ["stats", "intuition"]),
     ]
     assert set(attribute_presets) == {"action_details", "spell_details"}

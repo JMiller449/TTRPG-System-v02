@@ -49,6 +49,26 @@ export interface TemplateEditorValidation {
 export type SheetFormulaStatDefaults = NonNullable<
   ActionFormulaAuthoringMetadata["sheet_formula_stat_defaults"]
 >;
+export type SheetResourceFormulaDefaults = NonNullable<
+  ActionFormulaAuthoringMetadata["sheet_resource_formula_defaults"]
+>;
+
+const FALLBACK_MAX_HEALTH: Formula = {
+  aliases: [
+    { name: "health", path: ["stats", "health"] },
+    { name: "racial_hp_multiplier", path: ["racial_hp_multiplier"] }
+  ],
+  text: "floor(@health * @racial_hp_multiplier)",
+  tags: []
+};
+const FALLBACK_MAX_MANA: Formula = {
+  aliases: [
+    { name: "arcane", path: ["stats", "arcane"] },
+    { name: "mana", path: ["stats", "mana"] }
+  ],
+  text: "floor(@arcane * @mana)",
+  tags: []
+};
 
 function cloneFormula(formula: Formula): Formula {
   return {
@@ -119,7 +139,8 @@ function createRequiredSheetAttributes(
 export function createEmptyTemplateEditorValues(
   kind: SheetKind = "player",
   attributeDefinitions: Record<string, AttributeDefinition> = {},
-  formulaDefaults: SheetFormulaStatDefaults = []
+  formulaDefaults: SheetFormulaStatDefaults = [],
+  resourceDefaults?: SheetResourceFormulaDefaults | null
 ): TemplateEditorValues {
   const stats = createDefaultStats(formulaDefaults);
   return {
@@ -128,6 +149,9 @@ export function createEmptyTemplateEditorValues(
     notes: "",
     xpGivenWhenSlayed: "0",
     xpCap: "",
+    racialHpMultiplier: "",
+    maxHealth: cloneFormula(resourceDefaults?.max_health ?? FALLBACK_MAX_HEALTH),
+    maxMana: cloneFormula(resourceDefaults?.max_mana ?? FALLBACK_MAX_MANA),
     coreStats: CORE_TEMPLATE_STATS.reduce(
       (acc, key) => ({ ...acc, [key]: "0" }),
       {} as TemplateEditorValues["coreStats"]
@@ -192,6 +216,13 @@ export function validateTemplateEditorValues(
   if (parseNonnegativeNumber(values.xpGivenWhenSlayed) === null) {
     errors.details.push("XP awarded must be a number of zero or greater.");
   }
+  if (
+    !values.racialHpMultiplier.trim() ||
+    Number(values.racialHpMultiplier) <= 0 ||
+    !Number.isFinite(Number(values.racialHpMultiplier))
+  ) {
+    errors.details.push("Racial HP multiplier must be a number greater than zero.");
+  }
 
   if (!parseCoreStats(values.coreStats)) {
     errors.stats.push("Every core stat must be a finite whole number.");
@@ -207,6 +238,9 @@ export function validateTemplateEditorValues(
   });
   if (invalidFormula) {
     errors.stats.push("Every formula stat needs a formula and valid variable aliases.");
+  }
+  if ([values.maxHealth, values.maxMana].some((formula) => !formula.text.trim())) {
+    errors.stats.push("Maximum Health and Maximum Mana formulas are required.");
   }
 
   const attributeDefinitions = catalogs.attributes ?? {};
@@ -327,6 +361,9 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     notes: sheet.notes ?? "",
     xpGivenWhenSlayed: String(sheet.xp_given_when_slayed),
     xpCap: String(sheet.xp_cap ?? 0),
+    racialHpMultiplier: String(sheet.racial_hp_multiplier ?? 1),
+    maxHealth: cloneFormula(sheet.max_health ?? FALLBACK_MAX_HEALTH),
+    maxMana: cloneFormula(sheet.max_mana ?? FALLBACK_MAX_MANA),
     coreStats,
     formulaStats: createFormulaStats(sheet.stats),
     attributes: structuredClone(sheet.attributes ?? {}),
@@ -380,6 +417,10 @@ export function toSheetDefinitionPayload(
     dm_only: values.kind === "enemy",
     xp_given_when_slayed: xpGivenWhenSlayed,
     xp_cap: xpCap,
+    racial_hp_multiplier: Number(values.racialHpMultiplier),
+    max_health: cloneFormula(values.maxHealth),
+    max_mana: cloneFormula(values.maxMana),
+    stat_bonuses: {},
     proficiencies: Object.fromEntries(
       values.proficiencies.map((entry) => [
         entry.relationshipId,

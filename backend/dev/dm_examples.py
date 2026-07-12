@@ -22,7 +22,11 @@ from backend.state.models.attribute import (
     WEAPON_REACH_ATTRIBUTE_ID,
     WEAPON_TYPE_ATTRIBUTE_ID,
 )
-from backend.state.models.stat import default_sheet_formula_stats
+from backend.state.models.stat import (
+    default_max_health_formula,
+    default_max_mana_formula,
+    default_sheet_formula_stats,
+)
 
 SHEET_ID = "dm_examples_sheet"
 INSTANCE_ID = "dm_examples_instance"
@@ -964,7 +968,7 @@ def action_payloads() -> list[dict[str, Any]]:
                     "max_value": formula(
                         "@max_health",
                         aliases=[
-                            {"name": "max_health", "path": ["stats", "health"]}
+                            {"name": "max_health", "path": ["max_health"]}
                         ],
                     ),
                     "on_min_violation": "clamp",
@@ -1147,7 +1151,7 @@ def action_payloads() -> list[dict[str, Any]]:
                     "min_value": formula("0"),
                     "max_value": formula(
                         "@max_mana",
-                        aliases=[{"name": "max_mana", "path": ["stats", "mana"]}],
+                        aliases=[{"name": "max_mana", "path": ["max_mana"]}],
                     ),
                     "on_min_violation": "clamp",
                     "on_max_violation": "clamp",
@@ -1171,7 +1175,7 @@ def action_payloads() -> list[dict[str, Any]]:
                     "max_value": formula(
                         "@max_health",
                         aliases=[
-                            {"name": "max_health", "path": ["stats", "health"]}
+                            {"name": "max_health", "path": ["max_health"]}
                         ],
                     ),
                     "on_min_violation": "clamp",
@@ -1332,8 +1336,8 @@ def stats_payload(
     formula_stats = {
         name: asdict(value) for name, value in default_sheet_formula_stats().items()
     }
-    formula_stats["health"] = formula(str(health))
-    formula_stats["mana"] = formula(str(mana))
+    mana_substat = mana / arcane
+    formula_stats["mana"] = formula(str(int(mana_substat) if mana_substat.is_integer() else mana_substat))
     return {
         "strength": strength,
         "dexterity": dexterity,
@@ -1342,6 +1346,15 @@ def stats_payload(
         "arcane": arcane,
         "will": will,
         **formula_stats,
+    }
+
+
+def resource_fields(*, constitution: int, arcane: int, health: int, mana: int) -> dict[str, Any]:
+    return {
+        "racial_hp_multiplier": health / constitution,
+        "max_health": asdict(default_max_health_formula()),
+        "max_mana": asdict(default_max_mana_formula()),
+        "stat_bonuses": {},
     }
 
 
@@ -1436,6 +1449,7 @@ def sheet_payload() -> dict[str, Any]:
             health=100,
             mana=200,
         ),
+        **resource_fields(constitution=10, arcane=10, health=100, mana=200),
         "resistances": {},
         "slayed_record": {},
         "actions": actions,
@@ -1486,6 +1500,7 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
             health=90,
             mana=130,
         ),
+        **resource_fields(constitution=9, arcane=11, health=90, mana=130),
         "resistances": {},
         "slayed_record": {},
         "actions": {
@@ -1523,6 +1538,7 @@ def goblin_sheet_payload() -> dict[str, Any]:
             health=32,
             mana=10,
         ),
+        **resource_fields(constitution=7, arcane=2, health=32, mana=10),
         "resistances": {"fire": 0.05},
         "slayed_record": {},
         "actions": {
@@ -1559,6 +1575,7 @@ def wraith_sheet_payload() -> dict[str, Any]:
             health=70,
             mana=120,
         ),
+        **resource_fields(constitution=8, arcane=14, health=70, mana=120),
         "resistances": {"fire": 0.30, "dark": 0.10},
         "slayed_record": {},
         "actions": {

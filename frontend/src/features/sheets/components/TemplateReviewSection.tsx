@@ -67,7 +67,10 @@ export function TemplateReviewSection({
           <span className="template-builder__review-kicker">Core setup</span>
           <strong>{values.name.trim() || "Unnamed template"}</strong>
           <span>{values.kind === "player" ? "Player-controlled" : "GM-controlled"}</span>
-          <button type="button" onClick={() => onNavigate("details")}>Edit details</button>
+          <span>Racial HP ×{values.racialHpMultiplier || "?"}</span>
+          <button type="button" onClick={() => onNavigate("details")}>
+            Edit details
+          </button>
         </article>
         <article>
           <span className="template-builder__review-kicker">Starting content</span>
@@ -75,13 +78,17 @@ export function TemplateReviewSection({
             {values.actions.length} actions · {values.proficiencies.length} proficiencies
           </strong>
           <span>{values.items.length} inventory entries</span>
-          <button type="button" onClick={() => onNavigate("actions")}>Edit content</button>
+          <button type="button" onClick={() => onNavigate("actions")}>
+            Edit content
+          </button>
         </article>
         <article>
           <span className="template-builder__review-kicker">Advanced customization</span>
           <strong>{Object.keys(values.attributes).length} attributes</strong>
           <span>{changedResistances} non-zero resistances</span>
-          <button type="button" onClick={() => onNavigate("attributes")}>Edit advanced</button>
+          <button type="button" onClick={() => onNavigate("attributes")}>
+            Edit advanced
+          </button>
         </article>
       </div>
     </section>

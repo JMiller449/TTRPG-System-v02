@@ -12,9 +12,10 @@ from backend.state.models.augmentation import (
     RollModeModifierEffect,
 )
 from backend.state.models.formula import Formula, normalize_formula_tags
+from backend.state.models.formula import FormulaAliases
 
 if TYPE_CHECKING:
-    from backend.state.models.sheet import Sheet
+    from backend.state.models.sheet import InstancedSheet, Sheet
 
 _DICE_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])(?P<count>\d*)d(?P<sides>\d+)"
@@ -244,7 +245,9 @@ def evaluate_numeric_formula(
     return normalize_numeric_result(result)
 
 
-def evaluate_sheet_stats(sheet: Sheet) -> dict[str, float | int]:
+def evaluate_sheet_stats(
+    sheet: Sheet | InstancedSheet,
+) -> dict[str, float | int]:
     """Return backend-evaluated sheet stats, omitting invalid legacy formulas."""
     evaluated: dict[str, float | int] = {}
     for stat_name, value in vars(sheet.stats).items():
@@ -256,12 +259,69 @@ def evaluate_sheet_stats(sheet: Sheet) -> dict[str, float | int]:
         if not isinstance(value, Formula):
             continue
         try:
-            evaluated[stat_name] = evaluate_numeric_formula(sheet, value)
+            result = evaluate_numeric_formula(sheet, value)
+            result = normalize_numeric_result(
+                result + sheet.stat_bonuses.get(stat_name, 0)
+            )
+            evaluated[stat_name] = result
         except (ArithmeticError, SyntaxError, TypeError, ValueError):
             # Persisted legacy formulas may be invalid. They remain authoring data,
             # but must not be projected to clients as a misleading numeric zero.
             continue
     return evaluated
+
+
+def evaluate_resource_maximum(
+    sheet: Sheet | InstancedSheet,
+    resource: str,
+) -> int:
+    formula = sheet.max_health if resource == "health" else sheet.max_mana
+    normalized_formula = formula
+    if formula.aliases is None:
+        alias_names = sorted(set(re.findall(r"@([A-Za-z_][A-Za-z0-9_]*)", formula.text)))
+        inferred = [
+            FormulaAliases(name=name, path=["stats", name])
+            for name in alias_names
+            if sheet.stats is not None and hasattr(sheet.stats, name)
+        ]
+        if inferred:
+            normalized_formula = Formula(
+                aliases=inferred,
+                text=formula.text,
+                tags=list(formula.tags),
+            )
+    elif sheet.stats is not None:
+        aliases = [
+            FormulaAliases(
+                name=alias.name,
+                path=(
+                    ["stats", alias.path[0]]
+                    if len(alias.path) == 1 and hasattr(sheet.stats, alias.path[0])
+                    else list(alias.path)
+                ),
+            )
+            for alias in formula.aliases
+        ]
+        normalized_formula = Formula(
+            aliases=aliases,
+            text=formula.text,
+            tags=list(formula.tags),
+        )
+    result = evaluate_numeric_formula(sheet, normalized_formula)
+    if isinstance(result, bool) or not isinstance(result, int | float):
+        raise ValueError(f"Maximum {resource} formula must resolve to a number.")
+    if not math.isfinite(result):
+        raise ValueError(f"Maximum {resource} formula must resolve to a finite number.")
+    return max(0, math.floor(result))
+
+
+def evaluate_resource_maxima(
+    sheet: Sheet | InstancedSheet,
+) -> dict[str, int]:
+    return {
+        "health": evaluate_resource_maximum(sheet, "health"),
+        "mana": evaluate_resource_maximum(sheet, "mana"),
+    }
 
 
 def compose_roll20_message(

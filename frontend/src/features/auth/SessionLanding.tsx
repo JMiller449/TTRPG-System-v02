@@ -29,7 +29,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
   const submitCode = async (): Promise<void> => {
     const code = codeInput.trim();
     if (!code) {
-      setLocalError("A player or GM code is required.");
+      setLocalError("A character, player, or GM code is required.");
       return;
     }
 
@@ -47,7 +47,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
           <div>
             <p className="landing-card__eyebrow">Chip TTRPG Session Console</p>
             <h1>TTRPG Sheet Console</h1>
-            <p className="muted">Enter your player or GM code.</p>
+            <p className="muted">Enter a character sheet code, shared player code, or GM code.</p>
           </div>
         </header>
 
@@ -59,7 +59,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
 
         <Panel title="Enter Code">
           <div className="stack">
-            <Field label="Access Code">
+            <Field label="Session or Character Code">
               <input
                 type="password"
                 value={codeInput}
@@ -69,7 +69,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
                     void submitCode();
                   }
                 }}
-                placeholder="Enter player or GM code"
+                placeholder="Enter character, player, or GM code"
               />
             </Field>
 

@@ -38,60 +38,77 @@ def _default_formula(text: str, *aliases: str) -> Formula:
 
 def default_sheet_formula_stats() -> dict[FormulaStatName, Formula]:
     return {
-        "lifting": _default_formula("@strength", "strength"),
-        "carry_weight": _default_formula("@strength", "strength"),
+        "lifting": _default_formula("floor(@strength)", "strength"),
+        "carry_weight": _default_formula("floor(@strength)", "strength"),
         "acrobatics": _default_formula(
-            "(@dexterity + @registration) / 2",
+            "floor((@dexterity + @registration) / 2)",
             "dexterity",
             "registration",
         ),
-        "stamina": _default_formula("@dexterity", "dexterity"),
+        "stamina": _default_formula("floor(@dexterity)", "dexterity"),
         "reaction_time": _default_formula(
-            "(@stamina + @intuition) / 2",
-            "stamina",
+            "floor((@dexterity + @intuition) / 2)",
+            "dexterity",
             "intuition",
         ),
-        "health": _default_formula("@constitution", "constitution"),
+        "health": _default_formula("floor(@constitution)", "constitution"),
         "endurance": _default_formula(
-            "(@stamina + @constitution) / 2",
-            "stamina",
+            "floor((@health + @constitution) / 2)",
+            "health",
             "constitution",
         ),
         "pain_tolerance": _default_formula(
-            "(@endurance + @strength) / 2",
+            "floor((@endurance + @strength) / 2)",
             "endurance",
             "strength",
         ),
-        "sight_distance": _default_formula("@perception", "perception"),
-        "intuition": _default_formula(
-            "(@perception + @registration) / 2",
-            "perception",
-            "registration",
-        ),
-        "registration": _default_formula("@perception", "perception"),
-        "mana": _default_formula("@arcane", "arcane"),
+        "sight_distance": _default_formula("floor(@perception)", "perception"),
+        "intuition": _default_formula("floor(@perception)", "perception"),
+        "registration": _default_formula("floor(@perception)", "perception"),
+        "mana": _default_formula("floor(@arcane)", "arcane"),
         "control": _default_formula(
-            "(@arcane + @mana) / 2",
+            "floor((@arcane + @mana) / 2)",
             "arcane",
             "mana",
         ),
         "sensitivity": _default_formula(
-            "(@intuition + @arcane) / 2",
+            "floor((@intuition + @arcane) / 2)",
             "intuition",
             "arcane",
         ),
-        "charisma": _default_formula("@will", "will"),
+        "charisma": _default_formula("floor(@will)", "will"),
         "mental_fortitude": _default_formula(
-            "(@will + @charisma) / 2",
+            "floor((@will + @charisma) / 2)",
             "will",
             "charisma",
         ),
         "courage": _default_formula(
-            "(@mental_fortitude + @charisma) / 2",
+            "floor((@mental_fortitude + @charisma) / 2)",
             "mental_fortitude",
             "charisma",
         ),
     }
+
+
+def default_max_health_formula() -> Formula:
+    return Formula(
+        text="floor(@health * @racial_hp_multiplier)",
+        aliases=[
+            FormulaAliases(name="health", path=["stats", "health"]),
+            FormulaAliases(
+                name="racial_hp_multiplier",
+                path=["racial_hp_multiplier"],
+            ),
+        ],
+    )
+
+
+def default_max_mana_formula() -> Formula:
+    return _default_formula(
+        "floor(@arcane * @mana)",
+        "arcane",
+        "mana",
+    )
 
 StatName = Literal[
     # base stats

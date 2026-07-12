@@ -1078,8 +1078,7 @@
   margin-bottom: 0.5rem;
 }
 
-/* Actions tab: fixed toolbar on top, cards flow sideways in the middle,
-   GM assignment manager as a horizontal strip at the bottom. */
+/* Actions tab: fixed toolbar on top with a vertically scrollable responsive catalog. */
 #sheet-panel-actions.character-sheet__tab-panel {
   display: flex;
   flex-direction: column;
@@ -1102,24 +1101,20 @@
 #sheet-panel-actions .action-command-grid {
   flex: 1 1 auto;
   min-height: 96px;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
-  align-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  align-content: start;
   gap: 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-bottom: 0.35rem;
+  cursor: auto;
+  scrollbar-width: thin;
 }
 
 #sheet-panel-actions .action-command-card {
-  flex: 0 0 auto;
-  width: 300px;
+  width: auto;
   margin: 0;
-}
-
-#sheet-panel-actions .action-command-grid {
-  overflow-y: auto;
 }
 
 /* GM assignment manager: collapsed one-line strip by default; when opened,

@@ -36,6 +36,9 @@ export interface TemplateEditorValues {
   notes: string;
   xpGivenWhenSlayed: string;
   xpCap: string;
+  racialHpMultiplier: string;
+  maxHealth: Formula;
+  maxMana: Formula;
   coreStats: Record<CoreTemplateStatKey, string>;
   formulaStats: Record<SheetFormulaStatName, Formula>;
   attributes: Record<string, AttributeBridge>;

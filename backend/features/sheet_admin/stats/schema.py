@@ -61,7 +61,7 @@ class SetInstancedSheetUnassignedStatPoints(RequestModel):
 
 class AllocateInstancedSheetStatPoints(RequestModel):
     instance_id: str = Field(min_length=1)
-    allocations: dict[BaseStatName, int]
+    allocations: dict[BaseStatName | FormulaStatName, int]
     type: Literal["allocate_instanced_sheet_stat_points"]
 
     @model_validator(mode="after")

@@ -78,11 +78,11 @@ Frontend:
 - Player and GM views share authoritative sheet rendering with role-specific visibility and controls.
 - GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
-- Player entry claims a generated sheet access code and uses the backend-validated claimed instance as the active sheet.
+- A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
-- GM Characters can grant arbitrary unassigned core stat points to a spawned sheet instance; assigned players can stage those points across core stats only, undo only staged additions, and lock them in through a backend-authoritative allocation request.
+- GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across core stats or individual substats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Direct substat allocations persist as permanent bonuses and feed downstream formulas.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Weapon action controls resolve through item-granted source items rather than direct sheet action bridges.
@@ -174,6 +174,24 @@ No large architecture feature is currently missing for the stated character-shee
     live item quantities, equipped state, and runtime stats. Item use and equipment
     effects are isolated per instance; assigned players may equip or unequip their own
     items while inventory management remains DM-only.
+
+- [x] Resolve the 2026-07-11 QC mechanical-accuracy and navigation findings:
+  - Sheet formula defaults now match the active rules document, including whole-number floors,
+    Dexterity-based Reaction Time, Health-based Endurance, and Perception-based Intuition.
+  - Current HP/Mana are independent from formula-backed Health/Mana substats. Maximum HP and
+    Mana are backend-authored formulas, projected separately, and current resources are clamped
+    to authoritative bounds after mutations. Mana remains whole-numbered.
+  - New templates require a positive racial HP multiplier and expose editable maximum-resource
+    formulas. Persisted schema v23 migrates legacy pools and action formula aliases.
+  - Resistance input is restricted to finite `0..1` fractions and runtime effective resistance
+    is clamped at both bounds before damage is floored.
+  - Character codes authenticate and select their instance in one step; landing-page copy now
+    explains character, shared-player, and GM codes.
+  - Player stat allocation supports permanent direct substat bonuses as well as core stats.
+  - The Actions catalog uses a responsive vertical grid with conventional vertical scrolling,
+    and request-scoped Roll20 failures no longer produce duplicate persistent error banners.
+  - Protocol types, starter examples, focused regression tests, production build, and backend
+    suite were updated together. Automated turn/round behavior remains explicitly out of scope.
 
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates

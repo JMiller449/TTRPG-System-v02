@@ -1,7 +1,10 @@
 import asyncio
 from copy import deepcopy
 
+import pytest
+
 from backend.features.chat import service as chat_service
+from backend.features.sheet_admin.sheets.schema import ResistancesPayload
 from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.access_code import SheetAccessCode
@@ -84,6 +87,12 @@ def _resistances_payload(**overrides: float) -> dict:
     return payload
 
 
+@pytest.mark.parametrize("value", [-0.01, 1.01, float("inf"), float("nan")])
+def test_resistance_payload_rejects_values_outside_zero_to_one(value: float) -> None:
+    with pytest.raises(ValueError):
+        ResistancesPayload(**_resistances_payload(fire=value))
+
+
 def _sheet_payload(
     sheet_id: str = "mage_template",
     name: str = "Mage Template",
@@ -96,6 +105,7 @@ def _sheet_payload(
         "dm_only": False,
         "xp_given_when_slayed": 25,
         "xp_cap": "A",
+        "racial_hp_multiplier": 1.0,
         "proficiencies": {},
         "items": {},
         "stats": {
@@ -189,7 +199,10 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             )
             assert sheet_op["op"] == "add"
             assert sheet_op["value"]["id"] == "mage_template"
-            projection_op = websocket.sent_messages[0]["ops"][-1]
+            projection_op = next(
+                op for op in websocket.sent_messages[0]["ops"]
+                if op["path"] == "/sheets/mage_template/evaluated_stats"
+            )
             assert projection_op["path"] == "/sheets/mage_template/evaluated_stats"
             assert projection_op["value"]["strength"] == 10
             assert {
@@ -801,8 +814,9 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
             assert {
                 bridge.entry_id for bridge in state.sheets["mage_template"].actions.values()
             }.issuperset(required_sheet_action_ids())
-            assert websocket.sent_messages[0]["ops"][-1]["path"] == (
-                "/sheets/mage_template/evaluated_stats"
+            assert any(
+                op["path"] == "/sheets/mage_template/evaluated_stats"
+                for op in websocket.sent_messages[0]["ops"]
             )
             assert sheet_op["value"]["name"] == "Renamed Mage"
         finally:
@@ -1122,7 +1136,7 @@ def test_player_can_allocate_unassigned_core_stat_points(monkeypatch) -> None:
                     "instance_id": "mage_instance",
                     "allocations": {
                         "strength": 2,
-                        "arcane": 1,
+                        "reaction_time": 1,
                         "will": 0,
                     },
                 },
@@ -1131,13 +1145,14 @@ def test_player_can_allocate_unassigned_core_stat_points(monkeypatch) -> None:
             instance = state.instanced_sheets["mage_instance"]
             assert instance.stats is not None
             assert instance.stats.strength == 12
-            assert instance.stats.arcane == 15
+            assert instance.stats.arcane == 14
             assert instance.stats.will == 15
+            assert instance.stat_bonuses["reaction_time"] == 1
             assert instance.unassigned_stat_points == 1
             paths = {op["path"] for op in websocket.sent_messages[0]["ops"]}
             assert {
                 "/instanced_sheets/mage_instance/stats/strength",
-                "/instanced_sheets/mage_instance/stats/arcane",
+                "/instanced_sheets/mage_instance/stat_bonuses/reaction_time",
                 "/instanced_sheets/mage_instance/unassigned_stat_points",
                 "/instanced_sheets/mage_instance/evaluated_stats",
             }.issubset(paths)

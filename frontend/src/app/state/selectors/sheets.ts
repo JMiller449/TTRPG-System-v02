@@ -23,6 +23,8 @@ export interface ActiveSheetDetail {
   persistentSheet: PersistentSheet;
   baseStats: Partial<Record<SheetStatKey, number>>;
   stats: Partial<Record<SheetStatKey, number>>;
+  resources: { health: number; mana: number };
+  resourceMaximums: { health: number; mana: number };
 }
 
 export interface AssignedSheetAction {
@@ -74,8 +76,7 @@ function buildBaseStatValues(
     perception: runtimeStats.perception,
     arcane: runtimeStats.arcane,
     will: runtimeStats.will,
-    ...evaluatedStats,
-    ...(persistentSheet ? { health: persistentSheet.health, mana: persistentSheet.mana } : {})
+    ...evaluatedStats
   };
 }
 
@@ -144,7 +145,19 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
     sheet: instance.parentSheet,
     persistentSheet: instance.persistentSheet,
     baseStats,
-    stats: baseStats
+    stats: baseStats,
+    resources: {
+      health: instance.persistentSheet.health,
+      mana: instance.persistentSheet.mana
+    },
+    resourceMaximums: {
+      health:
+        instance.persistentSheet.evaluated_max_health ??
+        instance.parentSheet?.evaluated_max_health ??
+        0,
+      mana:
+        instance.persistentSheet.evaluated_max_mana ?? instance.parentSheet?.evaluated_max_mana ?? 0
+    }
   };
 }
 

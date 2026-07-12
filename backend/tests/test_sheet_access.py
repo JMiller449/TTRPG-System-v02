@@ -135,6 +135,43 @@ def test_dm_can_generate_sheet_access_code(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_character_code_authenticates_and_assigns_sheet_in_one_step(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet()
+            state.instanced_sheets["mage_instance"] = _build_instance()
+            state.sheet_access_codes["MAGE2026"] = SheetAccessCode(
+                code="MAGE2026",
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {"type": "authenticate", "token": "mage2026"},
+            )
+
+            session = await websocket_sessions.get_session(websocket)
+            assert session.role == "player"
+            assert session.assigned_instance_id == "mage_instance"
+            assert [message["type"] for message in websocket.sent_messages] == [
+                "authenticate_response",
+                "sheet_access_claimed",
+                "state_snapshot",
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_generating_instance_access_code_replaces_previous_active_code(
     monkeypatch,
 ) -> None:

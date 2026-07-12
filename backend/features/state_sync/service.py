@@ -14,7 +14,10 @@ from backend.features.action_history.service import (
     serialize_action_history,
     serialize_action_history_entry,
 )
-from backend.features.formula_runtime.service import evaluate_sheet_stats
+from backend.features.formula_runtime.service import (
+    evaluate_resource_maxima,
+    evaluate_sheet_stats,
+)
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
@@ -549,6 +552,9 @@ class StateSyncService:
             sheet_payload = state_payload.get("sheets", {}).get(sheet_id)
             if isinstance(sheet_payload, dict):
                 sheet_payload["evaluated_stats"] = evaluate_sheet_stats(sheet)
+                maxima = evaluate_resource_maxima(sheet)
+                sheet_payload["evaluated_max_health"] = maxima["health"]
+                sheet_payload["evaluated_max_mana"] = maxima["mana"]
         for instance_id, instance in state_model.instanced_sheets.items():
             instance_payload = state_payload.get("instanced_sheets", {}).get(instance_id)
             if isinstance(instance_payload, dict):
@@ -559,6 +565,9 @@ class StateSyncService:
                     instance_payload["evaluated_stats"] = evaluate_sheet_stats(
                         runtime_stat_owner
                     )
+                    maxima = evaluate_resource_maxima(runtime_stat_owner)
+                    instance_payload["evaluated_max_health"] = maxima["health"]
+                    instance_payload["evaluated_max_mana"] = maxima["mana"]
         state = self._redact_state_for_role(
             state_payload,
             role=role,
@@ -1004,38 +1013,81 @@ class StateSyncService:
             segments = self._parse_path(operation.path)
             if len(segments) < 2:
                 continue
-            if segments[0] == "sheets" and (len(segments) == 2 or (
-                len(segments) >= 3 and segments[2] in {"stats", "attributes"}
-            )):
+            projected_fields = {
+                "stats",
+                "attributes",
+                "stat_bonuses",
+                "max_health",
+                "max_mana",
+                "racial_hp_multiplier",
+            }
+            if segments[0] == "sheets" and (
+                len(segments) == 2
+                or (len(segments) >= 3 and segments[2] in projected_fields)
+            ):
                 affected_sheet_ids.add(segments[1])
             if segments[0] == "instanced_sheets" and (
-                len(segments) == 2 or (
-                    len(segments) >= 3 and segments[2] in {"stats", "attributes"}
-                )
+                len(segments) == 2
+                or (len(segments) >= 3 and segments[2] in projected_fields)
             ):
                 affected_instance_ids.add(segments[1])
 
-        sheet_operations = [
-            PatchOp(
-                op="set",
-                path=self.join_path("sheets", sheet_id, "evaluated_stats"),
-                value=evaluate_sheet_stats(state.sheets[sheet_id]),
+        sheet_operations: list[PatchOp] = []
+        for sheet_id in sorted(affected_sheet_ids):
+            sheet = state.sheets.get(sheet_id)
+            if sheet is None:
+                continue
+            maxima = evaluate_resource_maxima(sheet)
+            sheet_operations.extend(
+                [
+                    PatchOp(
+                        op="set",
+                        path=self.join_path("sheets", sheet_id, "evaluated_stats"),
+                        value=evaluate_sheet_stats(sheet),
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path("sheets", sheet_id, "evaluated_max_health"),
+                        value=maxima["health"],
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path("sheets", sheet_id, "evaluated_max_mana"),
+                        value=maxima["mana"],
+                    ),
+                ]
             )
-            for sheet_id in sorted(affected_sheet_ids)
-            if sheet_id in state.sheets
-        ]
-        instance_operations = [
-            PatchOp(
-                op="set",
-                path=self.join_path(
-                    "instanced_sheets", instance_id, "evaluated_stats"
-                ),
-                value=evaluate_sheet_stats(state.instanced_sheets[instance_id]),
+        instance_operations: list[PatchOp] = []
+        for instance_id in sorted(affected_instance_ids):
+            instance = state.instanced_sheets.get(instance_id)
+            if instance is None or instance.stats is None:
+                continue
+            maxima = evaluate_resource_maxima(instance)
+            instance_operations.extend(
+                [
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets", instance_id, "evaluated_stats"
+                        ),
+                        value=evaluate_sheet_stats(instance),
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets", instance_id, "evaluated_max_health"
+                        ),
+                        value=maxima["health"],
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets", instance_id, "evaluated_max_mana"
+                        ),
+                        value=maxima["mana"],
+                    ),
+                ]
             )
-            for instance_id in sorted(affected_instance_ids)
-            if instance_id in state.instanced_sheets
-            and state.instanced_sheets[instance_id].stats is not None
-        ]
         return [*sheet_operations, *instance_operations]
 
     async def apply_mutation(
@@ -1058,9 +1110,13 @@ class StateSyncService:
                 from backend.features.augmentations.service import (
                     synchronize_equipment_augmentations_mutation,
                 )
+                from backend.features.sheet_runtime.service import (
+                    synchronize_resource_bounds_mutation,
+                )
 
                 ops.extend(synchronize_equipment_augmentations_mutation(state))
                 ops.extend(self._synchronize_sheet_attribute_projections(state, ops))
+                ops.extend(synchronize_resource_bounds_mutation(state))
             except Exception:
                 for state_field in fields(state):
                     setattr(
@@ -1135,6 +1191,11 @@ class StateSyncService:
             applied_ops.extend(
                 self._synchronize_sheet_attribute_projections(state, applied_ops)
             )
+            from backend.features.sheet_runtime.service import (
+                synchronize_resource_bounds_mutation,
+            )
+
+            applied_ops.extend(synchronize_resource_bounds_mutation(state))
             patch_ops = [
                 *applied_ops,
                 *self._stat_projection_operations(state, applied_ops),

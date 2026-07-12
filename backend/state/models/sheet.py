@@ -7,7 +7,13 @@ from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
 from backend.state.models.shared import Bridge
-from backend.state.models.stat import Stats
+from backend.state.models.formula import Formula
+from backend.state.models.stat import (
+    FormulaStatName,
+    Stats,
+    default_max_health_formula,
+    default_max_mana_formula,
+)
 
 
 @dataclass
@@ -39,6 +45,10 @@ class Sheet:
     slayed_record: Dict[str, SheetSlayedBridge]
     actions: Dict[str, Bridge]
     attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
+    racial_hp_multiplier: float = 1.0
+    max_health: Formula = field(default_factory=default_max_health_formula)
+    max_mana: Formula = field(default_factory=default_max_mana_formula)
+    stat_bonuses: Dict[FormulaStatName, int] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Sheet":
@@ -72,6 +82,21 @@ class Sheet:
                 key: AttributeBridge.from_dict(bridge)
                 for key, bridge in raw_attributes.items()
             },
+            racial_hp_multiplier=raw.get("racial_hp_multiplier", 1.0),
+            max_health=(
+                Formula.from_dict(raw["max_health"])
+                if raw.get("max_health") is not None
+                else Formula.from_dict(raw["stats"]["health"])
+            ),
+            max_mana=(
+                Formula.from_dict(raw["max_mana"])
+                if raw.get("max_mana") is not None
+                else Formula.from_dict(raw["stats"]["mana"])
+            ),
+            stat_bonuses={
+                key: int(value)
+                for key, value in raw.get("stat_bonuses", {}).items()
+            },
         )
 
 
@@ -91,6 +116,10 @@ class InstancedSheet:
     actions: Dict[str, Bridge] = field(default_factory=dict)
     attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
     unassigned_stat_points: int = 0
+    racial_hp_multiplier: float = 1.0
+    max_health: Formula = field(default_factory=default_max_health_formula)
+    max_mana: Formula = field(default_factory=default_max_mana_formula)
+    stat_bonuses: Dict[FormulaStatName, int] = field(default_factory=dict)
 
     @classmethod
     def from_dict(
@@ -152,4 +181,29 @@ class InstancedSheet:
             actions=actions,
             attributes=attributes,
             unassigned_stat_points=raw.get("unassigned_stat_points", 0),
+            racial_hp_multiplier=raw.get(
+                "racial_hp_multiplier",
+                template.racial_hp_multiplier if template is not None else 1.0,
+            ),
+            max_health=(
+                Formula.from_dict(raw["max_health"])
+                if raw.get("max_health") is not None
+                else deepcopy(template.max_health)
+                if template is not None
+                else default_max_health_formula()
+            ),
+            max_mana=(
+                Formula.from_dict(raw["max_mana"])
+                if raw.get("max_mana") is not None
+                else deepcopy(template.max_mana)
+                if template is not None
+                else default_max_mana_formula()
+            ),
+            stat_bonuses={
+                key: int(value)
+                for key, value in raw.get(
+                    "stat_bonuses",
+                    template.stat_bonuses if template is not None else {},
+                ).items()
+            },
         )

@@ -231,6 +231,7 @@ const testSheet: SheetDefinitionPayload = {
   dm_only: false,
   xp_given_when_slayed: 0,
   xp_cap: "",
+  racial_hp_multiplier: 50,
   proficiencies: {},
   items: {},
   stats: {

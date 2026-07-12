@@ -128,6 +128,12 @@ class SheetFormulaStatDefaultMetadata:
 
 
 @dataclass
+class SheetResourceFormulaDefaultsMetadata:
+    max_health: Formula
+    max_mana: Formula
+
+
+@dataclass
 class ActionStepAuthoringMetadata:
     type: str
     label: str
@@ -180,6 +186,7 @@ class ActionFormulaAuthoringMetadata(ResponseModel):
     sheet_formula_stat_defaults: list[SheetFormulaStatDefaultMetadata] = field(
         default_factory=list
     )
+    sheet_resource_formula_defaults: SheetResourceFormulaDefaultsMetadata | None = None
     type: Literal[
         "action_formula_authoring_metadata"
     ] = "action_formula_authoring_metadata"

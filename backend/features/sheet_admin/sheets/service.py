@@ -7,7 +7,10 @@ from backend.features.sheet_admin.formulas.service import (
     build_formula,
     validate_formula_payload_paths,
 )
-from backend.features.formula_runtime.service import evaluate_numeric_formula
+from backend.features.formula_runtime.service import (
+    evaluate_numeric_formula,
+    evaluate_resource_maximum,
+)
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -142,6 +145,10 @@ def _build_resistances(payload: ResistancesPayload) -> Resistances:
 
 
 def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
+    stats = _build_stats(
+        payload.stats,
+        attached_attribute_ids=set(payload.attributes),
+    )
     return Sheet(
         id=payload.id,
         name=payload.name,
@@ -167,7 +174,25 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
             )
             for key, bridge in payload.items.items()
         },
-        stats=_build_stats(payload.stats, attached_attribute_ids=set(payload.attributes)),
+        stats=stats,
+        racial_hp_multiplier=payload.racial_hp_multiplier,
+        max_health=(
+            build_formula(
+                payload.max_health,
+                additional_paths={("attributes", key) for key in payload.attributes},
+            )
+            if payload.max_health is not None
+            else deepcopy(stats.health)
+        ),
+        max_mana=(
+            build_formula(
+                payload.max_mana,
+                additional_paths={("attributes", key) for key in payload.attributes},
+            )
+            if payload.max_mana is not None
+            else deepcopy(stats.mana)
+        ),
+        stat_bonuses=dict(payload.stat_bonuses),
         resistances=_build_resistances(payload.resistances),
         slayed_record={
             key: SheetSlayedBridge(
@@ -219,6 +244,10 @@ def _sheet_payload_from_instance(
                 for key, bridge in instance.items.items()
             },
             "stats": asdict(instance.stats),
+            "racial_hp_multiplier": instance.racial_hp_multiplier,
+            "max_health": asdict(instance.max_health),
+            "max_mana": asdict(instance.max_mana),
+            "stat_bonuses": dict(instance.stat_bonuses),
             "resistances": asdict(instance.resistances),
             "slayed_record": {},
             "actions": {
@@ -967,12 +996,12 @@ async def instantiate_sheet(
         health = (
             request.health
             if request.health is not None
-            else evaluate_numeric_formula(template, template.stats.health)
+            else evaluate_resource_maximum(template, "health")
         )
         mana_value = (
             request.mana
             if request.mana is not None
-            else evaluate_numeric_formula(template, template.stats.mana)
+            else evaluate_resource_maximum(template, "mana")
         )
         if not float(mana_value).is_integer():
             raise ValueError(
@@ -994,6 +1023,10 @@ async def instantiate_sheet(
             proficiencies=deepcopy(template.proficiencies),
             actions=deepcopy(template.actions),
             attributes=deepcopy(template.attributes),
+            racial_hp_multiplier=template.racial_hp_multiplier,
+            max_health=deepcopy(template.max_health),
+            max_mana=deepcopy(template.max_mana),
+            stat_bonuses=deepcopy(template.stat_bonuses),
         )
 
         path = state_sync_service.join_path("instanced_sheets", request.instance_id)

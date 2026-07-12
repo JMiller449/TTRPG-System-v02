@@ -95,6 +95,8 @@ def _build_sheet() -> Sheet:
                 "mental_fortitude": formula,
                 "courage": formula,
             },
+            "max_health": _formula_payload("100"),
+            "max_mana": _formula_payload("100"),
             "resistances": {},
             "slayed_record": {},
             "actions": {},

@@ -111,6 +111,8 @@ function sheet(
       mental_fortitude: 1,
       courage: 13
     },
+    evaluated_max_health: 450,
+    evaluated_max_mana: 210,
     slayed_record: {},
     actions: {},
     ...overrides
@@ -241,8 +243,10 @@ describe("sheet selectors", () => {
       notes: "Instance notes"
     });
     expect(detail?.sheet?.id).toBe("sheet_player");
-    expect(detail?.stats.health).toBe(37);
-    expect(detail?.stats.mana).toBe(9);
+    expect(detail?.stats.health).toBe(45);
+    expect(detail?.stats.mana).toBe(30);
+    expect(detail?.resources).toEqual({ health: 37, mana: 9 });
+    expect(detail?.resourceMaximums).toEqual({ health: 450, mana: 210 });
     expect(detail?.stats.strength).toBe(12);
     expect(detail?.stats.acrobatics).toBe(9);
   });

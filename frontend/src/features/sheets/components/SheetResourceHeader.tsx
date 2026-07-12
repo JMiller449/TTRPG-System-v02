@@ -6,12 +6,11 @@ import {
   PLAYER_HEALTH_DAMAGE_TYPES,
   type HealthDamageType,
   type ResourceKey,
-  RESOURCE_KEYS,
-  type SheetStatKey
+  RESOURCE_KEYS
 } from "@/features/sheets/sheetDisplay";
 
 export function SheetResourceHeader({
-  stats,
+  maximums,
   resources,
   editingResource,
   resourceDraftModifier,
@@ -24,7 +23,7 @@ export function SheetResourceHeader({
   onCancelResourceEdit,
   onResourceEditorKeyDown
 }: {
-  stats: Partial<Record<SheetStatKey, number>>;
+  maximums: Record<ResourceKey, number>;
   resources: Record<ResourceKey, number>;
   editingResource: ResourceKey | null;
   resourceDraftModifier: string;
@@ -40,7 +39,7 @@ export function SheetResourceHeader({
   return (
     <div className="resource-grid resource-grid--header">
       {RESOURCE_KEYS.map((key) => {
-        const baseValue = stats[key] ?? 0;
+        const baseValue = maximums[key];
         const currentValue = resources[key];
         const delta = currentValue - baseValue;
         const editorId = `resource-editor-${key}`;

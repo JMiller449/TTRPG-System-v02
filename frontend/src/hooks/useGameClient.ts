@@ -277,7 +277,7 @@ export function useGameClient(): GameClient {
           type: "set_roll20_bridge_status",
           status: "disconnected",
           checkedAt: new Date().toISOString(),
-          error: `${event.message} ${ROLL20_BRIDGE_SETUP_HINT}`
+          error: event.requestId ? undefined : `${event.message} ${ROLL20_BRIDGE_SETUP_HINT}`
         });
       }
       if (!event.requestId) {

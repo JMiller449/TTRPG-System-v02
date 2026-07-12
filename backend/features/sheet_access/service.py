@@ -28,6 +28,20 @@ def _access_code_payload(access_code: SheetAccessCode) -> SheetAccessCodePayload
     )
 
 
+def resolve_active_sheet_access_code(code: str) -> SheetAccessCode | None:
+    normalized_code = code.strip().upper()
+    state = StateSingleton.getState()
+    access_code = state.sheet_access_codes.get(normalized_code)
+    if access_code is None or not access_code.active:
+        return None
+    if access_code.instance_id is None:
+        return None
+    instance = state.instanced_sheets.get(access_code.instance_id)
+    if instance is None or instance.parent_id != access_code.sheet_id:
+        return None
+    return access_code
+
+
 def _build_response(
     state: State,
     *,
@@ -132,23 +146,10 @@ async def claim_sheet_access_code(
     code: str,
     request_id: str | None = None,
 ) -> SheetAccessClaimed:
-    normalized_code = code.strip().upper()
-    state = StateSingleton.getState()
-    access_code = state.sheet_access_codes.get(normalized_code)
-    if access_code is None or not access_code.active:
+    access_code = resolve_active_sheet_access_code(code)
+    if access_code is None:
         raise ValueError("Invalid or inactive sheet access code.")
-
-    if access_code.instance_id is None:
-        raise ValueError("Sheet access code is not assigned to an instance.")
-
-    instance = state.instanced_sheets.get(access_code.instance_id)
-    if instance is None:
-        raise ValueError(f"Instance '{access_code.instance_id}' does not exist.")
-    if instance.parent_id != access_code.sheet_id:
-        raise ValueError(
-            f"Instance '{access_code.instance_id}' does not belong to sheet "
-            f"'{access_code.sheet_id}'."
-        )
+    assert access_code.instance_id is not None
 
     await websocket_sessions.assign_player_sheet(
         session.websocket,

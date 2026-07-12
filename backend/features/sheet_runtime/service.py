@@ -18,6 +18,7 @@ from backend.features.formula_runtime.service import (
     FormulaExecutionContext,
     compose_roll20_message,
     evaluate_numeric_formula,
+    evaluate_resource_maxima,
     normalize_numeric_result,
     resolve_roll_mode,
 )
@@ -890,7 +891,32 @@ def effective_damage_resistance(
         + getattr(source, category)
         + getattr(source, resistance_key)
     )
-    return min(resistance, 1.0)
+    return max(0.0, min(resistance, 1.0))
+
+
+def synchronize_resource_bounds_mutation(state: State) -> list[PatchOp]:
+    ops: list[PatchOp] = []
+    for instance_id, instance in sorted(state.instanced_sheets.items()):
+        if instance.stats is None:
+            continue
+        maxima = evaluate_resource_maxima(instance)
+        for resource in ("health", "mana"):
+            path = state_sync_service.join_path(
+                "instanced_sheets",
+                instance_id,
+                resource,
+            )
+            if path in state.direct_effect_projections:
+                continue
+            current = getattr(instance, resource)
+            bounded = max(0, min(current, maxima[resource]))
+            if resource == "mana":
+                bounded = int(bounded)
+            else:
+                bounded = normalize_numeric_result(bounded)
+            if current != bounded:
+                ops.append(state_sync_service.set_mutation(state, path, bounded))
+    return ops
 
 
 def calculate_damage_taken(

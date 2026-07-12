@@ -14,7 +14,7 @@ export function TemplateDetailsSection({
         <h3 id="template-details-title">Details</h3>
         <p className="muted">
           Name the template and choose who controls its created characters. This is the only
-          required setup step.
+          required setup step. The racial HP multiplier is also required by the system rules.
         </p>
       </div>
       <div className="template-builder__details-grid">
@@ -36,6 +36,17 @@ export function TemplateDetailsSection({
             <option value="player">Player-controlled</option>
             <option value="enemy">GM-controlled</option>
           </select>
+        </Field>
+        <Field label="Racial HP Multiplier">
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={values.racialHpMultiplier}
+            onChange={(event) => onChange({ ...values, racialHpMultiplier: event.target.value })}
+            placeholder="e.g. 1 or 1.25"
+            aria-required="true"
+          />
         </Field>
         {values.kind === "enemy" ? (
           <Field label="XP Awarded When Slain">

@@ -4,7 +4,10 @@ import type { Role } from "@/domain/models";
 import { resolveApplicationWebSocketUrl } from "@/infrastructure/config/websocketConfig";
 import { ManagedGameClient, type ManagedGameClientOptions } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
-import { buildGetRoll20BridgeStatusRequest } from "@/infrastructure/ws/requestBuilders";
+import {
+  buildGetRoll20BridgeStatusRequest,
+  buildResyncStateRequest
+} from "@/infrastructure/ws/requestBuilders";
 import { makeId } from "@/shared/utils/id";
 
 export interface GameClient {
@@ -176,6 +179,12 @@ export function useGameClient(): GameClient {
         if (event.requestId) {
           resolveIntent(event.requestId);
         }
+        // The claim only assigns the session to the instance server-side; the
+        // snapshot already in the client was built before that assignment, so
+        // it excludes this instance's active conditions/effects. Request a full
+        // (not incremental) resync so the redaction re-runs against the new
+        // assignment instead of only replaying patches since the last version.
+        client.sendProtocolRequest(buildResyncStateRequest({}));
         return;
       }
       if (event.type === "sheet_access_codes") {

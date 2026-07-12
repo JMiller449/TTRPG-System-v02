@@ -289,10 +289,20 @@ export type AugmentationEffect =
   | EvaluationFormulaModifierEffect
   | RollModeModifierEffect;
 
+export type LifecycleMode =
+  | "manual"
+  | "rounds"
+  | "turns"
+  | "until_rest"
+  | "until_source_removed"
+  | "scene";
+
 export interface AugmentationLifecycle {
-  duration?: string | null;
+  mode?: LifecycleMode;
+  remaining?: number | null;
   expires_at?: string | null;
-  removal_condition?: string | null;
+  remove_when_source_inactive?: boolean;
+  notes?: string | null;
 }
 
 export interface Augmentation {
@@ -310,6 +320,13 @@ export interface Augmentation {
   lifecycle?: AugmentationLifecycle;
 }
 
+export type StackingMode = "unique" | "stack";
+
+export interface StackingConfig {
+  mode?: StackingMode;
+  max_stacks?: number | null;
+}
+
 export interface StandaloneEffectDefinition {
   id: string;
   name: string;
@@ -319,6 +336,7 @@ export interface StandaloneEffectDefinition {
   effect: AugmentationEffect;
   active?: boolean;
   lifecycle?: AugmentationLifecycle;
+  stacking?: StackingConfig;
 }
 
 export interface StandaloneEffectApplication {
@@ -327,6 +345,7 @@ export interface StandaloneEffectApplication {
   instance_id: string;
   source: AugmentationSource;
   active?: boolean;
+  stack_index?: number;
 }
 
 export type ConditionVisibility = "public" | "gm_only";
@@ -336,8 +355,20 @@ export interface ConditionPreset {
   name: string;
   description?: string;
   visibility?: ConditionVisibility;
-  augmentation_ids?: string[];
   augmentation_templates?: Augmentation[];
+}
+
+export type ConditionSourceType =
+  | "action"
+  | "manual"
+  | "item"
+  | "condition"
+  | "other";
+
+export interface ConditionSource {
+  type: ConditionSourceType;
+  id?: string | null;
+  label?: string | null;
 }
 
 export interface ActiveCondition {
@@ -348,6 +379,10 @@ export interface ActiveCondition {
   visibility: ConditionVisibility;
   instance_id: string;
   augmentation_ids: string[];
+  source?: ConditionSource;
+  applied_at?: string | null;
+  applied_by_role?: "dm" | "player" | null;
+  applied_at_state_version?: number | null;
 }
 
 export interface ItemDefinition {

@@ -94,9 +94,11 @@ def _item_augmentation_payload(
         "applied": False,
         "applied_target_id": None,
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": None,
+            "remove_when_source_inactive": False,
+            "notes": None,
         },
     }
 

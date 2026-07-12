@@ -123,7 +123,6 @@ def _condition_state(condition_id: str = "poisoned") -> ConditionPreset:
             "name": "Poisoned",
             "description": "Ongoing poison.",
             "visibility": "public",
-            "augmentation_ids": [],
             "augmentation_templates": [],
         }
     )

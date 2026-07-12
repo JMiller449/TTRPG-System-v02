@@ -13,11 +13,13 @@ from backend.state.models.augmentation import (
     AugmentationSource,
     AugmentationTarget,
     FormulaModifierEffect,
+    StandaloneEffectDefinition,
 )
-from backend.state.models.condition import ConditionPreset
+from backend.state.models.condition import ConditionPreset, ConditionSource
 from backend.state.models.formula import Formula
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -201,9 +203,11 @@ def _condition_template_payload(
         "applied": False,
         "applied_target_id": None,
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": None,
+            "remove_when_source_inactive": False,
+            "notes": None,
         },
     }
 
@@ -221,7 +225,6 @@ def _build_condition_preset(
             "name": "Poisoned",
             "description": "Ongoing poison effect.",
             "visibility": visibility,
-            "augmentation_ids": [],
             "augmentation_templates": (
                 [_condition_template_payload(root=template_root)]
                 if with_template
@@ -591,11 +594,11 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
             assert concrete.source.application_id == "equipment:inst-1:helm"
             assert concrete.id in state.instanced_sheets["inst-1"].augments
             assert all(
-                not op["path"].startswith("/equipment_effect_projections")
+                not op["path"].startswith("/direct_effect_projections")
                 for socket in (dm_socket, player_socket)
                 for op in socket.sent_messages[-1]["ops"]
             )
-            assert "equipment_effect_projections" not in (
+            assert "direct_effect_projections" not in (
                 await state_sync_service.snapshot(role="dm")
             ).state
 
@@ -611,7 +614,7 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
 
             await state_sync_service.apply_mutation(damage_mutation)
             assert state.instanced_sheets["inst-1"].health == 14
-            projection = next(iter(state.equipment_effect_projections.values()))
+            projection = next(iter(state.direct_effect_projections.values()))
             assert projection.base_value == 7
             assert projection.effective_value == 14
 
@@ -643,7 +646,7 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
             assert state.instanced_sheets["inst-1"].health == 9
             await set_equipped("ring", False)
             assert state.instanced_sheets["inst-1"].health == 7
-            assert state.equipment_effect_projections == {}
+            assert state.direct_effect_projections == {}
             assert state.augmentations == {}
             assert state.instanced_sheets["inst-1"].augments == {}
         finally:
@@ -685,7 +688,7 @@ def test_equipment_effect_applies_when_instance_is_created(monkeypatch) -> None:
 
             assert state.instanced_sheets["inst-1"].health == 15
             assert len(state.augmentations) == 1
-            assert len(state.equipment_effect_projections) == 1
+            assert len(state.direct_effect_projections) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -786,8 +789,227 @@ def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
             assert state.instanced_sheets["inst-1"].items["broken"].equipped is False
             assert state.instanced_sheets["inst-1"].health == 10
             assert state.augmentations == {}
-            assert state.equipment_effect_projections == {}
+            assert state.direct_effect_projections == {}
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def _standalone_health_definition(
+    definition_id: str,
+    *,
+    operation: str = "add",
+    value: str,
+) -> StandaloneEffectDefinition:
+    return StandaloneEffectDefinition.from_dict(
+        {
+            "id": definition_id,
+            "name": definition_id.replace("-", " ").title(),
+            "description": "Action-controlled direct health effect.",
+            "scope": "instance",
+            "target": {"root": "instance", "path": ["health"]},
+            "effect": {
+                "type": "formula_modifier",
+                "operation": operation,
+                "value": {"aliases": None, "text": value},
+                "selector": {},
+            },
+            "active": True,
+            "lifecycle": {
+                "mode": "manual",
+                "remaining": None,
+                "expires_at": None,
+                "remove_when_source_inactive": False,
+                "notes": None,
+            },
+        }
+    )
+
+
+def test_equipment_and_standalone_direct_effects_share_path_and_unwind() -> None:
+    """A standalone direct effect and an equipment direct effect on the same
+    numeric path stack, then each unwinds back to the value contributed by the
+    remaining source, and finally to the untouched base."""
+    state = deepcopy(DEFAULT_STATE)
+    sheet = _build_sheet()
+    sheet.items = {
+        "helm": ItemBridge(
+            relationship_id="helm",
+            count=1,
+            equipped=True,
+            item_id="flame-helm",
+        ),
+    }
+    state.sheets[sheet.id] = sheet
+    state.items["flame-helm"] = _build_equipment_item("flame-helm", value="5")
+    state.instanced_sheets["inst-1"] = _build_instance(sheet)
+    state.standalone_effects["surge"] = _standalone_health_definition(
+        "surge", value="3"
+    )
+
+    # Equipment projects first: base 10 + helm 5.
+    augmentation_service.synchronize_equipment_augmentations_mutation(state)
+    assert state.instanced_sheets["inst-1"].health == 15
+
+    # Standalone stacks on the same path: + surge 3.
+    augmentation_service.apply_standalone_effect_mutation(
+        state, "surge", instance_id="inst-1"
+    )
+    assert state.instanced_sheets["inst-1"].health == 18
+    assert set(state.direct_effect_projections) == {"/instanced_sheets/inst-1/health"}
+
+    # Removing the standalone leaves only the equipment contribution.
+    augmentation_service.remove_standalone_effect_mutation(
+        state, "surge", instance_id="inst-1"
+    )
+    assert state.instanced_sheets["inst-1"].health == 15
+    assert state.standalone_effect_applications == {}
+
+    # Unequipping restores the untouched base and clears the shared projection.
+    state.instanced_sheets["inst-1"].items["helm"].equipped = False
+    augmentation_service.synchronize_equipment_augmentations_mutation(state)
+    assert state.instanced_sheets["inst-1"].health == 10
+    assert state.direct_effect_projections == {}
+    assert state.augmentations == {}
+
+
+def test_apply_condition_preset_records_source_and_timing() -> None:
+    state = deepcopy(DEFAULT_STATE)
+    state.instanced_sheets["inst-1"] = _build_instance()
+    state.condition_presets["poisoned"] = _build_condition_preset()
+
+    result, _ = augmentation_service.apply_condition_preset_mutation(
+        state,
+        instance_id="inst-1",
+        condition_id="poisoned",
+        source=ConditionSource(type="action", id="poison", label="Poison"),
+        applied_by_role="dm",
+        applied_at_state_version=7,
+    )
+
+    assert result.operation == "applied"
+    active = state.active_conditions["condition:poisoned:inst-1"]
+    assert active.source.type == "action"
+    assert active.source.id == "poison"
+    assert active.source.label == "Poison"
+    assert active.applied_by_role == "dm"
+    assert active.applied_at_state_version == 7
+    assert active.applied_at  # ISO timestamp captured at apply time
+
+    # Metadata survives a serialization round trip.
+    reloaded = State.from_dict(deepcopy(state.to_dict(include_private=True)))
+    reloaded_active = reloaded.active_conditions["condition:poisoned:inst-1"]
+    assert reloaded_active.source.type == "action"
+    assert reloaded_active.applied_by_role == "dm"
+    assert reloaded_active.applied_at_state_version == 7
+
+
+def test_apply_condition_preset_defaults_source_when_unspecified() -> None:
+    state = deepcopy(DEFAULT_STATE)
+    state.instanced_sheets["inst-1"] = _build_instance()
+    state.condition_presets["poisoned"] = _build_condition_preset()
+
+    augmentation_service.apply_condition_preset_mutation(
+        state, instance_id="inst-1", condition_id="poisoned"
+    )
+
+    active = state.active_conditions["condition:poisoned:inst-1"]
+    assert active.source.type == "other"
+    assert active.applied_by_role is None
+    assert active.applied_at_state_version is None
+
+
+def test_private_state_round_trip_leaves_no_orphaned_effects() -> None:
+    """Serializing state with an active condition, a standalone application, and
+    an equipment projection, then rebuilding it, preserves effective values and
+    leaves the runtime consistent (a re-sync is a no-op, i.e. no orphans).
+
+    This exercises the ``State.to_dict(include_private=True)`` / ``State.from_dict``
+    serialization round trip only. It does not exercise the export/import service,
+    schema migration, or state-store persistence paths; a dedicated migration/import
+    test should accompany the Phase 2 persisted-schema rename."""
+    state = deepcopy(DEFAULT_STATE)
+    sheet = _build_sheet()
+    sheet.items = {
+        "helm": ItemBridge(
+            relationship_id="helm",
+            count=1,
+            equipped=True,
+            item_id="flame-helm",
+        ),
+    }
+    state.sheets[sheet.id] = sheet
+    state.items["flame-helm"] = _build_equipment_item("flame-helm", value="5")
+    state.instanced_sheets["inst-1"] = _build_instance(sheet)
+    state.standalone_effects["surge"] = _standalone_health_definition(
+        "surge", value="3"
+    )
+    state.condition_presets["poisoned"] = _build_condition_preset()
+
+    # Build a mixed runtime: equipment (+5), standalone (+3), condition (-2).
+    augmentation_service.synchronize_equipment_augmentations_mutation(state)
+    augmentation_service.apply_standalone_effect_mutation(
+        state, "surge", instance_id="inst-1"
+    )
+    augmentation_service.apply_condition_preset_mutation(
+        state, instance_id="inst-1", condition_id="poisoned"
+    )
+    # Settle projections after the condition's direct mutation so the base is stable.
+    augmentation_service.synchronize_projected_direct_effects_mutation(state)
+
+    expected_health = state.instanced_sheets["inst-1"].health
+    assert expected_health == 16  # 10 + 5 + 3 - 2
+
+    # Every condition-owned augmentation is anchored to a live active condition.
+    condition_application_ids = set(state.active_conditions)
+    for augmentation in state.augmentations.values():
+        if augmentation.lifecycle_owner == "condition":
+            assert augmentation.source.application_id in condition_application_ids
+
+    # Full private round trip, mirroring export -> import serialization.
+    reloaded = State.from_dict(deepcopy(state.to_dict(include_private=True)))
+
+    assert reloaded.instanced_sheets["inst-1"].health == expected_health
+    assert set(reloaded.augmentations) == set(state.augmentations)
+    assert set(reloaded.active_conditions) == set(state.active_conditions)
+    assert set(reloaded.standalone_effect_applications) == set(
+        state.standalone_effect_applications
+    )
+    assert set(reloaded.direct_effect_projections) == set(
+        state.direct_effect_projections
+    )
+
+    # Every runtime application still resolves to live definitions/targets after
+    # reload: no dangling references were introduced by serialization.
+    for active_condition in reloaded.active_conditions.values():
+        for augmentation_id in active_condition.augmentation_ids:
+            assert augmentation_id in reloaded.augmentations
+    for application in reloaded.standalone_effect_applications.values():
+        assert application.definition_id in reloaded.standalone_effects
+        assert application.instance_id in reloaded.instanced_sheets
+
+    # Re-synchronizing the rebuilt state changes nothing: no orphaned or
+    # double-applied modifiers survived the round trip.
+    assert (
+        augmentation_service.synchronize_equipment_augmentations_mutation(reloaded)
+        == []
+    )
+    assert reloaded.instanced_sheets["inst-1"].health == expected_health
+
+    # The restored runtime can still fully unwind, not just re-sync: removing every
+    # source in turn returns the value to the untouched base.
+    augmentation_service.remove_condition_preset_mutation(
+        reloaded, instance_id="inst-1", condition_id="poisoned"
+    )
+    augmentation_service.remove_standalone_effect_mutation(
+        reloaded, "surge", instance_id="inst-1"
+    )
+    reloaded.instanced_sheets["inst-1"].items["helm"].equipped = False
+    augmentation_service.synchronize_equipment_augmentations_mutation(reloaded)
+
+    assert reloaded.instanced_sheets["inst-1"].health == 10
+    assert reloaded.augmentations == {}
+    assert reloaded.active_conditions == {}
+    assert reloaded.standalone_effect_applications == {}
+    assert reloaded.direct_effect_projections == {}

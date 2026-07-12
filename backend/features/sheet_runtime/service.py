@@ -46,6 +46,7 @@ from backend.state.models.action import (
     SetValueStep,
 )
 from backend.state.models.action_history import ActionHistoryEntry, ActionHistoryText
+from backend.state.models.condition import ConditionSource
 from backend.state.models.damage import (
     DamageType,
     damage_type_category,
@@ -1431,6 +1432,15 @@ async def perform_action(
                             state,
                             instance_id=instance_id,
                             condition_id=step.condition_id,
+                            source=ConditionSource(
+                                type="action",
+                                id=current_action.id,
+                                label=current_action.name,
+                            ),
+                            applied_by_role=actor_role,
+                            applied_at_state_version=(
+                                state_sync_service.current_version + 1
+                            ),
                         )
                     )
                 else:

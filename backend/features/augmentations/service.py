@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from backend.core.transport import PatchOp
@@ -20,11 +21,11 @@ from backend.features.variable_registry.service import is_augmentation_target_al
 from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
-    EquipmentEffectProjection,
+    DirectEffectProjection,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
-from backend.state.models.condition import ActiveCondition
+from backend.state.models.condition import ActiveCondition, ConditionSource
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
 
@@ -306,8 +307,8 @@ def _desired_projected_augmentations(
     }
 
 
-def _equipment_projection_path(target_path: str) -> str:
-    return state_sync_service.join_path("equipment_effect_projections", target_path)
+def _direct_effect_projection_path(target_path: str) -> str:
+    return state_sync_service.join_path("direct_effect_projections", target_path)
 
 
 def _set_numeric_value(state: State, state_path: str, value: int | float) -> None:
@@ -315,14 +316,14 @@ def _set_numeric_value(state: State, state_path: str, value: int | float) -> Non
 
 
 def _adjusted_projection_base(
-    projection: EquipmentEffectProjection,
+    projection: DirectEffectProjection,
     current_value: int | float,
 ) -> int | float:
     external_delta = current_value - projection.effective_value
     return normalize_numeric_result(projection.base_value + external_delta)
 
 
-def _sync_equipment_direct_effects(
+def _sync_direct_effects(
     state: State,
     desired: dict[str, Augmentation],
 ) -> list[PatchOp]:
@@ -347,19 +348,19 @@ def _sync_equipment_direct_effects(
         effects_by_path[target.state_path].append(augmentation)
 
     base_values: dict[str, int | float] = {}
-    existing_paths = set(state.equipment_effect_projections)
+    existing_paths = set(state.direct_effect_projections)
     desired_paths = set(effects_by_path)
     ops: list[PatchOp] = []
 
     for target_path in sorted(existing_paths | desired_paths):
-        projection = state.equipment_effect_projections.get(target_path)
+        projection = state.direct_effect_projections.get(target_path)
         try:
             current_value = _current_numeric_value(state, target_path)
         except ValueError:
             if projection is not None:
                 _, remove_op = state_sync_service.remove_mutation(
                     state,
-                    _equipment_projection_path(target_path),
+                    _direct_effect_projection_path(target_path),
                 )
                 ops.append(remove_op)
             continue
@@ -419,22 +420,22 @@ def _sync_equipment_direct_effects(
                 )
             )
 
-        projection = state.equipment_effect_projections.get(target_path)
+        projection = state.direct_effect_projections.get(target_path)
         if target_path not in desired_paths:
             if projection is not None:
                 _, remove_op = state_sync_service.remove_mutation(
                     state,
-                    _equipment_projection_path(target_path),
+                    _direct_effect_projection_path(target_path),
                 )
                 ops.append(remove_op)
             continue
 
-        next_projection = EquipmentEffectProjection(
+        next_projection = DirectEffectProjection(
             target_path=target_path,
             base_value=base_value,
             effective_value=effective_value,
         )
-        projection_path = _equipment_projection_path(target_path)
+        projection_path = _direct_effect_projection_path(target_path)
         if projection is None:
             ops.append(
                 state_sync_service.add_mutation(
@@ -520,7 +521,7 @@ def synchronize_equipment_augmentations_mutation(state: State) -> list[PatchOp]:
             ops.append(state_sync_service.set_mutation(state, bridge_path, bridge))
 
     ops.extend(
-        _sync_equipment_direct_effects(
+        _sync_direct_effects(
             state,
             _desired_projected_augmentations(state, equipment=desired),
         )
@@ -529,7 +530,7 @@ def synchronize_equipment_augmentations_mutation(state: State) -> list[PatchOp]:
 
 
 def synchronize_projected_direct_effects_mutation(state: State) -> list[PatchOp]:
-    return _sync_equipment_direct_effects(
+    return _sync_direct_effects(
         state,
         _desired_projected_augmentations(state),
     )
@@ -580,16 +581,39 @@ def apply_standalone_effect_mutation(
             [],
         )
 
-    application_id = standalone_effect_application_id(definition_id, instance_id)
-    if application_id in state.standalone_effect_applications:
-        return (
-            AugmentationMutationResult(
-                augmentation_id=definition_id,
-                operation="ignored",
-                reason="already_applied",
-            ),
-            [],
-        )
+    base_application_id = standalone_effect_application_id(definition_id, instance_id)
+    existing_stacks = [
+        application
+        for application in state.standalone_effect_applications.values()
+        if application.definition_id == definition_id
+        and application.instance_id == instance_id
+    ]
+
+    if definition.stacking.mode == "stack":
+        max_stacks = definition.stacking.max_stacks
+        if max_stacks is not None and len(existing_stacks) >= max_stacks:
+            return (
+                AugmentationMutationResult(
+                    augmentation_id=definition_id,
+                    operation="ignored",
+                    reason="max_stacks_reached",
+                ),
+                [],
+            )
+        stack_index = len(existing_stacks) + 1
+        application_id = f"{base_application_id}:s{stack_index}"
+    else:  # unique
+        if existing_stacks:
+            return (
+                AugmentationMutationResult(
+                    augmentation_id=definition_id,
+                    operation="ignored",
+                    reason="already_applied",
+                ),
+                [],
+            )
+        stack_index = 0
+        application_id = base_application_id
 
     application = StandaloneEffectApplication(
         application_id=application_id,
@@ -602,6 +626,7 @@ def apply_standalone_effect_mutation(
             relationship_id=step_id,
             application_id=application_id,
         ),
+        stack_index=stack_index,
     )
     ops = [
         state_sync_service.add_mutation(
@@ -644,9 +669,15 @@ def remove_standalone_effect_mutation(
     definition = state.standalone_effects.get(definition_id)
     if definition is None:
         raise ValueError(f"Standalone effect '{definition_id}' does not exist.")
-    application_id = standalone_effect_application_id(definition_id, instance_id)
-    application = state.standalone_effect_applications.get(application_id)
-    if application is None:
+    # Removal clears the entire stack for this definition on this instance (a single
+    # application for unique-mode effects, or every stacked application otherwise).
+    matching_ids = sorted(
+        application_id
+        for application_id, application in state.standalone_effect_applications.items()
+        if application.definition_id == definition_id
+        and application.instance_id == instance_id
+    )
+    if not matching_ids:
         return (
             AugmentationMutationResult(
                 augmentation_id=definition_id,
@@ -655,14 +686,17 @@ def remove_standalone_effect_mutation(
             ),
             [],
         )
+    application = state.standalone_effect_applications[matching_ids[0]]
 
-    _, remove_op = state_sync_service.remove_mutation(
-        state,
-        state_sync_service.join_path(
-            "standalone_effect_applications", application_id
-        ),
-    )
-    ops = [remove_op]
+    ops: list[PatchOp] = []
+    for application_id in matching_ids:
+        _, remove_op = state_sync_service.remove_mutation(
+            state,
+            state_sync_service.join_path(
+                "standalone_effect_applications", application_id
+            ),
+        )
+        ops.append(remove_op)
     ops.extend(synchronize_projected_direct_effects_mutation(state))
     if definition.effect.type in {
         "evaluation_formula_modifier",
@@ -1041,6 +1075,9 @@ def _apply_condition_preset_mutation(
     *,
     instance_id: str,
     condition_id: str,
+    source: ConditionSource | None = None,
+    applied_by_role: str | None = None,
+    applied_at_state_version: int | None = None,
 ) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
     instance = state.instanced_sheets.get(instance_id)
     if instance is None:
@@ -1076,6 +1113,10 @@ def _apply_condition_preset_mutation(
         visibility=condition.visibility,
         instance_id=instance_id,
         augmentation_ids=augmentation_ids,
+        source=source or ConditionSource(),
+        applied_at=datetime.now(timezone.utc).isoformat(),
+        applied_by_role=applied_by_role,
+        applied_at_state_version=applied_at_state_version,
     )
     ops: list[PatchOp] = [
         state_sync_service.add_mutation(
@@ -1143,11 +1184,17 @@ def apply_condition_preset_mutation(
     *,
     instance_id: str,
     condition_id: str,
+    source: ConditionSource | None = None,
+    applied_by_role: str | None = None,
+    applied_at_state_version: int | None = None,
 ) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
     return _apply_condition_preset_mutation(
         state,
         instance_id=instance_id,
         condition_id=condition_id,
+        source=source,
+        applied_by_role=applied_by_role,
+        applied_at_state_version=applied_at_state_version,
     )
 
 
@@ -1280,6 +1327,9 @@ async def apply_condition_preset(
     *,
     instance_id: str,
     condition_id: str,
+    source: ConditionSource | None = None,
+    applied_by_role: str | None = None,
+    applied_at_state_version: int | None = None,
     request_id: str | None = None,
 ) -> ConditionPresetHookResult:
     def mutation(state: State) -> tuple[ConditionPresetHookResult, list[PatchOp]]:
@@ -1287,6 +1337,9 @@ async def apply_condition_preset(
             state,
             instance_id=instance_id,
             condition_id=condition_id,
+            source=source,
+            applied_by_role=applied_by_role,
+            applied_at_state_version=applied_at_state_version,
         )
 
     return await state_sync_service.apply_mutation(mutation, request_id=request_id)

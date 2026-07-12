@@ -107,9 +107,11 @@ describe("augmentationRequests", () => {
           applied: false,
           applied_target_id: null,
           lifecycle: {
-            duration: null,
+            mode: "manual",
+            remaining: null,
             expires_at: null,
-            removal_condition: null
+            remove_when_source_inactive: false,
+            notes: null
           }
         }
       },

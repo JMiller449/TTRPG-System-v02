@@ -299,6 +299,10 @@ def test_v4_migration_groups_existing_condition_augmentations() -> None:
         "visibility": "gm_only",
         "instance_id": "instance-1",
         "augmentation_ids": ["condition-child"],
+        "source": {"type": "other", "id": None, "label": None},
+        "applied_at": None,
+        "applied_by_role": None,
+        "applied_at_state_version": None,
     }
     assert migrated.state["augmentations"]["condition-child"]["source"][
         "application_id"
@@ -754,7 +758,7 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert legacy.state == {
         "sheets": {},
         "items": {},
-        "equipment_effect_projections": {},
+        "direct_effect_projections": {},
         "active_conditions": {},
         "standalone_effects": {},
         "standalone_effect_applications": {},
@@ -806,7 +810,169 @@ def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects
     assert instance["items"]["sword"]["equipped"] is True
     assert instance["augments"] == {}
     assert migrated.state["augmentations"] == {}
-    assert migrated.state["equipment_effect_projections"] == {}
+    assert migrated.state["direct_effect_projections"] == {}
+
+
+def test_v18_migration_renames_projection_collection_and_preserves_contents() -> None:
+    projection = {
+        "target_path": "/instanced_sheets/inst-1/health",
+        "base_value": 10,
+        "effective_value": 15,
+    }
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 17,
+            "state": {
+                "equipment_effect_projections": {
+                    "/instanced_sheets/inst-1/health": projection
+                }
+            },
+        }
+    )
+
+    assert "equipment_effect_projections" not in migrated.state
+    assert migrated.state["direct_effect_projections"] == {
+        "/instanced_sheets/inst-1/health": projection
+    }
+
+
+def test_v19_migration_drops_condition_preset_augmentation_ids() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 18,
+            "state": {
+                "condition_presets": {
+                    "poisoned": {
+                        "id": "poisoned",
+                        "name": "Poisoned",
+                        "visibility": "public",
+                        "augmentation_ids": ["poison-drain"],
+                        "augmentation_templates": [],
+                    }
+                }
+            },
+        }
+    )
+
+    preset = migrated.state["condition_presets"]["poisoned"]
+    assert "augmentation_ids" not in preset
+    assert preset["augmentation_templates"] == []
+
+
+def test_v20_migration_backfills_active_condition_metadata() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 19,
+            "state": {
+                "active_conditions": {
+                    "condition:poisoned:inst-1": {
+                        "application_id": "condition:poisoned:inst-1",
+                        "condition_id": "poisoned",
+                        "condition_name": "Poisoned",
+                        "description": "Ongoing poison.",
+                        "visibility": "public",
+                        "instance_id": "inst-1",
+                        "augmentation_ids": ["condition:poisoned:inst-1:drain"],
+                    }
+                }
+            },
+        }
+    )
+
+    active = migrated.state["active_conditions"]["condition:poisoned:inst-1"]
+    assert active["source"] == {"type": "other", "id": None, "label": None}
+    assert active["applied_at"] is None
+    assert active["applied_by_role"] is None
+    assert active["applied_at_state_version"] is None
+
+
+def test_v21_migration_structures_augmentation_lifecycle() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 20,
+            "state": {
+                "augmentations": {
+                    "aug-1": {
+                        "lifecycle": {
+                            "duration": "Three rounds",
+                            "expires_at": "end of turn 3",
+                            "removal_condition": "Dispelled",
+                        }
+                    }
+                },
+                "standalone_effects": {
+                    "surge": {"lifecycle": {"duration": None, "removal_condition": None}}
+                },
+                "condition_presets": {
+                    "poisoned": {
+                        "augmentation_templates": [
+                            {"lifecycle": {"duration": "Until treated"}}
+                        ]
+                    }
+                },
+                "items": {
+                    "helm": {
+                        "augmentation_templates": [
+                            {"lifecycle": {"removal_condition": "Unequipped"}}
+                        ]
+                    }
+                },
+            },
+        }
+    )
+
+    aug = migrated.state["augmentations"]["aug-1"]["lifecycle"]
+    assert aug == {
+        "mode": "manual",
+        "remaining": None,
+        "expires_at": "end of turn 3",
+        "remove_when_source_inactive": False,
+        "notes": "Three rounds / Dispelled",
+    }
+    assert "duration" not in aug and "removal_condition" not in aug
+
+    standalone = migrated.state["standalone_effects"]["surge"]["lifecycle"]
+    assert standalone["mode"] == "manual"
+    assert standalone["notes"] is None
+
+    preset_template = migrated.state["condition_presets"]["poisoned"][
+        "augmentation_templates"
+    ][0]["lifecycle"]
+    assert preset_template["notes"] == "Until treated"
+
+    item_template = migrated.state["items"]["helm"]["augmentation_templates"][0][
+        "lifecycle"
+    ]
+    assert item_template["notes"] == "Unequipped"
+
+
+def test_v22_migration_adds_standalone_stacking_defaults() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 21,
+            "state": {
+                "standalone_effects": {"surge": {"id": "surge"}},
+                "standalone_effect_applications": {
+                    "standalone:inst-1:surge": {
+                        "application_id": "standalone:inst-1:surge",
+                        "definition_id": "surge",
+                        "instance_id": "inst-1",
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["standalone_effects"]["surge"]["stacking"] == {
+        "mode": "unique",
+        "max_stacks": None,
+    }
+    assert (
+        migrated.state["standalone_effect_applications"]["standalone:inst-1:surge"][
+            "stack_index"
+        ]
+        == 0
+    )
 
 
 def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:

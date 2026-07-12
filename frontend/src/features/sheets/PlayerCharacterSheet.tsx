@@ -370,6 +370,8 @@ export function PlayerCharacterSheet({
               <aside className="character-sheet__overview-side">
                 <SheetConditionsSection
                   conditions={activeConditions}
+                  augmentations={augmentations}
+                  mode={mode}
                   canRemove={mode === "gm"}
                   onRemove={(applicationId) =>
                     client.sendProtocolRequest(

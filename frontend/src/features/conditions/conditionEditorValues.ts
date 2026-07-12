@@ -3,6 +3,7 @@ import type { ConditionPresetPayload } from "@/infrastructure/ws/requestBuilders
 import {
   hasValidAugmentationEditorValues,
   toAugmentationEffectPayload,
+  toAugmentationLifecyclePayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 
@@ -71,7 +72,6 @@ export function toConditionPresetPayload({
     name: conditionName,
     description: values.description.trim(),
     visibility: values.visibility,
-    augmentation_ids: augmentationTemplates.map((augmentation) => augmentation.id),
     augmentation_templates: augmentationTemplates
   };
 }
@@ -127,11 +127,7 @@ export function toConditionAugmentationTemplatePayload({
     active: values.active,
     applied: false,
     applied_target_id: null,
-    lifecycle: {
-      duration: optionalText(values.duration),
-      expires_at: optionalText(values.expiresAt),
-      removal_condition: optionalText(values.removalCondition)
-    }
+    lifecycle: toAugmentationLifecyclePayload(values)
   };
 }
 

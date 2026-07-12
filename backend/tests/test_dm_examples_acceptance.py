@@ -131,7 +131,7 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                 "item_flat_effect_bonus"
             ].evaluated_value == 50
 
-            persisted_projection_count = len(authored.equipment_effect_projections)
+            persisted_projection_count = len(authored.direct_effect_projections)
             persisted_augmentation_ids = set(authored.augmentations)
             assert persisted_projection_count == 4
 
@@ -145,7 +145,7 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert reloaded_instance.resistances.magical == pytest.approx(0.10)
             assert set(ENCOUNTER_IDS).issubset(reloaded.encounter_presets)
             assert set(CONDITION_IDS).issubset(reloaded.condition_presets)
-            assert len(reloaded.equipment_effect_projections) == persisted_projection_count
+            assert len(reloaded.direct_effect_projections) == persisted_projection_count
             assert set(reloaded.augmentations) == persisted_augmentation_ids
             assert reloaded.standalone_effect_applications == {}
 

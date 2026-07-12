@@ -45,9 +45,11 @@ def _effect_payload(
         },
         "active": active,
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": "Removed by its authored action.",
+            "remove_when_source_inactive": False,
+            "notes": "Removed by its authored action.",
         },
     }
 
@@ -176,6 +178,64 @@ def test_one_definition_applies_independently_and_idempotently_to_two_instances(
     }
 
 
+def _stacking_effect_payload(*, max_stacks: int | None = None, value: str = "5") -> dict:
+    payload = _effect_payload(
+        "surge",
+        effect={
+            "type": "formula_modifier",
+            "operation": "add",
+            "value": {"aliases": None, "text": value, "tags": []},
+            "selector": {},
+        },
+    )
+    payload["stacking"] = {"mode": "stack", "max_stacks": max_stacks}
+    return payload
+
+
+def _surge_stacks(state: State) -> list:
+    return [
+        application
+        for application in state.standalone_effect_applications.values()
+        if application.definition_id == "surge"
+    ]
+
+
+def test_stack_mode_applies_cumulatively_and_respects_max_stacks() -> None:
+    state = deepcopy(DEFAULT_STATE)
+    state.standalone_effects["surge"] = StandaloneEffectDefinition.from_dict(
+        _stacking_effect_payload(max_stacks=3, value="5")
+    )
+    state.instanced_sheets["instance-1"] = _instance(10)
+
+    for expected_stacks in (1, 2, 3):
+        result, _ = augmentation_service.apply_standalone_effect_mutation(
+            state, "surge", instance_id="instance-1"
+        )
+        assert result.operation == "applied"
+        assert len(_surge_stacks(state)) == expected_stacks
+
+    # Three stacks of +5 accumulate on the same path.
+    assert state.instanced_sheets["instance-1"].health == 25
+    assert {app.stack_index for app in _surge_stacks(state)} == {1, 2, 3}
+
+    # A fourth application is rejected once max_stacks is reached.
+    capped, capped_ops = augmentation_service.apply_standalone_effect_mutation(
+        state, "surge", instance_id="instance-1"
+    )
+    assert capped.operation == "ignored"
+    assert capped.reason == "max_stacks_reached"
+    assert capped_ops == []
+    assert state.instanced_sheets["instance-1"].health == 25
+
+    # Removal clears the whole stack and restores the base value.
+    removed, _ = augmentation_service.remove_standalone_effect_mutation(
+        state, "surge", instance_id="instance-1"
+    )
+    assert removed.operation == "removed"
+    assert state.instanced_sheets["instance-1"].health == 10
+    assert _surge_stacks(state) == []
+
+
 def test_set_effect_restores_projection_base_on_removal() -> None:
     state = deepcopy(DEFAULT_STATE)
     state.standalone_effects["set-health"] = _definition(
@@ -288,7 +348,7 @@ def test_player_snapshot_only_contains_assigned_instance_applications() -> None:
             assert set(snapshot.state["standalone_effect_applications"]) == {
                 "standalone:instance-1:blessing"
             }
-            assert "equipment_effect_projections" not in snapshot.state
+            assert "direct_effect_projections" not in snapshot.state
         finally:
             StateSingleton._state = original_state
 

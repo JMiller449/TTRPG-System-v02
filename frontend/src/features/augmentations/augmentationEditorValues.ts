@@ -1,9 +1,13 @@
 import type {
   Augmentation,
   AugmentationEffectType,
+  AugmentationLifecycle,
   AugmentationOperation,
   FormulaAlias,
+  LifecycleMode,
   RollModeModifier,
+  StackingConfig,
+  StackingMode,
   StandaloneEffectDefinition
 } from "@/domain/models";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
@@ -11,7 +15,21 @@ import type { AugmentationTargetMetadata } from "@/domain/ipc";
 import type { AugmentationPayload } from "@/infrastructure/ws/requestBuilders";
 
 export type ItemAugmentationTargetRoot = "sheet" | "instance";
+
+export const LIFECYCLE_MODE_OPTIONS: { value: LifecycleMode; label: string }[] = [
+  { value: "manual", label: "Manual (GM removes)" },
+  { value: "rounds", label: "Rounds" },
+  { value: "turns", label: "Turns" },
+  { value: "until_rest", label: "Until rest" },
+  { value: "until_source_removed", label: "Until source removed" },
+  { value: "scene", label: "Scene" }
+];
 export type AugmentationTargetOption = AugmentationTargetMetadata["targets"][number];
+
+export const STACKING_MODE_OPTIONS: { value: StackingMode; label: string }[] = [
+  { value: "unique", label: "Unique (one application per instance)" },
+  { value: "stack", label: "Stack (multiple applications)" }
+];
 
 export interface AugmentationEditorValues {
   name: string;
@@ -30,9 +48,13 @@ export interface AugmentationEditorValues {
   selectorFormulaId: string;
   selectorStepId: string;
   selectorSameSourceItem: boolean;
-  duration: string;
+  lifecycleMode: LifecycleMode;
+  lifecycleRemaining: string;
   expiresAt: string;
-  removalCondition: string;
+  removeWhenSourceInactive: boolean;
+  lifecycleNotes: string;
+  stackingMode: StackingMode;
+  stackingMaxStacks: string;
 }
 
 export function createEmptyAugmentationEditorValues(): AugmentationEditorValues {
@@ -53,9 +75,13 @@ export function createEmptyAugmentationEditorValues(): AugmentationEditorValues 
     selectorFormulaId: "",
     selectorStepId: "",
     selectorSameSourceItem: false,
-    duration: "",
+    lifecycleMode: "manual",
+    lifecycleRemaining: "",
     expiresAt: "",
-    removalCondition: ""
+    removeWhenSourceInactive: false,
+    lifecycleNotes: "",
+    stackingMode: "unique",
+    stackingMaxStacks: ""
   };
 }
 
@@ -127,6 +153,19 @@ export function augmentationEffectUsesTarget(
   return augmentation.effect.type === "formula_modifier";
 }
 
+const EFFECT_TYPE_HINTS: Record<AugmentationEffectType, string> = {
+  formula_modifier:
+    "Changes the target value itself (e.g. current health, max mana). Applies once and stays applied while active.",
+  evaluation_formula_modifier:
+    "Leaves the target value untouched and instead adjusts matching formula results at roll/evaluation time.",
+  roll_mode_modifier:
+    "Doesn't change any value — grants advantage or disadvantage on rolls matching the selector below."
+};
+
+export function describeAugmentationEffectType(effectType: AugmentationEffectType): string {
+  return EFFECT_TYPE_HINTS[effectType];
+}
+
 export function formatAugmentationEffect(
   augmentation: Pick<EffectDefinitionLike, "effect">
 ): string {
@@ -139,6 +178,35 @@ export function formatAugmentationEffect(
   return augmentation.effect.type === "evaluation_formula_modifier"
     ? `${operation} to matching formula results`
     : `${operation} to the target value`;
+}
+
+export function formatAugmentationLifecycle(lifecycle: AugmentationLifecycle | undefined): string {
+  const mode = lifecycle?.mode ?? "manual";
+  if (mode === "manual") {
+    return "Manual (GM removes)";
+  }
+  const modeLabel = LIFECYCLE_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? mode;
+  const parts = [modeLabel];
+  if (lifecycle?.remaining != null) {
+    parts.push(`${lifecycle.remaining} remaining`);
+  }
+  if (lifecycle?.expires_at) {
+    parts.push(lifecycle.expires_at);
+  }
+  return parts.join(" · ");
+}
+
+export function formatStackingSummary(
+  stacking: StackingConfig | undefined,
+  stackIndex: number | undefined
+): string | null {
+  if (!stacking || stacking.mode !== "stack") {
+    return null;
+  }
+  const position = (stackIndex ?? 0) + 1;
+  return stacking.max_stacks != null
+    ? `Stack ${position} of ${stacking.max_stacks}`
+    : `Stack ${position}`;
 }
 
 export function isKnownAugmentationEditorTarget(
@@ -171,6 +239,34 @@ function optionalText(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function optionalRemaining(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function toAugmentationLifecyclePayload(
+  values: AugmentationEditorValues
+): AugmentationPayload["lifecycle"] {
+  return {
+    mode: values.lifecycleMode,
+    remaining: optionalRemaining(values.lifecycleRemaining),
+    expires_at: optionalText(values.expiresAt),
+    remove_when_source_inactive: values.removeWhenSourceInactive,
+    notes: optionalText(values.lifecycleNotes)
+  };
+}
+
+export function toStackingConfigPayload(values: AugmentationEditorValues): StackingConfig {
+  return {
+    mode: values.stackingMode,
+    max_stacks: values.stackingMode === "stack" ? optionalRemaining(values.stackingMaxStacks) : null
+  };
+}
+
 function readItemTargetRoot(augmentation: EffectDefinitionLike): ItemAugmentationTargetRoot {
   if (augmentation.target.root === "sheet" || augmentation.target.root === "instance") {
     return augmentation.target.root;
@@ -184,6 +280,7 @@ export function toAugmentationEditorValues(
     description?: string;
     active?: boolean;
     lifecycle?: Augmentation["lifecycle"];
+    stacking?: StackingConfig;
   }
 ): AugmentationEditorValues {
   const numericEffect =
@@ -208,9 +305,18 @@ export function toAugmentationEditorValues(
     selectorFormulaId: augmentation.effect.selector?.formula_id ?? "",
     selectorStepId: augmentation.effect.selector?.step_id ?? "",
     selectorSameSourceItem: augmentation.effect.selector?.same_source_item ?? false,
-    duration: augmentation.lifecycle?.duration ?? "",
+    lifecycleMode: augmentation.lifecycle?.mode ?? "manual",
+    lifecycleRemaining:
+      augmentation.lifecycle?.remaining != null
+        ? String(augmentation.lifecycle.remaining)
+        : "",
     expiresAt: augmentation.lifecycle?.expires_at ?? "",
-    removalCondition: augmentation.lifecycle?.removal_condition ?? ""
+    removeWhenSourceInactive:
+      augmentation.lifecycle?.remove_when_source_inactive ?? false,
+    lifecycleNotes: augmentation.lifecycle?.notes ?? "",
+    stackingMode: augmentation.stacking?.mode ?? "unique",
+    stackingMaxStacks:
+      augmentation.stacking?.max_stacks != null ? String(augmentation.stacking.max_stacks) : ""
   };
 }
 
@@ -287,10 +393,6 @@ export function toItemAugmentationTemplatePayload({
     active: values.active,
     applied: false,
     applied_target_id: null,
-    lifecycle: {
-      duration: optionalText(values.duration),
-      expires_at: optionalText(values.expiresAt),
-      removal_condition: optionalText(values.removalCondition)
-    }
+    lifecycle: toAugmentationLifecyclePayload(values)
   };
 }

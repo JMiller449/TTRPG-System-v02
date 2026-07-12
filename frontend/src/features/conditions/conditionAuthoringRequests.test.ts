@@ -19,7 +19,6 @@ function condition(): ConditionPreset {
     name: "Poisoned",
     description: "",
     visibility: "public",
-    augmentation_ids: [],
     augmentation_templates: []
   };
 }
@@ -39,7 +38,6 @@ describe("conditionAuthoringRequests", () => {
           name: "Poisoned",
           description: "Poison status.",
           visibility: "gm_only",
-          augmentation_ids: [],
           augmentation_templates: []
         }
       },
@@ -67,7 +65,6 @@ describe("conditionAuthoringRequests", () => {
           name: "Venomed",
           description: "",
           visibility: "public",
-          augmentation_ids: [],
           augmentation_templates: []
         }
       },
@@ -117,7 +114,6 @@ describe("conditionAuthoringRequests", () => {
       type: "create_condition_preset",
       condition: {
         id: "poisoned",
-        augmentation_ids: ["poison-drain"],
         augmentation_templates: [
           {
             id: "poison-drain",

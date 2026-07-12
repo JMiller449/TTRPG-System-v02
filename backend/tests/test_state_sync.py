@@ -639,9 +639,11 @@ def test_state_sync_can_patch_top_level_augmentation_root(monkeypatch) -> None:
                                 "applied_target_id": None,
                                 "lifecycle_owner": "manual",
                                 "lifecycle": {
-                                    "duration": None,
+                                    "mode": "manual",
+                                    "remaining": None,
                                     "expires_at": None,
-                                    "removal_condition": None,
+                                    "remove_when_source_inactive": False,
+                                    "notes": None,
                                 },
                             },
                         }

@@ -10,7 +10,7 @@ const source = readFileSync(userscriptPath, "utf8");
 
 describe("roll20 bridge userscript artifact", () => {
   it("keeps install/update metadata first and excludes legacy extension configuration", () => {
-    expect(source.split("\n")[0]).toBe("// ==UserScript==");
+    expect(source.split("\n")[0].trimEnd()).toBe("// ==UserScript==");
     expect(source).toContain("// @version     1.0.1");
     expect(source).toContain("// @downloadURL https://bossadapt.org/ttrpg/roll20-bridge.user.js");
     expect(source).toContain("// @grant       GM_getValues");

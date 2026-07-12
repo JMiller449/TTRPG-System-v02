@@ -94,9 +94,11 @@ function augmentationTemplate({ id = "aug_1", name = "Arcane Guard", value = "2"
     applied: false,
     applied_target_id: null,
     lifecycle: {
-      duration: "",
-      expires_at: "",
-      removal_condition: ""
+      mode: "manual",
+      remaining: null,
+      expires_at: null,
+      remove_when_source_inactive: false,
+      notes: null
     }
   };
 }
@@ -221,7 +223,6 @@ describe("authoritative server-state sync", () => {
             name: "Poisoned",
             description: "Poison status.",
             visibility: "public",
-            augmentation_ids: [],
             augmentation_templates: []
           }
         },
@@ -1510,7 +1511,6 @@ describe("authoritative server-state sync", () => {
             name: "Poisoned",
             description: "Poison status.",
             visibility: "public",
-            augmentation_ids: ["aug_1"],
             augmentation_templates: [augmentationTemplate()]
           }
         }

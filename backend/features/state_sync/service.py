@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
-PRIVATE_STATE_ROOTS = {"equipment_effect_projections"}
+PRIVATE_STATE_ROOTS = {"direct_effect_projections"}
 DM_ONLY_STATE_ROOTS = {"parties", "kill_registry", "xp_adjustments"}
 _MISSING = object()
 

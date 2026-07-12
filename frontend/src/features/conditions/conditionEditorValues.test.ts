@@ -17,7 +17,6 @@ function condition(): ConditionPreset {
     name: "Poisoned",
     description: "Takes poison penalties.",
     visibility: "gm_only",
-    augmentation_ids: ["poison-drain"],
     augmentation_templates: [
       {
         id: "poison-drain",
@@ -59,7 +58,7 @@ describe("conditionEditorValues", () => {
     });
   });
 
-  it("builds condition preset payloads with augmentation ids derived from templates", () => {
+  it("builds condition preset payloads from editor values", () => {
     const values = createEmptyConditionPresetEditorValues();
     values.name = "  Burning  ";
     values.description = "  On fire.  ";
@@ -69,7 +68,6 @@ describe("conditionEditorValues", () => {
       name: "Burning",
       description: "On fire.",
       visibility: "public",
-      augmentation_ids: [],
       augmentation_templates: []
     });
   });
@@ -85,7 +83,6 @@ describe("conditionEditorValues", () => {
       name: "Venomed",
       description: "Updated description.",
       visibility: "public",
-      augmentation_ids: ["poison-drain"],
       augmentation_templates: condition().augmentation_templates?.map((effect) => ({
         ...effect,
         source: {
@@ -105,8 +102,8 @@ describe("conditionEditorValues", () => {
     values.operation = "subtract";
     values.targetPath = [" stats ", " stamina "];
     values.formulaText = "  2  ";
-    values.duration = "encounter";
-    values.removalCondition = "cured";
+    values.lifecycleMode = "manual";
+    values.lifecycleNotes = "cured";
 
     expect(
       toConditionAugmentationTemplatePayload({
@@ -149,9 +146,11 @@ describe("conditionEditorValues", () => {
       applied: false,
       applied_target_id: null,
       lifecycle: {
-        duration: "encounter",
+        mode: "manual",
+        remaining: null,
         expires_at: null,
-        removal_condition: "cured"
+        remove_when_source_inactive: false,
+        notes: "cured"
       }
     });
   });
@@ -198,7 +197,6 @@ describe("conditionEditorValues", () => {
 
     const payload = toConditionPresetPayload({ values, conditionId: "venomed" });
 
-    expect(payload.augmentation_ids).toEqual(["poison-drain"]);
     expect(payload.augmentation_templates?.[0]).toMatchObject({
       id: "poison-drain",
       source: {

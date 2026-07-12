@@ -239,6 +239,26 @@ These are not required for the app to be usable as the MVP character sheet and a
 
 Future work should be prioritized only after the table-readiness pass proves the MVP workflow.
 
+- [ ] Effects & conditions system conceptual cleanup — phased plan tracked in
+  `plan/active/effects_conditions_review.md`. Phase 1 complete: current pipeline documentation
+  (`backend/features/augmentations/ARCHITECTURE.md`) and gap tests are in place. Phase 2
+  complete: `equipment_effect_projections` renamed to `direct_effect_projections`
+  (`EquipmentEffectProjection` → `DirectEffectProjection`) with schema migration v17→v18; this
+  is private/redacted state so no protocol/frontend change was needed. Phase 3 complete:
+  regenerated stale protocol codegen (a prerequisite unrelated to effects — prior commits had
+  drifted the checked-in frontend types), decided to keep `Augmentation` as the internal model
+  name, made `ConditionPreset` a pure definition by removing the dead `augmentation_ids` field
+  (schema v19), and added source/timing metadata to `ActiveCondition` (`source`, `applied_at`,
+  `applied_by_role`, `applied_at_state_version`; schema v20) so the GM can see why/who/when a
+  condition was applied. Phase 4 (part): restructured the augmentation lifecycle into a
+  declarative `mode`/`remaining`/`expires_at`/`remove_when_source_inactive`/`notes` shape
+  (schema v21) — GM-tracked, not an auto-tick engine (turn/round automation stays a non-goal).
+  Standalone effect stacking (schema v22): `StandaloneEffectDefinition.stacking` (`unique`
+  default / `stack` with `max_stacks`); stacked applications accumulate through the existing
+  projection path and removal clears the whole stack. Remaining: `refresh`/`replace` modes and
+  condition stacking (need per-application lifecycle state / condition multi-application), GM
+  refresh/expire controls, and the authoring UI refresh incl. the Active Effects inspector
+  (Phase 5 — paused pending a UI-capable environment).
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode and alternative handling.
 - [ ] Mastery unlock enforcement and visibility for disabled/hidden content.

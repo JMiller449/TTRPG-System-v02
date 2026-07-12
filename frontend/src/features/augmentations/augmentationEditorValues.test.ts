@@ -54,9 +54,11 @@ const testAugmentation: Augmentation = {
   applied: false,
   applied_target_id: null,
   lifecycle: {
-    duration: "encounter",
+    mode: "rounds",
+    remaining: 3,
     expires_at: null,
-    removal_condition: "item removed"
+    remove_when_source_inactive: false,
+    notes: "item removed"
   }
 };
 
@@ -84,9 +86,13 @@ describe("augmentationEditorValues", () => {
       selectorFormulaId: "formula_1",
       selectorStepId: "step_1",
       selectorSameSourceItem: true,
-      duration: "encounter",
+      lifecycleMode: "rounds",
+      lifecycleRemaining: "3",
       expiresAt: "",
-      removalCondition: "item removed"
+      removeWhenSourceInactive: false,
+      lifecycleNotes: "item removed",
+      stackingMode: "unique",
+      stackingMaxStacks: ""
     });
   });
 
@@ -166,8 +172,9 @@ describe("augmentationEditorValues", () => {
     values.selectorFormulaId = " formula_1 ";
     values.selectorStepId = " step_1 ";
     values.selectorSameSourceItem = true;
-    values.duration = " encounter ";
-    values.removalCondition = " item removed ";
+    values.lifecycleMode = "rounds";
+    values.lifecycleRemaining = " 3 ";
+    values.lifecycleNotes = " item removed ";
 
     expect(
       toItemAugmentationTemplatePayload({
@@ -215,9 +222,11 @@ describe("augmentationEditorValues", () => {
       applied: false,
       applied_target_id: null,
       lifecycle: {
-        duration: "encounter",
+        mode: "rounds",
+        remaining: 3,
         expires_at: null,
-        removal_condition: "item removed"
+        remove_when_source_inactive: false,
+        notes: "item removed"
       }
     });
   });

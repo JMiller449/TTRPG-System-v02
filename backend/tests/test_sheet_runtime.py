@@ -413,9 +413,11 @@ def _build_augmentation_state(
             "applied": False,
             "applied_target_id": None,
             "lifecycle": {
-                "duration": None,
+                "mode": "manual",
+                "remaining": None,
                 "expires_at": None,
-                "removal_condition": None,
+                "remove_when_source_inactive": False,
+                "notes": None,
             },
         }
     )
@@ -459,7 +461,6 @@ def _build_condition_preset_state(condition_id: str = "poisoned") -> ConditionPr
             "name": "Poisoned",
             "description": "Poison drains current health.",
             "visibility": "public",
-            "augmentation_ids": [],
             "augmentation_templates": [asdict(payload)],
         }
     )
@@ -492,9 +493,11 @@ def _evaluation_augmentation_payload(
         "applied_target_id": applied_target_id,
         "lifecycle_owner": "condition" if source_type == "condition" else "equipment",
         "lifecycle": {
-            "duration": None,
+            "mode": "manual",
+            "remaining": None,
             "expires_at": None,
-            "removal_condition": None,
+            "remove_when_source_inactive": False,
+            "notes": None,
         },
     }
 
@@ -3095,6 +3098,15 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
             assert state.instanced_sheets["mage_instance"].augments[
                 concrete_id
             ].entry_id == concrete_id
+            active_condition = state.active_conditions[
+                "condition:poisoned:mage_instance"
+            ]
+            assert active_condition.source.type == "action"
+            assert active_condition.source.id == "poison"
+            assert active_condition.source.label == "Poison"
+            assert active_condition.applied_by_role == "player"
+            assert isinstance(active_condition.applied_at_state_version, int)
+            assert active_condition.applied_at
             assert [op["path"] for op in websocket.sent_messages[0]["ops"]] == [
                 "/active_conditions/condition:poisoned:mage_instance",
                 f"/augmentations/{concrete_id}",

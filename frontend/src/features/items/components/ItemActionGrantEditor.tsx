@@ -4,6 +4,7 @@ import type {
   ItemEditorValues
 } from "@/features/items/itemEditorValues";
 import { Field } from "@/shared/ui/Field";
+import { makeId } from "@/shared/utils/id";
 
 function actionSectionTitle(interactionType: ItemInteractionType): string {
   return interactionType === "consumable" ? "Use Actions" : "Equipped Actions";
@@ -11,6 +12,7 @@ function actionSectionTitle(interactionType: ItemInteractionType): string {
 
 function createGrant(interactionType: ItemInteractionType): ItemActionGrantEditorValues {
   return {
+    draftId: makeId("item_action_grant"),
     actionId: "",
     availability: interactionType === "consumable" ? "carried" : "equipped",
     consumeQuantity: interactionType === "consumable" ? "1" : "0"
@@ -63,7 +65,7 @@ export function ItemActionGrantEditor({
         <p className="muted">No {isConsumable ? "use" : "equipped"} actions.</p>
       ) : null}
       {values.actionGrants.map((grant, index) => (
-        <div className="item-action-row" key={`${grant.actionId}-${index}`}>
+        <div className="item-action-row" key={grant.draftId ?? `legacy-grant-${index}`}>
           <Field label={isConsumable ? "Use Action" : "Equipped Action"}>
             <select
               value={grant.actionId}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.attributes.value_schema import AttributeBridgePayload
@@ -16,6 +16,8 @@ class ItemActionGrantPayload(BaseModel):
 
 
 class ItemDefinitionPayload(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     interaction_type: Literal["equippable", "consumable", "inventory_only"]
@@ -26,7 +28,9 @@ class ItemDefinitionPayload(BaseModel):
     gm_notes: str = ""
     gm_special_properties: str = ""
     price: str = ""
-    weight: str = ""
+    weight: float = Field(default=0, ge=0, allow_inf_nan=False)
+    can_contain_items: bool = False
+    contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: Literal["weapon"] | None = None
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
@@ -46,6 +50,11 @@ class ItemDefinitionPayload(BaseModel):
 
         if self.attribute_profile == "weapon" and self.interaction_type != "equippable":
             raise ValueError("Weapon-profile items must be equippable.")
+
+        if not self.can_contain_items and self.contents_weight_behavior != "normal":
+            raise ValueError(
+                "Only storage containers can change how the weight of their contents counts."
+            )
 
         if self.interaction_type == "consumable":
             if self.augmentation_templates:

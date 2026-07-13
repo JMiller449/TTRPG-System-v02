@@ -14,6 +14,8 @@ export type ItemEditorValues = {
   type: string;
   rank: string;
   weight: string;
+  canContainItems: boolean;
+  contentsWeightBehavior: "normal" | "ignored";
   value: string;
   worldAnvilUrl: string;
   gmNotes: string;
@@ -26,6 +28,7 @@ export type ItemEditorValues = {
 };
 
 export type ItemActionGrantEditorValues = {
+  draftId?: string;
   actionId: string;
   availability: "carried" | "equipped";
   consumeQuantity: string;
@@ -63,7 +66,9 @@ export function createEmptyItemValues(): ItemEditorValues {
     interactionType: "equippable",
     type: "",
     rank: ITEM_RANK_OPTIONS[0],
-    weight: "",
+    weight: "0",
+    canContainItems: false,
+    contentsWeightBehavior: "normal",
     value: "",
     worldAnvilUrl: "",
     gmNotes: "",
@@ -78,6 +83,7 @@ export function createEmptyItemValues(): ItemEditorValues {
 
 function canonicalWeaponActionGrants(): ItemActionGrantEditorValues[] {
   return WEAPON_ACTION_IDS.map((actionId) => ({
+    draftId: `weapon_grant_${actionId}`,
     actionId,
     availability: "equipped",
     consumeQuantity: "0"
@@ -99,7 +105,9 @@ export function setItemAttributeProfile(
   definitions: Record<string, AttributeDefinition>
 ): ItemEditorValues {
   const attributes = Object.fromEntries(
-    Object.entries(values.attributes).filter(([attributeId]) => !definitions[attributeId]?.required_profile)
+    Object.entries(values.attributes).filter(
+      ([attributeId]) => !definitions[attributeId]?.required_profile
+    )
   );
   for (const definition of Object.values(definitions)) {
     if (definition.required_profile !== attributeProfile) {
@@ -131,7 +139,9 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     interactionType: item.interaction_type,
     type: item.category ?? "",
     rank: item.rank || ITEM_RANK_OPTIONS[0],
-    weight: item.weight,
+    weight: String(item.weight),
+    canContainItems: item.can_contain_items ?? false,
+    contentsWeightBehavior: item.contents_weight_behavior ?? "normal",
     value: item.price,
     worldAnvilUrl: item.world_anvil_url ?? "",
     gmNotes: item.gm_notes ?? "",
@@ -139,19 +149,24 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     description: item.description ?? "",
     attributeProfile: item.attribute_profile ?? null,
     attributes: Object.fromEntries(
-      Object.entries(item.attributes ?? {}).map(([attributeId, bridge]) => [attributeId, structuredClone(bridge)])
+      Object.entries(item.attributes ?? {}).map(([attributeId, bridge]) => [
+        attributeId,
+        structuredClone(bridge)
+      ])
     ),
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
     actionGrants:
       item.attribute_profile === "weapon"
         ? normalizeWeaponActionGrantValues(
             (item.action_grants ?? []).map((grant) => ({
+              draftId: `item_grant_${grant.action_id}`,
               actionId: grant.action_id,
               availability: grant.availability,
               consumeQuantity: String(grant.consume_quantity ?? 0)
             }))
           )
         : (item.action_grants ?? []).map((grant) => ({
+            draftId: `item_grant_${grant.action_id}`,
             actionId: grant.action_id,
             availability: grant.availability,
             consumeQuantity: String(grant.consume_quantity ?? 0)
@@ -218,6 +233,23 @@ export function getItemEditorValidationError(
 ): string | null {
   if (!values.name.trim()) {
     return "Name is required.";
+  }
+  const weight = Number(values.weight);
+  if (!values.weight.trim() || !Number.isFinite(weight) || weight < 0) {
+    return "Weight must be a finite nonnegative number in pounds.";
+  }
+  if (!values.canContainItems && values.contentsWeightBehavior !== "normal") {
+    return "Only storage containers can ignore the weight of their contents.";
+  }
+  for (const [attributeId, bridge] of Object.entries(values.attributes)) {
+    const definition = context.definitions?.[attributeId];
+    if (definition?.reference_kind !== "proficiency" || bridge.value.type === "formula") {
+      continue;
+    }
+    const proficiencyId = String(bridge.value.value ?? "");
+    if (proficiencyId && !context.proficiencies?.[proficiencyId]) {
+      return `${definition.name} references missing proficiency ID '${proficiencyId}'. Select a replacement or clear it.`;
+    }
   }
   if (values.attributeProfile === "weapon") {
     if (values.interactionType !== "equippable") {
@@ -293,7 +325,9 @@ export function toItemDefinitionPayload(
     gm_special_properties:
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
-    weight: values.weight.trim(),
+    weight: Number(values.weight),
+    can_contain_items: values.canContainItems,
+    contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     attribute_profile: values.attributeProfile,
     attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, itemId),
@@ -317,7 +351,9 @@ export function toUpdatedItemDefinitionPayload(
     gm_special_properties:
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
-    weight: values.weight.trim(),
+    weight: Number(values.weight),
+    can_contain_items: values.canContainItems,
+    contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     attribute_profile: values.attributeProfile,
     attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, item.id),

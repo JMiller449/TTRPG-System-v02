@@ -49,6 +49,8 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     dispatch
   } = useAppStore();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [draftItemId, setDraftItemId] = useState(() => makeId("item"));
+  const [submittedCreateId, setSubmittedCreateId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
   const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
@@ -104,9 +106,22 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
 
   const startNewItem = (): void => {
     setEditingItemId(null);
+    setDraftItemId(makeId("item"));
+    setSubmittedCreateId(null);
     setValues(createEmptyItemValues());
     resetAugmentationEditor();
   };
+
+  useEffect(() => {
+    if (submittedCreateId && itemRecords[submittedCreateId]) {
+      setEditingItemId(null);
+      setDraftItemId(makeId("item"));
+      setSubmittedCreateId(null);
+      setValues(createEmptyItemValues());
+      setEditingAugmentationId(null);
+      setAugmentationValues(createEmptyAugmentationEditorValues());
+    }
+  }, [itemRecords, submittedCreateId]);
 
   const onSubmit = (): void => {
     if (!values.name.trim()) {
@@ -119,13 +134,15 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     };
     const submission = editingItemId
       ? buildUpdateItemSubmission(itemRecords[editingItemId], values, validationContext)
-      : buildCreateItemSubmission(values, makeId("item"), validationContext);
+      : buildCreateItemSubmission(values, draftItemId, validationContext);
     if (!submission) {
       return;
     }
 
     client.sendProtocolRequest(submission.request, submission.label);
-    startNewItem();
+    if (!editingItemId) {
+      setSubmittedCreateId(draftItemId);
+    }
   };
 
   const deleteItem = (itemId: string): void => {
@@ -216,6 +233,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           actions={actions}
           attributeDefinitions={attributeDefinitions}
           proficiencies={proficiencyRecords}
+          pending={Boolean(submittedCreateId)}
           attributesEditor={
             <ItemAttributesEditor
               values={values}

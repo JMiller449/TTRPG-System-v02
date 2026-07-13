@@ -110,7 +110,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     }
 
     const submission = editingActionId
-      ? buildUpdateActionSubmission(actionRecords[editingActionId], values, attributeValidationContext)
+      ? buildUpdateActionSubmission(
+          actionRecords[editingActionId],
+          values,
+          attributeValidationContext
+        )
       : buildCreateActionSubmission(values, makeId("action"), attributeValidationContext);
     if (!submission) {
       return;
@@ -130,6 +134,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
 
   return (
     <Panel
+      className="action-authoring-panel"
       title="Action Authoring"
       subtitle="Build the rollable moves used at the table. An action is a list of steps that run in order when it is performed."
       actions={
@@ -138,10 +143,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             <button className="button button--secondary" onClick={startNewAction}>
               New Action
             </button>
-            <button
-              className="button button--danger"
-              onClick={() => deleteAction(editingActionId)}
-            >
+            <button className="button button--danger" onClick={() => deleteAction(editingActionId)}>
               Delete Action
             </button>
           </div>
@@ -150,6 +152,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     >
       <CatalogEditorLayout
         catalogLabel="Authored Actions"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogTileGrid
             items={actions.map((action) => ({ id: action.id, name: action.name }))}
@@ -166,7 +169,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           />
         }
       >
-        <div className="stack">
+        <div className="stack action-authoring-editor">
           <ActionPresetPicker
             presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
             onApply={(preset) => {

@@ -624,7 +624,7 @@ def test_item_and_action_subject_attributes_persist_and_evaluate(monkeypatch) ->
                     "rank": "D",
                     "description": "",
                     "price": "",
-                    "weight": "3 lbs",
+                    "weight": 3,
                     "augmentation_templates": [],
                     "action_grants": [],
                 }
@@ -734,7 +734,7 @@ def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch)
                     "rank": "D",
                     "description": "",
                     "price": "",
-                    "weight": "3 lbs",
+                    "weight": 3,
                     "augmentation_templates": [],
                     "action_grants": [],
                 }

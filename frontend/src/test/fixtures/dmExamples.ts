@@ -213,7 +213,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "C+",
     description: "Light armor that protects its wearer and aids stealth.",
     price: "10,000 CP",
-    weight: "15 lbs",
+    weight: 15,
     augmentation_templates: lightStepsEffects,
     action_grants: [],
     attributes: {}
@@ -226,7 +226,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "D",
     description: "Always remains sharp and never dulls.",
     price: "500 CP",
-    weight: "3 lbs",
+    weight: 3,
     attribute_profile: "weapon",
     augmentation_templates: neverDullsEffects,
     action_grants: [
@@ -245,7 +245,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "A",
     description: "Grants the Fire attribute while equipped.",
     price: "1,000,000 CP",
-    weight: "0.1 lbs",
+    weight: 0.1,
     augmentation_templates: fireShardEffects,
     action_grants: [],
     attributes: { item_attribute: attribute("item_attribute", "text", "Fire") }
@@ -258,7 +258,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "C",
     description: "Improves the wearer's perception.",
     price: "5,000 CP",
-    weight: "2 lbs",
+    weight: 2,
     augmentation_templates: helmEffects,
     action_grants: [],
     attributes: {}
@@ -271,7 +271,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "B",
     description: "Armor specialized against fire and magical damage.",
     price: "100,000 CP",
-    weight: "1 lb",
+    weight: 1,
     augmentation_templates: robeEffects,
     action_grants: [],
     attributes: {}
@@ -284,7 +284,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     rank: "S",
     description: "Conducts mana at 100% efficiency.",
     price: "N/A",
-    weight: "3 lbs",
+    weight: 3,
     attribute_profile: "weapon",
     augmentation_templates: swordOfManaEffects,
     action_grants: [{ action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 }],

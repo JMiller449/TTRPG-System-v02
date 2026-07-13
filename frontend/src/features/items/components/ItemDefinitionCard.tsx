@@ -5,6 +5,7 @@ import type {
   ItemInteractionType
 } from "@/domain/models";
 import { toItemEditorValues } from "@/features/items/itemEditorValues";
+import { formatWeight } from "@/features/sheets/inventoryDisplay";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 
 const ITEM_TYPE_LABELS: Record<ItemInteractionType, string> = {
@@ -56,7 +57,7 @@ export function ItemDefinitionCard({
       </div>
       <div className="muted">
         {ITEM_TYPE_LABELS[item.interaction_type]} · {preview.type || "Item"} · Rank {preview.rank} ·
-        Weight {item.weight || "(none)"} · Price {item.price || "(none)"}
+        Weight {formatWeight(item.weight)} lb · Price {item.price || "(none)"}
       </div>
       {preview.description ? (
         <div className="muted item-definition-card__description">{preview.description}</div>

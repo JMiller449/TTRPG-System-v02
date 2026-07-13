@@ -11,6 +11,7 @@ from backend.features.formula_runtime.service import (
     evaluate_numeric_formula,
     evaluate_resource_maximum,
 )
+from backend.features.inventory.service import validate_inventory
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -37,6 +38,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteInstancedSheetItemBridge,
     DeleteInstancedSheetProficiencyBridge,
     ItemBridgePayload,
+    MoveInstancedSheetItem,
     ProficiencyBridgePayload,
     ResistancesPayload,
     SetInstancedSheetNotes,
@@ -170,6 +172,7 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
                 count=bridge.count,
                 equipped=bridge.equipped,
                 item_id=bridge.item_id,
+                parent_container_id=bridge.parent_container_id,
             )
             for key, bridge in payload.items.items()
         },
@@ -457,6 +460,14 @@ def _validate_sheet_references(
         )
         _validate_item_bridge(bridge, state)
 
+    validate_inventory(
+        {
+            key: _build_sheet_item_bridge(bridge)
+            for key, bridge in payload.items.items()
+        },
+        state.items,
+    )
+
     for key, bridge in payload.proficiencies.items():
         _validate_relationship_key(
             relationship_kind="Sheet proficiency bridge",
@@ -478,6 +489,7 @@ def _build_sheet_item_bridge(payload: ItemBridgePayload) -> ItemBridge:
         count=payload.count,
         equipped=payload.equipped,
         item_id=payload.item_id,
+        parent_container_id=payload.parent_container_id,
     )
 
 
@@ -1212,6 +1224,7 @@ async def attach_sheet_item(request: CreateSheetItemBridge) -> None:
             raise ValueError(
                 f"Sheet item bridge '{request.bridge.relationship_id}' already exists."
             )
+        validate_inventory({**sheet.items, bridge.relationship_id: bridge}, state.items)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -1246,6 +1259,7 @@ async def update_attached_sheet_item(request: UpdateSheetItemBridge) -> None:
             raise ValueError(
                 f"Sheet item bridge '{request.relationship_id}' does not exist."
             )
+        validate_inventory({**sheet.items, request.relationship_id: bridge}, state.items)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -1274,6 +1288,11 @@ async def detach_sheet_item(request: DeleteSheetItemBridge) -> None:
             raise ValueError(
                 f"Sheet item bridge '{request.relationship_id}' does not exist."
             )
+        if any(
+            bridge.parent_container_id == request.relationship_id
+            for bridge in sheet.items.values()
+        ):
+            raise ValueError("Empty a storage container before removing it.")
 
         path = state_sync_service.join_path(
             "sheets",
@@ -1301,6 +1320,7 @@ async def attach_instanced_sheet_item(
             raise ValueError(
                 f"Instance item bridge '{request.bridge.relationship_id}' already exists."
             )
+        validate_inventory({**instance.items, bridge.relationship_id: bridge}, state.items)
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -1328,6 +1348,7 @@ async def update_instanced_sheet_item(
             raise ValueError(
                 f"Instance item bridge '{request.relationship_id}' does not exist."
             )
+        validate_inventory({**instance.items, request.relationship_id: bridge}, state.items)
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -1350,6 +1371,11 @@ async def detach_instanced_sheet_item(
             raise ValueError(
                 f"Instance item bridge '{request.relationship_id}' does not exist."
             )
+        if any(
+            bridge.parent_container_id == request.relationship_id
+            for bridge in instance.items.values()
+        ):
+            raise ValueError("Empty a storage container before removing it.")
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -1357,6 +1383,42 @@ async def detach_instanced_sheet_item(
             request.relationship_id,
         )
         _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def move_instanced_sheet_item(request: MoveInstancedSheetItem) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        bridge = instance.items.get(request.relationship_id)
+        if bridge is None:
+            raise ValueError(
+                f"Instance item bridge '{request.relationship_id}' does not exist."
+            )
+        if bridge.parent_container_id == request.parent_container_id:
+            return None, []
+
+        candidate = deepcopy(instance.items)
+        candidate_bridge = deepcopy(bridge)
+        candidate_bridge.parent_container_id = request.parent_container_id
+        candidate[request.relationship_id] = candidate_bridge
+        validate_inventory(candidate, state.items)
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "items",
+            request.relationship_id,
+            "parent_container_id",
+        )
+        op = state_sync_service.set_mutation(
+            state,
+            path,
+            request.parent_container_id,
+        )
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

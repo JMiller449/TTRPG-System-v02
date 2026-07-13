@@ -1483,7 +1483,7 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
                             "gm_notes": "",
                             "gm_special_properties": "",
                             "price": "",
-                            "weight": "",
+                            "weight": 0,
                             "augmentation_templates": [
                                 {
                                     "id": "health-effect",

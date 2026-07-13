@@ -71,6 +71,7 @@ class ItemBridgePayload(ProtocolModel):
     count: int
     equipped: bool
     item_id: str
+    parent_container_id: str | None = None
 
 
 class StatsPayload(ProtocolModel):
@@ -131,6 +132,7 @@ class SheetPayload(ProtocolModel):
     items: dict[str, ItemBridgePayload]
     stats: StatsPayload
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    current_carried_weight: float = 0
     racial_hp_multiplier: float = 1.0
     max_health: FormulaPayload
     max_mana: FormulaPayload
@@ -150,6 +152,7 @@ class InstancedSheetPayload(ProtocolModel):
     unassigned_stat_points: int = 0
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    current_carried_weight: float = 0
     racial_hp_multiplier: float = 1.0
     max_health: FormulaPayload
     max_mana: FormulaPayload
@@ -477,7 +480,9 @@ class ItemPayload(ProtocolModel):
     gm_notes: str = ""
     gm_special_properties: str = ""
     price: str
-    weight: str
+    weight: float
+    can_contain_items: bool = False
+    contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: Literal["weapon"] | None = None
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)

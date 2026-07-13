@@ -15,7 +15,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     interaction_type: "equippable",
     description: "Rank C ring.",
     price: "100CP",
-    weight: "1LBS",
+    weight: 1,
     augmentation_templates: [],
     ...overrides
   };

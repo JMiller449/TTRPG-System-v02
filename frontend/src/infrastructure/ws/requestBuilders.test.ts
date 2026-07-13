@@ -53,6 +53,7 @@ import {
   buildGetVariableRegistryRequest,
   buildGetXpTrackerRequest,
   buildImportStateBackupRequest,
+  buildMoveInstancedSheetItemRequest,
   buildSaveEncounterPresetRequest,
   buildSavePartyRequest,
   buildSaveXpAdjustmentRequest,
@@ -129,7 +130,7 @@ const testItem: ItemDefinitionPayload = {
   gm_notes: "Award only after the mana trial.",
   gm_special_properties: "Conducts mana at 100% efficiency.",
   price: "NA",
-  weight: "3LBS",
+  weight: 3,
   augmentation_templates: []
 };
 
@@ -324,6 +325,7 @@ const requestBuilderByType = {
   get_variable_registry: buildGetVariableRegistryRequest,
   get_xp_tracker: buildGetXpTrackerRequest,
   import_state_backup: buildImportStateBackupRequest,
+  move_instanced_sheet_item: buildMoveInstancedSheetItemRequest,
   perform_action: buildPerformActionRequest,
   record_kill: buildRecordKillRequest,
   remove_active_condition: buildRemoveActiveConditionRequest,

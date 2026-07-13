@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import List, Literal
 
 from backend.state.models.augmentation import Augmentation
@@ -11,6 +12,7 @@ class ItemBridge:
     count: int
     equipped: bool
     item_id: str
+    parent_container_id: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict) -> "ItemBridge":
@@ -19,6 +21,7 @@ class ItemBridge:
             count=raw["count"],
             equipped=raw.get("equipped", raw.get("active", False)),
             item_id=raw["item_id"],
+            parent_container_id=raw.get("parent_container_id"),
         )
 
 
@@ -49,11 +52,27 @@ class Item:
     gm_notes: str
     gm_special_properties: str
     price: str
-    weight: str
+    weight: float  # pounds
     augmentation_templates: List[Augmentation]
+    can_contain_items: bool = False
+    contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: AttributeProfile | None = None
     action_grants: List[ItemActionGrant] = field(default_factory=list)
     attributes: dict[str, AttributeBridge] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.weight, bool) or not isinstance(self.weight, int | float):
+            raise ValueError("Item weight must be numeric.")
+        self.weight = float(self.weight)
+        if not isfinite(self.weight) or self.weight < 0:
+            raise ValueError("Item weight must be finite and nonnegative.")
+        if (
+            not self.can_contain_items
+            and self.contents_weight_behavior != "normal"
+        ):
+            raise ValueError(
+                "Only storage containers can change contained-weight behavior."
+            )
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Item":
@@ -69,7 +88,9 @@ class Item:
             gm_notes=raw.get("gm_notes", ""),
             gm_special_properties=raw.get("gm_special_properties", ""),
             price=raw["price"],
-            weight=raw["weight"],
+            weight=float(raw.get("weight", 0)),
+            can_contain_items=bool(raw.get("can_contain_items", False)),
+            contents_weight_behavior=raw.get("contents_weight_behavior", "normal"),
             augmentation_templates=[
                 Augmentation.from_dict(augmentation)
                 for augmentation in raw.get("augmentation_templates", [])

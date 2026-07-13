@@ -149,7 +149,7 @@ def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> Non
                         "description": "Type: Longsword\nRank: B\nImmediate Effects: +2 fire damage",
                         "gm_notes": "Existing note",
                         "price": "10g",
-                        "weight": "3",
+                        "weight": 3,
                         "augmentation_templates": [],
                         "action_grants": [],
                     },
@@ -158,7 +158,7 @@ def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> Non
                         "name": "Potion",
                         "description": "Type: Consumable\nRank: F",
                         "price": "1g",
-                        "weight": "1",
+                        "weight": 1,
                         "augmentation_templates": [],
                         "action_grants": [
                             {
@@ -199,6 +199,57 @@ def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> Non
     assert potion["interaction_type"] == "consumable"
     assert bridge["equipped"] is True
     assert "active" not in bridge
+
+
+def test_v23_migration_normalizes_weight_and_storage_defaults() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 23,
+            "state": {
+                "items": {
+                    "bag": {"id": "bag", "weight": " 2.5 LBS "},
+                    "weightless": {"id": "weightless", "weight": ""},
+                },
+                "sheets": {
+                    "hero": {
+                        "items": {
+                            "bag-entry": {
+                                "relationship_id": "bag-entry",
+                                "item_id": "bag",
+                                "count": 1,
+                                "equipped": False,
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["items"]["bag"] == {
+        "id": "bag",
+        "weight": 2.5,
+        "can_contain_items": False,
+        "contents_weight_behavior": "normal",
+    }
+    assert migrated.state["items"]["weightless"]["weight"] == 0
+    assert (
+        migrated.state["sheets"]["hero"]["items"]["bag-entry"][
+            "parent_container_id"
+        ]
+        is None
+    )
+
+
+@pytest.mark.parametrize("weight", ["heavy", "NaN", "-1 lbs", float("inf")])
+def test_v23_migration_rejects_invalid_weight(weight) -> None:
+    with pytest.raises(PersistedStateError, match="weight"):
+        migrate_persisted_state(
+            {
+                "schema_version": 23,
+                "state": {"items": {"bad": {"id": "bad", "weight": weight}}},
+            }
+        )
 
 
 def test_v3_item_migration_normalizes_descriptions_and_template_ownership() -> None:
@@ -446,7 +497,7 @@ def test_v15_migration_normalizes_weapon_actions_and_equipped_proficiencies() ->
                         "interaction_type": "equippable",
                         "description": "",
                         "price": "",
-                        "weight": "",
+                        "weight": 0,
                         "attribute_profile": "weapon",
                         "action_grants": [],
                         "attributes": {

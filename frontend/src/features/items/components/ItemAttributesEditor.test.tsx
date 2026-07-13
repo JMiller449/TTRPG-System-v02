@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
+import { selectAuthoritativeProficiencies } from "@/features/items/proficiencyOptions";
 import { createEmptyItemValues } from "@/features/items/itemEditorValues";
 
 describe("ItemAttributesEditor", () => {
@@ -82,7 +83,20 @@ describe("ItemAttributesEditor", () => {
     );
 
     expect(markup).toContain("No options available");
+    expect(markup).toContain("Missing proficiency reference: deleted_proficiency");
+    expect(markup).toContain("Select a valid replacement");
+    expect(markup).not.toContain("Save Value");
     expect(markup).toContain("disabled");
     expect(markup).not.toContain('value="deleted_proficiency"');
+  });
+
+  it("sorts and deduplicates authoritative proficiency definitions", () => {
+    expect(
+      selectAuthoritativeProficiencies({
+        first: { id: "shared", name: "Zulu", description: "" },
+        duplicate: { id: "shared", name: "Duplicate", description: "" },
+        alpha: { id: "alpha", name: "Alpha", description: "" }
+      }).map((proficiency) => proficiency.id)
+    ).toEqual(["alpha", "shared"]);
   });
 });

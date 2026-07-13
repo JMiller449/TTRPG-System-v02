@@ -21,6 +21,7 @@ from backend.features.attributes.service import (
     validate_subject_attribute_value,
 )
 from backend.features.sheet_admin.formulas.service import validate_formula_alias_paths
+from backend.features.inventory.service import validate_inventory
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
 from backend.state.default_actions import (
@@ -238,6 +239,8 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
+        can_contain_items=payload.can_contain_items,
+        contents_weight_behavior=payload.contents_weight_behavior,
         attribute_profile=payload.attribute_profile,
         augmentation_templates=_build_item_augmentation_templates(payload),
         action_grants=[
@@ -280,6 +283,16 @@ def _validate_item_attributes(item: Item, state: State) -> None:
                 f"'{definition.required_profile}'."
             )
         validate_subject_attribute_value(state, "item", item, definition, bridge.value)
+        if definition.reference_kind == "proficiency":
+            stored_value = (
+                bridge.value.value if bridge.value.type != "formula" else None
+            )
+            if not isinstance(stored_value, str) or stored_value not in state.proficiencies:
+                missing_id = stored_value if isinstance(stored_value, str) else ""
+                raise ValueError(
+                    f"Item Attribute '{attribute_id}' references nonexistent proficiency "
+                    f"'{missing_id}'."
+                )
 
     if item.attribute_profile == "weapon":
         missing = [attribute_id for attribute_id in WEAPON_ATTRIBUTE_IDS if attribute_id not in item.attributes]
@@ -312,22 +325,37 @@ def _add_missing_default_action_mutations(
 
 
 def _validate_existing_item_bridges(item: Item, state: State) -> None:
-    if item.interaction_type == "equippable":
-        return
+    if item.interaction_type != "equippable":
+        equipped_sheet_ids = sorted(
+            [
+                sheet.id
+                for sheet in state.sheets.values()
+                if any(
+                    bridge.item_id == item.id and bridge.equipped
+                    for bridge in sheet.items.values()
+                )
+            ]
+            + [
+                instance_id
+                for instance_id, instance in state.instanced_sheets.items()
+                if any(
+                    bridge.item_id == item.id and bridge.equipped
+                    for bridge in instance.items.values()
+                )
+            ]
+        )
+        if equipped_sheet_ids:
+            raise ValueError(
+                f"Item '{item.id}' cannot become {item.interaction_type} while equipped on "
+                f"sheets: {', '.join(equipped_sheet_ids)}."
+            )
 
-    equipped_sheet_ids = sorted(
-        sheet.id
-        for sheet in state.sheets.values()
-        if any(
-            bridge.item_id == item.id and bridge.equipped
-            for bridge in sheet.items.values()
-        )
-    )
-    if equipped_sheet_ids:
-        raise ValueError(
-            f"Item '{item.id}' cannot become {item.interaction_type} while equipped on "
-            f"sheets: {', '.join(equipped_sheet_ids)}."
-        )
+    item_definitions = dict(state.items)
+    item_definitions[item.id] = item
+    for sheet in state.sheets.values():
+        validate_inventory(sheet.items, item_definitions)
+    for instance in state.instanced_sheets.values():
+        validate_inventory(instance.items, item_definitions)
 
 
 def _items_state(state: State) -> dict[str, dict]:
@@ -422,9 +450,16 @@ async def _delete_item(
             raise ValueError(f"Item '{item_id}' does not exist.")
 
         sheet_ids = sorted(
-            sheet.id
-            for sheet in state.sheets.values()
-            if any(bridge.item_id == item_id for bridge in sheet.items.values())
+            [
+                sheet.id
+                for sheet in state.sheets.values()
+                if any(bridge.item_id == item_id for bridge in sheet.items.values())
+            ]
+            + [
+                instance_id
+                for instance_id, instance in state.instanced_sheets.items()
+                if any(bridge.item_id == item_id for bridge in instance.items.values())
+            ]
         )
         if sheet_ids:
             raise ValueError(

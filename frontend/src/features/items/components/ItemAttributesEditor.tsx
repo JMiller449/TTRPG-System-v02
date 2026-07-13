@@ -4,6 +4,7 @@ import type { AttributeDefinition, ProficiencyDefinition } from "@/domain/models
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { setItemAttributeProfile, type ItemEditorValues } from "@/features/items/itemEditorValues";
 import { makeId } from "@/shared/utils/id";
+import { selectAuthoritativeProficiencies } from "@/features/items/proficiencyOptions";
 
 export function ItemAttributesEditor({
   values,
@@ -18,6 +19,10 @@ export function ItemAttributesEditor({
   metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (values: ItemEditorValues) => void;
 }): JSX.Element {
+  const authoritativeProficiencies = useMemo(
+    () => selectAuthoritativeProficiencies(proficiencies),
+    [proficiencies]
+  );
   const profiles = useMemo(
     () =>
       Array.from(
@@ -35,11 +40,14 @@ export function ItemAttributesEditor({
         Object.entries(definitions).map(([attributeId, definition]) => [
           attributeId,
           definition.reference_kind === "proficiency"
-            ? { ...definition, validation_options: Object.keys(proficiencies) }
+            ? {
+                ...definition,
+                validation_options: authoritativeProficiencies.map((proficiency) => proficiency.id)
+              }
             : definition
         ])
       ),
-    [definitions, proficiencies]
+    [authoritativeProficiencies, definitions]
   );
   const validationOptionLabels = useMemo(
     () =>
@@ -49,11 +57,11 @@ export function ItemAttributesEditor({
           .map((definition) => [
             definition.id,
             Object.fromEntries(
-              Object.values(proficiencies).map((proficiency) => [proficiency.id, proficiency.name])
+              authoritativeProficiencies.map((proficiency) => [proficiency.id, proficiency.name])
             )
           ])
       ),
-    [definitions, proficiencies]
+    [authoritativeProficiencies, definitions]
   );
 
   const updateBridge = (
@@ -83,7 +91,8 @@ export function ItemAttributesEditor({
       <div>
         <h3>Attributes</h3>
         <p className="muted">
-          Profiles attach backend-required Attributes. Optional Attributes can be added to the same item.
+          Profiles attach backend-required Attributes. Optional Attributes can be added to the same
+          item.
         </p>
       </div>
       <label>
@@ -113,9 +122,12 @@ export function ItemAttributesEditor({
         bridges={values.attributes}
         canEdit
         subjectType="item"
+        draftMode
         formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) =>
+          updateBridge(attributeId, { type: "formula", formula })
+        }
         onSaveValue={updateBridge}
         onReset={(attributeId) => {
           const definition = definitions[attributeId];

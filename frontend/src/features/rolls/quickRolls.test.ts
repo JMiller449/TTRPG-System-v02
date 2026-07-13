@@ -123,7 +123,7 @@ describe("quickRolls", () => {
           interaction_type: "consumable",
           description: "",
           price: "",
-          weight: "",
+          weight: 0,
           action_grants: [
             {
               action_id: "weapon_attack",
@@ -168,7 +168,7 @@ describe("quickRolls", () => {
           interaction_type: "equippable",
           description: "",
           price: "",
-          weight: "",
+          weight: 0,
           action_grants: [
             {
               action_id: "weapon_attack",

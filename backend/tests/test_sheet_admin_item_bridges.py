@@ -2,8 +2,10 @@ import asyncio
 from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.features.state_sync.service import state_sync_service
 from backend.state.models.item import Item, ItemBridge
-from backend.state.models.sheet import Sheet
+from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -81,7 +83,7 @@ def _item_payload(item_id: str = "sword") -> dict:
         "rank": "F",
         "description": "A test item.",
         "price": "10g",
-        "weight": "3",
+        "weight": 3,
         "augmentation_templates": [],
     }
 
@@ -99,6 +101,172 @@ def _bridge_payload(
         "equipped": equipped,
         "item_id": item_id,
     }
+
+
+def _instance_with_items(sheet: Sheet, items: dict[str, dict]) -> InstancedSheet:
+    return InstancedSheet.from_dict(
+        {
+            "parent_id": sheet.id,
+            "health": 10,
+            "mana": 5,
+            "augments": {},
+            "items": items,
+        },
+        template=sheet,
+    )
+
+
+def test_dm_moves_instance_item_through_weight_negating_storage(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = Sheet.from_dict(_sheet_payload())
+            state.sheets[sheet.id] = sheet
+            bag_payload = {
+                **_item_payload("bag"),
+                "weight": 2,
+                "can_contain_items": True,
+                "contents_weight_behavior": "ignored",
+            }
+            state.items["bag"] = Item.from_dict(bag_payload)
+            state.items["sword"] = Item.from_dict(_item_payload())
+            state.instanced_sheets["mage"] = _instance_with_items(
+                sheet,
+                {
+                    "bag-entry": {
+                        "relationship_id": "bag-entry",
+                        "item_id": "bag",
+                        "count": 1,
+                        "equipped": False,
+                    },
+                    "sword-entry": {
+                        "relationship_id": "sword-entry",
+                        "item_id": "sword",
+                        "count": 2,
+                        "equipped": False,
+                    },
+                },
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            player_websocket = FakeWebSocket()
+            player_session = await websocket_sessions.connect(
+                player_websocket,
+                role="player",
+            )
+            player_session.assigned_instance_id = "mage"
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "move_instanced_sheet_item",
+                    "instance_id": "mage",
+                    "relationship_id": "sword-entry",
+                    "parent_container_id": "bag-entry",
+                },
+            )
+            assert (
+                state.instanced_sheets["mage"].items["sword-entry"].parent_container_id
+                == "bag-entry"
+            )
+            assert websocket.sent_messages[-1]["ops"][-1] == {
+                "op": "set",
+                "path": "/instanced_sheets/mage/current_carried_weight",
+                "value": 2,
+            }
+            assert player_websocket.sent_messages[-1]["ops"][-1] == {
+                "op": "set",
+                "path": "/instanced_sheets/mage/current_carried_weight",
+                "value": 2,
+            }
+            player_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="mage",
+            )
+            assert (
+                player_snapshot.state["instanced_sheets"]["mage"]["items"]
+                ["sword-entry"]["parent_container_id"]
+                == "bag-entry"
+            )
+            assert (
+                player_snapshot.state["instanced_sheets"]["mage"]
+                ["current_carried_weight"]
+                == 2
+            )
+            reloaded = State.from_dict(state.to_dict(include_private=True))
+            assert (
+                reloaded.instanced_sheets["mage"].items["sword-entry"].parent_container_id
+                == "bag-entry"
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "move_instanced_sheet_item",
+                    "instance_id": "mage",
+                    "relationship_id": "sword-entry",
+                    "parent_container_id": None,
+                },
+            )
+            assert websocket.sent_messages[-1]["ops"][-1]["value"] == 8
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_nonempty_instance_container_cannot_be_removed(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = Sheet.from_dict(_sheet_payload())
+            state.sheets[sheet.id] = sheet
+            state.items["bag"] = Item.from_dict(
+                {**_item_payload("bag"), "can_contain_items": True}
+            )
+            state.items["sword"] = Item.from_dict(_item_payload())
+            state.instanced_sheets["mage"] = _instance_with_items(
+                sheet,
+                {
+                    "bag-entry": {
+                        "relationship_id": "bag-entry",
+                        "item_id": "bag",
+                        "count": 1,
+                        "equipped": False,
+                    },
+                    "sword-entry": {
+                        "relationship_id": "sword-entry",
+                        "item_id": "sword",
+                        "count": 1,
+                        "equipped": False,
+                        "parent_container_id": "bag-entry",
+                    },
+                },
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "delete_instanced_sheet_item_bridge",
+                    "instance_id": "mage",
+                    "relationship_id": "bag-entry",
+                },
+            )
+            assert "Empty a storage container" in websocket.sent_messages[-1]["reason"]
+            assert "bag-entry" in state.instanced_sheets["mage"].items
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_dm_can_create_sheet_item_bridge(monkeypatch) -> None:
@@ -136,6 +304,7 @@ def test_dm_can_create_sheet_item_bridge(monkeypatch) -> None:
                     "count": 1,
                     "equipped": True,
                     "item_id": "sword",
+                    "parent_container_id": None,
                 },
             }
         finally:
@@ -188,6 +357,7 @@ def test_dm_can_update_sheet_item_bridge(monkeypatch) -> None:
                     "count": 2,
                     "equipped": False,
                     "item_id": "axe",
+                    "parent_container_id": None,
                 },
             }
         finally:
@@ -234,7 +404,12 @@ def test_dm_can_delete_sheet_item_bridge(monkeypatch) -> None:
                             "op": "remove",
                             "path": "/sheets/mage_template/items/main_hand",
                             "value": None,
-                        }
+                        },
+                        {
+                            "op": "set",
+                            "path": "/sheets/mage_template/current_carried_weight",
+                            "value": 0,
+                        },
                     ],
                     "state_version": 1,
                     "type": "state_patch",

@@ -26,6 +26,7 @@ class ItemBridgePayload(BaseModel):
     count: int = Field(ge=0)
     equipped: bool
     item_id: str = Field(min_length=1)
+    parent_container_id: str | None = Field(default=None, min_length=1)
 
 
 class ProficiencyBridgePayload(BaseModel):
@@ -277,6 +278,13 @@ class DeleteInstancedSheetItemBridge(RequestModel):
     instance_id: str = Field(min_length=1)
     relationship_id: str = Field(min_length=1)
     type: Literal["delete_instanced_sheet_item_bridge"]
+
+
+class MoveInstancedSheetItem(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    parent_container_id: str | None = Field(default=None, min_length=1)
+    type: Literal["move_instanced_sheet_item"]
 
 
 class CreateSheetProficiencyBridge(RequestModel):

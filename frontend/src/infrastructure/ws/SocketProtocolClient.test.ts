@@ -274,7 +274,7 @@ describe("SocketProtocolClient", () => {
               name: "Focus Ring",
               description: "",
               price: "10",
-              weight: "1",
+              weight: 1,
               augmentation_templates: []
             }
           }

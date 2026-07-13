@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AttributeDefinition, Augmentation, ItemBridge, ItemDefinition } from "@/domain/models";
+import type {
+  AttributeDefinition,
+  Augmentation,
+  ItemBridge,
+  ItemDefinition
+} from "@/domain/models";
 import {
   countItemEffectTypes,
   itemCarryStatus,
@@ -14,7 +19,7 @@ const item: ItemDefinition = {
   interaction_type: "equippable",
   description: "",
   price: "",
-  weight: "",
+  weight: 0,
   action_grants: [
     { action_id: "flare", availability: "equipped", consume_quantity: 0 },
     { action_id: "throw", availability: "carried", consume_quantity: 2 }

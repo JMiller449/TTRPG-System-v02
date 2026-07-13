@@ -88,7 +88,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_notes: "Award only after the mana trial.",
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
-    weight: "3LBS",
+    weight: 3,
     attribute_profile: null,
     attributes: {},
     augmentation_templates: [],
@@ -102,7 +102,7 @@ describe("itemEditorValues", () => {
     values.name = "  Sword of Mana  ";
     values.type = " Sword ";
     values.rank = "S";
-    values.weight = " 3LBS ";
+    values.weight = " 3 ";
     values.value = " NA ";
     values.worldAnvilUrl = " https://worldanvil.example/items/sword-of-mana ";
     values.gmNotes = " Award only after the mana trial. ";
@@ -120,7 +120,9 @@ describe("itemEditorValues", () => {
       gm_notes: "Award only after the mana trial.",
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
-      weight: "3LBS",
+      weight: 3,
+      can_contain_items: false,
+      contents_weight_behavior: "normal",
       attribute_profile: null,
       attributes: {},
       augmentation_templates: [],
@@ -134,7 +136,9 @@ describe("itemEditorValues", () => {
       interactionType: "equippable",
       type: "Sword",
       rank: "S",
-      weight: "3LBS",
+      weight: "3",
+      canContainItems: false,
+      contentsWeightBehavior: "normal",
       value: "NA",
       worldAnvilUrl: "https://worldanvil.example/items/sword-of-mana",
       gmNotes: "Award only after the mana trial.",
@@ -173,7 +177,7 @@ describe("itemEditorValues", () => {
     values.name = "  Edited Sword of Mana  ";
     values.type = " Sword ";
     values.rank = "S+";
-    values.weight = " 4LBS ";
+    values.weight = " 4 ";
     values.value = " 1,000CP ";
     values.worldAnvilUrl = " https://worldanvil.example/items/edited-sword ";
     values.gmNotes = " Updated GM notes. ";
@@ -190,7 +194,9 @@ describe("itemEditorValues", () => {
       gm_notes: "Updated GM notes.",
       gm_special_properties: "Updated hidden property.",
       price: "1,000CP",
-      weight: "4LBS",
+      weight: 4,
+      can_contain_items: false,
+      contents_weight_behavior: "normal",
       action_grants: []
     });
   });

@@ -32,6 +32,7 @@ import {
   buildDetachInstancedSheetItemRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkInstancedSheetProficiencyRequest,
+  buildMoveInstancedSheetItemRequest,
   buildPerformActionRequest,
   buildAllocateInstancedSheetStatPointsRequest,
   buildResetInstancedSheetAttributeValueRequest,
@@ -630,6 +631,8 @@ export function PlayerCharacterSheet({
               selectedItemId={selectedItemId}
               selectedItem={selectedItem}
               equipment={equipment}
+              currentCarriedWeight={detail.persistentSheet.current_carried_weight ?? 0}
+              carryWeightLimit={detail.stats.carry_weight ?? 0}
               canManageInventory={canManageEquipment}
               canToggleEquipped
               onSelectedItemIdChange={setSelectedItemId}
@@ -646,7 +649,8 @@ export function PlayerCharacterSheet({
                       relationship_id: relationshipId,
                       item_id: selectedItem.id,
                       count: 1,
-                      equipped: false
+                      equipped: false,
+                      parent_container_id: null
                     }
                   }),
                   "Add equipment"
@@ -675,6 +679,16 @@ export function PlayerCharacterSheet({
                   return;
                 }
                 updateEquipmentBridgeEquipped(relationshipId, !bridge.equipped);
+              }}
+              onMoveInventoryItem={(relationshipId, parentContainerId) => {
+                client.sendProtocolRequest(
+                  buildMoveInstancedSheetItemRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId,
+                    parentContainerId
+                  }),
+                  parentContainerId ? "Move item into storage" : "Move item to root inventory"
+                );
               }}
               onRemoveInventoryItem={(relationshipId) => {
                 client.sendProtocolRequest(

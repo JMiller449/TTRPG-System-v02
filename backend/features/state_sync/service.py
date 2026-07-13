@@ -18,6 +18,7 @@ from backend.features.formula_runtime.service import (
     evaluate_resource_maxima,
     evaluate_sheet_stats,
 )
+from backend.features.inventory.service import calculate_carried_weight
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
@@ -559,6 +560,10 @@ class StateSyncService:
             sheet_payload = state_payload.get("sheets", {}).get(sheet_id)
             if isinstance(sheet_payload, dict):
                 sheet_payload["evaluated_stats"] = evaluate_sheet_stats(sheet)
+                sheet_payload["current_carried_weight"] = calculate_carried_weight(
+                    sheet.items,
+                    state_model.items,
+                )
                 maxima = evaluate_resource_maxima(sheet)
                 sheet_payload["evaluated_max_health"] = maxima["health"]
                 sheet_payload["evaluated_max_mana"] = maxima["mana"]
@@ -571,6 +576,10 @@ class StateSyncService:
                     instance_payload["stats"] = asdict(runtime_stat_owner.stats)
                     instance_payload["evaluated_stats"] = evaluate_sheet_stats(
                         runtime_stat_owner
+                    )
+                    instance_payload["current_carried_weight"] = calculate_carried_weight(
+                        instance.items,
+                        state_model.items,
                     )
                     maxima = evaluate_resource_maxima(runtime_stat_owner)
                     instance_payload["evaluated_max_health"] = maxima["health"]
@@ -1097,6 +1106,62 @@ class StateSyncService:
             )
         return [*sheet_operations, *instance_operations]
 
+    def _inventory_projection_operations(
+        self,
+        state: State,
+        operations: list[PatchOp],
+    ) -> list[PatchOp]:
+        affected_sheet_ids: set[str] = set()
+        affected_instance_ids: set[str] = set()
+        for operation in operations:
+            segments = self._parse_path(operation.path)
+            if not segments:
+                continue
+            if segments[0] == "items" and (
+                len(segments) <= 2
+                or segments[2]
+                in {"weight", "can_contain_items", "contents_weight_behavior"}
+            ):
+                affected_sheet_ids.update(state.sheets)
+                affected_instance_ids.update(state.instanced_sheets)
+            elif len(segments) >= 2 and segments[0] == "sheets" and (
+                len(segments) == 2 or (len(segments) >= 3 and segments[2] == "items")
+            ):
+                affected_sheet_ids.add(segments[1])
+            elif len(segments) >= 2 and segments[0] == "instanced_sheets" and (
+                len(segments) == 2 or (len(segments) >= 3 and segments[2] == "items")
+            ):
+                affected_instance_ids.add(segments[1])
+
+        projected: list[PatchOp] = []
+        for sheet_id in sorted(affected_sheet_ids):
+            sheet = state.sheets.get(sheet_id)
+            if sheet is not None:
+                projected.append(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "sheets", sheet_id, "current_carried_weight"
+                        ),
+                        value=calculate_carried_weight(sheet.items, state.items),
+                    )
+                )
+        for instance_id in sorted(affected_instance_ids):
+            instance = state.instanced_sheets.get(instance_id)
+            if instance is not None:
+                projected.append(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets",
+                            instance_id,
+                            "current_carried_weight",
+                        ),
+                        value=calculate_carried_weight(instance.items, state.items),
+                    )
+                )
+        return projected
+
     async def apply_mutation(
         self,
         mutation: Callable[[State], tuple[MutationResultT, list[PatchOp]]],
@@ -1136,7 +1201,11 @@ class StateSyncService:
                 inverse_ops = self._build_inverse_ops(previous_state, ops)
                 if inverse_ops:
                     self._undo_history.append(inverse_ops)
-                patch_ops = [*ops, *self._stat_projection_operations(state, ops)]
+                patch_ops = [
+                    *ops,
+                    *self._stat_projection_operations(state, ops),
+                    *self._inventory_projection_operations(state, ops),
+                ]
                 StateSingleton.dumpState()
                 patch = self._next_patch(patch_ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
@@ -1206,6 +1275,7 @@ class StateSyncService:
             patch_ops = [
                 *applied_ops,
                 *self._stat_projection_operations(state, applied_ops),
+                *self._inventory_projection_operations(state, applied_ops),
             ]
             StateSingleton.dumpState()
             patch = self._next_patch(patch_ops, request_id=request_id)

@@ -58,4 +58,33 @@ describe("ActionEditorForm", () => {
     expect(markup).not.toContain("Message Formula");
     expect(markup).not.toContain("Amount Formula");
   });
+
+  it("keeps the final save control in a sticky footer after a long step list", () => {
+    let values = createEmptyActionEditorValues();
+    values.name = "Long Action";
+    for (let index = 0; index < 24; index += 1) {
+      values = addSendMessageActionStep(values, `long_step_${index}`);
+    }
+    const markup = renderToStaticMarkup(
+      <ActionEditorForm
+        editingActionId="long_action"
+        values={values}
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+        onCancel={() => undefined}
+        metadata={null}
+        proficiencies={[]}
+        formulas={[]}
+        standaloneEffects={[]}
+        conditions={[]}
+        attributesEditor={null}
+        validationError={null}
+      />
+    );
+
+    expect(markup).toContain("long_step_23");
+    expect(markup).toContain('class="template-editor__actions action-editor__footer"');
+    expect(markup).toContain("Save Action");
+    expect(markup.indexOf("Save Action")).toBeGreaterThan(markup.indexOf("long_step_23"));
+  });
 });

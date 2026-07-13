@@ -44,7 +44,7 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
         "gm_notes": "Hidden lore.",
         "gm_special_properties": "Cursed under moonlight.",
         "price": "10g",
-        "weight": "3",
+        "weight": 3,
         "augmentation_templates": [],
     }
 

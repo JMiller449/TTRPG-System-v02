@@ -62,7 +62,7 @@ function item(id: string, name: string): ItemDefinition {
     interaction_type: "equippable",
     description: "",
     price: "",
-    weight: "",
+    weight: 0,
     augmentation_templates: []
   };
 }

@@ -896,6 +896,7 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
             }
             expected_state["sheets"]["mage_template"]["evaluated_max_health"] = 120
             expected_state["sheets"]["mage_template"]["evaluated_max_mana"] = 112
+            expected_state["sheets"]["mage_template"]["current_carried_weight"] = 0
             assert websocket.sent_messages == [
                 {
                     "response_id": None,

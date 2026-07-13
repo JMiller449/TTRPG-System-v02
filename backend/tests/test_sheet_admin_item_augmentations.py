@@ -38,7 +38,7 @@ def _item_payload() -> dict:
         "rank": "F",
         "description": "A test sword.",
         "price": "10g",
-        "weight": "3",
+        "weight": 3,
         "augmentation_templates": [],
     }
 

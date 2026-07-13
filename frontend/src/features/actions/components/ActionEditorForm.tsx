@@ -775,7 +775,7 @@ export function ActionEditorForm({
             {validationError}
           </p>
         ) : null}
-        <div className="template-editor__actions">
+        <div className="template-editor__actions action-editor__footer">
           <button className="button" onClick={onSubmit} disabled={!actionIsValid || pending}>
             {pending ? "Creating…" : editingActionId ? "Save Action" : "Create Action"}
           </button>

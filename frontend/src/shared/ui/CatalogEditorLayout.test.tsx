@@ -5,7 +5,11 @@ import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 describe("CatalogEditorLayout", () => {
   it("keeps catalog and editor content in separately labelled regions", () => {
     const markup = renderToStaticMarkup(
-      <CatalogEditorLayout catalogLabel="Action Catalog" catalog={<button>Edit Dodge</button>}>
+      <CatalogEditorLayout
+        catalogLabel="Action Catalog"
+        catalog={<button>Edit Dodge</button>}
+        editorClassName="authoring-workspace__editor--vertical"
+      >
         <form aria-label="Action form">Action fields</form>
       </CatalogEditorLayout>
     );
@@ -14,5 +18,6 @@ describe("CatalogEditorLayout", () => {
     expect(markup).toContain('aria-label="Action Catalog editor"');
     expect(markup).toContain("Edit Dodge");
     expect(markup).toContain("Action fields");
+    expect(markup).toContain("authoring-workspace__editor--vertical");
   });
 });

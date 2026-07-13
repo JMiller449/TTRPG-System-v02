@@ -164,7 +164,7 @@ describe("authoritative server-state sync", () => {
             name: "Focus Ring",
             description: "Improves mana.",
             price: "120g",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         },
@@ -306,7 +306,7 @@ describe("authoritative server-state sync", () => {
             name: "Focus Ring",
             description: "Improves mana.",
             price: "120g",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         },
@@ -369,7 +369,7 @@ describe("authoritative server-state sync", () => {
             name: "Focus Ring",
             description: "Improves mana.",
             price: "120g",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         }
@@ -701,7 +701,7 @@ describe("authoritative server-state sync", () => {
             interaction_type: "equippable",
             description: "Improves mana.",
             price: "120g",
-            weight: "1",
+            weight: 1,
             augmentation_templates: [],
             attributes: {}
           }
@@ -807,7 +807,7 @@ describe("authoritative server-state sync", () => {
             name: "Old Item",
             description: "",
             price: "1",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         },
@@ -831,7 +831,7 @@ describe("authoritative server-state sync", () => {
             name: "New Item",
             description: "",
             price: "2",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         },
@@ -1100,7 +1100,7 @@ describe("authoritative server-state sync", () => {
             interaction_type: "equippable",
             description: "",
             price: "10",
-            weight: "3",
+            weight: 3,
             augmentation_templates: []
           }
         },
@@ -1635,7 +1635,7 @@ describe("authoritative server-state sync", () => {
             name: "Focus Ring",
             description: "Improves health.",
             price: "120g",
-            weight: "1",
+            weight: 1,
             augmentation_templates: []
           }
         },

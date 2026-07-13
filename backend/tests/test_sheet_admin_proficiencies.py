@@ -159,7 +159,7 @@ def test_delete_proficiency_rejects_live_attribute_reference(monkeypatch) -> Non
                     "rank": "D",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "augmentation_templates": [],
                     "attribute_profile": "weapon",
                     "attributes": {

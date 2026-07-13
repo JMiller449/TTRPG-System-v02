@@ -2067,7 +2067,7 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "attribute_profile": "weapon",
                     "action_grants": [
                         {
@@ -2129,6 +2129,7 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
             } == {
                 "/sheets/mage_template/items/equipped-axe",
                 "/sheets/mage_template/proficiencies/weapon_proficiency_axes",
+                "/sheets/mage_template/current_carried_weight",
             }
         finally:
             StateSingleton._state = original_state

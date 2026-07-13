@@ -36,7 +36,7 @@ const catalogs: TemplateReferenceCatalogs = {
       interaction_type: "equippable",
       description: "",
       price: "10",
-      weight: "2"
+      weight: 2
     }
   },
   attributes: {

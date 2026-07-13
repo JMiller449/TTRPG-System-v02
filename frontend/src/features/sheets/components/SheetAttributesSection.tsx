@@ -37,6 +37,7 @@ export function SheetAttributesSection({
   bridges,
   canEdit,
   compact = false,
+  draftMode = false,
   onSaveFormula,
   onSaveValue,
   onReset,
@@ -50,6 +51,7 @@ export function SheetAttributesSection({
   bridges: Record<string, AttributeBridge>;
   canEdit: boolean;
   compact?: boolean;
+  draftMode?: boolean;
   onSaveFormula: (attributeId: string, formula: Formula) => void;
   onSaveValue?: (attributeId: string, value: AttributeValue) => void;
   onReset: (attributeId: string) => void;
@@ -125,6 +127,7 @@ export function SheetAttributesSection({
           bridge={bridge}
           canEdit={canEdit}
           compact={compact}
+          draftMode={draftMode}
           onSaveFormula={onSaveFormula}
           onSaveValue={onSaveValue}
           onReset={onReset}
@@ -143,6 +146,7 @@ function SheetAttributeCard({
   bridge,
   canEdit,
   compact,
+  draftMode,
   onSaveFormula,
   onSaveValue,
   onReset,
@@ -155,6 +159,7 @@ function SheetAttributeCard({
   bridge: AttributeBridge;
   canEdit: boolean;
   compact: boolean;
+  draftMode: boolean;
   onSaveFormula: (attributeId: string, formula: Formula) => void;
   onSaveValue?: (attributeId: string, value: AttributeValue) => void;
   onReset: (attributeId: string) => void;
@@ -196,6 +201,24 @@ function SheetAttributeCard({
   const canSaveLiteralValue =
     !shouldUseOptionSelect || (Boolean(literalText) && validationOptions.includes(literalText));
   const validationOptionLabelMap = definition ? validationOptionLabels?.[definition.id] : undefined;
+  const missingReferenceId =
+    definition?.reference_kind &&
+    bridge.value.type === "reference" &&
+    literalText &&
+    !validationOptions.includes(literalText)
+      ? literalText
+      : null;
+
+  const commitLiteralText = (text: string): void => {
+    setLiteralText(text);
+    if (!draftMode || !onSaveValue || bridge.value.type === "formula") {
+      return;
+    }
+    const value = literalAttributeValue(bridge.value, text);
+    if (value) {
+      onSaveValue(bridge.attribute_id, value);
+    }
+  };
 
   return (
     <article
@@ -227,28 +250,52 @@ function SheetAttributeCard({
             subjectTypes={[subjectType]}
             excludedAttributeId={bridge.attribute_id}
             onPick={(entry) => {
-              setFormulaText((current) => appendFormulaToken(current, entry.token));
-              setFormulaAliases((current) => upsertFormulaAlias(current, entry.alias));
+              const nextText = appendFormulaToken(formulaText, entry.token);
+              const nextAliases = upsertFormulaAlias(formulaAliases, entry.alias);
+              setFormulaText(nextText);
+              setFormulaAliases(nextAliases);
+              if (draftMode) {
+                onSaveFormula(bridge.attribute_id, {
+                  ...formula,
+                  aliases: nextAliases,
+                  text: nextText
+                });
+              }
             }}
           />
           <label>
             Formula
-            <input value={formulaText} onChange={(event) => setFormulaText(event.target.value)} />
+            <input
+              value={formulaText}
+              onChange={(event) => {
+                const text = event.target.value;
+                setFormulaText(text);
+                if (draftMode) {
+                  onSaveFormula(bridge.attribute_id, {
+                    ...formula,
+                    aliases: formulaAliases,
+                    text
+                  });
+                }
+              }}
+            />
           </label>
           <div className="inline-actions">
-            <button
-              type="button"
-              disabled={!formulaText.trim() || formulaText === formula.text}
-              onClick={() =>
-                onSaveFormula(bridge.attribute_id, {
-                  ...formula,
-                  aliases: formulaAliases,
-                  text: formulaText.trim()
-                })
-              }
-            >
-              Save Formula
-            </button>
+            {!draftMode ? (
+              <button
+                type="button"
+                disabled={!formulaText.trim() || formulaText === formula.text}
+                onClick={() =>
+                  onSaveFormula(bridge.attribute_id, {
+                    ...formula,
+                    aliases: formulaAliases,
+                    text: formulaText.trim()
+                  })
+                }
+              >
+                Save Formula
+              </button>
+            ) : null}
             <button
               type="button"
               className="secondary"
@@ -267,7 +314,7 @@ function SheetAttributeCard({
               {bridge.value.type === "boolean" ? (
                 <select
                   value={literalText}
-                  onChange={(event) => setLiteralText(event.target.value)}
+                  onChange={(event) => commitLiteralText(event.target.value)}
                 >
                   <option value="false">False</option>
                   <option value="true">True</option>
@@ -275,7 +322,7 @@ function SheetAttributeCard({
               ) : shouldUseOptionSelect ? (
                 <select
                   value={optionSelectValue}
-                  onChange={(event) => setLiteralText(event.target.value)}
+                  onChange={(event) => commitLiteralText(event.target.value)}
                   disabled={validationOptions.length === 0}
                 >
                   <option value="">
@@ -290,26 +337,28 @@ function SheetAttributeCard({
               ) : (
                 <input
                   value={literalText}
-                  onChange={(event) => setLiteralText(event.target.value)}
+                  onChange={(event) => commitLiteralText(event.target.value)}
                 />
               )}
             </label>
-            <button
-              type="button"
-              disabled={!canSaveLiteralValue}
-              onClick={() => {
-                const current = bridge.value;
-                if (current.type === "formula") {
-                  return;
-                }
-                const value = literalAttributeValue(current, literalText);
-                if (value) {
-                  onSaveValue(bridge.attribute_id, value);
-                }
-              }}
-            >
-              Save Value
-            </button>
+            {!draftMode ? (
+              <button
+                type="button"
+                disabled={!canSaveLiteralValue}
+                onClick={() => {
+                  const current = bridge.value;
+                  if (current.type === "formula") {
+                    return;
+                  }
+                  const value = literalAttributeValue(current, literalText);
+                  if (value) {
+                    onSaveValue(bridge.attribute_id, value);
+                  }
+                }}
+              >
+                Save Value
+              </button>
+            ) : null}
             <button
               type="button"
               className="secondary"
@@ -318,6 +367,12 @@ function SheetAttributeCard({
               Reset to Default
             </button>
           </div>
+          {missingReferenceId ? (
+            <p className="error-text" role="alert">
+              Missing {definition?.reference_kind} reference: {missingReferenceId}. Select a valid
+              replacement{definition?.required ? "" : " or clear this field"}.
+            </p>
+          ) : null}
           {bridge.value.type === "list" && definition?.validation_options?.length ? (
             <p className="muted">Allowed values: {definition.validation_options.join(", ")}</p>
           ) : null}

@@ -127,9 +127,12 @@ export function ItemEditorForm({
           </Field>
           <Field label="Weight">
             <input
+              type="number"
+              min="0"
+              step="any"
               value={values.weight}
               onChange={(event) => onChange({ ...values, weight: event.target.value })}
-              placeholder="e.g. 3LBS"
+              placeholder="e.g. 3"
             />
           </Field>
           <Field label="Value">
@@ -191,6 +194,52 @@ export function ItemEditorForm({
       <details className="authoring-disclosure">
         <summary>
           <span>
+            <strong>Storage</strong>
+            <small>Optional inventory containment</small>
+          </span>
+        </summary>
+        <div className="authoring-disclosure__body stack">
+          <label className="augmentation-template-panel__active">
+            <input
+              type="checkbox"
+              checked={values.canContainItems}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  canContainItems: event.target.checked,
+                  contentsWeightBehavior: event.target.checked
+                    ? values.contentsWeightBehavior
+                    : "normal"
+                })
+              }
+            />
+            <span>This item can contain other inventory entries</span>
+          </label>
+          {values.canContainItems ? (
+            <Field label="Weight of stored contents">
+              <select
+                value={values.contentsWeightBehavior}
+                onChange={(event) =>
+                  onChange({
+                    ...values,
+                    contentsWeightBehavior: event.target.value as "normal" | "ignored"
+                  })
+                }
+              >
+                <option value="normal">Counts normally</option>
+                <option value="ignored">Ignored for carried weight</option>
+              </select>
+            </Field>
+          ) : null}
+          <p className="muted">
+            The container's own weight always counts. Capacity and volume are not tracked.
+          </p>
+        </div>
+      </details>
+
+      <details className="authoring-disclosure">
+        <summary>
+          <span>
             <strong>Attributes</strong>
             <small>Optional named values and profiles</small>
           </span>
@@ -229,7 +278,12 @@ export function ItemEditorForm({
         </details>
       ) : null}
 
-      {validationError ? <p className="error-text">{validationError}</p> : null}
+      {validationError ? (
+        <div className="item-editor__validation" role="alert">
+          <strong>Item cannot be saved yet</strong>
+          <p className="error-text">{validationError}</p>
+        </div>
+      ) : null}
       <div className="template-editor__actions item-editor__actions">
         <button
           className="button"
@@ -238,11 +292,9 @@ export function ItemEditorForm({
         >
           {pending ? "Creating…" : editingItemId ? "Save Item" : "Create Item"}
         </button>
-        {editingItemId ? (
-          <button className="button button--secondary" onClick={onCancel}>
-            Cancel
-          </button>
-        ) : null}
+        <button className="button button--secondary" onClick={onCancel} disabled={pending}>
+          {editingItemId ? "Cancel" : "Discard Draft"}
+        </button>
       </div>
     </div>
   );

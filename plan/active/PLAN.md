@@ -196,6 +196,21 @@ No large architecture feature is currently missing for the stated character-shee
   - Protocol types, starter examples, focused regression tests, production build, and backend
     suite were updated together. Automated turn/round behavior remains explicitly out of scope.
 
+- [x] Resolve the 2026-07-12 builder and inventory findings:
+  - Long Action Builder drafts now use one vertical editor scroll region with a sticky final
+    action footer, keeping Save Action keyboard- and pointer-reachable at constrained heights.
+  - Item proficiency references are sourced only from the authoritative proficiency registry;
+    stale IDs are shown as invalid and rejected independently by backend validation.
+  - Item create/edit authoring uses one local draft and one complete final item request, including
+    attributes, action grants, effects, numeric weight, and storage configuration.
+  - Persisted schema v25 migrates legacy pound strings to finite nonnegative numeric pounds,
+    defaults existing items to non-storage, and defaults inventory entries to root containment.
+  - Backend-authoritative carried-weight projections count quantities and equipped items, honor
+    weight-negating containment, and reconcile through snapshots and patches.
+  - Inventory containment supports accessible root/container moves, nesting, read-only display,
+    and validation against self/cycles/missing or stacked destinations, equipped moves, and
+    nonempty-container removal.
+
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates

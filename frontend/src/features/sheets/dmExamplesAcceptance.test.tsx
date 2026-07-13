@@ -79,12 +79,15 @@ describe("DM example acceptance fixtures", () => {
         selectedItemId=""
         selectedItem={null}
         equipment={dmExampleEquipment}
+        currentCarriedWeight={0}
+        carryWeightLimit={10}
         canManageInventory={false}
         canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
         onQuantityChange={() => undefined}
         onToggleEquipped={() => undefined}
+        onMoveInventoryItem={() => undefined}
         onRemoveInventoryItem={() => undefined}
       />
     );

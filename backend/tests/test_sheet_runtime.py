@@ -347,7 +347,7 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                 }
             )
             await websocket_sessions.reset()
@@ -1133,7 +1133,7 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                     "interaction_type": "equippable",
                     "description": "Adds fire damage.",
                     "price": "0",
-                    "weight": "0",
+                    "weight": 0,
                     "augmentation_templates": [
                         matching_template,
                         mismatched_template,
@@ -1147,7 +1147,7 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                     "interaction_type": "equippable",
                     "description": "Must not apply while unequipped.",
                     "price": "0",
-                    "weight": "0",
+                    "weight": 0,
                     "augmentation_templates": [inactive_template],
                 }
             )
@@ -1235,7 +1235,7 @@ def test_perform_action_modifier_can_read_matched_action_attribute(monkeypatch) 
                     "interaction_type": "equippable",
                     "description": "Adds current spell damage.",
                     "price": "0",
-                    "weight": "0",
+                    "weight": 0,
                     "augmentation_templates": [
                         _evaluation_augmentation_payload(
                             augmentation_id="spell-focus",
@@ -1322,7 +1322,7 @@ def test_equipment_direct_effect_can_read_owning_item_attribute(monkeypatch) -> 
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "attribute_profile": "weapon",
                     "attributes": {
                         "weapon_base_damage": {
@@ -1441,7 +1441,7 @@ def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatc
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "attribute_profile": "weapon",
                     "action_grants": [
                         {
@@ -1570,7 +1570,7 @@ def test_same_source_item_modifier_only_matches_executing_item(
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "action_grants": [
                         {
                             "action_id": "weapon_damage",
@@ -1587,7 +1587,7 @@ def test_same_source_item_modifier_only_matches_executing_item(
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "action_grants": [
                         {
                             "action_id": "weapon_damage",
@@ -1688,7 +1688,7 @@ def test_same_source_item_modifier_treats_same_definition_bridges_as_distinct(
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "action_grants": [
                         {
                             "action_id": "weapon_damage",
@@ -1861,7 +1861,7 @@ def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
                         "interaction_type": "equippable",
                         "description": "Grants Block advantage.",
                     "price": "0",
-                    "weight": "0",
+                    "weight": 0,
                     "augmentation_templates": [shield_template, shield_check_bonus],
                 }
             )
@@ -2333,7 +2333,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                         "interaction_type": "consumable",
                         "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "action_grants": [
                         {
                             "action_id": "drink_potion",
@@ -2382,6 +2382,11 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
                     "op": "inc",
                     "path": "/instanced_sheets/mage_instance/items/potion-b/count",
                     "value": -1,
+                },
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/current_carried_weight",
+                    "value": 0,
                 },
             ]
         finally:
@@ -2560,7 +2565,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "attribute_profile": "weapon",
                     "action_grants": [
                         {
@@ -2652,7 +2657,7 @@ def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> N
                     "interaction_type": "equippable",
                     "description": "",
                     "price": "",
-                    "weight": "",
+                    "weight": 0,
                     "action_grants": [
                         {
                             "action_id": "moon_strike",
@@ -2688,6 +2693,11 @@ def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> N
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/items/sword/equipped",
                     "value": False,
+                },
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/current_carried_weight",
+                    "value": 0,
                 },
             ]
             assert instance_item.count == 0

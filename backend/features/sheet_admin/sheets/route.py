@@ -29,6 +29,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteInstancedSheetActionBridge,
     DeleteInstancedSheetItemBridge,
     DeleteInstancedSheetProficiencyBridge,
+    MoveInstancedSheetItem,
     SetInstancedSheetNotes,
     SetInstancedSheetResource,
     SetSheetNotes,
@@ -477,6 +478,25 @@ class DeleteInstancedSheetItemBridgeRoute(
         await service.detach_instanced_sheet_item(request)
 
 
+class MoveInstancedSheetItemRoute(RequestRoute[MoveInstancedSheetItem]):
+    type_name = "move_instanced_sheet_item"
+    request_model = MoveInstancedSheetItem
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_edit")
+    permission_denied_reason = permission_denied_reason("equipment_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceItems",
+        method_name="moveItem",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: MoveInstancedSheetItem,
+    ) -> None:
+        await service.move_instanced_sheet_item(request)
+
+
 class CreateSheetProficiencyBridgeRoute(RequestRoute[CreateSheetProficiencyBridge]):
     type_name = "create_sheet_proficiency_bridge"
     request_model = CreateSheetProficiencyBridge
@@ -620,6 +640,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateInstancedSheetItemBridgeRoute())
     registry.register(UpdateInstancedSheetItemBridgeRoute())
     registry.register(DeleteInstancedSheetItemBridgeRoute())
+    registry.register(MoveInstancedSheetItemRoute())
     registry.register(CreateSheetProficiencyBridgeRoute())
     registry.register(UpdateSheetProficiencyBridgeRoute())
     registry.register(DeleteSheetProficiencyBridgeRoute())

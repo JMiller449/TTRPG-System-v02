@@ -391,7 +391,9 @@ export interface ItemDefinition {
   gm_notes?: string;
   gm_special_properties?: string;
   price: string;
-  weight: string;
+  weight: number;
+  can_contain_items?: boolean;
+  contents_weight_behavior?: "normal" | "ignored";
   attribute_profile?: "weapon" | null;
   augmentation_templates?: Augmentation[];
   action_grants?: ItemActionGrant[];
@@ -416,6 +418,7 @@ export interface ItemBridge {
   count: number;
   equipped: boolean;
   item_id: string;
+  parent_container_id?: string | null;
 }
 
 export interface ProficiencyBridge {
@@ -490,6 +493,7 @@ export interface Sheet {
   items: Record<string, ItemBridge>;
   stats: Stats;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  current_carried_weight?: number;
   racial_hp_multiplier?: number;
   max_health?: Formula;
   max_mana?: Formula;
@@ -509,6 +513,7 @@ export interface PersistentSheet {
   unassigned_stat_points?: number;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  current_carried_weight?: number;
   racial_hp_multiplier?: number;
   max_health?: Formula;
   max_mana?: Formula;

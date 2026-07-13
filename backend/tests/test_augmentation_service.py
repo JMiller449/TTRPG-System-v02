@@ -167,7 +167,7 @@ def _build_equipment_item(
             "rank": "F",
             "description": "",
             "price": "",
-            "weight": "",
+            "weight": 0,
             "augmentation_templates": [asdict(template)],
         }
     )

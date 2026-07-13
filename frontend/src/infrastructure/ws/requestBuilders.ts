@@ -1082,6 +1082,25 @@ export function buildDetachInstancedSheetItemRequest({
   };
 }
 
+export function buildMoveInstancedSheetItemRequest({
+  instanceId,
+  relationshipId,
+  parentContainerId,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  parentContainerId: string | null;
+} & OptionalRequestId): ProtocolRequest<"move_instanced_sheet_item"> {
+  return {
+    ...requestIdField(requestId),
+    type: "move_instanced_sheet_item",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    parent_container_id: parentContainerId
+  };
+}
+
 export function buildSetInstancedSheetItemEquippedRequest({
   instanceId,
   relationshipId,

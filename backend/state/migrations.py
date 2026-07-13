@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from math import isfinite
 import re
 from typing import Any
 
@@ -13,7 +14,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 24
+CURRENT_STATE_SCHEMA_VERSION = 25
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1564,6 +1565,75 @@ def _migrate_v23_to_v24(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 24, "state": migrated["state"]}
 
 
+_LEGACY_WEIGHT_PATTERN = re.compile(
+    r"^\+?(?:\d+(?:\.\d*)?|\.\d+)\s*(?:lb|lbs|pound|pounds)?$",
+    re.IGNORECASE,
+)
+
+
+def _migrate_legacy_weight(item_id: str, value: Any) -> float:
+    if isinstance(value, bool):
+        raise PersistedStateError(f"Item '{item_id}' has invalid legacy weight.")
+    if isinstance(value, int | float):
+        weight = float(value)
+    elif isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return 0.0
+        if _LEGACY_WEIGHT_PATTERN.fullmatch(normalized) is None:
+            raise PersistedStateError(
+                f"Item '{item_id}' has unsupported legacy weight '{value}'."
+            )
+        number = re.match(r"^\+?(?:\d+(?:\.\d*)?|\.\d+)", normalized)
+        if number is None:
+            raise PersistedStateError(f"Item '{item_id}' has invalid legacy weight.")
+        weight = float(number.group(0))
+    else:
+        raise PersistedStateError(f"Item '{item_id}' has invalid legacy weight.")
+    if not isfinite(weight) or weight < 0:
+        raise PersistedStateError(
+            f"Item '{item_id}' weight must be finite and nonnegative."
+        )
+    return weight
+
+
+def _migrate_v24_to_v25(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # Version 24 existed on both sides of the merge. Replay the idempotent
+    # resource/stat convergence before applying inventory normalization so
+    # checkpoints written by either history reach the same version-25 shape.
+    converged = _migrate_v22_to_v23(
+        {"schema_version": 22, "state": envelope["state"]}
+    )
+    state = deepcopy(converged["state"])
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item_id, item in items.items():
+            if not isinstance(item, dict):
+                continue
+            item["weight"] = _migrate_legacy_weight(
+                str(item_id),
+                item.get("weight", ""),
+            )
+            item.setdefault("can_contain_items", False)
+            item.setdefault("contents_weight_behavior", "normal")
+
+    for collection_name in ("sheets", "instanced_sheets"):
+        sheets = state.get(collection_name, {})
+        if not isinstance(sheets, dict):
+            continue
+        for sheet in sheets.values():
+            if not isinstance(sheet, dict):
+                continue
+            inventory = sheet.get("items")
+            if not isinstance(inventory, dict):
+                continue
+            for bridge in inventory.values():
+                if isinstance(bridge, dict):
+                    bridge.setdefault("parent_container_id", None)
+
+    return {"schema_version": 25, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1589,6 +1659,7 @@ MIGRATIONS: dict[int, Migration] = {
     21: _migrate_v21_to_v22,
     22: _migrate_v22_to_v23,
     23: _migrate_v23_to_v24,
+    24: _migrate_v24_to_v25,
 }
 
 

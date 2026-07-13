@@ -255,7 +255,7 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     )
     assert action_presets["weapon_damage"].roll_mode_kind == "damage"
     assert action_presets["weapon_parry"].steps[0]["message"]["text"] == (
-        "Weapon Parry: /r floor(@weapon_proficiency * "
+        "Weapon Parry: /r floor((1 + @weapon_proficiency) * "
         "(1d100 / 100) * @dexterity)"
     )
     assert action_presets["block"].steps[0]["message"]["aliases"] == [

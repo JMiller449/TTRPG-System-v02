@@ -47,6 +47,14 @@ class FakeWebSocket:
 
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
+        if payload.get("type") == "chat_message":
+            chat_service.handle_bridge_event(
+                chat_service.Roll20ChatDelivery(
+                    message_id=payload["message_id"],
+                    success=True,
+                    type="chat_delivery",
+                )
+            )
 
     async def receive_text(self) -> str:
         raise RuntimeError("receive_text not implemented for FakeWebSocket")
@@ -843,6 +851,85 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
                 "request_id": "client-id-ignored",
             }
         ]
+
+    asyncio.run(scenario())
+
+
+def test_send_roll20_chat_message_surfaces_correlated_delivery_failure() -> None:
+    class RejectingBridge(FakeWebSocket):
+        async def send_json(self, payload: dict) -> None:
+            self.sent_messages.append(payload)
+            chat_service.handle_bridge_event(
+                chat_service.Roll20ChatDelivery(
+                    message_id=payload["message_id"],
+                    success=False,
+                    reason="chat_submit_failed",
+                    type="chat_delivery",
+                )
+            )
+
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        await chat_service.roll20_chat_bridge.reset()
+        sender_socket = FakeWebSocket()
+        bridge_socket = RejectingBridge()
+        await websocket_sessions.connect(sender_socket, role="player")
+        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+        await handle_client_payload(
+            sender_socket,
+            {
+                "type": "send_roll20_chat_message",
+                "message": "exact [[1d100]] message ✓",
+                "request_id": "req-delivery-failure",
+            },
+        )
+
+        outbound = bridge_socket.sent_messages[0]
+        assert outbound == {
+            "message_id": outbound["message_id"],
+            "message": "exact [[1d100]] message ✓",
+            "type": "chat_message",
+            "request_id": "req-delivery-failure",
+        }
+        assert sender_socket.sent_messages == [
+            {
+                "response_id": None,
+                "reason": "Roll20 chat delivery failed: chat_submit_failed.",
+                "type": "error",
+                "request_id": "req-delivery-failure",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_replacing_bridge_rejects_pending_delivery() -> None:
+    class PendingBridge(FakeWebSocket):
+        async def send_json(self, payload: dict) -> None:
+            self.sent_messages.append(payload)
+
+    async def scenario() -> None:
+        await chat_service.roll20_chat_bridge.reset()
+        first = PendingBridge()
+        second = FakeWebSocket()
+        await chat_service.roll20_chat_bridge.connect(first)
+        pending = asyncio.create_task(
+            chat_service.roll20_chat_bridge.send(
+                chat_service.Roll20ChatMessage(
+                    message_id="pending-message",
+                    message="do not deliver twice",
+                ),
+                await_delivery=True,
+            )
+        )
+        await asyncio.sleep(0)
+
+        replaced = await chat_service.roll20_chat_bridge.connect(second)
+
+        assert replaced is first
+        with pytest.raises(RuntimeError, match="delivery failed: unknown"):
+            await pending
 
     asyncio.run(scenario())
 

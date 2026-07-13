@@ -39,14 +39,16 @@
     if (
       location.protocol === "https:" &&
       location.hostname === "bossadapt.org" &&
-      (location.pathname === "/ttrpg" || location.pathname.startsWith("/ttrpg/"))
+      (location.pathname === "/ttrpg" ||
+        location.pathname.startsWith("/ttrpg/"))
     ) {
       return true;
     }
 
     return (
       location.protocol === "http:" &&
-      (location.hostname === "127.0.0.1" || location.hostname === "localhost") &&
+      (location.hostname === "127.0.0.1" ||
+        location.hostname === "localhost") &&
       location.port === "5173"
     );
   }
@@ -55,7 +57,8 @@
     return (
       location.protocol === "https:" &&
       location.hostname === "app.roll20.net" &&
-      (location.pathname === "/editor" || location.pathname.startsWith("/editor/"))
+      (location.pathname === "/editor" ||
+        location.pathname.startsWith("/editor/"))
     );
   }
 
@@ -65,8 +68,12 @@
     }
 
     const endpoint = new URL(value.trim());
-    const isLoopback = endpoint.hostname === "127.0.0.1" || endpoint.hostname === "localhost";
-    if (endpoint.protocol !== "wss:" && !(endpoint.protocol === "ws:" && isLoopback)) {
+    const isLoopback =
+      endpoint.hostname === "127.0.0.1" || endpoint.hostname === "localhost";
+    if (
+      endpoint.protocol !== "wss:" &&
+      !(endpoint.protocol === "ws:" && isLoopback)
+    ) {
       throw new Error("insecure_endpoint");
     }
     if (
@@ -96,7 +103,10 @@
     } catch (_error) {
       return null;
     }
-    if (typeof value.serviceAuthCode !== "string" || !value.serviceAuthCode.trim()) {
+    if (
+      typeof value.serviceAuthCode !== "string" ||
+      !value.serviceAuthCode.trim()
+    ) {
       return null;
     }
 
@@ -128,7 +138,11 @@
     const handledRequests = new Set();
 
     async function handleRequest(payload) {
-      if (!payload || payload.channel !== CHANNEL || typeof payload.nonce !== "string") {
+      if (
+        !payload ||
+        payload.channel !== CHANNEL ||
+        typeof payload.nonce !== "string"
+      ) {
         return;
       }
       const requestKey = `${payload.type}:${payload.nonce}`;
@@ -230,11 +244,14 @@
     return null;
   }
 
-  async function sendChatMessage(message) {
+  async function sendChatMessage(message, isCurrent = () => true) {
     const chatInput = await waitForElement(CHAT_INPUT_SELECTOR);
     const sendButton = await waitForElement(SEND_BUTTON_SELECTOR);
     if (!chatInput || !sendButton) {
       throw bridgeFailure("chat_ui_not_found");
+    }
+    if (!isCurrent()) {
+      return false;
     }
 
     try {
@@ -247,10 +264,14 @@
     }
 
     try {
+      if (!isCurrent()) {
+        return false;
+      }
       sendButton.click();
     } catch (_error) {
       throw bridgeFailure("chat_submit_failed");
     }
+    return true;
   }
 
   async function startRoll20Bridge() {
@@ -293,14 +314,26 @@
       );
     }
 
-    function queueDelivery(targetSocket, payload) {
+    function queueDelivery(targetSocket, payload, generation) {
       deliveryQueue = deliveryQueue.then(async () => {
+        const isCurrent = () =>
+          generation === socketGeneration &&
+          targetSocket === socket &&
+          authenticated;
+        if (!isCurrent()) {
+          return;
+        }
         try {
-          await sendChatMessage(payload.message);
+          const delivered = await sendChatMessage(payload.message, isCurrent);
+          if (!delivered || !isCurrent()) {
+            return;
+          }
           sendDelivery(targetSocket, payload, true);
         } catch (error) {
           const reason =
-            error && typeof error.bridgeReason === "string" ? error.bridgeReason : "unknown";
+            error && typeof error.bridgeReason === "string"
+              ? error.bridgeReason
+              : "unknown";
           log(`Failed to send Roll20 chat message (${reason})`);
           sendDelivery(targetSocket, payload, false, reason);
         }
@@ -313,7 +346,8 @@
       }
       if (
         socket &&
-        (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+        (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
       ) {
         return;
       }
@@ -325,7 +359,9 @@
         nextSocket = new WebSocket(config.endpoint);
       } catch (_error) {
         terminalUntilConfigChange = true;
-        log("Bridge configuration could not create a WebSocket; run Sync Bridge again");
+        log(
+          "Bridge configuration could not create a WebSocket; run Sync Bridge again",
+        );
         return;
       }
       socket = nextSocket;
@@ -336,7 +372,10 @@
           return;
         }
         nextSocket.send(
-          JSON.stringify({ type: "authenticate", token: config.serviceAuthCode }),
+          JSON.stringify({
+            type: "authenticate",
+            token: config.serviceAuthCode,
+          }),
         );
       });
 
@@ -374,7 +413,7 @@
           typeof payload.message === "string" &&
           typeof payload.message_id === "string"
         ) {
-          queueDelivery(nextSocket, payload);
+          queueDelivery(nextSocket, payload, generation);
         }
       });
 
@@ -390,14 +429,19 @@
           event.reason === "bridge_replaced"
         ) {
           terminalUntilConfigChange = true;
-          log("Bridge connection stopped; run Sync Bridge to activate this tab again");
+          log(
+            "Bridge connection stopped; run Sync Bridge to activate this tab again",
+          );
           return;
         }
         scheduleReconnect();
       });
 
       nextSocket.addEventListener("error", () => {
-        if (generation === socketGeneration && nextSocket.readyState !== WebSocket.CLOSED) {
+        if (
+          generation === socketGeneration &&
+          nextSocket.readyState !== WebSocket.CLOSED
+        ) {
           nextSocket.close();
         }
       });
@@ -418,7 +462,9 @@
       if (config) {
         connect();
       } else {
-        log("Bridge is not synchronized; use the Extension tab in the DM console");
+        log(
+          "Bridge is not synchronized; use the Extension tab in the DM console",
+        );
       }
     }
 
@@ -429,7 +475,9 @@
     if (config) {
       connect();
     } else {
-      log("Bridge is not synchronized; use the Extension tab in the DM console");
+      log(
+        "Bridge is not synchronized; use the Extension tab in the DM console",
+      );
     }
   }
 

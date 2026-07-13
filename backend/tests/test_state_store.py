@@ -1,6 +1,7 @@
 import json
 import os
 from collections.abc import Iterator
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -1087,6 +1088,37 @@ def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
     ] == [{"name": "strength", "path": ["sheet", "stats", "strength"]}]
     assert result.state["actions"]["custom"]["name"] == "Custom"
     assert set(result.state["sheets"]["fighter"]["actions"]) == {"custom"}
+
+
+def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
+    actions = seeded_global_action_payloads()
+    legacy_parry = deepcopy(actions["weapon_parry"])
+    legacy_parry["notes"] = (
+        "Spreadsheet Weapon Parry attempt: proficiency times d100 fraction "
+        "times Dexterity. This intentionally differs from the prose Parry rule."
+    )
+    legacy_parry["steps"][0]["message"]["text"] = (
+        "Weapon Parry: /r floor(@weapon_proficiency * "
+        "(1d100 / 100) * @dexterity)"
+    )
+    customized_contest = deepcopy(actions["weapon_contest"])
+    customized_contest["notes"] = "Campaign-specific contest behavior."
+    customized_contest["steps"][0]["message"]["text"] = "/r 1d100"
+
+    result = migrate_persisted_state(
+        {
+            "schema_version": 25,
+            "state": {
+                "actions": {
+                    "weapon_parry": legacy_parry,
+                    "weapon_contest": customized_contest,
+                }
+            },
+        }
+    )
+
+    assert result.state["actions"]["weapon_parry"] == actions["weapon_parry"]
+    assert result.state["actions"]["weapon_contest"] == customized_contest
 
 
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:

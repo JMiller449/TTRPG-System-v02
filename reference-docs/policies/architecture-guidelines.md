@@ -20,5 +20,7 @@
 - Frontend may render optimistic pending state, but must reconcile to server patches.
 
 ## Rules Authority
-- Primary authority: `reference-docs/Chip TTRPG System_2-20-26.pdf`.
+- Primary authority: `reference-docs/Chip_TTRPG_System.md`.
+- Answered implementation rulings: `reference-docs/rule-decisions-needed-answered.md`.
+- Archived PDFs are historical references only.
 - If ambiguous, do not invent behavior. Create a TODO and track it in `frontend_tasks.md` or `backend_tasks.md`.

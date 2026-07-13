@@ -263,7 +263,12 @@ describe("roll20 bridge userscript artifact", () => {
       success: true
     });
 
+    firstSocket.emit("message", {
+      data: JSON.stringify({ type: "chat_message", message_id: "stale", message: "stale" })
+    });
     firstSocket.emit("close", { code: 1006, reason: "" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(clickedMessages).toEqual(["first", "second"]);
     expect(scheduled).toHaveLength(1);
     scheduled.shift()?.();
     expect(sockets).toHaveLength(2);
@@ -272,10 +277,152 @@ describe("roll20 bridge userscript artifact", () => {
     expect(scheduled).toHaveLength(0);
   });
 
+  it("reports exact Roll20 DOM delivery failure reasons", async () => {
+    async function deliveryReason({
+      querySelector,
+      DateObject = Date
+    }: {
+      querySelector: (selector: string) => unknown;
+      DateObject?: { now(): number };
+    }): Promise<string | undefined> {
+      type SocketListener = (event: Record<string, unknown>) => void;
+      let socket: FakeWebSocket | undefined;
+      class FakeWebSocket {
+        static readonly CONNECTING = 0;
+        static readonly OPEN = 1;
+        static readonly CLOSING = 2;
+        static readonly CLOSED = 3;
+        readonly listeners = new Map<string, SocketListener[]>();
+        readonly sent: string[] = [];
+        readyState = FakeWebSocket.CONNECTING;
+
+        constructor() {
+          socket = this;
+        }
+
+        addEventListener(type: string, listener: SocketListener): void {
+          this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+        }
+
+        send(payload: string): void {
+          this.sent.push(payload);
+        }
+
+        close(): void {
+          this.readyState = FakeWebSocket.CLOSED;
+        }
+
+        emit(type: string, event: Record<string, unknown> = {}): void {
+          for (const listener of this.listeners.get(type) ?? []) {
+            listener(event);
+          }
+        }
+      }
+
+      vm.runInNewContext(source, {
+        URL,
+        Date: DateObject,
+        Event: class {
+          constructor(
+            readonly type: string,
+            readonly options: Record<string, unknown>
+          ) {}
+        },
+        WebSocket: FakeWebSocket,
+        console: { log: () => undefined },
+        document: { querySelector },
+        window: {
+          location: {
+            protocol: "https:",
+            hostname: "app.roll20.net",
+            port: "",
+            pathname: "/editor/game",
+            origin: "https://app.roll20.net"
+          },
+          setTimeout: (callback: () => void) => {
+            queueMicrotask(callback);
+            return 1;
+          },
+          clearTimeout: () => undefined
+        },
+        GM_getValues: async () => ({
+          bridgeConfig: {
+            endpoint: "ws://127.0.0.1:6767/ws/chat",
+            environment: "development",
+            serviceAuthCode: "secret"
+          }
+        }),
+        GM_setValues: async () => undefined,
+        GM_addValueChangeListener: () => undefined
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (!socket) {
+        throw new Error("Expected bridge socket");
+      }
+      socket.readyState = FakeWebSocket.OPEN;
+      socket.emit("message", {
+        data: JSON.stringify({ type: "authenticate_response", authenticated: true })
+      });
+      socket.emit("message", {
+        data: JSON.stringify({ type: "chat_message", message_id: "failed", message: "roll" })
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return socket.sent
+        .map((payload) => JSON.parse(payload) as Record<string, unknown>)
+        .find((payload) => payload.type === "chat_delivery")?.reason as string | undefined;
+    }
+
+    let now = 0;
+    class ExpiringDate extends Date {
+      static override now(): number {
+        now += 10001;
+        return now;
+      }
+    }
+    await expect(
+      deliveryReason({ querySelector: () => null, DateObject: ExpiringDate })
+    ).resolves.toBe("chat_ui_not_found");
+    await expect(
+      deliveryReason({
+        querySelector: (selector) =>
+          selector.includes("textarea")
+            ? {
+                value: "",
+                focus: () => {
+                  throw new Error("focus");
+                },
+                dispatchEvent: () => true
+              }
+            : { click: () => undefined }
+      })
+    ).resolves.toBe("chat_input_failed");
+    await expect(
+      deliveryReason({
+        querySelector: (selector) =>
+          selector.includes("textarea")
+            ? { value: "", focus: () => undefined, dispatchEvent: () => true }
+            : {
+                click: () => {
+                  throw new Error("click");
+                }
+              }
+      })
+    ).resolves.toBe("chat_submit_failed");
+    await expect(
+      deliveryReason({
+        querySelector: () => {
+          throw new Error("unexpected");
+        }
+      })
+    ).resolves.toBe("unknown");
+  });
+
   it("contains the terminal and queue controls in the distributed artifact", () => {
     expect(source).toContain("BRIDGE_REPLACED_CLOSE_CODE = 4001");
     expect(source).toContain("terminalUntilConfigChange");
     expect(source).toContain("deliveryQueue = deliveryQueue.then");
+    expect(source).toContain("generation === socketGeneration");
     expect(source).toContain('type: "chat_delivery"');
   });
 });

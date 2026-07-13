@@ -12,7 +12,7 @@ async def handle_request(session: WebSocketSession, request: PerformAction) -> N
             actor_role=session.role,
             assigned_instance_id=session.assigned_instance_id,
         )
-    except (PermissionError, ValueError) as exc:
+    except (PermissionError, RuntimeError, ValueError) as exc:
         await websocket_sessions.send(
             session,
             Error(

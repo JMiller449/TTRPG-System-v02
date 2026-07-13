@@ -20,7 +20,7 @@ async def handle_request(
 ) -> None:
     chat_message = service.build_chat_message(request)
     try:
-        await service.roll20_chat_bridge.send(chat_message)
+        await service.roll20_chat_bridge.send(chat_message, await_delivery=True)
     except RuntimeError as exc:
         await websocket_sessions.send(
             session,

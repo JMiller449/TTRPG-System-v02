@@ -815,7 +815,12 @@ def _positive_int_amount(amount: float | int, *, label: str) -> int:
 
 
 def _proficiency_bridge_key(actor: RuntimeActor, proficiency_id: str) -> str:
-    for bridge_key, bridge in actor.sheet.proficiencies.items():
+    proficiencies = (
+        actor.instance.proficiencies
+        if actor.instance is not None
+        else actor.sheet.proficiencies
+    )
+    for bridge_key, bridge in proficiencies.items():
         if (
             bridge_key == proficiency_id
             or bridge.prof_id == proficiency_id
@@ -1389,8 +1394,8 @@ async def perform_action(
                     current_actor, step.proficiency_id
                 )
                 path = state_sync_service.join_path(
-                    "sheets",
-                    current_actor.sheet_id,
+                    current_actor.mutation_root,
+                    current_actor.actor_id,
                     "proficiencies",
                     bridge_key,
                     "use_count",
@@ -1556,21 +1561,27 @@ async def perform_action(
 
         return (applied_mutations, emitted_messages, bool(ops)), ops
 
+    async def deliver_messages(
+        result: tuple[list[str], list[str], bool],
+    ) -> None:
+        _, messages, _ = result
+        for message in messages:
+            await chat_service.roll20_chat_bridge.send(
+                Roll20ChatMessage(
+                    message_id=str(uuid4()),
+                    message=message,
+                    request_id=request.request_id,
+                ),
+                await_delivery=True,
+            )
+
     applied_mutations, emitted_messages, emitted_state_patch = (
         await state_sync_service.apply_mutation(
             mutation,
             request_id=request.request_id,
+            before_commit=deliver_messages,
         )
     )
-
-    for message in emitted_messages:
-        await chat_service.roll20_chat_bridge.send(
-            Roll20ChatMessage(
-                message_id=str(uuid4()),
-                message=message,
-                request_id=request.request_id,
-            )
-        )
 
     def history_mutation(state: State) -> tuple[None, list[Any]]:
         entry_id = f"action_history_{uuid4()}"

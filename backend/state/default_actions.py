@@ -178,12 +178,12 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         label="Weapon Parry",
         category="defense",
         description=(
-            "Spreadsheet Weapon Parry attempt: proficiency times d100 fraction "
-            "times Dexterity. This intentionally differs from the prose Parry rule."
+            "Equipment-grantable Parry attempt using one plus the selected weapon "
+            "proficiency and Dexterity."
         ),
         roll_mode_kind="check",
         message_text=(
-            "Weapon Parry: /r floor(@weapon_proficiency * "
+            "Weapon Parry: /r floor((1 + @weapon_proficiency) * "
             "(1d100 / 100) * @dexterity)"
         ),
         aliases=(
@@ -205,7 +205,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         roll_mode_kind="check",
         message_text=(
-            "Weapon Contest: /r floor(@weapon_proficiency * "
+            "Weapon Contest: /r floor((1 + @weapon_proficiency) * "
             "(1d100 / 100) * @weapon_stat)"
         ),
         aliases=(

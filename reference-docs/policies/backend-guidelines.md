@@ -25,5 +25,6 @@
 - On client desync: provide forced snapshot resync path.
 
 ## Rules Authority
-- Use `Chip TTRPG System_2-20-26.pdf` as source of truth.
+- Use `reference-docs/Chip_TTRPG_System.md` as the active source of truth, followed by `reference-docs/rule-decisions-needed-answered.md` for implementation rulings.
+- Treat archived PDFs as historical references only.
 - If a rule is not explicit, add a TODO and defer implementation detail until clarified.

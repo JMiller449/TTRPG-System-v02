@@ -14,7 +14,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 25
+CURRENT_STATE_SCHEMA_VERSION = 26
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1634,6 +1634,37 @@ def _migrate_v24_to_v25(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 25, "state": state}
 
 
+def _legacy_weapon_roll_payload(action_id: str) -> dict[str, Any]:
+    payload = deepcopy(seeded_global_action_payloads()[action_id])
+    message = payload["steps"][0]["message"]
+    if action_id == "weapon_parry":
+        payload["notes"] = (
+            "Spreadsheet Weapon Parry attempt: proficiency times d100 fraction "
+            "times Dexterity. This intentionally differs from the prose Parry rule."
+        )
+        message["text"] = (
+            "Weapon Parry: /r floor(@weapon_proficiency * "
+            "(1d100 / 100) * @dexterity)"
+        )
+    else:
+        message["text"] = (
+            "Weapon Contest: /r floor(@weapon_proficiency * "
+            "(1d100 / 100) * @weapon_stat)"
+        )
+    return payload
+
+
+def _migrate_v25_to_v26(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions")
+    if isinstance(actions, dict):
+        canonical = seeded_global_action_payloads()
+        for action_id in ("weapon_parry", "weapon_contest"):
+            if actions.get(action_id) == _legacy_weapon_roll_payload(action_id):
+                actions[action_id] = canonical[action_id]
+    return {"schema_version": 26, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1660,6 +1691,7 @@ MIGRATIONS: dict[int, Migration] = {
     22: _migrate_v22_to_v23,
     23: _migrate_v23_to_v24,
     24: _migrate_v24_to_v25,
+    25: _migrate_v25_to_v26,
 }
 
 

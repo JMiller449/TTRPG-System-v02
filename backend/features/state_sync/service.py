@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from typing import Any, TypeVar
@@ -1167,6 +1167,7 @@ class StateSyncService:
         mutation: Callable[[State], tuple[MutationResultT, list[PatchOp]]],
         *,
         request_id: str | None = None,
+        before_commit: Callable[[MutationResultT], Awaitable[None]] | None = None,
     ) -> MutationResultT:
         async with self._lock:
             if request_id is not None and request_id in self._processed_request_id_set:
@@ -1189,6 +1190,8 @@ class StateSyncService:
                 ops.extend(synchronize_equipment_augmentations_mutation(state))
                 ops.extend(self._synchronize_sheet_attribute_projections(state, ops))
                 ops.extend(synchronize_resource_bounds_mutation(state))
+                if before_commit is not None:
+                    await before_commit(result)
             except Exception:
                 for state_field in fields(state):
                     setattr(

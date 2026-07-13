@@ -211,6 +211,20 @@ No large architecture feature is currently missing for the stated character-shee
     and validation against self/cycles/missing or stacked destinations, equipped moves, and
     nonempty-container removal.
 
+- [x] Resolve the 2026-07-12 interaction coverage and Roll20 accuracy findings:
+  - Active rules authority is `reference-docs/Chip_TTRPG_System.md`, followed by
+    `reference-docs/rule-decisions-needed-answered.md`; archived PDFs are historical references.
+  - Canonical weapon Parry and Contest rolls use the documented `1 + Proficiency` multiplier,
+    with a guarded migration that preserves customized campaign actions.
+  - Player proficiency gains mutate the acting instance without changing its template or siblings.
+  - Action mutations commit only after correlated Roll20 delivery acknowledgement; delivery
+    failure, timeout, disconnect, or bridge replacement returns a request-scoped error and rolls
+    backend state back before persistence or patch broadcast.
+  - Userscript delivery preserves exact message text, reports bounded failure reasons, and drops
+    queued work from stale bridge generations.
+  - A multi-message action can still partially reach Roll20 if an early message succeeds and a
+    later message fails; Roll20 provides no deletion transaction for retracting the earlier chat.
+
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates

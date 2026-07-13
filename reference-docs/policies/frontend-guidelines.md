@@ -24,3 +24,8 @@
 - Keep transport types centralized and shared across view features.
 - Modularize components aggressively: split UI into focused, reusable components instead of page-sized components.
 - Prefer small, testable components over large page-level logic blocks.
+
+## Rules Authority
+- Use `reference-docs/Chip_TTRPG_System.md` as the active rulebook, followed by `reference-docs/rule-decisions-needed-answered.md` for implementation rulings.
+- Treat archived PDFs as historical references only.
+- Do not reproduce gameplay calculations in frontend code.

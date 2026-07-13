@@ -12,7 +12,7 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - `backend/schemas/ipc_types/`: client/server request and response message shapes.
 - `backend/state/`: state storage and game-logic orchestration.
 - `frontend/`: React/Vite frontend application and UI scaffolding.
-- `reference-docs/`: TTRPG rules and formulas. `Chip TTRPG System_2-20-26.pdf` is the highest authority.
+- `reference-docs/`: TTRPG rules and formulas. `Chip_TTRPG_System.md` is the highest active rules authority, followed by `rule-decisions-needed-answered.md`; archived PDFs are historical references only.
 - `reference-docs/policies/`: architecture and scope guardrails.
 - `plan/active/PLAN.md`: active consolidated project plan and task list.
 - `plan/archived/`: archived planning/task/completion source files retained for history.
@@ -56,7 +56,7 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 - `plan/active/PLAN.md` stores the active consolidated roadmap, MVP acceptance criteria, and task list.
 - `plan/archived/` stores superseded task, plan, questionnaire, and completion logs for history.
 - When work is completed, update `plan/active/PLAN.md` in the same PR.
-- If behavior is unclear in the rules, add a TODO or deferred rule decision in `plan/active/PLAN.md` and reference the exact PDF section/page.
+- If behavior is unclear in the rules, add a TODO or deferred rule decision in `plan/active/PLAN.md` and reference the exact active-rule section.
 
 ## Testing Guidelines
 - Use `pytest` for backend tests under `backend/tests/`.
@@ -73,6 +73,7 @@ This repo is backend-first, with frontend scaffolding planned in React/Vite.
 ## Rules Authority & Policy Docs
 - Do not invent game behavior. If rules are unclear, mark it `TODO` and escalate in the PR summary.
 - Gameplay calculations are backend-authoritative; frontend renders state, submits intents, and reconciles patches.
+- Rules authority order is `reference-docs/Chip_TTRPG_System.md`, then `reference-docs/rule-decisions-needed-answered.md`, then the active plan and policy documents. Archived PDFs are retained for historical comparison, not active implementation authority.
 - Before starting implementation work, read and follow these policy docs:
   - `reference-docs/policies/architecture-guidelines.md`
   - `reference-docs/policies/frontend-guidelines.md`

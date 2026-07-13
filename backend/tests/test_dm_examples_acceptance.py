@@ -38,6 +38,14 @@ class FakeWebSocket:
 
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
+        if payload.get("type") == "chat_message":
+            chat_service.handle_bridge_event(
+                chat_service.Roll20ChatDelivery(
+                    message_id=payload["message_id"],
+                    success=True,
+                    type="chat_delivery",
+                )
+            )
 
 
 async def _send(websocket: FakeWebSocket, payload: dict) -> list[dict]:
@@ -334,6 +342,10 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             before_shadow_step_uses = shadow_sheet.proficiencies[
                 "fixture_shadow_steps"
             ].use_count
+            shadow_instance = reloaded.instanced_sheets[SHADOWBLADE_INSTANCE_ID]
+            before_instance_shadow_step_uses = shadow_instance.proficiencies[
+                "fixture_shadow_steps"
+            ].use_count
             await _send(
                 dm,
                 {
@@ -344,7 +356,10 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             )
             assert shadow_sheet.proficiencies[
                 "fixture_shadow_steps"
-            ].use_count == before_shadow_step_uses + 1
+            ].use_count == before_shadow_step_uses
+            assert shadow_instance.proficiencies[
+                "fixture_shadow_steps"
+            ].use_count == before_instance_shadow_step_uses + 1
 
             await _send(
                 dm,

@@ -21,5 +21,5 @@
 - Any local preview values are temporary and must be overwritten by backend results.
 
 ## Ambiguity Handling
-- If the rules PDF does not specify behavior, do not infer.
+- If the active rulebook and answered rulings do not specify behavior, do not infer.
 - Record a TODO in `frontend_tasks.md` or `backend_tasks.md` (whichever applies) with a link/path and page reference to the unresolved rule.

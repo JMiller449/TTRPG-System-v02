@@ -31,6 +31,14 @@ class FakeWebSocket:
 
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
+        if payload.get("type") == "chat_message":
+            chat_service.handle_bridge_event(
+                chat_service.Roll20ChatDelivery(
+                    message_id=payload["message_id"],
+                    success=True,
+                    type="chat_delivery",
+                )
+            )
 
     async def receive_text(self) -> str:
         raise RuntimeError("receive_text not implemented for FakeWebSocket")
@@ -931,6 +939,108 @@ def test_perform_action_applies_advantage_to_roll20_d100_output(monkeypatch) -> 
                 expected_message
             ]
             assert bridge_socket.sent_messages[0]["message"] == expected_message
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "arcane_check",
+                    "roll_mode": "disadvantage",
+                    "request_id": "req-disadvantage",
+                },
+            )
+
+            disadvantage_message = (
+                "Disadvantage Arcane Check: [[(2d100kl1 / 100) * (14)]]"
+            )
+            assert bridge_socket.sent_messages[1] == {
+                "message_id": bridge_socket.sent_messages[1]["message_id"],
+                "message": disadvantage_message,
+                "type": "chat_message",
+                "request_id": "req-disadvantage",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> None:
+    class RejectingBridge(FakeWebSocket):
+        async def send_json(self, payload: dict) -> None:
+            self.sent_messages.append(payload)
+            chat_service.handle_bridge_event(
+                chat_service.Roll20ChatDelivery(
+                    message_id=payload["message_id"],
+                    success=False,
+                    reason="chat_input_failed",
+                    type="chat_delivery",
+                )
+            )
+
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.sheets["mage_template"].actions["cast"] = Bridge.from_dict(
+                {"relationship_id": "cast", "entry_id": "costly_cast"}
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
+            state.actions["costly_cast"] = Action.from_dict(
+                {
+                    "id": "costly_cast",
+                    "name": "Costly Cast",
+                    "steps": [
+                        {
+                            "step_id": "cost",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("8"),
+                            "min_value": _formula_payload("0"),
+                            "on_min_violation": "reject",
+                        },
+                        {
+                            "step_id": "roll",
+                            "type": "send_message",
+                            "message": _formula_payload("Costly Cast: /r 1d100"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            player = FakeWebSocket()
+            bridge = RejectingBridge()
+            await _connect_assigned_player(player)
+            await chat_service.roll20_chat_bridge.connect(bridge)
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "costly_cast",
+                    "request_id": "req-failed-cast",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 30
+            assert state.action_history == {}
+            assert _request_messages(player, "req-failed-cast") == [
+                {
+                    "response_id": None,
+                    "reason": "Roll20 chat delivery failed: chat_input_failed.",
+                    "type": "error",
+                    "request_id": "req-failed-cast",
+                }
+            ]
         finally:
             StateSingleton._state = original_state
 
@@ -2931,7 +3041,12 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                     }
                 )
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
+            state.instanced_sheets["sibling_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["focused_cast"] = Action.from_dict(
                 {
                     "id": "focused_cast",
@@ -2970,7 +3085,19 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
             )
 
             assert state.instanced_sheets["mage_instance"].mana == 22
-            assert state.sheets["mage_template"].proficiencies["magic"].use_count == 3
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 3
+            )
+            assert state.sheets["mage_template"].proficiencies["magic"].use_count == 2
+            assert (
+                state.instanced_sheets["sibling_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 2
+            )
             assert _request_messages(websocket) == [
                 {
                     "response_id": None,
@@ -2982,7 +3109,7 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                         },
                         {
                             "op": "inc",
-                            "path": "/sheets/mage_template/proficiencies/magic/use_count",
+                            "path": "/instanced_sheets/mage_instance/proficiencies/magic/use_count",
                             "value": 1,
                         },
                     ],

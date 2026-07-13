@@ -13,6 +13,7 @@ from backend.features.session.models import SessionRole, WebSocketSession
 
 
 EXPECTED_ROUTE_MINIMUM_ROLES = {
+    "add_player_inventory_item": "player",
     "allocate_instanced_sheet_stat_points": "player",
     "adjust_instanced_sheet_resource": "player",
     "apply_instanced_sheet_damage": "player",
@@ -65,15 +66,17 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "get_action_formula_authoring_metadata": "player",
     "get_augmentation_target_metadata": "player",
     "get_roll20_bridge_status": "player",
-    "get_roll20_bridge_sync_config": "dm",
+    "get_roll20_bridge_sync_config": "player",
     "get_sheet_access_codes": "dm",
     "get_variable_registry": "player",
     "get_xp_tracker": "player",
     "import_state_backup": "dm",
     "perform_action": "player",
     "record_kill": "dm",
+    "record_player_kill": "player",
     "remove_active_condition": "dm",
     "remove_item_augmentation_template": "dm",
+    "remove_player_inventory_item": "player",
     "resync_state": "player",
     "reset_instanced_sheet_attribute_value": "dm",
     "reset_sheet_attribute_value": "dm",
@@ -98,7 +101,9 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "set_sheet_notes": "dm",
     "set_sheet_xp_required": "dm",
     "set_mob_xp_value": "dm",
+    "set_mob_kill_visibility": "dm",
     "spawn_encounter_preset": "dm",
+    "submit_player_item": "player",
     "undo_last_state_change": "dm",
     "update_action": "dm",
     "update_condition_preset": "dm",
@@ -116,6 +121,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "update_sheet_proficiency_bridge": "dm",
     "update_standalone_effect": "dm",
     "upsert_item_augmentation_template": "dm",
+    "review_player_item": "dm",
 }
 
 EXPECTED_CUSTOM_DENIAL_REASONS = {
@@ -136,6 +142,7 @@ EXPECTED_CUSTOM_DENIAL_REASONS = {
     "delete_sheet_item_bridge": "Only a DM can edit equipment.",
     "delete_sheet_proficiency_bridge": "Only a DM can edit proficiencies.",
     "perform_action": "Authenticate first to execute actions.",
+    "record_player_kill": "This request requires an authenticated player session.",
     "remove_item_augmentation_template": "Only a DM can edit equipment.",
     "set_instanced_sheet_notes": "Authenticate first to edit instance notes.",
     "set_instanced_sheet_base_stat": "Only a DM can edit sheet stats.",

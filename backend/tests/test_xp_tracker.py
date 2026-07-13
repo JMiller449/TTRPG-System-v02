@@ -331,6 +331,237 @@ def test_player_receives_only_assigned_instance_history(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_dm_controls_player_recordable_mobs_without_exposing_xp(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _setup_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            dm = await _dm()
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player, sheet_id="hero", instance_id="hero_1"
+            )
+
+            await handle_client_payload(player, {"type": "get_xp_tracker"})
+            assert player.sent_messages[-1]["recordable_mobs"] == []
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "goblin",
+                    "visible": True,
+                },
+            )
+
+            dm_tracker = dm.sent_messages[-1]
+            assert dm_tracker["mobs"][0]["visible_to_players"] is True
+            player_mob = player.sent_messages[-1]["recordable_mobs"][0]
+            assert player_mob == {"sheet_id": "goblin", "name": "Goblin"}
+            assert "xp_value" not in player_mob
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "goblin",
+                    "visible": False,
+                },
+            )
+            assert player.sent_messages[-1]["recordable_mobs"] == []
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_records_visible_party_kill_for_claimed_character(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _setup_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            dm = await _dm()
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "save_party",
+                    "party_id": "party_1",
+                    "name": "Party",
+                    "member_instance_ids": ["hero_1", "hero_2", "hero_3"],
+                },
+            )
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "goblin",
+                    "visible": True,
+                },
+            )
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player, sheet_id="hero", instance_id="hero_2"
+            )
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "record_player_kill",
+                    "kill_id": "kill_player",
+                    "monster_sheet_id": "goblin",
+                    "request_id": "request_player_kill",
+                },
+            )
+
+            record = StateSingleton.getState().kill_registry["kill_player"]
+            assert [participant.instance_id for participant in record.participants] == [
+                "hero_1",
+                "hero_2",
+                "hero_3",
+            ]
+            assert record.xp_per_participant == 33.33
+            assert record.submitted_by_role == "player"
+            assert record.submitted_by_instance_id == "hero_2"
+            assert record.submitted_by_name == "Hero"
+            assert player.sent_messages[-1]["request_id"] == "request_player_kill"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_kill_rejects_hidden_spoofed_and_replayed_requests(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _setup_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            dm = await _dm()
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await websocket_sessions.assign_player_sheet(
+                player, sheet_id="hero", instance_id="hero_1"
+            )
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "record_player_kill",
+                    "kill_id": "hidden",
+                    "monster_sheet_id": "goblin",
+                },
+            )
+            assert player.sent_messages[-1]["type"] == "error"
+            assert "hidden" not in StateSingleton.getState().kill_registry
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "hero",
+                    "visible": True,
+                },
+            )
+            assert dm.sent_messages[-1]["type"] == "error"
+            assert "hero" not in StateSingleton.getState().player_kill_visibility
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "goblin",
+                    "visible": True,
+                },
+            )
+            await handle_client_payload(
+                player,
+                {
+                    "type": "record_player_kill",
+                    "kill_id": "spoofed",
+                    "monster_sheet_id": "goblin",
+                    "credited_instance_id": "hero_4",
+                },
+            )
+            assert player.sent_messages[-1]["type"] == "error"
+            assert "spoofed" not in StateSingleton.getState().kill_registry
+
+            request = {
+                "type": "record_player_kill",
+                "kill_id": "accepted",
+                "monster_sheet_id": "goblin",
+                "request_id": "same_request",
+            }
+            await handle_client_payload(player, request)
+            accepted = StateSingleton.getState().kill_registry["accepted"]
+            assert [
+                participant.instance_id for participant in accepted.participants
+            ] == ["hero_1"]
+            assert accepted.xp_percentage == 100
+            assert accepted.xp_per_participant == 100
+            await handle_client_payload(
+                player,
+                {**request, "kill_id": "replayed"},
+            )
+            assert player.sent_messages[-1]["type"] == "error"
+            assert set(StateSingleton.getState().kill_registry) == {"accepted"}
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "record_player_kill",
+                    "kill_id": "dm_forbidden",
+                    "monster_sheet_id": "goblin",
+                },
+            )
+            assert dm.sent_messages[-1]["type"] == "error"
+            assert "dm_forbidden" not in StateSingleton.getState().kill_registry
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_deleting_mob_removes_player_kill_visibility(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _setup_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            dm = await _dm()
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "set_mob_kill_visibility",
+                    "mob_sheet_id": "goblin",
+                    "visible": True,
+                },
+            )
+            await handle_client_payload(
+                dm,
+                {"type": "delete_sheet", "sheet_id": "goblin"},
+            )
+
+            state = StateSingleton.getState()
+            assert "goblin" not in state.sheets
+            assert "goblin" not in state.player_kill_visibility
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_despawn_removes_current_membership_but_preserves_kill(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

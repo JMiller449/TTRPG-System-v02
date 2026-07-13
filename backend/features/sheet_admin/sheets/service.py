@@ -738,7 +738,16 @@ async def _delete_sheet(
 
         path = state_sync_service.join_path("sheets", sheet_id)
         _, op = state_sync_service.remove_mutation(state, path)
-        return None, [op]
+        ops = [op]
+        if sheet_id in state.player_kill_visibility:
+            _, visibility_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path(
+                    "player_kill_visibility", sheet_id
+                ),
+            )
+            ops.append(visibility_op)
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -865,6 +874,18 @@ async def delete_instanced_sheet(request: DeleteInstancedSheet) -> None:
             if access_code.instance_id != request.instance_id:
                 continue
             del state.sheet_access_codes[code]
+
+        for item_id, item in sorted(list(state.items.items())):
+            if (
+                item.approval_status != "pending"
+                or item.submitted_by_instance_id != request.instance_id
+            ):
+                continue
+            _, remove_item_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path("items", item_id),
+            )
+            ops.append(remove_item_op)
 
         _, remove_instance_op = state_sync_service.remove_mutation(
             state,

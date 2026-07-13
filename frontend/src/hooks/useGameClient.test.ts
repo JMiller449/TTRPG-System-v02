@@ -39,7 +39,7 @@ describe("useGameClient feedback messages", () => {
         isRoll20BridgeError: true
       })
     ).toBe(
-      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open the DM console's Extension tab, sync the bridge, then open or reload Roll20."
+      "Perform action: Fire Bolt failed: Roll20 bridge disconnected. Open your Extension page, sync the bridge, then open or reload Roll20."
     );
   });
 

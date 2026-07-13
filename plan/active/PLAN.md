@@ -55,20 +55,22 @@ Backend:
 
 - FastAPI websocket app clients connect on `/ws`; the Roll20 bridge connects on `/ws/chat`.
 - App sessions authenticate as `player` or `dm`; bridge sessions authenticate as `service`.
-- DM-only `get_roll20_bridge_sync_config` returns the service credential only
-  to the requesting authenticated DM session for immediate userscript sync.
-- The newest authenticated `/ws/chat` connection is the sole delivery bridge;
-  replaced Roll20 tabs receive a terminal close signal and do not oscillate.
+- Player-accessible `get_roll20_bridge_sync_config` returns a signed token
+  scoped to the requesting DM or claimed player-sheet instance for immediate
+  userscript sync.
+- `/ws/chat` maintains one active connection per binding. The newest Roll20 tab
+  replaces only the prior tab for that binding, while other users remain
+  connected.
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
-- XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, and apply explicit XP adjustments; equal per-participant awards are snapshotted at kill time with two-decimal precision, while character totals are derived from the registry rather than stored independently.
+- XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, control which enemy names players may select for final-blow submissions, and apply explicit XP adjustments; equal per-participant awards are snapshotted at kill time with two-decimal precision, while character totals are derived from the registry rather than stored independently.
 - Sheet instances now own the spawned copy of template-built content, including stats, resistances, actions, attributes, proficiencies, and inventory. GM instance edits mutate the spawned sheet rather than the source template, and a DM can snapshot an evolved instance back into a new checkpoint template without copying runtime-only health, mana, augments, or active effects.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
-- Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, and source-item action context are backend-authoritative.
+- Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
 - Weapon-profile items automatically grant canonical equipped weapon actions, and equipping a weapon adds the matching sheet proficiency bridge when it is missing so source-item weapon rolls can resolve `weapon_proficiency`.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
@@ -78,11 +80,11 @@ Frontend:
 - React/Vite app uses the authoritative websocket backend only; runtime mock authority has been removed.
 - Player and GM views share authoritative sheet rendering with role-specific visibility and controls.
 - GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
-- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, and character thresholds. Party identity is never persisted into historical kills; only participant instance/name snapshots, party size, percentage, and award are retained.
+- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and character thresholds. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, award, and submission attribution are retained.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
-- Character kill history and XP progress are read-only projections filtered from the authoritative registry for the selected spawned instance. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party changes do not rewrite history.
+- Character kill history and XP progress are projections filtered from the authoritative registry for the selected spawned instance. Players may record a final blow only against a DM-exposed enemy name; the backend derives the submitting character, canonical XP, and current party participants. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party or visibility changes do not rewrite history.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
 - GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across core stats or individual substats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Direct substat allocations persist as permanent bonuses and feed downstream formulas.
@@ -94,19 +96,19 @@ Frontend:
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.
-- The GM **Extension** workspace stages Violentmonkey installation, installs
+- The DM and player **Extension** workspace stages Violentmonkey installation, installs
   the hosted userscript, automatically detects its version on navigation without
   an intermediate Continue gate, synchronizes the current
   development or production endpoint, refreshes status, and sends a
-  best-effort test message without persisting the service credential in
+  best-effort test message without persisting the signed bridge token in
   frontend state. Its discovery/sync handshake supports Violentmonkey's
-  isolated content context and retains compatibility with userscript 1.0.0.
+  isolated content context; scoped bindings require userscript 1.1.0 or newer.
   Discovery retries during its bounded timeout so page/userscript startup
   ordering cannot force a refresh for an already-installed bridge.
   Configuration sync is independent of the live Roll20 editor connection;
   disconnected status is represented as state rather than a failed request.
-  Every authenticated workspace requests the current bridge status immediately,
-  then receives backend broadcasts for subsequent connection changes.
+  Every authenticated workspace requests its binding-specific bridge status
+  immediately, then receives per-session broadcasts for connection changes.
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
 - GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.
@@ -152,10 +154,10 @@ No large architecture feature is currently missing for the stated character-shee
   - Direct readiness, public HTTPS, SPA fallback, production-default rejection,
     and both authenticated public WebSockets were verified on 2026-07-04.
 - [ ] Complete the final hosted Roll20 browser smoke test by installing
-  Violentmonkey and the production-hosted userscript from the GM **Extension**
-  tab, running **Sync Bridge**, opening an active Roll20 editor tab, and
-  confirming both the test message and a real authored action reach Roll20
-  chat exactly once.
+  Violentmonkey and the production-hosted userscript from both the DM and a
+  claimed player's **Extension** page, running **Sync Bridge** in each browser,
+  opening active Roll20 editor tabs, and confirming each authored action reaches
+  Roll20 exactly once through its originating user's connection.
 
 - [x] Resolve the 2026-07-05 builder and table-readiness defects:
   - Template Builder footer actions now walk through sections with destination-specific
@@ -175,8 +177,9 @@ No large architecture feature is currently missing for the stated character-shee
     their selected sheet and instance.
   - Template inventory bridges now define spawn defaults while character instances own
     live item quantities, equipped state, and runtime stats. Item use and equipment
-    effects are isolated per instance; assigned players may equip or unequip their own
-    items while inventory management remains DM-only.
+    effects are isolated per instance; assigned players may add visible catalog items,
+    remove or equip their own items, and propose mundane items for DM review. Quantity,
+    containment, and mechanical item authoring remain DM-owned.
 
 - [x] Resolve the 2026-07-11 QC mechanical-accuracy and navigation findings:
   - Sheet formula defaults now match the active rules document, including whole-number floors,
@@ -225,6 +228,26 @@ No large architecture feature is currently missing for the stated character-shee
   - A multi-message action can still partially reach Roll20 if an early message succeeds and a
     later message fails; Roll20 provides no deletion transaction for retracting the earlier chat.
 
+- [x] Resolve the 2026-07-13 per-user Roll20 extension ticket:
+  - Extension setup is available to both DMs and players after a player claims a sheet.
+  - Sync issues a signed DM- or instance-scoped bridge token without exposing the service secret.
+  - Backend bridge connections, status events, sends, and delivery acknowledgements are isolated
+    by binding; no message falls back to another user's browser.
+  - The userscript stores and reports its binding label, detects mismatched character sync, and
+    migrates legacy service-code configuration to a DM-only binding.
+  - Same-binding Roll20 tabs retain newest-wins behavior while different users coexist.
+
+- [x] Resolve the 2026-07-13 player inventory and item-approval ticket:
+  - DMs can publish or hide item definitions from the player add-item catalog; hidden
+    definitions are redacted unless the assigned character already carries the item.
+  - Assigned players can add one copy of a published item or remove an item from their
+    own inventory through instance-derived, backend-authoritative requests.
+  - Players can propose non-mechanical equippable or inventory-only items. Proposals are
+    visible only to the submitting character and DM while pending.
+  - DM approval atomically publishes the definition and grants one copy to the submitter;
+    denial deletes the proposal. Persisted schema v28 publishes existing items to preserve
+    the pre-ticket catalog behavior and backfills approval metadata.
+
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
   - enemy templates
@@ -243,8 +266,8 @@ No large architecture feature is currently missing for the stated character-shee
     spawns an encounter preset.
 - [ ] Run an end-to-end local table smoke test:
   - start backend and frontend
-  - install Violentmonkey and the userscript through the GM Extension tab
-  - run Sync Bridge and reload the Roll20 editor page
+  - install Violentmonkey and the userscript through both DM and player Extension pages
+  - run Sync Bridge in each browser and reload each Roll20 editor page
   - authenticate as GM
   - create or import a complete player template
   - instantiate it and generate a player access code
@@ -256,7 +279,8 @@ No large architecture feature is currently missing for the stated character-shee
   - execute a damage action with normal and critical where allowed
   - apply manual typed damage and confirm resistance math
   - apply and remove a condition/effect through approved actions or GM controls
-  - confirm Roll20 receives chat output and disconnected bridge failures are visible
+  - confirm DM and player actions reach only their respective Roll20 connections and
+    disconnected per-user bridge failures are visible
   - export state, restart, and confirm state reloads correctly
 - [ ] Fix any defects found by that smoke test before calling the sheet/roller table-ready.
 - [ ] Add or update focused tests for smoke-test defects that represent contract, permission, persistence, formula, equipment, or action-execution regressions.
@@ -313,6 +337,9 @@ Future work should be prioritized only after the table-readiness pass proves the
 - [ ] Weapon resolver inputs and augmentation-derived attack modifiers beyond independently authored hit/damage actions.
 - [ ] Equipment capacity and slot/hand rules.
 - [ ] Multi-campaign support and durable player identity/account binding.
+- [ ] If the player-client threat model changes, audit websocket state redaction so
+  raw DM-only template, instance, encounter, and referenced-definition metadata
+  cannot reveal untoggled encounter content to a client inspecting network state.
 - [ ] Frontend previews for formulas that remain Roll20-resolved, clearly marked as non-authoritative previews.
 
 ## 8. Rule Decisions Captured

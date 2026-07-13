@@ -14,7 +14,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 26
+CURRENT_STATE_SCHEMA_VERSION = 28
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1665,6 +1665,34 @@ def _migrate_v25_to_v26(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 26, "state": state}
 
 
+def _migrate_v26_to_v27(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    state.setdefault("player_kill_visibility", {})
+    kill_registry = state.get("kill_registry")
+    if isinstance(kill_registry, dict):
+        for kill in kill_registry.values():
+            if not isinstance(kill, dict):
+                continue
+            kill.setdefault("submitted_by_role", "dm")
+            kill.setdefault("submitted_by_instance_id", None)
+            kill.setdefault("submitted_by_name", None)
+    return {"schema_version": 27, "state": state}
+
+
+def _migrate_v27_to_v28(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if not isinstance(item, dict):
+                continue
+            item.setdefault("player_visible", True)
+            item.setdefault("approval_status", "approved")
+            item.setdefault("submitted_by_instance_id", None)
+            item.setdefault("submitted_by_name", None)
+    return {"schema_version": 28, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1692,6 +1720,8 @@ MIGRATIONS: dict[int, Migration] = {
     23: _migrate_v23_to_v24,
     24: _migrate_v24_to_v25,
     25: _migrate_v25_to_v26,
+    26: _migrate_v26_to_v27,
+    27: _migrate_v27_to_v28,
 }
 
 

@@ -84,8 +84,20 @@ export type ServerEvent =
       requestId?: string;
     }
   | { type: "xp_tracker"; tracker: XpTrackerView; requestId?: string }
-  | { type: "roll20_bridge_status"; connected: boolean; requestId?: string }
-  | { type: "roll20_bridge_sync_config"; serviceAuthCode: string; requestId?: string }
+  | {
+      type: "roll20_bridge_status";
+      connected: boolean;
+      bindingKey: string | null;
+      bindingLabel: string | null;
+      requestId?: string;
+    }
+  | {
+      type: "roll20_bridge_sync_config";
+      bridgeAuthToken: string;
+      bindingKey: string;
+      bindingLabel: string;
+      requestId?: string;
+    }
   | {
       type: "snapshot";
       snapshot: AppSnapshot;

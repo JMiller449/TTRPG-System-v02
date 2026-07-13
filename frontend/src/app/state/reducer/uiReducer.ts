@@ -19,9 +19,15 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         }
       };
     case "set_player_sheet_selection_complete":
-      return updateUiState(state, (uiState) => ({ ...uiState, playerSheetSelectionComplete: action.value }));
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        playerSheetSelectionComplete: action.value
+      }));
     case "set_gm_authenticated":
-      return updateServerState(state, (serverState) => ({ ...serverState, gmAuthenticated: action.value }));
+      return updateServerState(state, (serverState) => ({
+        ...serverState,
+        gmAuthenticated: action.value
+      }));
     case "set_gm_view":
       return updateUiState(state, (uiState) => ({ ...uiState, gmView: action.view }));
     case "set_active_sheet_local":
@@ -63,6 +69,12 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         ...uiState,
         roll20Bridge: {
           status: action.status,
+          bindingKey:
+            action.bindingKey === undefined ? uiState.roll20Bridge.bindingKey : action.bindingKey,
+          bindingLabel:
+            action.bindingLabel === undefined
+              ? uiState.roll20Bridge.bindingLabel
+              : action.bindingLabel,
           lastCheckedAt: action.checkedAt ?? uiState.roll20Bridge.lastCheckedAt,
           lastError: action.error
         }

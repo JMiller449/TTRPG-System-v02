@@ -14,7 +14,7 @@ const sword = {
 } as ItemDefinition;
 
 describe("SheetEquipmentSection", () => {
-  it("allows player equip toggles without inventory management controls", () => {
+  it("lets players add and remove items without GM quantity or storage controls", () => {
     const markup = renderToStaticMarkup(
       <SheetEquipmentSection
         items={{ sword }}
@@ -23,8 +23,8 @@ describe("SheetEquipmentSection", () => {
         proficiencyDefinitions={{}}
         augmentations={{}}
         itemOrder={["sword"]}
-        selectedItemId=""
-        selectedItem={null}
+        selectedItemId="sword"
+        selectedItem={sword}
         equipment={[
           {
             relationship_id: "main_hand",
@@ -35,7 +35,8 @@ describe("SheetEquipmentSection", () => {
         ]}
         currentCarriedWeight={10}
         carryWeightLimit={10}
-        canManageInventory={false}
+        canManageInventory
+        canEditInventory={false}
         canToggleEquipped
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
@@ -47,10 +48,12 @@ describe("SheetEquipmentSection", () => {
     );
 
     expect(markup).toContain('aria-label="Equip: Sword"');
+    expect(markup).toContain(">Add</button>");
     expect(markup).toContain("Carried Weight: 10 / 10 lb");
     expect(markup).not.toContain("over capacity");
     expect(markup).not.toContain("quantity value");
-    expect(markup).not.toContain("Remove Sword from inventory");
+    expect(markup).toContain('aria-label="Remove Sword from inventory"');
+    expect(markup).not.toContain("Storage location for Sword");
   });
 
   it("shows over-capacity weight and contained items in read-only view", () => {
@@ -87,6 +90,7 @@ describe("SheetEquipmentSection", () => {
         currentCarriedWeight={12.5}
         carryWeightLimit={10}
         canManageInventory={false}
+        canEditInventory={false}
         canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}

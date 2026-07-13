@@ -144,6 +144,15 @@ export function ItemEditorForm({
           </Field>
         </div>
 
+        <label className="augmentation-template-panel__active">
+          <input
+            type="checkbox"
+            checked={values.playerVisible}
+            onChange={(event) => onChange({ ...values, playerVisible: event.target.checked })}
+          />
+          <span>Players can find and add this item to their inventory</span>
+        </label>
+
         <details className="authoring-disclosure">
           <summary>
             <span>

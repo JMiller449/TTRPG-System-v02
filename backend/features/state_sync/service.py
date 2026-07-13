@@ -34,7 +34,12 @@ PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
 PRIVATE_STATE_ROOTS = {"direct_effect_projections"}
-DM_ONLY_STATE_ROOTS = {"parties", "kill_registry", "xp_adjustments"}
+DM_ONLY_STATE_ROOTS = {
+    "parties",
+    "kill_registry",
+    "xp_adjustments",
+    "player_kill_visibility",
+}
 _MISSING = object()
 
 
@@ -155,6 +160,36 @@ class StateSyncService:
         self._redact_subject_attributes(value)
         return value
 
+    def _player_can_see_item(
+        self,
+        item_id: str,
+        *,
+        assigned_instance_id: str | None,
+    ) -> bool:
+        state = StateSingleton.getState()
+        item = state.items.get(item_id)
+        if item is None:
+            return False
+        instance = (
+            state.instanced_sheets.get(assigned_instance_id)
+            if assigned_instance_id is not None
+            else None
+        )
+        carried = instance is not None and any(
+            bridge.item_id == item_id for bridge in instance.items.values()
+        )
+        return (
+            carried
+            or (
+                item.approval_status == "approved"
+                and item.player_visible
+            )
+            or (
+                item.approval_status == "pending"
+                and item.submitted_by_instance_id == assigned_instance_id
+            )
+        )
+
     def _redact_subject_attributes(self, value: dict[str, Any]) -> None:
         subject_attributes = value.get("attributes")
         if not isinstance(subject_attributes, dict):
@@ -267,6 +302,13 @@ class StateSyncService:
                 for attribute_id in hidden_attribute_ids:
                     instance_attributes.pop(attribute_id, None)
 
+        for instance_id, instance in state.get("instanced_sheets", {}).items():
+            if (
+                isinstance(instance, dict)
+                and instance_id != assigned_instance_id
+            ):
+                instance["items"] = {}
+
         for sheet in state.get("sheets", {}).values():
             if not isinstance(sheet, dict):
                 continue
@@ -279,6 +321,19 @@ class StateSyncService:
                 for attribute_id in hidden_attribute_ids:
                     sheet_attributes.pop(attribute_id, None)
 
+        visible_item_ids = {
+            item_id
+            for item_id in state.get("items", {})
+            if self._player_can_see_item(
+                item_id,
+                assigned_instance_id=assigned_instance_id,
+            )
+        }
+        state["items"] = {
+            item_id: item
+            for item_id, item in state.get("items", {}).items()
+            if item_id in visible_item_ids
+        }
         for item in state.get("items", {}).values():
             if not isinstance(item, dict):
                 continue
@@ -357,6 +412,84 @@ class StateSyncService:
                 continue
 
             if segments and segments[0] in DM_ONLY_STATE_ROOTS:
+                continue
+
+            if (
+                len(segments) >= 3
+                and segments[0] == "instanced_sheets"
+                and segments[2] == "items"
+            ):
+                if segments[1] != assigned_instance_id:
+                    continue
+                if len(segments) == 4 and op.op in {"add", "set"}:
+                    instance = StateSingleton.getState().instanced_sheets.get(
+                        segments[1]
+                    )
+                    bridge = (
+                        instance.items.get(segments[3])
+                        if instance is not None
+                        else None
+                    )
+                    if bridge is not None and self._player_can_see_item(
+                        bridge.item_id,
+                        assigned_instance_id=assigned_instance_id,
+                    ):
+                        item = StateSingleton.getState().items.get(bridge.item_id)
+                        if item is not None:
+                            redacted_ops.append(
+                                PatchOp(
+                                    op="set",
+                                    path=self.join_path("items", bridge.item_id),
+                                    value=self._redact_item_payload(item),
+                                )
+                            )
+                redacted_ops.append(op)
+                continue
+
+            if len(segments) >= 2 and segments[0] == "items":
+                item_id = segments[1]
+                if (
+                    len(segments) >= 3
+                    and segments[2] in PRIVATE_ITEM_FIELDS
+                ):
+                    continue
+                if op.op == "remove" and len(segments) == 2:
+                    redacted_ops.append(op)
+                    continue
+                visible = self._player_can_see_item(
+                    item_id,
+                    assigned_instance_id=assigned_instance_id,
+                )
+                if not visible:
+                    if op.op == "set":
+                        redacted_ops.append(
+                            PatchOp(
+                                op="remove",
+                                path=self.join_path("items", item_id),
+                            )
+                        )
+                    continue
+                if len(segments) >= 4 and segments[2] == "attributes":
+                    current_attribute = StateSingleton.getState().attributes.get(
+                        segments[3]
+                    )
+                    if (
+                        current_attribute is not None
+                        and current_attribute.visibility != "gm_only"
+                    ):
+                        redacted_ops.append(op)
+                    elif op.op == "remove":
+                        redacted_ops.append(op)
+                    elif op.op == "set":
+                        redacted_ops.append(PatchOp(op="remove", path=op.path))
+                    continue
+                if len(segments) == 2:
+                    current_item = StateSingleton.getState().items.get(item_id)
+                    if current_item is not None:
+                        op.value = self._redact_item_payload(current_item)
+                else:
+                    op.value = self._redact_item_payload(op.value)
+                redacted_ops.append(op)
                 continue
 
             if len(segments) >= 2 and segments[0] == "attributes":
@@ -528,15 +661,6 @@ class StateSyncService:
             if len(segments) == 2 and segments[0] == "sheets":
                 op.value = self._redact_sheet_payload(op.value)
 
-            if (
-                len(segments) >= 3
-                and segments[0] == "items"
-                and segments[2] in PRIVATE_ITEM_FIELDS
-            ):
-                continue
-
-            if len(segments) >= 2 and segments[0] == "items":
-                op.value = self._redact_item_payload(op.value)
             if len(segments) >= 2 and segments[0] == "actions":
                 if is_dataclass(op.value):
                     op.value = asdict(op.value)

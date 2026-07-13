@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { StoreContext } from "@/app/state/storeContext";
+import type { AppState } from "@/app/state/types";
 import type { GameClient } from "@/hooks/useGameClient";
 
 const channelMocks = vi.hoisted(() => ({
@@ -31,7 +32,28 @@ const client: GameClient = {
 
 const gmState = {
   ...initialState,
-  serverState: { ...initialState.serverState, role: "gm" as const, gmAuthenticated: true }
+  serverState: { ...initialState.serverState, role: "gm" as const, gmAuthenticated: true },
+  uiState: {
+    ...initialState.uiState,
+    roll20Bridge: {
+      ...initialState.uiState.roll20Bridge,
+      bindingKey: "dm",
+      bindingLabel: "DM"
+    }
+  }
+};
+
+const playerState = {
+  ...initialState,
+  serverState: { ...initialState.serverState, role: "player" as const },
+  uiState: {
+    ...initialState.uiState,
+    roll20Bridge: {
+      ...initialState.uiState.roll20Bridge,
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
+    }
+  }
 };
 
 let container: HTMLDivElement;
@@ -51,12 +73,12 @@ afterEach(async () => {
   container.remove();
 });
 
-async function renderPage(): Promise<void> {
+async function renderPage(state: AppState = gmState): Promise<void> {
   await act(async () => {
     root.render(
       createElement(
         StoreContext.Provider,
-        { value: { state: gmState, dispatch: () => undefined } },
+        { value: { state, dispatch: () => undefined } },
         createElement(ExtensionPage, { client })
       )
     );
@@ -89,15 +111,37 @@ describe("ExtensionPage", () => {
       nonce: "nonce-1",
       version: "1.0.0",
       synchronized: true,
-      environment: "production",
-      endpoint: "wss://bossadapt.org/ttrpg/ws/chat"
+      environment: "development",
+      endpoint: "ws://127.0.0.1:6767/ws/chat",
+      bindingKey: "dm",
+      bindingLabel: "DM"
     });
     await renderPage();
 
     expect(container.textContent).toContain("Userscript version 1.0.0");
-    expect(container.textContent).toContain("wss://bossadapt.org/ttrpg/ws/chat");
+    expect(container.textContent).toContain("ws://127.0.0.1:6767/ws/chat");
     expect(container.textContent).toContain("Resync Bridge");
     expect(container.textContent).toContain("does not require Roll20 to be open");
     expect(container.textContent).not.toContain("SERVICE_AUTH_CODE");
+  });
+
+  it("allows a claimed player binding to synchronize its own userscript", async () => {
+    channelMocks.discover.mockResolvedValue({
+      nonce: "nonce-player",
+      version: "1.1.0",
+      synchronized: false,
+      environment: null,
+      endpoint: null,
+      bindingKey: null,
+      bindingLabel: null
+    });
+    await renderPage(playerState);
+
+    const syncButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Sync Bridge"
+    );
+    expect(container.textContent).toContain("Current userHero");
+    expect(syncButton).toBeDefined();
+    expect(syncButton?.disabled).toBe(false);
   });
 });

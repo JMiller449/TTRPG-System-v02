@@ -11,6 +11,7 @@ import {
   buildRecordKillRequest,
   buildSavePartyRequest,
   buildSaveXpAdjustmentRequest,
+  buildSetMobKillVisibilityRequest,
   buildSetMobXpValueRequest,
   buildSetSheetXpRequiredRequest
 } from "@/infrastructure/ws/requestBuilders";
@@ -436,7 +437,25 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             <div className="xp-config-list">
               {xpTracker.mobs.map((mob) => (
                 <div className="xp-config-row" key={mob.sheet_id}>
-                  <strong>{mob.name}</strong>
+                  <div className="xp-mob-config-name">
+                    <strong>{mob.name}</strong>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={mob.visible_to_players}
+                        onChange={(event) =>
+                          client.sendProtocolRequest(
+                            buildSetMobKillVisibilityRequest({
+                              mobSheetId: mob.sheet_id,
+                              visible: event.target.checked
+                            }),
+                            `${event.target.checked ? "Show" : "Hide"} player kill option: ${mob.name}`
+                          )
+                        }
+                      />
+                      Players can record
+                    </label>
+                  </div>
                   <XpNumberEditor
                     label="XP per kill"
                     value={mob.xp_value}

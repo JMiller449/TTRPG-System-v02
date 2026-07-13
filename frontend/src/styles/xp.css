@@ -64,6 +64,36 @@
   background: var(--card);
 }
 
+.xp-player-kill-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  align-items: end;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem;
+  background: var(--card);
+}
+
+.xp-player-kill-form small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.xp-mob-config-name {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.xp-mob-config-name label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .xp-party-editor {
   display: grid;
   gap: 0.75rem;
@@ -377,7 +407,8 @@
 
   .xp-registry-layout,
   .xp-progress-layout,
-  .xp-custom-kill-fields {
+  .xp-custom-kill-fields,
+  .xp-player-kill-form {
     grid-template-columns: 1fr;
   }
 

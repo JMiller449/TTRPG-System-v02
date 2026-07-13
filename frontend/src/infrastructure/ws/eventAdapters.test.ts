@@ -52,6 +52,8 @@ describe("parseProtocolServerEvent", () => {
     const event = parseProtocolServerEvent({
       response_id: null,
       connected: true,
+      binding_key: "dm",
+      binding_label: "DM",
       type: "roll20_bridge_status",
       request_id: "req-status"
     });
@@ -59,6 +61,8 @@ describe("parseProtocolServerEvent", () => {
     expect(event).toEqual({
       response_id: null,
       connected: true,
+      binding_key: "dm",
+      binding_label: "DM",
       type: "roll20_bridge_status",
       request_id: "req-status"
     });
@@ -67,14 +71,18 @@ describe("parseProtocolServerEvent", () => {
   it("parses Roll20 bridge sync configuration events", () => {
     const event = parseProtocolServerEvent({
       response_id: null,
-      service_auth_code: "service-secret",
+      bridge_auth_token: "signed-token",
+      binding_key: "dm",
+      binding_label: "DM",
       type: "roll20_bridge_sync_config",
       request_id: "req-sync"
     });
 
     expect(event).toEqual({
       response_id: null,
-      service_auth_code: "service-secret",
+      bridge_auth_token: "signed-token",
+      binding_key: "dm",
+      binding_label: "DM",
       type: "roll20_bridge_sync_config",
       request_id: "req-sync"
     });
@@ -529,6 +537,8 @@ describe("adaptProtocolServerEvent", () => {
     const protocolEvent = parseProtocolServerEvent({
       response_id: null,
       connected: false,
+      binding_key: "instance:hero-1",
+      binding_label: "Hero",
       type: "roll20_bridge_status",
       request_id: "req-status"
     });
@@ -543,6 +553,8 @@ describe("adaptProtocolServerEvent", () => {
       {
         type: "roll20_bridge_status",
         connected: false,
+        bindingKey: "instance:hero-1",
+        bindingLabel: "Hero",
         requestId: "req-status"
       }
     ]);
@@ -551,7 +563,9 @@ describe("adaptProtocolServerEvent", () => {
   it("maps Roll20 bridge sync configuration into an ephemeral app event", () => {
     const protocolEvent = parseProtocolServerEvent({
       response_id: null,
-      service_auth_code: "service-secret",
+      bridge_auth_token: "signed-token",
+      binding_key: "instance:hero-1",
+      binding_label: "Hero",
       type: "roll20_bridge_sync_config",
       request_id: "req-sync"
     });
@@ -562,7 +576,9 @@ describe("adaptProtocolServerEvent", () => {
     expect(adaptProtocolServerEvent(initialSocketProtocolState, protocolEvent).events).toEqual([
       {
         type: "roll20_bridge_sync_config",
-        serviceAuthCode: "service-secret",
+        bridgeAuthToken: "signed-token",
+        bindingKey: "instance:hero-1",
+        bindingLabel: "Hero",
         requestId: "req-sync"
       }
     ]);
@@ -576,6 +592,7 @@ describe("adaptProtocolServerEvent", () => {
       kills: [],
       adjustments: [],
       mobs: [],
+      recordable_mobs: [{ sheet_id: "goblin", name: "Goblin" }],
       sheets: [
         {
           instance_id: "hero_instance",
@@ -605,7 +622,8 @@ describe("adaptProtocolServerEvent", () => {
           parties: [],
           kills: [],
           adjustments: [],
-          mobs: []
+          mobs: [],
+          recordable_mobs: [{ sheet_id: "goblin", name: "Goblin" }]
         },
         requestId: "req-xp"
       }

@@ -53,12 +53,16 @@ describe("uiReducer", () => {
     const state = uiReducer(initialState, {
       type: "set_roll20_bridge_status",
       status: "disconnected",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero",
       checkedAt: "2026-06-18T12:00:00Z",
       error: "Roll20 chat bridge is not connected."
     });
 
     expect(state?.uiState.roll20Bridge).toEqual({
       status: "disconnected",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero",
       lastCheckedAt: "2026-06-18T12:00:00Z",
       lastError: "Roll20 chat bridge is not connected."
     });
@@ -105,6 +109,7 @@ describe("uiReducer", () => {
       kills: [],
       adjustments: [],
       mobs: [],
+      recordable_mobs: [],
       sheets: [
         {
           instance_id: "hero_1",
@@ -157,6 +162,10 @@ describe("uiReducer", () => {
       type: "reset_session_ui"
     });
 
-    expect(resetState?.uiState.roll20Bridge).toEqual({ status: "unknown" });
+    expect(resetState?.uiState.roll20Bridge).toEqual({
+      status: "unknown",
+      bindingKey: null,
+      bindingLabel: null
+    });
   });
 });

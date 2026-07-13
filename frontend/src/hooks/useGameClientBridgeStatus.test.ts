@@ -92,12 +92,16 @@ describe("useGameClient Roll20 status", () => {
     runtime.eventListener?.({
       type: "roll20_bridge_status",
       connected: false,
+      bindingKey: "dm",
+      bindingLabel: "DM",
       requestId
     });
 
     expect(runtime.actions).toContainEqual({
       type: "set_roll20_bridge_status",
       status: "disconnected",
+      bindingKey: "dm",
+      bindingLabel: "DM",
       checkedAt: expect.any(String)
     });
     expect(runtime.actions).toContainEqual({ type: "clear_intent", intentId: requestId });

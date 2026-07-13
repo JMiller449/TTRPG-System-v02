@@ -11,9 +11,11 @@ from backend.features.xp_tracker.schema import (
     DeleteXpAdjustment,
     GetXpTracker,
     RecordKill,
+    RecordPlayerKill,
     SaveParty,
     SaveXpAdjustment,
     SetMobXpValue,
+    SetMobKillVisibility,
     SetSheetXpRequired,
     UpdateKill,
 )
@@ -60,6 +62,21 @@ class SetMobXpValueRoute(_DmMutationRoute, RequestRoute[SetMobXpValue]):
         await handler.set_mob_xp_value(session, request)
 
 
+class SetMobKillVisibilityRoute(
+    _DmMutationRoute, RequestRoute[SetMobKillVisibility]
+):
+    type_name = "set_mob_kill_visibility"
+    request_model = SetMobKillVisibility
+    client_generation = ClientGenerationMetadata(
+        namespace="xpTracker", method_name="setMobKillVisibility"
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: SetMobKillVisibility
+    ) -> None:
+        await handler.set_mob_kill_visibility(session, request)
+
+
 class SavePartyRoute(_DmMutationRoute, RequestRoute[SaveParty]):
     type_name = "save_party"
     request_model = SaveParty
@@ -91,6 +108,22 @@ class RecordKillRoute(_DmMutationRoute, RequestRoute[RecordKill]):
 
     async def handle(self, session: WebSocketSession, request: RecordKill) -> None:
         await handler.record_kill(session, request)
+
+
+class RecordPlayerKillRoute(RequestRoute[RecordPlayerKill]):
+    type_name = "record_player_kill"
+    request_model = RecordPlayerKill
+    emitted_event_models = (StatePatchEvent, XpTrackerEvent)
+    minimum_role = "player"
+    permission_denied_reason = "This request requires an authenticated player session."
+    client_generation = ClientGenerationMetadata(
+        namespace="xpTracker", method_name="recordPlayerKill"
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: RecordPlayerKill
+    ) -> None:
+        await handler.record_player_kill(session, request)
 
 
 class UpdateKillRoute(_DmMutationRoute, RequestRoute[UpdateKill]):
@@ -145,9 +178,11 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(GetXpTrackerRoute())
     registry.register(SetSheetXpRequiredRoute())
     registry.register(SetMobXpValueRoute())
+    registry.register(SetMobKillVisibilityRoute())
     registry.register(SavePartyRoute())
     registry.register(DeletePartyRoute())
     registry.register(RecordKillRoute())
+    registry.register(RecordPlayerKillRoute())
     registry.register(UpdateKillRoute())
     registry.register(DeleteKillRoute())
     registry.register(SaveXpAdjustmentRoute())

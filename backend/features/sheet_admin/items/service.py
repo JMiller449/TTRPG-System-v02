@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
+from uuid import uuid4
 
 from backend.features.sheet_admin.items.schema import (
     CreateItem,
     DeleteItem,
+    AddPlayerInventoryItem,
     ItemDefinitionPayload,
+    RemovePlayerInventoryItem,
     RemoveItemAugmentationTemplate,
+    ReviewPlayerItem,
+    SubmitPlayerItem,
     UpdateItem,
     UpsertItemAugmentationTemplate,
 )
@@ -37,7 +42,9 @@ from backend.state.models.attribute import (
     AttributeDefinition,
     synchronize_required_item_attributes,
 )
-from backend.state.models.item import Item, ItemActionGrant
+from backend.features.session.models import WebSocketSession
+from backend.state.models.item import Item, ItemActionGrant, ItemBridge
+from backend.state.models.sheet import InstancedSheet
 from backend.state.models.state import State
 
 
@@ -239,6 +246,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
+        player_visible=payload.player_visible,
         can_contain_items=payload.can_contain_items,
         contents_weight_behavior=payload.contents_weight_behavior,
         attribute_profile=payload.attribute_profile,
@@ -421,8 +429,11 @@ async def _update_item(
 
     def mutation(state: State) -> tuple[None, list]:
         items = _items_state(state)
-        if item_id not in items:
+        current = items.get(item_id)
+        if current is None:
             raise ValueError(f"Item '{item_id}' does not exist.")
+        if current.approval_status != "approved":
+            raise ValueError("Review the player item before editing it.")
 
         _validate_item_attributes(item, state)
         _validate_item_augmentation_formulas(item, state)
@@ -520,6 +531,151 @@ async def update_typed_item(request: UpdateItem) -> None:
 
 async def delete_typed_item(request: DeleteItem) -> None:
     await _delete_item(request.item_id, request_id=request.request_id)
+
+
+def _assigned_player_instance(
+    session: WebSocketSession,
+    state: State,
+) -> tuple[str, InstancedSheet]:
+    instance_id = session.assigned_instance_id
+    instance = state.instanced_sheets.get(instance_id) if instance_id else None
+    if instance_id is None or instance is None:
+        raise PermissionError(
+            "Claim a sheet access code before managing your inventory."
+        )
+    parent = state.sheets.get(instance.parent_id)
+    if parent is None or parent.dm_only:
+        raise PermissionError("Players can only manage a player character inventory.")
+    return instance_id, instance
+
+
+async def add_player_inventory_item(
+    session: WebSocketSession,
+    request: AddPlayerInventoryItem,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance_id, instance = _assigned_player_instance(session, state)
+        item = state.items.get(request.item_id)
+        if (
+            item is None
+            or item.approval_status != "approved"
+            or not item.player_visible
+        ):
+            raise ValueError("That item is not available to players.")
+        relationship_id = f"item_bridge_{uuid4()}"
+        bridge = ItemBridge(
+            relationship_id=relationship_id,
+            count=1,
+            equipped=False,
+            item_id=item.id,
+        )
+        validate_inventory(
+            {**instance.items, relationship_id: bridge},
+            state.items,
+        )
+        path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "items", relationship_id
+        )
+        return None, [state_sync_service.add_mutation(state, path, bridge)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def remove_player_inventory_item(
+    session: WebSocketSession,
+    request: RemovePlayerInventoryItem,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance_id, instance = _assigned_player_instance(session, state)
+        if request.relationship_id not in instance.items:
+            raise ValueError("That inventory item does not exist.")
+        if any(
+            bridge.parent_container_id == request.relationship_id
+            for bridge in instance.items.values()
+        ):
+            raise ValueError("Empty a storage container before removing it.")
+        path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "items", request.relationship_id
+        )
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def submit_player_item(
+    session: WebSocketSession,
+    request: SubmitPlayerItem,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance_id, instance = _assigned_player_instance(session, state)
+        parent = state.sheets[instance.parent_id]
+        item_id = f"player_item_{uuid4()}"
+        payload = request.item
+        item = Item(
+            id=item_id,
+            name=payload.name.strip(),
+            interaction_type=payload.interaction_type,
+            category=payload.category.strip(),
+            rank=payload.rank.strip(),
+            description=payload.description.strip(),
+            world_anvil_url=payload.world_anvil_url.strip(),
+            gm_notes="",
+            gm_special_properties="",
+            price=payload.price.strip(),
+            weight=payload.weight,
+            augmentation_templates=[],
+            player_visible=False,
+            approval_status="pending",
+            submitted_by_instance_id=instance_id,
+            submitted_by_name=parent.name,
+            can_contain_items=payload.can_contain_items,
+            contents_weight_behavior="normal",
+        )
+        path = state_sync_service.join_path("items", item_id)
+        return None, [state_sync_service.add_mutation(state, path, item)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def review_player_item(request: ReviewPlayerItem) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        item = state.items.get(request.item_id)
+        if item is None or item.approval_status != "pending":
+            raise ValueError("Pending player item does not exist.")
+        item_path = state_sync_service.join_path("items", item.id)
+        if not request.approved:
+            _, remove_op = state_sync_service.remove_mutation(state, item_path)
+            return None, [remove_op]
+
+        instance_id = item.submitted_by_instance_id
+        instance = state.instanced_sheets.get(instance_id) if instance_id else None
+        if instance_id is None or instance is None:
+            raise ValueError("The submitting player sheet no longer exists.")
+        approved_item = deepcopy(item)
+        approved_item.approval_status = "approved"
+        approved_item.player_visible = True
+        approved_item.submitted_by_instance_id = None
+        approved_item.submitted_by_name = None
+        relationship_id = f"item_bridge_{uuid4()}"
+        bridge = ItemBridge(
+            relationship_id=relationship_id,
+            count=1,
+            equipped=False,
+            item_id=item.id,
+        )
+        validate_inventory(
+            {**instance.items, relationship_id: bridge},
+            {**state.items, item.id: approved_item},
+        )
+        item_op = state_sync_service.set_mutation(state, item_path, approved_item)
+        bridge_path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "items", relationship_id
+        )
+        bridge_op = state_sync_service.add_mutation(state, bridge_path, bridge)
+        return None, [item_op, bridge_op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
 async def upsert_item_augmentation_template(

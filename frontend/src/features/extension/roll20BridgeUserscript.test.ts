@@ -11,7 +11,7 @@ const source = readFileSync(userscriptPath, "utf8");
 describe("roll20 bridge userscript artifact", () => {
   it("keeps install/update metadata first and excludes legacy extension configuration", () => {
     expect(source.split("\n")[0].trimEnd()).toBe("// ==UserScript==");
-    expect(source).toContain("// @version     1.0.1");
+    expect(source).toContain("// @version     1.1.0");
     expect(source).toContain("// @downloadURL https://bossadapt.org/ttrpg/roll20-bridge.user.js");
     expect(source).toContain("// @grant       GM_getValues");
     expect(source).toContain("// @grant       GM_setValues");
@@ -88,7 +88,9 @@ describe("roll20 bridge userscript artifact", () => {
         nonce: "nonce-1",
         endpoint: "ws://127.0.0.1:6767/ws/chat",
         environment: "development",
-        serviceAuthCode: "secret"
+        bridgeAuthToken: "signed-token",
+        bindingKey: "instance:hero-1",
+        bindingLabel: "Hero"
       }
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -96,18 +98,22 @@ describe("roll20 bridge userscript artifact", () => {
     expect(storedConfig).toEqual({
       endpoint: "ws://127.0.0.1:6767/ws/chat",
       environment: "development",
-      serviceAuthCode: "secret"
+      authToken: "signed-token",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
     });
     expect(posted.at(-1)).toEqual({
       channel: "ttrpg-roll20-bridge",
       type: "synced",
       nonce: "nonce-1",
-      version: "1.0.1",
+      version: "1.1.0",
       synchronized: true,
       environment: "development",
-      endpoint: "ws://127.0.0.1:6767/ws/chat"
+      endpoint: "ws://127.0.0.1:6767/ws/chat",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
     });
-    expect(posted.at(-1)).not.toHaveProperty("serviceAuthCode");
+    expect(posted.at(-1)).not.toHaveProperty("bridgeAuthToken");
 
     await listener?.({
       source: windowObject,
@@ -128,14 +134,18 @@ describe("roll20 bridge userscript artifact", () => {
         nonce: "nonce-2",
         endpoint: "ws://example.com/ws/chat",
         environment: "production",
-        serviceAuthCode: "replacement"
+        bridgeAuthToken: "replacement",
+        bindingKey: "dm",
+        bindingLabel: "DM"
       }
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(storedConfig).toEqual({
       endpoint: "ws://127.0.0.1:6767/ws/chat",
       environment: "development",
-      serviceAuthCode: "secret"
+      authToken: "signed-token",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
     });
     expect(posted.at(-1)).toMatchObject({ type: "sync_failed", nonce: "nonce-2" });
   });
@@ -286,7 +296,7 @@ describe("roll20 bridge userscript artifact", () => {
       DateObject?: { now(): number };
     }): Promise<string | undefined> {
       type SocketListener = (event: Record<string, unknown>) => void;
-      let socket: FakeWebSocket | undefined;
+      const sockets: FakeWebSocket[] = [];
       class FakeWebSocket {
         static readonly CONNECTING = 0;
         static readonly OPEN = 1;
@@ -297,7 +307,7 @@ describe("roll20 bridge userscript artifact", () => {
         readyState = FakeWebSocket.CONNECTING;
 
         constructor() {
-          socket = this;
+          sockets.push(this);
         }
 
         addEventListener(type: string, listener: SocketListener): void {
@@ -356,6 +366,7 @@ describe("roll20 bridge userscript artifact", () => {
         GM_addValueChangeListener: () => undefined
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
+      const socket = sockets[0];
       if (!socket) {
         throw new Error("Expected bridge socket");
       }

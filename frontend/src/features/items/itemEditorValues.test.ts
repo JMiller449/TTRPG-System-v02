@@ -121,6 +121,7 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
       weight: 3,
+      player_visible: false,
       can_contain_items: false,
       contents_weight_behavior: "normal",
       attribute_profile: null,
@@ -143,6 +144,7 @@ describe("itemEditorValues", () => {
       worldAnvilUrl: "https://worldanvil.example/items/sword-of-mana",
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
+      playerVisible: true,
       description: "A blade that conducts mana.",
       attributeProfile: null,
       attributes: {},
@@ -195,6 +197,7 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Updated hidden property.",
       price: "1,000CP",
       weight: 4,
+      player_visible: false,
       can_contain_items: false,
       contents_weight_behavior: "normal",
       action_grants: []

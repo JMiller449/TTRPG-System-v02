@@ -232,6 +232,10 @@ def test_v23_migration_normalizes_weight_and_storage_defaults() -> None:
         "weight": 2.5,
         "can_contain_items": False,
         "contents_weight_behavior": "normal",
+        "player_visible": True,
+        "approval_status": "approved",
+        "submitted_by_instance_id": None,
+        "submitted_by_name": None,
     }
     assert migrated.state["items"]["weightless"]["weight"] == 0
     assert (
@@ -817,6 +821,7 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
         "parties": {},
         "kill_registry": {},
         "xp_adjustments": {},
+        "player_kill_visibility": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False
@@ -1119,6 +1124,58 @@ def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
 
     assert result.state["actions"]["weapon_parry"] == actions["weapon_parry"]
     assert result.state["actions"]["weapon_contest"] == customized_contest
+
+
+def test_v27_migration_hides_mobs_and_backfills_kill_submitters() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 26,
+            "state": {
+                "kill_registry": {
+                    "kill_1": {
+                        "id": "kill_1",
+                        "monster_name": "Goblin",
+                        "base_xp": 10,
+                        "participants": [
+                            {"instance_id": "hero_1", "name": "Hero"}
+                        ],
+                        "participant_count": 1,
+                        "xp_percentage": 100,
+                        "xp_per_participant": 10,
+                        "occurred_at": "2026-07-01T00:00:00+00:00",
+                    }
+                }
+            },
+        }
+    )
+
+    assert result.state["player_kill_visibility"] == {}
+    kill = result.state["kill_registry"]["kill_1"]
+    assert kill["submitted_by_role"] == "dm"
+    assert kill["submitted_by_instance_id"] is None
+    assert kill["submitted_by_name"] is None
+
+
+def test_v28_migration_publishes_existing_items_and_backfills_approval_metadata() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 27,
+            "state": {
+                "items": {
+                    "legacy_rope": {
+                        "id": "legacy_rope",
+                        "name": "Legacy Rope",
+                    }
+                }
+            },
+        }
+    )
+
+    item = result.state["items"]["legacy_rope"]
+    assert item["player_visible"] is True
+    assert item["approval_status"] == "approved"
+    assert item["submitted_by_instance_id"] is None
+    assert item["submitted_by_name"] is None
 
 
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:

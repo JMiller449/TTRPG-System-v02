@@ -71,6 +71,7 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Adds +50 to sword enchantments.",
           price: "NA",
           weight: 3,
+          player_visible: false,
           can_contain_items: false,
           contents_weight_behavior: "normal",
           attribute_profile: null,
@@ -119,6 +120,7 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Updated hidden property.",
           price: "1,000CP",
           weight: 4,
+          player_visible: false,
           can_contain_items: false,
           contents_weight_behavior: "normal",
           action_grants: []

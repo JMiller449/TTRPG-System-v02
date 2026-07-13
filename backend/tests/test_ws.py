@@ -48,12 +48,13 @@ class FakeWebSocket:
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
         if payload.get("type") == "chat_message":
-            chat_service.handle_bridge_event(
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
                 chat_service.Roll20ChatDelivery(
                     message_id=payload["message_id"],
                     success=True,
                     type="chat_delivery",
-                )
+                ),
+                websocket=self,
             )
 
     async def receive_text(self) -> str:
@@ -86,21 +87,27 @@ def test_roll20_bridge_connect_and_disconnect_broadcast_status() -> None:
         await chat_service.roll20_chat_bridge.reset()
         app_socket = FakeWebSocket()
         bridge_socket = FakeWebSocket()
-        await websocket_sessions.connect(app_socket, role="player")
+        await websocket_sessions.connect(app_socket, role="dm")
 
-        await chat_service.broadcast_bridge_status(connected=True)
-        await chat_service.broadcast_bridge_status(connected=False)
+        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+        await chat_service.broadcast_bridge_statuses()
+        await chat_service.roll20_chat_bridge.disconnect(bridge_socket)
+        await chat_service.broadcast_bridge_statuses()
 
         assert app_socket.sent_messages == [
             {
                 "response_id": None,
                 "connected": True,
+                "binding_key": "dm",
+                "binding_label": "DM",
                 "type": "roll20_bridge_status",
                 "request_id": None,
             },
             {
                 "response_id": None,
                 "connected": False,
+                "binding_key": "dm",
+                "binding_label": "DM",
                 "type": "roll20_bridge_status",
                 "request_id": None,
             },
@@ -351,7 +358,9 @@ def test_authenticate_service_websocket_accepts_service_code() -> None:
             },
         )
 
-        assert authenticated is True
+        assert authenticated == chat_service.Roll20BridgeBinding(
+            key="dm", role="dm", label="DM"
+        )
         assert websocket.sent_messages == [
             {
                 "response_id": None,
@@ -380,7 +389,7 @@ def test_authenticate_service_websocket_rejects_non_service_code() -> None:
             },
         )
 
-        assert authenticated is False
+        assert authenticated is None
         assert websocket.closed_code == AUTH_CLOSE_CODE
         assert websocket.sent_messages == [
             {
@@ -399,7 +408,7 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
         await websocket_sessions.reset()
         await chat_service.roll20_chat_bridge.reset()
         websocket = FakeWebSocket()
-        await websocket_sessions.connect(websocket, role="player")
+        await websocket_sessions.connect(websocket, role="dm")
 
         await handle_client_payload(
             websocket,
@@ -413,7 +422,7 @@ def test_send_roll20_chat_message_fails_when_no_bridge_connected() -> None:
         assert websocket.sent_messages == [
             {
                 "response_id": None,
-                "reason": "Roll20 chat bridge is not connected.",
+                "reason": "Roll20 chat bridge is not connected for this user.",
                 "type": "error",
                 "request_id": "ignored-client-id",
             }
@@ -427,7 +436,7 @@ def test_get_roll20_bridge_status_reports_disconnected() -> None:
         await websocket_sessions.reset()
         await chat_service.roll20_chat_bridge.reset()
         websocket = FakeWebSocket()
-        await websocket_sessions.connect(websocket, role="player")
+        await websocket_sessions.connect(websocket, role="dm")
 
         await handle_client_payload(
             websocket,
@@ -441,6 +450,8 @@ def test_get_roll20_bridge_status_reports_disconnected() -> None:
             {
                 "response_id": None,
                 "connected": False,
+                "binding_key": "dm",
+                "binding_label": "DM",
                 "type": "roll20_bridge_status",
                 "request_id": "req-status",
             }
@@ -455,7 +466,7 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
         await chat_service.roll20_chat_bridge.reset()
         websocket = FakeWebSocket()
         bridge_socket = FakeWebSocket()
-        await websocket_sessions.connect(websocket, role="player")
+        await websocket_sessions.connect(websocket, role="dm")
         await chat_service.roll20_chat_bridge.connect(bridge_socket)
 
         await handle_client_payload(
@@ -470,6 +481,8 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
             {
                 "response_id": None,
                 "connected": True,
+                "binding_key": "dm",
+                "binding_label": "DM",
                 "type": "roll20_bridge_status",
                 "request_id": "req-status",
             }
@@ -478,13 +491,16 @@ def test_get_roll20_bridge_status_reports_connected() -> None:
     asyncio.run(scenario())
 
 
-def test_get_roll20_bridge_sync_config_returns_credential_only_to_dm() -> None:
+def test_get_roll20_bridge_sync_config_returns_scoped_tokens() -> None:
     async def scenario() -> None:
         await websocket_sessions.reset()
         dm_socket = FakeWebSocket()
         player_socket = FakeWebSocket()
         await websocket_sessions.connect(dm_socket, role="dm")
-        await websocket_sessions.connect(player_socket, role="player")
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await _connect_assigned_player(player_socket)
 
         await handle_client_payload(
             dm_socket,
@@ -501,22 +517,25 @@ def test_get_roll20_bridge_sync_config_returns_credential_only_to_dm() -> None:
             },
         )
 
-        assert dm_socket.sent_messages == [
-            {
-                "response_id": None,
-                "service_auth_code": SERVICE_AUTH_CODE,
-                "type": "roll20_bridge_sync_config",
-                "request_id": "req-sync-dm",
-            }
-        ]
-        assert player_socket.sent_messages == [
-            {
-                "response_id": None,
-                "reason": "This request requires an authenticated DM session.",
-                "type": "error",
-                "request_id": "req-sync-player",
-            }
-        ]
+        dm_event = dm_socket.sent_messages[0]
+        player_event = player_socket.sent_messages[0]
+        assert dm_event["binding_key"] == "dm"
+        assert dm_event["binding_label"] == "DM"
+        assert dm_event["request_id"] == "req-sync-dm"
+        assert chat_service.authenticate_bridge_token(
+            dm_event["bridge_auth_token"]
+        ) == chat_service.Roll20BridgeBinding(key="dm", role="dm", label="DM")
+        assert player_event["binding_key"] == "instance:mage_instance"
+        assert player_event["binding_label"] == "Mage Template"
+        assert player_event["request_id"] == "req-sync-player"
+        assert chat_service.authenticate_bridge_token(
+            player_event["bridge_auth_token"]
+        ) == chat_service.Roll20BridgeBinding(
+            key="instance:mage_instance",
+            role="player",
+            label="Mage Template",
+            instance_id="mage_instance",
+        )
 
     asyncio.run(scenario())
 
@@ -556,6 +575,98 @@ def test_roll20_bridge_newest_connection_wins_without_stale_disconnect() -> None
     asyncio.run(scenario())
 
 
+def test_roll20_bridge_keeps_distinct_user_bindings_connected() -> None:
+    async def scenario() -> None:
+        await chat_service.roll20_chat_bridge.reset()
+        dm_bridge = FakeWebSocket()
+        player_bridge = FakeWebSocket()
+
+        assert await chat_service.roll20_chat_bridge.connect(dm_bridge) is None
+        assert (
+            await chat_service.roll20_chat_bridge.connect(
+                player_bridge,
+                binding_key="instance:mage_instance",
+            )
+            is None
+        )
+
+        await chat_service.roll20_chat_bridge.send(
+            chat_service.Roll20ChatMessage(message_id="dm-message", message="DM"),
+            binding_key="dm",
+        )
+        await chat_service.roll20_chat_bridge.send(
+            chat_service.Roll20ChatMessage(
+                message_id="player-message",
+                message="Player",
+            ),
+            binding_key="instance:mage_instance",
+        )
+
+        assert [entry["message_id"] for entry in dm_bridge.sent_messages] == [
+            "dm-message"
+        ]
+        assert [entry["message_id"] for entry in player_bridge.sent_messages] == [
+            "player-message"
+        ]
+        assert await chat_service.roll20_chat_bridge.connected_binding_keys() == {
+            "dm",
+            "instance:mage_instance",
+        }
+
+    asyncio.run(scenario())
+
+
+def test_roll20_bridge_rejects_delivery_ack_from_another_binding() -> None:
+    class PendingBridge(FakeWebSocket):
+        async def send_json(self, payload: dict) -> None:
+            self.sent_messages.append(payload)
+
+    async def scenario() -> None:
+        await chat_service.roll20_chat_bridge.reset()
+        dm_bridge = PendingBridge()
+        player_bridge = PendingBridge()
+        await chat_service.roll20_chat_bridge.connect(dm_bridge)
+        await chat_service.roll20_chat_bridge.connect(
+            player_bridge,
+            binding_key="instance:mage_instance",
+        )
+        pending = asyncio.create_task(
+            chat_service.roll20_chat_bridge.send(
+                chat_service.Roll20ChatMessage(
+                    message_id="bound-delivery",
+                    message="DM only",
+                ),
+                binding_key="dm",
+                await_delivery=True,
+            )
+        )
+        await asyncio.sleep(0)
+        delivery = chat_service.Roll20ChatDelivery(
+            message_id="bound-delivery",
+            success=True,
+            type="chat_delivery",
+        )
+
+        assert (
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
+                delivery,
+                websocket=player_bridge,
+            )
+            is False
+        )
+        assert not pending.done()
+        assert (
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
+                delivery,
+                websocket=dm_bridge,
+            )
+            is True
+        )
+        await pending
+
+    asyncio.run(scenario())
+
+
 def test_roll20_bridge_send_failure_clears_and_broadcasts_status() -> None:
     class FailingWebSocket(FakeWebSocket):
         async def send_json(self, payload: dict) -> None:
@@ -579,6 +690,8 @@ def test_roll20_bridge_send_failure_clears_and_broadcasts_status() -> None:
             {
                 "response_id": None,
                 "connected": False,
+                "binding_key": None,
+                "binding_label": None,
                 "type": "roll20_bridge_status",
                 "request_id": None,
             }
@@ -693,6 +806,7 @@ def test_unauthenticated_socket_can_retry_authentication_without_reconnecting() 
                     "parties": {},
                     "kill_registry": {},
                     "xp_adjustments": {},
+                    "player_kill_visibility": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -746,6 +860,7 @@ def test_handle_client_payload_bootstraps_player_session_after_authentication() 
                     "parties": {},
                     "kill_registry": {},
                     "xp_adjustments": {},
+                    "player_kill_visibility": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -800,6 +915,7 @@ def test_handle_client_payload_bootstraps_dm_session_after_authentication() -> N
                     "parties": {},
                     "kill_registry": {},
                     "xp_adjustments": {},
+                    "player_kill_visibility": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -830,8 +946,14 @@ def test_send_roll20_chat_message_delivers_to_connected_roll20_bridge() -> None:
         sender_socket = FakeWebSocket()
         bridge_socket = FakeWebSocket()
 
-        await websocket_sessions.connect(sender_socket, role="player")
-        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await _connect_assigned_player(sender_socket)
+        await chat_service.roll20_chat_bridge.connect(
+            bridge_socket,
+            binding_key="instance:mage_instance",
+        )
 
         await handle_client_payload(
             sender_socket,
@@ -859,13 +981,14 @@ def test_send_roll20_chat_message_surfaces_correlated_delivery_failure() -> None
     class RejectingBridge(FakeWebSocket):
         async def send_json(self, payload: dict) -> None:
             self.sent_messages.append(payload)
-            chat_service.handle_bridge_event(
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
                 chat_service.Roll20ChatDelivery(
                     message_id=payload["message_id"],
                     success=False,
                     reason="chat_submit_failed",
                     type="chat_delivery",
-                )
+                ),
+                websocket=self,
             )
 
     async def scenario() -> None:
@@ -873,8 +996,14 @@ def test_send_roll20_chat_message_surfaces_correlated_delivery_failure() -> None
         await chat_service.roll20_chat_bridge.reset()
         sender_socket = FakeWebSocket()
         bridge_socket = RejectingBridge()
-        await websocket_sessions.connect(sender_socket, role="player")
-        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await _connect_assigned_player(sender_socket)
+        await chat_service.roll20_chat_bridge.connect(
+            bridge_socket,
+            binding_key="instance:mage_instance",
+        )
 
         await handle_client_payload(
             sender_socket,
@@ -950,8 +1079,20 @@ def test_roll20_bridge_events_are_parsed_and_logged(caplog) -> None:
     )
 
     with caplog.at_level("INFO"):
-        chat_service.handle_bridge_event(hello_event)
-        chat_service.handle_bridge_event(delivery_event)
+        websocket = FakeWebSocket()
+        binding = chat_service.Roll20BridgeBinding(
+            key="dm", role="dm", label="DM"
+        )
+        chat_service.handle_bridge_event(
+            hello_event,
+            websocket=websocket,
+            binding=binding,
+        )
+        chat_service.handle_bridge_event(
+            delivery_event,
+            websocket=websocket,
+            binding=binding,
+        )
 
     assert "Roll20 bridge connected from roll20_violentmonkey_userscript" in caplog.text
     assert "Roll20 chat message delivered: msg-1" in caplog.text
@@ -1356,7 +1497,10 @@ def test_websocket_contract_roll20_only_action_returns_action_executed() -> None
         websocket = FakeWebSocket()
         bridge_socket = FakeWebSocket()
         await _connect_assigned_player(websocket)
-        await chat_service.roll20_chat_bridge.connect(bridge_socket)
+        await chat_service.roll20_chat_bridge.connect(
+            bridge_socket,
+            binding_key="instance:mage_instance",
+        )
 
         await handle_client_payload(
             websocket,
@@ -1419,6 +1563,7 @@ def test_state_sync_bootstrap_sends_snapshot() -> None:
                     "parties": {},
                     "kill_registry": {},
                     "xp_adjustments": {},
+                    "player_kill_visibility": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},
@@ -1464,6 +1609,7 @@ def test_resync_state_returns_state_snapshot() -> None:
                     "parties": {},
                     "kill_registry": {},
                     "xp_adjustments": {},
+                    "player_kill_visibility": {},
                     "actions": {},
                         "augmentations": {},
                         "standalone_effects": {},

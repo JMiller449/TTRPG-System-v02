@@ -54,6 +54,10 @@ class Item:
     price: str
     weight: float  # pounds
     augmentation_templates: List[Augmentation]
+    player_visible: bool = True
+    approval_status: Literal["approved", "pending"] = "approved"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
     can_contain_items: bool = False
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: AttributeProfile | None = None
@@ -89,6 +93,10 @@ class Item:
             gm_special_properties=raw.get("gm_special_properties", ""),
             price=raw["price"],
             weight=float(raw.get("weight", 0)),
+            player_visible=bool(raw.get("player_visible", True)),
+            approval_status=raw.get("approval_status", "approved"),
+            submitted_by_instance_id=raw.get("submitted_by_instance_id"),
+            submitted_by_name=raw.get("submitted_by_name"),
             can_contain_items=bool(raw.get("can_contain_items", False)),
             contents_weight_behavior=raw.get("contents_weight_behavior", "normal"),
             augmentation_templates=[

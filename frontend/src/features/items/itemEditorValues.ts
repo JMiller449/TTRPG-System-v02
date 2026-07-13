@@ -14,6 +14,7 @@ export type ItemEditorValues = {
   type: string;
   rank: string;
   weight: string;
+  playerVisible: boolean;
   canContainItems: boolean;
   contentsWeightBehavior: "normal" | "ignored";
   value: string;
@@ -67,6 +68,7 @@ export function createEmptyItemValues(): ItemEditorValues {
     type: "",
     rank: ITEM_RANK_OPTIONS[0],
     weight: "0",
+    playerVisible: false,
     canContainItems: false,
     contentsWeightBehavior: "normal",
     value: "",
@@ -140,6 +142,7 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     type: item.category ?? "",
     rank: item.rank || ITEM_RANK_OPTIONS[0],
     weight: String(item.weight),
+    playerVisible: item.player_visible ?? true,
     canContainItems: item.can_contain_items ?? false,
     contentsWeightBehavior: item.contents_weight_behavior ?? "normal",
     value: item.price,
@@ -326,6 +329,7 @@ export function toItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: Number(values.weight),
+    player_visible: values.playerVisible,
     can_contain_items: values.canContainItems,
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     attribute_profile: values.attributeProfile,
@@ -352,6 +356,7 @@ export function toUpdatedItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: Number(values.weight),
+    player_visible: values.playerVisible,
     can_contain_items: values.canContainItems,
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     attribute_profile: values.attributeProfile,

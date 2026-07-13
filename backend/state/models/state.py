@@ -37,6 +37,7 @@ class State:
     parties: dict[str, Party] = field(default_factory=dict)
     kill_registry: dict[str, KillRecord] = field(default_factory=dict)
     xp_adjustments: dict[str, XpAdjustment] = field(default_factory=dict)
+    player_kill_visibility: dict[str, bool] = field(default_factory=dict)
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
     formulas: dict[str, FormulaDefinition] = field(default_factory=dict)
@@ -117,6 +118,13 @@ class State:
             xp_adjustments={
                 key: XpAdjustment.from_dict(adjustment)
                 for key, adjustment in raw.get("xp_adjustments", {}).items()
+            },
+            player_kill_visibility={
+                str(sheet_id): True
+                for sheet_id, visible in raw.get(
+                    "player_kill_visibility", {}
+                ).items()
+                if visible is True
             },
             sheets=sheets,
             instanced_sheets=instanced_sheets,

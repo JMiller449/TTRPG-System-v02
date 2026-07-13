@@ -5,7 +5,6 @@ from backend.features.chat.schema import (
     GetRoll20BridgeSyncConfig,
     SendRoll20ChatMessage,
 )
-from backend.features.auth.tokens import SERVICE_AUTH_CODE
 from backend.protocol.socket import (
     Roll20BridgeStatusEvent,
     Roll20BridgeSyncConfigEvent,
@@ -20,8 +19,14 @@ async def handle_request(
 ) -> None:
     chat_message = service.build_chat_message(request)
     try:
-        await service.roll20_chat_bridge.send(chat_message, await_delivery=True)
-    except RuntimeError as exc:
+        binding = service.binding_for_session(session)
+        assert binding is not None
+        await service.roll20_chat_bridge.send(
+            chat_message,
+            binding_key=binding.key,
+            await_delivery=True,
+        )
+    except (PermissionError, RuntimeError) as exc:
         await websocket_sessions.send(
             session,
             Error(
@@ -39,9 +44,8 @@ async def handle_bridge_status_request(
 ) -> None:
     await websocket_sessions.send(
         session,
-        Roll20BridgeStatusEvent(
-            response_id=None,
-            connected=await service.roll20_chat_bridge.is_connected(),
+        await service.bridge_status_event_for_session(
+            session,
             request_id=request.request_id,
         ),
     )
@@ -51,11 +55,15 @@ async def handle_bridge_sync_config_request(
     session: WebSocketSession,
     request: GetRoll20BridgeSyncConfig,
 ) -> None:
+    binding = service.binding_for_session(session)
+    assert binding is not None
     await websocket_sessions.send(
         session,
         Roll20BridgeSyncConfigEvent(
             response_id=None,
-            service_auth_code=SERVICE_AUTH_CODE,
+            bridge_auth_token=service.issue_bridge_token(binding),
+            binding_key=binding.key,
+            binding_label=binding.label,
             request_id=request.request_id,
         ),
     )

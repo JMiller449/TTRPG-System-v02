@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Any
+from typing import Any, Literal
 
 
 XP_QUANTUM = Decimal("0.01")
@@ -55,6 +55,9 @@ class KillRecord:
     occurred_at: str
     monster_sheet_id: str | None = None
     notes: str = ""
+    submitted_by_role: Literal["player", "dm"] = "dm"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "KillRecord":
@@ -66,6 +69,9 @@ class KillRecord:
             raise ValueError("A persisted kill must have at least one participant.")
         base_xp = normalize_xp(raw["base_xp"])
         participant_count = len(participants)
+        submitted_by_role = raw.get("submitted_by_role", "dm")
+        if submitted_by_role not in {"player", "dm"}:
+            raise ValueError("A persisted kill has an invalid submitter role.")
         return cls(
             id=raw["id"],
             monster_name=raw["monster_name"],
@@ -77,6 +83,9 @@ class KillRecord:
             occurred_at=raw["occurred_at"],
             monster_sheet_id=raw.get("monster_sheet_id"),
             notes=raw.get("notes", ""),
+            submitted_by_role=submitted_by_role,
+            submitted_by_instance_id=raw.get("submitted_by_instance_id"),
+            submitted_by_name=raw.get("submitted_by_name"),
         )
 
 

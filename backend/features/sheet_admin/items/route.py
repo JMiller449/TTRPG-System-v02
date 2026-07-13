@@ -10,9 +10,13 @@ from backend.core.permissions import (
 from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.items import service
 from backend.features.sheet_admin.items.schema import (
+    AddPlayerInventoryItem,
     CreateItem,
     DeleteItem,
+    RemovePlayerInventoryItem,
     RemoveItemAugmentationTemplate,
+    ReviewPlayerItem,
+    SubmitPlayerItem,
     UpdateItem,
     UpsertItemAugmentationTemplate,
 )
@@ -64,6 +68,70 @@ class DeleteItemRoute(RequestRoute[DeleteItem]):
         await service.delete_typed_item(request)
 
 
+class AddPlayerInventoryItemRoute(RequestRoute[AddPlayerInventoryItem]):
+    type_name = "add_player_inventory_item"
+    request_model = AddPlayerInventoryItem
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "player"
+    client_generation = ClientGenerationMetadata(
+        namespace="playerInventory",
+        method_name="addItem",
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: AddPlayerInventoryItem
+    ) -> None:
+        await service.add_player_inventory_item(session, request)
+
+
+class RemovePlayerInventoryItemRoute(RequestRoute[RemovePlayerInventoryItem]):
+    type_name = "remove_player_inventory_item"
+    request_model = RemovePlayerInventoryItem
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "player"
+    client_generation = ClientGenerationMetadata(
+        namespace="playerInventory",
+        method_name="removeItem",
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: RemovePlayerInventoryItem
+    ) -> None:
+        await service.remove_player_inventory_item(session, request)
+
+
+class SubmitPlayerItemRoute(RequestRoute[SubmitPlayerItem]):
+    type_name = "submit_player_item"
+    request_model = SubmitPlayerItem
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "player"
+    client_generation = ClientGenerationMetadata(
+        namespace="playerItems",
+        method_name="submitItem",
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: SubmitPlayerItem
+    ) -> None:
+        await service.submit_player_item(session, request)
+
+
+class ReviewPlayerItemRoute(RequestRoute[ReviewPlayerItem]):
+    type_name = "review_player_item"
+    request_model = ReviewPlayerItem
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="playerItems",
+        method_name="reviewItem",
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: ReviewPlayerItem
+    ) -> None:
+        await service.review_player_item(request)
+
+
 class UpsertItemAugmentationTemplateRoute(
     RequestRoute[UpsertItemAugmentationTemplate]
 ):
@@ -110,5 +178,9 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateItemRoute())
     registry.register(UpdateItemRoute())
     registry.register(DeleteItemRoute())
+    registry.register(AddPlayerInventoryItemRoute())
+    registry.register(RemovePlayerInventoryItemRoute())
+    registry.register(SubmitPlayerItemRoute())
+    registry.register(ReviewPlayerItemRoute())
     registry.register(UpsertItemAugmentationTemplateRoute())
     registry.register(RemoveItemAugmentationTemplateRoute())

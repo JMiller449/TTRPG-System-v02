@@ -6,10 +6,14 @@ from pydantic import ValidationError
 
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.features.sheet_admin.items.schema import ItemDefinitionPayload
+from backend.features.sheet_admin.items.schema import (
+    ItemDefinitionPayload,
+    SubmitPlayerItem,
+)
 from backend.state.models.action import Action
-from backend.state.models.item import Item
+from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import Proficiency
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -47,6 +51,58 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
         "weight": 3,
         "augmentation_templates": [],
     }
+
+
+def _player_sheet(sheet_id: str, name: str) -> Sheet:
+    formula = {"aliases": None, "text": "0"}
+    return Sheet.from_dict(
+        {
+            "id": sheet_id,
+            "name": name,
+            "dm_only": False,
+            "stats": {
+                "strength": 10,
+                "dexterity": 10,
+                "constitution": 10,
+                "perception": 10,
+                "arcane": 10,
+                "will": 10,
+                "lifting": formula,
+                "carry_weight": formula,
+                "acrobatics": formula,
+                "stamina": formula,
+                "reaction_time": formula,
+                "health": formula,
+                "endurance": formula,
+                "pain_tolerance": formula,
+                "sight_distance": formula,
+                "intuition": formula,
+                "registration": formula,
+                "mana": formula,
+                "control": formula,
+                "sensitivity": formula,
+                "charisma": formula,
+                "mental_fortitude": formula,
+                "courage": formula,
+            },
+        }
+    )
+
+
+def _add_player_instance(instance_id: str, sheet_id: str, name: str) -> None:
+    state = StateSingleton.getState()
+    sheet = _player_sheet(sheet_id, name)
+    state.sheets[sheet_id] = sheet
+    state.instanced_sheets[instance_id] = InstancedSheet.from_dict(
+        {
+            "parent_id": sheet_id,
+            "health": 10,
+            "mana": 5,
+            "augments": {},
+            "items": {},
+        },
+        template=sheet,
+    )
 
 
 def _weapon_attribute_bridges(proficiency_id: str = "long_swords") -> dict:
@@ -568,7 +624,7 @@ def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:
                 dm_socket,
                 {
                     "type": "create_item",
-                    "item": _item_payload(),
+                    "item": {**_item_payload(), "player_visible": True},
                 },
             )
 
@@ -863,3 +919,271 @@ def test_delete_item_rejects_missing_id(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_player_can_add_and_remove_only_available_inventory_items(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            state.items["visible"] = Item.from_dict(
+                {
+                    **_item_payload("visible", "Visible Item"),
+                    "player_visible": True,
+                }
+            )
+            state.items["hidden"] = Item.from_dict(
+                {
+                    **_item_payload("hidden", "Hidden Item"),
+                    "player_visible": False,
+                }
+            )
+            await websocket_sessions.reset()
+            socket = FakeWebSocket()
+            session = await websocket_sessions.connect(socket, role="player")
+
+            await handle_client_payload(
+                socket,
+                {"type": "add_player_inventory_item", "item_id": "visible"},
+            )
+            assert socket.sent_messages[-1]["reason"] == (
+                "Claim a sheet access code before managing your inventory."
+            )
+            session.assigned_instance_id = "hero-instance"
+
+            await handle_client_payload(
+                socket,
+                {"type": "add_player_inventory_item", "item_id": "hidden"},
+            )
+            assert state.instanced_sheets["hero-instance"].items == {}
+            assert socket.sent_messages[-1]["reason"] == (
+                "That item is not available to players."
+            )
+
+            await handle_client_payload(
+                socket,
+                {"type": "add_player_inventory_item", "item_id": "visible"},
+            )
+            inventory = state.instanced_sheets["hero-instance"].items
+            relationship_id, bridge = next(iter(inventory.items()))
+            assert bridge.item_id == "visible"
+            assert bridge.count == 1
+            assert bridge.equipped is False
+
+            await handle_client_payload(
+                socket,
+                {
+                    "type": "remove_player_inventory_item",
+                    "relationship_id": relationship_id,
+                },
+            )
+            assert state.instanced_sheets["hero-instance"].items == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_hidden_carried_item_definition_remains_visible_only_to_owner() -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            _add_player_instance("rival-instance", "rival-sheet", "Rival")
+            state.items["hidden"] = Item.from_dict(
+                {
+                    **_item_payload("hidden", "Hidden Reward"),
+                    "player_visible": False,
+                }
+            )
+            state.instanced_sheets["hero-instance"].items["hidden-entry"] = (
+                ItemBridge.from_dict(
+                    {
+                        "relationship_id": "hidden-entry",
+                        "item_id": "hidden",
+                        "count": 1,
+                        "equipped": False,
+                    }
+                )
+            )
+
+            owner_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="hero-instance",
+            )
+            rival_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="rival-instance",
+            )
+            assert "hidden" in owner_snapshot.state["items"]
+            assert "gm_notes" not in owner_snapshot.state["items"]["hidden"]
+            assert "hidden" not in rival_snapshot.state["items"]
+            assert rival_snapshot.state["instanced_sheets"]["hero-instance"][
+                "items"
+            ] == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_item_approval_publishes_and_adds_to_submitter(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            _add_player_instance("rival-instance", "rival-sheet", "Rival")
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            owner_socket = FakeWebSocket()
+            rival_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            owner_session = await websocket_sessions.connect(
+                owner_socket, role="player"
+            )
+            rival_session = await websocket_sessions.connect(
+                rival_socket, role="player"
+            )
+            owner_session.assigned_instance_id = "hero-instance"
+            rival_session.assigned_instance_id = "rival-instance"
+
+            await handle_client_payload(
+                owner_socket,
+                {
+                    "type": "submit_player_item",
+                    "item": {
+                        "name": "Handmade Rope",
+                        "interaction_type": "inventory_only",
+                        "category": "Gear",
+                        "rank": "F",
+                        "description": "Braided during camp.",
+                        "world_anvil_url": "",
+                        "price": "2g",
+                        "weight": 1.5,
+                        "can_contain_items": False,
+                    },
+                },
+            )
+
+            pending_id, pending = next(iter(state.items.items()))
+            assert pending.approval_status == "pending"
+            assert pending.player_visible is False
+            assert pending.submitted_by_instance_id == "hero-instance"
+            assert pending.submitted_by_name == "Hero"
+            owner_snapshot = await state_sync_service.snapshot(
+                role="player", assigned_instance_id="hero-instance"
+            )
+            rival_snapshot = await state_sync_service.snapshot(
+                role="player", assigned_instance_id="rival-instance"
+            )
+            assert pending_id in owner_snapshot.state["items"]
+            assert pending_id not in rival_snapshot.state["items"]
+
+            await handle_client_payload(
+                dm_socket,
+                {
+                    "type": "review_player_item",
+                    "item_id": pending_id,
+                    "approved": True,
+                },
+            )
+
+            approved = state.items[pending_id]
+            assert approved.approval_status == "approved"
+            assert approved.player_visible is True
+            assert approved.submitted_by_instance_id is None
+            assert {
+                bridge.item_id
+                for bridge in state.instanced_sheets["hero-instance"].items.values()
+            } == {pending_id}
+            assert state.instanced_sheets["rival-instance"].items == {}
+            assert any(
+                op["path"] == f"/items/{pending_id}"
+                for message in rival_socket.sent_messages
+                for op in message.get("ops", [])
+            )
+            assert not any(
+                op["path"].startswith("/instanced_sheets/hero-instance/items/")
+                for message in rival_socket.sent_messages
+                for op in message.get("ops", [])
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_denied_player_item_is_deleted(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            player_session = await websocket_sessions.connect(
+                player_socket, role="player"
+            )
+            player_session.assigned_instance_id = "hero-instance"
+
+            await handle_client_payload(
+                player_socket,
+                {
+                    "type": "submit_player_item",
+                    "item": {"name": "Unapproved Trinket"},
+                },
+            )
+            pending_id = next(iter(StateSingleton.getState().items))
+            await handle_client_payload(
+                dm_socket,
+                {
+                    "type": "review_player_item",
+                    "item_id": pending_id,
+                    "approved": False,
+                },
+            )
+            state = StateSingleton.getState()
+            assert pending_id not in state.items
+            assert state.instanced_sheets["hero-instance"].items == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_item_submission_rejects_mechanical_fields() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        SubmitPlayerItem.model_validate(
+            {
+                "type": "submit_player_item",
+                "item": {
+                    "name": "Exploit Sword",
+                    "action_grants": [
+                        {
+                            "action_id": "attack",
+                            "availability": "carried",
+                            "consume_quantity": 0,
+                        }
+                    ],
+                },
+            }
+        )
+
+    with pytest.raises(ValidationError, match="Item name cannot be blank"):
+        SubmitPlayerItem.model_validate(
+            {
+                "type": "submit_player_item",
+                "item": {"name": "   "},
+            }
+        )

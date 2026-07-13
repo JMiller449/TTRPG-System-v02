@@ -39,7 +39,9 @@ export const initialUiState: UIState = {
     status: "disconnected"
   },
   roll20Bridge: {
-    status: "unknown"
+    status: "unknown",
+    bindingKey: null,
+    bindingLabel: null
   },
   gmView: "console",
   activeSheetId: null,

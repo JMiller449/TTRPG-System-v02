@@ -90,6 +90,7 @@ export function SheetEquipmentSection({
   currentCarriedWeight,
   carryWeightLimit,
   canManageInventory,
+  canEditInventory,
   canToggleEquipped,
   onSelectedItemIdChange,
   onAddSelectedItem,
@@ -110,6 +111,7 @@ export function SheetEquipmentSection({
   currentCarriedWeight: number;
   carryWeightLimit: number;
   canManageInventory: boolean;
+  canEditInventory: boolean;
   canToggleEquipped: boolean;
   onSelectedItemIdChange: (itemId: string) => void;
   onAddSelectedItem: () => void;
@@ -280,9 +282,9 @@ export function SheetEquipmentSection({
                   actionSummaries={actionSummaries}
                 />
               </div>
-              {canManageInventory || canToggleEquipped ? (
+              {canManageInventory || canEditInventory || canToggleEquipped ? (
                 <div className="inline-actions">
-                  {canManageInventory ? (
+                  {canEditInventory ? (
                     <Field label={`Storage location for ${item.name}`}>
                       <select
                         value={entry.parent_container_id ?? ""}
@@ -311,7 +313,7 @@ export function SheetEquipmentSection({
                       ) : null}
                     </Field>
                   ) : null}
-                  {canManageInventory ? (
+                  {canEditInventory ? (
                     <div
                       className="equipment-quantity-stepper"
                       role="group"

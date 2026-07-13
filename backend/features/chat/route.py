@@ -55,7 +55,7 @@ class GetRoll20BridgeSyncConfigRoute(RequestRoute[GetRoll20BridgeSyncConfig]):
     type_name = "get_roll20_bridge_sync_config"
     request_model = GetRoll20BridgeSyncConfig
     emitted_event_models = (Roll20BridgeSyncConfigEvent,)
-    minimum_role = "dm"
+    minimum_role = "player"
     client_generation = ClientGenerationMetadata(
         namespace="chat",
         method_name="getRoll20BridgeSyncConfig",

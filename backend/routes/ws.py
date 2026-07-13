@@ -13,7 +13,6 @@ from backend.core.request_registry import (
     request_registry,
 )
 from backend.features.auth import service as auth_service
-from backend.features.auth import tokens as auth_tokens
 from backend.features.auth.schema import Authenticate
 from backend.features.chat import service as chat_service
 from backend.features.session.service import websocket_sessions
@@ -199,7 +198,7 @@ async def authenticate_application_websocket(
 async def authenticate_service_websocket(
     websocket: WebSocket,
     payload: Any,
-) -> bool:
+) -> chat_service.Roll20BridgeBinding | None:
     normalized_payload, request_id = _assign_request_id(payload)
 
     try:
@@ -210,27 +209,27 @@ async def authenticate_service_websocket(
             reason=_validation_error_message(exc),
             request_id=request_id,
         )
-        return False
+        return None
 
-    role = auth_tokens.authenticate_token(request.token)
-    if role != "service":
+    binding = chat_service.authenticate_bridge_token(request.token)
+    if binding is None:
         await _reject_connection(
             websocket,
             reason="Invalid service code.",
             request_id=request.request_id,
         )
-        return False
+        return None
 
     await websocket.send_json(
         normalize_server_event(
             auth_service.build_authenticate_response(
                 authenticated=True,
-                role=role,
+                role="service",
                 request_id=request.request_id,
             )
         )
     )
-    return True
+    return binding
 
 
 @router.websocket("/ws")
@@ -264,12 +263,13 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
         await _reject_connection(websocket, reason=str(exc))
         return
 
-    is_authenticated = await authenticate_service_websocket(websocket, auth_payload)
-    if not is_authenticated:
+    binding = await authenticate_service_websocket(websocket, auth_payload)
+    if binding is None:
         return
 
     previous_connection = await chat_service.roll20_chat_bridge.connect(
         websocket,
+        binding_key=binding.key,
         accept=False,
     )
     if previous_connection is not None:
@@ -280,7 +280,7 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
             )
         except RuntimeError:
             logger.info("Previous Roll20 bridge was already closed during replacement.")
-    await chat_service.broadcast_bridge_status(connected=True)
+    await chat_service.broadcast_bridge_statuses()
 
     try:
         while True:
@@ -301,11 +301,13 @@ async def chat_bridge_endpoint(websocket: WebSocket) -> None:
                 logger.warning("Ignoring Roll20 bridge payload: %s", exc)
                 continue
 
-            chat_service.handle_bridge_event(event)
+            chat_service.handle_bridge_event(
+                event,
+                websocket=websocket,
+                binding=binding,
+            )
     except WebSocketDisconnect:
         pass
     finally:
         await chat_service.roll20_chat_bridge.disconnect(websocket)
-        await chat_service.broadcast_bridge_status(
-            connected=await chat_service.roll20_chat_bridge.is_connected()
-        )
+        await chat_service.broadcast_bridge_statuses()

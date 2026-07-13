@@ -336,7 +336,8 @@ export function adaptProtocolServerEvent(
               parties: event.parties,
               kills: event.kills,
               adjustments: event.adjustments,
-              mobs: event.mobs
+              mobs: event.mobs,
+              recordable_mobs: event.recordable_mobs
             },
             requestId: event.request_id ?? undefined
           }
@@ -350,6 +351,8 @@ export function adaptProtocolServerEvent(
           {
             type: "roll20_bridge_status",
             connected: event.connected,
+            bindingKey: event.binding_key ?? null,
+            bindingLabel: event.binding_label ?? null,
             requestId: event.request_id ?? undefined
           }
         ]
@@ -361,7 +364,9 @@ export function adaptProtocolServerEvent(
         events: [
           {
             type: "roll20_bridge_sync_config",
-            serviceAuthCode: event.service_auth_code,
+            bridgeAuthToken: event.bridge_auth_token,
+            bindingKey: event.binding_key,
+            bindingLabel: event.binding_label,
             requestId: event.request_id ?? undefined
           }
         ]

@@ -202,7 +202,7 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
             method_name="getRoll20BridgeSyncConfig",
         )
     )
-    assert contracts["get_roll20_bridge_sync_config"].minimum_role == "dm"
+    assert contracts["get_roll20_bridge_sync_config"].minimum_role == "player"
     assert contracts["get_roll20_bridge_sync_config"].emitted_event_models == (
         Roll20BridgeSyncConfigEvent,
     )

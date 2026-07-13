@@ -16,6 +16,7 @@ import { SheetStandaloneEffectsSection } from "@/features/sheets/components/Shee
 import { RollLog } from "@/features/rolls/RollLog";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { SheetXpProgressBar } from "@/features/xp/SheetXpProgressBar";
+import { PlayerItemProposalForm } from "@/features/items/PlayerItemProposalForm";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
@@ -26,6 +27,7 @@ import {
   buildAttachInstancedSheetActionRequest,
   buildAttachInstancedSheetAttributeRequest,
   buildAttachInstancedSheetItemRequest,
+  buildAddPlayerInventoryItemRequest,
   buildCreateSheetFromInstanceRequest,
   buildDetachInstancedSheetActionRequest,
   buildDetachInstancedSheetAttributeRequest,
@@ -38,12 +40,14 @@ import {
   buildResetInstancedSheetAttributeValueRequest,
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
+  buildRemovePlayerInventoryItemRequest,
   buildSetInstancedSheetNotesRequest,
   buildSetInstancedSheetItemEquippedRequest,
   buildSetInstancedSheetAttributeValueRequest,
   buildSetInstancedSheetFormulaStatRequest,
   buildSetInstancedSheetResistancesRequest,
   buildSetInstancedSheetUnassignedStatPointsRequest,
+  buildSubmitPlayerItemRequest,
   buildUnlinkInstancedSheetProficiencyRequest,
   buildUpdateLinkedInstancedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
@@ -96,7 +100,6 @@ export function PlayerCharacterSheet({
     activeConditions,
     activeStandaloneEffects,
     selectedItemId,
-    selectedItem,
     setSelectedItemId
   } = useSheetDetailState();
 
@@ -175,7 +178,8 @@ export function PlayerCharacterSheet({
   const showResistancesSection = activeTab === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
-  const canManageEquipment = mode === "gm";
+  const canManageEquipment = true;
+  const canEditEquipment = mode === "gm";
   const canEditProficiencies = mode === "gm";
   const canEditResistances = mode === "gm";
   const sheetId = detail.sheet?.id;
@@ -186,6 +190,19 @@ export function PlayerCharacterSheet({
   const parsedUnassignedStatPointsDraft = Number(unassignedStatPointsDraft);
   const canSaveUnassignedStatPoints =
     Number.isInteger(parsedUnassignedStatPointsDraft) && parsedUnassignedStatPointsDraft >= 0;
+  const inventoryCatalogOrder = itemOrder.filter((itemId) => {
+    const item = items[itemId];
+    return item?.approval_status !== "pending" && (mode === "gm" || item?.player_visible === true);
+  });
+  const inventorySelectedItemId = inventoryCatalogOrder.includes(selectedItemId)
+    ? selectedItemId
+    : (inventoryCatalogOrder[0] ?? "");
+  const inventorySelectedItem = inventorySelectedItemId
+    ? (items[inventorySelectedItemId] ?? null)
+    : null;
+  const pendingPlayerItems = Object.values(items).filter(
+    (item) => item.approval_status === "pending"
+  );
 
   const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
     client.sendProtocolRequest(
@@ -627,32 +644,36 @@ export function PlayerCharacterSheet({
               attributeDefinitions={attributeDefinitions}
               proficiencyDefinitions={proficiencyDefinitions}
               augmentations={augmentations}
-              itemOrder={itemOrder}
-              selectedItemId={selectedItemId}
-              selectedItem={selectedItem}
+              itemOrder={inventoryCatalogOrder}
+              selectedItemId={inventorySelectedItemId}
+              selectedItem={inventorySelectedItem}
               equipment={equipment}
               currentCarriedWeight={detail.persistentSheet.current_carried_weight ?? 0}
               carryWeightLimit={detail.stats.carry_weight ?? 0}
               canManageInventory={canManageEquipment}
+              canEditInventory={canEditEquipment}
               canToggleEquipped
               onSelectedItemIdChange={setSelectedItemId}
               onAddSelectedItem={() => {
-                if (!selectedItem) {
+                if (!inventorySelectedItem) {
                   return;
                 }
 
-                const relationshipId = makeId("item_bridge");
                 client.sendProtocolRequest(
-                  buildAttachInstancedSheetItemRequest({
-                    instanceId: detail.instance.id,
-                    bridge: {
-                      relationship_id: relationshipId,
-                      item_id: selectedItem.id,
-                      count: 1,
-                      equipped: false,
-                      parent_container_id: null
-                    }
-                  }),
+                  mode === "gm"
+                    ? buildAttachInstancedSheetItemRequest({
+                        instanceId: detail.instance.id,
+                        bridge: {
+                          relationship_id: makeId("item_bridge"),
+                          item_id: inventorySelectedItem.id,
+                          count: 1,
+                          equipped: false,
+                          parent_container_id: null
+                        }
+                      })
+                    : buildAddPlayerInventoryItemRequest({
+                        itemId: inventorySelectedItem.id
+                      }),
                   "Add equipment"
                 );
               }}
@@ -692,14 +713,27 @@ export function PlayerCharacterSheet({
               }}
               onRemoveInventoryItem={(relationshipId) => {
                 client.sendProtocolRequest(
-                  buildDetachInstancedSheetItemRequest({
-                    instanceId: detail.instance.id,
-                    relationshipId
-                  }),
+                  mode === "gm"
+                    ? buildDetachInstancedSheetItemRequest({
+                        instanceId: detail.instance.id,
+                        relationshipId
+                      })
+                    : buildRemovePlayerInventoryItemRequest({ relationshipId }),
                   "Remove equipment"
                 );
               }}
             />
+            {mode === "player" ? (
+              <PlayerItemProposalForm
+                pendingItems={pendingPlayerItems}
+                onSubmit={(item) =>
+                  client.sendProtocolRequest(
+                    buildSubmitPlayerItemRequest({ item }),
+                    `Propose item: ${item.name}`
+                  )
+                }
+              />
+            ) : null}
           </div>
         ) : null}
 

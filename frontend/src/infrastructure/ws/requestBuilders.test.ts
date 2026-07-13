@@ -5,6 +5,7 @@ import {
 } from "@/generated/backendProtocol";
 import {
   buildAuthenticateRequest,
+  buildAddPlayerInventoryItemRequest,
   buildApplyInstancedSheetDamageRequest,
   buildAttachInstancedSheetAttributeRequest,
   buildAttachSheetAttributeRequest,
@@ -45,6 +46,7 @@ import {
   buildExportStateBackupRequest,
   buildRemoveActiveConditionRequest,
   buildRemoveItemAugmentationTemplateRequest,
+  buildRemovePlayerInventoryItemRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
@@ -87,9 +89,12 @@ import {
   buildSetSheetResistancesRequest,
   buildSetSheetNotesRequest,
   buildSetMobXpValueRequest,
+  buildSetMobKillVisibilityRequest,
   buildSetSheetXpRequiredRequest,
   buildRecordKillRequest,
+  buildRecordPlayerKillRequest,
   buildSpawnEncounterPresetRequest,
+  buildSubmitPlayerItemRequest,
   buildUndoLastStateChangeRequest,
   buildUpdateActionRequest,
   buildUpdateConditionPresetRequest,
@@ -106,6 +111,7 @@ import {
   buildUpdateSheetProficiencyBridgeRequest,
   buildUpdateSheetRequest,
   buildUpdateStandaloneEffectRequest,
+  buildReviewPlayerItemRequest,
   buildUpsertItemAugmentationTemplateRequest,
   type AugmentationPayload,
   type ActionDefinitionPayload,
@@ -269,6 +275,7 @@ const testSheet: SheetDefinitionPayload = {
 };
 
 const requestBuilderByType = {
+  add_player_inventory_item: buildAddPlayerInventoryItemRequest,
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
   allocate_instanced_sheet_stat_points: buildAllocateInstancedSheetStatPointsRequest,
   apply_instanced_sheet_damage: buildApplyInstancedSheetDamageRequest,
@@ -328,8 +335,11 @@ const requestBuilderByType = {
   move_instanced_sheet_item: buildMoveInstancedSheetItemRequest,
   perform_action: buildPerformActionRequest,
   record_kill: buildRecordKillRequest,
+  record_player_kill: buildRecordPlayerKillRequest,
   remove_active_condition: buildRemoveActiveConditionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
+  remove_player_inventory_item: buildRemovePlayerInventoryItemRequest,
+  review_player_item: buildReviewPlayerItemRequest,
   reset_instanced_sheet_attribute_value: buildResetInstancedSheetAttributeValueRequest,
   reset_sheet_attribute_value: buildResetSheetAttributeValueRequest,
   reset_subject_attribute_value: buildResetSubjectAttributeValueRequest,
@@ -347,6 +357,7 @@ const requestBuilderByType = {
   set_instanced_sheet_unassigned_stat_points: buildSetInstancedSheetUnassignedStatPointsRequest,
   set_instanced_sheet_resource: buildSetInstancedSheetResourceRequest,
   set_mob_xp_value: buildSetMobXpValueRequest,
+  set_mob_kill_visibility: buildSetMobKillVisibilityRequest,
   set_sheet_base_stat: buildSetSheetBaseStatRequest,
   set_sheet_attribute_value: buildSetSheetAttributeValueRequest,
   set_subject_attribute_value: buildSetSubjectAttributeValueRequest,
@@ -355,6 +366,7 @@ const requestBuilderByType = {
   set_sheet_notes: buildSetSheetNotesRequest,
   set_sheet_xp_required: buildSetSheetXpRequiredRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
+  submit_player_item: buildSubmitPlayerItemRequest,
   undo_last_state_change: buildUndoLastStateChangeRequest,
   update_action: buildUpdateActionRequest,
   update_condition_preset: buildUpdateConditionPresetRequest,
@@ -415,6 +427,11 @@ describe("requestBuilders", () => {
       mob_sheet_id: "goblin",
       xp_value: 25
     });
+    expect(buildSetMobKillVisibilityRequest({ mobSheetId: "goblin", visible: true })).toEqual({
+      type: "set_mob_kill_visibility",
+      mob_sheet_id: "goblin",
+      visible: true
+    });
     expect(
       buildRecordKillRequest({
         killId: "kill_1",
@@ -430,6 +447,18 @@ describe("requestBuilders", () => {
       base_xp: null,
       occurred_at: null,
       notes: ""
+    });
+    expect(
+      buildRecordPlayerKillRequest({
+        killId: "kill_player",
+        monsterSheetId: "goblin",
+        requestId: "req-kill"
+      })
+    ).toEqual({
+      type: "record_player_kill",
+      kill_id: "kill_player",
+      monster_sheet_id: "goblin",
+      request_id: "req-kill"
     });
   });
 
@@ -981,6 +1010,43 @@ describe("requestBuilders", () => {
     expect(buildDeleteItemRequest({ itemId: "item_1" })).toEqual({
       type: "delete_item",
       item_id: "item_1"
+    });
+  });
+
+  it("builds player inventory and item review requests", () => {
+    expect(buildAddPlayerInventoryItemRequest({ itemId: "rope" })).toEqual({
+      type: "add_player_inventory_item",
+      item_id: "rope"
+    });
+    expect(
+      buildRemovePlayerInventoryItemRequest({
+        relationshipId: "rope-entry",
+        requestId: "req-remove"
+      })
+    ).toEqual({
+      type: "remove_player_inventory_item",
+      relationship_id: "rope-entry",
+      request_id: "req-remove"
+    });
+    const proposal = {
+      name: "Handmade Rope",
+      interaction_type: "inventory_only" as const,
+      category: "Gear",
+      rank: "",
+      description: "Braided during camp.",
+      world_anvil_url: "",
+      price: "2g",
+      weight: 1.5,
+      can_contain_items: false
+    };
+    expect(buildSubmitPlayerItemRequest({ item: proposal })).toEqual({
+      type: "submit_player_item",
+      item: proposal
+    });
+    expect(buildReviewPlayerItemRequest({ itemId: "proposal-1", approved: true })).toEqual({
+      type: "review_player_item",
+      item_id: "proposal-1",
+      approved: true
     });
   });
 

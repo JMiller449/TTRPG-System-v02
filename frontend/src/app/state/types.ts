@@ -94,6 +94,8 @@ export interface UIState {
   };
   roll20Bridge: {
     status: Roll20BridgeConnectionStatus;
+    bindingKey: string | null;
+    bindingLabel: string | null;
     lastCheckedAt?: string;
     lastError?: string;
   };
@@ -130,6 +132,8 @@ export type AppAction =
   | {
       type: "set_roll20_bridge_status";
       status: Roll20BridgeConnectionStatus;
+      bindingKey?: string | null;
+      bindingLabel?: string | null;
       checkedAt?: string;
       error?: string;
     }

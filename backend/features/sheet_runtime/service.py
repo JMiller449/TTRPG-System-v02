@@ -1092,9 +1092,18 @@ async def perform_action(
     _validate_action_roll_mode(action, request.roll_mode)
     steps = action.steps
 
+    bridge_binding: chat_service.Roll20BridgeBinding | None = None
     if any(isinstance(step, SendMessageStep) for step in steps):
-        if not await chat_service.roll20_chat_bridge.is_connected():
-            raise ValueError("Roll20 chat bridge is not connected.")
+        bridge_binding = chat_service.binding_for_actor(
+            actor_role=actor_role,
+            assigned_instance_id=assigned_instance_id,
+        )
+        if not await chat_service.roll20_chat_bridge.is_connected(
+            bridge_binding.key
+        ):
+            raise ValueError(
+                "Roll20 chat bridge is not connected for this user."
+            )
 
     def mutation(state: State) -> tuple[tuple[list[str], list[str], bool], list[Any]]:
         ops: list[Any] = augmentation_service.synchronize_equipment_augmentations_mutation(
@@ -1565,6 +1574,10 @@ async def perform_action(
         result: tuple[list[str], list[str], bool],
     ) -> None:
         _, messages, _ = result
+        if not messages:
+            return
+        if bridge_binding is None:
+            raise RuntimeError("Roll20 bridge binding was not resolved.")
         for message in messages:
             await chat_service.roll20_chat_bridge.send(
                 Roll20ChatMessage(
@@ -1572,6 +1585,7 @@ async def perform_action(
                     message=message,
                     request_id=request.request_id,
                 ),
+                binding_key=bridge_binding.key,
                 await_delivery=True,
             )
 

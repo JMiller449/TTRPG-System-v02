@@ -481,6 +481,10 @@ class ItemPayload(ProtocolModel):
     gm_special_properties: str = ""
     price: str
     weight: float
+    player_visible: bool = True
+    approval_status: Literal["approved", "pending"] = "approved"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
     can_contain_items: bool = False
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: Literal["weapon"] | None = None
@@ -551,6 +555,9 @@ class KillRecordPayload(ProtocolModel):
     occurred_at: str
     monster_sheet_id: str | None = None
     notes: str = ""
+    submitted_by_role: Literal["player", "dm"] = "dm"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
 
 
 class XpAdjustmentPayload(ProtocolModel):
@@ -567,6 +574,7 @@ class BackendStateSnapshotPayload(ProtocolModel):
     parties: dict[str, PartyPayload] = Field(default_factory=dict)
     kill_registry: dict[str, KillRecordPayload] = Field(default_factory=dict)
     xp_adjustments: dict[str, XpAdjustmentPayload] = Field(default_factory=dict)
+    player_kill_visibility: dict[str, bool] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)
     formulas: dict[str, FormulaDefinitionPayload] = Field(default_factory=dict)

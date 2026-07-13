@@ -29,7 +29,6 @@ type SyncState = "idle" | "syncing" | "synced" | "error";
 export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { role },
       uiState: { roll20Bridge }
     }
   } = useAppStore();
@@ -64,10 +63,11 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
 
   useEffect(() => {
     void detect();
-  }, []);
+    client.sendProtocolRequest(buildGetRoll20BridgeStatusRequest(), "Roll20 bridge status");
+  }, [client]);
 
   const syncBridge = (): void => {
-    if (role !== "gm" || !discovery) {
+    if (!discovery || !roll20Bridge.bindingKey) {
       return;
     }
     setSyncState("syncing");
@@ -80,12 +80,13 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
       }
       window.clearTimeout(responseTimer);
       unsubscribe();
-      const serviceAuthCode = event.serviceAuthCode;
       void synchronizeBridgeUserscript({
         discoveryNonce: discovery.nonce,
         endpoint: bridgeUrl,
         environment,
-        serviceAuthCode
+        bridgeAuthToken: event.bridgeAuthToken,
+        bindingKey: event.bindingKey,
+        bindingLabel: event.bindingLabel
       })
         .then((result) => {
           setDiscovery({
@@ -93,7 +94,9 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
             version: result.version,
             synchronized: true,
             environment: result.environment,
-            endpoint: result.endpoint
+            endpoint: result.endpoint,
+            bindingKey: result.bindingKey,
+            bindingLabel: result.bindingLabel
           });
           setSyncState("synced");
           client.sendProtocolRequest(buildGetRoll20BridgeStatusRequest(), "Roll20 bridge status");
@@ -127,7 +130,13 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
     );
   };
 
-  const synchronized = discovery?.synchronized === true || syncState === "synced";
+  const bindingMatches =
+    discovery?.bindingKey !== null && discovery?.bindingKey === roll20Bridge.bindingKey;
+  const synchronized =
+    discovery?.synchronized === true &&
+    discovery.endpoint === bridgeUrl &&
+    discovery.environment === environment &&
+    bindingMatches;
 
   return (
     <Panel
@@ -192,13 +201,25 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
           <section className="stack" aria-labelledby="sync-stage-title">
             <h3 id="sync-stage-title">Synchronize Bridge</h3>
             <p className="muted">
-              Userscript version {discovery?.version}. Syncing from this console replaces the active
-              endpoint and credential in the one installed userscript.
+              Userscript version {discovery?.version}. Syncing binds this browser to your current
+              user and character for Roll20 delivery.
             </p>
             <p className="muted">
               Synchronization only saves the bridge configuration and does not require Roll20 to be
               open. Roll20 status remains disconnected until an editor tab is opened or reloaded.
             </p>
+            <dl>
+              <dt>Current user</dt>
+              <dd>{roll20Bridge.bindingLabel ?? "Claim a character sheet first"}</dd>
+              <dt>Userscript binding</dt>
+              <dd>{discovery?.bindingLabel ?? "Not synchronized"}</dd>
+            </dl>
+            {discovery?.synchronized && !bindingMatches ? (
+              <p className="field-error">
+                This userscript is configured for a different user or character. Sync it again
+                before sending rolls.
+              </p>
+            ) : null}
             {synchronized ? (
               <dl>
                 <dt>Environment</dt>
@@ -212,7 +233,7 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
             <div className="inline-group">
               <button
                 className="button"
-                disabled={role !== "gm" || syncState === "syncing"}
+                disabled={!roll20Bridge.bindingKey || syncState === "syncing"}
                 onClick={syncBridge}
               >
                 {synchronized ? "Resync Bridge" : "Sync Bridge"}
@@ -238,8 +259,8 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
               </button>
             </div>
             <p className="muted">
-              Test delivery is best-effort. Open or reload the Roll20 editor after installing or
-              updating the userscript.
+              Each player and the DM must install and sync the userscript in their own browser. Open
+              or reload the Roll20 editor after installing, updating, or switching characters.
             </p>
           </section>
         )}

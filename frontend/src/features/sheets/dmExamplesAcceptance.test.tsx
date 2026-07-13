@@ -82,6 +82,7 @@ describe("DM example acceptance fixtures", () => {
         currentCarriedWeight={0}
         carryWeightLimit={10}
         canManageInventory={false}
+        canEditInventory={false}
         canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}

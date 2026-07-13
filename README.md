@@ -25,8 +25,8 @@ chat messages into Roll20 on Firefox.
 - Basic runtime support for:
   - baseline checks represented as authored actions
   - performing authored actions
-- DM-console installation and synchronization for a Violentmonkey userscript
-  that connects Roll20 editor pages to the backend
+- Per-user installation and synchronization for a Violentmonkey userscript
+  that connects each DM or claimed player sheet to Roll20
 - Roll20 chat acts as the table play log; the app is not keeping a second authoritative roll log.
 
 ## Run The Backend
@@ -143,8 +143,9 @@ through app websocket requests and the `/ws/chat` bridge only.
 
 ## Install And Sync The Firefox Userscript
 
-1. Run the backend and frontend, authenticate to the frontend as the DM, and
-   open the **Extension** tab. It immediately checks for the bridge userscript.
+1. Run the backend and frontend, authenticate, and open **Extension**. Players
+   must claim their character first. The page immediately checks for the bridge
+   userscript.
 2. If the bridge is not detected, install Violentmonkey if needed, choose
    **Install or Update Roll20 Bridge**, and approve Violentmonkey's prompt.
 3. Return to the Extension tab and choose **Reload to Activate** once after a
@@ -158,11 +159,13 @@ Local development serves the install artifact at
 `https://bossadapt.org/ttrpg/roll20-bridge.user.js` and synchronizes
 `wss://bossadapt.org/ttrpg/ws/chat`.
 
-Sync Bridge requests the service credential through a backend-enforced DM-only
-route and passes it directly to the detected userscript. The frontend does not
-render or persist it. Violentmonkey stores one active configuration; syncing
-from development or production replaces the previous endpoint and credential.
-The userscript and Roll20 interaction still run locally in Firefox.
+Sync Bridge requests a signed token scoped to the authenticated DM or claimed
+player-sheet instance and passes it directly to the detected userscript. The
+frontend does not render or persist it. Violentmonkey stores one active binding
+per browser profile; syncing after changing users, characters, or environments
+replaces that local configuration. Every player and the DM must install and
+sync the userscript in their own browser. The userscript and Roll20 interaction
+still run locally in Firefox.
 
 ## Development Notes
 
@@ -188,10 +191,12 @@ The userscript and Roll20 interaction still run locally in Firefox.
   - backend-authoritative server state comes from auth/snapshot/patch events
   - active sheet selection, page/view state, drafts, and pending UX stay frontend-local
 - Roll20 chat delivery is fail-fast:
-  - if the userscript bridge is connected, chat sends immediately
-  - if not, the backend returns an error instead of queueing messages
-  - the newest authenticated Roll20 tab is the sole active bridge, preventing
-    duplicate delivery
+  - DM-authored messages use only the DM bridge; player-authored messages use
+    only the acting claimed sheet's bridge
+  - if that user's bridge is not connected, the backend returns an error
+    instead of queueing or falling back to another user's browser
+  - the newest authenticated Roll20 tab wins only within the same binding,
+    preventing duplicate delivery while other users remain connected
 
 ## Backend-First Contract Model
 
@@ -373,8 +378,8 @@ Do not:
 ### Auth Notes
 
 - App clients authenticate as their first application message on `/ws` with a player or DM code.
-- The Violentmonkey userscript authenticates first on `/ws/chat` with the
-  synchronized service code.
+- The Violentmonkey userscript authenticates first on `/ws/chat` with a signed,
+  backend-issued token scoped to the DM or one claimed sheet instance.
 - Route-level DM requirements should be declared on `RequestRoute`.
 - Do not trust role claims from client payloads.
 - Backend auth codes are configured with `PLAYER_JOIN_CODE`, `DM_ADMIN_CODE`, and
@@ -384,7 +389,7 @@ Do not:
   Any other environment requires all three codes to be explicitly configured and distinct.
 - Optional frontend role shortcuts use `VITE_PLAYER_AUTH_TOKEN` and `VITE_DM_AUTH_TOKEN` from
   `frontend/.env.local`; compiled fallback codes are intentionally not provided.
-- Configure the Roll20 bridge through the DM console's **Extension** tab and
+- Configure each user's Roll20 bridge through their **Extension** page and
   **Sync Bridge** action; do not place `SERVICE_AUTH_CODE` in frontend state or
   userscript source.
 

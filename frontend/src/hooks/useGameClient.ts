@@ -59,7 +59,7 @@ function isRoll20BridgeUnavailableError(message: string): boolean {
 }
 
 const ROLL20_BRIDGE_SETUP_HINT =
-  "Open the DM console's Extension tab, sync the bridge, then open or reload Roll20.";
+  "Open your Extension page, sync the bridge, then open or reload Roll20.";
 
 export function buildIntentSuccessMessage(label: string): string {
   return label === "State resync" ? "State resynced." : `${label} synced.`;
@@ -185,6 +185,7 @@ export function useGameClient(): GameClient {
         // (not incremental) resync so the redaction re-runs against the new
         // assignment instead of only replaying patches since the last version.
         client.sendProtocolRequest(buildResyncStateRequest({}));
+        client.sendProtocolRequest(buildGetRoll20BridgeStatusRequest());
         return;
       }
       if (event.type === "sheet_access_codes") {
@@ -226,6 +227,8 @@ export function useGameClient(): GameClient {
         dispatch({
           type: "set_roll20_bridge_status",
           status: event.connected ? "connected" : "disconnected",
+          bindingKey: event.bindingKey,
+          bindingLabel: event.bindingLabel,
           checkedAt: new Date().toISOString()
         });
         if (event.connected) {

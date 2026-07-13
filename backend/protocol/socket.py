@@ -45,9 +45,13 @@ from backend.features.sheet_admin.formulas.schema import (
     UpdateFormula,
 )
 from backend.features.sheet_admin.items.schema import (
+    AddPlayerInventoryItem,
     CreateItem,
     DeleteItem,
+    RemovePlayerInventoryItem,
     RemoveItemAugmentationTemplate,
+    ReviewPlayerItem,
+    SubmitPlayerItem,
     UpdateItem,
     UpsertItemAugmentationTemplate,
 )
@@ -105,8 +109,10 @@ from backend.features.xp_tracker.schema import (
     DeleteXpAdjustment,
     GetXpTracker,
     RecordKill,
+    RecordPlayerKill,
     SaveParty,
     SaveXpAdjustment,
+    SetMobKillVisibility,
     SetMobXpValue,
     SetSheetXpRequired,
     UpdateKill,
@@ -174,13 +180,17 @@ class ActionExecutedEvent(ProtocolModel):
 class Roll20BridgeStatusEvent(ProtocolModel):
     response_id: str | None = None
     connected: bool
+    binding_key: str | None = None
+    binding_label: str | None = None
     type: Literal["roll20_bridge_status"] = "roll20_bridge_status"
     request_id: str | None = None
 
 
 class Roll20BridgeSyncConfigEvent(ProtocolModel):
     response_id: str | None = None
-    service_auth_code: str = Field(min_length=1)
+    bridge_auth_token: str = Field(min_length=1)
+    binding_key: str = Field(min_length=1)
+    binding_label: str = Field(min_length=1)
     type: Literal["roll20_bridge_sync_config"] = "roll20_bridge_sync_config"
     request_id: str | None = None
 
@@ -410,6 +420,9 @@ class XpTrackerKillEvent(ProtocolModel):
     occurred_at: str
     monster_sheet_id: str | None = None
     notes: str = ""
+    submitted_by_role: Literal["player", "dm"] = "dm"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
 
 
 class XpTrackerAdjustmentEvent(ProtocolModel):
@@ -436,6 +449,12 @@ class XpTrackerMobEvent(ProtocolModel):
     sheet_id: str
     name: str
     xp_value: float
+    visible_to_players: bool
+
+
+class XpTrackerRecordableMobEvent(ProtocolModel):
+    sheet_id: str
+    name: str
 
 
 class XpTrackerEvent(ProtocolModel):
@@ -446,6 +465,7 @@ class XpTrackerEvent(ProtocolModel):
     kills: list[XpTrackerKillEvent]
     adjustments: list[XpTrackerAdjustmentEvent]
     mobs: list[XpTrackerMobEvent]
+    recordable_mobs: list[XpTrackerRecordableMobEvent]
     type: Literal["xp_tracker"] = "xp_tracker"
     request_id: str | None = None
 
@@ -511,6 +531,10 @@ ApplicationRequest = Annotated[
     | DeleteSheetProficiencyBridge
     | UpsertItemAugmentationTemplate
     | RemoveItemAugmentationTemplate
+    | AddPlayerInventoryItem
+    | RemovePlayerInventoryItem
+    | SubmitPlayerItem
+    | ReviewPlayerItem
     | AllocateInstancedSheetStatPoints
     | SetSheetBaseStat
     | SetInstancedSheetBaseStat
@@ -534,9 +558,11 @@ ApplicationRequest = Annotated[
     | GetXpTracker
     | SetSheetXpRequired
     | SetMobXpValue
+    | SetMobKillVisibility
     | SaveParty
     | DeleteParty
     | RecordKill
+    | RecordPlayerKill
     | UpdateKill
     | DeleteKill
     | SaveXpAdjustment

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from backend.core.transport import RequestModel, ResponseModel
 
@@ -22,6 +22,12 @@ class SetMobXpValue(RequestModel):
     mob_sheet_id: str = Field(min_length=1)
     xp_value: float = Field(ge=0)
     type: Literal["set_mob_xp_value"]
+
+
+class SetMobKillVisibility(RequestModel):
+    mob_sheet_id: str = Field(min_length=1)
+    visible: bool
+    type: Literal["set_mob_kill_visibility"]
 
 
 class SaveParty(RequestModel):
@@ -45,6 +51,14 @@ class RecordKill(RequestModel):
     occurred_at: str | None = None
     notes: str = ""
     type: Literal["record_kill"]
+
+
+class RecordPlayerKill(RequestModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kill_id: str = Field(min_length=1)
+    monster_sheet_id: str = Field(min_length=1)
+    type: Literal["record_player_kill"]
 
 
 class UpdateKill(RequestModel):
@@ -108,6 +122,9 @@ class XpTrackerKill:
     occurred_at: str
     monster_sheet_id: str | None = None
     notes: str = ""
+    submitted_by_role: Literal["player", "dm"] = "dm"
+    submitted_by_instance_id: str | None = None
+    submitted_by_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +154,13 @@ class XpTrackerMob:
     sheet_id: str
     name: str
     xp_value: float
+    visible_to_players: bool
+
+
+@dataclass(frozen=True)
+class XpTrackerRecordableMob:
+    sheet_id: str
+    name: str
 
 
 @dataclass
@@ -147,5 +171,6 @@ class XpTracker(ResponseModel):
     kills: list[XpTrackerKill]
     adjustments: list[XpTrackerAdjustment]
     mobs: list[XpTrackerMob]
+    recordable_mobs: list[XpTrackerRecordableMob]
     type: Literal["xp_tracker"] = "xp_tracker"
     request_id: str | None = None

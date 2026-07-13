@@ -12,12 +12,16 @@ export interface UserscriptDiscovery {
   synchronized: boolean;
   environment: "development" | "production" | null;
   endpoint: string | null;
+  bindingKey: string | null;
+  bindingLabel: string | null;
 }
 
 export interface UserscriptSyncResult {
   version: string;
   environment: "development" | "production";
   endpoint: string;
+  bindingKey: string;
+  bindingLabel: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -86,7 +90,9 @@ export function discoverBridgeUserscript(
         typeof payload.version !== "string" ||
         typeof payload.synchronized !== "boolean" ||
         !(payload.environment === null || isEnvironment(payload.environment)) ||
-        !(payload.endpoint === null || typeof payload.endpoint === "string")
+        !(payload.endpoint === null || typeof payload.endpoint === "string") ||
+        !(payload.bindingKey === null || typeof payload.bindingKey === "string") ||
+        !(payload.bindingLabel === null || typeof payload.bindingLabel === "string")
       ) {
         return;
       }
@@ -96,7 +102,9 @@ export function discoverBridgeUserscript(
         version: payload.version,
         synchronized: payload.synchronized,
         environment: payload.environment,
-        endpoint: payload.endpoint
+        endpoint: payload.endpoint,
+        bindingKey: payload.bindingKey,
+        bindingLabel: payload.bindingLabel
       });
     };
     const handleMessage = (event: MessageEvent): void => {
@@ -124,13 +132,17 @@ export function synchronizeBridgeUserscript({
   discoveryNonce,
   endpoint,
   environment,
-  serviceAuthCode,
+  bridgeAuthToken,
+  bindingKey,
+  bindingLabel,
   timeoutMs = DEFAULT_TIMEOUT_MS
 }: {
   discoveryNonce: string;
   endpoint: string;
   environment: "development" | "production";
-  serviceAuthCode: string;
+  bridgeAuthToken: string;
+  bindingKey: string;
+  bindingLabel: string;
   timeoutMs?: number;
 }): Promise<UserscriptSyncResult> {
   return new Promise((resolve, reject) => {
@@ -152,7 +164,9 @@ export function synchronizeBridgeUserscript({
         payload.type !== "synced" ||
         typeof payload.version !== "string" ||
         !isEnvironment(payload.environment) ||
-        typeof payload.endpoint !== "string"
+        typeof payload.endpoint !== "string" ||
+        typeof payload.bindingKey !== "string" ||
+        typeof payload.bindingLabel !== "string"
       ) {
         return;
       }
@@ -160,7 +174,9 @@ export function synchronizeBridgeUserscript({
       resolve({
         version: payload.version,
         environment: payload.environment,
-        endpoint: payload.endpoint
+        endpoint: payload.endpoint,
+        bindingKey: payload.bindingKey,
+        bindingLabel: payload.bindingLabel
       });
     };
     const handleMessage = (event: MessageEvent): void => {
@@ -181,7 +197,9 @@ export function synchronizeBridgeUserscript({
       nonce: discoveryNonce,
       endpoint,
       environment,
-      serviceAuthCode
+      bridgeAuthToken,
+      bindingKey,
+      bindingLabel
     });
   });
 }

@@ -30,7 +30,9 @@ describe("bridgeUserscriptChannel", () => {
             version: "1.0.1",
             synchronized: false,
             environment: null,
-            endpoint: null
+            endpoint: null,
+            bindingKey: null,
+            bindingLabel: null
           })
         })
       );
@@ -60,7 +62,9 @@ describe("bridgeUserscriptChannel", () => {
               version: "1.0.0",
               synchronized: false,
               environment: null,
-              endpoint: null
+              endpoint: null,
+              bindingKey: null,
+              bindingLabel: null
             }
           })
         );
@@ -85,7 +89,9 @@ describe("bridgeUserscriptChannel", () => {
               version: "1.0.0",
               synchronized: false,
               environment: null,
-              endpoint: null
+              endpoint: null,
+              bindingKey: null,
+              bindingLabel: null
             }
           })
         );
@@ -123,7 +129,9 @@ describe("bridgeUserscriptChannel", () => {
             version: "1.0.1",
             synchronized: true,
             environment: "development",
-            endpoint: "ws://127.0.0.1:6767/ws/chat"
+            endpoint: "ws://127.0.0.1:6767/ws/chat",
+            bindingKey: "instance:hero-1",
+            bindingLabel: "Hero"
           }
         })
       );
@@ -156,7 +164,9 @@ describe("bridgeUserscriptChannel", () => {
               nonce: request.nonce,
               version: "1.0.0",
               environment: "development",
-              endpoint: "ws://127.0.0.1:6767/ws/chat"
+              endpoint: "ws://127.0.0.1:6767/ws/chat",
+              bindingKey: "instance:hero-1",
+              bindingLabel: "Hero"
             }
           })
         );
@@ -167,18 +177,25 @@ describe("bridgeUserscriptChannel", () => {
       discoveryNonce: "nonce-1",
       endpoint: "ws://127.0.0.1:6767/ws/chat",
       environment: "development",
-      serviceAuthCode: "secret-service-code"
+      bridgeAuthToken: "signed-bridge-token",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
     });
 
     expect(posted).toContainEqual(
-      expect.objectContaining({ serviceAuthCode: "secret-service-code" })
+      expect.objectContaining({
+        bridgeAuthToken: "signed-bridge-token",
+        bindingKey: "instance:hero-1"
+      })
     );
     expect(result).toEqual({
       version: "1.0.0",
       environment: "development",
-      endpoint: "ws://127.0.0.1:6767/ws/chat"
+      endpoint: "ws://127.0.0.1:6767/ws/chat",
+      bindingKey: "instance:hero-1",
+      bindingLabel: "Hero"
     });
-    expect(result).not.toHaveProperty("serviceAuthCode");
+    expect(result).not.toHaveProperty("bridgeAuthToken");
   });
 
   it("returns null when no userscript answers discovery", async () => {

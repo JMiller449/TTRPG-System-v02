@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Literal
 
 from backend.features.session.models import SessionRole
 from backend.features.state_sync.service import state_sync_service
@@ -12,6 +13,7 @@ from backend.features.xp_tracker.schema import (
     XpTrackerMob,
     XpTrackerParty,
     XpTrackerPartyMember,
+    XpTrackerRecordableMob,
     XpTrackerSheet,
 )
 from backend.state.models.sheet import Sheet
@@ -76,6 +78,9 @@ def _kill_view(record: KillRecord) -> XpTrackerKill:
         xp_per_participant=record.xp_per_participant,
         occurred_at=record.occurred_at,
         notes=record.notes,
+        submitted_by_role=record.submitted_by_role,
+        submitted_by_instance_id=record.submitted_by_instance_id,
+        submitted_by_name=record.submitted_by_name,
     )
 
 
@@ -187,12 +192,17 @@ def build_xp_tracker(
                 sheet_id=sheet.id,
                 name=sheet.name,
                 xp_value=normalize_xp(sheet.xp_given_when_slayed),
+                visible_to_players=current_state.player_kill_visibility.get(
+                    sheet.id
+                )
+                is True,
             )
             for sheet in sorted(
                 (sheet for sheet in current_state.sheets.values() if sheet.dm_only),
                 key=lambda sheet: (sheet.name.casefold(), sheet.id),
             )
         ]
+        recordable_mobs = []
     else:
         if assigned_instance_id is None:
             raise PermissionError("Claim a sheet access code before viewing XP.")
@@ -207,6 +217,18 @@ def build_xp_tracker(
             adjustments = []
         parties = []
         mobs = []
+        recordable_mobs = [
+            XpTrackerRecordableMob(sheet_id=sheet.id, name=sheet.name)
+            for sheet in sorted(
+                (
+                    sheet
+                    for sheet in current_state.sheets.values()
+                    if sheet.dm_only
+                    and current_state.player_kill_visibility.get(sheet.id) is True
+                ),
+                key=lambda sheet: (sheet.name.casefold(), sheet.id),
+            )
+        ]
 
     return XpTracker(
         response_id=None,
@@ -216,6 +238,7 @@ def build_xp_tracker(
         kills=kills,
         adjustments=adjustments,
         mobs=mobs,
+        recordable_mobs=recordable_mobs,
         request_id=request_id,
     )
 
@@ -248,6 +271,28 @@ async def set_mob_xp_value(
         return None, [
             state_sync_service.set_mutation(state, path, normalize_xp(xp_value))
         ]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def set_mob_kill_visibility(
+    *, mob_sheet_id: str, visible: bool, request_id: str | None
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        mob = state.sheets.get(mob_sheet_id)
+        if mob is None or not mob.dm_only:
+            raise ValueError("Player kill visibility can only be set on DM-only sheets.")
+        path = state_sync_service.join_path(
+            "player_kill_visibility", mob_sheet_id
+        )
+        if visible:
+            if state.player_kill_visibility.get(mob_sheet_id) is True:
+                return None, []
+            return None, [state_sync_service.add_mutation(state, path, True)]
+        if mob_sheet_id not in state.player_kill_visibility:
+            return None, []
+        _, op = state_sync_service.remove_mutation(state, path)
+        return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -336,6 +381,9 @@ def _build_kill(
     occurred_at: str,
     monster_sheet_id: str | None,
     notes: str,
+    submitted_by_role: Literal["player", "dm"] = "dm",
+    submitted_by_instance_id: str | None = None,
+    submitted_by_name: str | None = None,
     existing_participants: list[KillParticipant] | None = None,
 ) -> KillRecord:
     participants = _participants(
@@ -356,7 +404,67 @@ def _build_kill(
         occurred_at=occurred_at,
         monster_sheet_id=monster_sheet_id,
         notes=notes,
+        submitted_by_role=submitted_by_role,
+        submitted_by_instance_id=submitted_by_instance_id,
+        submitted_by_name=submitted_by_name,
     )
+
+
+def _record_kill_in_state(
+    *,
+    state: State,
+    kill_id: str,
+    credited_instance_id: str,
+    monster_sheet_id: str | None,
+    monster_name: str | None,
+    base_xp: float | None,
+    occurred_at: str | None,
+    notes: str,
+    submitted_by_role: Literal["player", "dm"],
+    submitted_by_instance_id: str | None = None,
+    submitted_by_name: str | None = None,
+) -> tuple[None, list]:
+    if kill_id in state.kill_registry:
+        raise ValueError(f"Kill '{kill_id}' already exists.")
+    _instance_name(state, credited_instance_id)
+    party = next(
+        (
+            candidate
+            for candidate in state.parties.values()
+            if credited_instance_id in candidate.member_instance_ids
+        ),
+        None,
+    )
+    participant_ids = (
+        party.member_instance_ids if party is not None else [credited_instance_id]
+    )
+    resolved_monster_name = (monster_name or "").strip()
+    resolved_base_xp = base_xp
+    if monster_sheet_id is not None:
+        monster = state.sheets.get(monster_sheet_id)
+        if monster is None or not monster.dm_only:
+            raise ValueError("Kill monster must reference a DM-only sheet.")
+        resolved_monster_name = monster.name
+        resolved_base_xp = monster.xp_given_when_slayed
+    if not resolved_monster_name:
+        raise ValueError("Monster name is required for an arbitrary kill.")
+    if resolved_base_xp is None:
+        raise ValueError("Base XP is required for an arbitrary kill.")
+    record = _build_kill(
+        state=state,
+        kill_id=kill_id,
+        monster_name=resolved_monster_name,
+        base_xp=resolved_base_xp,
+        participant_instance_ids=participant_ids,
+        occurred_at=occurred_at or _now(),
+        monster_sheet_id=monster_sheet_id,
+        notes=notes,
+        submitted_by_role=submitted_by_role,
+        submitted_by_instance_id=submitted_by_instance_id,
+        submitted_by_name=submitted_by_name,
+    )
+    path = state_sync_service.join_path("kill_registry", kill_id)
+    return None, [state_sync_service.add_mutation(state, path, record)]
 
 
 async def record_kill(
@@ -371,44 +479,45 @@ async def record_kill(
     request_id: str | None,
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
-        if kill_id in state.kill_registry:
-            raise ValueError(f"Kill '{kill_id}' already exists.")
-        _instance_name(state, credited_instance_id)
-        party = next(
-            (
-                candidate
-                for candidate in state.parties.values()
-                if credited_instance_id in candidate.member_instance_ids
-            ),
-            None,
-        )
-        participant_ids = (
-            party.member_instance_ids if party is not None else [credited_instance_id]
-        )
-        resolved_monster_name = (monster_name or "").strip()
-        resolved_base_xp = base_xp
-        if monster_sheet_id is not None:
-            monster = state.sheets.get(monster_sheet_id)
-            if monster is None or not monster.dm_only:
-                raise ValueError("Kill monster must reference a DM-only sheet.")
-            resolved_monster_name = monster.name
-            resolved_base_xp = monster.xp_given_when_slayed
-        if not resolved_monster_name:
-            raise ValueError("Monster name is required for an arbitrary kill.")
-        if resolved_base_xp is None:
-            raise ValueError("Base XP is required for an arbitrary kill.")
-        record = _build_kill(
+        return _record_kill_in_state(
             state=state,
             kill_id=kill_id,
-            monster_name=resolved_monster_name,
-            base_xp=resolved_base_xp,
-            participant_instance_ids=participant_ids,
-            occurred_at=occurred_at or _now(),
+            credited_instance_id=credited_instance_id,
             monster_sheet_id=monster_sheet_id,
+            monster_name=monster_name,
+            base_xp=base_xp,
+            occurred_at=occurred_at,
             notes=notes,
+            submitted_by_role="dm",
         )
-        path = state_sync_service.join_path("kill_registry", kill_id)
-        return None, [state_sync_service.add_mutation(state, path, record)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def record_player_kill(
+    *,
+    kill_id: str,
+    credited_instance_id: str,
+    monster_sheet_id: str,
+    request_id: str | None,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        if state.player_kill_visibility.get(monster_sheet_id) is not True:
+            raise PermissionError("That enemy is not currently available to players.")
+        submitter_name = _instance_name(state, credited_instance_id)
+        return _record_kill_in_state(
+            state=state,
+            kill_id=kill_id,
+            credited_instance_id=credited_instance_id,
+            monster_sheet_id=monster_sheet_id,
+            monster_name=None,
+            base_xp=None,
+            occurred_at=None,
+            notes="",
+            submitted_by_role="player",
+            submitted_by_instance_id=credited_instance_id,
+            submitted_by_name=submitter_name,
+        )
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -436,6 +545,11 @@ async def update_kill(
             occurred_at=occurred_at,
             monster_sheet_id=monster_sheet_id,
             notes=notes,
+            submitted_by_role=state.kill_registry[kill_id].submitted_by_role,
+            submitted_by_instance_id=state.kill_registry[
+                kill_id
+            ].submitted_by_instance_id,
+            submitted_by_name=state.kill_registry[kill_id].submitted_by_name,
             existing_participants=state.kill_registry[kill_id].participants,
         )
         path = state_sync_service.join_path("kill_registry", kill_id)

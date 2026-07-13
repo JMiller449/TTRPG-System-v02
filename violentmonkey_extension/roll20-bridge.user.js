@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        TTRPG Roll20 Chat Bridge
 // @namespace   https://bossadapt.org/ttrpg
-// @version     1.0.1
+// @version     1.1.0
 // @description Delivers TTRPG backend messages into Roll20 chat.
 // @match       https://bossadapt.org/ttrpg/*
 // @match       https://app.roll20.net/editor
@@ -20,7 +20,7 @@
 (function () {
   "use strict";
 
-  const SCRIPT_VERSION = "1.0.1";
+  const SCRIPT_VERSION = "1.1.0";
   const CHANNEL = "ttrpg-roll20-bridge";
   const REQUEST_EVENT = `${CHANNEL}:request`;
   const RESPONSE_EVENT = `${CHANNEL}:response`;
@@ -103,17 +103,34 @@
     } catch (_error) {
       return null;
     }
-    if (
-      typeof value.serviceAuthCode !== "string" ||
-      !value.serviceAuthCode.trim()
-    ) {
+    const authToken =
+      typeof value.authToken === "string"
+        ? value.authToken.trim()
+        : typeof value.serviceAuthCode === "string"
+          ? value.serviceAuthCode.trim()
+          : "";
+    const bindingKey =
+      typeof value.bindingKey === "string" && value.bindingKey.trim()
+        ? value.bindingKey.trim()
+        : value.serviceAuthCode
+          ? "dm"
+          : "";
+    const bindingLabel =
+      typeof value.bindingLabel === "string" && value.bindingLabel.trim()
+        ? value.bindingLabel.trim()
+        : bindingKey === "dm"
+          ? "DM"
+          : "";
+    if (!authToken || !bindingKey || !bindingLabel) {
       return null;
     }
 
     return {
       endpoint: parsed.endpoint,
       environment: parsed.environment,
-      serviceAuthCode: value.serviceAuthCode.trim(),
+      authToken,
+      bindingKey,
+      bindingLabel,
     };
   }
 
@@ -161,6 +178,8 @@
           synchronized: config !== null,
           environment: config ? config.environment : null,
           endpoint: config ? config.endpoint : null,
+          bindingKey: config ? config.bindingKey : null,
+          bindingLabel: config ? config.bindingLabel : null,
         });
         return;
       }
@@ -173,8 +192,12 @@
         const parsed = parseBridgeEndpoint(payload.endpoint);
         if (
           payload.environment !== parsed.environment ||
-          typeof payload.serviceAuthCode !== "string" ||
-          !payload.serviceAuthCode.trim()
+          typeof payload.bridgeAuthToken !== "string" ||
+          !payload.bridgeAuthToken.trim() ||
+          typeof payload.bindingKey !== "string" ||
+          !payload.bindingKey.trim() ||
+          typeof payload.bindingLabel !== "string" ||
+          !payload.bindingLabel.trim()
         ) {
           throw new Error("invalid_sync_payload");
         }
@@ -182,7 +205,9 @@
         const config = {
           endpoint: parsed.endpoint,
           environment: parsed.environment,
-          serviceAuthCode: payload.serviceAuthCode.trim(),
+          authToken: payload.bridgeAuthToken.trim(),
+          bindingKey: payload.bindingKey.trim(),
+          bindingLabel: payload.bindingLabel.trim(),
         };
         await GM_setValues({ [CONFIG_KEY]: config });
         activeNonce = null;
@@ -193,6 +218,8 @@
           synchronized: true,
           environment: config.environment,
           endpoint: config.endpoint,
+          bindingKey: config.bindingKey,
+          bindingLabel: config.bindingLabel,
         });
       } catch (_error) {
         activeNonce = null;
@@ -374,7 +401,7 @@
         nextSocket.send(
           JSON.stringify({
             type: "authenticate",
-            token: config.serviceAuthCode,
+            token: config.authToken,
           }),
         );
       });
@@ -462,9 +489,7 @@
       if (config) {
         connect();
       } else {
-        log(
-          "Bridge is not synchronized; use the Extension tab in the DM console",
-        );
+        log("Bridge is not synchronized; use your Extension page");
       }
     }
 
@@ -475,9 +500,7 @@
     if (config) {
       connect();
     } else {
-      log(
-        "Bridge is not synchronized; use the Extension tab in the DM console",
-      );
+      log("Bridge is not synchronized; use your Extension page");
     }
   }
 

@@ -32,12 +32,13 @@ class FakeWebSocket:
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
         if payload.get("type") == "chat_message":
-            chat_service.handle_bridge_event(
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
                 chat_service.Roll20ChatDelivery(
                     message_id=payload["message_id"],
                     success=True,
                     type="chat_delivery",
-                )
+                ),
+                websocket=self,
             )
 
     async def receive_text(self) -> str:
@@ -970,13 +971,14 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
     class RejectingBridge(FakeWebSocket):
         async def send_json(self, payload: dict) -> None:
             self.sent_messages.append(payload)
-            chat_service.handle_bridge_event(
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
                 chat_service.Roll20ChatDelivery(
                     message_id=payload["message_id"],
                     success=False,
                     reason="chat_input_failed",
                     type="chat_delivery",
-                )
+                ),
+                websocket=self,
             )
 
     async def scenario() -> None:
@@ -1019,7 +1021,10 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
             player = FakeWebSocket()
             bridge = RejectingBridge()
             await _connect_assigned_player(player)
-            await chat_service.roll20_chat_bridge.connect(bridge)
+            await chat_service.roll20_chat_bridge.connect(
+                bridge,
+                binding_key="instance:mage_instance",
+            )
 
             await handle_client_payload(
                 player,

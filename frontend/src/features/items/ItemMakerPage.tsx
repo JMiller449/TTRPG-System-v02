@@ -26,6 +26,7 @@ import {
   buildUpdateItemSubmission,
   selectOrderedItemDefinitions
 } from "@/features/items/itemMakerRequests";
+import { buildReviewPlayerItemRequest } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
@@ -59,7 +60,17 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   const requestedFormulaMetadataRef = useRef(false);
 
   const items = useMemo(
-    () => selectOrderedItemDefinitions(itemRecords, itemOrder),
+    () =>
+      selectOrderedItemDefinitions(itemRecords, itemOrder).filter(
+        (item) => item.approval_status !== "pending"
+      ),
+    [itemOrder, itemRecords]
+  );
+  const pendingPlayerItems = useMemo(
+    () =>
+      selectOrderedItemDefinitions(itemRecords, itemOrder).filter(
+        (item) => item.approval_status === "pending"
+      ),
     [itemOrder, itemRecords]
   );
   const actions = useMemo(
@@ -207,66 +218,121 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         ) : null
       }
     >
-      <CatalogEditorLayout
-        catalogLabel="Item Catalog"
-        catalog={
-          <CatalogTileGrid
-            items={items.map((item) => ({ id: item.id, name: item.name }))}
-            selectedId={editingItemId}
-            emptyMessage="No items created yet."
-            onSelect={(itemId) => {
-              const item = itemRecords[itemId];
-              if (!item) {
-                return;
-              }
-              setEditingItemId(item.id);
-              setValues(toItemEditorValues(item));
-              resetAugmentationEditor();
-            }}
-          />
-        }
-      >
-        <ItemEditorForm
-          editingItemId={editingItemId}
-          values={values}
-          onChange={setValues}
-          actions={actions}
-          attributeDefinitions={attributeDefinitions}
-          proficiencies={proficiencyRecords}
-          pending={Boolean(submittedCreateId)}
-          attributesEditor={
-            <ItemAttributesEditor
-              values={values}
-              definitions={attributeDefinitions}
-              proficiencies={proficiencyRecords}
-              metadata={actionFormulaAuthoringMetadata}
-              onChange={setValues}
-            />
-          }
-          effectEditor={
-            <ItemAugmentationTemplatePanel
-              itemName={values.name.trim() || "New equippable item"}
-              editingAugmentationId={editingAugmentationId}
-              templates={values.augmentationTemplates}
-              targetOptions={targetOptions}
-              selectorOptions={selectorOptions}
-              formulaMetadata={actionFormulaAuthoringMetadata}
-              values={augmentationValues}
-              onChange={setAugmentationValues}
-              onSubmit={submitAugmentation}
-              onCancel={resetAugmentationEditor}
-              onEdit={(augmentation) => {
-                setEditingAugmentationId(augmentation.id);
-                setAugmentationValues(toAugmentationEditorValues(augmentation));
+      <div className="stack">
+        {pendingPlayerItems.length > 0 ? (
+          <section className="stack" aria-labelledby="pending-player-items-title">
+            <div>
+              <h3 id="pending-player-items-title">Player Item Approvals</h3>
+              <p className="muted">
+                Approval publishes the item to players and adds one copy to the submitting
+                character. Denial permanently deletes the proposal.
+              </p>
+            </div>
+            <div className="list">
+              {pendingPlayerItems.map((item) => (
+                <article className="list-item list-item--block" key={item.id}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <p className="muted">
+                      Submitted by {item.submitted_by_name ?? "Unknown character"} ·{" "}
+                      {item.category || "Uncategorized"} · {item.weight} lb
+                    </p>
+                    {item.description ? <p>{item.description}</p> : null}
+                  </div>
+                  <div className="inline-actions">
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() =>
+                        client.sendProtocolRequest(
+                          buildReviewPlayerItemRequest({ itemId: item.id, approved: true }),
+                          `Approve item: ${item.name}`
+                        )
+                      }
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--danger"
+                      onClick={() =>
+                        client.sendProtocolRequest(
+                          buildReviewPlayerItemRequest({ itemId: item.id, approved: false }),
+                          `Deny item: ${item.name}`
+                        )
+                      }
+                    >
+                      Deny
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        <CatalogEditorLayout
+          catalogLabel="Item Catalog"
+          catalog={
+            <CatalogTileGrid
+              items={items.map((item) => ({ id: item.id, name: item.name }))}
+              selectedId={editingItemId}
+              emptyMessage="No items created yet."
+              onSelect={(itemId) => {
+                const item = itemRecords[itemId];
+                if (!item) {
+                  return;
+                }
+                setEditingItemId(item.id);
+                setValues(toItemEditorValues(item));
+                resetAugmentationEditor();
               }}
-              onRemove={removeAugmentation}
             />
           }
-          onSubmit={onSubmit}
-          onCancel={startNewItem}
-          onOpenActionAuthoring={() => dispatch({ type: "set_gm_view", view: "action_authoring" })}
-        />
-      </CatalogEditorLayout>
+        >
+          <ItemEditorForm
+            editingItemId={editingItemId}
+            values={values}
+            onChange={setValues}
+            actions={actions}
+            attributeDefinitions={attributeDefinitions}
+            proficiencies={proficiencyRecords}
+            pending={Boolean(submittedCreateId)}
+            attributesEditor={
+              <ItemAttributesEditor
+                values={values}
+                definitions={attributeDefinitions}
+                proficiencies={proficiencyRecords}
+                metadata={actionFormulaAuthoringMetadata}
+                onChange={setValues}
+              />
+            }
+            effectEditor={
+              <ItemAugmentationTemplatePanel
+                itemName={values.name.trim() || "New equippable item"}
+                editingAugmentationId={editingAugmentationId}
+                templates={values.augmentationTemplates}
+                targetOptions={targetOptions}
+                selectorOptions={selectorOptions}
+                formulaMetadata={actionFormulaAuthoringMetadata}
+                values={augmentationValues}
+                onChange={setAugmentationValues}
+                onSubmit={submitAugmentation}
+                onCancel={resetAugmentationEditor}
+                onEdit={(augmentation) => {
+                  setEditingAugmentationId(augmentation.id);
+                  setAugmentationValues(toAugmentationEditorValues(augmentation));
+                }}
+                onRemove={removeAugmentation}
+              />
+            }
+            onSubmit={onSubmit}
+            onCancel={startNewItem}
+            onOpenActionAuthoring={() =>
+              dispatch({ type: "set_gm_view", view: "action_authoring" })
+            }
+          />
+        </CatalogEditorLayout>
+      </div>
     </Panel>
   );
 }

@@ -261,13 +261,19 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
       return null;
 
     case "roll20_bridge_status":
-      if (typeof payload.connected === "boolean") {
+      if (
+        typeof payload.connected === "boolean" &&
+        isNullableString(payload.binding_key) &&
+        isNullableString(payload.binding_label)
+      ) {
         return {
           response_id:
             typeof payload.response_id === "string" || payload.response_id === null
               ? payload.response_id
               : null,
           connected: payload.connected,
+          binding_key: payload.binding_key ?? null,
+          binding_label: payload.binding_label ?? null,
           type: "roll20_bridge_status",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null
@@ -278,13 +284,22 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
       return null;
 
     case "roll20_bridge_sync_config":
-      if (typeof payload.service_auth_code === "string" && payload.service_auth_code.length > 0) {
+      if (
+        typeof payload.bridge_auth_token === "string" &&
+        payload.bridge_auth_token.length > 0 &&
+        typeof payload.binding_key === "string" &&
+        payload.binding_key.length > 0 &&
+        typeof payload.binding_label === "string" &&
+        payload.binding_label.length > 0
+      ) {
         return {
           response_id:
             typeof payload.response_id === "string" || payload.response_id === null
               ? payload.response_id
               : null,
-          service_auth_code: payload.service_auth_code,
+          bridge_auth_token: payload.bridge_auth_token,
+          binding_key: payload.binding_key,
+          binding_label: payload.binding_label,
           type: "roll20_bridge_sync_config",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null
@@ -301,7 +316,8 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
         Array.isArray(payload.parties) &&
         Array.isArray(payload.kills) &&
         Array.isArray(payload.adjustments) &&
-        Array.isArray(payload.mobs)
+        Array.isArray(payload.mobs) &&
+        Array.isArray(payload.recordable_mobs)
       ) {
         return {
           response_id:
@@ -314,6 +330,7 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           kills: payload.kills as ProtocolXpTrackerEvent["kills"],
           adjustments: payload.adjustments as ProtocolXpTrackerEvent["adjustments"],
           mobs: payload.mobs as ProtocolXpTrackerEvent["mobs"],
+          recordable_mobs: payload.recordable_mobs as ProtocolXpTrackerEvent["recordable_mobs"],
           type: "xp_tracker",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null

@@ -392,6 +392,10 @@ export interface ItemDefinition {
   gm_special_properties?: string;
   price: string;
   weight: number;
+  player_visible?: boolean;
+  approval_status?: "approved" | "pending";
+  submitted_by_instance_id?: string | null;
+  submitted_by_name?: string | null;
   can_contain_items?: boolean;
   contents_weight_behavior?: "normal" | "ignored";
   attribute_profile?: "weapon" | null;

@@ -29,6 +29,7 @@ class ItemDefinitionPayload(BaseModel):
     gm_special_properties: str = ""
     price: str = ""
     weight: float = Field(default=0, ge=0, allow_inf_nan=False)
+    player_visible: bool = False
     can_contain_items: bool = False
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     attribute_profile: Literal["weapon"] | None = None
@@ -86,6 +87,47 @@ class UpdateItem(RequestModel):
 class DeleteItem(RequestModel):
     item_id: str = Field(min_length=1)
     type: Literal["delete_item"]
+
+
+class AddPlayerInventoryItem(RequestModel):
+    item_id: str = Field(min_length=1)
+    type: Literal["add_player_inventory_item"]
+
+
+class RemovePlayerInventoryItem(RequestModel):
+    relationship_id: str = Field(min_length=1)
+    type: Literal["remove_player_inventory_item"]
+
+
+class PlayerItemSubmissionPayload(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    interaction_type: Literal["equippable", "inventory_only"] = "inventory_only"
+    category: str = ""
+    rank: str = ""
+    description: str = ""
+    world_anvil_url: str = ""
+    price: str = ""
+    weight: float = Field(default=0, ge=0, allow_inf_nan=False)
+    can_contain_items: bool = False
+
+    @model_validator(mode="after")
+    def validate_name(self) -> "PlayerItemSubmissionPayload":
+        if not self.name.strip():
+            raise ValueError("Item name cannot be blank.")
+        return self
+
+
+class SubmitPlayerItem(RequestModel):
+    item: PlayerItemSubmissionPayload
+    type: Literal["submit_player_item"]
+
+
+class ReviewPlayerItem(RequestModel):
+    item_id: str = Field(min_length=1)
+    approved: bool
+    type: Literal["review_player_item"]
 
 
 class UpsertItemAugmentationTemplate(RequestModel):

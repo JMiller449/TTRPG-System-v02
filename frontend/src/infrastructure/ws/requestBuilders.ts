@@ -35,6 +35,7 @@ export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
 export type InstancedSheetResistancesPayload =
   ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
+export type PlayerItemSubmissionPayload = ProtocolRequest<"submit_player_item">["item"];
 export type AugmentationPayload =
   ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
 export type FormulaPayload = ProtocolRequest<"set_sheet_formula_stat">["formula"];
@@ -124,6 +125,22 @@ export function buildSetMobXpValueRequest({
   };
 }
 
+export function buildSetMobKillVisibilityRequest({
+  mobSheetId,
+  visible,
+  requestId
+}: {
+  mobSheetId: string;
+  visible: boolean;
+} & OptionalRequestId): ProtocolRequest<"set_mob_kill_visibility"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_mob_kill_visibility",
+    mob_sheet_id: mobSheetId,
+    visible
+  };
+}
+
 export function buildSavePartyRequest({
   partyId,
   name,
@@ -178,6 +195,22 @@ export function buildRecordKillRequest({
     base_xp: baseXp ?? null,
     occurred_at: occurredAt ?? null,
     notes: notes ?? ""
+  };
+}
+
+export function buildRecordPlayerKillRequest({
+  killId,
+  monsterSheetId,
+  requestId
+}: {
+  killId: string;
+  monsterSheetId: string;
+} & OptionalRequestId): ProtocolRequest<"record_player_kill"> {
+  return {
+    ...requestIdField(requestId),
+    type: "record_player_kill",
+    kill_id: killId,
+    monster_sheet_id: monsterSheetId
   };
 }
 
@@ -1392,6 +1425,61 @@ export function buildDeleteItemRequest({
     ...requestIdField(requestId),
     type: "delete_item",
     item_id: itemId
+  };
+}
+
+export function buildAddPlayerInventoryItemRequest({
+  itemId,
+  requestId
+}: {
+  itemId: string;
+} & OptionalRequestId): ProtocolRequest<"add_player_inventory_item"> {
+  return {
+    ...requestIdField(requestId),
+    type: "add_player_inventory_item",
+    item_id: itemId
+  };
+}
+
+export function buildRemovePlayerInventoryItemRequest({
+  relationshipId,
+  requestId
+}: {
+  relationshipId: string;
+} & OptionalRequestId): ProtocolRequest<"remove_player_inventory_item"> {
+  return {
+    ...requestIdField(requestId),
+    type: "remove_player_inventory_item",
+    relationship_id: relationshipId
+  };
+}
+
+export function buildSubmitPlayerItemRequest({
+  item,
+  requestId
+}: {
+  item: PlayerItemSubmissionPayload;
+} & OptionalRequestId): ProtocolRequest<"submit_player_item"> {
+  return {
+    ...requestIdField(requestId),
+    type: "submit_player_item",
+    item
+  };
+}
+
+export function buildReviewPlayerItemRequest({
+  itemId,
+  approved,
+  requestId
+}: {
+  itemId: string;
+  approved: boolean;
+} & OptionalRequestId): ProtocolRequest<"review_player_item"> {
+  return {
+    ...requestIdField(requestId),
+    type: "review_player_item",
+    item_id: itemId,
+    approved
   };
 }
 

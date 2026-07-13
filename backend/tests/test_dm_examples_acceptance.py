@@ -39,12 +39,13 @@ class FakeWebSocket:
     async def send_json(self, payload: dict) -> None:
         self.sent_messages.append(payload)
         if payload.get("type") == "chat_message":
-            chat_service.handle_bridge_event(
+            chat_service.roll20_chat_bridge.acknowledge_delivery(
                 chat_service.Roll20ChatDelivery(
                     message_id=payload["message_id"],
                     success=True,
                     type="chat_delivery",
-                )
+                ),
+                websocket=self,
             )
 
 

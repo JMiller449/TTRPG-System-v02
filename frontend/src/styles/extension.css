@@ -1,0 +1,320 @@
+.extension-panel > .panel__body > .stack {
+  min-height: 100%;
+}
+
+.extension-stage {
+  width: min(100%, 72rem);
+}
+
+.extension-stage--install {
+  margin: auto;
+  padding: clamp(1rem, 4vw, 3rem) 0;
+}
+
+.extension-stage__intro {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  max-width: 44rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.extension-stage__intro h3,
+.extension-stage__intro p,
+.extension-stage--sync h3,
+.extension-stage--sync > p {
+  margin: 0;
+}
+
+.extension-stage__intro h3 {
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  letter-spacing: 0.03em;
+}
+
+.extension-stage__eyebrow {
+  color: var(--r6-cyan);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.extension-install-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  counter-reset: extension-install-step;
+  list-style: none;
+}
+
+.extension-install-steps > li {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+  min-width: 0;
+  min-height: 13.5rem;
+  border: 1px solid var(--r6-line);
+  border-radius: var(--r6-radius-md, 3px);
+  padding: 1rem;
+  background: linear-gradient(145deg, rgba(8, 31, 52, 0.86), rgba(3, 18, 33, 0.78));
+  box-shadow: inset 0 0 0 1px rgba(191, 249, 255, 0.04);
+  counter-increment: extension-install-step;
+}
+
+.extension-install-steps > li::before {
+  content: counter(extension-install-step);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--r6-line);
+  border-radius: var(--r6-radius-sm, 2px);
+  color: var(--r6-cyan-soft, var(--accent-strong));
+  background: rgba(31, 168, 255, 0.1);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.extension-install-step__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  height: 100%;
+  min-width: 0;
+}
+
+.extension-install-step__content strong {
+  min-height: 2.7em;
+  line-height: 1.35;
+}
+
+.extension-install-step__hint {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.extension-install-step__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: auto;
+  text-align: center;
+  text-decoration: none;
+}
+
+.extension-install-step__outcome {
+  margin-top: auto;
+  color: var(--r6-cyan-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.extension-stage__retry {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+}
+
+.extension-stage--sync {
+  align-self: center;
+  gap: 1rem;
+  max-width: 54rem;
+  margin-block: auto;
+  border: 1px solid var(--r6-line);
+  border-radius: var(--r6-radius-md, 3px);
+  padding: clamp(1rem, 3vw, 2rem);
+  background: linear-gradient(145deg, rgba(8, 31, 52, 0.86), rgba(3, 18, 33, 0.78));
+  box-shadow: inset 0 0 0 1px rgba(191, 249, 255, 0.04);
+}
+
+.extension-sync__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--r6-line);
+}
+
+.extension-sync__header > div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.extension-sync__header h3 {
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  letter-spacing: 0.03em;
+}
+
+.extension-sync__version {
+  flex: 0 0 auto;
+  border: 1px solid var(--r6-line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.45rem 0.6rem;
+  color: var(--r6-text-muted);
+  background: rgba(31, 168, 255, 0.08);
+  font-size: 0.78rem;
+}
+
+.extension-sync__version strong {
+  color: var(--r6-cyan-soft);
+}
+
+.extension-sync__copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.extension-sync__copy p {
+  max-width: 72ch;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.extension-sync__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.extension-sync__details > div {
+  min-width: 0;
+  border-left: 2px solid var(--r6-cyan);
+  padding: 0.65rem 0.75rem;
+  background: rgba(2, 14, 27, 0.55);
+}
+
+.extension-sync__details dt {
+  color: var(--r6-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.extension-sync__details dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--r6-text);
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.extension-sync__detail--wide {
+  grid-column: 1 / -1;
+}
+
+.extension-sync__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.extension-sync__note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.75rem;
+  align-items: baseline;
+  border-top: 1px solid var(--r6-line);
+  padding-top: 0.85rem;
+}
+
+.extension-sync__note strong {
+  color: var(--r6-cyan-soft);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.extension-sync__note p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+@media (max-width: 1100px) {
+  .extension-install-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .extension-install-steps > li {
+    min-height: 12.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .extension-stage--install {
+    margin-block: 0;
+    padding-block: 0.5rem;
+  }
+
+  .extension-stage__intro {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .extension-install-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extension-install-steps > li {
+    min-height: 0;
+  }
+
+  .extension-install-steps > li::before {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .extension-install-step__content strong {
+    min-height: 0;
+  }
+
+  .extension-stage__retry {
+    align-items: stretch;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .extension-stage__retry .button {
+    width: 100%;
+  }
+
+  .extension-sync__header,
+  .extension-sync__note {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extension-sync__header {
+    flex-direction: column;
+  }
+
+  .extension-sync__version {
+    align-self: flex-start;
+  }
+
+  .extension-sync__details,
+  .extension-sync__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extension-sync__detail--wide {
+    grid-column: auto;
+  }
+
+  .extension-sync__note strong {
+    white-space: normal;
+  }
+}

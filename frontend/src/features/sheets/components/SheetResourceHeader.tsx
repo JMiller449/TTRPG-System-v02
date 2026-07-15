@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
   DISPLAY_NAMES,
@@ -36,8 +36,29 @@ export function SheetResourceHeader({
   onCancelResourceEdit: () => void;
   onResourceEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>, key: ResourceKey) => void;
 }): JSX.Element {
+  const resourceGridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editingResource) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      const activeCard = resourceGridRef.current?.querySelector(
+        `.resource-card--${editingResource}`
+      );
+      if (event.target instanceof Node && activeCard?.contains(event.target)) {
+        return;
+      }
+      onCancelResourceEdit();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [editingResource, onCancelResourceEdit]);
+
   return (
-    <div className="resource-grid resource-grid--header">
+    <div className="resource-grid resource-grid--header" ref={resourceGridRef}>
       {RESOURCE_KEYS.map((key) => {
         const baseValue = maximums[key];
         const currentValue = resources[key];
@@ -49,38 +70,38 @@ export function SheetResourceHeader({
           baseValue > 0 ? Math.max(0, Math.min(100, (currentValue / baseValue) * 100)) : 0;
         return (
           <article key={key} className={`resource-card resource-card--${key}`}>
-            <div className="resource-card__top">
-              <span className="resource-card__label">{DISPLAY_NAMES[key]}</span>
-              <button
-                type="button"
-                className="resource-card__value-btn"
-                onClick={() => onBeginResourceEdit(key)}
-                aria-label={`Edit ${DISPLAY_NAMES[key]}. Current ${currentValue} of ${baseValue}.`}
-                aria-expanded={editingResource === key}
-                aria-controls={editorId}
-              >
+            <button
+              type="button"
+              className="resource-card__trigger"
+              onClick={() => onBeginResourceEdit(key)}
+              aria-label={`Edit ${DISPLAY_NAMES[key]}. Current ${currentValue} of ${baseValue}.`}
+              aria-expanded={editingResource === key}
+              aria-controls={editorId}
+            >
+              <span className="resource-card__top">
+                <span className="resource-card__label">{DISPLAY_NAMES[key]}</span>
                 <strong
                   className={`resource-card__value ${delta > 0 ? "stat-value--up" : delta < 0 ? "stat-value--down" : ""}`}
                 >
                   {currentValue}/{baseValue}
                 </strong>
-              </button>
-            </div>
-            <span className="resource-card__meter" aria-hidden="true">
-              <span
-                className="resource-card__meter-fill"
-                style={{ "--resource-fill": `${fillPercent}%` } as CSSProperties}
-              />
-            </span>
-            {delta !== 0 ? (
-              <div className="resource-card__delta-row">
+              </span>
+              <span className="resource-card__meter" aria-hidden="true">
                 <span
-                  className={`stat-modifier ${delta > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
-                >
-                  {formatModifier(delta)}
+                  className="resource-card__meter-fill"
+                  style={{ "--resource-fill": `${fillPercent}%` } as CSSProperties}
+                />
+              </span>
+              {delta !== 0 ? (
+                <span className="resource-card__delta-row">
+                  <span
+                    className={`stat-modifier ${delta > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
+                  >
+                    {formatModifier(delta)}
+                  </span>
                 </span>
-              </div>
-            ) : null}
+              ) : null}
+            </button>
 
             {editingResource === key ? (
               <div
@@ -126,13 +147,6 @@ export function SheetResourceHeader({
                   onClick={() => onApplyResourceModifier(key)}
                 >
                   Apply
-                </button>
-                <button
-                  type="button"
-                  className="button button--secondary"
-                  onClick={onCancelResourceEdit}
-                >
-                  Cancel
                 </button>
                 {resourceEditorError ? (
                   <p className="error-text stat-editor__error" id={errorId} role="alert">

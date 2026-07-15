@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
-import { SheetDetailDisclosure } from "@/features/sheets/components/SheetDetailDisclosure";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
@@ -171,7 +170,9 @@ export function PlayerCharacterSheet({
   const showOverviewSection = activeTab === "overview";
   const showActionsSection = activeTab === "actions";
   const showInventorySection = activeTab === "inventory";
-  const showDetailsSection = activeTab === "details";
+  const showAttributesSection = activeTab === "attributes";
+  const showProficienciesSection = activeTab === "proficiencies";
+  const showKillsSection = activeTab === "kills";
   const showNotesSection = activeTab === "notes";
   const showActionHistorySection = mode === "gm" && activeTab === "action_history";
   const showFormulaStatsSection = mode === "gm" && activeTab === "formula_stats";
@@ -491,129 +492,176 @@ export function PlayerCharacterSheet({
           </div>
         ) : null}
 
-        {showDetailsSection ? (
+        {showAttributesSection ? (
           <div
-            className="character-sheet__tab-panel"
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
             role="tabpanel"
-            id="sheet-panel-details"
-            aria-labelledby="sheet-tab-details"
+            id="sheet-panel-attributes"
+            aria-labelledby="sheet-tab-attributes"
             tabIndex={0}
           >
-            <SheetDetailDisclosure
-              title="Attributes"
-              count={Object.keys(instanceAttributeBridges).length}
-            >
-              <SheetAttributesSection
-                definitions={attributeDefinitions}
-                bridges={instanceAttributeBridges}
-                canEdit={canEditStats}
-                compact={mode === "player"}
-                onSaveFormula={(attributeId, formula) => {
-                  client.sendProtocolRequest(
-                    buildSetInstancedSheetAttributeValueRequest({
-                      instanceId: detail.instance.id,
-                      attributeId,
-                      value: { type: "formula", formula }
-                    }),
-                    `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                  );
-                }}
-                onSaveValue={(attributeId, value) => {
-                  client.sendProtocolRequest(
-                    buildSetInstancedSheetAttributeValueRequest({
-                      instanceId: detail.instance.id,
-                      attributeId,
-                      value
-                    }),
-                    `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                  );
-                }}
-                onReset={(attributeId) => {
-                  client.sendProtocolRequest(
-                    buildResetInstancedSheetAttributeValueRequest({
-                      instanceId: detail.instance.id,
-                      attributeId
-                    }),
-                    `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                  );
-                }}
-                onAttach={(attributeId) => {
-                  client.sendProtocolRequest(
-                    buildAttachInstancedSheetAttributeRequest({
-                      instanceId: detail.instance.id,
-                      attributeId,
-                      relationshipId: makeId("sheet_attribute")
-                    }),
-                    `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                  );
-                }}
-                onDetach={(attributeId) => {
-                  client.sendProtocolRequest(
-                    buildDetachInstancedSheetAttributeRequest({
-                      instanceId: detail.instance.id,
-                      attributeId
-                    }),
-                    `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
-                  );
-                }}
-              />
-            </SheetDetailDisclosure>
-            <SheetDetailDisclosure title="Proficiencies" count={sheetProficiencies.length}>
-              <SheetProficienciesSection
-                proficiencyDefinitions={proficiencyDefinitions}
-                proficiencyOrder={proficiencyOrder}
-                sheetProficiencies={sheetProficiencies}
-                canEdit={canEditProficiencies}
-                onCreate={(bridge) => {
-                  client.sendProtocolRequest(
-                    buildLinkInstancedSheetProficiencyRequest({
-                      instanceId: detail.instance.id,
-                      bridge
-                    }),
-                    `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-                  );
-                }}
-                onUpdate={(relationshipId, bridge) => {
-                  client.sendProtocolRequest(
-                    buildUpdateLinkedInstancedSheetProficiencyRequest({
-                      instanceId: detail.instance.id,
-                      relationshipId,
-                      bridge
-                    }),
-                    `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
-                  );
-                }}
-                onDelete={(relationshipId) => {
-                  client.sendProtocolRequest(
-                    buildUnlinkInstancedSheetProficiencyRequest({
-                      instanceId: detail.instance.id,
-                      relationshipId
-                    }),
-                    "Remove proficiency"
-                  );
-                }}
-              />
-            </SheetDetailDisclosure>
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Character configuration</span>
+                <h3>Attributes</h3>
+              </div>
+              <p className="muted">
+                Review attached attributes and their current authoritative values.
+              </p>
+            </header>
+            <SheetAttributesSection
+              definitions={attributeDefinitions}
+              bridges={instanceAttributeBridges}
+              canEdit={canEditStats}
+              pageLayout
+              onSaveFormula={(attributeId, formula) => {
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetAttributeValueRequest({
+                    instanceId: detail.instance.id,
+                    attributeId,
+                    value: { type: "formula", formula }
+                  }),
+                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                );
+              }}
+              onSaveValue={(attributeId, value) => {
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetAttributeValueRequest({
+                    instanceId: detail.instance.id,
+                    attributeId,
+                    value
+                  }),
+                  `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                );
+              }}
+              onReset={(attributeId) => {
+                client.sendProtocolRequest(
+                  buildResetInstancedSheetAttributeValueRequest({
+                    instanceId: detail.instance.id,
+                    attributeId
+                  }),
+                  `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                );
+              }}
+              onAttach={(attributeId) => {
+                client.sendProtocolRequest(
+                  buildAttachInstancedSheetAttributeRequest({
+                    instanceId: detail.instance.id,
+                    attributeId,
+                    relationshipId: makeId("sheet_attribute")
+                  }),
+                  `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                );
+              }}
+              onDetach={(attributeId) => {
+                client.sendProtocolRequest(
+                  buildDetachInstancedSheetAttributeRequest({
+                    instanceId: detail.instance.id,
+                    attributeId
+                  }),
+                  `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                );
+              }}
+            />
+          </div>
+        ) : null}
+
+        {showProficienciesSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="tabpanel"
+            id="sheet-panel-proficiencies"
+            aria-labelledby="sheet-tab-proficiencies"
+            tabIndex={0}
+          >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Character progression</span>
+                <h3>Proficiencies</h3>
+              </div>
+              <p className="muted">Review assigned proficiencies, use counts, and growth rates.</p>
+            </header>
+            <SheetProficienciesSection
+              proficiencyDefinitions={proficiencyDefinitions}
+              proficiencyOrder={proficiencyOrder}
+              sheetProficiencies={sheetProficiencies}
+              canEdit={canEditProficiencies}
+              onCreate={(bridge) => {
+                client.sendProtocolRequest(
+                  buildLinkInstancedSheetProficiencyRequest({
+                    instanceId: detail.instance.id,
+                    bridge
+                  }),
+                  `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                );
+              }}
+              onUpdate={(relationshipId, bridge) => {
+                client.sendProtocolRequest(
+                  buildUpdateLinkedInstancedSheetProficiencyRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId,
+                    bridge
+                  }),
+                  `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                );
+              }}
+              onDelete={(relationshipId) => {
+                client.sendProtocolRequest(
+                  buildUnlinkInstancedSheetProficiencyRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId
+                  }),
+                  "Remove proficiency"
+                );
+              }}
+            />
+          </div>
+        ) : null}
+
+        {showKillsSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="tabpanel"
+            id="sheet-panel-kills"
+            aria-labelledby="sheet-tab-kills"
+            tabIndex={0}
+          >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Experience history</span>
+                <h3>Tracked Kills</h3>
+              </div>
+              <p className="muted">Record eligible enemies and review awarded experience.</p>
+            </header>
             {sheetId ? (
-              <SheetDetailDisclosure title="Tracked Kills">
-                <SheetKillsSection
-                  client={client}
-                  instanceId={detail.instance.id}
-                  sheetId={sheetId}
-                />
-              </SheetDetailDisclosure>
-            ) : null}
+              <SheetKillsSection
+                client={client}
+                instanceId={detail.instance.id}
+                sheetId={sheetId}
+              />
+            ) : (
+              <EmptyState message="No kill history is available for this character." />
+            )}
           </div>
         ) : null}
 
         {showNotesSection ? (
           <div
-            className="character-sheet__tab-panel"
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--notes"
             role="tabpanel"
             id="sheet-panel-notes"
             aria-labelledby="sheet-tab-notes"
             tabIndex={0}
           >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Character journal</span>
+                <h3>Notes</h3>
+              </div>
+              <p className="muted">
+                Keep character-specific reminders and session notes in one place.
+              </p>
+            </header>
             <SheetNotesSection
               sheetId={detail.instance.id}
               note={runtimeNote}

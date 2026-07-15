@@ -28,17 +28,32 @@ export function SheetNotesSection({
   const isDirty = draft !== note;
 
   return (
-    <section className="character-sheet__section">
-      <h4>Notes</h4>
-      <Field label="Instance Notes">
+    <section className="character-sheet__section sheet-notes-section">
+      <header className="sheet-notes-section__header">
+        <div>
+          <h4>Instance Note</h4>
+          <p className="muted">Saved with this character sheet.</p>
+        </div>
+        <span
+          className={`sheet-notes-section__status${
+            isDirty ? " sheet-notes-section__status--pending" : ""
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {isDirty ? "Unsaved changes" : "All changes saved"}
+        </span>
+      </header>
+      <Field label="Notes">
         <textarea
+          className="sheet-notes-section__editor"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          rows={5}
-          placeholder="Write quick notes here..."
+          rows={12}
+          placeholder="Record session details, character reminders, or plans..."
         />
       </Field>
-      <div className="status-row">
+      <footer className="sheet-notes-section__actions">
         <button
           className="button"
           type="button"
@@ -61,10 +76,7 @@ export function SheetNotesSection({
         >
           Reset
         </button>
-        <span className="muted" role="status" aria-live="polite">
-          {isDirty ? "Local draft pending save." : "Synced to backend."}
-        </span>
-      </div>
+      </footer>
     </section>
   );
 }

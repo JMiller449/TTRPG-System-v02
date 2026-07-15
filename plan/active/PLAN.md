@@ -89,9 +89,28 @@ Frontend:
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
 - GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across core stats or individual substats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Direct substat allocations persist as permanent bonuses and feed downstream formulas.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
+- Health and Mana expose their entire summary cards as accessible editor triggers
+  rather than limiting activation to the numeric values; their editors dismiss on
+  outside click or Escape without a redundant Cancel action.
 - Action controls execute assigned explicit actions and item-granted actions through typed `perform_action` requests.
 - Weapon action controls resolve through item-granted source items rather than direct sheet action bridges.
 - Frontend shell and navigation have been reorganized for table use: persistent session status, task-oriented player tabs, compact searchable action commands, and grouped GM workspaces.
+- Player navigation presents exactly one active destination: opening the Extension
+  tool clears the visual selection from the remembered character-sheet tab.
+- Character resistance tabs use a full-width responsive summary with separate
+  core and damage-type groups instead of inheriting the generic horizontal form columns.
+- Character inventory tabs keep the equipment list and item-proposal form in
+  stable responsive work areas, with desktop scrolling isolated to the owned-item
+  catalog instead of moving the add controls and proposal form with the list.
+- Attributes, Proficiencies, and Kills are separate full-width character-sheet
+  destinations instead of nested disclosures inside a generic Details tab, with
+  one page-level heading per destination rather than repeated section titles;
+  authoritative attributes use a bounded responsive card grid instead of stretched
+  compact Overview rows.
+- Player kill history relies on pushed websocket tracker updates after its
+  initial load and presents records in a compact responsive card grid without a manual refresh control.
+- Character notes use a full-width responsive writing workspace with an explicit
+  saved/pending state instead of inheriting the generic horizontal column layout.
 - The frontend visual system now follows the dense R6 console reference layout: an edge-to-edge status header, grouped GM rail, reserved feedback strip, compact authoritative character workspace, vertical template section rail, and reusable catalog/editor authoring pages. This was a presentation-only pivot and did not add or remove application capabilities.
 - Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
@@ -107,6 +126,12 @@ Frontend:
   ordering cannot force a refresh for an already-installed bridge.
   Configuration sync is independent of the live Roll20 editor connection;
   disconnected status is represented as state rather than a failed request.
+  The installation checklist uses responsive, self-contained step cards so its
+  controls remain separated from their labels while the workflow makes balanced
+  use of the available workspace.
+  The application status bar reports live userscript discovery as Extension
+  Connected or Extension Not Detected instead of presenting backend state sync
+  as a generic Synced badge.
   Every authenticated workspace requests its binding-specific bridge status
   immediately, then receives per-session broadcasts for connection changes.
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.

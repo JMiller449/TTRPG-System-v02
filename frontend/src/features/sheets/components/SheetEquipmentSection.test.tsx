@@ -50,6 +50,8 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain('aria-label="Equip: Sword"');
     expect(markup).toContain(">Add</button>");
     expect(markup).toContain("Carried Weight: 10 / 10 lb");
+    expect(markup).toContain('aria-label="Owned inventory items"');
+    expect(markup).toContain('tabindex="0"');
     expect(markup).not.toContain("over capacity");
     expect(markup).not.toContain("quantity value");
     expect(markup).toContain('aria-label="Remove Sword from inventory"');

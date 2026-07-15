@@ -67,4 +67,22 @@ describe("SheetAttributesSection", () => {
     expect(markup).toContain("Save Formula");
     expect(markup).toContain("Reset to Default");
   });
+
+  it("uses standalone cards without a repeated title in page layout", () => {
+    const markup = renderToStaticMarkup(
+      <SheetAttributesSection
+        definitions={definitions}
+        bridges={bridges}
+        canEdit={false}
+        pageLayout
+        onSaveFormula={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("sheet-attributes--page");
+    expect(markup).toContain('aria-label="Attribute values"');
+    expect(markup).toContain("Informational reaction amount.");
+    expect(markup).not.toContain("sheet-attributes-title");
+  });
 });

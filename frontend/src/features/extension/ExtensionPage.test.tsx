@@ -102,6 +102,10 @@ describe("ExtensionPage", () => {
     expect(steps[1]).toContain("Install the Roll20 bridge script");
     expect(steps[2]).toContain("Reload this page");
     expect(steps[3]).toContain("Log in again");
+    expect(container.querySelectorAll(".extension-install-step__action")).toHaveLength(3);
+    expect(container.querySelector(".extension-stage__retry button")?.textContent).toBe(
+      "Detect Again"
+    );
     expect(container.textContent).not.toContain("Continue");
     expect(channelMocks.discover).toHaveBeenCalledTimes(1);
   });
@@ -118,10 +122,11 @@ describe("ExtensionPage", () => {
     });
     await renderPage();
 
-    expect(container.textContent).toContain("Userscript version 1.0.0");
+    expect(container.textContent).toContain("Userscript v1.0.0");
     expect(container.textContent).toContain("ws://127.0.0.1:6767/ws/chat");
     expect(container.textContent).toContain("Resync Bridge");
-    expect(container.textContent).toContain("does not require Roll20 to be open");
+    expect(container.textContent).toContain("Roll20 can stay closed");
+    expect(container.querySelectorAll(".extension-sync__details > div")).toHaveLength(5);
     expect(container.textContent).not.toContain("SERVICE_AUTH_CODE");
   });
 

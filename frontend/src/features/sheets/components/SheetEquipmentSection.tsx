@@ -122,7 +122,7 @@ export function SheetEquipmentSection({
 }): JSX.Element {
   const overBy = Math.max(0, currentCarriedWeight - carryWeightLimit);
   return (
-    <section className="character-sheet__section">
+    <section className="character-sheet__section sheet-equipment-section">
       <div className="equipment-section__heading">
         <h4>Inventory &amp; Equipment</h4>
         <div
@@ -209,7 +209,12 @@ export function SheetEquipmentSection({
             );
           })()
         : null}
-      <div className="list">
+      <div
+        className="list sheet-equipment-section__items"
+        role="region"
+        aria-label="Owned inventory items"
+        tabIndex={0}
+      >
         {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
         {buildInventoryTree(equipment).map(({ bridge: entry, depth }) => {
           const item = items[entry.item_id];

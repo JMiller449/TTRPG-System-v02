@@ -82,6 +82,53 @@ async function renderSection(currentState: AppState = state): Promise<void> {
 }
 
 describe("SheetKillsSection player recording", () => {
+  it("loads tracker data once without exposing a redundant refresh control", async () => {
+    await renderSection();
+
+    expect(sendProtocolRequest).toHaveBeenCalledWith(
+      { type: "get_xp_tracker" },
+      "Load kill registry"
+    );
+    expect(
+      [...container.querySelectorAll("button")].some((button) => button.textContent === "Refresh")
+    ).toBe(false);
+  });
+
+  it("renders kill history as compact cards", async () => {
+    const kill = {
+      id: "kill_1",
+      monster_name: "Goblin",
+      base_xp: 20,
+      participants: [{ instance_id: "hero_1", name: "Hero" }],
+      participant_count: 1,
+      xp_percentage: 100,
+      xp_per_participant: 20,
+      occurred_at: "2026-07-14T18:00:00+00:00",
+      monster_sheet_id: "goblin",
+      notes: "",
+      submitted_by_role: "player" as const,
+      submitted_by_instance_id: "hero_1",
+      submitted_by_name: "Hero"
+    };
+    await renderSection({
+      ...state,
+      uiState: {
+        ...state.uiState,
+        xpTracker: {
+          ...tracker,
+          kills: [kill],
+          sheets: [{ ...tracker.sheets[0], kills: [kill] }]
+        }
+      }
+    });
+
+    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(1);
+    expect(container.textContent).toContain("Kill history");
+    expect(container.textContent).toContain("1 record");
+    expect(container.textContent).toContain("20 XP");
+    expect(container.textContent).toContain("100% credit");
+  });
+
   it("submits only the selected visible enemy and retains it after an error", async () => {
     await renderSection();
     sendProtocolRequest.mockClear();

@@ -94,8 +94,7 @@ export function SheetProficienciesSection({
   };
 
   return (
-    <section className="character-sheet__section">
-      <h4>Proficiencies</h4>
+    <section className="character-sheet__section" aria-label="Proficiency assignments">
       {canEdit ? (
         <div className="sheet-proficiency-add-row">
           <Field label="Proficiency">

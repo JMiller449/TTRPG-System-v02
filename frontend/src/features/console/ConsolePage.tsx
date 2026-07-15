@@ -42,6 +42,7 @@ export function ConsolePage({ role, client }: { role: Role; client: GameClient }
             <p className="nav-panel__eyebrow">Sheet Sections</p>
             <CharacterSheetTabs
               activeTab={activeTab}
+              isActive={!showExtension}
               onChange={(tab) => {
                 setActiveTab(tab);
                 setShowExtension(false);

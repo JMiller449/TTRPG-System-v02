@@ -6,7 +6,9 @@ const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = 
   { id: "actions", label: "Actions" },
   { id: "inventory", label: "Inventory" },
   { id: "resistances", label: "Resistances" },
-  { id: "details", label: "Details" },
+  { id: "attributes", label: "Attributes" },
+  { id: "proficiencies", label: "Proficiencies" },
+  { id: "kills", label: "Kills" },
   { id: "notes", label: "Notes" }
 ];
 
@@ -19,11 +21,13 @@ const GM_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
 export function CharacterSheetTabs({
   activeTab,
   onChange,
-  mode = "player"
+  mode = "player",
+  isActive = true
 }: {
   activeTab: PlayerSheetTab;
   onChange: (tab: PlayerSheetTab) => void;
   mode?: "player" | "gm";
+  isActive?: boolean;
 }): JSX.Element {
   const tabs = mode === "gm" ? GM_SHEET_TABS : PLAYER_SHEET_TABS;
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number): void => {
@@ -53,7 +57,7 @@ export function CharacterSheetTabs({
   return (
     <nav className="character-sheet__tabs" aria-label="Character sheet sections" role="tablist">
       {tabs.map((tab, index) => {
-        const selected = activeTab === tab.id;
+        const selected = isActive && activeTab === tab.id;
         return (
           <button
             key={tab.id}
@@ -62,7 +66,7 @@ export function CharacterSheetTabs({
             id={`sheet-tab-${tab.id}`}
             aria-selected={selected}
             aria-controls={`sheet-panel-${tab.id}`}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={activeTab === tab.id ? 0 : -1}
             className={`character-sheet__tab ${selected ? "character-sheet__tab--active" : ""}`}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => onTabKeyDown(event, index)}

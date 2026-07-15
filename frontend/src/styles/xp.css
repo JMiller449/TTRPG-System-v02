@@ -69,7 +69,7 @@
   grid-template-columns: minmax(12rem, 1fr) auto;
   align-items: end;
   gap: 0.65rem;
-  margin-bottom: 0.75rem;
+  margin: 0;
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 0.75rem;
@@ -164,8 +164,7 @@
 }
 
 .xp-registry-entry span,
-.xp-registry-entry p,
-.xp-kill-row span {
+.xp-registry-entry p {
   color: var(--muted);
   font-size: 0.8rem;
 }
@@ -191,16 +190,6 @@
   padding-top: 0.55rem;
 }
 
-.xp-kill-row > div,
-.xp-kill-row__award {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.xp-kill-row__award {
-  justify-items: end;
-}
-
 @media (min-width: 1100px) {
   .xp-tracker-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -215,15 +204,13 @@
 }
 
 .xp-progress-row,
-.xp-config-row,
-.xp-kill-row {
+.xp-config-row {
   border-top: 1px solid var(--line);
   padding-top: 0.7rem;
 }
 
 .xp-progress-row__header,
 .xp-config-row,
-.xp-kill-row,
 .xp-number-editor,
 .xp-kill-stepper {
   display: flex;
@@ -232,9 +219,79 @@
 }
 
 .xp-progress-row__header,
-.xp-config-row,
-.xp-kill-row {
+.xp-config-row {
   justify-content: space-between;
+}
+
+.sheet-kills-section,
+.sheet-kill-history {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.sheet-kill-history__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.55rem;
+}
+
+.sheet-kill-history__header h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sheet-kill-history__header span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.sheet-kill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.65rem;
+}
+
+.sheet-kill-card {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.7rem 0.75rem;
+  background: linear-gradient(145deg, rgba(8, 31, 52, 0.8), rgba(3, 18, 33, 0.72));
+}
+
+.sheet-kill-card__header,
+.sheet-kill-card footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.sheet-kill-card__header strong:last-child {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sheet-kill-card time,
+.sheet-kill-card__recorder,
+.sheet-kill-card footer {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.sheet-kill-card footer {
+  margin-top: 0.2rem;
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 35%);
+  padding-top: 0.4rem;
 }
 
 .xp-progress-row progress {
@@ -423,5 +480,16 @@
 
   .xp-registry-list__header input {
     width: 100%;
+  }
+
+  .sheet-kill-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-kill-card__header,
+  .sheet-kill-card footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
   }
 }

@@ -142,22 +142,33 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
     <Panel
       title="Extension"
       subtitle="Install, synchronize, and verify the Firefox Roll20 chat bridge."
+      className="extension-panel"
     >
       <div className="stack">
         {detectionState === "checking" ? (
           <p className="muted">Checking for the Roll20 bridge userscript…</p>
         ) : detectionState === "not_detected" ? (
-          <section className="stack" aria-labelledby="userscript-stage-title">
-            <h3 id="userscript-stage-title">Install Roll20 Bridge</h3>
-            <p className="muted">
-              No active bridge userscript responded. Complete these steps in order.
-            </p>
-            <ol className="stack extension-install-steps">
+          <section
+            className="stack extension-stage extension-stage--install"
+            aria-labelledby="userscript-stage-title"
+          >
+            <header className="extension-stage__intro">
+              <span className="extension-stage__eyebrow">Browser setup</span>
+              <h3 id="userscript-stage-title">Install Roll20 Bridge</h3>
+              <p className="muted">
+                No active bridge userscript responded. Complete these four steps to connect this
+                browser to Roll20.
+              </p>
+            </header>
+            <ol className="extension-install-steps">
               <li>
-                <strong>Install Violentmonkey and approve its requested permissions.</strong>
-                <div>
+                <div className="extension-install-step__content">
+                  <strong>Install Violentmonkey and approve its requested permissions.</strong>
+                  <p className="muted extension-install-step__hint">
+                    Add the Firefox extension that manages the Roll20 bridge script.
+                  </p>
                   <a
-                    className="button button--secondary"
+                    className="button button--secondary extension-install-step__action"
                     href={VIOLENTMONKEY_FIREFOX_URL}
                     target="_blank"
                     rel="noreferrer"
@@ -167,22 +178,31 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
                 </div>
               </li>
               <li>
-                <strong>Install the Roll20 bridge script.</strong>
-                <p className="muted">
-                  Violentmonkey will open the script installer. Use the Install button on the left
-                  side.
-                </p>
-                <div>
-                  <a className="button" href={installUrl} target="_blank" rel="noreferrer">
+                <div className="extension-install-step__content">
+                  <strong>Install the Roll20 bridge script.</strong>
+                  <p className="muted extension-install-step__hint">
+                    Violentmonkey will open the script installer. Use the Install button on the left
+                    side.
+                  </p>
+                  <a
+                    className="button extension-install-step__action"
+                    href={installUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Install Roll20 Bridge
                   </a>
                 </div>
               </li>
               <li>
-                <strong>Reload this page after the script is installed.</strong>
-                <div>
+                <div className="extension-install-step__content">
+                  <strong>Reload this page after the script is installed.</strong>
+                  <p className="muted extension-install-step__hint">
+                    Return to this tab and reload it so the newly installed bridge can start.
+                  </p>
                   <button
-                    className="button button--secondary"
+                    type="button"
+                    className="button button--secondary extension-install-step__action"
                     onClick={() => window.location.reload()}
                   >
                     Reload Page
@@ -190,29 +210,74 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
                 </div>
               </li>
               <li>
-                <strong>Log in again. The bridge will then appear here.</strong>
+                <div className="extension-install-step__content">
+                  <strong>Log in again. The bridge will then appear here.</strong>
+                  <p className="muted extension-install-step__hint">
+                    Use your player or DM access code, then open Extension to synchronize it.
+                  </p>
+                  <span className="extension-install-step__outcome">Ready to synchronize</span>
+                </div>
               </li>
             </ol>
-            <button className="button button--secondary" onClick={() => void detect()}>
-              Detect Again
-            </button>
+            <div className="extension-stage__retry">
+              <span className="muted">Already completed these steps?</span>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void detect()}
+              >
+                Detect Again
+              </button>
+            </div>
           </section>
         ) : (
-          <section className="stack" aria-labelledby="sync-stage-title">
-            <h3 id="sync-stage-title">Synchronize Bridge</h3>
-            <p className="muted">
-              Userscript version {discovery?.version}. Syncing binds this browser to your current
-              user and character for Roll20 delivery.
-            </p>
-            <p className="muted">
-              Synchronization only saves the bridge configuration and does not require Roll20 to be
-              open. Roll20 status remains disconnected until an editor tab is opened or reloaded.
-            </p>
-            <dl>
-              <dt>Current user</dt>
-              <dd>{roll20Bridge.bindingLabel ?? "Claim a character sheet first"}</dd>
-              <dt>Userscript binding</dt>
-              <dd>{discovery?.bindingLabel ?? "Not synchronized"}</dd>
+          <section
+            className="stack extension-stage extension-stage--sync"
+            aria-labelledby="sync-stage-title"
+          >
+            <header className="extension-sync__header">
+              <div>
+                <span className="extension-stage__eyebrow">
+                  {synchronized ? "Bridge synchronized" : "Bridge detected"}
+                </span>
+                <h3 id="sync-stage-title">Synchronize Bridge</h3>
+              </div>
+              <span className="extension-sync__version">
+                Userscript <strong>v{discovery?.version}</strong>
+              </span>
+            </header>
+            <div className="extension-sync__copy">
+              <p>Bind this browser to your current user and character for Roll20 chat delivery.</p>
+              <p className="muted">
+                Roll20 can stay closed while you synchronize. Its connection status updates after an
+                editor tab is opened or reloaded.
+              </p>
+            </div>
+            <dl className="extension-sync__details">
+              <div>
+                <dt>Current user</dt>
+                <dd>{roll20Bridge.bindingLabel ?? "Claim a character sheet first"}</dd>
+              </div>
+              <div>
+                <dt>Userscript binding</dt>
+                <dd>{discovery?.bindingLabel ?? "Not synchronized"}</dd>
+              </div>
+              {synchronized ? (
+                <>
+                  <div>
+                    <dt>Environment</dt>
+                    <dd>{discovery?.environment ?? environment}</dd>
+                  </div>
+                  <div>
+                    <dt>Roll20 status</dt>
+                    <dd>{roll20Bridge.status}</dd>
+                  </div>
+                  <div className="extension-sync__detail--wide">
+                    <dt>Endpoint</dt>
+                    <dd>{discovery?.endpoint ?? bridgeUrl}</dd>
+                  </div>
+                </>
+              ) : null}
             </dl>
             {discovery?.synchronized && !bindingMatches ? (
               <p className="field-error">
@@ -220,17 +285,7 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
                 before sending rolls.
               </p>
             ) : null}
-            {synchronized ? (
-              <dl>
-                <dt>Environment</dt>
-                <dd>{discovery?.environment ?? environment}</dd>
-                <dt>Endpoint</dt>
-                <dd>{discovery?.endpoint ?? bridgeUrl}</dd>
-                <dt>Roll20 status</dt>
-                <dd>{roll20Bridge.status}</dd>
-              </dl>
-            ) : null}
-            <div className="inline-group">
+            <div className="extension-sync__actions">
               <button
                 className="button"
                 disabled={!roll20Bridge.bindingKey || syncState === "syncing"}
@@ -258,10 +313,13 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
                 Send Test Message
               </button>
             </div>
-            <p className="muted">
-              Each player and the DM must install and sync the userscript in their own browser. Open
-              or reload the Roll20 editor after installing, updating, or switching characters.
-            </p>
+            <aside className="extension-sync__note">
+              <strong>Per-browser setup</strong>
+              <p className="muted">
+                Each player and the DM must install and sync their own userscript. Open or reload
+                Roll20 after installing, updating, or switching characters.
+              </p>
+            </aside>
           </section>
         )}
         {error ? <p className="field-error">{error}</p> : null}

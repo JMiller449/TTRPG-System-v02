@@ -37,6 +37,7 @@ export function SheetAttributesSection({
   bridges,
   canEdit,
   compact = false,
+  pageLayout = false,
   draftMode = false,
   onSaveFormula,
   onSaveValue,
@@ -51,6 +52,7 @@ export function SheetAttributesSection({
   bridges: Record<string, AttributeBridge>;
   canEdit: boolean;
   compact?: boolean;
+  pageLayout?: boolean;
   draftMode?: boolean;
   onSaveFormula: (attributeId: string, formula: Formula) => void;
   onSaveValue?: (attributeId: string, value: AttributeValue) => void;
@@ -82,15 +84,18 @@ export function SheetAttributesSection({
 
   return (
     <section
-      className={`stack sheet-attributes ${compact ? "sheet-attributes--compact" : ""}`}
-      aria-labelledby="sheet-attributes-title"
+      className={`stack sheet-attributes ${compact ? "sheet-attributes--compact" : ""} ${pageLayout ? "sheet-attributes--page" : ""}`}
+      aria-label={pageLayout ? "Attribute values" : undefined}
+      aria-labelledby={pageLayout ? undefined : "sheet-attributes-title"}
     >
-      <div>
-        <h4 id="sheet-attributes-title">{compact ? "Derived" : "Attributes"}</h4>
-        {!compact ? (
-          <p className="muted">Backend-evaluated named values for this {subjectType}.</p>
-        ) : null}
-      </div>
+      {!pageLayout ? (
+        <div>
+          <h4 id="sheet-attributes-title">{compact ? "Derived" : "Attributes"}</h4>
+          {!compact ? (
+            <p className="muted">Backend-evaluated named values for this {subjectType}.</p>
+          ) : null}
+        </div>
+      ) : null}
       {canEdit && onAttach && availableDefinitions.length > 0 ? (
         <div className="inline-actions">
           <label>

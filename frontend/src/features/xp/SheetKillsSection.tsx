@@ -105,35 +105,43 @@ export function SheetKillsSection({
           ) : null}
         </form>
       ) : null}
-      <div className="inline-actions">
-        <button
-          className="button button--secondary"
-          type="button"
-          onClick={() =>
-            client.sendProtocolRequest(buildGetXpTrackerRequest(), "Refresh kill registry")
-          }
-        >
-          Refresh
-        </button>
-      </div>
       {!trackerSheet ? <EmptyState message="Kill history has not loaded." /> : null}
       {trackerSheet?.kills.length === 0 ? <EmptyState message="No recorded kills." /> : null}
-      {trackerSheet?.kills.map((kill) => (
-        <article className="xp-kill-row" key={kill.id}>
-          <div>
-            <strong>{kill.monster_name}</strong>
-            <span>{new Date(kill.occurred_at).toLocaleString()}</span>
-            {kill.submitted_by_name ? <span>Recorded by {kill.submitted_by_name}</span> : null}
-          </div>
-          <div className="xp-kill-row__award">
-            <strong>{formatXp(kill.xp_per_participant)} XP</strong>
+      {trackerSheet && trackerSheet.kills.length > 0 ? (
+        <section className="sheet-kill-history" aria-labelledby="sheet-kill-history-title">
+          <div className="sheet-kill-history__header">
+            <h4 id="sheet-kill-history-title">Kill history</h4>
             <span>
-              {formatXp(kill.xp_percentage)}% · {kill.participant_count} participant
-              {kill.participant_count === 1 ? "" : "s"}
+              {trackerSheet.kills.length} record{trackerSheet.kills.length === 1 ? "" : "s"}
             </span>
           </div>
-        </article>
-      ))}
+          <div className="sheet-kill-grid">
+            {trackerSheet.kills.map((kill) => (
+              <article className="sheet-kill-card" key={kill.id}>
+                <div className="sheet-kill-card__header">
+                  <strong>{kill.monster_name}</strong>
+                  <strong>{formatXp(kill.xp_per_participant)} XP</strong>
+                </div>
+                <time dateTime={kill.occurred_at}>
+                  {new Date(kill.occurred_at).toLocaleString()}
+                </time>
+                {kill.submitted_by_name ? (
+                  <span className="sheet-kill-card__recorder">
+                    Recorded by {kill.submitted_by_name}
+                  </span>
+                ) : null}
+                <footer>
+                  <span>{formatXp(kill.xp_percentage)}% credit</span>
+                  <span>
+                    {kill.participant_count} participant
+                    {kill.participant_count === 1 ? "" : "s"}
+                  </span>
+                </footer>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {trackerSheet && trackerSheet.adjustments.length > 0 ? (
         <div className="xp-adjustment-list">
           <h4>XP Adjustments</h4>

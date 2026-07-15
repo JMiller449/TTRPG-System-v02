@@ -23,7 +23,10 @@ export function PlayerItemProposalForm({
   const valid = name.trim().length > 0 && Number.isFinite(parsedWeight) && parsedWeight >= 0;
 
   return (
-    <section className="character-sheet__section stack" aria-labelledby="propose-item-title">
+    <section
+      className="character-sheet__section stack player-item-proposal"
+      aria-labelledby="propose-item-title"
+    >
       <div>
         <h4 id="propose-item-title">Propose a New Item</h4>
         <p className="muted">

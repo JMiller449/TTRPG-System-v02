@@ -57,7 +57,9 @@ describe("ConsolePage player navigation", () => {
     const extensionButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Extension"
     );
+    const overviewButton = container.querySelector<HTMLButtonElement>("#sheet-tab-overview");
     expect(extensionButton).toBeDefined();
+    expect(overviewButton?.getAttribute("aria-selected")).toBe("true");
 
     await act(async () => {
       extensionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -65,5 +67,8 @@ describe("ConsolePage player navigation", () => {
 
     expect(container.querySelector('[data-testid="player-extension"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="player-sheet"]')).toBeNull();
+    expect(extensionButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(overviewButton?.getAttribute("aria-selected")).toBe("false");
+    expect(overviewButton?.classList.contains("character-sheet__tab--active")).toBe(false);
   });
 });

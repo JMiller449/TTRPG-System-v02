@@ -50,7 +50,7 @@ build-frontend: install-frontend generate-protocol
     rg -q '="/ttrpg/assets/' {{frontend_dir}}/dist/index.html
     test -f {{frontend_dir}}/dist/roll20-bridge.user.js
     head -n 1 {{frontend_dir}}/dist/roll20-bridge.user.js | rg -q '^// ==UserScript==$'
-    rg -q '^// @version[[:space:]]+1\.0\.1$' {{frontend_dir}}/dist/roll20-bridge.user.js
+    rg -q '^// @version[[:space:]]+1\.1\.0$' {{frontend_dir}}/dist/roll20-bridge.user.js
     rg -q -F '// @downloadURL https://bossadapt.org/ttrpg/roll20-bridge.user.js' {{frontend_dir}}/dist/roll20-bridge.user.js
 
 check: test-backend test-frontend lint-frontend build-frontend
@@ -193,7 +193,7 @@ verify-public:
     rg -qi '^content-type:[[:space:]]*(application|text)/(x-)?javascript' "$headers"
     rg -qi '^cache-control:.*no-cache' "$headers"
     head -n 1 "$body" | rg -q '^// ==UserScript==$'
-    rg -q '^// @version[[:space:]]+1\.0\.1$' "$body"
+    rg -q '^// @version[[:space:]]+1\.1\.0$' "$body"
     rg -q -F '// @downloadURL {{public_userscript_url}}' "$body"
     ssh {{host}} "set -a; . {{remote_env_file}}; set +a; {{backend_dir}}/backend/.venv/bin/python {{backend_dir}}/deploy/verify_websockets.py --app-url {{public_app_ws_url}} --chat-url {{public_chat_ws_url}}"
 

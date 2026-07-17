@@ -4,9 +4,9 @@ import { SheetAttributesSection } from "@/features/sheets/components/SheetAttrib
 function stepSummary(step: ActionStep): string {
   switch (step.type) {
     case "send_message":
-      return `${step.step_id}: send ${step.visibility === "gm" ? "GM" : "public"} message`;
+      return `${step.step_id}: send Roll20 message`;
     case "send_roll":
-      return `${step.step_id}: send ${step.visibility === "gm" ? "GM" : "public"} ${step.presentation ?? "default"} roll`;
+      return `${step.step_id}: send ${step.presentation ?? "default"} Roll20 roll`;
     case "calculate_value":
       return `${step.step_id}: calculate ${step.variable_id}`;
     case "set_value":

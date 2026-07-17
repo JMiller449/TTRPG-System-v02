@@ -21,11 +21,9 @@ Supported steps include:
 - application/removal of a condition preset.
 
 Step formulas may be inline, reference a global formula, or consume a value
-calculated earlier in the same execution.
-
-Each Roll20 message or roll step also owns an explicit `public` or `gm` visibility.
-Existing and newly migrated steps default to `public`; the backend, rather than
-the browser UI, applies the selected destination to the finalized message.
+calculated earlier in the same execution. Message and roll steps do not persist
+a destination: Roll20 visibility is selected by the acting user for each
+`perform_action` invocation.
 
 Structured `send_roll` steps separate a card title and one or two labeled
 formula results from Roll20 command syntax. They select `simple`, `damage`, or
@@ -55,7 +53,10 @@ emotes, narrative output, and advanced Roll20 commands.
 The frontend authoring surface is
 [`frontend/src/features/actions/`](../../frontend/src/features/actions/). The
 character action surface resolves direct assignments and eligible item grants
-into the same `perform_action` intent.
+into the same `perform_action` intent. Its execution controls collect both the
+compatible roll mode and a `public` or `gm` Roll20 visibility choice. Public is
+the request default for older clients; choosing GM affects only that invocation
+and does not rewrite the action definition.
 
 Action create/update requests remain in the editor as correlated pending saves.
 The draft is retained if the server rejects the request. On success, the editor
@@ -92,9 +93,15 @@ support normal and critical. Runtime composition applies only modes compatible
 with the action and eligible roll expression. Messages include command/sheet
 context and mode labels for the Roll20 table log.
 
+The invocation visibility is applied uniformly to every `send_message` and
+`send_roll` step after formula expansion and roll-mode processing. This ensures
+multi-output actions cannot accidentally mix authored destinations. An
+explicit advanced `/w gm` or `/gmroll` free-form command remains private even
+when the invocation selects Public.
+
 For free-form messages, after formula expansion and roll-mode transformation,
 `/r` and `/roll` output
-is normalized to Roll20 inline-roll syntax. A `gm` message is then sent as a
+is normalized to Roll20 inline-roll syntax. A GM invocation is then sent as a
 `/w gm` whisper, which supports both ordinary text and embedded `[[dice]]`
 expressions. Existing explicit `/w gm` and `/gmroll` commands are not
 double-wrapped.

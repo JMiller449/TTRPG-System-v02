@@ -35,7 +35,6 @@ class SendMessageActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["send_message"]
     message: FormulaValuePayload
-    visibility: Literal["public", "gm"] = "public"
 
 
 class RollResultPayload(BaseModel):
@@ -49,7 +48,6 @@ class SendRollActionStepPayload(BaseModel):
     title: str = Field(min_length=1)
     presentation: Literal["simple", "damage", "default"] = "default"
     rolls: list[RollResultPayload] = Field(min_length=1, max_length=2)
-    visibility: Literal["public", "gm"] = "public"
 
     @model_validator(mode="after")
     def validate_simple_roll_count(self) -> "SendRollActionStepPayload":

@@ -222,7 +222,6 @@ export function createSendMessageActionStep(
   return {
     step_id: stepId,
     type: "send_message",
-    visibility: "public",
     message: {
       aliases: null,
       text: messageText
@@ -236,7 +235,6 @@ export function createSendRollActionStep(stepId: string): SendRollEditorStep {
     type: "send_roll",
     title: "Roll",
     presentation: "simple",
-    visibility: "public",
     rolls: [{ label: "Result", value: { aliases: null, text: "1d100" } }]
   };
 }
@@ -244,29 +242,13 @@ export function createSendRollActionStep(stepId: string): SendRollEditorStep {
 export function updateSendRollActionStep(
   values: ActionEditorValues,
   stepId: string,
-  update: Partial<Pick<SendRollEditorStep, "title" | "presentation" | "visibility" | "rolls">>
+  update: Partial<Pick<SendRollEditorStep, "title" | "presentation" | "rolls">>
 ): ActionEditorValues {
   const nextValues = cloneActionEditorValues(values);
   return {
     ...nextValues,
     steps: nextValues.steps.map((step) =>
       step.step_id === stepId && step.type === "send_roll" ? { ...step, ...update } : step
-    )
-  };
-}
-
-export function updateSendMessageActionStepVisibility(
-  values: ActionEditorValues,
-  stepId: string,
-  visibility: NonNullable<SendMessageEditorStep["visibility"]>
-): ActionEditorValues {
-  const nextValues = cloneActionEditorValues(values);
-  return {
-    ...nextValues,
-    steps: nextValues.steps.map((step) =>
-      step.step_id === stepId && step.type === "send_message"
-        ? { ...step, visibility }
-        : step
     )
   };
 }

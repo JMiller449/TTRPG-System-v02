@@ -9,7 +9,6 @@ from backend.state.models.attribute import AttributeBridge
 ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
 ActionRollModeKind = Literal["none", "check", "damage"]
-ActionMessageVisibility = Literal["public", "gm"]
 Roll20RollPresentation = Literal["simple", "damage", "default"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -76,21 +75,13 @@ def _numeric_value_or_none(raw: dict, key: str) -> NumericValueSource | None:
 class SendMessageStep:
     step_id: str
     message: FormulaValueSource
-    visibility: ActionMessageVisibility = "public"
     type: Literal["send_message"] = "send_message"
-
-    def __post_init__(self) -> None:
-        if self.visibility not in ("public", "gm"):
-            raise ValueError(
-                "Roll20 message visibility must be either 'public' or 'gm'."
-            )
 
     @classmethod
     def from_dict(cls, raw: dict) -> "SendMessageStep":
         return cls(
             step_id=raw["step_id"],
             message=_formula_value_source(raw["message"]),
-            visibility=raw.get("visibility", "public"),
         )
 
 
@@ -114,7 +105,6 @@ class SendRollStep:
     title: str
     presentation: Roll20RollPresentation
     rolls: list[RollResult]
-    visibility: ActionMessageVisibility = "public"
     type: Literal["send_roll"] = "send_roll"
 
     def __post_init__(self) -> None:
@@ -122,8 +112,6 @@ class SendRollStep:
             raise ValueError("Roll titles must not be empty.")
         if self.presentation not in ("simple", "damage", "default"):
             raise ValueError("Unsupported Roll20 roll presentation.")
-        if self.visibility not in ("public", "gm"):
-            raise ValueError("Roll20 roll visibility must be either 'public' or 'gm'.")
         expected = (1, 1) if self.presentation == "simple" else (1, 2)
         if not expected[0] <= len(self.rolls) <= expected[1]:
             raise ValueError(
@@ -138,7 +126,6 @@ class SendRollStep:
             title=raw["title"],
             presentation=raw.get("presentation", "default"),
             rolls=[RollResult.from_dict(value) for value in raw["rolls"]],
-            visibility=raw.get("visibility", "public"),
         )
 
 

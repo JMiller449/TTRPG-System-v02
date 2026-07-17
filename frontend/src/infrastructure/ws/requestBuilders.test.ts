@@ -1241,6 +1241,21 @@ describe("requestBuilders", () => {
     });
   });
 
+  it("builds authored action execution requests with GM-only Roll20 output", () => {
+    expect(
+      buildPerformActionRequest({
+        sheetId: "instance_1",
+        actionId: "secret_check",
+        visibility: "gm"
+      })
+    ).toEqual({
+      type: "perform_action",
+      sheet_id: "instance_1",
+      action_id: "secret_check",
+      visibility: "gm"
+    });
+  });
+
   it("builds critical damage action execution requests", () => {
     expect(
       buildPerformActionRequest({

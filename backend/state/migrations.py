@@ -16,7 +16,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 30
+CURRENT_STATE_SCHEMA_VERSION = 31
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1808,6 +1808,25 @@ def _migrate_v29_to_v30(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 30, "state": state}
 
 
+def _migrate_v30_to_v31(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions", {})
+    if isinstance(actions, dict):
+        for action in actions.values():
+            if not isinstance(action, dict):
+                continue
+            steps = action.get("steps", [])
+            if not isinstance(steps, list):
+                continue
+            for step in steps:
+                if (
+                    isinstance(step, dict)
+                    and step.get("type") in ("send_message", "send_roll")
+                ):
+                    step.pop("visibility", None)
+    return {"schema_version": 31, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1839,6 +1858,7 @@ MIGRATIONS: dict[int, Migration] = {
     27: _migrate_v27_to_v28,
     28: _migrate_v28_to_v29,
     29: _migrate_v29_to_v30,
+    30: _migrate_v30_to_v31,
 }
 
 

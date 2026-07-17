@@ -25,7 +25,7 @@ chat messages into Roll20 on Firefox.
 - Basic runtime support for:
   - baseline checks represented as authored actions
   - performing authored actions
-  - per-message public or GM-only Roll20 delivery
+  - per-invocation public or GM-only Roll20 delivery
 - Per-user installation and synchronization for a Violentmonkey userscript
   that connects each DM or claimed player sheet to Roll20
 - Roll20 chat acts as the table play log; the app is not keeping a second authoritative roll log.

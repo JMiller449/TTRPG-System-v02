@@ -64,7 +64,6 @@ class CanonicalActionPreset:
                 "type": "send_roll",
                 "title": self.label,
                 "presentation": presentation,
-                "visibility": "public",
                 "rolls": [
                     {
                         "label": "Damage" if presentation == "damage" else "Result",

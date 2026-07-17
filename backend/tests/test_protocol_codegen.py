@@ -61,6 +61,7 @@ def test_typescript_codegen_exports_registered_request_and_event_models() -> Non
     assert "export type SendRollActionStepPayload = {" in output
     assert '"presentation"?: "simple" | "damage" | "default";' in output
     assert '"type": "send_roll";' in output
+    assert '"visibility"?: "public" | "gm";' in output
 
 
 def test_typescript_codegen_exports_route_contract_manifest() -> None:

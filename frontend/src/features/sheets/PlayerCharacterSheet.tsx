@@ -417,13 +417,14 @@ export function PlayerCharacterSheet({
                   onCreate={() => undefined}
                   onUpdate={() => undefined}
                   onDelete={() => undefined}
-                  onPerformAction={(action, rollMode) => {
+                  onPerformAction={(action, rollMode, visibility) => {
                     client.sendProtocolRequest(
                       buildPerformActionRequest({
                         sheetId: detail.instance.id,
                         actionId: action.actionId,
                         sourceItemRelationshipId: action.sourceItemRelationshipId,
-                        rollMode
+                        rollMode,
+                        visibility
                       }),
                       `Perform action: ${action.action.name}`
                     );
@@ -477,13 +478,14 @@ export function PlayerCharacterSheet({
                   "Remove action assignment"
                 );
               }}
-              onPerformAction={(action, rollMode) => {
+              onPerformAction={(action, rollMode, visibility) => {
                 client.sendProtocolRequest(
                   buildPerformActionRequest({
                     sheetId: detail.instance.id,
                     actionId: action.actionId,
                     sourceItemRelationshipId: action.sourceItemRelationshipId,
-                    rollMode
+                    rollMode,
+                    visibility
                   }),
                   `Perform action: ${action.action.name}`
                 );

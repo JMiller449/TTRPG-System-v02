@@ -27,7 +27,6 @@ import {
   updateResolveDamageActionStepFormula,
   updateSendMessageActionStepText,
   updateSendMessageActionStepFormula,
-  updateSendMessageActionStepVisibility,
   updateSendRollActionStep,
   type ActionEditorValues,
   type ResolveDamageEditorStep
@@ -462,21 +461,6 @@ export function ActionEditorForm({
                             <option value="default">Portable default</option>
                           </select>
                         </Field>
-                        <Field label="Roll20 Visibility">
-                          <select
-                            value={step.visibility ?? "public"}
-                            onChange={(event) =>
-                              onChange(
-                                updateSendRollActionStep(values, step.step_id, {
-                                  visibility: event.target.value === "gm" ? "gm" : "public"
-                                })
-                              )
-                            }
-                          >
-                            <option value="public">Public</option>
-                            <option value="gm">GM</option>
-                          </select>
-                        </Field>
                         {step.rolls.map((roll, rollIndex) => (
                           <div className="list-item list-item--block" key={`${step.step_id}-${rollIndex}`}>
                             <Field label={`Result ${rollIndex + 1} Label`}>
@@ -627,23 +611,6 @@ export function ActionEditorForm({
                         {formulaSourcePicker(step.step_id, step.message, {
                           label: `Message Source: ${step.step_id}`
                         })}
-                        <Field label="Roll20 Visibility">
-                          <select
-                            value={step.visibility ?? "public"}
-                            onChange={(event) =>
-                              onChange(
-                                updateSendMessageActionStepVisibility(
-                                  values,
-                                  step.step_id,
-                                  event.target.value === "gm" ? "gm" : "public"
-                                )
-                              )
-                            }
-                          >
-                            <option value="public">Public</option>
-                            <option value="gm">GM</option>
-                          </select>
-                        </Field>
                         {isInlineFormula(step.message) ? (
                           <>
                             <FormulaVariableInput

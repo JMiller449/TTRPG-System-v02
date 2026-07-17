@@ -39,7 +39,7 @@ describe("ActionDefinitionCard", () => {
     expect(markup).toContain("25 mana");
   });
 
-  it("identifies GM-only Roll20 message steps", () => {
+  it("describes Roll20 output without an authored visibility", () => {
     const markup = renderToStaticMarkup(
       <ActionDefinitionCard
         action={{
@@ -49,7 +49,6 @@ describe("ActionDefinitionCard", () => {
             {
               step_id: "secret_roll",
               type: "send_message",
-              visibility: "gm",
               message: { aliases: null, text: "Secret: /r 1d20" }
             }
           ]
@@ -60,6 +59,6 @@ describe("ActionDefinitionCard", () => {
       />
     );
 
-    expect(markup).toContain("secret_roll: send GM message");
+    expect(markup).toContain("secret_roll: send Roll20 message");
   });
 });

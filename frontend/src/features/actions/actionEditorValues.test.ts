@@ -53,7 +53,6 @@ import {
   updateBoundedMutationFormula,
   updateBoundedMutationSettings,
   updateSendMessageActionStepFormula,
-  updateSendMessageActionStepVisibility,
   updateSendMessageActionStepText,
   updateSendRollActionStep
 } from "@/features/actions/actionEditorValues";
@@ -135,12 +134,11 @@ function testGainProficiencyUseStep(
 }
 
 describe("actionEditorValues", () => {
-  it("authors structured Roll20 cards with presentation and GM visibility", () => {
+  it("authors structured Roll20 cards with presentation and results", () => {
     const initial = addSendRollActionStep(createEmptyActionEditorValues(), "roll_1");
     const updated = updateSendRollActionStep(initial, "roll_1", {
       title: "Greataxe",
       presentation: "damage",
-      visibility: "gm",
       rolls: [
         { label: "Slashing Damage", value: { aliases: null, text: "1d12 + 4" } },
         { label: "Rage Damage", value: { aliases: null, text: "2" } }
@@ -152,7 +150,6 @@ describe("actionEditorValues", () => {
       type: "send_roll",
       title: "Greataxe",
       presentation: "damage",
-      visibility: "gm",
       rolls: [
         { label: "Slashing Damage", value: { aliases: null, text: "1d12 + 4" } },
         { label: "Rage Damage", value: { aliases: null, text: "2" } }
@@ -238,7 +235,6 @@ describe("actionEditorValues", () => {
         {
           step_id: "step_created",
           type: "send_message",
-          visibility: "public",
           message: {
             aliases: null,
             text: ""
@@ -465,24 +461,6 @@ describe("actionEditorValues", () => {
       }
     });
     expect(result.steps[1]).toEqual(values.steps[1]);
-  });
-
-  it("updates only the selected send message visibility", () => {
-    let values = addSendMessageActionStep(createEmptyActionEditorValues(), "message_one");
-    values = addSendMessageActionStep(values, "message_two");
-
-    const result = updateSendMessageActionStepVisibility(values, "message_one", "gm");
-
-    expect(result.steps[0]).toMatchObject({
-      step_id: "message_one",
-      type: "send_message",
-      visibility: "gm"
-    });
-    expect(result.steps[1]).toMatchObject({
-      step_id: "message_two",
-      type: "send_message",
-      visibility: "public"
-    });
   });
 
   it("updates send message formula text and aliases together", () => {

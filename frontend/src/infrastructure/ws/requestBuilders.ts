@@ -49,6 +49,9 @@ export type StandaloneEffectDefinitionPayload =
   ProtocolRequest<"create_standalone_effect">["effect"];
 export type EncounterPresetPayload = ProtocolRequest<"save_encounter_preset">["encounter"];
 export type ActionRollMode = NonNullable<ProtocolRequest<"perform_action">["roll_mode"]>;
+export type ActionExecutionVisibility = NonNullable<
+  ProtocolRequest<"perform_action">["visibility"]
+>;
 export type AugmentationTargetContext = NonNullable<
   ProtocolRequest<"get_augmentation_target_metadata">["context"]
 >;
@@ -1769,6 +1772,7 @@ export function buildPerformActionRequest({
   sourceItemRelationshipId,
   targetSheetId,
   rollMode,
+  visibility,
   requestId
 }: {
   sheetId: string;
@@ -1776,6 +1780,7 @@ export function buildPerformActionRequest({
   sourceItemRelationshipId?: string | null;
   targetSheetId?: string | null;
   rollMode?: ActionRollMode;
+  visibility?: ActionExecutionVisibility;
 } & OptionalRequestId): ProtocolRequest<"perform_action"> {
   return {
     ...requestIdField(requestId),
@@ -1786,7 +1791,8 @@ export function buildPerformActionRequest({
       ? {}
       : { source_item_relationship_id: sourceItemRelationshipId }),
     ...(targetSheetId === undefined ? {} : { target_sheet_id: targetSheetId }),
-    ...(rollMode === undefined ? {} : { roll_mode: rollMode })
+    ...(rollMode === undefined ? {} : { roll_mode: rollMode }),
+    ...(visibility === undefined ? {} : { visibility })
   };
 }
 

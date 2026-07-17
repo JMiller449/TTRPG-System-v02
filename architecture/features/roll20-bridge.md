@@ -25,11 +25,12 @@ Bindings are isolated:
 - Within one binding, the newest authenticated Roll20 tab replaces the older
   connection to prevent duplicate delivery.
 
-Action message visibility is resolved before bridge delivery. Public messages
-are sent unchanged. GM-directed messages use Roll20's `/w gm <message>` syntax;
-because action rolls are normalized to inline `[[expression]]` rolls first, the
-same whisper path supports labeled rolls, unlabeled rolls, and plain text. An
-already-authored `/w gm` or `/gmroll` command is preserved.
+Action visibility is selected per `perform_action` invocation and resolved
+before bridge delivery. Public invocations are sent unchanged. GM invocations
+use Roll20's `/w gm <message>` syntax for every output step; because action
+rolls are normalized to inline `[[expression]]` rolls first, the same whisper
+path supports styled cards, labeled rolls, unlabeled rolls, and plain text. An
+explicit `/w gm` or `/gmroll` command is preserved without double wrapping.
 
 The bridge transports exact chat input and has no template-specific logic.
 Structured action rolls are composed by the backend as native

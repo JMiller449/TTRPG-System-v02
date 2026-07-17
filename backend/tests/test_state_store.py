@@ -1145,7 +1145,9 @@ def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
     )
 
     assert result.state["actions"]["weapon_parry"] == actions["weapon_parry"]
-    assert result.state["actions"]["weapon_contest"] == customized_contest
+    migrated_customized_contest = deepcopy(customized_contest)
+    migrated_customized_contest["steps"][0].pop("visibility")
+    assert result.state["actions"]["weapon_contest"] == migrated_customized_contest
 
 
 def test_v27_migration_hides_mobs_and_backfills_kill_submitters() -> None:
@@ -1200,7 +1202,7 @@ def test_v28_migration_publishes_existing_items_and_backfills_approval_metadata(
     assert item["submitted_by_name"] is None
 
 
-def test_v29_migration_defaults_existing_action_messages_to_public() -> None:
+def test_v31_migration_removes_authored_action_message_visibility() -> None:
     result = migrate_persisted_state(
         {
             "schema_version": 28,
@@ -1221,6 +1223,19 @@ def test_v29_migration_defaults_existing_action_messages_to_public() -> None:
                                 "variable_id": "result",
                                 "value": {"aliases": None, "text": "1"},
                             },
+                            {
+                                "step_id": "roll",
+                                "type": "send_roll",
+                                "title": "Legacy Roll",
+                                "presentation": "simple",
+                                "visibility": "gm",
+                                "rolls": [
+                                    {
+                                        "label": "Result",
+                                        "value": {"aliases": None, "text": "1d100"},
+                                    }
+                                ],
+                            },
                         ],
                     }
                 }
@@ -1229,8 +1244,9 @@ def test_v29_migration_defaults_existing_action_messages_to_public() -> None:
     )
 
     steps = result.state["actions"]["legacy_action"]["steps"]
-    assert steps[0]["visibility"] == "public"
+    assert "visibility" not in steps[0]
     assert "visibility" not in steps[1]
+    assert "visibility" not in steps[2]
 
 
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:

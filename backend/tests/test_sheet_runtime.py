@@ -2,7 +2,11 @@ import asyncio
 from copy import deepcopy
 from dataclasses import asdict
 
+import pytest
+from pydantic import ValidationError
+
 from backend.features.chat import service as chat_service
+from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.sheet_runtime.service import (
     _apply_roll_mode_to_message,
     _apply_roll20_message_visibility,
@@ -120,7 +124,7 @@ def test_roll_mode_transforms_only_standalone_d100_check_expressions() -> None:
     )
 
 
-def test_styled_roll_templates_support_public_and_gm_cards() -> None:
+def test_styled_roll_templates_compose_native_cards_before_visibility() -> None:
     simple = SendRollStep(
         step_id="roll",
         title="Dexterity Check",
@@ -141,7 +145,6 @@ def test_styled_roll_templates_support_public_and_gm_cards() -> None:
         step_id="roll",
         title="Greataxe",
         presentation="damage",
-        visibility="gm",
         rolls=[
             RollResult(label="Slashing Damage", value=Formula(aliases=[], text="1d12")),
             RollResult(label="Rage Damage", value=Formula(aliases=[], text="2")),
@@ -153,7 +156,7 @@ def test_styled_roll_templates_support_public_and_gm_cards() -> None:
         expressions=["1d12 + 4", "2"],
         roll_mode_label=None,
     )
-    assert message.startswith("/w gm &{template:dmg}")
+    assert message.startswith("&{template:dmg}")
     assert "{{dmg1=[[1d12 + 4]]}}" in message
     assert "{{dmg2=[[2]]}}" in message
     assert "{{charname=Grumtar}}" in message
@@ -196,6 +199,18 @@ def test_roll20_gm_visibility_formats_rolls_and_plain_messages() -> None:
     assert _apply_roll20_message_visibility("/gmroll 1d20 + 5", "gm") == (
         "/gmroll 1d20 + 5"
     )
+
+
+def test_perform_action_visibility_defaults_public_and_validates_gm() -> None:
+    base = {
+        "type": "perform_action",
+        "sheet_id": "mage",
+        "action_id": "check",
+    }
+    assert PerformAction.model_validate(base).visibility == "public"
+    assert PerformAction.model_validate({**base, "visibility": "gm"}).visibility == "gm"
+    with pytest.raises(ValidationError):
+        PerformAction.model_validate({**base, "visibility": "party"})
 
 
 def _build_sheet_state() -> Sheet:
@@ -964,14 +979,24 @@ def test_perform_action_sends_gm_only_rolls_and_plain_messages(monkeypatch) -> N
                         {
                             "step_id": "note",
                             "type": "send_message",
-                            "visibility": "gm",
                             "message": _formula_payload("The passage seems trapped."),
                         },
                         {
                             "step_id": "roll",
                             "type": "send_message",
-                            "visibility": "gm",
                             "message": _formula_payload("Trap check: /r 1d20 + 5"),
+                        },
+                        {
+                            "step_id": "styled-roll",
+                            "type": "send_roll",
+                            "title": "Secret Test",
+                            "presentation": "simple",
+                            "rolls": [
+                                {
+                                    "label": "Result",
+                                    "value": _formula_payload("1d100"),
+                                }
+                            ],
                         },
                         {
                             "step_id": "legacy-whisper",
@@ -994,12 +1019,15 @@ def test_perform_action_sends_gm_only_rolls_and_plain_messages(monkeypatch) -> N
                     "type": "perform_action",
                     "sheet_id": "mage_template",
                     "action_id": "secret_check",
+                    "visibility": "gm",
                 },
             )
 
             expected_messages = [
                 "/w gm The passage seems trapped.",
                 "/w gm Trap check: [[1d20 + 5]]",
+                "/w gm &{template:simple} {{rname=Secret Test}} "
+                "{{r1=[[1d100]]}} {{normal=1}} {{charname=Mage Template}}",
                 "/w gm Already private",
             ]
             assert [message["message"] for message in bridge_socket.sent_messages] == (

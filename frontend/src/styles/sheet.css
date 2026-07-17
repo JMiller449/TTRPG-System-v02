@@ -683,13 +683,18 @@
 
 .action-command-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(320px, 360px) minmax(220px, 300px);
+  grid-template-columns:
+    minmax(260px, 1fr)
+    minmax(320px, 360px)
+    minmax(150px, 190px)
+    minmax(220px, 300px);
   gap: 0.65rem;
   align-items: end;
 }
 
 .action-command-toolbar__primary,
-.action-command-toolbar__mode {
+.action-command-toolbar__mode,
+.action-command-toolbar__visibility {
   min-width: 0;
 }
 

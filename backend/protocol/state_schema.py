@@ -202,7 +202,6 @@ DamageTypePayload = Literal[
 class SendMessageStepPayload(ProtocolModel):
     step_id: str
     message: FormulaValuePayload
-    visibility: Literal["public", "gm"] = "public"
     type: Literal["send_message"]
 
 
@@ -216,7 +215,6 @@ class SendRollStepPayload(ProtocolModel):
     title: str
     presentation: Literal["simple", "damage", "default"] = "default"
     rolls: list[RollResultPayload]
-    visibility: Literal["public", "gm"] = "public"
     type: Literal["send_roll"]
 
 

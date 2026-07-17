@@ -69,9 +69,9 @@ Backend:
 - Encounter preset counts spawn independent copies through the same canonical instance builder as `create_instanced_sheet`, including actions, proficiencies, attributes, inventory, resistances, custom maximum-resource formulas, racial HP multiplier, stat bonuses, and authoritative starting-resource evaluation. Encounter spawning retains collision-safe IDs and does not generate player access codes.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
-- Authored Roll20 message steps select public or GM visibility. GM messages use
-  Roll20 whispers for both plain text and inline dice, and remain GM-only in
-  action-history projections.
+- Each `perform_action` invocation selects public or GM Roll20 visibility. GM
+  output uses Roll20 whispers for both plain text and styled/inline dice, and
+  remains GM-only in action-history projections.
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
@@ -283,16 +283,17 @@ No large architecture feature is currently missing for the stated character-shee
     denial deletes the proposal. Persisted schema v28 publishes existing items to preserve
     the pre-ticket catalog behavior and backfills approval metadata.
 
-- [x] Add per-message Roll20 visibility to authored actions:
-  - The Action Builder offers Public and GM destinations on every Roll20 message step.
-  - The backend formats GM destinations as `/w gm` after inline-roll and roll-mode
-    processing, covering dice rolls and ordinary messages without frontend formatting.
+- [x] Add per-invocation Roll20 visibility to action execution:
+  - Character action runners offer Public and GM Only beside the roll-mode controls;
+    the choice applies to that execution without rewriting the authored action.
+  - The backend formats GM invocations as `/w gm` after inline-roll and roll-mode
+    processing, covering every styled roll and ordinary message step uniformly.
   - GM-directed output is retained as GM-only action-history text.
-  - Persisted schema v29 backfills existing message steps as public.
+  - Persisted schema v31 removes the superseded per-step visibility introduced by v29.
 
 - [x] Add native styled Roll20 roll output to authored actions:
-  - `send_roll` steps author a title, public/GM destination, simple/damage/default
-    card presentation, and one or two labeled formula results without raw template syntax.
+  - `send_roll` steps author a title, simple/damage/default card presentation, and one or
+    two labeled formula results without raw template syntax; visibility is chosen at execution.
   - Backend composition owns formula expansion, modifiers, roll modes, actor labels,
     template safety, native Roll20 formatting, and GM whispers.
   - Baseline stat checks, Dodge, Block, weapon actions, and spell presets use styled cards.

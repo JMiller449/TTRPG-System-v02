@@ -13,6 +13,7 @@ class PerformAction(RequestModel):
     source_item_relationship_id: str | None = Field(default=None, min_length=1)
     target_sheet_id: str | None = Field(default=None, min_length=1)
     roll_mode: Literal["normal", "advantage", "disadvantage", "critical"] = "normal"
+    visibility: Literal["public", "gm"] = "public"
     type: Literal["perform_action"]
 
 

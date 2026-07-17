@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   addResolveDamageActionStep,
   addSendMessageActionStep,
@@ -115,11 +115,10 @@ describe("ActionEditorForm", () => {
     expect(markup.indexOf("Save Action")).toBeGreaterThan(markup.indexOf("long_step_23"));
   });
 
-  it("offers Public and GM visibility for Roll20 messages", async () => {
+  it("keeps execution visibility out of authored Roll20 message steps", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
-    const onChange = vi.fn();
     const values = addSendMessageActionStep(createEmptyActionEditorValues(), "message_1");
 
     await act(async () => {
@@ -127,7 +126,7 @@ describe("ActionEditorForm", () => {
         <ActionEditorForm
           editingActionId={null}
           values={values}
-          onChange={onChange}
+          onChange={() => undefined}
           onSubmit={() => undefined}
           onCancel={() => undefined}
           metadata={null}
@@ -142,29 +141,10 @@ describe("ActionEditorForm", () => {
       await Promise.resolve();
     });
 
-    const visibilityField = [...container.querySelectorAll("label")].find((label) =>
-      label.textContent?.includes("Roll20 Visibility")
-    );
-    const visibilitySelect = visibilityField?.querySelector("select");
     expect(container.textContent).not.toContain("Insert Message Variable");
     expect(container.textContent).not.toContain("Earlier Calculated Value");
     expect(container.querySelector('textarea[placeholder="Type @ to insert a variable"]')).not.toBeNull();
-    expect(visibilitySelect?.value).toBe("public");
-    expect(
-      [...(visibilitySelect?.querySelectorAll("option") ?? [])].map((option) => option.textContent)
-    ).toEqual(["Public", "GM"]);
-
-    await act(async () => {
-      if (visibilitySelect) {
-        visibilitySelect.value = "gm";
-        visibilitySelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        steps: [expect.objectContaining({ visibility: "gm" })]
-      })
-    );
+    expect(container.textContent).not.toContain("Roll20 Visibility");
 
     await act(async () => root.unmount());
   });

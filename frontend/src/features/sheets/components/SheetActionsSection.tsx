@@ -4,13 +4,18 @@ import type { ActionDefinition, AttributeDefinition } from "@/domain/models";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { actionRollModes } from "@/features/rolls/actionRollModes";
 import { RollModeControl } from "@/features/rolls/RollModeControl";
+import { ActionVisibilityControl } from "@/features/actions/components/ActionVisibilityControl";
 import {
   selectAvailableOrderedSheetActions,
   selectExplicitAssignedSheetActionIds,
   selectOrderedSheetActions,
   toSheetActionBridgePayload
 } from "@/features/sheets/sheetActions";
-import type { ActionRollMode, SheetActionBridgePayload } from "@/infrastructure/ws/requestBuilders";
+import type {
+  ActionExecutionVisibility,
+  ActionRollMode,
+  SheetActionBridgePayload
+} from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { makeId } from "@/shared/utils/id";
@@ -38,10 +43,19 @@ export function SheetActionsSection({
   onCreate: (bridge: SheetActionBridgePayload) => void;
   onUpdate: (relationshipId: string, bridge: SheetActionBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
-  onPerformAction: (action: AssignedSheetAction, rollMode: ActionRollMode) => void;
+  onPerformAction: (
+    action: AssignedSheetAction,
+    rollMode: ActionRollMode,
+    visibility: ActionExecutionVisibility
+  ) => void;
 }): JSX.Element {
   const [rollModes, setRollModes] = useState<Record<string, ActionRollMode>>({});
+  const [visibilities, setVisibilities] = useState<
+    Record<string, ActionExecutionVisibility>
+  >({});
   const [commandRollMode, setCommandRollMode] = useState<ActionRollMode>("normal");
+  const [commandVisibility, setCommandVisibility] =
+    useState<ActionExecutionVisibility>("public");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | "check" | "damage" | "item">("all");
   const [selectedActionId, setSelectedActionId] = useState("");
@@ -261,6 +275,12 @@ export function SheetActionsSection({
               onChange={setCommandRollMode}
             />
           </div>
+          <div className="action-command-toolbar__visibility">
+            <ActionVisibilityControl
+              value={commandVisibility}
+              onChange={setCommandVisibility}
+            />
+          </div>
           <Field label="Search">
             <input
               value={search}
@@ -283,8 +303,10 @@ export function SheetActionsSection({
                   key={entry.relationshipId}
                   type="button"
                   className="action-command-card"
-                  onClick={() => onPerformAction(entry, rollMode)}
-                  aria-label={`Perform ${entry.action.name} using ${rollMode} mode`}
+                  onClick={() => onPerformAction(entry, rollMode, commandVisibility)}
+                  aria-label={`Perform ${entry.action.name} using ${rollMode} mode with ${
+                    commandVisibility === "gm" ? "GM-only" : "public"
+                  } Roll20 output`}
                 >
                   <strong>{entry.action.name}</strong>
                   <span>
@@ -296,6 +318,7 @@ export function SheetActionsSection({
                   <small>
                     {entry.sourceItemName ? `${entry.sourceItemName} · ` : ""}
                     {rollMode === "normal" ? "Roll normal" : `Roll ${rollMode}`}
+                    {commandVisibility === "gm" ? " · GM only" : " · Public"}
                   </small>
                   {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
                     <span className="action-command-card__attribute-count">
@@ -350,6 +373,7 @@ export function SheetActionsSection({
           const allowedModes = actionRollModes(modeKind);
           const storedMode = rollModes[entry.relationshipId] ?? "normal";
           const rollMode = allowedModes.includes(storedMode) ? storedMode : "normal";
+          const visibility = visibilities[entry.relationshipId] ?? "public";
           const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
           const replacementOptions = entry.bridge
             ? selectAvailableOrderedSheetActions(
@@ -390,6 +414,15 @@ export function SheetActionsSection({
                 modeKind={modeKind}
                 onChange={(mode) =>
                   setRollModes((current) => ({ ...current, [entry.relationshipId]: mode }))
+                }
+              />
+              <ActionVisibilityControl
+                value={visibility}
+                onChange={(nextVisibility) =>
+                  setVisibilities((current) => ({
+                    ...current,
+                    [entry.relationshipId]: nextVisibility
+                  }))
                 }
               />
               {canEdit && entry.bridge ? (
@@ -442,7 +475,7 @@ export function SheetActionsSection({
                 <button
                   type="button"
                   className="button"
-                  onClick={() => onPerformAction(entry, rollMode)}
+                  onClick={() => onPerformAction(entry, rollMode, visibility)}
                   aria-label={`Perform ${entry.action.name}`}
                 >
                   Perform Action

@@ -90,7 +90,6 @@ export type NumericValueSource = FormulaValueSource | CalculatedValueReference;
 export interface SendMessageActionStep {
   step_id: string;
   message: FormulaValueSource;
-  visibility?: "public" | "gm";
   type: "send_message";
 }
 
@@ -104,7 +103,6 @@ export interface SendRollActionStep {
   title: string;
   presentation?: "simple" | "damage" | "default";
   rolls: RollResult[];
-  visibility?: "public" | "gm";
   type: "send_roll";
 }
 

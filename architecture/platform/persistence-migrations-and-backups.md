@@ -26,7 +26,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 30. Future-version checkpoints are rejected rather than guessed at.
+version 31. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -40,6 +40,11 @@ backfills existing steps as `public`, preserving all pre-feature behavior.
 Schema version 30 upgrades only exact built-in baseline and canonical action
 definitions from free-form Roll20 messages to structured roll cards. Any
 campaign-customized action remains untouched.
+
+Schema version 31 removes persisted visibility from Roll20 message and roll
+steps. Visibility is now invocation-local input on `perform_action`, so existing
+action definitions retain their mechanics while no longer carrying a competing
+authored destination.
 
 ## Export and import
 

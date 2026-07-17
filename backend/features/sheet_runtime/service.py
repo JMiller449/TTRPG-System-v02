@@ -143,7 +143,7 @@ def _compose_roll20_template_roll(
             for label, expression in zip(labels, expressions, strict=True)
         )
         message = " ".join(fields)
-    return _apply_roll20_message_visibility(message, step.visibility)
+    return message
 
 
 def _state() -> State:
@@ -1284,11 +1284,17 @@ async def perform_action(
                     expressions=expressions,
                     roll_mode_label=step_mode_label,
                 )
+                message = _apply_roll20_message_visibility(
+                    message,
+                    request.visibility,
+                )
                 roll_mode_applied = roll_mode_applied or step_mode_applied
                 emitted_messages.append(
                     ActionHistoryText(
                         message,
-                        visibility="gm_only" if step.visibility == "gm" else "public",
+                        visibility=(
+                            "gm_only" if _is_roll20_gm_message(message) else "public"
+                        ),
                     )
                 )
                 continue
@@ -1341,7 +1347,10 @@ async def perform_action(
                     effective_roll_mode,
                 )
                 message = _format_roll20_inline_roll_message(message)
-                message = _apply_roll20_message_visibility(message, step.visibility)
+                message = _apply_roll20_message_visibility(
+                    message,
+                    request.visibility,
+                )
                 roll_mode_applied = roll_mode_applied or mode_applied
                 emitted_messages.append(
                     ActionHistoryText(

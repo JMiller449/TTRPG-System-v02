@@ -376,7 +376,6 @@ def _build_step(
                 step.message,
                 available_variables=available_variables,
             ),
-            visibility=step.visibility,
         )
     if isinstance(step, SendRollActionStepPayload):
         return SendRollStep(
@@ -393,7 +392,6 @@ def _build_step(
                 )
                 for roll in step.rolls
             ],
-            visibility=step.visibility,
         )
     if isinstance(step, CalculateValueActionStepPayload):
         return CalculateValueStep(

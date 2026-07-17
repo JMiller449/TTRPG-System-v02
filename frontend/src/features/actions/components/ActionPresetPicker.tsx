@@ -4,10 +4,12 @@ import { Field } from "@/shared/ui/Field";
 
 export function ActionPresetPicker({
   presets,
-  onApply
+  onApply,
+  disabled = false
 }: {
   presets: ActionPresetTemplate[];
   onApply: (preset: ActionPresetTemplate) => void;
+  disabled?: boolean;
 }): JSX.Element | null {
   const [selectedPresetId, setSelectedPresetId] = useState("");
   if (presets.length === 0) {
@@ -29,6 +31,7 @@ export function ActionPresetPicker({
       <div className="inline-actions">
         <Field label="Action Preset">
           <select
+            disabled={disabled}
             value={selectedPresetId}
             onChange={(event) => setSelectedPresetId(event.target.value)}
           >
@@ -49,7 +52,7 @@ export function ActionPresetPicker({
         <button
           type="button"
           className="button"
-          disabled={!selectedPreset}
+          disabled={disabled || !selectedPreset}
           onClick={() => {
             if (!selectedPreset) {
               return;

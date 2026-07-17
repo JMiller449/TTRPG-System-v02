@@ -1,12 +1,12 @@
-# Frontend Scaffold
+# Frontend Application
 
 > LLM note: Before editing code, reference the repo-root `README.md` for the backend-first contract model, protocol/codegen workflow, and implementation rules.
 
-This frontend is intentionally scaffolded for backend-authoritative integration.
+This React/Vite frontend is integrated with the backend-authoritative WebSocket contract.
 
-## Goals
+## Responsibilities
 
-- Build modular UI for sheets, enemy templates, encounter presets, and rolling.
+- Provide modular player and GM UI for authoritative sheets, authoring, encounter setup, XP tracking, and action execution.
 - Keep all gameplay calculations on backend.
 - Support optimistic UX while reconciling to server snapshots/patches.
 
@@ -40,13 +40,17 @@ Vite mode selects the deployment base and socket configuration:
 
 ## Integration Boundary
 
-- Align request helpers and transport types with generated route-backed contract output as backend typed routes land.
+- Keep request helpers aligned with generated route-backed transport types and route metadata.
 - Keep transport implementations isolated in `src/infrastructure/transport/`.
 - Keep backend-authoritative data in the app server-state slice; keep active sheet selection, drafts, and view state local to the frontend.
 - Treat Roll20 chat as the play log rather than rebuilding an authoritative in-app roll history.
 
-## Important TODOs
+## Architecture Reference
 
-- Confirm final roll request payload shape from backend.
-- Finish direct frontend adoption of the backend-native patch dialect.
-- Replace handwritten feature websocket request builders with generated or centralized typed helpers.
+- Start with [`architecture/README.md`](../architecture/README.md).
+- Frontend ownership, reconciliation, and transport layers are documented in
+  [`architecture/platform/frontend-state-and-transport.md`](../architecture/platform/frontend-state-and-transport.md).
+- Public contract generation is documented in
+  [`architecture/platform/backend-authority-and-websocket-protocol.md`](../architecture/platform/backend-authority-and-websocket-protocol.md).
+- Request builders are centralized and typed from generated payloads; generated
+  client methods remain a possible future extension rather than current behavior.

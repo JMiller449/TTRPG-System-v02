@@ -202,7 +202,22 @@ DamageTypePayload = Literal[
 class SendMessageStepPayload(ProtocolModel):
     step_id: str
     message: FormulaValuePayload
+    visibility: Literal["public", "gm"] = "public"
     type: Literal["send_message"]
+
+
+class RollResultPayload(ProtocolModel):
+    label: str
+    value: FormulaValuePayload
+
+
+class SendRollStepPayload(ProtocolModel):
+    step_id: str
+    title: str
+    presentation: Literal["simple", "damage", "default"] = "default"
+    rolls: list[RollResultPayload]
+    visibility: Literal["public", "gm"] = "public"
+    type: Literal["send_roll"]
 
 
 class CalculateValueStepPayload(ProtocolModel):
@@ -285,6 +300,7 @@ class ApplyConditionPresetStepPayload(ProtocolModel):
 
 ActionStepPayload = Annotated[
     SendMessageStepPayload
+    | SendRollStepPayload
     | CalculateValueStepPayload
     | SetValueStepPayload
     | IncrementValueStepPayload

@@ -14,12 +14,6 @@ import {
   selectOrderedFormulaDefinitions
 } from "@/features/formulas/formulaAuthoringRequests";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
-import {
-  appendFormulaToken,
-  upsertFormulaAlias,
-  type VariablePickerEntry
-} from "@/features/variables/variablePicker";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
@@ -55,14 +49,6 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
   const startNewFormula = (): void => {
     setEditingFormulaId(null);
     setValues(createEmptyFormulaEditorValues());
-  };
-
-  const insertVariable = (entry: VariablePickerEntry): void => {
-    setValues((currentValues) => ({
-      ...currentValues,
-      formulaText: appendFormulaToken(currentValues.formulaText, entry.token),
-      aliases: upsertFormulaAlias(currentValues.aliases, entry.alias)
-    }));
   };
 
   const onSubmit = (): void => {
@@ -134,13 +120,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
             onChange={setValues}
             onSubmit={onSubmit}
             onCancel={startNewFormula}
-          />
-
-          <VariableSearchPicker
             metadata={actionFormulaAuthoringMetadata}
-            mode="formula"
-            label="Insert Formula Variable"
-            onPick={insertVariable}
           />
         </div>
       </CatalogEditorLayout>

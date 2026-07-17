@@ -27,6 +27,8 @@ import {
   updateResolveDamageActionStepFormula,
   updateSendMessageActionStepText,
   updateSendMessageActionStepFormula,
+  updateSendMessageActionStepVisibility,
+  updateSendRollActionStep,
   type ActionEditorValues,
   type ResolveDamageEditorStep
 } from "@/features/actions/actionEditorValues";
@@ -40,12 +42,11 @@ import {
 } from "@/features/actions/actionStepMenu";
 import { ActionBoundedMutationStepEditor } from "@/features/actions/components/ActionBoundedMutationStepEditor";
 import { ActionRecordStepEditor } from "@/features/actions/components/ActionRecordStepEditor";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
-  appendFormulaToken,
   buildVariablePickerEntries,
+  formulaVariableSearchOptions,
   upsertFormulaAlias,
-  type VariablePickerEntry
 } from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
@@ -69,6 +70,7 @@ export function ActionEditorForm({
   conditions,
   attributesEditor,
   validationError,
+  showValidationError = true,
   pending = false
 }: {
   editingActionId: string | null;
@@ -83,6 +85,7 @@ export function ActionEditorForm({
   conditions: ConditionPreset[];
   attributesEditor: ReactNode;
   validationError: string | null;
+  showValidationError?: boolean;
   pending?: boolean;
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
@@ -126,52 +129,19 @@ export function ActionEditorForm({
     setSelectedStepId(stepId);
   };
 
-  const insertCalculatedValue = (stepId: string, variableId: string): void => {
-    const step = values.steps.find((candidate) => candidate.step_id === stepId);
-    if (!step) {
-      return;
-    }
-    const alias = {
-      name: variableId,
-      path: ["action_values", variableId]
-    };
-    const token = `@${variableId}`;
-    if (step.type === "send_message" && isInlineFormula(step.message)) {
-      onChange(
-        updateSendMessageActionStepFormula(values, stepId, {
-          messageText: appendFormulaToken(step.message.text, token),
-          aliases: upsertFormulaAlias(step.message.aliases ?? null, alias)
-        })
-      );
-      return;
-    }
-    if (step.type === "calculate_value" && isInlineFormula(step.value)) {
-      onChange(
-        updateCalculateValueActionStep(values, stepId, {
-          formulaText: appendFormulaToken(step.value.text, token),
-          aliases: upsertFormulaAlias(step.value.aliases ?? null, alias)
-        })
-      );
-      return;
-    }
-    if (step.type === "resolve_damage" && isInlineFormula(step.amount)) {
-      onChange(
-        updateResolveDamageActionStepFormula(values, stepId, {
-          amountText: appendFormulaToken(step.amount.text, token),
-          aliases: upsertFormulaAlias(step.amount.aliases ?? null, alias)
-        })
-      );
-      return;
-    }
-    if (step.type === "gain_proficiency_use" && isInlineFormula(step.amount)) {
-      onChange(
-        updateGainProficiencyUseActionStepFormula(values, stepId, {
-          amountText: appendFormulaToken(step.amount.text, token),
-          aliases: upsertFormulaAlias(step.amount.aliases ?? null, alias)
-        })
-      );
-    }
-  };
+  const formulaMentionOptions = (stepId: string) => [
+    ...formulaVariableSearchOptions(metadata),
+    ...calculatedValuesBeforeStep(values, stepId).map((option) => ({
+      id: `calculated:${option.stepId}:${option.variableId}`,
+      label: option.variableId,
+      secondary: `@${option.variableId} | earlier calculated value`,
+      keywords: [option.variableId, option.stepId, "calculated"],
+      value: {
+        token: `@${option.variableId}`,
+        alias: { name: option.variableId, path: ["action_values", option.variableId] }
+      }
+    }))
+  ];
 
   const sharedFormulaHint = (formulaId: string): JSX.Element => {
     const definition = formulas.find((formula) => formula.id === formulaId);
@@ -181,32 +151,6 @@ export function ActionEditorForm({
           ? `Uses shared formula: ${definition.formula.text}`
           : "Uses a shared formula that has since been deleted."}
       </p>
-    );
-  };
-
-  const calculatedValuePicker = (stepId: string, label: string): JSX.Element | null => {
-    const options = calculatedValuesBeforeStep(values, stepId);
-    if (options.length === 0) {
-      return null;
-    }
-    return (
-      <Field label={label}>
-        <select
-          value=""
-          onChange={(event) => {
-            if (event.target.value) {
-              insertCalculatedValue(stepId, event.target.value);
-            }
-          }}
-        >
-          <option value="">Insert a previous calculated value</option>
-          {options.map((option) => (
-            <option key={option.stepId} value={option.variableId}>
-              {option.variableId} ({option.stepId})
-            </option>
-          ))}
-        </select>
-      </Field>
     );
   };
 
@@ -272,54 +216,6 @@ export function ActionEditorForm({
             : null}
         </select>
       </Field>
-    );
-  };
-
-  const insertIntoMessageStep = (stepId: string, entry: VariablePickerEntry): void => {
-    const step = values.steps.find(
-      (candidate) => candidate.step_id === stepId && candidate.type === "send_message"
-    );
-    if (!step || step.type !== "send_message" || !isInlineFormula(step.message)) {
-      return;
-    }
-
-    onChange(
-      updateSendMessageActionStepFormula(values, stepId, {
-        messageText: appendFormulaToken(step.message.text, entry.token),
-        aliases: upsertFormulaAlias(step.message.aliases ?? null, entry.alias)
-      })
-    );
-  };
-
-  const insertIntoDamageStep = (stepId: string, entry: VariablePickerEntry): void => {
-    const step = values.steps.find(
-      (candidate) => candidate.step_id === stepId && candidate.type === "resolve_damage"
-    );
-    if (!step || step.type !== "resolve_damage" || !isInlineFormula(step.amount)) {
-      return;
-    }
-
-    onChange(
-      updateResolveDamageActionStepFormula(values, stepId, {
-        amountText: appendFormulaToken(step.amount.text, entry.token),
-        aliases: upsertFormulaAlias(step.amount.aliases ?? null, entry.alias)
-      })
-    );
-  };
-
-  const insertIntoProficiencyStep = (stepId: string, entry: VariablePickerEntry): void => {
-    const step = values.steps.find(
-      (candidate) => candidate.step_id === stepId && candidate.type === "gain_proficiency_use"
-    );
-    if (!step || step.type !== "gain_proficiency_use" || !isInlineFormula(step.amount)) {
-      return;
-    }
-
-    onChange(
-      updateGainProficiencyUseActionStepFormula(values, stepId, {
-        amountText: appendFormulaToken(step.amount.text, entry.token),
-        aliases: upsertFormulaAlias(step.amount.aliases ?? null, entry.alias)
-      })
     );
   };
 
@@ -490,30 +386,26 @@ export function ActionEditorForm({
                         </div>
                         {isInlineFormula(step.value) ? (
                           <>
-                            <Field label="Formula">
-                              <input
-                                value={step.value.text}
-                                onChange={(event) =>
-                                  onChange(
-                                    updateCalculateValueActionStep(values, step.step_id, {
-                                      formulaText: event.target.value
-                                    })
-                                  )
-                                }
-                                placeholder="e.g. 1d8 + 2"
-                              />
-                            </Field>
-                            <VariableSearchPicker
-                              metadata={metadata}
-                              mode="formula"
-                              label="Insert Calculation Variable"
-                              onPick={(entry) => {
+                            <FormulaVariableInput
+                              label="Formula"
+                              value={step.value.text}
+                              multiline={false}
+                              options={formulaMentionOptions(step.step_id)}
+                              loading={!metadata}
+                              onChange={(formulaText) =>
+                                onChange(
+                                  updateCalculateValueActionStep(values, step.step_id, {
+                                    formulaText
+                                  })
+                                )
+                              }
+                              onVariableSelect={(entry, formulaText) => {
                                 if (!isInlineFormula(step.value)) {
                                   return;
                                 }
                                 onChange(
                                   updateCalculateValueActionStep(values, step.step_id, {
-                                    formulaText: appendFormulaToken(step.value.text, entry.token),
+                                    formulaText,
                                     aliases: upsertFormulaAlias(
                                       step.value.aliases ?? null,
                                       entry.alias
@@ -521,8 +413,8 @@ export function ActionEditorForm({
                                   })
                                 );
                               }}
+                              placeholder="Type @ to insert a variable"
                             />
-                            {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
                             <FormulaTagEditor
                               label="Calculation Formula Tags"
                               tags={step.value.tags ?? []}
@@ -537,36 +429,254 @@ export function ActionEditorForm({
                           sharedFormulaHint(step.value.formula_id)
                         )}
                       </div>
+                    ) : step.type === "send_roll" ? (
+                      <div className="list-item list-item--block" key={step.step_id}>
+                        <Field label="Roll Title">
+                          <input
+                            value={step.title}
+                            onChange={(event) =>
+                              onChange(
+                                updateSendRollActionStep(values, step.step_id, {
+                                  title: event.target.value
+                                })
+                              )
+                            }
+                          />
+                        </Field>
+                        <Field label="Roll20 Card">
+                          <select
+                            value={step.presentation ?? "default"}
+                            onChange={(event) => {
+                              const presentation = event.target.value as typeof step.presentation;
+                              onChange(
+                                updateSendRollActionStep(values, step.step_id, {
+                                  presentation,
+                                  rolls:
+                                    presentation === "simple" ? step.rolls.slice(0, 1) : step.rolls
+                                })
+                              );
+                            }}
+                          >
+                            <option value="simple">Check / simple</option>
+                            <option value="damage">Damage</option>
+                            <option value="default">Portable default</option>
+                          </select>
+                        </Field>
+                        <Field label="Roll20 Visibility">
+                          <select
+                            value={step.visibility ?? "public"}
+                            onChange={(event) =>
+                              onChange(
+                                updateSendRollActionStep(values, step.step_id, {
+                                  visibility: event.target.value === "gm" ? "gm" : "public"
+                                })
+                              )
+                            }
+                          >
+                            <option value="public">Public</option>
+                            <option value="gm">GM</option>
+                          </select>
+                        </Field>
+                        {step.rolls.map((roll, rollIndex) => (
+                          <div className="list-item list-item--block" key={`${step.step_id}-${rollIndex}`}>
+                            <Field label={`Result ${rollIndex + 1} Label`}>
+                              <input
+                                value={roll.label}
+                                onChange={(event) => {
+                                  const rolls = structuredClone(step.rolls);
+                                  rolls[rollIndex] = { ...rolls[rollIndex], label: event.target.value };
+                                  onChange(updateSendRollActionStep(values, step.step_id, { rolls }));
+                                }}
+                              />
+                            </Field>
+                            <Field label={`Result ${rollIndex + 1} Source`}>
+                              <select
+                                value={
+                                  isFormulaReference(roll.value)
+                                    ? `global:${roll.value.formula_id}`
+                                    : "inline"
+                                }
+                                onChange={(event) => {
+                                  const rolls = structuredClone(step.rolls);
+                                  const formulaId = event.target.value.startsWith("global:")
+                                    ? event.target.value.slice("global:".length)
+                                    : null;
+                                  rolls[rollIndex] = {
+                                    ...rolls[rollIndex],
+                                    value: formulaId
+                                      ? { type: "formula_reference", formula_id: formulaId }
+                                      : { aliases: null, text: "" }
+                                  };
+                                  onChange(
+                                    updateSendRollActionStep(values, step.step_id, { rolls })
+                                  );
+                                }}
+                              >
+                                <option value="inline">Inline formula</option>
+                                {isFormulaReference(roll.value) &&
+                                !formulas
+                                  .map((formula) => formula.id)
+                                  .includes(roll.value.formula_id) ? (
+                                  <option value={`global:${roll.value.formula_id}`} disabled>
+                                    Missing global formula: {roll.value.formula_id}
+                                  </option>
+                                ) : null}
+                                {formulas.map((formula) => (
+                                  <option key={formula.id} value={`global:${formula.id}`}>
+                                    Global: {formula.id}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                            {isInlineFormula(roll.value) ? (
+                              <>
+                                <FormulaVariableInput
+                                  label={`Result ${rollIndex + 1} Formula`}
+                                  rows={2}
+                                  value={roll.value.text}
+                                  options={formulaMentionOptions(step.step_id)}
+                                  loading={!metadata}
+                                  onChange={(text) => {
+                                    const rolls = structuredClone(step.rolls);
+                                    rolls[rollIndex] = {
+                                      ...rolls[rollIndex],
+                                      value: { ...roll.value, text }
+                                    };
+                                    onChange(
+                                      updateSendRollActionStep(values, step.step_id, { rolls })
+                                    );
+                                  }}
+                                  onVariableSelect={(entry, text) => {
+                                    if (!isInlineFormula(roll.value)) {
+                                      return;
+                                    }
+                                    const rolls = structuredClone(step.rolls);
+                                    rolls[rollIndex] = {
+                                      ...rolls[rollIndex],
+                                      value: {
+                                        ...roll.value,
+                                        text,
+                                        aliases: upsertFormulaAlias(
+                                          roll.value.aliases ?? null,
+                                          entry.alias
+                                        )
+                                      }
+                                    };
+                                    onChange(
+                                      updateSendRollActionStep(values, step.step_id, { rolls })
+                                    );
+                                  }}
+                                  placeholder="Type @ to insert a variable"
+                                />
+                                <FormulaTagEditor
+                                  label={`Result ${rollIndex + 1} Formula Tags`}
+                                  tags={roll.value.tags ?? []}
+                                  onChange={(tags) => {
+                                    const rolls = structuredClone(step.rolls);
+                                    rolls[rollIndex] = {
+                                      ...roll,
+                                      value: { ...roll.value, tags }
+                                    };
+                                    onChange(
+                                      updateSendRollActionStep(values, step.step_id, { rolls })
+                                    );
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              sharedFormulaHint(roll.value.formula_id)
+                            )}
+                            {rollIndex > 0 ? (
+                              <button
+                                className="button button--secondary"
+                                type="button"
+                                onClick={() =>
+                                  onChange(
+                                    updateSendRollActionStep(values, step.step_id, {
+                                      rolls: step.rolls.filter((_, index) => index !== rollIndex)
+                                    })
+                                  )
+                                }
+                              >
+                                Remove second result
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                        {step.presentation !== "simple" && step.rolls.length < 2 ? (
+                          <button
+                            className="button button--secondary"
+                            type="button"
+                            onClick={() =>
+                              onChange(
+                                updateSendRollActionStep(values, step.step_id, {
+                                  rolls: [
+                                    ...step.rolls,
+                                    { label: "Secondary", value: { aliases: null, text: "0" } }
+                                  ]
+                                })
+                              )
+                            }
+                          >
+                            Add second result
+                          </button>
+                        ) : null}
+                      </div>
                     ) : step.type === "send_message" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         {formulaSourcePicker(step.step_id, step.message, {
                           label: `Message Source: ${step.step_id}`
                         })}
+                        <Field label="Roll20 Visibility">
+                          <select
+                            value={step.visibility ?? "public"}
+                            onChange={(event) =>
+                              onChange(
+                                updateSendMessageActionStepVisibility(
+                                  values,
+                                  step.step_id,
+                                  event.target.value === "gm" ? "gm" : "public"
+                                )
+                              )
+                            }
+                          >
+                            <option value="public">Public</option>
+                            <option value="gm">GM</option>
+                          </select>
+                        </Field>
                         {isInlineFormula(step.message) ? (
                           <>
-                            <Field label="Message Formula">
-                              <textarea
-                                rows={3}
-                                value={step.message.text}
-                                onChange={(event) =>
-                                  onChange(
-                                    updateSendMessageActionStepText(
-                                      values,
-                                      step.step_id,
-                                      event.target.value
-                                    )
+                            <FormulaVariableInput
+                              label="Message Formula"
+                              rows={3}
+                              value={step.message.text}
+                              options={formulaMentionOptions(step.step_id)}
+                              loading={!metadata}
+                              onChange={(messageText) =>
+                                onChange(
+                                  updateSendMessageActionStepText(
+                                    values,
+                                    step.step_id,
+                                    messageText
                                   )
+                                )
+                              }
+                              onVariableSelect={(entry, messageText) => {
+                                if (!isInlineFormula(step.message)) {
+                                  return;
                                 }
-                                placeholder="/em describes the action."
-                              />
-                            </Field>
-                            <VariableSearchPicker
-                              metadata={metadata}
-                              mode="formula"
-                              label="Insert Message Variable"
-                              onPick={(entry) => insertIntoMessageStep(step.step_id, entry)}
+                                onChange(
+                                  updateSendMessageActionStepFormula(values, step.step_id, {
+                                    messageText,
+                                    aliases: upsertFormulaAlias(
+                                      step.message.aliases ?? null,
+                                      entry.alias
+                                    )
+                                  })
+                                );
+                              }}
+                              placeholder="Type @ to insert a variable"
                             />
-                            {calculatedValuePicker(step.step_id, "Earlier Calculated Value")}
                             <FormulaTagEditor
                               label="Message Formula Tags"
                               tags={step.message.tags ?? []}
@@ -621,29 +731,33 @@ export function ActionEditorForm({
                         </div>
                         {isInlineFormula(step.amount) ? (
                           <>
-                            <Field label="Amount Formula">
-                              <input
-                                value={step.amount.text}
-                                onChange={(event) =>
-                                  onChange(
-                                    updateResolveDamageActionStep(values, step.step_id, {
-                                      amountText: event.target.value
-                                    })
-                                  )
+                            <FormulaVariableInput
+                              label="Amount Formula"
+                              value={step.amount.text}
+                              multiline={false}
+                              options={formulaMentionOptions(step.step_id)}
+                              loading={!metadata}
+                              onChange={(amountText) =>
+                                onChange(
+                                  updateResolveDamageActionStep(values, step.step_id, { amountText })
+                                )
+                              }
+                              onVariableSelect={(entry, amountText) => {
+                                if (!isInlineFormula(step.amount)) {
+                                  return;
                                 }
-                                placeholder="e.g. @strength * 2"
-                              />
-                            </Field>
-                            <VariableSearchPicker
-                              metadata={metadata}
-                              mode="formula"
-                              label="Insert Damage Variable"
-                              onPick={(entry) => insertIntoDamageStep(step.step_id, entry)}
+                                onChange(
+                                  updateResolveDamageActionStepFormula(values, step.step_id, {
+                                    amountText,
+                                    aliases: upsertFormulaAlias(
+                                      step.amount.aliases ?? null,
+                                      entry.alias
+                                    )
+                                  })
+                                );
+                              }}
+                              placeholder="Type @ to insert a variable"
                             />
-                            {calculatedValuePicker(
-                              step.step_id,
-                              "Earlier Calculated Value in Formula"
-                            )}
                             <FormulaTagEditor
                               label="Damage Formula Tags"
                               tags={step.amount.tags ?? []}
@@ -698,29 +812,35 @@ export function ActionEditorForm({
                         </div>
                         {isInlineFormula(step.amount) ? (
                           <>
-                            <Field label="Use Amount Formula">
-                              <input
-                                value={step.amount.text}
-                                onChange={(event) =>
-                                  onChange(
-                                    updateGainProficiencyUseActionStep(values, step.step_id, {
-                                      amountText: event.target.value
-                                    })
-                                  )
+                            <FormulaVariableInput
+                              label="Use Amount Formula"
+                              value={step.amount.text}
+                              multiline={false}
+                              options={formulaMentionOptions(step.step_id)}
+                              loading={!metadata}
+                              onChange={(amountText) =>
+                                onChange(
+                                  updateGainProficiencyUseActionStep(values, step.step_id, {
+                                    amountText
+                                  })
+                                )
+                              }
+                              onVariableSelect={(entry, amountText) => {
+                                if (!isInlineFormula(step.amount)) {
+                                  return;
                                 }
-                                placeholder="e.g. 1"
-                              />
-                            </Field>
-                            <VariableSearchPicker
-                              metadata={metadata}
-                              mode="formula"
-                              label="Insert Proficiency Variable"
-                              onPick={(entry) => insertIntoProficiencyStep(step.step_id, entry)}
+                                onChange(
+                                  updateGainProficiencyUseActionStepFormula(values, step.step_id, {
+                                    amountText,
+                                    aliases: upsertFormulaAlias(
+                                      step.amount.aliases ?? null,
+                                      entry.alias
+                                    )
+                                  })
+                                );
+                              }}
+                              placeholder="Type @ to insert a variable"
                             />
-                            {calculatedValuePicker(
-                              step.step_id,
-                              "Earlier Calculated Value in Formula"
-                            )}
                             <FormulaTagEditor
                               label="Proficiency Formula Tags"
                               tags={step.amount.tags ?? []}
@@ -770,14 +890,14 @@ export function ActionEditorForm({
           <div className="authoring-disclosure__body">{attributesEditor}</div>
         </details>
 
-        {validationError ? (
+        {showValidationError && validationError ? (
           <p className="error-text" role="alert">
             {validationError}
           </p>
         ) : null}
         <div className="template-editor__actions action-editor__footer">
           <button className="button" onClick={onSubmit} disabled={!actionIsValid || pending}>
-            {pending ? "Creating…" : editingActionId ? "Save Action" : "Create Action"}
+            {pending ? (editingActionId ? "Saving…" : "Creating…") : editingActionId ? "Save Action" : "Create Action"}
           </button>
           {editingActionId ? (
             <button className="button button--secondary" onClick={onCancel}>

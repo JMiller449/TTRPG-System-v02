@@ -56,18 +56,28 @@ class CanonicalActionPreset:
     attach_to_new_sheet: bool = False
 
     def steps(self) -> list[dict]:
+        expression = self.message_text.removeprefix(f"{self.label}: /r ")
+        presentation = "damage" if self.roll_mode_kind == "damage" else "simple"
         return [
             {
                 "step_id": "roll",
-                "type": "send_message",
-                "message": {
-                    "aliases": [
-                        {"name": name, "path": list(path)}
-                        for name, path in self.aliases
-                    ],
-                    "text": self.message_text,
-                    "tags": list(self.tags),
-                },
+                "type": "send_roll",
+                "title": self.label,
+                "presentation": presentation,
+                "visibility": "public",
+                "rolls": [
+                    {
+                        "label": "Damage" if presentation == "damage" else "Result",
+                        "value": {
+                            "aliases": [
+                                {"name": name, "path": list(path)}
+                                for name, path in self.aliases
+                            ],
+                            "text": expression,
+                            "tags": list(self.tags),
+                        },
+                    }
+                ],
             }
         ]
 

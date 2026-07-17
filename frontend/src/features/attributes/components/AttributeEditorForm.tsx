@@ -1,8 +1,12 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { AttributeDefinition } from "@/domain/models";
-import { AttributeFormulaVariablePicker } from "@/features/attributes/AttributeFormulaVariablePicker";
+import {
+  buildAttributeFormulaVariableEntries,
+  toAttributeFormulaVariableOptions
+} from "@/features/attributes/attributeFormulaVariables";
 import { attributePayloadFromDraft, type AttributeDraft } from "@/features/attributes/attributeEditorValues";
-import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
+import { upsertFormulaAlias } from "@/features/variables/variablePicker";
 
 type AttributeSubjectType = AttributeDefinition["subject_types"][number];
 type AttributeValueType = AttributeDefinition["value_type"];
@@ -121,21 +125,9 @@ export function AttributeEditorForm({
         <fieldset className="stack">
           <legend>Formula aliases</legend>
           <p className="muted">
-            Insert a variable valid for every selected subject, or enter a relative path and
-            reference its alias as @name in the formula.
+            Type @ in the formula to search variables valid for every selected subject, or enter a
+            relative path and reference its alias as @name.
           </p>
-          <AttributeFormulaVariablePicker
-            metadata={metadata}
-            subjectTypes={draft.subjectTypes}
-            excludedAttributeId={editingId ?? undefined}
-            onPick={(entry) =>
-              onChange({
-                ...draft,
-                defaultText: appendFormulaToken(draft.defaultText, entry.token),
-                formulaAliases: upsertFormulaAlias(draft.formulaAliases, entry.alias)
-              })
-            }
-          />
           {draft.formulaAliases.map((alias, index) => (
             <div className="inline-actions" key={`${index}-${alias.name}`}>
               <label>
@@ -207,6 +199,26 @@ export function AttributeEditorForm({
             <option value="true">True</option>
           </select>
         </label>
+      ) : draft.valueType === "number" && draft.numberMode === "formula" ? (
+        <FormulaVariableInput
+          label="Default formula"
+          value={draft.defaultText}
+          options={toAttributeFormulaVariableOptions(
+            buildAttributeFormulaVariableEntries(metadata, draft.subjectTypes).filter(
+              (entry) => entry.path.join(".") !== `attributes.${editingId ?? ""}`
+            )
+          )}
+          loading={!metadata}
+          onChange={(defaultText) => onChange({ ...draft, defaultText })}
+          onVariableSelect={(entry, defaultText) =>
+            onChange({
+              ...draft,
+              defaultText,
+              formulaAliases: upsertFormulaAlias(draft.formulaAliases, entry.alias)
+            })
+          }
+          placeholder="Type @ to insert a variable"
+        />
       ) : (
         <label>
           Default {draft.valueType === "list" ? "(comma separated)" : "value"}

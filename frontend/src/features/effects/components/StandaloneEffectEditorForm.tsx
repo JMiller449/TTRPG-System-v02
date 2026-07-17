@@ -15,11 +15,10 @@ import {
 import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
 import { hasValidStandaloneEffectValues } from "@/features/effects/standaloneEffectEditorValues";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
-  appendFormulaToken,
-  upsertFormulaAlias,
-  type VariablePickerEntry
+  formulaVariableSearchOptions,
+  upsertFormulaAlias
 } from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
 
@@ -59,14 +58,6 @@ export function StandaloneEffectEditorForm({
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
   const targetPathExists = values.targetPath.length > 0;
   const valid = hasValidStandaloneEffectValues(values) && targetIsKnown;
-  const insertVariable = (entry: VariablePickerEntry): void => {
-    onChange({
-      ...values,
-      formulaText: appendFormulaToken(values.formulaText, entry.token),
-      formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
-    });
-  };
-
   return (
     <div className="template-editor condition-editor stack">
       <h3 className="template-editor__title">
@@ -176,23 +167,23 @@ export function StandaloneEffectEditorForm({
       </Field>
 
       {values.effectType !== "roll_mode_modifier" ? (
-        <div className="stack">
-          <Field label="Formula">
-            <textarea
-              rows={2}
-              value={values.formulaText}
-              aria-invalid={!values.formulaText.trim()}
-              onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-              placeholder="2 or @arcane * 0.1"
-            />
-          </Field>
-          <VariableSearchPicker
-            metadata={formulaMetadata}
-            mode="formula"
-            label="Insert Formula Variable"
-            onPick={insertVariable}
-          />
-        </div>
+        <FormulaVariableInput
+          label="Formula"
+          rows={2}
+          value={values.formulaText}
+          options={formulaVariableSearchOptions(formulaMetadata)}
+          loading={!formulaMetadata}
+          ariaInvalid={!values.formulaText.trim()}
+          onChange={(formulaText) => onChange({ ...values, formulaText })}
+          onVariableSelect={(entry, formulaText) =>
+            onChange({
+              ...values,
+              formulaText,
+              formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
+            })
+          }
+          placeholder="Type @ to insert a variable"
+        />
       ) : null}
 
       {values.effectType !== "formula_modifier" ? (

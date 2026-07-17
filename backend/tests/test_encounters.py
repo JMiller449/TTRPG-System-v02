@@ -1,8 +1,19 @@
 import asyncio
 from copy import deepcopy
+from dataclasses import asdict
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.action import Action
+from backend.state.models.attribute import (
+    AttributeBridge,
+    AttributeDefinition,
+    AttributeValue,
+)
+from backend.state.models.formula import Formula
+from backend.state.models.item import Item, ItemBridge
+from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import Sheet
+from backend.state.models.shared import Bridge
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -262,6 +273,135 @@ def test_dm_can_spawn_encounter_preset(monkeypatch) -> None:
             assert spawn_ops[0]["value"]["stats"]["strength"] == 10
             assert spawn_ops[0]["value"]["items"] == {}
             assert websocket.sent_messages[0]["request_id"] == "req-2"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_encounter_spawn_matches_canonical_instance_construction(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.actions["encounter_action"] = Action.from_dict(
+                {
+                    "id": "encounter_action",
+                    "name": "Encounter Action",
+                    "steps": [],
+                }
+            )
+            state.proficiencies["encounter_proficiency"] = Proficiency.from_dict(
+                {
+                    "id": "encounter_proficiency",
+                    "name": "Encounter Proficiency",
+                    "description": "",
+                }
+            )
+            state.attributes["encounter_role"] = AttributeDefinition.from_dict(
+                {
+                    "id": "encounter_role",
+                    "name": "Encounter Role",
+                    "description": "",
+                    "subject_types": ["sheet"],
+                    "value_type": "text",
+                    "default_value": {"type": "text", "value": ""},
+                }
+            )
+            state.items["encounter_focus"] = Item.from_dict(
+                {
+                    "id": "encounter_focus",
+                    "name": "Encounter Focus",
+                    "interaction_type": "inventory_only",
+                    "description": "",
+                    "price": "",
+                    "weight": 2,
+                }
+            )
+
+            template = Sheet.from_dict(_sheet_payload())
+            template.actions["encounter_action_bridge"] = Bridge(
+                relationship_id="encounter_action_bridge",
+                entry_id="encounter_action",
+            )
+            template.proficiencies["encounter_proficiency_bridge"] = (
+                ProficiencyBridge(
+                    relationship_id="encounter_proficiency_bridge",
+                    prof_id="encounter_proficiency",
+                    use_count=4,
+                    growth_rate=0.25,
+                )
+            )
+            template.attributes["encounter_role"] = AttributeBridge(
+                relationship_id="encounter_role_bridge",
+                attribute_id="encounter_role",
+                value=AttributeValue(type="text", value="Controller"),
+                evaluated_value="Controller",
+            )
+            template.items["encounter_focus_bridge"] = ItemBridge(
+                relationship_id="encounter_focus_bridge",
+                count=2,
+                equipped=False,
+                item_id="encounter_focus",
+            )
+            template.racial_hp_multiplier = 1.75
+            template.max_health = Formula(aliases=[], text="211")
+            template.max_mana = Formula(aliases=[], text="73")
+            template.stat_bonuses["courage"] = 3
+            state.sheets["mage_template"] = template
+
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_instanced_sheet",
+                    "instance_id": "manual_mage",
+                    "parent_sheet_id": "mage_template",
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "save_encounter_preset",
+                    "encounter": {
+                        "id": "encounter_1",
+                        "name": "Two Mages",
+                        "entries": [
+                            {
+                                "template_id": "mage_template",
+                                "count": 2,
+                            }
+                        ],
+                    },
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "spawn_encounter_preset",
+                    "encounter_id": "encounter_1",
+                },
+            )
+
+            manual = state.instanced_sheets["manual_mage"]
+            first = state.instanced_sheets["encounter_1_mage_template_1"]
+            second = state.instanced_sheets["encounter_1_mage_template_2"]
+
+            assert asdict(first) == asdict(manual)
+            assert asdict(second) == asdict(manual)
+            assert first.health == 211
+            assert first.mana == 73
+            assert first.stats is not manual.stats
+            assert first.stats is not second.stats
+            assert first.items is not manual.items
+            assert first.items is not second.items
+            assert first.max_health is not manual.max_health
+            assert first.max_health is not second.max_health
+            assert state.sheet_access_codes == {}
         finally:
             StateSingleton._state = original_state
 

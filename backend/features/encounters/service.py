@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import datetime, timezone
 
 from backend.features.encounters.schema import (
@@ -9,10 +8,11 @@ from backend.features.encounters.schema import (
     SaveEncounterPreset,
     SpawnEncounterPreset,
 )
-from backend.features.formula_runtime.service import evaluate_numeric_formula
+from backend.features.sheet_admin.sheets.service import (
+    build_instanced_sheet_from_template,
+)
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.encounter import EncounterEntry, EncounterPreset
-from backend.state.models.sheet import InstancedSheet
 from backend.state.models.state import State
 
 
@@ -58,29 +58,6 @@ def _next_instance_id(
     return f"{base_id}_{suffix}"
 
 
-def _initial_instance_for_template(
-    state: State,
-    *,
-    template_id: str,
-) -> InstancedSheet:
-    template = state.sheets[template_id]
-    health = evaluate_numeric_formula(template, template.stats.health)
-    mana = evaluate_numeric_formula(template, template.stats.mana)
-    if not float(mana).is_integer():
-        raise ValueError(f"Sheet '{template_id}' mana formula must resolve to a whole number.")
-
-    return InstancedSheet(
-        parent_id=template_id,
-        notes="",
-        health=health,
-        mana=int(mana),
-        resistances=deepcopy(template.resistances),
-        augments={},
-        stats=deepcopy(template.stats),
-        items=deepcopy(template.items),
-    )
-
-
 async def save_encounter_preset(request: SaveEncounterPreset) -> None:
     encounter = _build_encounter(request.encounter)
 
@@ -124,9 +101,9 @@ async def spawn_encounter_preset(request: SpawnEncounterPreset) -> None:
                     template_id=entry.template_id,
                     index=index,
                 )
-                instance = _initial_instance_for_template(
-                    state,
-                    template_id=entry.template_id,
+                instance = build_instanced_sheet_from_template(
+                    state.sheets[entry.template_id],
+                    parent_sheet_id=entry.template_id,
                 )
                 path = state_sync_service.join_path("instanced_sheets", instance_id)
                 ops.append(state_sync_service.add_mutation(state, path, instance))

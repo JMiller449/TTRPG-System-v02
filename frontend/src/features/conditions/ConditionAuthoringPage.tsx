@@ -30,6 +30,7 @@ import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
 import { makeId } from "@/shared/utils/id";
+import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 
 export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -42,7 +43,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
         formulas: formulaRecords,
         formulaOrder
       },
-      uiState: { augmentationTargetMetadata }
+      uiState: { augmentationTargetMetadata, actionFormulaAuthoringMetadata }
     }
   } = useAppStore();
 
@@ -84,6 +85,14 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     const submission = buildLoadConditionAugmentationTargetMetadataSubmission();
     client.sendProtocolRequest(submission.request, submission.label);
   }, [augmentationTargetMetadata?.context, client]);
+
+  useEffect(() => {
+    if (actionFormulaAuthoringMetadata) {
+      return;
+    }
+    const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
+    client.sendProtocolRequest(submission.request, submission.label);
+  }, [actionFormulaAuthoringMetadata, client]);
 
   useEffect(() => {
     if (!pendingCreatedConditionId) {
@@ -231,6 +240,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
               templates={values.augmentationTemplates}
               targetOptions={targetOptions}
               selectorOptions={selectorOptions}
+              formulaMetadata={actionFormulaAuthoringMetadata}
               values={augmentationValues}
               onChange={setAugmentationValues}
               onAdd={() => {

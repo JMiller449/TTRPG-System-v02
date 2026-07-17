@@ -17,11 +17,10 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
-  appendFormulaToken,
-  upsertFormulaAlias,
-  type VariablePickerEntry
+  formulaVariableSearchOptions,
+  upsertFormulaAlias
 } from "@/features/variables/variablePicker";
 
 const AUGMENTATION_OPERATIONS = ["add", "subtract", "multiply", "divide", "set"] as const;
@@ -129,14 +128,6 @@ export function ItemAugmentationTemplatePanel({
   const rollAndFormulaEffects = templates.filter(
     (augmentation) => augmentation.effect.type !== "formula_modifier"
   );
-  const insertVariable = (entry: VariablePickerEntry): void => {
-    onChange({
-      ...values,
-      formulaText: appendFormulaToken(values.formulaText, entry.token),
-      formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
-    });
-  };
-
   return (
     <section className="template-editor augmentation-template-panel">
       <div className="list-item__top">
@@ -248,22 +239,22 @@ export function ItemAugmentationTemplatePanel({
         </Field>
 
         {values.effectType !== "roll_mode_modifier" ? (
-          <div className="stack">
-            <Field label="Formula">
-              <textarea
-                rows={2}
-                value={values.formulaText}
-                onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-                placeholder="@arcane + 2"
-              />
-            </Field>
-            <VariableSearchPicker
-              metadata={formulaMetadata}
-              mode="formula"
-              label="Insert Formula Variable"
-              onPick={insertVariable}
-            />
-          </div>
+          <FormulaVariableInput
+            label="Formula"
+            rows={2}
+            value={values.formulaText}
+            options={formulaVariableSearchOptions(formulaMetadata)}
+            loading={!formulaMetadata}
+            onChange={(formulaText) => onChange({ ...values, formulaText })}
+            onVariableSelect={(entry, formulaText) =>
+              onChange({
+                ...values,
+                formulaText,
+                formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
+              })
+            }
+            placeholder="Type @ to insert a variable"
+          />
         ) : null}
 
         {values.effectType !== "formula_modifier" ? (

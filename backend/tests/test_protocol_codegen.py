@@ -58,6 +58,9 @@ def test_typescript_codegen_exports_registered_request_and_event_models() -> Non
     assert event_model_names <= exported_types
     assert _union_members(output, "ProtocolApplicationRequest") == request_model_names
     assert _union_members(output, "ProtocolServerEvent") == event_model_names
+    assert "export type SendRollActionStepPayload = {" in output
+    assert '"presentation"?: "simple" | "damage" | "default";' in output
+    assert '"type": "send_roll";' in output
 
 
 def test_typescript_codegen_exports_route_contract_manifest() -> None:

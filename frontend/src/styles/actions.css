@@ -47,6 +47,14 @@
   padding-bottom: 1rem;
 }
 
+.action-authoring-feedback {
+  margin: 0;
+  border: 1px solid var(--r6-success-line, var(--line));
+  padding: 0.65rem 0.75rem;
+  color: var(--r6-success, var(--text));
+  background: var(--r6-success-bg, var(--card));
+}
+
 .action-editor__footer {
   position: sticky;
   z-index: 3;

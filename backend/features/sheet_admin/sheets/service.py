@@ -69,7 +69,7 @@ from backend.state.default_actions import (
     required_sheet_action_ids,
     seeded_global_actions,
 )
-from backend.state.models.action import Action, SendMessageStep
+from backend.state.models.action import Action, RollResult, SendRollStep
 from backend.state.models.formula import Formula, FormulaAliases
 from backend.state.models.attribute import (
     WEAPON_ATTRIBUTE_PROFILE,
@@ -142,6 +142,53 @@ def _build_resistances(payload: ResistancesPayload) -> Resistances:
         time=payload.time,
         gravity=payload.gravity,
         psychic=payload.psychic,
+    )
+
+
+def build_instanced_sheet_from_template(
+    template: Sheet,
+    *,
+    parent_sheet_id: str,
+    notes: str = "",
+    health: float | None = None,
+    mana: int | None = None,
+    resistances: Resistances | None = None,
+) -> InstancedSheet:
+    """Build an independent runtime copy without persistence or access-code effects."""
+
+    resolved_health = (
+        health
+        if health is not None
+        else evaluate_resource_maximum(template, "health")
+    )
+    resolved_mana = (
+        mana
+        if mana is not None
+        else evaluate_resource_maximum(template, "mana")
+    )
+    if not float(resolved_mana).is_integer():
+        raise ValueError(
+            f"Sheet '{parent_sheet_id}' mana formula must resolve to a whole number."
+        )
+
+    return InstancedSheet(
+        parent_id=parent_sheet_id,
+        notes=notes,
+        health=resolved_health,
+        mana=int(resolved_mana),
+        resistances=deepcopy(
+            resistances if resistances is not None else template.resistances
+        ),
+        augments={},
+        stats=deepcopy(template.stats),
+        items=deepcopy(template.items),
+        proficiencies=deepcopy(template.proficiencies),
+        actions=deepcopy(template.actions),
+        attributes=deepcopy(template.attributes),
+        racial_hp_multiplier=template.racial_hp_multiplier,
+        max_health=deepcopy(template.max_health),
+        max_mana=deepcopy(template.max_mana),
+        stat_bonuses=deepcopy(template.stat_bonuses),
     )
 
 
@@ -313,17 +360,24 @@ def _build_baseline_check_action(stat_name: str, label: str) -> Action:
         roll_mode_kind="check",
         notes="Default baseline sheet check. Emits a Roll20 d100 stat check.",
         steps=[
-            SendMessageStep(
+            SendRollStep(
                 step_id="roll",
-                message=Formula(
-                    aliases=[
-                        FormulaAliases(
-                            name=stat_name,
-                            path=["stats", stat_name],
-                        )
-                    ],
-                    text=f"{label} Check: /r (1d100 / 100) * @{stat_name}",
-                ),
+                title=f"{label} Check",
+                presentation="simple",
+                rolls=[
+                    RollResult(
+                        label="Result",
+                        value=Formula(
+                            aliases=[
+                                FormulaAliases(
+                                    name=stat_name,
+                                    path=["stats", stat_name],
+                                )
+                            ],
+                            text=f"(1d100 / 100) * @{stat_name}",
+                        ),
+                    )
+                ],
             )
         ],
     )
@@ -989,40 +1043,17 @@ async def instantiate_sheet(
         if request.instance_id in state.instanced_sheets:
             raise ValueError(f"Instance '{request.instance_id}' already exists.")
 
-        health = (
-            request.health
-            if request.health is not None
-            else evaluate_resource_maximum(template, "health")
-        )
-        mana_value = (
-            request.mana
-            if request.mana is not None
-            else evaluate_resource_maximum(template, "mana")
-        )
-        if not float(mana_value).is_integer():
-            raise ValueError(
-                f"Sheet '{request.parent_sheet_id}' mana formula must resolve to a whole number."
-            )
-        instance = InstancedSheet(
-            parent_id=request.parent_sheet_id,
+        instance = build_instanced_sheet_from_template(
+            template,
+            parent_sheet_id=request.parent_sheet_id,
             notes=request.notes,
-            health=health,
-            mana=int(mana_value),
+            health=request.health,
+            mana=request.mana,
             resistances=(
                 _build_resistances(request.resistances)
                 if request.resistances is not None
-                else deepcopy(template.resistances)
+                else None
             ),
-            augments={},
-            stats=deepcopy(template.stats),
-            items=deepcopy(template.items),
-            proficiencies=deepcopy(template.proficiencies),
-            actions=deepcopy(template.actions),
-            attributes=deepcopy(template.attributes),
-            racial_hp_multiplier=template.racial_hp_multiplier,
-            max_health=deepcopy(template.max_health),
-            max_mana=deepcopy(template.max_mana),
-            stat_bonuses=deepcopy(template.stat_bonuses),
         )
 
         path = state_sync_service.join_path("instanced_sheets", request.instance_id)

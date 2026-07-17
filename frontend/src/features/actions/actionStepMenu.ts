@@ -7,6 +7,7 @@ import {
   addIncrementValueActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  addSendRollActionStep,
   addSetValueActionStep,
   type ActionEditorStep,
   type ActionEditorValues
@@ -32,6 +33,7 @@ export interface ActionStepMenuDependencies {
 const STEP_DEFINITIONS: ReadonlyArray<Omit<ActionStepMenuOption, "unavailableReason">> = [
   { type: "calculate_value", label: "Calculate value", group: "Calculation & Output" },
   { type: "send_message", label: "Send Roll20 message", group: "Calculation & Output" },
+  { type: "send_roll", label: "Send styled Roll20 roll", group: "Calculation & Output" },
   { type: "set_value", label: "Set sheet value", group: "State Changes" },
   { type: "increment_value", label: "Increase sheet value", group: "State Changes" },
   { type: "decrement_value", label: "Decrease sheet value", group: "State Changes" },
@@ -55,6 +57,8 @@ export function actionStepIdPrefix(type: ActionStepMenuType): string {
       return "calculate";
     case "send_message":
       return "message";
+    case "send_roll":
+      return "roll";
     case "set_value":
       return "set";
     case "increment_value":
@@ -133,6 +137,8 @@ export function addActionStepFromMenu({
       return addCalculateValueActionStep(values, stepId, nextCalculatedVariableId(values));
     case "send_message":
       return addSendMessageActionStep(values, stepId);
+    case "send_roll":
+      return addSendRollActionStep(values, stepId);
     case "set_value":
       return addSetValueActionStep(values, stepId, dependencies.mutationTargetPath ?? []);
     case "increment_value":

@@ -356,6 +356,28 @@ def compose_roll20_message(
     return f'{match.group("prefix")}{expression}'
 
 
+def compose_roll20_expression(
+    formula_root: Any,
+    formula: Formula,
+    *,
+    execution_context: FormulaExecutionContext,
+    modifiers: tuple[EvaluationTimeEffect, ...] = (),
+) -> str:
+    """Expand a roll expression and apply matching evaluation-time modifiers."""
+    expression = formula.expand_formula(formula_root)
+    for effect in modifiers:
+        if not isinstance(effect, EvaluationFormulaModifierEffect):
+            continue
+        if not _effect_matches_context(effect, execution_context):
+            continue
+        expression = _compose_numeric_expression(
+            expression,
+            effect.value.expand_formula(formula_root),
+            effect.operation,
+        )
+    return expression
+
+
 def resolve_roll_mode(
     requested_mode: str,
     *,

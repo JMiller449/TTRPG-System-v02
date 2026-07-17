@@ -20,6 +20,7 @@ from backend.features.sheet_admin.actions.schema import (
     NumericBoundsPayload,
     NumericValuePayload,
     ResolveDamageActionStepPayload,
+    SendRollActionStepPayload,
     SendMessageActionStepPayload,
     SetValueActionStepPayload,
     UpdateAction,
@@ -53,6 +54,8 @@ from backend.state.models.action import (
     IncrementValueStep,
     NumericValueSource,
     ResolveDamageStep,
+    RollResult,
+    SendRollStep,
     SendMessageStep,
     SetValueStep,
 )
@@ -168,6 +171,8 @@ def _action_step_formula_values(
 ) -> list[FormulaValuePayload | None]:
     if isinstance(step, SendMessageActionStepPayload):
         return [step.message]
+    if isinstance(step, SendRollActionStepPayload):
+        return [roll.value for roll in step.rolls]
     if isinstance(step, CalculateValueActionStepPayload):
         return [step.value]
     if isinstance(step, SetValueActionStepPayload):
@@ -198,6 +203,14 @@ def _validate_action_step(
             state=state,
             available_variables=available_variables,
         )
+        return
+    if isinstance(step, SendRollActionStepPayload):
+        for roll in step.rolls:
+            _validate_formula_value(
+                roll.value,
+                state=state,
+                available_variables=available_variables,
+            )
         return
     if isinstance(step, CalculateValueActionStepPayload):
         _validate_formula_value(
@@ -343,6 +356,7 @@ def _bounds_kwargs(
 def _build_step(
     step: (
         SendMessageActionStepPayload
+        | SendRollActionStepPayload
         | CalculateValueActionStepPayload
         | SetValueActionStepPayload
         | IncrementValueActionStepPayload
@@ -362,6 +376,24 @@ def _build_step(
                 step.message,
                 available_variables=available_variables,
             ),
+            visibility=step.visibility,
+        )
+    if isinstance(step, SendRollActionStepPayload):
+        return SendRollStep(
+            step_id=step.step_id,
+            title=step.title,
+            presentation=step.presentation,
+            rolls=[
+                RollResult(
+                    label=roll.label,
+                    value=_build_formula_value(
+                        roll.value,
+                        available_variables=available_variables,
+                    ),
+                )
+                for roll in step.rolls
+            ],
+            visibility=step.visibility,
         )
     if isinstance(step, CalculateValueActionStepPayload):
         return CalculateValueStep(

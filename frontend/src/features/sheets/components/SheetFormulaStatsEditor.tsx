@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { Formula, Stats } from "@/domain/models";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
@@ -8,13 +8,13 @@ import {
   toSheetRelativeFormulaAlias
 } from "@/features/sheets/sheetDefinitionEditing";
 import {
-  appendFormulaToken,
-  buildVariablePickerEntries,
+  formulaVariableSearchOptions,
   upsertFormulaAlias
 } from "@/features/variables/variablePicker";
 import type { SheetFormulaStatName } from "@/infrastructure/ws/requestBuilders";
 import { DISPLAY_NAMES } from "@/domain/stats";
 import { Field } from "@/shared/ui/Field";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 
 function cloneFormula(formula: Formula): Formula {
   return {
@@ -38,10 +38,6 @@ export function SheetFormulaStatsEditor({
   );
   const authoritativeFormula = stats[selectedStatName];
   const [draft, setDraft] = useState<Formula>(() => cloneFormula(authoritativeFormula));
-  const variableEntries = useMemo(
-    () => buildVariablePickerEntries(metadata, "formula").filter((entry) => entry.root === "sheet"),
-    [metadata]
-  );
 
   useEffect(() => {
     setDraft(cloneFormula(authoritativeFormula));
@@ -56,7 +52,7 @@ export function SheetFormulaStatsEditor({
     <section className="template-editor stack">
       <p className="template-editor__title">Formula Stats</p>
       <p className="muted">
-        Formula aliases are selected from backend sheet metadata and stored as relative sheet paths.
+        Type @ to search backend sheet variables. Selected aliases are stored as relative paths.
       </p>
       <Field label="Formula Stat">
         <select
@@ -70,44 +66,26 @@ export function SheetFormulaStatsEditor({
           ))}
         </select>
       </Field>
-      <Field label="Formula">
-        <textarea
-          rows={3}
-          value={draft.text}
-          onChange={(event) => setDraft({ ...draft, text: event.target.value })}
-          placeholder="@constitution * 10"
-        />
-      </Field>
-      <Field label="Insert Sheet Variable">
-        <select
-          value=""
-          disabled={variableEntries.length === 0}
-          onChange={(event) => {
-            const entry = variableEntries.find((candidate) => candidate.key === event.target.value);
-            if (!entry) {
-              return;
-            }
+      <FormulaVariableInput
+        label="Formula"
+        rows={3}
+        value={draft.text}
+        options={formulaVariableSearchOptions(metadata, "sheet")}
+        loading={!metadata}
+        onChange={(text) => setDraft({ ...draft, text })}
+        onVariableSelect={(entry, text) => {
             const alias = toSheetRelativeFormulaAlias(entry);
             if (!alias) {
               return;
             }
             setDraft({
               ...draft,
-              text: appendFormulaToken(draft.text, entry.token),
+              text,
               aliases: upsertFormulaAlias(draft.aliases ?? null, alias)
             });
-          }}
-        >
-          <option value="">
-            {variableEntries.length === 0 ? "Metadata unavailable" : "Select a variable"}
-          </option>
-          {variableEntries.map((entry) => (
-            <option key={entry.key} value={entry.key}>
-              {entry.label} ({entry.path.join(".")})
-            </option>
-          ))}
-        </select>
-      </Field>
+        }}
+        placeholder="Type @ to insert a sheet variable"
+      />
       {(draft.aliases ?? []).length > 0 ? (
         <div className="formula-tag-list" aria-label="Formula aliases">
           {draft.aliases?.map((alias) => (

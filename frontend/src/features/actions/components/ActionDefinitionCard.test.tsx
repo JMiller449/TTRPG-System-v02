@@ -38,4 +38,28 @@ describe("ActionDefinitionCard", () => {
     expect(markup).toContain("Mana Cost");
     expect(markup).toContain("25 mana");
   });
+
+  it("identifies GM-only Roll20 message steps", () => {
+    const markup = renderToStaticMarkup(
+      <ActionDefinitionCard
+        action={{
+          id: "secret_check",
+          name: "Secret Check",
+          steps: [
+            {
+              step_id: "secret_roll",
+              type: "send_message",
+              visibility: "gm",
+              message: { aliases: null, text: "Secret: /r 1d20" }
+            }
+          ]
+        }}
+        attributeDefinitions={{}}
+        onEdit={() => undefined}
+        onDelete={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("secret_roll: send GM message");
+  });
 });

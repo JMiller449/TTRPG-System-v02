@@ -328,15 +328,30 @@ textarea:disabled {
   font-size: 0.87rem;
 }
 
-.formula-tag-editor__input-row {
+.formula-tag-editor__control {
   display: flex;
-  align-items: stretch;
-  gap: 0.45rem;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  background: var(--r6-control-bg, var(--card));
 }
 
-.formula-tag-editor__input-row input {
+.formula-tag-editor__control:focus-within {
+  border-color: var(--accent);
+}
+
+.formula-tag-editor__input {
   flex: 1;
-  min-width: 0;
+  min-width: 11rem;
+  padding: 0.25rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .formula-tag-list,
@@ -368,11 +383,6 @@ button.formula-tag-suggestion {
 .formula-tag-suggestion--selected {
   border-color: var(--accent);
   background: var(--r6-control-bg-active, var(--card));
-}
-
-.formula-tag-editor__empty,
-.formula-tag-editor__suggestion-label {
-  margin: 0 0 0.35rem;
 }
 
 .formula-selector-editor {
@@ -505,7 +515,7 @@ button.formula-tag-suggestion {
   margin-bottom: 0;
 }
 
-.authoring-workspace__editor :is(.field, label, .inline-group, .inline-actions, .list-item, .template-editor__actions, .attribute-subject-options, .formula-tag-editor__input-row, .equation-preview) {
+.authoring-workspace__editor :is(.field, label, .inline-group, .inline-actions, .list-item, .template-editor__actions, .attribute-subject-options, .formula-tag-editor__control, .equation-preview) {
   break-inside: avoid;
 }
 

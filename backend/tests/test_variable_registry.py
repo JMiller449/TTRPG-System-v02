@@ -249,16 +249,20 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     ]
     assert action_presets["weapon_attack"].roll_mode_kind == "check"
     assert action_presets["weapon_attack"].category == "weapon"
-    assert action_presets["weapon_attack"].steps[0]["message"]["text"] == (
-        "Weapon Attack: /r floor((1 + @weapon_proficiency) * "
+    assert action_presets["weapon_attack"].editable_formula_fields == [
+        "steps.0.rolls.0.value"
+    ]
+    assert action_steps["send_roll"].formula_fields == ["rolls[].value"]
+    assert action_presets["weapon_attack"].steps[0]["rolls"][0]["value"]["text"] == (
+        "floor((1 + @weapon_proficiency) * "
         "(1d100 / 100) * @weapon_stat)"
     )
     assert action_presets["weapon_damage"].roll_mode_kind == "damage"
-    assert action_presets["weapon_parry"].steps[0]["message"]["text"] == (
-        "Weapon Parry: /r floor((1 + @weapon_proficiency) * "
+    assert action_presets["weapon_parry"].steps[0]["rolls"][0]["value"]["text"] == (
+        "floor((1 + @weapon_proficiency) * "
         "(1d100 / 100) * @dexterity)"
     )
-    assert action_presets["block"].steps[0]["message"]["aliases"] == [
+    assert action_presets["block"].steps[0]["rolls"][0]["value"]["aliases"] == [
         {"name": "strength", "path": ["sheet", "stats", "strength"]}
     ]
     assert action_presets["spell_to_hit"].attribute_values[

@@ -40,13 +40,19 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         proficiencyOrder,
         attributes: attributeDefinitions
       },
-      uiState: { actionFormulaAuthoringMetadata }
+      uiState: { actionFormulaAuthoringMetadata, intentFeedback }
     }
   } = useAppStore();
   const requestedMetadataRef = useRef(false);
 
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [values, setValues] = useState<ActionEditorValues>(createEmptyActionEditorValues);
+  const [pendingSave, setPendingSave] = useState<{
+    requestId: string;
+    actionId: string;
+    operation: "create" | "update";
+  } | null>(null);
+  const [saveConfirmation, setSaveConfirmation] = useState<string | null>(null);
 
   const actions = useMemo(
     () => selectOrderedActionDefinitions(actionRecords, actionOrder),
@@ -88,10 +94,20 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     proficiencies: proficiencyRecords
   };
   const validationError = getActionEditorValidationError(values, attributeValidationContext);
+  const draftHasContent = Boolean(
+    values.name.trim() ||
+      values.notes.trim() ||
+      values.steps.length ||
+      Object.keys(values.attributes).length
+  );
 
   const startNewAction = (): void => {
+    if (pendingSave) {
+      return;
+    }
     setEditingActionId(null);
     setValues(createEmptyActionEditorValues());
+    setSaveConfirmation(null);
   };
 
   useEffect(() => {
@@ -104,24 +120,60 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     client.sendProtocolRequest(submission.request, submission.label);
   }, [actionFormulaAuthoringMetadata, client]);
 
+  useEffect(() => {
+    if (!pendingSave) {
+      return;
+    }
+    const feedback = intentFeedback.find((entry) => entry.intentId === pendingSave.requestId);
+    if (!feedback || feedback.status === "pending") {
+      return;
+    }
+    if (feedback.status === "error") {
+      setPendingSave(null);
+      return;
+    }
+    const savedAction = actionRecords[pendingSave.actionId];
+    if (!savedAction) {
+      return;
+    }
+    setEditingActionId(savedAction.id);
+    setValues(toActionEditorValues(savedAction));
+    setSaveConfirmation(
+      pendingSave.operation === "create"
+        ? `Action “${savedAction.name}” created.`
+        : `Action “${savedAction.name}” saved.`
+    );
+    setPendingSave(null);
+  }, [actionRecords, intentFeedback, pendingSave]);
+
   const onSubmit = (): void => {
-    if (!values.name.trim()) {
+    if (pendingSave || validationError) {
       return;
     }
 
+    const actionId = editingActionId ?? makeId("action");
+    const requestId = makeId("request");
     const submission = editingActionId
       ? buildUpdateActionSubmission(
           actionRecords[editingActionId],
           values,
           attributeValidationContext
         )
-      : buildCreateActionSubmission(values, makeId("action"), attributeValidationContext);
+      : buildCreateActionSubmission(values, actionId, attributeValidationContext);
     if (!submission) {
       return;
     }
 
-    client.sendProtocolRequest(submission.request, submission.label);
-    startNewAction();
+    setSaveConfirmation(null);
+    setPendingSave({
+      requestId,
+      actionId,
+      operation: editingActionId ? "update" : "create"
+    });
+    client.sendProtocolRequest(
+      { ...submission.request, request_id: requestId },
+      submission.label
+    );
   };
 
   const deleteAction = (actionId: string): void => {
@@ -140,10 +192,18 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
       actions={
         editingActionId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" onClick={startNewAction}>
+            <button
+              className="button button--secondary"
+              onClick={startNewAction}
+              disabled={Boolean(pendingSave)}
+            >
               New Action
             </button>
-            <button className="button button--danger" onClick={() => deleteAction(editingActionId)}>
+            <button
+              className="button button--danger"
+              onClick={() => deleteAction(editingActionId)}
+              disabled={Boolean(pendingSave)}
+            >
               Delete Action
             </button>
           </div>
@@ -159,12 +219,16 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             selectedId={editingActionId}
             emptyMessage="No actions created yet."
             onSelect={(actionId) => {
+              if (pendingSave) {
+                return;
+              }
               const action = actionRecords[actionId];
               if (!action) {
                 return;
               }
               setEditingActionId(action.id);
               setValues(toActionEditorValues(action));
+              setSaveConfirmation(null);
             }}
           />
         }
@@ -172,7 +236,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         <div className="stack action-authoring-editor">
           <ActionPresetPicker
             presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
+            disabled={Boolean(pendingSave)}
             onApply={(preset) => {
+              if (pendingSave) {
+                return;
+              }
               setEditingActionId(null);
               setValues(
                 applyActionPresetTemplate(
@@ -182,12 +250,21 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
                   () => makeId("action_attribute")
                 )
               );
+              setSaveConfirmation(null);
             }}
           />
+          {saveConfirmation ? (
+            <p className="action-authoring-feedback" role="status">
+              {saveConfirmation}
+            </p>
+          ) : null}
           <ActionEditorForm
             editingActionId={editingActionId}
             values={values}
-            onChange={setValues}
+            onChange={(nextValues) => {
+              setValues(nextValues);
+              setSaveConfirmation(null);
+            }}
             onSubmit={onSubmit}
             onCancel={startNewAction}
             metadata={actionFormulaAuthoringMetadata}
@@ -196,6 +273,8 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             standaloneEffects={standaloneEffects}
             conditions={conditions}
             validationError={validationError}
+            showValidationError={draftHasContent}
+            pending={Boolean(pendingSave)}
             attributesEditor={
               <ActionAttributesEditor
                 values={values}

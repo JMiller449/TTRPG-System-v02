@@ -3,6 +3,7 @@ import type {
   AugmentationOperation,
   LifecycleMode
 } from "@/domain/models";
+import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { Field } from "@/shared/ui/Field";
 import {
   applyAugmentationTargetOption,
@@ -21,6 +22,11 @@ import {
 } from "@/features/augmentations/augmentationEditorValues";
 import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
+import {
+  formulaVariableSearchOptions,
+  upsertFormulaAlias
+} from "@/features/variables/variablePicker";
 
 const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
   "add",
@@ -69,6 +75,7 @@ export function ConditionAugmentationTemplatePanel({
   templates,
   targetOptions,
   selectorOptions,
+  formulaMetadata = null,
   values,
   onChange,
   onAdd,
@@ -83,6 +90,7 @@ export function ConditionAugmentationTemplatePanel({
   templates: Augmentation[];
   targetOptions: AugmentationTargetOption[];
   selectorOptions: AugmentationSelectorOptions;
+  formulaMetadata?: ActionFormulaAuthoringMetadata | null;
   values: AugmentationEditorValues;
   onChange: (values: AugmentationEditorValues) => void;
   onAdd: () => void;
@@ -225,15 +233,23 @@ export function ConditionAugmentationTemplatePanel({
           </Field>
 
           {values.effectType !== "roll_mode_modifier" ? (
-            <Field label="Formula">
-              <textarea
-                rows={2}
-                value={values.formulaText}
-                aria-invalid={!values.formulaText.trim()}
-                onChange={(event) => onChange({ ...values, formulaText: event.target.value })}
-                placeholder="@arcane - 2"
-              />
-            </Field>
+            <FormulaVariableInput
+              label="Formula"
+              rows={2}
+              value={values.formulaText}
+              options={formulaVariableSearchOptions(formulaMetadata)}
+              loading={!formulaMetadata}
+              ariaInvalid={!values.formulaText.trim()}
+              onChange={(formulaText) => onChange({ ...values, formulaText })}
+              onVariableSelect={(entry, formulaText) =>
+                onChange({
+                  ...values,
+                  formulaText,
+                  formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
+                })
+              }
+              placeholder="Type @ to insert a variable"
+            />
           ) : null}
 
           {values.effectType !== "formula_modifier" ? (

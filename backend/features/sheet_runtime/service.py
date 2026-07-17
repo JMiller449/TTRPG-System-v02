@@ -16,6 +16,7 @@ from backend.features.chat.schema import Roll20ChatMessage
 from backend.features.formula_runtime.service import (
     EvaluationTimeEffect,
     FormulaExecutionContext,
+    compose_roll20_expression,
     compose_roll20_message,
     evaluate_numeric_formula,
     evaluate_resource_maxima,
@@ -43,6 +44,7 @@ from backend.state.models.action import (
     IncrementValueStep,
     NumericValueSource,
     ResolveDamageStep,
+    SendRollStep,
     SendMessageStep,
     SetValueStep,
 )
@@ -78,10 +80,70 @@ _ROLL20_COMMAND_WITH_OPTIONAL_LABEL_PATTERN = re.compile(
 )
 _ROLL20_LABEL_UNSAFE_PATTERN = re.compile(r"[\r\n]+")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
+_ROLL20_GM_WHISPER_PATTERN = re.compile(r"^/w\s+gm(?:\s|$)", re.IGNORECASE)
+_ROLL20_GM_ROLL_PATTERN = re.compile(r"^/gmroll(?:\s|$)", re.IGNORECASE)
 _ROLL_MODE_OUTPUT = {
     "advantage": ("2d100kh1", "Advantage"),
     "disadvantage": ("2d100kl1", "Disadvantage"),
 }
+
+
+def _roll20_template_text(value: str) -> str:
+    safe_value = value.replace("{{", "(").replace("}}", ")")
+    return _WHITESPACE_PATTERN.sub(" ", safe_value).strip()
+
+
+def _roll20_roll_expression(expression: str, roll_mode: str) -> tuple[str, bool]:
+    transformed, applied = _apply_roll_mode_to_message(f"/r {expression}", roll_mode)
+    match = _ROLL20_COMMAND_PATTERN.fullmatch(transformed)
+    return (match.group("expression") if match is not None else expression, applied)
+
+
+def _compose_roll20_template_roll(
+    step: SendRollStep,
+    *,
+    actor_name: str,
+    expressions: list[str],
+    roll_mode_label: str | None,
+) -> str:
+    title = _roll20_template_text(step.title)
+    if roll_mode_label is not None:
+        title = f"{roll_mode_label}: {title}"
+    actor = _roll20_template_text(actor_name)
+    labels = [_roll20_template_text(roll.label) for roll in step.rolls]
+    if step.presentation == "simple":
+        message = (
+            f"&{{template:simple}} {{{{rname={title}}}}} "
+            f"{{{{r1=[[{expressions[0]}]]}}}} {{{{normal=1}}}} "
+            f"{{{{charname={actor}}}}}"
+        )
+    elif step.presentation == "damage":
+        fields = [
+            "&{template:dmg}",
+            f"{{{{rname={title}}}}}",
+            "{{damage=1}}",
+            "{{dmg1flag=1}}",
+            f"{{{{dmg1=[[{expressions[0]}]]}}}}",
+            f"{{{{dmg1type={labels[0]}}}}}",
+        ]
+        if len(expressions) == 2:
+            fields.extend(
+                (
+                    "{{dmg2flag=1}}",
+                    f"{{{{dmg2=[[{expressions[1]}]]}}}}",
+                    f"{{{{dmg2type={labels[1]}}}}}",
+                )
+            )
+        fields.append(f"{{{{charname={actor}}}}}")
+        message = " ".join(fields)
+    else:
+        fields = [f"&{{template:default}} {{{{name={title} — {actor}}}}}"]
+        fields.extend(
+            f"{{{{{label}=[[{expression}]]}}}}"
+            for label, expression in zip(labels, expressions, strict=True)
+        )
+        message = " ".join(fields)
+    return _apply_roll20_message_visibility(message, step.visibility)
 
 
 def _state() -> State:
@@ -127,6 +189,26 @@ def _format_roll20_inline_roll_message(message: str) -> str:
     if label is None:
         return f"[[{expression}]]"
     return f"{label}: [[{expression}]]"
+
+
+def _apply_roll20_message_visibility(
+    message: str,
+    visibility: Literal["public", "gm"],
+) -> str:
+    if visibility == "public":
+        return message
+    if visibility != "gm":
+        raise ValueError("Roll20 message visibility must be 'public' or 'gm'.")
+    if _is_roll20_gm_message(message):
+        return message
+    return f"/w gm {message}"
+
+
+def _is_roll20_gm_message(message: str) -> bool:
+    return (
+        _ROLL20_GM_WHISPER_PATTERN.match(message) is not None
+        or _ROLL20_GM_ROLL_PATTERN.match(message) is not None
+    )
 
 
 def get_sheet(sheet_id: str, state: State | None = None) -> Sheet:
@@ -687,6 +769,8 @@ def _action_requires_source_item(action: Action, state: State) -> bool:
         values: list[FormulaValueSource | NumericValueSource | None] = []
         if isinstance(step, SendMessageStep):
             values.append(step.message)
+        elif isinstance(step, SendRollStep):
+            values.extend(roll.value for roll in step.rolls)
         elif isinstance(step, CalculateValueStep):
             values.append(step.value)
         elif isinstance(step, SetValueStep):
@@ -1093,7 +1177,7 @@ async def perform_action(
     steps = action.steps
 
     bridge_binding: chat_service.Roll20BridgeBinding | None = None
-    if any(isinstance(step, SendMessageStep) for step in steps):
+    if any(isinstance(step, SendMessageStep | SendRollStep) for step in steps):
         bridge_binding = chat_service.binding_for_actor(
             actor_role=actor_role,
             assigned_instance_id=assigned_instance_id,
@@ -1105,7 +1189,9 @@ async def perform_action(
                 "Roll20 chat bridge is not connected for this user."
             )
 
-    def mutation(state: State) -> tuple[tuple[list[str], list[str], bool], list[Any]]:
+    def mutation(
+        state: State,
+    ) -> tuple[tuple[list[str], list[ActionHistoryText], bool], list[Any]]:
         ops: list[Any] = augmentation_service.synchronize_equipment_augmentations_mutation(
             state
         )
@@ -1137,12 +1223,76 @@ async def perform_action(
         )
 
         applied_mutations: list[str] = []
-        emitted_messages: list[str] = []
+        emitted_messages: list[ActionHistoryText] = []
         roll_mode_requires_transform = False
         roll_mode_applied = False
         unresolved_roll_mode = request.roll_mode
 
         for step in current_steps:
+            if isinstance(step, SendRollStep):
+                expressions: list[str] = []
+                step_mode_applied = False
+                step_mode_label: str | None = None
+                for roll in step.rolls:
+                    roll_formula, formula_id = _resolve_formula_value(state, roll.value)
+                    execution_context = _formula_execution_context(
+                        roll_formula,
+                        action_id=current_action.id,
+                        step_id=step.step_id,
+                        formula_id=formula_id,
+                        source_item_relationship_id=current_resolution.source_item_bridge_key,
+                    )
+                    modifiers = _matching_formula_effects(state, current_actor, execution_context)
+                    formula_root.validate_formula(state, roll_formula)
+                    _validate_matching_formula_effects(
+                        state=state,
+                        formula_root=formula_root,
+                        modifiers=modifiers,
+                    )
+                    expression = compose_roll20_expression(
+                        formula_root,
+                        roll_formula,
+                        execution_context=execution_context,
+                        modifiers=modifiers,
+                    )
+                    effective_roll_mode = (
+                        resolve_roll_mode(
+                            request.roll_mode,
+                            execution_context=execution_context,
+                            modifiers=modifiers,
+                        )
+                        if current_action.roll_mode_kind == "check"
+                        else request.roll_mode
+                    )
+                    if effective_roll_mode != "normal":
+                        roll_mode_requires_transform = True
+                        unresolved_roll_mode = effective_roll_mode
+                    expression, mode_applied = _roll20_roll_expression(
+                        expression, effective_roll_mode
+                    )
+                    if mode_applied and step_mode_label is None:
+                        step_mode_label = {
+                            "advantage": "Advantage",
+                            "disadvantage": "Disadvantage",
+                            "critical": "Critical",
+                        }.get(effective_roll_mode)
+                    step_mode_applied = step_mode_applied or mode_applied
+                    expressions.append(expression)
+                message = _compose_roll20_template_roll(
+                    step,
+                    actor_name=current_actor.sheet.name,
+                    expressions=expressions,
+                    roll_mode_label=step_mode_label,
+                )
+                roll_mode_applied = roll_mode_applied or step_mode_applied
+                emitted_messages.append(
+                    ActionHistoryText(
+                        message,
+                        visibility="gm_only" if step.visibility == "gm" else "public",
+                    )
+                )
+                continue
+
             if isinstance(step, SendMessageStep):
                 message_formula, formula_id = _resolve_formula_value(
                     state,
@@ -1191,8 +1341,16 @@ async def perform_action(
                     effective_roll_mode,
                 )
                 message = _format_roll20_inline_roll_message(message)
+                message = _apply_roll20_message_visibility(message, step.visibility)
                 roll_mode_applied = roll_mode_applied or mode_applied
-                emitted_messages.append(message)
+                emitted_messages.append(
+                    ActionHistoryText(
+                        message,
+                        visibility=(
+                            "gm_only" if _is_roll20_gm_message(message) else "public"
+                        ),
+                    )
+                )
                 continue
 
             if isinstance(step, CalculateValueStep):
@@ -1571,7 +1729,7 @@ async def perform_action(
         return (applied_mutations, emitted_messages, bool(ops)), ops
 
     async def deliver_messages(
-        result: tuple[list[str], list[str], bool],
+        result: tuple[list[str], list[ActionHistoryText], bool],
     ) -> None:
         _, messages, _ = result
         if not messages:
@@ -1582,7 +1740,7 @@ async def perform_action(
             await chat_service.roll20_chat_bridge.send(
                 Roll20ChatMessage(
                     message_id=str(uuid4()),
-                    message=message,
+                    message=message.text,
                     request_id=request.request_id,
                 ),
                 binding_key=bridge_binding.key,
@@ -1617,7 +1775,7 @@ async def perform_action(
                 f"and {len(applied_mutations)} mutation(s)."
             ),
             emitted_messages=[
-                ActionHistoryText(message, visibility="public")
+                ActionHistoryText(message.text, visibility=message.visibility)
                 for message in emitted_messages
             ],
             mutation_summaries=[
@@ -1652,6 +1810,6 @@ async def perform_action(
         sheet_id=request.sheet_id,
         action_id=request.action_id,
         applied_mutations=applied_mutations,
-        emitted_messages=emitted_messages,
+        emitted_messages=[message.text for message in emitted_messages],
         request_id=request.request_id,
     )

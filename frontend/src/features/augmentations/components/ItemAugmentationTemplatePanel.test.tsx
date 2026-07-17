@@ -69,7 +69,8 @@ describe("ItemAugmentationTemplatePanel", () => {
     );
 
     expect(markup).toContain("Equipment Effects");
-    expect(markup).toContain("Insert Formula Variable");
+    expect(markup).toContain("Type @ to insert a variable");
+    expect(markup).not.toContain("Insert Formula Variable");
     expect(markup).toContain("@weapon_base_damage");
   });
 });

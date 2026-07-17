@@ -135,6 +135,14 @@ _ACTION_STEPS: tuple[ActionStepAuthoringMetadata, ...] = (
         path_catalog="none",
     ),
     ActionStepAuthoringMetadata(
+        type="send_roll",
+        label="Send styled Roll20 roll",
+        category="roll20_output",
+        allowed_targets=["caster"],
+        formula_fields=["rolls[].value"],
+        path_catalog="none",
+    ),
+    ActionStepAuthoringMetadata(
         type="set_value",
         label="Set bounded variable value",
         category="bounded_mutation",
@@ -277,7 +285,7 @@ _ACTION_PRESET_TEMPLATES: tuple[ActionPresetTemplate, ...] = (
             category=preset.category,
             description=preset.description,
             steps=preset.steps(),
-            editable_formula_fields=["steps.0.message"],
+            editable_formula_fields=["steps.0.rolls.0.value"],
             roll_mode_kind=preset.roll_mode_kind,
             attribute_values=preset.authoring_attribute_values(),
         )

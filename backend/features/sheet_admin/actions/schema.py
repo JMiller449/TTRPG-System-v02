@@ -35,6 +35,27 @@ class SendMessageActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["send_message"]
     message: FormulaValuePayload
+    visibility: Literal["public", "gm"] = "public"
+
+
+class RollResultPayload(BaseModel):
+    label: str = Field(min_length=1)
+    value: FormulaValuePayload
+
+
+class SendRollActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["send_roll"]
+    title: str = Field(min_length=1)
+    presentation: Literal["simple", "damage", "default"] = "default"
+    rolls: list[RollResultPayload] = Field(min_length=1, max_length=2)
+    visibility: Literal["public", "gm"] = "public"
+
+    @model_validator(mode="after")
+    def validate_simple_roll_count(self) -> "SendRollActionStepPayload":
+        if self.presentation == "simple" and len(self.rolls) != 1:
+            raise ValueError("Simple roll cards require exactly one result.")
+        return self
 
 
 class CalculateValueActionStepPayload(BaseModel):
@@ -102,6 +123,7 @@ class ApplyConditionPresetActionStepPayload(BaseModel):
 
 ActionStepPayload = Annotated[
     SendMessageActionStepPayload
+    | SendRollActionStepPayload
     | CalculateValueActionStepPayload
     | SetValueActionStepPayload
     | IncrementValueActionStepPayload
@@ -141,6 +163,12 @@ class ActionDefinitionPayload(BaseModel):
                 step.message, FormulaPayload
             ):
                 formulas.append(step.message)
+            if isinstance(step, SendRollActionStepPayload):
+                formulas.extend(
+                    roll.value
+                    for roll in step.rolls
+                    if isinstance(roll.value, FormulaPayload)
+                )
             if isinstance(step, CalculateValueActionStepPayload) and isinstance(
                 step.value, FormulaPayload
             ):

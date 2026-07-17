@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
-  appendFormulaToken,
   buildVariablePickerEntries,
   filterVariablePickerEntries,
   toVariableSearchOptions,
@@ -161,11 +160,6 @@ describe("variablePicker", () => {
       }
     });
     expect(arcane?.keywords).toContain("Base sheet stat.");
-  });
-
-  it("appends formula tokens without changing blank spacing aggressively", () => {
-    expect(appendFormulaToken("", "@arc")).toBe("@arc");
-    expect(appendFormulaToken("@mana + 2  ", "@arc")).toBe("@mana + 2 @arc");
   });
 
   it("upserts formula aliases by alias name", () => {

@@ -117,17 +117,15 @@ export function toVariableSearchOptions(
   }));
 }
 
-export function appendFormulaToken(text: string, token: string): string {
-  const trimmedToken = token.trim();
-  if (!trimmedToken) {
-    return text;
-  }
-
-  if (!text.trim()) {
-    return trimmedToken;
-  }
-
-  return `${text.trimEnd()} ${trimmedToken}`;
+export function formulaVariableSearchOptions(
+  metadata: ActionFormulaAuthoringMetadata | null,
+  root?: VariablePickerEntry["root"]
+): SearchPopoverOption<VariablePickerEntry>[] {
+  return toVariableSearchOptions(
+    buildVariablePickerEntries(metadata, "formula").filter(
+      (entry) => root === undefined || entry.root === root
+    )
+  );
 }
 
 export function upsertFormulaAlias(

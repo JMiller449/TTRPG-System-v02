@@ -154,6 +154,10 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 StateSingleton.getState().actions["battle_cry"].roll_mode_kind
                 == "check"
             )
+            assert (
+                StateSingleton.getState().actions["battle_cry"].steps[0].visibility
+                == "public"
+            )
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][0]["path"] == (
                 "/actions/battle_cry"
@@ -163,6 +167,75 @@ def test_dm_can_create_action(monkeypatch) -> None:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_dm_can_create_action_with_gm_message_visibility(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload()
+            action["steps"][0]["visibility"] = "gm"
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            saved_step = StateSingleton.getState().actions["battle_cry"].steps[0]
+            assert saved_step.visibility == "gm"
+            assert websocket.sent_messages[0]["ops"][0]["value"]["steps"][0][
+                "visibility"
+            ] == "gm"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_message_visibility_rejects_unknown_values() -> None:
+    action = _action_payload()
+    action["steps"][0]["visibility"] = "party"
+
+    with pytest.raises(ValueError):
+        ActionDefinitionPayload.model_validate(action)
+    with pytest.raises(ValueError, match="must be either 'public' or 'gm'"):
+        Action.from_dict(action)
+
+
+def test_structured_roll_step_validates_card_shape_and_formula_results() -> None:
+    action = {
+        **_action_payload(),
+        "steps": [
+            {
+                "step_id": "roll",
+                "type": "send_roll",
+                "title": "Greataxe",
+                "presentation": "damage",
+                "visibility": "gm",
+                "rolls": [
+                    {"label": "Slashing Damage", "value": _formula_payload("1d12 + 4")},
+                    {"label": "Rage Damage", "value": _formula_payload("2")},
+                ],
+            }
+        ],
+    }
+
+    assert ActionDefinitionPayload.model_validate(action).steps[0].type == "send_roll"
+    saved = Action.from_dict(action).steps[0]
+    assert saved.presentation == "damage"
+    assert saved.visibility == "gm"
+    assert [roll.label for roll in saved.rolls] == ["Slashing Damage", "Rage Damage"]
+
+    action["steps"][0]["presentation"] = "simple"
+    with pytest.raises(ValueError, match="exactly one result"):
+        ActionDefinitionPayload.model_validate(action)
+    with pytest.raises(ValueError, match="require 1 result"):
+        Action.from_dict(action)
 
 
 def test_dm_can_create_action_with_canonical_attribute_configuration(monkeypatch) -> None:

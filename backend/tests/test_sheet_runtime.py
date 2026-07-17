@@ -5,12 +5,15 @@ from dataclasses import asdict
 from backend.features.chat import service as chat_service
 from backend.features.sheet_runtime.service import (
     _apply_roll_mode_to_message,
+    _apply_roll20_message_visibility,
+    _compose_roll20_template_roll,
     _format_roll20_inline_roll_message,
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.augmentation import Augmentation, StandaloneEffectDefinition
-from backend.state.models.action import Action
+from backend.state.models.action import Action, RollResult, SendRollStep
+from backend.state.models.formula import Formula
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
 from backend.state.models.attribute import synchronize_required_sheet_attributes
@@ -115,6 +118,45 @@ def test_roll_mode_transforms_only_standalone_d100_check_expressions() -> None:
         "Damage: /r 2d8 + 4",
         False,
     )
+
+
+def test_styled_roll_templates_support_public_and_gm_cards() -> None:
+    simple = SendRollStep(
+        step_id="roll",
+        title="Dexterity Check",
+        presentation="simple",
+        rolls=[RollResult(label="Result", value=Formula(aliases=[], text="1d100"))],
+    )
+    assert _compose_roll20_template_roll(
+        simple,
+        actor_name="Grumtar",
+        expressions=["2d100kh1"],
+        roll_mode_label="Advantage",
+    ) == (
+        "&{template:simple} {{rname=Advantage: Dexterity Check}} "
+        "{{r1=[[2d100kh1]]}} {{normal=1}} {{charname=Grumtar}}"
+    )
+
+    damage = SendRollStep(
+        step_id="roll",
+        title="Greataxe",
+        presentation="damage",
+        visibility="gm",
+        rolls=[
+            RollResult(label="Slashing Damage", value=Formula(aliases=[], text="1d12")),
+            RollResult(label="Rage Damage", value=Formula(aliases=[], text="2")),
+        ],
+    )
+    message = _compose_roll20_template_roll(
+        damage,
+        actor_name="Grumtar",
+        expressions=["1d12 + 4", "2"],
+        roll_mode_label=None,
+    )
+    assert message.startswith("/w gm &{template:dmg}")
+    assert "{{dmg1=[[1d12 + 4]]}}" in message
+    assert "{{dmg2=[[2]]}}" in message
+    assert "{{charname=Grumtar}}" in message
     assert _apply_roll_mode_to_message("Damage: /r 2d8 + 4", "critical") == (
         "[Critical] Damage: /r (2 * (2d8 + 4))",
         True,
@@ -136,6 +178,24 @@ def test_roll20_command_output_formats_inline_rolls_with_command_names() -> None
         "/roll (1d100 / 100) * 20"
     ) == "[[(1d100 / 100) * 20]]"
     assert _format_roll20_inline_roll_message("Mana is (30)") == "Mana is (30)"
+
+
+def test_roll20_gm_visibility_formats_rolls_and_plain_messages() -> None:
+    assert _apply_roll20_message_visibility("A public note", "public") == (
+        "A public note"
+    )
+    assert _apply_roll20_message_visibility("A private note", "gm") == (
+        "/w gm A private note"
+    )
+    assert _apply_roll20_message_visibility("Check: [[1d20 + 5]]", "gm") == (
+        "/w gm Check: [[1d20 + 5]]"
+    )
+    assert _apply_roll20_message_visibility("/w gm Already private", "gm") == (
+        "/w gm Already private"
+    )
+    assert _apply_roll20_message_visibility("/gmroll 1d20 + 5", "gm") == (
+        "/gmroll 1d20 + 5"
+    )
 
 
 def _build_sheet_state() -> Sheet:
@@ -882,6 +942,78 @@ def test_perform_action_sends_roll20_inline_roll_with_command_name(monkeypatch) 
             assert _request_messages(websocket)[-1]["type"] == "error"
             assert "Duplicate request" in _request_messages(websocket)[-1]["reason"]
             assert len(bridge_socket.sent_messages) == 1
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_sends_gm_only_rolls_and_plain_messages(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.actions["secret_check"] = Action.from_dict(
+                {
+                    "id": "secret_check",
+                    "name": "Secret Check",
+                    "steps": [
+                        {
+                            "step_id": "note",
+                            "type": "send_message",
+                            "visibility": "gm",
+                            "message": _formula_payload("The passage seems trapped."),
+                        },
+                        {
+                            "step_id": "roll",
+                            "type": "send_message",
+                            "visibility": "gm",
+                            "message": _formula_payload("Trap check: /r 1d20 + 5"),
+                        },
+                        {
+                            "step_id": "legacy-whisper",
+                            "type": "send_message",
+                            "message": _formula_payload("/w gm Already private"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_template",
+                    "action_id": "secret_check",
+                },
+            )
+
+            expected_messages = [
+                "/w gm The passage seems trapped.",
+                "/w gm Trap check: [[1d20 + 5]]",
+                "/w gm Already private",
+            ]
+            assert [message["message"] for message in bridge_socket.sent_messages] == (
+                expected_messages
+            )
+            assert _request_messages(websocket)[0]["emitted_messages"] == expected_messages
+            history_entry = next(iter(state.action_history.values()))
+            assert [message.text for message in history_entry.emitted_messages] == (
+                expected_messages
+            )
+            assert all(
+                message.visibility == "gm_only"
+                for message in history_entry.emitted_messages
+            )
         finally:
             StateSingleton._state = original_state
 

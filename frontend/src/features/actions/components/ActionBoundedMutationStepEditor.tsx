@@ -15,9 +15,9 @@ import {
   type EditorNumericValueSource
 } from "@/features/actions/actionEditorValues";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
-  appendFormulaToken,
+  formulaVariableSearchOptions,
   upsertFormulaAlias,
   type VariablePickerEntry
 } from "@/features/variables/variablePicker";
@@ -65,23 +65,6 @@ export function ActionBoundedMutationStepEditor({
     onChange(setBoundedMutationSource(values, step.step_id, slot, source));
   };
 
-  const insertCalculatedValue = (
-    slot: BoundedMutationSourceSlot,
-    source: EditorNumericValueSource,
-    variableId: string
-  ): void => {
-    if (!isInlineFormula(source)) {
-      return;
-    }
-    const alias = { name: variableId, path: ["action_values", variableId] };
-    onChange(
-      updateBoundedMutationFormula(values, step.step_id, slot, {
-        text: appendFormulaToken(source.text, `@${variableId}`),
-        aliases: upsertFormulaAlias(source.aliases ?? null, alias)
-      })
-    );
-  };
-
   const sourceEditor = (
     slot: BoundedMutationSourceSlot,
     source: EditorNumericValueSource,
@@ -89,6 +72,19 @@ export function ActionBoundedMutationStepEditor({
   ): JSX.Element => {
     const formulaId = isFormulaReference(source) ? source.formula_id : null;
     const variableId = isCalculatedValueReference(source) ? source.variable_id : null;
+    const mentionOptions = [
+      ...formulaVariableSearchOptions(metadata),
+      ...calculatedValues.map((option) => ({
+        id: `calculated:${option.stepId}:${option.variableId}`,
+        label: option.variableId,
+        secondary: `@${option.variableId} | earlier calculated value`,
+        keywords: [option.variableId, option.stepId, "calculated"],
+        value: {
+          token: `@${option.variableId}`,
+          alias: { name: option.variableId, path: ["action_values", option.variableId] }
+        }
+      }))
+    ];
     return (
       <div className="stack">
         <Field label={`${sourceLabel} Source`}>
@@ -123,54 +119,28 @@ export function ActionBoundedMutationStepEditor({
         </Field>
         {isInlineFormula(source) ? (
           <>
-            <Field label={`${sourceLabel} Formula`}>
-              <input
-                value={source.text}
-                onChange={(event) =>
-                  onChange(
-                    updateBoundedMutationFormula(values, step.step_id, slot, {
-                      text: event.target.value
-                    })
-                  )
-                }
-                placeholder="e.g. 1d8 + 2"
-              />
-            </Field>
-            <VariableSearchPicker
-              metadata={metadata}
-              mode="formula"
-              label={`Insert ${sourceLabel} Variable`}
-              onPick={(entry) => {
+            <FormulaVariableInput
+              label={`${sourceLabel} Formula`}
+              value={source.text}
+              multiline={false}
+              options={mentionOptions}
+              loading={!metadata}
+              onChange={(text) =>
+                onChange(updateBoundedMutationFormula(values, step.step_id, slot, { text }))
+              }
+              onVariableSelect={(entry, text) => {
                 if (!isInlineFormula(source)) {
                   return;
                 }
                 onChange(
                   updateBoundedMutationFormula(values, step.step_id, slot, {
-                    text: appendFormulaToken(source.text, entry.token),
+                    text,
                     aliases: upsertFormulaAlias(source.aliases ?? null, entry.alias)
                   })
                 );
               }}
+              placeholder="Type @ to insert a variable"
             />
-            {calculatedValues.length > 0 ? (
-              <Field label="Earlier Calculated Value in Formula">
-                <select
-                  value=""
-                  onChange={(event) => {
-                    if (event.target.value) {
-                      insertCalculatedValue(slot, source, event.target.value);
-                    }
-                  }}
-                >
-                  <option value="">Insert a previous calculated value</option>
-                  {calculatedValues.map((option) => (
-                    <option key={option.stepId} value={option.variableId}>
-                      {option.variableId} ({option.stepId})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
             <FormulaTagEditor
               label={`${sourceLabel} Formula Tags`}
               tags={source.tags ?? []}

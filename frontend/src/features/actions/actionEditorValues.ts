@@ -12,6 +12,7 @@ import type { ActionDefinitionPayload } from "@/infrastructure/ws/requestBuilder
 export type ActionEditorSteps = NonNullable<ActionDefinitionPayload["steps"]>;
 export type ActionEditorStep = ActionEditorSteps[number];
 export type SendMessageEditorStep = Extract<ActionEditorStep, { type: "send_message" }>;
+export type SendRollEditorStep = Extract<ActionEditorStep, { type: "send_roll" }>;
 export type CalculateValueEditorStep = Extract<ActionEditorStep, { type: "calculate_value" }>;
 export type ResolveDamageEditorStep = Extract<ActionEditorStep, { type: "resolve_damage" }>;
 export type IncrementValueEditorStep = Extract<ActionEditorStep, { type: "increment_value" }>;
@@ -115,6 +116,23 @@ export function getActionEditorValidationError(
   if (!values.name.trim()) {
     return "Name is required.";
   }
+  for (const step of values.steps) {
+    if (step.type !== "send_roll") {
+      continue;
+    }
+    if (!step.title.trim()) {
+      return "Roll title is required.";
+    }
+    if (step.rolls.length < 1 || step.rolls.length > 2) {
+      return "Styled rolls require one or two results.";
+    }
+    if ((step.presentation ?? "default") === "simple" && step.rolls.length !== 1) {
+      return "Simple roll cards require exactly one result.";
+    }
+    if (step.rolls.some((roll) => !roll.label.trim())) {
+      return "Roll result labels are required.";
+    }
+  }
   for (const [attributeId, bridge] of Object.entries(values.attributes)) {
     const definition = context.definitions?.[attributeId];
     if (!definition || !definition.subject_types.includes("action")) {
@@ -204,10 +222,52 @@ export function createSendMessageActionStep(
   return {
     step_id: stepId,
     type: "send_message",
+    visibility: "public",
     message: {
       aliases: null,
       text: messageText
     }
+  };
+}
+
+export function createSendRollActionStep(stepId: string): SendRollEditorStep {
+  return {
+    step_id: stepId,
+    type: "send_roll",
+    title: "Roll",
+    presentation: "simple",
+    visibility: "public",
+    rolls: [{ label: "Result", value: { aliases: null, text: "1d100" } }]
+  };
+}
+
+export function updateSendRollActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  update: Partial<Pick<SendRollEditorStep, "title" | "presentation" | "visibility" | "rolls">>
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "send_roll" ? { ...step, ...update } : step
+    )
+  };
+}
+
+export function updateSendMessageActionStepVisibility(
+  values: ActionEditorValues,
+  stepId: string,
+  visibility: NonNullable<SendMessageEditorStep["visibility"]>
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) =>
+      step.step_id === stepId && step.type === "send_message"
+        ? { ...step, visibility }
+        : step
+    )
   };
 }
 
@@ -341,6 +401,16 @@ export function addSendMessageActionStep(
   return {
     ...values,
     steps: [...cloneActionSteps(values.steps), createSendMessageActionStep(stepId)]
+  };
+}
+
+export function addSendRollActionStep(
+  values: ActionEditorValues,
+  stepId: string
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [...cloneActionSteps(values.steps), createSendRollActionStep(stepId)]
   };
 }
 

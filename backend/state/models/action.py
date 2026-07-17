@@ -9,6 +9,8 @@ from backend.state.models.attribute import AttributeBridge
 ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
 ActionRollModeKind = Literal["none", "check", "damage"]
+ActionMessageVisibility = Literal["public", "gm"]
+Roll20RollPresentation = Literal["simple", "damage", "default"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -74,13 +76,69 @@ def _numeric_value_or_none(raw: dict, key: str) -> NumericValueSource | None:
 class SendMessageStep:
     step_id: str
     message: FormulaValueSource
+    visibility: ActionMessageVisibility = "public"
     type: Literal["send_message"] = "send_message"
+
+    def __post_init__(self) -> None:
+        if self.visibility not in ("public", "gm"):
+            raise ValueError(
+                "Roll20 message visibility must be either 'public' or 'gm'."
+            )
 
     @classmethod
     def from_dict(cls, raw: dict) -> "SendMessageStep":
         return cls(
             step_id=raw["step_id"],
             message=_formula_value_source(raw["message"]),
+            visibility=raw.get("visibility", "public"),
+        )
+
+
+@dataclass
+class RollResult:
+    label: str
+    value: FormulaValueSource
+
+    def __post_init__(self) -> None:
+        if not self.label.strip():
+            raise ValueError("Roll result labels must not be empty.")
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "RollResult":
+        return cls(label=raw["label"], value=_formula_value_source(raw["value"]))
+
+
+@dataclass
+class SendRollStep:
+    step_id: str
+    title: str
+    presentation: Roll20RollPresentation
+    rolls: list[RollResult]
+    visibility: ActionMessageVisibility = "public"
+    type: Literal["send_roll"] = "send_roll"
+
+    def __post_init__(self) -> None:
+        if not self.title.strip():
+            raise ValueError("Roll titles must not be empty.")
+        if self.presentation not in ("simple", "damage", "default"):
+            raise ValueError("Unsupported Roll20 roll presentation.")
+        if self.visibility not in ("public", "gm"):
+            raise ValueError("Roll20 roll visibility must be either 'public' or 'gm'.")
+        expected = (1, 1) if self.presentation == "simple" else (1, 2)
+        if not expected[0] <= len(self.rolls) <= expected[1]:
+            raise ValueError(
+                f"'{self.presentation}' rolls require {expected[0]}"
+                + (" result." if expected[0] == expected[1] else " or 2 results.")
+            )
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "SendRollStep":
+        return cls(
+            step_id=raw["step_id"],
+            title=raw["title"],
+            presentation=raw.get("presentation", "default"),
+            rolls=[RollResult.from_dict(value) for value in raw["rolls"]],
+            visibility=raw.get("visibility", "public"),
         )
 
 
@@ -255,6 +313,7 @@ class ApplyConditionPresetStep:
 
 ActionStep = (
     SendMessageStep
+    | SendRollStep
     | CalculateValueStep
     | SetValueStep
     | IncrementValueStep
@@ -288,6 +347,10 @@ class Action:
             if isinstance(step, SendMessageStep):
                 if isinstance(step.message, Formula):
                     formulas.append(step.message)
+            elif isinstance(step, SendRollStep):
+                formulas.extend(
+                    roll.value for roll in step.rolls if isinstance(roll.value, Formula)
+                )
             elif isinstance(step, CalculateValueStep):
                 if isinstance(step.value, Formula):
                     formulas.append(step.value)
@@ -342,6 +405,8 @@ class Action:
             values: list[FormulaValueSource | NumericValueSource | None] = []
             if isinstance(step, SendMessageStep):
                 values.append(step.message)
+            elif isinstance(step, SendRollStep):
+                values.extend(roll.value for roll in step.rolls)
             elif isinstance(step, CalculateValueStep):
                 values.append(step.value)
             elif isinstance(step, SetValueStep):
@@ -373,6 +438,9 @@ class Action:
             step_type = raw_step["type"]
             if step_type == "send_message":
                 steps.append(SendMessageStep.from_dict(raw_step))
+                continue
+            if step_type == "send_roll":
+                steps.append(SendRollStep.from_dict(raw_step))
                 continue
             if step_type == "calculate_value":
                 steps.append(CalculateValueStep.from_dict(raw_step))

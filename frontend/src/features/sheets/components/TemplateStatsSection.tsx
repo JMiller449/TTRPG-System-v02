@@ -12,8 +12,11 @@ import {
   CORE_TEMPLATE_STATS,
   type TemplateEditorValues
 } from "@/features/sheets/templateEditorTypes";
-import { VariableSearchPicker } from "@/features/variables/components/VariableSearchPicker";
-import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
+import {
+  formulaVariableSearchOptions,
+  upsertFormulaAlias
+} from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
 
 export function TemplateStatsSection({
@@ -63,24 +66,40 @@ export function TemplateStatsSection({
         ))}
       </div>
       <div className="template-builder__core-grid">
-        <Field label="Maximum Health Formula">
-          <textarea
-            rows={3}
-            value={values.maxHealth.text}
-            onChange={(event) =>
-              onChange({ ...values, maxHealth: { ...values.maxHealth, text: event.target.value } })
-            }
-          />
-        </Field>
-        <Field label="Maximum Mana Formula">
-          <textarea
-            rows={3}
-            value={values.maxMana.text}
-            onChange={(event) =>
-              onChange({ ...values, maxMana: { ...values.maxMana, text: event.target.value } })
-            }
-          />
-        </Field>
+        {([
+          ["Maximum Health Formula", "maxHealth"],
+          ["Maximum Mana Formula", "maxMana"]
+        ] as const).map(([label, key]) => {
+          const resourceFormula = values[key];
+          return (
+            <FormulaVariableInput
+              key={key}
+              label={label}
+              rows={3}
+              value={resourceFormula.text}
+              options={formulaVariableSearchOptions(metadata, "sheet")}
+              loading={!metadata}
+              onChange={(text) =>
+                onChange({ ...values, [key]: { ...resourceFormula, text } })
+              }
+              onVariableSelect={(entry, text) => {
+                const alias = toSheetRelativeFormulaAlias(entry);
+                if (!alias) {
+                  return;
+                }
+                onChange({
+                  ...values,
+                  [key]: {
+                    ...resourceFormula,
+                    text,
+                    aliases: upsertFormulaAlias(resourceFormula.aliases ?? null, alias)
+                  }
+                });
+              }}
+              placeholder="Type @ to insert a sheet variable"
+            />
+          );
+        })}
       </div>
       <p className="muted">
         Maximum Health uses the racial multiplier; Maximum Mana uses Arcane and the Mana substat.
@@ -113,30 +132,25 @@ export function TemplateStatsSection({
           </nav>
           <div className="template-builder__formula-editor stack">
             <h4>{DISPLAY_NAMES[selectedFormula]}</h4>
-            <Field label="Formula">
-              <textarea
-                rows={4}
-                value={formula.text}
-                onChange={(event) => updateFormula({ ...formula, text: event.target.value })}
-                placeholder="@constitution * 10"
-              />
-            </Field>
-            <VariableSearchPicker
-              metadata={metadata}
-              mode="formula"
-              root="sheet"
-              label="Insert Sheet Variable"
-              onPick={(entry) => {
+            <FormulaVariableInput
+              label="Formula"
+              rows={4}
+              value={formula.text}
+              options={formulaVariableSearchOptions(metadata, "sheet")}
+              loading={!metadata}
+              onChange={(text) => updateFormula({ ...formula, text })}
+              onVariableSelect={(entry, text) => {
                 const alias = toSheetRelativeFormulaAlias(entry);
                 if (!alias) {
                   return;
                 }
                 updateFormula({
                   ...formula,
-                  text: appendFormulaToken(formula.text, entry.token),
+                  text,
                   aliases: upsertFormulaAlias(formula.aliases ?? null, alias)
                 });
               }}
+              placeholder="Type @ to insert a sheet variable"
             />
             {(formula.aliases ?? []).length > 0 ? (
               <div className="formula-tag-list" aria-label="Formula aliases">

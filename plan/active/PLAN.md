@@ -41,7 +41,7 @@ The app is not a full VTT. Maps, token targeting, initiative, turn automation, c
 - Frontend renders authoritative state, submits intents, keeps UI state local, and reconciles to backend snapshots/patches.
 - Gameplay math and persisted outcomes must not be finalized in frontend code.
 - Public app operations cross the websocket boundary through explicit backend transport schemas registered in the request registry.
-- Frontend protocol types and request helpers are generated from backend route contracts.
+- Frontend protocol types and route-contract metadata are generated from backend route contracts; centralized typed request builders consume that generated contract.
 - Raw mutation paths are internal backend primitives. User-facing authoring uses backend metadata, typed payloads, and validated selectors.
 - Roll20 integration is output-only chat delivery through the authenticated
   Violentmonkey userscript bridge. Roll20 never mutates backend state.
@@ -66,8 +66,12 @@ Backend:
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
 - XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, control which enemy names players may select for final-blow submissions, and apply explicit XP adjustments; equal per-participant awards are snapshotted at kill time with two-decimal precision, while character totals are derived from the registry rather than stored independently.
 - Sheet instances now own the spawned copy of template-built content, including stats, resistances, actions, attributes, proficiencies, and inventory. GM instance edits mutate the spawned sheet rather than the source template, and a DM can snapshot an evolved instance back into a new checkpoint template without copying runtime-only health, mana, augments, or active effects.
+- Encounter preset counts spawn independent copies through the same canonical instance builder as `create_instanced_sheet`, including actions, proficiencies, attributes, inventory, resistances, custom maximum-resource formulas, racial HP multiplier, stat bonuses, and authoritative starting-resource evaluation. Encounter spawning retains collision-safe IDs and does not generate player access codes.
 - `perform_action` executes backend-authored action pipelines against explicit sheet/instance IDs.
 - Supported action step behavior includes calculated values, Roll20 messages, bounded set/increment/decrement mutations, semantic damage, proficiency gain, augmentation application/removal, and condition application/removal.
+- Authored Roll20 message steps select public or GM visibility. GM messages use
+  Roll20 whispers for both plain text and inline dice, and remain GM-only in
+  action-history projections.
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
@@ -143,6 +147,10 @@ Frontend:
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
 - Template Builder newcomer pass (2026-07-04): sections are grouped into core setup, optional starting content, advanced customization, and final review; validation is deferred until review; empty states explain safe defaults; derived formulas and the full resistance matrix are progressively disclosed; and contextual creation dialogs now identify the quickest valid path in table-facing language. Presentation-only; backend validation and authoring contracts are unchanged.
 
+Repository documentation:
+
+- `architecture/README.md` indexes current platform and feature architecture in independent documents verified against backend routes/services, state models, frontend flows, and focused tests. `AGENTS.md` directs future work to those documents and requires them to be updated when a material architecture or feature change would make them inaccurate.
+
 ## 4. MVP Character Sheet And Dice Roller Acceptance
 
 For the MVP to be considered usable at the table:
@@ -155,6 +163,8 @@ For the MVP to be considered usable at the table:
 - GM can edit base/template data, current resources, inventory, equipment, proficiencies, notes, and conditions with authoritative patch updates.
 - Player can execute assigned actions and item-granted actions.
 - Ability/skill/spell/weapon rolls emit auditable Roll20 chat output with sheet/action context and roll mode labels where relevant.
+- Authored Roll20 output can be sent publicly or whispered to the GM, including
+  both dice rolls and non-roll messages.
 - Authored actions can mutate current sheet state for common table needs, including resource changes, healing, damage, condition/effect application, and proficiency gains.
 - Equipment effects and consumable quantity changes are enforced by the backend.
 - Manual damage intake can apply typed resistance and update current health.
@@ -272,6 +282,38 @@ No large architecture feature is currently missing for the stated character-shee
   - DM approval atomically publishes the definition and grants one copy to the submitter;
     denial deletes the proposal. Persisted schema v28 publishes existing items to preserve
     the pre-ticket catalog behavior and backfills approval metadata.
+
+- [x] Add per-message Roll20 visibility to authored actions:
+  - The Action Builder offers Public and GM destinations on every Roll20 message step.
+  - The backend formats GM destinations as `/w gm` after inline-roll and roll-mode
+    processing, covering dice rolls and ordinary messages without frontend formatting.
+  - GM-directed output is retained as GM-only action-history text.
+  - Persisted schema v29 backfills existing message steps as public.
+
+- [x] Add native styled Roll20 roll output to authored actions:
+  - `send_roll` steps author a title, public/GM destination, simple/damage/default
+    card presentation, and one or two labeled formula results without raw template syntax.
+  - Backend composition owns formula expansion, modifiers, roll modes, actor labels,
+    template safety, native Roll20 formatting, and GM whispers.
+  - Baseline stat checks, Dodge, Block, weapon actions, and spell presets use styled cards.
+  - Persisted schema v30 upgrades exact built-in defaults while preserving customized actions.
+
+- [x] Fix Action Authoring save lifecycle feedback:
+  - Create/update keeps the current draft visible and disables conflicting editor controls while
+    the correlated request is pending.
+  - A rejected save retains the draft for correction or retry; a successful save selects the
+    authoritative action and shows an inline created/saved confirmation.
+  - A pristine new-action draft no longer displays `Name is required` as though a save failed.
+
+- [x] Replace separate formula variable insertion fields with inline `@` autocomplete:
+  - Formula-bearing action, formula, attribute, sheet, item, condition, and effect editors search
+    their backend-provided variable catalogs when an author types `@` in the formula itself.
+  - Keyboard or pointer selection replaces the active mention at the cursor and upserts the
+    correct canonical, sheet-relative, attribute-relative, or action-scoped alias.
+  - Earlier calculated action values participate in the same search instead of requiring a second
+    calculated-value insertion control.
+  - Formula tags use a single chip-and-search field across the same editors: typing filters common
+    tags, custom tags remain available, and no separate suggestion field or Add Tags step is shown.
 
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates

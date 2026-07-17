@@ -190,7 +190,7 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
                 StateSingleton.getState().actions["weapon_attack"].roll_mode_kind
                 == "check"
             )
-            assert StateSingleton.getState().actions["block"].steps[0].message.aliases[
+            assert StateSingleton.getState().actions["block"].steps[0].rolls[0].value.aliases[
                 0
             ].path == ["sheet", "stats", "strength"]
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
@@ -560,14 +560,22 @@ def test_default_baseline_check_executes_as_sheet_action(monkeypatch) -> None:
                 "sheet_id": "mage_template",
                 "action_id": "baseline_check_strength",
                 "applied_mutations": [],
-                "emitted_messages": ["Strength Check: [[(1d100 / 100) * (10)]]"],
+                "emitted_messages": [
+                    "&{template:simple} {{rname=Strength Check}} "
+                    "{{r1=[[(1d100 / 100) * (10)]]}} {{normal=1}} "
+                    "{{charname=Mage Template}}"
+                ],
                 "type": "action_executed",
                 "request_id": "req-2",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                    "message": "Strength Check: [[(1d100 / 100) * (10)]]",
+                    "message": (
+                        "&{template:simple} {{rname=Strength Check}} "
+                        "{{r1=[[(1d100 / 100) * (10)]]}} {{normal=1}} "
+                        "{{charname=Mage Template}}"
+                    ),
                     "type": "chat_message",
                     "request_id": "req-2",
                 }
@@ -613,20 +621,32 @@ def test_default_dodge_and_block_presets_execute_as_sheet_actions(monkeypatch) -
                 "sheet_id": "mage_template",
                 "action_id": "block",
                 "applied_mutations": [],
-                "emitted_messages": ["Block: [[floor((10) * (1d100 / 100))]]"],
+                "emitted_messages": [
+                    "&{template:simple} {{rname=Block}} "
+                    "{{r1=[[floor((10) * (1d100 / 100))]]}} {{normal=1}} "
+                    "{{charname=Mage Template}}"
+                ],
                 "type": "action_executed",
                 "request_id": "req-3",
             }
             assert bridge_socket.sent_messages == [
                 {
                     "message_id": bridge_socket.sent_messages[0]["message_id"],
-                    "message": "Dodge: [[floor((11) * (1d100 / 100))]]",
+                    "message": (
+                        "&{template:simple} {{rname=Dodge}} "
+                        "{{r1=[[floor((11) * (1d100 / 100))]]}} {{normal=1}} "
+                        "{{charname=Mage Template}}"
+                    ),
                     "type": "chat_message",
                     "request_id": "req-2",
                 },
                 {
                     "message_id": bridge_socket.sent_messages[1]["message_id"],
-                    "message": "Block: [[floor((10) * (1d100 / 100))]]",
+                    "message": (
+                        "&{template:simple} {{rname=Block}} "
+                        "{{r1=[[floor((10) * (1d100 / 100))]]}} {{normal=1}} "
+                        "{{charname=Mage Template}}"
+                    ),
                     "type": "chat_message",
                     "request_id": "req-3",
                 }

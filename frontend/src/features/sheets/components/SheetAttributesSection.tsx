@@ -6,8 +6,12 @@ import type {
   AttributeValue,
   Formula
 } from "@/domain/models";
-import { AttributeFormulaVariablePicker } from "@/features/attributes/AttributeFormulaVariablePicker";
-import { appendFormulaToken, upsertFormulaAlias } from "@/features/variables/variablePicker";
+import {
+  buildAttributeFormulaVariableEntries,
+  toAttributeFormulaVariableOptions
+} from "@/features/attributes/attributeFormulaVariables";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
+import { upsertFormulaAlias } from "@/features/variables/variablePicker";
 
 function displayAttributeValue(value: AttributeBridge["evaluated_value"]): string {
   if (value === null || value === undefined) {
@@ -250,12 +254,27 @@ function SheetAttributeCard({
       ) : null}
       {canEdit && formula ? (
         <div className="stack">
-          <AttributeFormulaVariablePicker
-            metadata={formulaMetadata ?? null}
-            subjectTypes={[subjectType]}
-            excludedAttributeId={bridge.attribute_id}
-            onPick={(entry) => {
-              const nextText = appendFormulaToken(formulaText, entry.token);
+          <FormulaVariableInput
+            label="Formula"
+            value={formulaText}
+            multiline={false}
+            options={toAttributeFormulaVariableOptions(
+              buildAttributeFormulaVariableEntries(formulaMetadata ?? null, [subjectType]).filter(
+                (entry) => entry.path.join(".") !== `attributes.${bridge.attribute_id}`
+              )
+            )}
+            loading={!formulaMetadata}
+            onChange={(text) => {
+              setFormulaText(text);
+              if (draftMode) {
+                onSaveFormula(bridge.attribute_id, {
+                  ...formula,
+                  aliases: formulaAliases,
+                  text
+                });
+              }
+            }}
+            onVariableSelect={(entry, nextText) => {
               const nextAliases = upsertFormulaAlias(formulaAliases, entry.alias);
               setFormulaText(nextText);
               setFormulaAliases(nextAliases);
@@ -267,24 +286,8 @@ function SheetAttributeCard({
                 });
               }
             }}
+            placeholder="Type @ to insert a variable"
           />
-          <label>
-            Formula
-            <input
-              value={formulaText}
-              onChange={(event) => {
-                const text = event.target.value;
-                setFormulaText(text);
-                if (draftMode) {
-                  onSaveFormula(bridge.attribute_id, {
-                    ...formula,
-                    aliases: formulaAliases,
-                    text
-                  });
-                }
-              }}
-            />
-          </label>
           <div className="inline-actions">
             {!draftMode ? (
               <button

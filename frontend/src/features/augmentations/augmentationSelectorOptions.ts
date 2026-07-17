@@ -39,6 +39,8 @@ function stepFormulas(step: ActionStep): Array<Formula | null | undefined> {
   switch (step.type) {
     case "send_message":
       return [formulaSourceFormula(step.message)];
+    case "send_roll":
+      return step.rolls.map((roll) => formulaSourceFormula(roll.value));
     case "calculate_value":
       return [formulaSourceFormula(step.value)];
     case "set_value":

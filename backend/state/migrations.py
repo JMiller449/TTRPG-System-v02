@@ -9,12 +9,14 @@ import re
 from typing import Any
 
 from backend.state.default_actions import (
+    BASELINE_SHEET_CHECKS,
+    CANONICAL_ACTION_PRESETS,
     WEAPON_ACTION_IDS,
     normalize_weapon_action_grant_payloads,
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 28
+CURRENT_STATE_SCHEMA_VERSION = 30
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1635,7 +1637,7 @@ def _migrate_v24_to_v25(envelope: PersistedEnvelope) -> PersistedEnvelope:
 
 
 def _legacy_weapon_roll_payload(action_id: str) -> dict[str, Any]:
-    payload = deepcopy(seeded_global_action_payloads()[action_id])
+    payload = _legacy_v29_canonical_payloads()[action_id]
     message = payload["steps"][0]["message"]
     if action_id == "weapon_parry":
         payload["notes"] = (
@@ -1658,7 +1660,7 @@ def _migrate_v25_to_v26(envelope: PersistedEnvelope) -> PersistedEnvelope:
     state = deepcopy(envelope["state"])
     actions = state.get("actions")
     if isinstance(actions, dict):
-        canonical = seeded_global_action_payloads()
+        canonical = _legacy_v29_canonical_payloads()
         for action_id in ("weapon_parry", "weapon_contest"):
             if actions.get(action_id) == _legacy_weapon_roll_payload(action_id):
                 actions[action_id] = canonical[action_id]
@@ -1693,6 +1695,119 @@ def _migrate_v27_to_v28(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 28, "state": state}
 
 
+def _migrate_v28_to_v29(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions", {})
+    if isinstance(actions, dict):
+        for action in actions.values():
+            if not isinstance(action, dict):
+                continue
+            steps = action.get("steps", [])
+            if not isinstance(steps, list):
+                continue
+            for step in steps:
+                if isinstance(step, dict) and step.get("type") == "send_message":
+                    step.setdefault("visibility", "public")
+    return {"schema_version": 29, "state": state}
+
+
+def _legacy_v29_canonical_payloads() -> dict[str, dict[str, Any]]:
+    return {
+        preset.id: {
+            "id": preset.id,
+            "name": preset.label,
+            "roll_mode_kind": preset.roll_mode_kind,
+            "notes": preset.description,
+            "steps": [
+                {
+                    "step_id": "roll",
+                    "type": "send_message",
+                    "visibility": "public",
+                    "message": {
+                        "aliases": [
+                            {"name": name, "path": list(path)}
+                            for name, path in preset.aliases
+                        ],
+                        "text": preset.message_text,
+                        "tags": list(preset.tags),
+                    },
+                }
+            ],
+            "attributes": {},
+        }
+        for preset in CANONICAL_ACTION_PRESETS
+        if preset.seed_global
+    }
+
+
+def _legacy_v29_baseline_payloads() -> dict[str, dict[str, Any]]:
+    return {
+        f"baseline_check_{stat_name}": {
+            "id": f"baseline_check_{stat_name}",
+            "name": f"{label} Check",
+            "roll_mode_kind": "check",
+            "notes": "Default baseline sheet check. Emits a Roll20 d100 stat check.",
+            "steps": [
+                {
+                    "step_id": "roll",
+                    "type": "send_message",
+                    "visibility": "public",
+                    "message": {
+                        "aliases": [{"name": stat_name, "path": ["stats", stat_name]}],
+                        "text": f"{label} Check: /r (1d100 / 100) * @{stat_name}",
+                        "tags": [],
+                    },
+                }
+            ],
+            "attributes": {},
+        }
+        for stat_name, label in BASELINE_SHEET_CHECKS
+    }
+
+
+def _migrate_v29_to_v30(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions")
+    if isinstance(actions, dict):
+        replacements = seeded_global_action_payloads()
+        legacy = {
+            **_legacy_v29_canonical_payloads(),
+            **_legacy_v29_baseline_payloads(),
+        }
+        for action_id, old_payload in legacy.items():
+            if actions.get(action_id) != old_payload:
+                continue
+            if action_id in replacements:
+                actions[action_id] = replacements[action_id]
+                continue
+            stat_name = action_id.removeprefix("baseline_check_")
+            label = dict(BASELINE_SHEET_CHECKS)[stat_name]
+            replacement = deepcopy(old_payload)
+            replacement["steps"] = [
+                {
+                    "step_id": "roll",
+                    "type": "send_roll",
+                    "title": f"{label} Check",
+                    "presentation": "simple",
+                    "visibility": "public",
+                    "rolls": [
+                        {
+                            "label": "Result",
+                            "value": {
+                                "aliases": [
+                                    {"name": stat_name, "path": ["stats", stat_name]}
+                                ],
+                                "text": f"(1d100 / 100) * @{stat_name}",
+                                "tags": [],
+                            },
+                        }
+                    ],
+                }
+            ]
+            actions[action_id] = replacement
+    return {"schema_version": 30, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1722,6 +1837,8 @@ MIGRATIONS: dict[int, Migration] = {
     25: _migrate_v25_to_v26,
     26: _migrate_v26_to_v27,
     27: _migrate_v27_to_v28,
+    28: _migrate_v28_to_v29,
+    29: _migrate_v29_to_v30,
 }
 
 

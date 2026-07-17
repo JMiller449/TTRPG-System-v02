@@ -14,7 +14,7 @@ from backend.state.migrations import (
 )
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.state import State
-from backend.state.default_actions import seeded_global_action_payloads
+from backend.state.default_actions import CANONICAL_ACTION_PRESETS, seeded_global_action_payloads
 from backend.state.store import CURRENT_STATE_SCHEMA_VERSION, StateSingleton
 
 
@@ -1088,7 +1088,7 @@ def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
 
     assert "attack" not in result.state["actions"]
     assert "parry" not in result.state["actions"]
-    assert result.state["actions"]["block"]["steps"][0]["message"][
+    assert result.state["actions"]["block"]["steps"][0]["rolls"][0]["value"][
         "aliases"
     ] == [{"name": "strength", "path": ["sheet", "stats", "strength"]}]
     assert result.state["actions"]["custom"]["name"] == "Custom"
@@ -1097,7 +1097,29 @@ def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
 
 def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
     actions = seeded_global_action_payloads()
-    legacy_parry = deepcopy(actions["weapon_parry"])
+    presets = {preset.id: preset for preset in CANONICAL_ACTION_PRESETS}
+
+    def legacy_payload(action_id: str) -> dict:
+        preset = presets[action_id]
+        payload = deepcopy(actions[action_id])
+        payload["steps"] = [
+            {
+                "step_id": "roll",
+                "type": "send_message",
+                "visibility": "public",
+                "message": {
+                    "aliases": [
+                        {"name": name, "path": list(path)}
+                        for name, path in preset.aliases
+                    ],
+                    "text": preset.message_text,
+                    "tags": list(preset.tags),
+                },
+            }
+        ]
+        return payload
+
+    legacy_parry = legacy_payload("weapon_parry")
     legacy_parry["notes"] = (
         "Spreadsheet Weapon Parry attempt: proficiency times d100 fraction "
         "times Dexterity. This intentionally differs from the prose Parry rule."
@@ -1106,7 +1128,7 @@ def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
         "Weapon Parry: /r floor(@weapon_proficiency * "
         "(1d100 / 100) * @dexterity)"
     )
-    customized_contest = deepcopy(actions["weapon_contest"])
+    customized_contest = legacy_payload("weapon_contest")
     customized_contest["notes"] = "Campaign-specific contest behavior."
     customized_contest["steps"][0]["message"]["text"] = "/r 1d100"
 
@@ -1176,6 +1198,39 @@ def test_v28_migration_publishes_existing_items_and_backfills_approval_metadata(
     assert item["approval_status"] == "approved"
     assert item["submitted_by_instance_id"] is None
     assert item["submitted_by_name"] is None
+
+
+def test_v29_migration_defaults_existing_action_messages_to_public() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 28,
+            "state": {
+                "actions": {
+                    "legacy_action": {
+                        "id": "legacy_action",
+                        "name": "Legacy Action",
+                        "steps": [
+                            {
+                                "step_id": "message",
+                                "type": "send_message",
+                                "message": {"aliases": None, "text": "Legacy output"},
+                            },
+                            {
+                                "step_id": "calculation",
+                                "type": "calculate_value",
+                                "variable_id": "result",
+                                "value": {"aliases": None, "text": "1"},
+                            },
+                        ],
+                    }
+                }
+            },
+        }
+    )
+
+    steps = result.state["actions"]["legacy_action"]["steps"]
+    assert steps[0]["visibility"] == "public"
+    assert "visibility" not in steps[1]
 
 
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:

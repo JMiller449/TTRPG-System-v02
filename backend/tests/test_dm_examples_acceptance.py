@@ -190,8 +190,8 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                 },
             )
             assert parry_messages[0]["type"] == "action_executed"
-            assert parry_messages[0]["emitted_messages"][0].startswith(
-                "Advantage Weapon Parry:"
+            assert "{{rname=Advantage: Weapon Parry}}" in (
+                parry_messages[0]["emitted_messages"][0]
             )
 
             await _send(
@@ -384,7 +384,7 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                 },
             )
             assert dodge_messages[0]["type"] == "action_executed"
-            assert "Disadvantage Dodge:" in bridge.sent_messages[-1]["message"]
+            assert "{{rname=Disadvantage: Dodge}}" in bridge.sent_messages[-1]["message"]
             await _send(
                 dm,
                 {

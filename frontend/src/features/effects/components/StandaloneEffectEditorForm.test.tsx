@@ -44,7 +44,8 @@ describe("StandaloneEffectEditorForm", () => {
     expect(markup).toContain("Matching formula value");
     expect(markup).toContain("Matching roll mode");
     expect(markup).toContain("Same source item only");
-    expect(markup).toContain("Insert Formula Variable");
+    expect(markup).toContain("Type @ to insert a variable");
+    expect(markup).not.toContain("Insert Formula Variable");
     expect(markup).toContain("Lifecycle (GM-tracked)");
     expect(markup).toContain("Expiration note");
     expect(markup).toContain("Remove when source inactive");

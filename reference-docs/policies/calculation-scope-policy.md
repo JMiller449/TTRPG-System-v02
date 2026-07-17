@@ -22,4 +22,4 @@
 
 ## Ambiguity Handling
 - If the active rulebook and answered rulings do not specify behavior, do not infer.
-- Record a TODO in `frontend_tasks.md` or `backend_tasks.md` (whichever applies) with a link/path and page reference to the unresolved rule.
+- Record a TODO or deferred rule decision in `plan/active/PLAN.md` with a link/path and exact reference to the unresolved active rule.

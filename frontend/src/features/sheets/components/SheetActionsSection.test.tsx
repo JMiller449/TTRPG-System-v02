@@ -7,6 +7,43 @@ import type { AssignedSheetAction } from "@/app/state/selectors";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 
 describe("SheetActionsSection", () => {
+  it("persists a deliberate pin selection instead of treating the first actions as pinned", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onPinnedActionIdsChange = vi.fn();
+    const action: AssignedSheetAction = {
+      relationshipId: "assigned_action",
+      actionId: "action",
+      action: { id: "action", name: "Action", steps: [] }
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetActionsSection
+          assignedActions={[action]}
+          actionDefinitions={{ action: action.action }}
+          attributeDefinitions={{}}
+          actionOrder={["action"]}
+          canEdit={false}
+          pinnedActionIds={[]}
+          onPinnedActionIdsChange={onPinnedActionIdsChange}
+          onCreate={() => undefined}
+          onUpdate={() => undefined}
+          onDelete={() => undefined}
+          onPerformAction={() => undefined}
+        />
+      );
+    });
+
+    const pinButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Pin"
+    );
+    await act(async () => pinButton?.click());
+    expect(onPinnedActionIdsChange).toHaveBeenCalledWith(["assigned_action"]);
+    await act(async () => root.unmount());
+  });
+
   it("lets the acting player choose GM-only output for one invocation", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");

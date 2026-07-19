@@ -26,13 +26,19 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 31. Future-version checkpoints are rejected rather than guessed at.
+version 32. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
 migration, advance the current version, and include focused tests for legacy
 and current round trips. A migration must preserve authored campaign choices;
 guarded migrations update known defaults without overwriting customized data.
+
+Schema version 32 adds safe defaults for persisted fractional reaction state,
+contribution-point balances and transaction records, and per-instance action
+pins. Existing instances begin with zero reactions and contribution points and
+no pins; normal runtime synchronization establishes any authored reaction
+maximum after load.
 
 Schema version 29 adds explicit visibility to authored Roll20 message steps and
 backfills existing steps as `public`, preserving all pre-feature behavior.

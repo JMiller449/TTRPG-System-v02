@@ -70,6 +70,13 @@ including notes, current resources, allocated granted stat points, inventory
 operations, equipment, and action execution. Entity IDs in a player request are
 validated against the current session assignment.
 
+Action pins are instance-owned `pinned_action_ids`, keyed by the available
+action relationship (including an exact item-granted action relationship).
+Players and DMs with access to that instance can set the ordered list. A state
+mutation hook removes pins when an assigned action is deleted or an item action
+is no longer available, so pins never authorize or resurrect inaccessible
+actions.
+
 The shared character display is implemented by
 [`frontend/src/features/sheets/SheetViewerPage.tsx`](../../frontend/src/features/sheets/SheetViewerPage.tsx),
 [`PlayerCharacterSheet.tsx`](../../frontend/src/features/sheets/PlayerCharacterSheet.tsx),

@@ -820,8 +820,9 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
         "standalone_effect_applications": {},
         "parties": {},
         "kill_registry": {},
-        "xp_adjustments": {},
-        "player_kill_visibility": {},
+            "xp_adjustments": {},
+            "contribution_point_transactions": {},
+            "player_kill_visibility": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False

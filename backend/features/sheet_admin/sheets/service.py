@@ -171,6 +171,15 @@ def build_instanced_sheet_from_template(
             f"Sheet '{parent_sheet_id}' mana formula must resolve to a whole number."
         )
 
+    template_reaction_bridge = template.attributes.get("amount_of_reactions")
+    template_reaction_limit = (
+        template_reaction_bridge.evaluated_value
+        if template_reaction_bridge is not None
+        and isinstance(template_reaction_bridge.evaluated_value, int | float)
+        and not isinstance(template_reaction_bridge.evaluated_value, bool)
+        else 0
+    )
+
     return InstancedSheet(
         parent_id=parent_sheet_id,
         notes=notes,
@@ -189,6 +198,7 @@ def build_instanced_sheet_from_template(
         max_health=deepcopy(template.max_health),
         max_mana=deepcopy(template.max_mana),
         stat_bonuses=deepcopy(template.stat_bonuses),
+        reactions=max(0, round(float(template_reaction_limit), 2)),
     )
 
 
@@ -940,6 +950,19 @@ async def delete_instanced_sheet(request: DeleteInstancedSheet) -> None:
                 state_sync_service.join_path("items", item_id),
             )
             ops.append(remove_item_op)
+
+        for transaction_id, transaction in sorted(
+            list(state.contribution_point_transactions.items())
+        ):
+            if transaction.instance_id != request.instance_id:
+                continue
+            _, remove_transaction_op = state_sync_service.remove_mutation(
+                state,
+                state_sync_service.join_path(
+                    "contribution_point_transactions", transaction_id
+                ),
+            )
+            ops.append(remove_transaction_op)
 
         _, remove_instance_op = state_sync_service.remove_mutation(
             state,

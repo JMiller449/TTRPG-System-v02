@@ -524,8 +524,24 @@
   padding: 0.45rem 0.55rem;
   color: inherit;
   background: transparent;
+  text-align: left;
+}
+
+.action-command-card__perform {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
   cursor: pointer;
   text-align: left;
+}
+
+.action-command-card__perform:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .resource-card__meter {

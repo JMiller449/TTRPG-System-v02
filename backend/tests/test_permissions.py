@@ -16,6 +16,11 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "add_player_inventory_item": "player",
     "allocate_instanced_sheet_stat_points": "player",
     "adjust_instanced_sheet_resource": "player",
+    "adjust_instanced_sheet_reactions": "player",
+    "reset_instanced_sheet_reactions": "player",
+    "set_pinned_instance_actions": "player",
+    "set_contribution_points": "dm",
+    "adjust_contribution_points": "dm",
     "apply_instanced_sheet_damage": "player",
     "attach_instanced_sheet_attribute": "dm",
     "attach_sheet_attribute": "dm",
@@ -126,6 +131,8 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
 
 EXPECTED_CUSTOM_DENIAL_REASONS = {
     "adjust_instanced_sheet_resource": "Authenticate first to edit current resources.",
+    "adjust_instanced_sheet_reactions": "Authenticate first to edit current resources.",
+    "reset_instanced_sheet_reactions": "Authenticate first to edit current resources.",
     "apply_instanced_sheet_damage": "Authenticate first to edit current resources.",
     "claim_sheet_access_code": "Authenticate first to claim a sheet access code.",
     "create_item": "Only a DM can edit equipment.",

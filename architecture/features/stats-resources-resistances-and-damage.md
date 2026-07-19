@@ -34,6 +34,21 @@ Player and DM resource routes support direct set and bounded adjustment on an
 authorized instance. The frontend exposes full Health and Mana summary cards as
 editor triggers and reconciles their values to subsequent patches.
 
+## Reactions and contribution points
+
+Each instance also persists `reactions`, while its maximum is derived from the
+required **Amount of Reactions** attribute. The runtime rounds values to two
+decimal places, so fractional values such as `0.5 / 1` remain stable across
+requests and checkpoints. Authorized character users can spend, restore, or
+reset reactions; the backend rejects values below zero or above the evaluated
+maximum and reclamps a current value when its authored maximum changes.
+
+`contribution_points` is a separate nonnegative whole-number character
+balance, not an inventory item. DM-only set/add/subtract routes execute under
+the state mutation lock and append `contribution_point_transactions` audit
+records. Players see only their claimed character's balance; transaction
+records and other characters' new runtime balance fields are redacted.
+
 ## Resistances and damage
 
 [`backend/state/models/resistance.py`](../../backend/state/models/resistance.py)

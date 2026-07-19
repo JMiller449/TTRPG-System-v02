@@ -4,7 +4,9 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from math import floor
+from math import isfinite
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -27,7 +29,9 @@ from backend.features.session.models import SessionRole
 from backend.features.sheet_runtime.schema import (
     ActionExecuted,
     ApplyInstancedSheetDamage,
+    AdjustInstancedSheetReactions,
     PerformAction,
+    ResetInstancedSheetReactions,
     SetInstancedSheetItemEquipped,
 )
 from backend.features.state_sync.service import state_sync_service
@@ -1005,7 +1009,73 @@ def synchronize_resource_bounds_mutation(state: State) -> list[PatchOp]:
                 bounded = normalize_numeric_result(bounded)
             if current != bounded:
                 ops.append(state_sync_service.set_mutation(state, path, bounded))
+        reaction_limit = evaluate_reaction_limit(instance)
+        reaction_path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "reactions"
+        )
+        bounded_reactions = min(_normalize_reactions(instance.reactions), reaction_limit)
+        if instance.reactions != bounded_reactions:
+            ops.append(
+                state_sync_service.set_mutation(state, reaction_path, bounded_reactions)
+            )
     return ops
+
+
+def _normalize_reactions(value: float | int) -> float:
+    try:
+        normalized = Decimal(str(value)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("Reactions must be a finite number with at most two decimal places.") from exc
+    if not isfinite(float(normalized)) or normalized < 0:
+        raise ValueError("Reactions must be finite and nonnegative.")
+    return float(normalized)
+
+
+def evaluate_reaction_limit(instance: InstancedSheet) -> float:
+    bridge = instance.attributes.get("amount_of_reactions")
+    raw = bridge.evaluated_value if bridge is not None else 0
+    if isinstance(raw, bool) or not isinstance(raw, int | float):
+        return 0.0
+    return _normalize_reactions(max(0, raw))
+
+
+async def adjust_instanced_sheet_reactions(
+    request: AdjustInstancedSheetReactions,
+) -> None:
+    def mutation(state: State) -> tuple[None, list[PatchOp]]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        delta = _normalize_reactions(abs(request.delta))
+        if request.delta < 0:
+            delta = -delta
+        current = _normalize_reactions(instance.reactions)
+        raw_next_value = current + delta
+        if raw_next_value < 0:
+            raise ValueError("Cannot spend more reactions than are currently available.")
+        next_value = _normalize_reactions(raw_next_value)
+        limit = evaluate_reaction_limit(instance)
+        if next_value > limit:
+            raise ValueError("Cannot restore reactions above the current maximum.")
+        path = state_sync_service.join_path("instanced_sheets", request.instance_id, "reactions")
+        return None, [state_sync_service.set_mutation(state, path, next_value)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def reset_instanced_sheet_reactions(
+    request: ResetInstancedSheetReactions,
+) -> None:
+    def mutation(state: State) -> tuple[None, list[PatchOp]]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        path = state_sync_service.join_path("instanced_sheets", request.instance_id, "reactions")
+        return None, [state_sync_service.set_mutation(state, path, evaluate_reaction_limit(instance))]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
 def calculate_damage_taken(

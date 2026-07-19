@@ -96,6 +96,15 @@ from backend.features.sheet_access.schema import (
     GetSheetAccessCodes,
 )
 from backend.features.sheet_runtime.schema import PerformAction
+from backend.features.sheet_runtime.schema import (
+    AdjustInstancedSheetReactions,
+    ResetInstancedSheetReactions,
+)
+from backend.features.contribution_points.schema import (
+    AdjustContributionPoints,
+    SetContributionPoints,
+)
+from backend.features.pinned_actions.schema import SetPinnedInstanceActions
 from backend.features.state_backup.schema import ExportStateBackup, ImportStateBackup
 from backend.features.state_sync.schema import ResyncState, UndoLastStateChange
 from backend.features.variable_registry.schema import (
@@ -566,7 +575,12 @@ ApplicationRequest = Annotated[
     | UpdateKill
     | DeleteKill
     | SaveXpAdjustment
-    | DeleteXpAdjustment,
+    | DeleteXpAdjustment
+    | AdjustInstancedSheetReactions
+    | ResetInstancedSheetReactions
+    | SetContributionPoints
+    | AdjustContributionPoints
+    | SetPinnedInstanceActions,
     Field(discriminator="type"),
 ]
 

@@ -528,6 +528,10 @@ export interface PersistentSheet {
   notes?: string;
   health: number;
   mana: number;
+  reactions?: number;
+  evaluated_max_reactions?: number;
+  contribution_points?: number;
+  pinned_action_ids?: string[];
   unassigned_stat_points?: number;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;

@@ -25,6 +25,8 @@ export interface ActiveSheetDetail {
   stats: Partial<Record<SheetStatKey, number>>;
   resources: { health: number; mana: number };
   resourceMaximums: { health: number; mana: number };
+  reactions: { current: number; maximum: number };
+  contributionPoints: number;
 }
 
 export interface AssignedSheetAction {
@@ -157,7 +159,12 @@ export function selectActiveSheetDetail(state: AppState): ActiveSheetDetail | nu
         0,
       mana:
         instance.persistentSheet.evaluated_max_mana ?? instance.parentSheet?.evaluated_max_mana ?? 0
-    }
+    },
+    reactions: {
+      current: instance.persistentSheet.reactions ?? 0,
+      maximum: instance.persistentSheet.evaluated_max_reactions ?? 0
+    },
+    contributionPoints: instance.persistentSheet.contribution_points ?? 0
   };
 }
 

@@ -1,0 +1,1 @@
+"""Persistent character action pins."""

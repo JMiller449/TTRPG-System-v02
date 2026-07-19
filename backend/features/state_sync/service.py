@@ -39,6 +39,7 @@ DM_ONLY_STATE_ROOTS = {
     "kill_registry",
     "xp_adjustments",
     "player_kill_visibility",
+    "contribution_point_transactions",
 }
 _MISSING = object()
 
@@ -308,6 +309,13 @@ class StateSyncService:
                 and instance_id != assigned_instance_id
             ):
                 instance["items"] = {}
+                # Runtime balances and personal action layout belong only to the
+                # claimed character, even though legacy snapshots retain minimal
+                # records for other instances.
+                instance.pop("reactions", None)
+                instance.pop("evaluated_max_reactions", None)
+                instance.pop("contribution_points", None)
+                instance.pop("pinned_action_ids", None)
 
         for sheet in state.get("sheets", {}).values():
             if not isinstance(sheet, dict):
@@ -360,6 +368,19 @@ class StateSyncService:
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
             if segments and segments[0] in PRIVATE_STATE_ROOTS:
+                continue
+            if (
+                len(segments) >= 3
+                and segments[0] == "instanced_sheets"
+                and segments[1] != assigned_instance_id
+                and segments[2]
+                in {
+                    "reactions",
+                    "evaluated_max_reactions",
+                    "contribution_points",
+                    "pinned_action_ids",
+                }
+            ):
                 continue
             if segments and segments[0] == "action_history":
                 if op.op == "remove":
@@ -697,6 +718,8 @@ class StateSyncService:
                 template = state_model.sheets.get(instance.parent_id)
                 runtime_stat_owner = instance if instance.stats is not None else template
                 if runtime_stat_owner is not None:
+                    from backend.features.sheet_runtime.service import evaluate_reaction_limit
+
                     instance_payload["stats"] = asdict(runtime_stat_owner.stats)
                     instance_payload["evaluated_stats"] = evaluate_sheet_stats(
                         runtime_stat_owner
@@ -708,6 +731,9 @@ class StateSyncService:
                     maxima = evaluate_resource_maxima(runtime_stat_owner)
                     instance_payload["evaluated_max_health"] = maxima["health"]
                     instance_payload["evaluated_max_mana"] = maxima["mana"]
+                    instance_payload["evaluated_max_reactions"] = evaluate_reaction_limit(
+                        instance
+                    )
         state = self._redact_state_for_role(
             state_payload,
             role=role,
@@ -1203,6 +1229,8 @@ class StateSyncService:
             if instance is None or instance.stats is None:
                 continue
             maxima = evaluate_resource_maxima(instance)
+            from backend.features.sheet_runtime.service import evaluate_reaction_limit
+
             instance_operations.extend(
                 [
                     PatchOp(
@@ -1225,6 +1253,13 @@ class StateSyncService:
                             "instanced_sheets", instance_id, "evaluated_max_mana"
                         ),
                         value=maxima["mana"],
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets", instance_id, "evaluated_max_reactions"
+                        ),
+                        value=evaluate_reaction_limit(instance),
                     ),
                 ]
             )
@@ -1310,10 +1345,14 @@ class StateSyncService:
                 from backend.features.sheet_runtime.service import (
                     synchronize_resource_bounds_mutation,
                 )
+                from backend.features.pinned_actions.service import (
+                    synchronize_pinned_actions_mutation,
+                )
 
                 ops.extend(synchronize_equipment_augmentations_mutation(state))
                 ops.extend(self._synchronize_sheet_attribute_projections(state, ops))
                 ops.extend(synchronize_resource_bounds_mutation(state))
+                ops.extend(synchronize_pinned_actions_mutation(state))
                 if before_commit is not None:
                     await before_commit(result)
             except Exception:

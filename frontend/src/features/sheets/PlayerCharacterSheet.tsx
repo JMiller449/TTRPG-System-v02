@@ -8,6 +8,10 @@ import { SheetAttributesSection } from "@/features/sheets/components/SheetAttrib
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
+import {
+  SheetContributionPoints,
+  SheetReactionResource
+} from "@/features/sheets/components/SheetRuntimeResources";
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 import { SheetStatPointAllocator } from "@/features/sheets/components/SheetStatPointAllocator";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
@@ -36,6 +40,8 @@ import {
   buildMoveInstancedSheetItemRequest,
   buildPerformActionRequest,
   buildAllocateInstancedSheetStatPointsRequest,
+  buildAdjustContributionPointsRequest,
+  buildAdjustInstancedSheetReactionsRequest,
   buildResetInstancedSheetAttributeValueRequest,
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
@@ -45,6 +51,9 @@ import {
   buildSetInstancedSheetAttributeValueRequest,
   buildSetInstancedSheetFormulaStatRequest,
   buildSetInstancedSheetResistancesRequest,
+  buildSetContributionPointsRequest,
+  buildSetPinnedInstanceActionsRequest,
+  buildResetInstancedSheetReactionsRequest,
   buildSetInstancedSheetUnassignedStatPointsRequest,
   buildSubmitPlayerItemRequest,
   buildUnlinkInstancedSheetProficiencyRequest,
@@ -204,6 +213,20 @@ export function PlayerCharacterSheet({
   const pendingPlayerItems = Object.values(items).filter(
     (item) => item.approval_status === "pending"
   );
+  const pinnedActionIds = detail.persistentSheet.pinned_action_ids ?? [];
+  const pinnedActions = assignedActions.filter((action) =>
+    pinnedActionIds.includes(action.relationshipId)
+  );
+
+  const updatePinnedActions = (actionRelationshipIds: string[]): void => {
+    client.sendProtocolRequest(
+      buildSetPinnedInstanceActionsRequest({
+        instanceId: detail.instance.id,
+        actionRelationshipIds
+      }),
+      "Update pinned actions"
+    );
+  };
 
   const updateEquipmentBridgeEquipped = (relationshipId: string, equipped: boolean): void => {
     client.sendProtocolRequest(
@@ -369,6 +392,49 @@ export function PlayerCharacterSheet({
                     }
                   />
                 ) : null}
+                <SheetReactionResource
+                  current={detail.reactions.current}
+                  maximum={detail.reactions.maximum}
+                  onAdjust={(delta) =>
+                    client.sendProtocolRequest(
+                      buildAdjustInstancedSheetReactionsRequest({
+                        instanceId: detail.instance.id,
+                        delta
+                      }),
+                      delta < 0 ? "Spend reactions" : "Restore reactions"
+                    )
+                  }
+                  onReset={() =>
+                    client.sendProtocolRequest(
+                      buildResetInstancedSheetReactionsRequest({
+                        instanceId: detail.instance.id
+                      }),
+                      "Reset reactions"
+                    )
+                  }
+                />
+                <SheetContributionPoints
+                  value={detail.contributionPoints}
+                  canManage={mode === "gm"}
+                  onSet={(value) =>
+                    client.sendProtocolRequest(
+                      buildSetContributionPointsRequest({
+                        instanceId: detail.instance.id,
+                        value
+                      }),
+                      "Set contribution points"
+                    )
+                  }
+                  onAdjust={(delta) =>
+                    client.sendProtocolRequest(
+                      buildAdjustContributionPointsRequest({
+                        instanceId: detail.instance.id,
+                        delta
+                      }),
+                      delta < 0 ? "Subtract contribution points" : "Add contribution points"
+                    )
+                  }
+                />
                 <SheetStatsSection
                   canEditStats={canEditStats}
                   compact={mode === "player"}
@@ -405,10 +471,10 @@ export function PlayerCharacterSheet({
                 <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
               </aside>
             </div>
-            {mode === "player" && assignedActions.length > 0 ? (
+            {mode === "player" && pinnedActions.length > 0 ? (
               <section className="character-sheet__section" aria-label="Pinned Actions">
                 <SheetActionsSection
-                  assignedActions={assignedActions.slice(0, 6)}
+                  assignedActions={pinnedActions}
                   actionDefinitions={actionDefinitions}
                   attributeDefinitions={attributeDefinitions}
                   actionOrder={actionOrder}
@@ -450,6 +516,8 @@ export function PlayerCharacterSheet({
               actionOrder={actionOrder}
               canEdit={canEditActions}
               commandLayout={mode === "gm"}
+              pinnedActionIds={pinnedActionIds}
+              onPinnedActionIdsChange={updatePinnedActions}
               onCreate={(bridge) => {
                 client.sendProtocolRequest(
                   buildAttachInstancedSheetActionRequest({

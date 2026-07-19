@@ -149,6 +149,10 @@ class InstancedSheetPayload(ProtocolModel):
     notes: str = ""
     health: float
     mana: int
+    reactions: float = 0
+    evaluated_max_reactions: float = 0
+    contribution_points: int = 0
+    pinned_action_ids: list[str] = Field(default_factory=list)
     unassigned_stat_points: int = 0
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
@@ -583,11 +587,24 @@ class XpAdjustmentPayload(ProtocolModel):
     occurred_at: str
 
 
+class ContributionPointTransactionPayload(ProtocolModel):
+    id: str
+    instance_id: str
+    amount: int
+    balance_after: int
+    reason: str
+    occurred_at: str
+    actor_role: Literal["dm"] = "dm"
+
+
 class BackendStateSnapshotPayload(ProtocolModel):
     action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
     parties: dict[str, PartyPayload] = Field(default_factory=dict)
     kill_registry: dict[str, KillRecordPayload] = Field(default_factory=dict)
     xp_adjustments: dict[str, XpAdjustmentPayload] = Field(default_factory=dict)
+    contribution_point_transactions: dict[
+        str, ContributionPointTransactionPayload
+    ] = Field(default_factory=dict)
     player_kill_visibility: dict[str, bool] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)

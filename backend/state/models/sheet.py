@@ -1,5 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from math import isfinite
 from typing import Dict
 
 from backend.state.models.attribute import AttributeBridge
@@ -109,6 +111,31 @@ class InstancedSheet:
     max_health: Formula = field(default_factory=default_max_health_formula)
     max_mana: Formula = field(default_factory=default_max_mana_formula)
     stat_bonuses: Dict[FormulaStatName, int] = field(default_factory=dict)
+    # Reactions use two decimal places so half reactions and other authored
+    # fractional limits survive checkpoint round trips without binary drift.
+    reactions: float = 0.0
+    contribution_points: int = 0
+    pinned_action_ids: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        try:
+            normalized_reactions = Decimal(str(self.reactions)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        except (InvalidOperation, ValueError) as exc:
+            raise ValueError("Reactions must be a finite number.") from exc
+        if not isfinite(float(normalized_reactions)) or normalized_reactions < 0:
+            raise ValueError("Reactions must be finite and nonnegative.")
+        if isinstance(self.contribution_points, bool) or not isinstance(
+            self.contribution_points, int
+        ) or self.contribution_points < 0:
+            raise ValueError("Contribution points must be a nonnegative whole number.")
+        if (
+            any(not isinstance(action_id, str) or not action_id for action_id in self.pinned_action_ids)
+            or len(self.pinned_action_ids) != len(set(self.pinned_action_ids))
+        ):
+            raise ValueError("Pinned action IDs must be unique nonempty strings.")
+        self.reactions = float(normalized_reactions)
 
     @classmethod
     def from_dict(
@@ -195,4 +222,7 @@ class InstancedSheet:
                     template.stat_bonuses if template is not None else {},
                 ).items()
             },
+            reactions=float(raw.get("reactions", 0)),
+            contribution_points=int(raw.get("contribution_points", 0)),
+            pinned_action_ids=list(raw.get("pinned_action_ids", [])),
         )

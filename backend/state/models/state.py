@@ -29,6 +29,7 @@ from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.xp import KillRecord, Party, XpAdjustment
+from backend.state.models.contribution_points import ContributionPointTransaction
 
 
 @dataclass
@@ -37,6 +38,9 @@ class State:
     parties: dict[str, Party] = field(default_factory=dict)
     kill_registry: dict[str, KillRecord] = field(default_factory=dict)
     xp_adjustments: dict[str, XpAdjustment] = field(default_factory=dict)
+    contribution_point_transactions: dict[str, ContributionPointTransaction] = field(
+        default_factory=dict
+    )
     player_kill_visibility: dict[str, bool] = field(default_factory=dict)
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
@@ -118,6 +122,10 @@ class State:
             xp_adjustments={
                 key: XpAdjustment.from_dict(adjustment)
                 for key, adjustment in raw.get("xp_adjustments", {}).items()
+            },
+            contribution_point_transactions={
+                key: ContributionPointTransaction.from_dict(transaction)
+                for key, transaction in raw.get("contribution_point_transactions", {}).items()
             },
             player_kill_visibility={
                 str(sheet_id): True

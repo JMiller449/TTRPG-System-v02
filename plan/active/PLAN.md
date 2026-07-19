@@ -360,12 +360,20 @@ No large architecture feature is currently missing for the stated character-shee
   - the Roll20 bridge failure behavior
   - backup/export/import expectations
 
+- [x] Checklist verification follow-up (2026-07-19): verified the existing
+  action builder, item/proficiency, inventory weight/container, effects,
+  party XP, Roll20 binding, level-attribute, player inventory/visibility, and
+  item approval flows against their backend routes, persistence, redaction,
+  and focused tests. Added missing authoritative fractional reaction tracking,
+  nonnegative contribution-point balances with audit records, and persistent
+  per-instance action pins with stale-reference cleanup (schema v32).
+
 ## 6. Explicit Non-Blockers
 
 These are not required for the app to be usable as the MVP character sheet and authored-action dice roller:
 
 - A custom one-off dice-only roller inside the app. One-off rolls can happen directly in Roll20.
-- Automated initiative, turn order, action-point reset, reaction spending, or round lifecycle.
+- Automated initiative, turn order, action-point reset, or round lifecycle.
 - App-side targeting, token reads, intersheet attack execution, or cross-sheet damage automation.
 - Automatic hit-vs-defense comparison, Dodge/Block/Parry contest resolution, counterattacks, or critical consequence automation.
 - Automatic level-up stat distribution or mastery/rank unlock enforcement.

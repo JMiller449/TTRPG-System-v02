@@ -13,7 +13,9 @@ from backend.features.sheet_runtime import handler
 from backend.features.sheet_runtime import service
 from backend.features.sheet_runtime.schema import (
     ApplyInstancedSheetDamage,
+    AdjustInstancedSheetReactions,
     PerformAction,
+    ResetInstancedSheetReactions,
     SetInstancedSheetItemEquipped,
 )
 from backend.protocol.socket import ActionExecutedEvent, StatePatchEvent
@@ -82,7 +84,43 @@ class SetInstancedSheetItemEquippedRoute(
         await service.set_instanced_sheet_item_equipped(request)
 
 
+class AdjustInstancedSheetReactionsRoute(RequestRoute[AdjustInstancedSheetReactions]):
+    type_name = "adjust_instanced_sheet_reactions"
+    request_model = AdjustInstancedSheetReactions
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("resource_edit")
+    permission_denied_reason = permission_denied_reason("resource_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceReactions", method_name="adjustReactions"
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: AdjustInstancedSheetReactions
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
+        await service.adjust_instanced_sheet_reactions(request)
+
+
+class ResetInstancedSheetReactionsRoute(RequestRoute[ResetInstancedSheetReactions]):
+    type_name = "reset_instanced_sheet_reactions"
+    request_model = ResetInstancedSheetReactions
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("resource_edit")
+    permission_denied_reason = permission_denied_reason("resource_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceReactions", method_name="resetReactions"
+    )
+
+    async def handle(
+        self, session: WebSocketSession, request: ResetInstancedSheetReactions
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
+        await service.reset_instanced_sheet_reactions(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(PerformActionRoute())
     registry.register(ApplyInstancedSheetDamageRoute())
     registry.register(SetInstancedSheetItemEquippedRoute())
+    registry.register(AdjustInstancedSheetReactionsRoute())
+    registry.register(ResetInstancedSheetReactionsRoute())

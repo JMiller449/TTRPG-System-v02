@@ -466,6 +466,87 @@ export function buildAdjustInstancedSheetResourceRequest({
   };
 }
 
+export function buildAdjustInstancedSheetReactionsRequest({
+  instanceId,
+  delta,
+  requestId
+}: {
+  instanceId: string;
+  delta: number;
+} & OptionalRequestId): ProtocolRequest<"adjust_instanced_sheet_reactions"> {
+  return {
+    ...requestIdField(requestId),
+    type: "adjust_instanced_sheet_reactions",
+    instance_id: instanceId,
+    delta
+  };
+}
+
+export function buildResetInstancedSheetReactionsRequest({
+  instanceId,
+  requestId
+}: { instanceId: string } & OptionalRequestId): ProtocolRequest<"reset_instanced_sheet_reactions"> {
+  return {
+    ...requestIdField(requestId),
+    type: "reset_instanced_sheet_reactions",
+    instance_id: instanceId
+  };
+}
+
+export function buildSetContributionPointsRequest({
+  instanceId,
+  value,
+  reason,
+  requestId
+}: {
+  instanceId: string;
+  value: number;
+  reason?: string;
+} & OptionalRequestId): ProtocolRequest<"set_contribution_points"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_contribution_points",
+    instance_id: instanceId,
+    value,
+    reason: reason ?? ""
+  };
+}
+
+export function buildAdjustContributionPointsRequest({
+  instanceId,
+  delta,
+  reason,
+  requestId
+}: {
+  instanceId: string;
+  delta: number;
+  reason?: string;
+} & OptionalRequestId): ProtocolRequest<"adjust_contribution_points"> {
+  return {
+    ...requestIdField(requestId),
+    type: "adjust_contribution_points",
+    instance_id: instanceId,
+    delta,
+    reason: reason ?? ""
+  };
+}
+
+export function buildSetPinnedInstanceActionsRequest({
+  instanceId,
+  actionRelationshipIds,
+  requestId
+}: {
+  instanceId: string;
+  actionRelationshipIds: string[];
+} & OptionalRequestId): ProtocolRequest<"set_pinned_instance_actions"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_pinned_instance_actions",
+    instance_id: instanceId,
+    action_relationship_ids: actionRelationshipIds
+  };
+}
+
 export function buildApplyInstancedSheetDamageRequest({
   instanceId,
   amount,

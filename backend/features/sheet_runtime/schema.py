@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import isfinite
 from typing import Literal
 
 from pydantic import Field
@@ -29,6 +30,17 @@ class SetInstancedSheetItemEquipped(RequestModel):
     relationship_id: str = Field(min_length=1)
     equipped: bool
     type: Literal["set_instanced_sheet_item_equipped"]
+
+
+class AdjustInstancedSheetReactions(RequestModel):
+    instance_id: str = Field(min_length=1)
+    delta: float = Field(allow_inf_nan=False)
+    type: Literal["adjust_instanced_sheet_reactions"]
+
+
+class ResetInstancedSheetReactions(RequestModel):
+    instance_id: str = Field(min_length=1)
+    type: Literal["reset_instanced_sheet_reactions"]
 
 
 @dataclass

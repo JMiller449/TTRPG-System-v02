@@ -28,6 +28,8 @@ export function SheetActionsSection({
   canEdit,
   compact = false,
   commandLayout = false,
+  pinnedActionIds = [],
+  onPinnedActionIdsChange,
   onCreate,
   onUpdate,
   onDelete,
@@ -40,6 +42,8 @@ export function SheetActionsSection({
   canEdit: boolean;
   compact?: boolean;
   commandLayout?: boolean;
+  pinnedActionIds?: string[];
+  onPinnedActionIdsChange?: (actionRelationshipIds: string[]) => void;
   onCreate: (bridge: SheetActionBridgePayload) => void;
   onUpdate: (relationshipId: string, bridge: SheetActionBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
@@ -50,12 +54,9 @@ export function SheetActionsSection({
   ) => void;
 }): JSX.Element {
   const [rollModes, setRollModes] = useState<Record<string, ActionRollMode>>({});
-  const [visibilities, setVisibilities] = useState<
-    Record<string, ActionExecutionVisibility>
-  >({});
+  const [visibilities, setVisibilities] = useState<Record<string, ActionExecutionVisibility>>({});
   const [commandRollMode, setCommandRollMode] = useState<ActionRollMode>("normal");
-  const [commandVisibility, setCommandVisibility] =
-    useState<ActionExecutionVisibility>("public");
+  const [commandVisibility, setCommandVisibility] = useState<ActionExecutionVisibility>("public");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | "check" | "damage" | "item">("all");
   const [selectedActionId, setSelectedActionId] = useState("");
@@ -116,117 +117,119 @@ export function SheetActionsSection({
           <span className="muted">{assignedActions.length} assigned</span>
         </summary>
         <div className="sheet-actions-section__manager-body">
-        <div className="inline-group">
-          <Field label="Global Action">
-            <select
-              value={selectedActionId}
-              onChange={(event) => setSelectedActionId(event.target.value)}
+          <div className="inline-group">
+            <Field label="Global Action">
+              <select
+                value={selectedActionId}
+                onChange={(event) => setSelectedActionId(event.target.value)}
+              >
+                {availableActions.length === 0 ? (
+                  <option value="">No unassigned actions</option>
+                ) : null}
+                {availableActions.map((action) => (
+                  <option key={action.id} value={action.id}>
+                    {action.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button
+              type="button"
+              className="button"
+              onClick={createAssignment}
+              disabled={!selectedActionId}
             >
-              {availableActions.length === 0 ? (
-                <option value="">No unassigned actions</option>
-              ) : null}
-              {availableActions.map((action) => (
-                <option key={action.id} value={action.id}>
-                  {action.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <button
-            type="button"
-            className="button"
-            onClick={createAssignment}
-            disabled={!selectedActionId}
-          >
-            Assign Action
-          </button>
-        </div>
-        <div className="list">
-          {assignedActions.length === 0 ? (
-            <EmptyState message="No actions assigned to this sheet." />
-          ) : null}
-          {assignedActions.map((entry) => {
-            const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
-            const replacementOptions = entry.bridge
-              ? selectAvailableOrderedSheetActions(
-                  orderedActions,
-                  assignedExplicitActionIds,
-                  entry.actionId
-                )
-              : [];
-            const canSaveReplacement =
-              Boolean(entry.bridge) &&
-              draftActionId !== entry.actionId &&
-              Boolean(actionDefinitions[draftActionId]);
+              Assign Action
+            </button>
+          </div>
+          <div className="list">
+            {assignedActions.length === 0 ? (
+              <EmptyState message="No actions assigned to this sheet." />
+            ) : null}
+            {assignedActions.map((entry) => {
+              const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
+              const replacementOptions = entry.bridge
+                ? selectAvailableOrderedSheetActions(
+                    orderedActions,
+                    assignedExplicitActionIds,
+                    entry.actionId
+                  )
+                : [];
+              const canSaveReplacement =
+                Boolean(entry.bridge) &&
+                draftActionId !== entry.actionId &&
+                Boolean(actionDefinitions[draftActionId]);
 
-            return (
-              <article className="list-item list-item--block" key={entry.relationshipId}>
-                <div className="list-item__top">
-                  <strong>{entry.action.name}</strong>
-                </div>
-                {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
-                {entry.sourceItemName ? (
-                  <div className="muted">
-                    Granted by {entry.sourceItemName} ({entry.sourceItemAvailability})
-                    {entry.consumeQuantity ? ` · consumes ${entry.consumeQuantity}` : ""}
+              return (
+                <article className="list-item list-item--block" key={entry.relationshipId}>
+                  <div className="list-item__top">
+                    <strong>{entry.action.name}</strong>
                   </div>
-                ) : null}
-                {entry.bridge ? (
-                  <div className="inline-group">
-                    <Field label="Assigned Action">
-                      <select
-                        value={draftActionId}
-                        onChange={(event) =>
-                          setDraftActionIds((current) => ({
-                            ...current,
-                            [entry.relationshipId]: event.target.value
-                          }))
-                        }
+                  {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
+                  {entry.sourceItemName ? (
+                    <div className="muted">
+                      Granted by {entry.sourceItemName} ({entry.sourceItemAvailability})
+                      {entry.consumeQuantity ? ` · consumes ${entry.consumeQuantity}` : ""}
+                    </div>
+                  ) : null}
+                  {entry.bridge ? (
+                    <div className="inline-group">
+                      <Field label="Assigned Action">
+                        <select
+                          value={draftActionId}
+                          onChange={(event) =>
+                            setDraftActionIds((current) => ({
+                              ...current,
+                              [entry.relationshipId]: event.target.value
+                            }))
+                          }
+                        >
+                          {replacementOptions.map((action) => (
+                            <option key={action.id} value={action.id}>
+                              {action.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        disabled={!canSaveReplacement}
+                        onClick={() => {
+                          onUpdate(
+                            entry.relationshipId,
+                            toSheetActionBridgePayload(entry.relationshipId, draftActionId)
+                          );
+                          setDraftActionIds((current) => {
+                            const next = { ...current };
+                            delete next[entry.relationshipId];
+                            return next;
+                          });
+                        }}
                       >
-                        {replacementOptions.map((action) => (
-                          <option key={action.id} value={action.id}>
-                            {action.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      disabled={!canSaveReplacement}
-                      onClick={() => {
-                        onUpdate(
-                          entry.relationshipId,
-                          toSheetActionBridgePayload(entry.relationshipId, draftActionId)
-                        );
-                        setDraftActionIds((current) => {
-                          const next = { ...current };
-                          delete next[entry.relationshipId];
-                          return next;
-                        });
-                      }}
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      onClick={() => onDelete(entry.relationshipId)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() => onDelete(entry.relationshipId)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
         </div>
       </details>
     ) : null;
 
     return (
-      <section className={`sheet-actions-section sheet-actions-section--command ${compact ? "sheet-actions-section--compact" : ""}`}>
+      <section
+        className={`sheet-actions-section sheet-actions-section--command ${compact ? "sheet-actions-section--compact" : ""}`}
+      >
         <div className="action-command-toolbar">
           <div className="action-command-toolbar__primary">
             <div className="action-command-toolbar__heading">
@@ -276,10 +279,7 @@ export function SheetActionsSection({
             />
           </div>
           <div className="action-command-toolbar__visibility">
-            <ActionVisibilityControl
-              value={commandVisibility}
-              onChange={setCommandVisibility}
-            />
+            <ActionVisibilityControl value={commandVisibility} onChange={setCommandVisibility} />
           </div>
           <Field label="Search">
             <input
@@ -292,40 +292,63 @@ export function SheetActionsSection({
         </div>
 
         {visibleActions.length === 0 ? (
-          <EmptyState message={assignedActions.length === 0 ? "No actions assigned to this sheet." : "No actions match the current filters."} />
+          <EmptyState
+            message={
+              assignedActions.length === 0
+                ? "No actions assigned to this sheet."
+                : "No actions match the current filters."
+            }
+          />
         ) : (
           <div className="action-command-grid">
             {visibleActions.map((entry) => {
               const allowedModes = actionRollModes(entry.action.roll_mode_kind ?? "none");
               const rollMode = allowedModes.includes(commandRollMode) ? commandRollMode : "normal";
+              const isPinned = pinnedActionIds.includes(entry.relationshipId);
               return (
-                <button
-                  key={entry.relationshipId}
-                  type="button"
-                  className="action-command-card"
-                  onClick={() => onPerformAction(entry, rollMode, commandVisibility)}
-                  aria-label={`Perform ${entry.action.name} using ${rollMode} mode with ${
-                    commandVisibility === "gm" ? "GM-only" : "public"
-                  } Roll20 output`}
-                >
-                  <strong>{entry.action.name}</strong>
-                  <span>
-                    {entry.action.notes ||
-                      (entry.sourceItemName
-                        ? `Granted by ${entry.sourceItemName}`
-                        : `${entry.action.steps?.length ?? 0} authored steps`)}
-                  </span>
-                  <small>
-                    {entry.sourceItemName ? `${entry.sourceItemName} · ` : ""}
-                    {rollMode === "normal" ? "Roll normal" : `Roll ${rollMode}`}
-                    {commandVisibility === "gm" ? " · GM only" : " · Public"}
-                  </small>
+                <article key={entry.relationshipId} className="action-command-card">
+                  <button
+                    type="button"
+                    className="action-command-card__perform"
+                    onClick={() => onPerformAction(entry, rollMode, commandVisibility)}
+                    aria-label={`Perform ${entry.action.name} using ${rollMode} mode with ${
+                      commandVisibility === "gm" ? "GM-only" : "public"
+                    } Roll20 output`}
+                  >
+                    <strong>{entry.action.name}</strong>
+                    <span>
+                      {entry.action.notes ||
+                        (entry.sourceItemName
+                          ? `Granted by ${entry.sourceItemName}`
+                          : `${entry.action.steps?.length ?? 0} authored steps`)}
+                    </span>
+                    <small>
+                      {entry.sourceItemName ? `${entry.sourceItemName} · ` : ""}
+                      {rollMode === "normal" ? "Roll normal" : `Roll ${rollMode}`}
+                      {commandVisibility === "gm" ? " · GM only" : " · Public"}
+                    </small>
+                  </button>
                   {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
                     <span className="action-command-card__attribute-count">
                       {Object.keys(entry.action.attributes ?? {}).length} attributes
                     </span>
                   ) : null}
-                </button>
+                  {onPinnedActionIdsChange ? (
+                    <button
+                      type="button"
+                      className="button button--secondary"
+                      onClick={() =>
+                        onPinnedActionIdsChange(
+                          isPinned
+                            ? pinnedActionIds.filter((id) => id !== entry.relationshipId)
+                            : [...pinnedActionIds, entry.relationshipId]
+                        )
+                      }
+                    >
+                      {isPinned ? "Unpin" : "Pin"}
+                    </button>
+                  ) : null}
+                </article>
               );
             })}
           </div>

@@ -170,6 +170,12 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.encounters.route import (
         register_routes as register_encounter_routes,
     )
+    from backend.features.contribution_points.route import (
+        register_routes as register_contribution_point_routes,
+    )
+    from backend.features.pinned_actions.route import (
+        register_routes as register_pinned_action_routes,
+    )
     from backend.features.attributes.route import register_routes as register_attribute_routes
     from backend.features.sheet_runtime.route import (
         register_routes as register_sheet_runtime_routes,
@@ -217,6 +223,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_auth_routes(registry)
     register_chat_routes(registry)
     register_encounter_routes(registry)
+    register_contribution_point_routes(registry)
     register_attribute_routes(registry)
     register_sheet_admin_actions_routes(registry)
     register_sheet_admin_conditions_routes(registry)
@@ -230,6 +237,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_standalone_effect_routes(registry)
     register_state_sync_routes(registry)
     register_sheet_runtime_routes(registry)
+    register_pinned_action_routes(registry)
     register_variable_registry_routes(registry)
     register_xp_tracker_routes(registry)
 

@@ -75,7 +75,7 @@ Backend:
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
-- Weapon-profile items automatically grant canonical equipped weapon actions, and equipping a weapon adds the matching sheet proficiency bridge when it is missing so source-item weapon rolls can resolve `weapon_proficiency`.
+- Weapon-profile items automatically grant canonical equipped weapon actions, and equipping a weapon adds the matching sheet proficiency bridge when it is missing so source-item weapon rolls can resolve and advance `weapon_proficiency`.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
@@ -367,6 +367,11 @@ No large architecture feature is currently missing for the stated character-shee
   and focused tests. Added missing authoritative fractional reaction tracking,
   nonnegative contribution-point balances with audit records, and persistent
   per-instance action pins with stale-reference cleanup (schema v32).
+- [x] Proficiency growth follow-up (2026-07-19): canonical weapon actions now
+  advance the selected weapon proficiency and spell presets advance their
+  Action Proficiency Attribute target. Character sheets display the capped
+  player-facing proficiency percentage alongside uses and growth rate; existing
+  unmodified canonical weapon actions migrate safely (schema v33).
 
 ## 6. Explicit Non-Blockers
 

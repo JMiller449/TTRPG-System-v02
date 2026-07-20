@@ -749,29 +749,37 @@ export function ActionEditorForm({
                     ) : step.type === "gain_proficiency_use" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
-                          <Field label={`Proficiency: ${step.step_id}`}>
-                            <select
-                              value={step.proficiency_id}
-                              onChange={(event) =>
-                                onChange(
-                                  updateGainProficiencyUseActionStep(values, step.step_id, {
-                                    proficiencyId: event.target.value
-                                  })
-                                )
-                              }
-                            >
-                              {proficiencies.some(
-                                (proficiency) => proficiency.id === step.proficiency_id
-                              ) ? null : (
-                                <option value={step.proficiency_id}>{step.proficiency_id}</option>
-                              )}
-                              {proficiencies.map((proficiency) => (
-                                <option key={proficiency.id} value={proficiency.id}>
-                                  {proficiency.name}
-                                </option>
-                              ))}
-                            </select>
-                          </Field>
+                          {(step.proficiency_reference ?? "explicit") === "explicit" ? (
+                            <Field label={`Proficiency: ${step.step_id}`}>
+                              <select
+                                value={step.proficiency_id}
+                                onChange={(event) =>
+                                  onChange(
+                                    updateGainProficiencyUseActionStep(values, step.step_id, {
+                                      proficiencyId: event.target.value
+                                    })
+                                  )
+                                }
+                              >
+                                {proficiencies.some(
+                                  (proficiency) => proficiency.id === step.proficiency_id
+                                ) ? null : (
+                                  <option value={step.proficiency_id}>{step.proficiency_id}</option>
+                                )}
+                                {proficiencies.map((proficiency) => (
+                                  <option key={proficiency.id} value={proficiency.id}>
+                                    {proficiency.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                          ) : (
+                            <p className="muted">
+                              {(step.proficiency_reference ?? "explicit") === "action_attribute"
+                                ? "Trains the proficiency selected by this action."
+                                : "Trains the selected weapon's proficiency."}
+                            </p>
+                          )}
                           {formulaSourcePicker(step.step_id, step.amount, {
                             allowCalculated: true,
                             label: "Amount Source"

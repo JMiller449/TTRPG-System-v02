@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ProficiencyBridge, ProficiencyDefinition } from "@/domain/models";
 import {
+  formatSheetProficiencyPercentage,
+  getSheetProficiencyPercentage,
   parseSheetProficiencyGrowthRate,
   parseSheetProficiencyUseCount,
   selectAvailableSheetProficiencies,
@@ -28,6 +30,18 @@ function testBridge(overrides: Partial<ProficiencyBridge> = {}): ProficiencyBrid
 }
 
 describe("sheetProficiencies", () => {
+  it("derives the capped player-facing proficiency percentage", () => {
+    expect(getSheetProficiencyPercentage(testBridge({ use_count: 3, growth_rate: 0.125 }))).toBe(
+      37.5
+    );
+    expect(formatSheetProficiencyPercentage(testBridge({ use_count: 3, growth_rate: 0.125 }))).toBe(
+      "37.50"
+    );
+    expect(formatSheetProficiencyPercentage(testBridge({ use_count: 20, growth_rate: 0.125 }))).toBe(
+      "100"
+    );
+  });
+
   it("resolves sheet bridges against global proficiency definitions", () => {
     expect(
       selectSheetProficiencyEntries(

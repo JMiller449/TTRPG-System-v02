@@ -189,9 +189,9 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                     "source_item_relationship_id": "inventory_never_dulls",
                 },
             )
-            assert parry_messages[0]["type"] == "action_executed"
+            assert parry_messages[0]["type"] == "state_patch"
             assert "{{rname=Advantage: Weapon Parry}}" in (
-                parry_messages[0]["emitted_messages"][0]
+                bridge.sent_messages[-1]["message"]
             )
 
             await _send(
@@ -233,7 +233,8 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                     "source_item_relationship_id": "inventory_sword_of_mana",
                 },
             )
-            assert "(50.0)" in mana_sword_messages[0]["emitted_messages"][0]
+            assert mana_sword_messages[0]["type"] == "state_patch"
+            assert "(50.0)" in bridge.sent_messages[-1]["message"]
 
             plain_sword_messages = await _send(
                 dm,
@@ -244,7 +245,8 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
                     "source_item_relationship_id": "inventory_never_dulls",
                 },
             )
-            assert "(50.0)" not in plain_sword_messages[0]["emitted_messages"][0]
+            assert plain_sword_messages[0]["type"] == "state_patch"
+            assert "(50.0)" not in bridge.sent_messages[-1]["message"]
 
             await _send(
                 dm,

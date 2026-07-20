@@ -38,7 +38,11 @@ original parent.
 Formula expansion derives the current proficiency multiplier from bridge growth
 rate and use count, capped at the implemented maximum. An authored
 `gain_proficiency_use` action step increments the relevant instance bridge as
-part of the same action transaction.
+part of the same action transaction. A gain step can name a specific definition,
+resolve the action's Proficiency Attribute (for skills and spells), or resolve
+the selected weapon's Proficiency Attribute. Canonical weapon and spell presets
+use those dynamic references, so their qualifying use gains the same
+proficiency used in the roll.
 
 Weapon-profile items reference a weapon-family proficiency through required
 item attributes. Equipping a weapon automatically adds the matching instance
@@ -53,7 +57,8 @@ live in the sheets feature. Item authoring selects proficiency definitions from
 the authoritative registry and visibly rejects stale IDs rather than retaining
 free-text references.
 
-Players see their assigned character's proficiency values. Definition and
+Players see their assigned character's current capped percentage, use count,
+and growth rate. Definition and
 bridge management remains DM-owned; progression changes occur through allowed
 backend action steps.
 

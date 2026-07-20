@@ -770,6 +770,11 @@ def _formula_value_requires_source_item(
 
 def _action_requires_source_item(action: Action, state: State) -> bool:
     for step in action.steps:
+        if (
+            isinstance(step, GainProficiencyUseStep)
+            and step.proficiency_reference == "source_item_weapon"
+        ):
+            return True
         values: list[FormulaValueSource | NumericValueSource | None] = []
         if isinstance(step, SendMessageStep):
             values.append(step.message)
@@ -794,6 +799,39 @@ def _action_requires_source_item(action: Action, state: State) -> bool:
         if any(_formula_value_requires_source_item(value, state) for value in values):
             return True
     return False
+
+
+def _gain_proficiency_id(
+    state: State,
+    action: Action,
+    source_item: Item | None,
+    step: GainProficiencyUseStep,
+) -> str:
+    if step.proficiency_reference == "explicit":
+        return step.proficiency_id
+    if step.proficiency_reference == "action_attribute":
+        proficiency_id = _attribute_reference_value(
+            action, ACTION_PROFICIENCY_ATTRIBUTE_ID
+        )
+        if proficiency_id is not None and proficiency_id in state.proficiencies:
+            return proficiency_id
+        raise ValueError(
+            f"Action '{action.id}' requires an attached valid Action Proficiency "
+            "Attribute to gain proficiency."
+        )
+    if (
+        source_item is not None
+        and source_item.attribute_profile == WEAPON_ATTRIBUTE_PROFILE
+    ):
+        proficiency_id = _attribute_reference_value(
+            source_item, WEAPON_PROFICIENCY_ATTRIBUTE_ID
+        )
+        if proficiency_id is not None and proficiency_id in state.proficiencies:
+            return proficiency_id
+    raise ValueError(
+        f"Action '{action.id}' requires an eligible weapon source item with a "
+        "valid Proficiency Attribute to gain proficiency."
+    )
 
 
 def _resolve_action(
@@ -1637,7 +1675,13 @@ async def perform_action(
                     label="Proficiency use gain amount",
                 )
                 bridge_key = _proficiency_bridge_key(
-                    current_actor, step.proficiency_id
+                    current_actor,
+                    _gain_proficiency_id(
+                        state,
+                        current_action,
+                        current_resolution.source_item,
+                        step,
+                    ),
                 )
                 path = state_sync_service.join_path(
                     current_actor.mutation_root,

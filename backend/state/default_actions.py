@@ -52,13 +52,16 @@ class CanonicalActionPreset:
     aliases: tuple[tuple[str, tuple[str, ...]], ...]
     tags: tuple[str, ...]
     attribute_values: tuple[tuple[str, dict], ...] = ()
+    proficiency_reference: Literal[
+        "action_attribute", "source_item_weapon"
+    ] | None = None
     seed_global: bool = False
     attach_to_new_sheet: bool = False
 
     def steps(self) -> list[dict]:
         expression = self.message_text.removeprefix(f"{self.label}: /r ")
         presentation = "damage" if self.roll_mode_kind == "damage" else "simple"
-        return [
+        steps = [
             {
                 "step_id": "roll",
                 "type": "send_roll",
@@ -79,6 +82,21 @@ class CanonicalActionPreset:
                 ],
             }
         ]
+        if self.proficiency_reference is not None:
+            steps.append(
+                {
+                    "step_id": "gain_proficiency_use",
+                    "type": "gain_proficiency_use",
+                    "target": "caster",
+                    "proficiency_id": "__dynamic_proficiency__",
+                    "proficiency_reference": self.proficiency_reference,
+                    "amount": {
+                        "aliases": None,
+                        "text": "1",
+                    },
+                }
+            )
+        return steps
 
     def action_payload(self) -> dict:
         return {
@@ -153,6 +171,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("check", "attack", "weapon"),
+        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -180,6 +199,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("damage", "weapon"),
+        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -203,6 +223,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("dexterity", ("sheet", "stats", "dexterity")),
         ),
         tags=("check", "parry", "weapon"),
+        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -225,6 +246,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("check", "contest", "weapon"),
+        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -249,6 +271,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         tags=("check", "spell", "attack"),
         attribute_values=_SPELL_ATTRIBUTE_VALUES,
+        proficiency_reference="action_attribute",
     ),
     CanonicalActionPreset(
         id="spell_damage",
@@ -276,6 +299,7 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         tags=("damage", "spell"),
         attribute_values=_SPELL_ATTRIBUTE_VALUES,
+        proficiency_reference="action_attribute",
     ),
 )
 

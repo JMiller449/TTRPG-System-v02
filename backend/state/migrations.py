@@ -16,7 +16,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 32
+CURRENT_STATE_SCHEMA_VERSION = 33
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1841,6 +1841,28 @@ def _migrate_v31_to_v32(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 32, "state": state}
 
 
+def _legacy_v32_canonical_payloads() -> dict[str, dict[str, Any]]:
+    legacy = deepcopy(seeded_global_action_payloads())
+    for payload in legacy.values():
+        payload["steps"] = [
+            step
+            for step in payload.get("steps", [])
+            if step.get("type") != "gain_proficiency_use"
+        ]
+    return legacy
+
+
+def _migrate_v32_to_v33(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions")
+    if isinstance(actions, dict):
+        replacements = seeded_global_action_payloads()
+        for action_id, legacy_payload in _legacy_v32_canonical_payloads().items():
+            if actions.get(action_id) == legacy_payload:
+                actions[action_id] = replacements[action_id]
+    return {"schema_version": 33, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1874,6 +1896,7 @@ MIGRATIONS: dict[int, Migration] = {
     29: _migrate_v29_to_v30,
     30: _migrate_v30_to_v31,
     31: _migrate_v31_to_v32,
+    32: _migrate_v32_to_v33,
 }
 
 

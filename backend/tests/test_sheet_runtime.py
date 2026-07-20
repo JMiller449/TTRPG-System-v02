@@ -2829,7 +2829,15 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                                 "type": "calculated_value",
                                 "variable_id": "weapon_total",
                             },
-                        }
+                        },
+                        {
+                            "step_id": "gain_weapon_proficiency",
+                            "type": "gain_proficiency_use",
+                            "target": "caster",
+                            "proficiency_id": "__dynamic_proficiency__",
+                            "proficiency_reference": "source_item_weapon",
+                            "amount": _formula_payload("1"),
+                        },
                     ],
                 }
             )
@@ -2881,6 +2889,10 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
 
             await handle_client_payload(websocket, request)
             assert state.instanced_sheets["mage_instance"].mana == 55
+            assert (
+                state.instanced_sheets["mage_instance"].proficiencies["swords"].use_count
+                == 5
+            )
             assert _request_messages(websocket)[-1]["type"] == "state_patch"
 
             state.instanced_sheets["mage_instance"].mana = 30
@@ -2896,6 +2908,10 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].mana == 55
+            assert (
+                state.instanced_sheets["mage_instance"].proficiencies["swords"].use_count
+                == 6
+            )
             assert _request_messages(websocket)[-1]["type"] == "state_patch"
         finally:
             StateSingleton._state = original_state
@@ -3206,6 +3222,11 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                     }
                 )
             )
+            state.proficiencies["magic_prof"] = Proficiency(
+                id="magic_prof",
+                name="Magic",
+                description="Spell proficiency.",
+            )
             state.instanced_sheets["mage_instance"] = _build_instance_state(
                 state.sheets["mage_template"]
             )
@@ -3216,6 +3237,14 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                 {
                     "id": "focused_cast",
                     "name": "Focused Cast",
+                    "attributes": {
+                        "action_proficiency": {
+                            "relationship_id": "spell-proficiency",
+                            "attribute_id": "action_proficiency",
+                            "value": {"type": "reference", "value": "magic_prof"},
+                            "evaluated_value": "magic_prof",
+                        }
+                    },
                     "steps": [
                         {
                             "step_id": "step-1",
@@ -3230,7 +3259,8 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                             "step_id": "step-2",
                             "type": "gain_proficiency_use",
                             "target": "caster",
-                            "proficiency_id": "magic_prof",
+                            "proficiency_id": "__dynamic_proficiency__",
+                            "proficiency_reference": "action_attribute",
                             "amount": _formula_payload("1"),
                         },
                     ],

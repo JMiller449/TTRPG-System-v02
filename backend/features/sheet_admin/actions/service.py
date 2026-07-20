@@ -195,6 +195,7 @@ def _validate_action_step(
     state: State | None = None,
     *,
     available_variables: set[str],
+    attached_attribute_ids: set[str],
 ) -> None:
     _validate_action_step_target(step)
     if isinstance(step, SendMessageActionStepPayload):
@@ -256,8 +257,20 @@ def _validate_action_step(
             available_variables=available_variables,
         )
     if isinstance(step, GainProficiencyUseActionStepPayload):
-        if state is not None and step.proficiency_id not in state.proficiencies:
+        if (
+            step.proficiency_reference == "explicit"
+            and state is not None
+            and step.proficiency_id not in state.proficiencies
+        ):
             raise ValueError(f"Proficiency '{step.proficiency_id}' does not exist.")
+        if (
+            step.proficiency_reference == "action_attribute"
+            and "action_proficiency" not in attached_attribute_ids
+        ):
+            raise ValueError(
+                "An action-attribute proficiency gain requires the Action "
+                "Proficiency Attribute."
+            )
         _validate_numeric_value(
             step.amount,
             state=state,
@@ -299,6 +312,7 @@ def _validate_action_payload(
             step,
             state,
             available_variables=available_variables,
+            attached_attribute_ids=attached_attribute_ids,
         )
         if isinstance(step, CalculateValueActionStepPayload):
             available_variables.add(step.variable_id)
@@ -463,6 +477,7 @@ def _build_step(
         step_id=step.step_id,
         target=step.target,
         proficiency_id=step.proficiency_id,
+        proficiency_reference=step.proficiency_reference,
         amount=_build_numeric_value(
             step.amount,
             available_variables=available_variables,

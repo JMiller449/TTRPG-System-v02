@@ -16,7 +16,8 @@ Supported steps include:
 - compose and send a structured Roll20 roll card;
 - bounded set, increment, or decrement of an allowed numeric path;
 - semantic typed damage;
-- proficiency-use gain;
+- proficiency-use gain, targeting either an explicit definition, the action's
+  Proficiency Attribute, or the selected weapon's Proficiency Attribute;
 - application/removal of an augmentation;
 - application/removal of a condition preset.
 
@@ -80,6 +81,10 @@ A delivery failure, timeout, disconnect, or bridge replacement rejects the
 action and discards backend mutations. Roll20 cannot provide a deletion
 transaction: in a multi-message action, an early message may already be visible
 if a later message fails.
+
+Canonical weapon actions gain the selected weapon family's use count. Spell
+presets gain the definition selected through the authored Action Proficiency
+Attribute. Both mutations occur in the same transaction as the action's output.
 
 Players may execute only actions assigned to their claimed instance or granted
 by eligible owned items. DMs may administratively execute an unassigned action

@@ -829,6 +829,34 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert current.state == {"actions": {}}
 
 
+def test_v32_migration_adds_growth_to_unmodified_canonical_weapon_actions() -> None:
+    current = seeded_global_action_payloads()
+    legacy = deepcopy(current)
+    for action in legacy.values():
+        action["steps"] = [
+            step for step in action["steps"] if step["type"] != "gain_proficiency_use"
+        ]
+    customized = deepcopy(legacy["weapon_attack"])
+    customized["notes"] = "Campaign-specific weapon action."
+
+    result = migrate_persisted_state(
+        {
+            "schema_version": 32,
+            "state": {
+                "actions": {
+                    "weapon_attack": legacy["weapon_attack"],
+                    "weapon_damage": legacy["weapon_damage"],
+                    "custom_weapon_attack": customized,
+                }
+            },
+        }
+    )
+
+    assert result.state["actions"]["weapon_attack"] == current["weapon_attack"]
+    assert result.state["actions"]["weapon_damage"] == current["weapon_damage"]
+    assert result.state["actions"]["custom_weapon_attack"] == customized
+
+
 def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects() -> None:
     migrated = migrate_persisted_state(
         {

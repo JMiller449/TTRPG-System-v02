@@ -10,6 +10,7 @@ ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
 ActionRollModeKind = Literal["none", "check", "damage"]
 Roll20RollPresentation = Literal["simple", "damage", "default"]
+ProficiencyReference = Literal["explicit", "action_attribute", "source_item_weapon"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -250,6 +251,7 @@ class GainProficiencyUseStep:
     proficiency_id: str
     amount: NumericValueSource
     target: ActionStepTarget = "caster"
+    proficiency_reference: ProficiencyReference = "explicit"
     type: Literal["gain_proficiency_use"] = "gain_proficiency_use"
 
     @classmethod
@@ -259,6 +261,7 @@ class GainProficiencyUseStep:
             proficiency_id=raw["proficiency_id"],
             amount=_numeric_value_source(raw["amount"]),
             target=raw.get("target", "caster"),
+            proficiency_reference=raw.get("proficiency_reference", "explicit"),
         )
 
 

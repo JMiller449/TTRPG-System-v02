@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ProficiencyBridge, ProficiencyDefinition } from "@/domain/models";
 import {
+  formatSheetProficiencyPercentage,
   parseSheetProficiencyGrowthRate,
   parseSheetProficiencyUseCount,
   selectAvailableSheetProficiencies,
@@ -177,6 +178,7 @@ export function SheetProficienciesSection({
                   ) : null}
                 </div>
                 <div className="sheet-proficiency-card__metrics">
+                  <span>Proficiency {formatSheetProficiencyPercentage(bridge)}%</span>
                   <span>Uses {bridge.use_count}</span>
                   <span>Growth {bridge.growth_rate}</span>
                 </div>

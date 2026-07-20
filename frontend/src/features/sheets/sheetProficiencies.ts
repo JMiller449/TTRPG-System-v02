@@ -7,6 +7,15 @@ export interface SheetProficiencyEntry {
   label: string;
 }
 
+export function getSheetProficiencyPercentage(bridge: ProficiencyBridge): number {
+  return Math.min(100, Math.max(0, bridge.growth_rate * bridge.use_count * 100));
+}
+
+export function formatSheetProficiencyPercentage(bridge: ProficiencyBridge): string {
+  const percentage = getSheetProficiencyPercentage(bridge);
+  return Number.isInteger(percentage) ? String(percentage) : percentage.toFixed(2);
+}
+
 export function selectSheetProficiencyEntries(
   bridges: ProficiencyBridge[],
   definitions: Record<string, ProficiencyDefinition>

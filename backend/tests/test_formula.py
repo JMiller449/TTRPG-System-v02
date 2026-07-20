@@ -122,6 +122,44 @@ def test_expand_formula_resolves_dict_paths_relative_to_root() -> None:
     assert formula.expand_formula(root) == "(17) - 5"
 
 
+@pytest.mark.parametrize(
+    "aliases",
+    [
+        [
+            FormulaAliases(name="arc", path=["variables", "short_arcane"]),
+            FormulaAliases(name="arcane", path=["variables", "current_arcane"]),
+        ],
+        [
+            FormulaAliases(name="arcane", path=["variables", "current_arcane"]),
+            FormulaAliases(name="arc", path=["variables", "short_arcane"]),
+        ],
+    ],
+)
+def test_expand_formula_matches_complete_tokens_for_overlapping_aliases(
+    aliases: list[FormulaAliases],
+) -> None:
+    root = DummySheet(
+        stats=DummyStats(
+            strength=12,
+            mana=20,
+            derived=Formula(aliases=None, text="1"),
+        ),
+        proficiencies={},
+        variables={"short_arcane": 7, "current_arcane": 14},
+    )
+    formula = Formula(
+        aliases=aliases,
+        text="Arcane: /roll 1 + @arcane; short: @arc",
+    )
+
+    assert formula.expand_formula(root) == "Arcane: /roll 1 + (14); short: (7)"
+    assert compose_roll20_message(
+        root,
+        formula,
+        execution_context=FormulaExecutionContext.for_formula(formula),
+    ) == "Arcane: /roll 1 + (14); short: (7)"
+
+
 def test_expand_formula_expands_nested_formula_values() -> None:
     root = DummySheet(
         stats=DummyStats(

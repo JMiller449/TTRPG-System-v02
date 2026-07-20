@@ -13,6 +13,11 @@ import type {
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import {
+  createEmptyCharacterProfile,
+  normalizeCharacterProfile,
+  resolveCharacterProfile
+} from "@/features/sheets/characterProfile";
+import {
   FORMULA_STAT_KEYS,
   parseResistancePercentDraft,
   toResistancePercentDraft,
@@ -147,6 +152,7 @@ export function createEmptyTemplateEditorValues(
     kind,
     name: "",
     notes: "",
+    profile: createEmptyCharacterProfile(),
     xpGivenWhenSlayed: "0",
     xpCap: "",
     racialHpMultiplier: "",
@@ -195,6 +201,7 @@ function hasDuplicates(values: string[]): boolean {
 function emptyErrors(): TemplateEditorErrors {
   return {
     details: [],
+    profile: [],
     stats: [],
     attributes: [],
     resistances: [],
@@ -359,6 +366,7 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     kind: sheet.dm_only ? "enemy" : "player",
     name: sheet.name,
     notes: sheet.notes ?? "",
+    profile: resolveCharacterProfile(sheet.profile),
     xpGivenWhenSlayed: String(sheet.xp_given_when_slayed),
     xpCap: String(sheet.xp_cap ?? 0),
     racialHpMultiplier: String(sheet.racial_hp_multiplier ?? 1),
@@ -414,6 +422,7 @@ export function toSheetDefinitionPayload(
     id: sheetId,
     name: values.name.trim(),
     notes: values.notes.trim(),
+    profile: normalizeCharacterProfile(values.profile),
     dm_only: values.kind === "enemy",
     xp_given_when_slayed: xpGivenWhenSlayed,
     xp_cap: xpCap,

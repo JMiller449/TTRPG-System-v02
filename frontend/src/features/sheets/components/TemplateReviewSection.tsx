@@ -6,6 +6,7 @@ import type { TemplateEditorValidation } from "@/features/sheets/templateEditorV
 
 const SECTION_LABELS: Record<TemplateEditorSection, string> = {
   details: "Details",
+  profile: "Profile",
   stats: "Stats",
   attributes: "Attributes",
   resistances: "Resistances",

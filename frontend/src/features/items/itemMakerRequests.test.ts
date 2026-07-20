@@ -48,6 +48,7 @@ describe("itemMakerRequests", () => {
     const values = createEmptyItemValues();
     values.name = "  Sword of Mana  ";
     values.type = " Sword ";
+    values.catalogFolder = " Weapons ";
     values.rank = "S";
     values.weight = " 3 ";
     values.value = " NA ";
@@ -64,6 +65,7 @@ describe("itemMakerRequests", () => {
           name: "Sword of Mana",
           interaction_type: "equippable",
           category: "Sword",
+          catalog_folder: "Weapons",
           rank: "S",
           description: "A blade that conducts mana.",
           world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -97,6 +99,7 @@ describe("itemMakerRequests", () => {
     const values = createEmptyItemValues();
     values.name = "  Edited Sword of Mana  ";
     values.type = " Sword ";
+    values.catalogFolder = " Weapons ";
     values.rank = "S+";
     values.weight = " 4 ";
     values.value = " 1,000CP ";
@@ -113,6 +116,7 @@ describe("itemMakerRequests", () => {
           ...item,
           name: "Edited Sword of Mana",
           category: "Sword",
+          catalog_folder: "Weapons",
           rank: "S+",
           description: "Better enchantment channeling.",
           world_anvil_url: "https://worldanvil.example/items/edited-sword",

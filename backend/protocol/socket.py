@@ -73,6 +73,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteSheetProficiencyBridge,
     DeleteSheet,
     SetInstancedSheetNotes,
+    SetInstancedSheetProfile,
     SetInstancedSheetResource,
     SetSheetNotes,
     UpdateSheetActionBridge,
@@ -226,7 +227,9 @@ class VariableRegistryEvent(ProtocolModel):
 class AuthoringVariablePathMetadataEvent(ProtocolModel):
     key: str
     label: str
-    root: Literal["state", "sheet", "instance", "action", "source_item"]
+    root: Literal[
+        "state", "sheet", "template", "instance", "action", "source_item"
+    ]
     path: list[str]
     value_type: Literal["number", "percent", "formula", "resource"]
     editable_roles: list[Literal["unauthenticated", "player", "dm"]]
@@ -240,7 +243,9 @@ class AuthoringVariablePathMetadataEvent(ProtocolModel):
 class FormulaAliasMetadataEvent(ProtocolModel):
     name: str
     key: str
-    root: Literal["state", "sheet", "instance", "action", "source_item"]
+    root: Literal[
+        "state", "sheet", "template", "instance", "action", "source_item"
+    ]
     path: list[str]
 
 
@@ -337,10 +342,14 @@ class ActionFormulaAuthoringMetadataEvent(ProtocolModel):
     response_id: str | None = None
     variables: list[AuthoringVariablePathMetadataEvent]
     formula_roots: list[
-        Literal["state", "sheet", "instance", "action", "source_item"]
+        Literal[
+            "state", "sheet", "template", "instance", "action", "source_item"
+        ]
     ]
     action_mutation_roots: list[
-        Literal["state", "sheet", "instance", "action", "source_item"]
+        Literal[
+            "state", "sheet", "template", "instance", "action", "source_item"
+        ]
     ]
     formula_aliases: list[FormulaAliasMetadataEvent]
     action_steps: list[ActionStepAuthoringMetadataEvent]
@@ -525,6 +534,7 @@ ApplicationRequest = Annotated[
     | DeleteSheet
     | SetSheetNotes
     | SetInstancedSheetNotes
+    | SetInstancedSheetProfile
     | SetInstancedSheetResource
     | AdjustInstancedSheetResource
     | CreateInstancedSheet

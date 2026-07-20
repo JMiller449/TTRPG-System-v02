@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  addGainProficiencyUseActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
   createEmptyActionEditorValues
@@ -65,7 +66,7 @@ describe("ActionEditorForm", () => {
     expect(markup).toContain("State Changes");
     expect(markup).toContain("Rules &amp; Effects");
     expect(markup).toContain("Add Step");
-    expect(markup).toContain("no proficiencies authored");
+    expect(markup).not.toContain("no proficiencies authored");
     expect(markup).toContain("no standalone effects authored");
     expect(markup).toContain("no conditions authored");
     expect(markup).not.toContain("Action Step Metadata");
@@ -145,6 +146,68 @@ describe("ActionEditorForm", () => {
     expect(container.textContent).not.toContain("Earlier Calculated Value");
     expect(container.querySelector('textarea[placeholder="Type @ to insert a variable"]')).not.toBeNull();
     expect(container.textContent).not.toContain("Roll20 Visibility");
+
+    await act(async () => root.unmount());
+  });
+
+  it("offers all three proficiency training targets and authors the selected mode", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const values = addGainProficiencyUseActionStep(
+      { ...createEmptyActionEditorValues(), name: "Training Action" },
+      "training_1",
+      "longsword"
+    );
+    let changedValues = values;
+
+    await act(async () => {
+      root.render(
+        <ActionEditorForm
+          editingActionId={null}
+          values={values}
+          onChange={(nextValues) => {
+            changedValues = nextValues;
+          }}
+          onSubmit={() => undefined}
+          onCancel={() => undefined}
+          metadata={null}
+          proficiencies={[{ id: "longsword", name: "Longsword", description: "" }]}
+          formulas={[]}
+          standaloneEffects={[]}
+          conditions={[]}
+          attributesEditor={null}
+          validationError={null}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    const trainingField = Array.from(container.querySelectorAll("label.field")).find((field) =>
+      field.textContent?.includes("Training Target: training_1")
+    );
+    const trainingSelect = trainingField?.querySelector("select");
+    expect(
+      Array.from(trainingSelect?.options ?? []).map((option) => [option.value, option.textContent])
+    ).toEqual([
+      ["explicit", "Explicit proficiency"],
+      ["action_attribute", "Action Proficiency Attribute"],
+      ["source_item_weapon", "Source weapon proficiency"]
+    ]);
+
+    await act(async () => {
+      if (!trainingSelect) {
+        throw new Error("Expected proficiency training target selector.");
+      }
+      trainingSelect.value = "action_attribute";
+      trainingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(changedValues.steps[0]).toMatchObject({
+      type: "gain_proficiency_use",
+      proficiency_id: "__dynamic_proficiency__",
+      proficiency_reference: "action_attribute"
+    });
 
     await act(async () => root.unmount());
   });

@@ -9,9 +9,9 @@ profiles, player-visible catalogs, and player item proposals.
 
 [`backend/state/models/item.py`](../../backend/state/models/item.py) defines:
 
-- `Item`: authored identity, interaction type, descriptive/GM fields, price,
-  numeric weight, publication/approval state, storage behavior, optional weapon
-  profile, attributes, action grants, and augmentation templates.
+- `Item`: authored identity, interaction type, descriptive/GM fields, catalog
+  folder, price, numeric weight, publication/approval state, storage behavior,
+  optional weapon profile, attributes, action grants, and augmentation templates.
 - `ItemBridge`: a template or instance relationship with quantity, equipped
   state, definition ID, and optional parent-container relationship.
 - `ItemActionGrant`: an action available while carried or equipped, with an
@@ -72,6 +72,14 @@ DMs author definitions through
 [`backend/features/sheet_admin/items/`](../../backend/features/sheet_admin/items/)
 and [`frontend/src/features/items/ItemMakerPage.tsx`](../../frontend/src/features/items/ItemMakerPage.tsx).
 They can publish or hide an approved definition from the player catalog.
+
+`catalog_folder` is trimmed, backend-owned definition metadata. An empty value
+means Unfiled. The GM catalog derives named folder navigation and counts from
+the authoritative items, while its folder filter and text query are local view
+state. Search covers item name, stable ID, category, rank, and folder without
+changing authoritative item order or the current editor selection. Folder
+membership does not replace category metadata and does not affect publication,
+redaction, inventory relationships, or mechanics.
 
 An assigned player may add one copy of a published item or remove an eligible
 item from their own inventory. A hidden definition is normally redacted, but it

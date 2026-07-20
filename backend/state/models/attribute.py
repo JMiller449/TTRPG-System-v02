@@ -22,7 +22,6 @@ AttributeProfile = Literal["weapon"]
 EvaluatedAttributeValue = float | int | bool | str | list[str] | None
 
 AMOUNT_OF_REACTIONS_ATTRIBUTE_ID = "amount_of_reactions"
-AMOUNT_OF_REACTIONS_RELATIONSHIP_ID = "required_attribute_amount_of_reactions"
 WEAPON_ATTRIBUTE_PROFILE = "weapon"
 WEAPON_TYPE_ATTRIBUTE_ID = "weapon_type"
 WEAPON_BASE_DAMAGE_ATTRIBUTE_ID = "weapon_base_damage"
@@ -277,7 +276,6 @@ def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
     shared = {
         "subject_types": ["sheet"],
         "visibility": "public",
-        "required": False,
         "backend_owned": True,
     }
     definitions = (
@@ -287,6 +285,7 @@ def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
             description="Current character or creature level.",
             value_type="number",
             default_value=AttributeValue(type="number", value=1),
+            required=True,
             **shared,
         ),
         AttributeDefinition(
@@ -299,6 +298,7 @@ def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
             value_type="number",
             default_value=AttributeValue(type="number", value=30),
             unit="feet",
+            required=False,
             **shared,
         ),
         AttributeDefinition(
@@ -311,6 +311,7 @@ def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
             value_type="number",
             default_value=AttributeValue(type="number", value=10),
             unit="% max mana per hour",
+            required=False,
             **shared,
         ),
     )
@@ -476,15 +477,6 @@ def backend_attribute_definitions() -> dict[str, AttributeDefinition]:
     }
 
 
-def default_amount_of_reactions_bridge() -> AttributeBridge:
-    definition = amount_of_reactions_definition()
-    return AttributeBridge(
-        relationship_id=AMOUNT_OF_REACTIONS_RELATIONSHIP_ID,
-        attribute_id=definition.id,
-        value=definition.default_value,
-    )
-
-
 class _AttributeFormulaRoot:
     def __init__(self, subject: Any, attribute_values: dict[str, EvaluatedAttributeValue]) -> None:
         self._subject = subject
@@ -634,12 +626,23 @@ def evaluate_sheet_attribute_bridge(sheet: "Sheet", bridge: AttributeBridge) -> 
 
 
 def synchronize_required_sheet_attributes(sheet: "Sheet") -> None:
-    bridge = sheet.attributes.get(AMOUNT_OF_REACTIONS_ATTRIBUTE_ID)
-    if bridge is None:
-        bridge = default_amount_of_reactions_bridge()
-        sheet.attributes[AMOUNT_OF_REACTIONS_ATTRIBUTE_ID] = bridge
-    bridge.attribute_id = AMOUNT_OF_REACTIONS_ATTRIBUTE_ID
-    bridge.relationship_id = AMOUNT_OF_REACTIONS_RELATIONSHIP_ID
+    definitions = {
+        **required_attribute_definitions(),
+        **sheet_attribute_definitions(),
+    }
+    for attribute_id, definition in definitions.items():
+        if not definition.required or "sheet" not in definition.subject_types:
+            continue
+        bridge = sheet.attributes.get(attribute_id)
+        if bridge is None:
+            bridge = AttributeBridge(
+                relationship_id=f"required_attribute_{attribute_id}",
+                attribute_id=attribute_id,
+                value=deepcopy(definition.default_value),
+            )
+            sheet.attributes[attribute_id] = bridge
+        bridge.attribute_id = attribute_id
+        bridge.relationship_id = f"required_attribute_{attribute_id}"
     evaluate_all_sheet_attributes(sheet)
 
 

@@ -42,6 +42,7 @@ from backend.features.sheet_admin.sheets.schema import (
     ProficiencyBridgePayload,
     ResistancesPayload,
     SetInstancedSheetNotes,
+    SetInstancedSheetProfile,
     SetInstancedSheetResource,
     SetSheetNotes,
     SheetDefinitionPayload,
@@ -79,6 +80,7 @@ from backend.state.models.attribute import (
     synchronize_required_sheet_attributes,
 )
 from backend.state.models.item import ItemBridge
+from backend.state.models.character_profile import CharacterProfile
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
 from backend.state.models.shared import Bridge
@@ -183,6 +185,7 @@ def build_instanced_sheet_from_template(
     return InstancedSheet(
         parent_id=parent_sheet_id,
         notes=notes,
+        profile=deepcopy(template.profile),
         health=resolved_health,
         mana=int(resolved_mana),
         resistances=deepcopy(
@@ -211,6 +214,7 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
         id=payload.id,
         name=payload.name,
         notes=payload.notes,
+        profile=CharacterProfile.from_dict(payload.profile.model_dump(mode="json")),
         dm_only=payload.dm_only,
         xp_given_when_slayed=payload.xp_given_when_slayed,
         xp_cap=payload.xp_cap,
@@ -284,6 +288,7 @@ def _sheet_payload_from_instance(
             "id": sheet_id,
             "name": name,
             "notes": notes,
+            "profile": asdict(instance.profile),
             "dm_only": dm_only,
             "xp_given_when_slayed": 0,
             "xp_cap": 0,
@@ -997,6 +1002,24 @@ async def set_instanced_sheet_notes(request: SetInstancedSheetNotes) -> None:
             "notes",
         )
         op = state_sync_service.set_mutation(state, path, request.notes)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_instanced_sheet_profile(request: SetInstancedSheetProfile) -> None:
+    profile = CharacterProfile.from_dict(request.profile.model_dump(mode="json"))
+
+    def mutation(state: State) -> tuple[None, list]:
+        if request.instance_id not in state.instanced_sheets:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "profile",
+        )
+        op = state_sync_service.set_mutation(state, path, profile)
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

@@ -454,6 +454,106 @@ def test_dm_can_create_action_with_gain_proficiency_step(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_dm_can_author_each_proficiency_training_reference_mode(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.proficiencies["magic_prof"] = Proficiency.from_dict(
+                _proficiency_payload()
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            cases = [
+                ("explicit_training", "explicit", "magic_prof", {}),
+                (
+                    "attribute_training",
+                    "action_attribute",
+                    "__dynamic_proficiency__",
+                    _action_attribute_bridges(),
+                ),
+                (
+                    "weapon_training",
+                    "source_item_weapon",
+                    "__dynamic_proficiency__",
+                    {},
+                ),
+            ]
+            for action_id, reference, proficiency_id, attributes in cases:
+                action = _action_payload(action_id, action_id.replace("_", " ").title())
+                action["attributes"] = attributes
+                action["steps"] = [
+                    {
+                        "step_id": "training",
+                        "type": "gain_proficiency_use",
+                        "target": "caster",
+                        "proficiency_id": proficiency_id,
+                        "proficiency_reference": reference,
+                        "amount": _formula_payload("1"),
+                    }
+                ]
+                await handle_client_payload(
+                    websocket,
+                    {"type": "create_action", "action": action},
+                )
+
+            assert {
+                action_id: state.actions[action_id].steps[0].proficiency_reference
+                for action_id, *_ in cases
+            } == {
+                "explicit_training": "explicit",
+                "attribute_training": "action_attribute",
+                "weapon_training": "source_item_weapon",
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_attribute_training_requires_action_proficiency_attribute(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            action = _action_payload("attribute_training", "Attribute Training")
+            action["steps"] = [
+                {
+                    "step_id": "training",
+                    "type": "gain_proficiency_use",
+                    "target": "caster",
+                    "proficiency_id": "__dynamic_proficiency__",
+                    "proficiency_reference": "action_attribute",
+                    "amount": _formula_payload("1"),
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+
+            assert "attribute_training" not in StateSingleton.getState().actions
+            assert websocket.sent_messages[-1]["reason"] == (
+                "An action-attribute proficiency gain requires the Action "
+                "Proficiency Attribute."
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_create_action_rejects_missing_gain_proficiency_reference(
     monkeypatch,
 ) -> None:

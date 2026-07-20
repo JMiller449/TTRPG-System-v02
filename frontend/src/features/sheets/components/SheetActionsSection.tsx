@@ -18,6 +18,7 @@ import type {
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 export function SheetActionsSection({
@@ -212,7 +213,19 @@ export function SheetActionsSection({
                       <button
                         type="button"
                         className="button button--secondary"
-                        onClick={() => onDelete(entry.relationshipId)}
+                        onClick={() => {
+                          if (
+                            !confirmDestructiveAction({
+                              action: "Remove",
+                              subject: entry.action.name,
+                              consequence:
+                                "This removes the action assignment from the selected character."
+                            })
+                          ) {
+                            return;
+                          }
+                          onDelete(entry.relationshipId);
+                        }}
                       >
                         Remove
                       </button>
@@ -488,7 +501,19 @@ export function SheetActionsSection({
                   <button
                     type="button"
                     className="button button--secondary"
-                    onClick={() => onDelete(entry.relationshipId)}
+                    onClick={() => {
+                      if (
+                        !confirmDestructiveAction({
+                          action: "Remove",
+                          subject: entry.action.name,
+                          consequence:
+                            "This removes the action assignment from the selected character."
+                        })
+                      ) {
+                        return;
+                      }
+                      onDelete(entry.relationshipId);
+                    }}
                   >
                     Remove
                   </button>

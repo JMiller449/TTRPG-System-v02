@@ -61,6 +61,8 @@ Filtering includes:
   than ordinary state sync.
 - Players receive their assigned instance and player-visible supporting
   definitions, not other player runtime state or DM-only templates.
+- The assigned instance's character profile is player-visible and editable;
+  profiles on other instances remain absent with the rest of those records.
 - Template notes and GM-only attribute/item/condition details are removed from
   player views.
 - Item definitions remain visible to a player when required to render an item

@@ -4,8 +4,10 @@ import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSe
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatsEditor } from "@/features/sheets/components/SheetFormulaStatsEditor";
+import { SheetLevelControl } from "@/features/sheets/components/SheetLevelControl";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { SheetNotesSection } from "@/features/sheets/components/SheetNotesSection";
+import { SheetProfileSection } from "@/features/sheets/components/SheetProfileSection";
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import {
@@ -47,6 +49,7 @@ import {
   buildRemoveActiveConditionRequest,
   buildRemovePlayerInventoryItemRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetInstancedSheetProfileRequest,
   buildSetInstancedSheetItemEquippedRequest,
   buildSetInstancedSheetAttributeValueRequest,
   buildSetInstancedSheetFormulaStatRequest,
@@ -182,6 +185,7 @@ export function PlayerCharacterSheet({
   const showAttributesSection = activeTab === "attributes";
   const showProficienciesSection = activeTab === "proficiencies";
   const showKillsSection = activeTab === "kills";
+  const showBackstorySection = activeTab === "backstory";
   const showNotesSection = activeTab === "notes";
   const showActionHistorySection = mode === "gm" && activeTab === "action_history";
   const showFormulaStatsSection = mode === "gm" && activeTab === "formula_stats";
@@ -195,6 +199,15 @@ export function PlayerCharacterSheet({
   const sheetId = detail.sheet?.id;
   const instanceAttributeBridges =
     detail.persistentSheet.attributes ?? detail.sheet?.attributes ?? {};
+  const levelBridge = instanceAttributeBridges.level;
+  const evaluatedLevel = levelBridge?.evaluated_value;
+  const literalLevel = levelBridge?.value.type === "number" ? levelBridge.value.value : null;
+  const level =
+    typeof evaluatedLevel === "number" && Number.isFinite(evaluatedLevel)
+      ? evaluatedLevel
+      : typeof literalLevel === "number" && Number.isFinite(literalLevel)
+        ? literalLevel
+        : null;
   const instanceFormulaStats = detail.persistentSheet.stats ?? detail.sheet?.stats ?? null;
   const unassignedStatPoints = detail.persistentSheet.unassigned_stat_points ?? 0;
   const parsedUnassignedStatPointsDraft = Number(unassignedStatPointsDraft);
@@ -271,9 +284,25 @@ export function PlayerCharacterSheet({
           </div>
         </header>
 
-        {mode === "player" && sheetId ? (
-          <SheetXpProgressBar client={client} instanceId={detail.instance.id} sheetId={sheetId} />
-        ) : null}
+        <div className="character-sheet__advancement">
+          <SheetLevelControl
+            level={level}
+            canEdit={mode === "gm"}
+            onSave={(nextLevel) => {
+              client.sendProtocolRequest(
+                buildSetInstancedSheetAttributeValueRequest({
+                  instanceId: detail.instance.id,
+                  attributeId: "level",
+                  value: { type: "number", value: nextLevel }
+                }),
+                "Update character level"
+              );
+            }}
+          />
+          {sheetId ? (
+            <SheetXpProgressBar client={client} instanceId={detail.instance.id} sheetId={sheetId} />
+          ) : null}
+        </div>
 
         {mode === "gm" ? (
           <section className="character-sheet__snapshot" aria-label="Snapshot as template">
@@ -742,6 +771,39 @@ export function PlayerCharacterSheet({
                     notes: note
                   }),
                   "Update instance notes"
+                )
+              }
+            />
+          </div>
+        ) : null}
+
+        {showBackstorySection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--profile"
+            role="tabpanel"
+            id="sheet-panel-backstory"
+            aria-labelledby="sheet-tab-backstory"
+            tabIndex={0}
+          >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Identity and history</span>
+                <h3>Backstory</h3>
+              </div>
+              <p className="muted">
+                Record appearance, personality, relationships, and character history.
+              </p>
+            </header>
+            <SheetProfileSection
+              sheetId={detail.instance.id}
+              profile={detail.persistentSheet.profile ?? detail.sheet?.profile}
+              onSave={(profile) =>
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetProfileRequest({
+                    instanceId: detail.instance.id,
+                    profile
+                  }),
+                  "Update character profile"
                 )
               }
             />

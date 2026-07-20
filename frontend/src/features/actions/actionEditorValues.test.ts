@@ -317,6 +317,7 @@ describe("actionEditorValues", () => {
           type: "gain_proficiency_use",
           target: "caster",
           proficiency_id: "longsword",
+          proficiency_reference: "explicit",
           amount: {
             aliases: null,
             text: "1"
@@ -330,6 +331,7 @@ describe("actionEditorValues", () => {
       type: "gain_proficiency_use",
       target: "caster",
       proficiency_id: "magic",
+      proficiency_reference: "explicit",
       amount: {
         aliases: null,
         text: "2"
@@ -613,6 +615,7 @@ describe("actionEditorValues", () => {
       type: "gain_proficiency_use",
       target: "caster",
       proficiency_id: "greatsword",
+      proficiency_reference: "explicit",
       amount: {
         aliases: [
           {
@@ -622,6 +625,43 @@ describe("actionEditorValues", () => {
         ],
         text: "@arcane + 1"
       }
+    });
+  });
+
+  it("authors each proficiency training reference mode in the action payload", () => {
+    const explicit = addGainProficiencyUseActionStep(
+      { ...createEmptyActionEditorValues(), name: "Training" },
+      "training",
+      "longsword"
+    );
+    const actionAttribute = updateGainProficiencyUseActionStep(explicit, "training", {
+      proficiencyReference: "action_attribute"
+    });
+    const sourceWeapon = updateGainProficiencyUseActionStep(actionAttribute, "training", {
+      proficiencyReference: "source_item_weapon"
+    });
+    const explicitAgain = updateGainProficiencyUseActionStep(sourceWeapon, "training", {
+      proficiencyReference: "explicit",
+      proficiencyId: "greatsword"
+    });
+
+    expect(toActionDefinitionPayload(explicit, "explicit_training").steps?.[0]).toMatchObject({
+      proficiency_id: "longsword",
+      proficiency_reference: "explicit"
+    });
+    expect(
+      toActionDefinitionPayload(actionAttribute, "attribute_training").steps?.[0]
+    ).toMatchObject({
+      proficiency_id: "__dynamic_proficiency__",
+      proficiency_reference: "action_attribute"
+    });
+    expect(toActionDefinitionPayload(sourceWeapon, "weapon_training").steps?.[0]).toMatchObject({
+      proficiency_id: "__dynamic_proficiency__",
+      proficiency_reference: "source_item_weapon"
+    });
+    expect(toActionDefinitionPayload(explicitAgain, "explicit_again").steps?.[0]).toMatchObject({
+      proficiency_id: "greatsword",
+      proficiency_reference: "explicit"
     });
   });
 
@@ -944,6 +984,56 @@ describe("actionEditorValues", () => {
         definitions,
         proficiencies: { magic: { id: "magic", name: "Magic", description: "" } }
       })
+    ).toBeNull();
+  });
+
+  it("validates proficiency training according to its selected reference mode", () => {
+    const definitions: Record<string, AttributeDefinition> = {
+      action_proficiency: {
+        id: "action_proficiency",
+        name: "Proficiency",
+        subject_types: ["action"],
+        value_type: "reference",
+        default_value: { type: "reference", value: "" },
+        reference_kind: "proficiency",
+        backend_owned: true
+      }
+    };
+    const proficiencies = {
+      magic: { id: "magic", name: "Magic", description: "Spell training." }
+    };
+    const explicit = addGainProficiencyUseActionStep(
+      { ...createEmptyActionEditorValues(), name: "Train" },
+      "training",
+      "missing"
+    );
+
+    expect(getActionEditorValidationError(explicit, { definitions, proficiencies })).toContain(
+      "existing proficiency"
+    );
+
+    const actionAttribute = updateGainProficiencyUseActionStep(explicit, "training", {
+      proficiencyReference: "action_attribute"
+    });
+    expect(
+      getActionEditorValidationError(actionAttribute, { definitions, proficiencies })
+    ).toContain("requires the Action Proficiency Attribute");
+
+    const actionAttributeWithValue = applyActionAttributeValues(
+      actionAttribute,
+      { action_proficiency: { type: "reference", value: "magic" } },
+      definitions,
+      () => "action-proficiency-relationship"
+    );
+    expect(
+      getActionEditorValidationError(actionAttributeWithValue, { definitions, proficiencies })
+    ).toBeNull();
+
+    const sourceWeapon = updateGainProficiencyUseActionStep(explicit, "training", {
+      proficiencyReference: "source_item_weapon"
+    });
+    expect(
+      getActionEditorValidationError(sourceWeapon, { definitions, proficiencies: {} })
     ).toBeNull();
   });
 

@@ -21,6 +21,7 @@ import {
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 
@@ -96,9 +97,9 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
   const validationError = getActionEditorValidationError(values, attributeValidationContext);
   const draftHasContent = Boolean(
     values.name.trim() ||
-      values.notes.trim() ||
-      values.steps.length ||
-      Object.keys(values.attributes).length
+    values.notes.trim() ||
+    values.steps.length ||
+    Object.keys(values.attributes).length
   );
 
   const startNewAction = (): void => {
@@ -170,14 +171,22 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
       actionId,
       operation: editingActionId ? "update" : "create"
     });
-    client.sendProtocolRequest(
-      { ...submission.request, request_id: requestId },
-      submission.label
-    );
+    client.sendProtocolRequest({ ...submission.request, request_id: requestId }, submission.label);
   };
 
   const deleteAction = (actionId: string): void => {
-    const submission = buildDeleteActionSubmission(actionId, actionRecords[actionId]);
+    const action = actionRecords[actionId];
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: action?.name ?? actionId,
+        consequence:
+          "This permanently deletes the action definition. Existing dependency checks still apply."
+      })
+    ) {
+      return;
+    }
+    const submission = buildDeleteActionSubmission(actionId, action);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingActionId === actionId) {
       startNewAction();

@@ -60,6 +60,10 @@ describe("TemplateEditorForm navigation", () => {
     const onSubmit = vi.fn();
     await renderEditor(onSubmit);
 
+    expect(button("Continue to Profile")).toBeTruthy();
+    await act(async () => button("Continue to Profile").click());
+
+    expect(container.textContent).toContain("Optional flavor text");
     expect(button("Continue to Stats")).toBeTruthy();
     await act(async () => button("Continue to Stats").click());
 
@@ -77,6 +81,7 @@ describe("TemplateEditorForm navigation", () => {
     const onSubmit = vi.fn();
     await renderEditor(onSubmit);
 
+    await act(async () => button("Continue to Profile").click());
     await act(async () => button("Continue to Stats").click());
     await act(async () => button("Review and Finish").click());
 

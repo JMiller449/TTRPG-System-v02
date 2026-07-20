@@ -367,6 +367,102 @@ No large architecture feature is currently missing for the stated character-shee
   and focused tests. Added missing authoritative fractional reaction tracking,
   nonnegative contribution-point balances with audit records, and persistent
   per-instance action pins with stale-reference cleanup (schema v32).
+- [x] Resolve the 2026-07-19 table-feedback usability and character-detail follow-up:
+  - [x] Base-template and current-instance formula variables are unambiguous. During
+    character action execution, ordinary rooted `sheet` aliases such as `@arc` resolve
+    through the spawned character's authoritative current values, while explicit
+    read-only `template` variables such as `@template_arc` retain access to the parent
+    template. Existing stored `sheet.stats.*` action formulas gain the corrected runtime
+    behavior without a persistence migration. Regression coverage includes authoring
+    metadata and validation, picker paths, instance stat advancement, styled Roll20
+    output, and explicit template reads. Complete-token alias expansion also prevents
+    overlapping names such as `@arc` and `@arcane` from replacing each other by prefix or
+    leaking suffixes such as `ane` into Roll20 output, regardless of alias order.
+  - [x] The backend-provided action-formula catalog exposes visible numeric sheet
+    Attribute definitions as read-only `sheet.attributes.<attribute_id>` variables with
+    stable, formula-safe `@sheet_attribute_*` aliases. Action execution reads the acting
+    spawned instance's authoritative evaluated Attribute value without falling back to
+    the parent template or definition default. Catalog and runtime enforcement exclude
+    or clearly reject missing definitions, detached bridges, nonnumeric definitions or
+    evaluated values, evaluation errors, and role-inaccessible Attributes. Backend and
+    frontend tests cover picker paths, alias stability, visibility, invalid references,
+    and current-instance execution.
+  - [x] The GM party workspace organizes spawned character sheets through the existing
+    backend-authoritative named parties, presented as character folders with membership
+    counts and a derived Unassigned folder. Only the selected folder's roster editor is
+    expanded, and explicit add/remove controls replace the repeated wall of membership
+    checkboxes. Folder navigation remains frontend-local while membership persistence,
+    exclusivity, XP participation, stable instance IDs, and despawn cleanup continue to
+    use the established `save_party` state and protocol contract. Focused UI tests cover
+    folder navigation, unassigned characters, membership editing, and request payloads.
+  - [x] Item definitions expose an explicit per-item toggle controlling whether players
+    can find and add that item, and the backend enforces the toggle when processing
+    player inventory additions. Broader category- or role-level permission toggles are
+    deferred unless table use demonstrates a need for them.
+  - [x] Storage items distinguish normally counted contents from weight-ignoring contents;
+    authoritative carried-weight calculation, containment validation, nesting, and the
+    corresponding GM authoring controls are implemented.
+  - [x] A DM can remove an equipped item from a spawned character. Nonempty storage
+    containers must still be emptied first, and equipment-owned effects reconcile through
+    the authoritative state-sync hooks.
+  - [x] A shared, subject-specific confirmation boundary now guards destructive controls
+    before they mutate a draft or submit an authoritative request. Coverage includes
+    template deletion and instance despawning; item, action, formula, proficiency,
+    Attribute, condition, effect, and encounter definitions; pending-item denial; parties
+    and party membership;
+    kills and XP adjustments, historical kill participants, inventory entries, active
+    conditions, item/condition effects, encounter entries, item action grants, and sheet
+    or template action/proficiency/item/Attribute assignments. Cancelling preserves the
+    current draft and emits no request; accepting retains all existing backend dependency,
+    authorization, containment, and error validation. Focused tests cover message clarity,
+    cancellation, acceptance, request suppression, and representative relationship and
+    inventory removals.
+  - [x] Item definitions now own a persisted, trimmed catalog-folder label, with empty
+    values grouped as Unfiled and a sequential schema-34 migration for existing campaigns.
+    The GM item maker provides All/named/Unfiled folder navigation, counts, reusable folder
+    suggestions, and text search across name, stable ID, category, rank, and folder. Folder
+    filtering preserves authoritative item order and editor selection and does not alter
+    category metadata, player publication/redaction, inventory relationships, or mechanics.
+  - [x] Spawned characters have a backend-authoritative fractional reaction tally with
+    current/maximum display plus player-accessible Spend, Restore, and Reset controls.
+    This is the generic manual reaction counter; no separate Action Points resource is
+    currently defined.
+  - [x] Character templates and spawned instances now own a persisted structured profile
+    for species, background, alignment, pronouns, age, height, weight, eyes, skin, hair,
+    appearance, personality traits, ideals, bonds, flaws, allies/organizations, and
+    free-form backstory. These values are descriptive strings and never feed formulas,
+    inventory weight, or species mechanics. Template profiles seed independent spawned
+    copies, evolved profiles copy into GM-created snapshots, and schema 35 safely backfills
+    existing records. A dedicated Backstory tab lets the GM or assigned player save the
+    complete instance profile through an ownership-checked backend route, while the
+    template builder provides an optional Profile step. Notes remain a separate journal.
+  - [x] Constrained-display scaling keeps the fixed desktop application shell and
+    character-sheet workspaces usable on shorter or zoomed displays. Desktop viewports at
+    or below 900 CSS pixels tall compact shell chrome, navigation spacing, sheet context,
+    character identity/resources, snapshot controls, and tabs while retaining intentional
+    owned scroll regions. Live viewport checks covered 1920x1080, 1600x900, and 1366x768 at
+    100% zoom plus the 1536x864 CSS viewport equivalent of 1920x1080 at 125%; navigation,
+    headers, controls, and editors remain reachable without clipping, overlap, or whole-page
+    horizontal scrolling. Tall desktop and the existing 960px-and-under mobile flow remain
+    unchanged.
+  - [x] The canonical Level Attribute is now required first-class character-sheet
+    information. Template validation, spawning, instance updates, snapshots, persistence,
+    and patches preserve one backend-authoritative bridge; load synchronization and schema
+    36 add Level 1 only where an existing template or instance lacks it. Existing values
+    survive unchanged, and accepted values must resolve to positive whole numbers. GM and
+    player character views render Level beside XP; players receive a read-only display and
+    GMs use the existing DM-only instance-Attribute mutation through an explicit editor.
+    XP does not automatically change Level or distribute stats.
+  - [x] Proficiency training is now a first-class action-authoring choice. The
+    `gain_proficiency_use` editor selects an explicit proficiency, the action's canonical
+    Proficiency Attribute, or the eligible source weapon's Proficiency Attribute and emits
+    the existing backend reference contract for each mode. Local and backend validation
+    reject missing explicit definitions and missing action attributes, while weapon-derived
+    targets remain authoritative to the source item selected at execution. The add-step
+    flow remains available before an explicit proficiency is authored so a DM can choose a
+    derived mode. Focused authoring, payload, execution, and Roll20-delivery rollback tests
+    cover the three targets; formula tags remain metadata and cannot implicitly mutate
+    proficiency state.
 - [x] Proficiency growth follow-up (2026-07-19): canonical weapon actions now
   advance the selected weapon proficiency and spell presets advance their
   Action Proficiency Attribute target. Character sheets display the capped

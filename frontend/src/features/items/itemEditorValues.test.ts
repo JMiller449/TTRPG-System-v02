@@ -82,6 +82,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     name: "Sword of Mana",
     interaction_type: "equippable",
     category: "Sword",
+    catalog_folder: "Relics",
     rank: "S",
     description: "A blade that conducts mana.",
     world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -101,6 +102,7 @@ describe("itemEditorValues", () => {
     const values = createEmptyItemValues();
     values.name = "  Sword of Mana  ";
     values.type = " Sword ";
+    values.catalogFolder = " Weapons ";
     values.rank = "S";
     values.weight = " 3 ";
     values.value = " NA ";
@@ -114,6 +116,7 @@ describe("itemEditorValues", () => {
       name: "Sword of Mana",
       interaction_type: "equippable",
       category: "Sword",
+      catalog_folder: "Weapons",
       rank: "S",
       description: "A blade that conducts mana.",
       world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -136,6 +139,7 @@ describe("itemEditorValues", () => {
       name: "Sword of Mana",
       interactionType: "equippable",
       type: "Sword",
+      catalogFolder: "Relics",
       rank: "S",
       weight: "3",
       canContainItems: false,
@@ -159,12 +163,14 @@ describe("itemEditorValues", () => {
         testItem({
           description: "A plain text item description.",
           world_anvil_url: undefined,
+          catalog_folder: undefined,
           gm_notes: undefined,
           gm_special_properties: undefined
         })
       )
     ).toMatchObject({
       type: "Sword",
+      catalogFolder: "",
       rank: "S",
       description: "A plain text item description.",
       worldAnvilUrl: "",
@@ -178,6 +184,7 @@ describe("itemEditorValues", () => {
     const values = createEmptyItemValues();
     values.name = "  Edited Sword of Mana  ";
     values.type = " Sword ";
+    values.catalogFolder = " Weapons ";
     values.rank = "S+";
     values.weight = " 4 ";
     values.value = " 1,000CP ";
@@ -190,6 +197,7 @@ describe("itemEditorValues", () => {
       ...item,
       name: "Edited Sword of Mana",
       category: "Sword",
+      catalog_folder: "Weapons",
       rank: "S+",
       description: "Better enchantment channeling.",
       world_anvil_url: "https://worldanvil.example/items/edited-sword",

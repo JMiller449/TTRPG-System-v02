@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from backend.state.models.sheet import InstancedSheet, Sheet
 
 
+_FORMULA_ALIAS_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
+
+
 def normalize_formula_tags(tags: Iterable[str] | None) -> list[str]:
     normalized_tags: list[str] = []
     seen: set[str] = set()
@@ -163,7 +166,7 @@ class Formula:
             raise ValueError("Formula expansion cycle detected.")
         seen_formula_ids.add(formula_id)
 
-        output_formula = self.text
+        expanded_aliases: dict[str, str] = {}
         for alias in self.aliases or []:
             value = (
                 "("
@@ -175,9 +178,14 @@ class Formula:
                 )
                 + ")"
             )
-            text_var = "@" + alias.name
-            output_formula = output_formula.replace(text_var, value)
-        return output_formula
+            # Preserve the historical first-alias-wins behavior for duplicate names,
+            # while still resolving every alias so invalid unused paths are rejected.
+            expanded_aliases.setdefault(alias.name, value)
+
+        return _FORMULA_ALIAS_PATTERN.sub(
+            lambda match: expanded_aliases.get(match.group(1), match.group(0)),
+            self.text,
+        )
 
 
 @dataclass

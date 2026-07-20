@@ -239,6 +239,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         name=payload.name,
         interaction_type=payload.interaction_type,
         category=payload.category,
+        catalog_folder=payload.catalog_folder,
         rank=payload.rank,
         description=payload.description,
         world_anvil_url=payload.world_anvil_url,

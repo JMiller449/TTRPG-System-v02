@@ -121,10 +121,36 @@ class ResistancesPayload(ProtocolModel):
     psychic: float = 0.0
 
 
+class CharacterProfilePayload(ProtocolModel):
+    species: str = ""
+    background: str = ""
+    alignment: str = ""
+    pronouns: str = ""
+    age: str = ""
+    height: str = ""
+    weight: str = ""
+    eyes: str = ""
+    skin: str = ""
+    hair: str = ""
+    appearance: str = ""
+    personality_traits: str = ""
+    ideals: str = ""
+    bonds: str = ""
+    flaws: str = ""
+    allies_and_organizations: str = ""
+    backstory: str = ""
+
+    @field_validator("*")
+    @classmethod
+    def normalize_text(cls, value: str) -> str:
+        return value.strip()
+
+
 class SheetPayload(ProtocolModel):
     id: str
     name: str
     notes: str = ""
+    profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
     dm_only: bool
     xp_given_when_slayed: float
     xp_cap: float
@@ -147,6 +173,7 @@ class SheetPayload(ProtocolModel):
 class InstancedSheetPayload(ProtocolModel):
     parent_id: str
     notes: str = ""
+    profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
     health: float
     mana: int
     reactions: float = 0
@@ -495,6 +522,7 @@ class ItemPayload(ProtocolModel):
     name: str
     interaction_type: Literal["equippable", "consumable", "inventory_only"]
     category: str = ""
+    catalog_folder: str = ""
     rank: str = ""
     description: str
     world_anvil_url: str = ""

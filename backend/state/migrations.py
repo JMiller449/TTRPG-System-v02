@@ -16,7 +16,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 33
+CURRENT_STATE_SCHEMA_VERSION = 36
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1863,6 +1863,75 @@ def _migrate_v32_to_v33(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 33, "state": state}
 
 
+def _migrate_v33_to_v34(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if isinstance(item, dict):
+                item.setdefault("catalog_folder", "")
+    return {"schema_version": 34, "state": state}
+
+
+def _migrate_v34_to_v35(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    empty_profile = {
+        "species": "",
+        "background": "",
+        "alignment": "",
+        "pronouns": "",
+        "age": "",
+        "height": "",
+        "weight": "",
+        "eyes": "",
+        "skin": "",
+        "hair": "",
+        "appearance": "",
+        "personality_traits": "",
+        "ideals": "",
+        "bonds": "",
+        "flaws": "",
+        "allies_and_organizations": "",
+        "backstory": "",
+    }
+    for collection_name in ("sheets", "instanced_sheets"):
+        collection = state.get(collection_name, {})
+        if not isinstance(collection, dict):
+            continue
+        for sheet in collection.values():
+            if isinstance(sheet, dict):
+                sheet.setdefault("profile", deepcopy(empty_profile))
+    return {"schema_version": 35, "state": state}
+
+
+def _migrate_v35_to_v36(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    attributes = state.get("attributes")
+    if isinstance(attributes, dict):
+        level_definition = attributes.get("level")
+        if isinstance(level_definition, dict):
+            level_definition["required"] = True
+
+    default_level_bridge = {
+        "relationship_id": "required_attribute_level",
+        "attribute_id": "level",
+        "value": {"type": "number", "value": 1},
+        "evaluated_value": 1,
+        "evaluation_error": None,
+    }
+    for collection_name in ("sheets", "instanced_sheets"):
+        collection = state.get(collection_name, {})
+        if not isinstance(collection, dict):
+            continue
+        for sheet in collection.values():
+            if not isinstance(sheet, dict):
+                continue
+            attached_attributes = sheet.setdefault("attributes", {})
+            if isinstance(attached_attributes, dict):
+                attached_attributes.setdefault("level", deepcopy(default_level_bridge))
+    return {"schema_version": 36, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1897,6 +1966,9 @@ MIGRATIONS: dict[int, Migration] = {
     30: _migrate_v30_to_v31,
     31: _migrate_v31_to_v32,
     32: _migrate_v32_to_v33,
+    33: _migrate_v33_to_v34,
+    34: _migrate_v34_to_v35,
+    35: _migrate_v35_to_v36,
 }
 
 

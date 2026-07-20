@@ -68,6 +68,8 @@ class State:
         self.attributes.update(backend_attribute_definitions())
         for sheet in self.sheets.values():
             synchronize_all_sheet_attributes(sheet)
+        for instance in self.instanced_sheets.values():
+            synchronize_all_sheet_attributes(instance)
         for item in self.items.values():
             synchronize_required_item_attributes(item, self.attributes)
         for action in self.actions.values():

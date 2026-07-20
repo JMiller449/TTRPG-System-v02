@@ -1,4 +1,4 @@
-import type { AttributeBridge, Formula, SheetKind } from "@/domain/models";
+import type { AttributeBridge, CharacterProfile, Formula, SheetKind } from "@/domain/models";
 import type {
   ResistancePercentDraft,
   SheetFormulaStatName
@@ -34,6 +34,7 @@ export interface TemplateEditorValues {
   kind: SheetKind;
   name: string;
   notes: string;
+  profile: CharacterProfile;
   xpGivenWhenSlayed: string;
   xpCap: string;
   racialHpMultiplier: string;
@@ -69,6 +70,7 @@ export interface TemplateItemAssignment {
 
 export type TemplateEditorSection =
   | "details"
+  | "profile"
   | "stats"
   | "attributes"
   | "resistances"

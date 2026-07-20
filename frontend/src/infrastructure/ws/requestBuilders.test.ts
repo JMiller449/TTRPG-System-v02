@@ -78,6 +78,7 @@ import {
   buildResetInstancedSheetReactionsRequest,
   buildSendRoll20ChatMessageRequest,
   buildSetInstancedSheetNotesRequest,
+  buildSetInstancedSheetProfileRequest,
   buildSetInstancedSheetBaseStatRequest,
   buildSetInstancedSheetAttributeValueRequest,
   buildSetInstancedSheetFormulaStatRequest,
@@ -357,6 +358,7 @@ const requestBuilderByType = {
   save_xp_adjustment: buildSaveXpAdjustmentRequest,
   send_roll20_chat_message: buildSendRoll20ChatMessageRequest,
   set_instanced_sheet_notes: buildSetInstancedSheetNotesRequest,
+  set_instanced_sheet_profile: buildSetInstancedSheetProfileRequest,
   set_instanced_sheet_base_stat: buildSetInstancedSheetBaseStatRequest,
   set_instanced_sheet_attribute_value: buildSetInstancedSheetAttributeValueRequest,
   set_instanced_sheet_formula_stat: buildSetInstancedSheetFormulaStatRequest,
@@ -694,6 +696,26 @@ describe("requestBuilders", () => {
       type: "set_instanced_sheet_notes",
       instance_id: "instance_1",
       notes: "Player-visible note."
+    });
+    expect(
+      buildSetInstancedSheetProfileRequest({
+        instanceId: "instance_1",
+        profile: {
+          species: "Elf",
+          height: "6 ft",
+          weight: "170 lb",
+          backstory: "A wandering archivist."
+        }
+      })
+    ).toEqual({
+      type: "set_instanced_sheet_profile",
+      instance_id: "instance_1",
+      profile: {
+        species: "Elf",
+        height: "6 ft",
+        weight: "170 lb",
+        backstory: "A wandering archivist."
+      }
     });
     expect(
       buildSetSheetNotesRequest({

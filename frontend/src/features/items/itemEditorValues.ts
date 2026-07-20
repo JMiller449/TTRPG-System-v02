@@ -12,6 +12,7 @@ export type ItemEditorValues = {
   name: string;
   interactionType: ItemInteractionType;
   type: string;
+  catalogFolder: string;
   rank: string;
   weight: string;
   playerVisible: boolean;
@@ -66,6 +67,7 @@ export function createEmptyItemValues(): ItemEditorValues {
     name: "",
     interactionType: "equippable",
     type: "",
+    catalogFolder: "",
     rank: ITEM_RANK_OPTIONS[0],
     weight: "0",
     playerVisible: false,
@@ -140,6 +142,7 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
     name: item.name,
     interactionType: item.interaction_type,
     type: item.category ?? "",
+    catalogFolder: item.catalog_folder ?? "",
     rank: item.rank || ITEM_RANK_OPTIONS[0],
     weight: String(item.weight),
     playerVisible: item.player_visible ?? true,
@@ -321,6 +324,7 @@ export function toItemDefinitionPayload(
     name: values.name.trim(),
     interaction_type: values.interactionType,
     category: values.type.trim(),
+    catalog_folder: values.catalogFolder.trim(),
     rank: values.rank.trim(),
     description: values.description.trim(),
     world_anvil_url: values.worldAnvilUrl.trim(),
@@ -348,6 +352,7 @@ export function toUpdatedItemDefinitionPayload(
     name: values.name.trim(),
     interaction_type: values.interactionType,
     category: values.type.trim(),
+    catalog_folder: values.catalogFolder.trim(),
     rank: values.rank.trim(),
     description: values.description.trim(),
     world_anvil_url: values.worldAnvilUrl.trim(),

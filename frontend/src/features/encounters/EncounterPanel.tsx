@@ -14,6 +14,7 @@ import {
 } from "@/features/encounters/encounterRequests";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 export function EncounterPanel({ client }: { client: GameClient }): JSX.Element {
@@ -63,6 +64,17 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
   };
 
   const removeEntry = (entryId: string): void => {
+    const entry = entries.find((candidate) => candidate.id === entryId);
+    const template = entry?.templateId ? sheets[entry.templateId] : undefined;
+    if (
+      !confirmDestructiveAction({
+        action: "Remove",
+        subject: template?.name ?? "encounter roster entry",
+        consequence: "This removes the entry from the encounter draft when you save it."
+      })
+    ) {
+      return;
+    }
     setEntries((prev) => {
       const next = prev.filter((entry) => entry.id !== entryId);
       return next.length > 0 ? next : [newRosterEntry()];
@@ -93,7 +105,13 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
 
   const deleteEncounter = (encounter: EncounterPreset): void => {
     const submission = buildDeleteEncounterPresetSubmission(encounter);
-    if (!window.confirm(submission.confirmation)) {
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: encounter.name,
+        consequence: "This permanently deletes the encounter preset."
+      })
+    ) {
       return;
     }
     client.sendProtocolRequest(submission.request, submission.label);

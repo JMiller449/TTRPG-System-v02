@@ -91,4 +91,50 @@ describe("SheetActionsSection", () => {
     expect(onPerformAction).toHaveBeenCalledWith(assignedAction, "normal", "gm");
     await act(async () => root.unmount());
   });
+
+  it("requires confirmation before removing an action assignment", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onDelete = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const assignedAction: AssignedSheetAction = {
+      relationshipId: "assigned_arcane_check",
+      actionId: "arcane_check",
+      action: { id: "arcane_check", name: "Arcane Check", steps: [] },
+      bridge: { relationship_id: "assigned_arcane_check", entry_id: "arcane_check" }
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetActionsSection
+          assignedActions={[assignedAction]}
+          actionDefinitions={{ arcane_check: assignedAction.action }}
+          attributeDefinitions={{}}
+          actionOrder={["arcane_check"]}
+          canEdit
+          onCreate={() => undefined}
+          onUpdate={() => undefined}
+          onDelete={onDelete}
+          onPerformAction={() => undefined}
+        />
+      );
+    });
+
+    const removeButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Remove"
+    );
+    await act(async () => removeButton?.click());
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith(
+      "Remove “Arcane Check”?\n\nThis removes the action assignment from the selected character."
+    );
+
+    confirm.mockReturnValue(true);
+    await act(async () => removeButton?.click());
+    expect(onDelete).toHaveBeenCalledWith("assigned_arcane_check");
+
+    await act(async () => root.unmount());
+    confirm.mockRestore();
+  });
 });

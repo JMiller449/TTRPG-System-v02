@@ -37,6 +37,7 @@ describe("TemplateEditorForm", () => {
     expect(markup).toContain("GM-controlled");
     expect(markup).toContain("Details");
     expect(markup).toContain("Stats");
+    expect(markup).toContain("Profile");
     expect(markup).toContain("Attributes");
     expect(markup).toContain("Resistances");
     expect(markup).toContain("Actions");
@@ -47,7 +48,7 @@ describe("TemplateEditorForm", () => {
     expect(markup).toContain("Advanced");
     expect(markup).toContain("Required");
     expect(markup).toContain("Optional");
-    expect(markup).toContain("Continue to Stats");
+    expect(markup).toContain("Continue to Profile");
     expect(markup).not.toContain(">Enemy<");
   });
 

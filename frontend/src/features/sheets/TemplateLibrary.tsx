@@ -8,6 +8,7 @@ import { TemplateSearchBar } from "@/features/sheets/components/TemplateSearchBa
 import { toInstancedSheetCreationValues } from "@/features/sheets/templateEditorValues";
 import { buildInstantiateSheetRequest } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { buildDeleteTemplateSubmission } from "@/features/sheets/templateLibraryRequests";
 
@@ -55,7 +56,14 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   const deleteTemplate = (template: SheetTemplateView): void => {
     const submission = buildDeleteTemplateSubmission(template);
-    if (!window.confirm(submission.confirmation)) {
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: template.name,
+        consequence:
+          "This permanently deletes the template. Spawned-instance and encounter dependency checks still apply."
+      })
+    ) {
       return;
     }
     client.sendProtocolRequest(submission.request, submission.label);

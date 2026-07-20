@@ -1,10 +1,17 @@
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildUndoLastStateChangeSubmission } from "@/features/stateSync/stateSafety";
 import { Panel } from "@/shared/ui/Panel";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 export function StateSafetyPanel({ client }: { client: GameClient }): JSX.Element {
   const undoLastChange = (): void => {
-    if (!window.confirm("Undo the last backend state change?")) {
+    if (
+      !confirmDestructiveAction({
+        action: "Undo",
+        subject: "the last backend state change",
+        consequence: "This applies a compensating mutation to authoritative state."
+      })
+    ) {
       return;
     }
     const submission = buildUndoLastStateChangeSubmission();

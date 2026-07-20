@@ -2,6 +2,8 @@ import asyncio
 
 from backend.features.variable_registry import service
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.models.attribute import AttributeDefinition, AttributeValue
+from backend.state.models.state import State
 
 
 class FakeWebSocket:
@@ -81,6 +83,7 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     assert metadata.type == "action_formula_authoring_metadata"
     assert metadata.formula_roots == [
         "sheet",
+        "template",
         "instance",
         "action",
         "source_item",
@@ -162,6 +165,14 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     assert weapon_damage.path == ["attributes", "weapon_base_damage"]
     assert weapon_damage.shortcuts == ["weapon_base_damage"]
 
+    level = variables["sheet.attributes.level"]
+    assert level.root == "sheet"
+    assert level.path == ["attributes", "level"]
+    assert level.shortcuts == ["sheet_attribute_level"]
+    assert level.action_mutation_allowed is False
+    assert aliases["sheet_attribute_level"].key == "sheet.attributes.level"
+    assert aliases["sheet_attribute_level"].path == ["attributes", "level"]
+
     weapon_stat = variables["source_item.resolved.governing_stat"]
     assert weapon_stat.shortcuts == ["weapon_stat"]
     assert variables[
@@ -194,6 +205,12 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
 
     assert aliases["str"].key == "sheet.stats.strength"
     assert aliases["str"].path == ["stats", "strength"]
+    assert variables["template.stats.strength"].label == "Template Strength"
+    assert variables["template.stats.strength"].root == "template"
+    assert variables["template.stats.strength"].action_mutation_allowed is False
+    assert aliases["template_str"].key == "template.stats.strength"
+    assert aliases["template_str"].root == "template"
+    assert aliases["template_str"].path == ["stats", "strength"]
     assert aliases["hp"].key == "instance.health"
     assert aliases["hp"].root == "instance"
 
@@ -271,6 +288,48 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
     assert action_presets["spell_damage"].attribute_values[
         "action_base_spell_damage"
     ] == {"type": "number", "value": 0}
+
+
+def test_action_formula_sheet_attribute_catalog_enforces_visibility_and_stable_aliases() -> None:
+    state = State()
+    state.attributes["secret score"] = AttributeDefinition(
+        id="secret score",
+        name="Secret Score",
+        description="GM-only score.",
+        subject_types=["sheet"],
+        value_type="number",
+        default_value=AttributeValue(type="number", value=0),
+        visibility="gm_only",
+    )
+    state.attributes["sheet_note"] = AttributeDefinition(
+        id="sheet_note",
+        name="Sheet Note",
+        description="Not numeric.",
+        subject_types=["sheet"],
+        value_type="text",
+        default_value=AttributeValue(type="text", value=""),
+    )
+
+    player_variables = {
+        variable.key: variable
+        for variable in service.build_action_formula_authoring_metadata(
+            state=state,
+            include_gm_only=False,
+        ).variables
+    }
+    gm_variables = {
+        variable.key: variable
+        for variable in service.build_action_formula_authoring_metadata(
+            state=state,
+            include_gm_only=True,
+        ).variables
+    }
+
+    assert "sheet.attributes.secret score" not in player_variables
+    assert "sheet.attributes.sheet_note" not in player_variables
+    assert gm_variables["sheet.attributes.secret score"].shortcuts == [
+        "sheet_attribute_secret_score_61fff5f6"
+    ]
 
 
 def test_augmentation_target_catalog_reuses_mutation_safe_variable_metadata() -> None:
@@ -448,6 +507,24 @@ def test_player_can_request_action_formula_authoring_metadata() -> None:
 
         assert variables["sheet.stats.arcane"]["shortcuts"] == ["arc", "arcane"]
         assert variables["sheet.stats.arcane"]["action_mutation_allowed"] is True
+        assert variables["template.stats.arcane"] == {
+            "key": "template.stats.arcane",
+            "label": "Template Arcane",
+            "root": "template",
+            "path": ["stats", "arcane"],
+            "value_type": "number",
+            "editable_roles": [],
+            "formula_backed": False,
+            "description": (
+                "Parent-template value for Arcane. Use the ordinary sheet variable "
+                "for the acting character's current value."
+            ),
+            "shortcuts": ["template_arc", "template_arcane"],
+            "formula_reference_allowed": True,
+            "action_mutation_allowed": False,
+        }
+        assert aliases["template_arc"]["key"] == "template.stats.arcane"
+        assert aliases["template_arc"]["root"] == "template"
         assert variables["sheet.stats.mana"]["action_mutation_allowed"] is False
         assert variables["sheet.resistances.fire"]["value_type"] == "percent"
         assert variables["sheet.resistances.fire"]["action_mutation_allowed"] is True

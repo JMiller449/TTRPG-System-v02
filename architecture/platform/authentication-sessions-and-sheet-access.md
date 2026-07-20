@@ -66,7 +66,8 @@ checks enforce entity ownership:
 
 - DMs may manage templates, instances, access codes, and all characters.
 - Players may view and mutate only the spawned instance assigned to their
-  current session, and only through explicitly player-available operations.
+  current session, and only through explicitly player-available operations,
+  including instance notes and the non-mechanical character profile.
 - Template notes, DM-only entities, private item data, other characters'
   runtime applications, and access codes are redacted or withheld.
 - A player-provided sheet or instance ID is always validated against the

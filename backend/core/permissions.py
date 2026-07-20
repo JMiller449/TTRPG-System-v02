@@ -8,6 +8,7 @@ from backend.features.session.models import SessionRole
 PermissionKey = Literal[
     "notes_edit",
     "instance_notes_edit",
+    "instance_profile_edit",
     "equipment_edit",
     "equipment_use",
     "proficiency_edit",
@@ -45,6 +46,12 @@ PERMISSION_RULES: dict[PermissionKey, PermissionRule] = {
         label="Instance notes edits",
         allowed_roles=("player", "dm"),
         denied_reason="Authenticate first to edit instance notes.",
+    ),
+    "instance_profile_edit": PermissionRule(
+        key="instance_profile_edit",
+        label="Instance character profile edits",
+        allowed_roles=("player", "dm"),
+        denied_reason="Authenticate first to edit a character profile.",
     ),
     "equipment_edit": PermissionRule(
         key="equipment_edit",

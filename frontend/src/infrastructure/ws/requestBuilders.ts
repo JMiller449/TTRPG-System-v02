@@ -32,6 +32,7 @@ export type SheetProficiencyBridgePayload =
 export type InstancedSheetProficiencyBridgePayload =
   ProtocolRequest<"create_instanced_sheet_proficiency_bridge">["bridge"];
 export type SheetDefinitionPayload = ProtocolRequest<"create_sheet">["sheet"];
+export type CharacterProfilePayload = ProtocolRequest<"set_instanced_sheet_profile">["profile"];
 export type InstancedSheetResistancesPayload =
   ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
@@ -444,6 +445,22 @@ export function buildSetInstancedSheetNotesRequest({
     type: "set_instanced_sheet_notes",
     instance_id: instanceId,
     notes
+  };
+}
+
+export function buildSetInstancedSheetProfileRequest({
+  instanceId,
+  profile,
+  requestId
+}: {
+  instanceId: string;
+  profile: CharacterProfilePayload;
+} & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_profile"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_instanced_sheet_profile",
+    instance_id: instanceId,
+    profile
   };
 }
 

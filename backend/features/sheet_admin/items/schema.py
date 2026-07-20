@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.attributes.value_schema import AttributeBridgePayload
@@ -22,6 +22,7 @@ class ItemDefinitionPayload(BaseModel):
     name: str = Field(min_length=1)
     interaction_type: Literal["equippable", "consumable", "inventory_only"]
     category: str = ""
+    catalog_folder: str = ""
     rank: str = ""
     description: str = ""
     world_anvil_url: str = ""
@@ -36,6 +37,11 @@ class ItemDefinitionPayload(BaseModel):
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
+
+    @field_validator("catalog_folder")
+    @classmethod
+    def normalize_catalog_folder(cls, value: str) -> str:
+        return value.strip()
 
     @model_validator(mode="after")
     def validate_item_type(self) -> "ItemDefinitionPayload":

@@ -19,6 +19,7 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -123,8 +124,16 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   };
 
   const deleteEffect = (effectId: string): void => {
-    const submission = buildDeleteStandaloneEffectSubmission(effectId, standaloneEffects[effectId]);
-    if (!submission.confirmation || !window.confirm(submission.confirmation)) {
+    const effect = standaloneEffects[effectId];
+    const submission = buildDeleteStandaloneEffectSubmission(effectId, effect);
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: effect?.name ?? effectId,
+        consequence:
+          "This permanently deletes the effect definition. Existing action and active-effect dependency checks still apply."
+      })
+    ) {
       return;
     }
     client.sendProtocolRequest(submission.request, submission.label);

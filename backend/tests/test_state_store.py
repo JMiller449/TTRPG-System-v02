@@ -236,6 +236,7 @@ def test_v23_migration_normalizes_weight_and_storage_defaults() -> None:
         "approval_status": "approved",
         "submitted_by_instance_id": None,
         "submitted_by_name": None,
+        "catalog_folder": "",
     }
     assert migrated.state["items"]["weightless"]["weight"] == 0
     assert (
@@ -573,7 +574,7 @@ def test_v15_migration_normalizes_weapon_actions_and_equipped_proficiencies() ->
     }
 
 
-def test_v10_migration_adds_backend_owned_optional_sheet_attributes() -> None:
+def test_v10_migration_adds_backend_owned_sheet_attributes() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 10,
@@ -598,9 +599,11 @@ def test_v10_migration_adds_backend_owned_optional_sheet_attributes() -> None:
     assert attributes["movement"]["unit"] == "feet"
     assert attributes["mana_regeneration"]["default_value"]["value"] == 10
     assert attributes["mana_regeneration"]["unit"] == "% max mana per hour"
+    assert attributes["level"]["required"] is True
+    assert attributes["movement"]["required"] is False
+    assert attributes["mana_regeneration"]["required"] is False
     assert all(
         attributes[attribute_id]["backend_owned"] is True
-        and attributes[attribute_id]["required"] is False
         and attributes[attribute_id]["subject_types"] == ["sheet"]
         for attribute_id in ("level", "movement", "mana_regeneration")
     )
@@ -855,6 +858,88 @@ def test_v32_migration_adds_growth_to_unmodified_canonical_weapon_actions() -> N
     assert result.state["actions"]["weapon_attack"] == current["weapon_attack"]
     assert result.state["actions"]["weapon_damage"] == current["weapon_damage"]
     assert result.state["actions"]["custom_weapon_attack"] == customized
+
+
+def test_v33_migration_backfills_item_catalog_folders_without_overwriting_them() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 33,
+            "state": {
+                "items": {
+                    "unfiled": {"id": "unfiled"},
+                    "filed": {"id": "filed", "catalog_folder": "Relics"},
+                }
+            },
+        }
+    )
+
+    assert result.state["items"]["unfiled"]["catalog_folder"] == ""
+    assert result.state["items"]["filed"]["catalog_folder"] == "Relics"
+
+
+def test_v34_migration_backfills_character_profiles_on_templates_and_instances() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 34,
+            "state": {
+                "sheets": {"hero": {"id": "hero"}},
+                "instanced_sheets": {"hero_instance": {"parent_id": "hero"}},
+            },
+        }
+    )
+
+    for profile in (
+        result.state["sheets"]["hero"]["profile"],
+        result.state["instanced_sheets"]["hero_instance"]["profile"],
+    ):
+        assert profile["species"] == ""
+        assert profile["height"] == ""
+        assert profile["weight"] == ""
+        assert profile["backstory"] == ""
+
+
+def test_v35_migration_backfills_level_without_overwriting_existing_values() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 35,
+            "state": {
+                "attributes": {"level": {"id": "level", "required": False}},
+                "sheets": {
+                    "new": {"id": "new", "attributes": {}},
+                    "existing": {
+                        "id": "existing",
+                        "attributes": {
+                            "level": {
+                                "relationship_id": "custom-level-link",
+                                "attribute_id": "level",
+                                "value": {"type": "number", "value": 7},
+                                "evaluated_value": 7,
+                            }
+                        },
+                    },
+                },
+                "instanced_sheets": {"new-1": {"parent_id": "new"}},
+            },
+        }
+    )
+
+    assert result.state["attributes"]["level"]["required"] is True
+    assert result.state["sheets"]["new"]["attributes"]["level"] == {
+        "relationship_id": "required_attribute_level",
+        "attribute_id": "level",
+        "value": {"type": "number", "value": 1},
+        "evaluated_value": 1,
+        "evaluation_error": None,
+    }
+    assert result.state["instanced_sheets"]["new-1"]["attributes"]["level"][
+        "evaluated_value"
+    ] == 1
+    assert result.state["sheets"]["existing"]["attributes"]["level"][
+        "relationship_id"
+    ] == "custom-level-link"
+    assert result.state["sheets"]["existing"]["attributes"]["level"][
+        "evaluated_value"
+    ] == 7
 
 
 def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects() -> None:

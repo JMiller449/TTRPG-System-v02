@@ -12,6 +12,7 @@ import {
   TemplateProficienciesSection
 } from "@/features/sheets/components/TemplateAssignmentsSection";
 import { TemplateDetailsSection } from "@/features/sheets/components/TemplateDetailsSection";
+import { TemplateProfileSection } from "@/features/sheets/components/TemplateProfileSection";
 import { TemplateAttributesSection } from "@/features/sheets/components/TemplateAttributesSection";
 import { TemplateResistancesSection } from "@/features/sheets/components/TemplateResistancesSection";
 import { TemplateReviewSection } from "@/features/sheets/components/TemplateReviewSection";
@@ -35,6 +36,7 @@ const SECTIONS: ReadonlyArray<{
   status: string;
 }> = [
   { id: "details", label: "Details", group: "Core setup", status: "Required" },
+  { id: "profile", label: "Profile", group: "Core setup", status: "Optional" },
   { id: "stats", label: "Stats", group: "Core setup", status: "Defaults included" },
   { id: "actions", label: "Actions", group: "Starting content", status: "Optional" },
   {
@@ -171,6 +173,9 @@ export function TemplateEditorForm({
       <div className="template-builder__content" role="tabpanel">
         {activeSection === "details" ? (
           <TemplateDetailsSection values={values} onChange={onChange} />
+        ) : null}
+        {activeSection === "profile" ? (
+          <TemplateProfileSection values={values} onChange={onChange} />
         ) : null}
         {activeSection === "stats" ? (
           <TemplateStatsSection values={values} metadata={metadata} onChange={onChange} />

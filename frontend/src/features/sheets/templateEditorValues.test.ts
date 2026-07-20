@@ -86,6 +86,25 @@ function completeSheet(): Sheet {
     id: "template_1",
     name: "Mage",
     notes: "Backend template notes",
+    profile: {
+      species: "Elf",
+      background: "Scholar",
+      alignment: "",
+      pronouns: "they/them",
+      age: "120",
+      height: "6 ft",
+      weight: "170 lb",
+      eyes: "Green",
+      skin: "Bronze",
+      hair: "Black",
+      appearance: "Ink-stained hands.",
+      personality_traits: "Curious",
+      ideals: "Knowledge",
+      bonds: "The academy",
+      flaws: "Reckless curiosity",
+      allies_and_organizations: "The old library",
+      backstory: "A traveling researcher."
+    },
     dm_only: false,
     xp_given_when_slayed: 25,
     xp_cap: 100,
@@ -164,6 +183,10 @@ describe("templateEditorValues", () => {
     values.name = "  Ember Guard  ";
     values.racialHpMultiplier = "50";
     values.notes = "  GM-facing notes  ";
+    values.profile.species = "  Fire Genasi  ";
+    values.profile.height = "  6 ft 2 in  ";
+    values.profile.weight = "  190 lb  ";
+    values.profile.backstory = "  Raised near the caldera.  ";
     values.xpGivenWhenSlayed = "25";
     values.xpCap = " 100 ";
     values.coreStats.strength = "12";
@@ -201,6 +224,12 @@ describe("templateEditorValues", () => {
       id: "template_1",
       name: "Ember Guard",
       notes: "GM-facing notes",
+      profile: {
+        species: "Fire Genasi",
+        height: "6 ft 2 in",
+        weight: "190 lb",
+        backstory: "Raised near the caldera."
+      },
       dm_only: true,
       xp_given_when_slayed: 25,
       xp_cap: 100,
@@ -292,6 +321,12 @@ describe("templateEditorValues", () => {
     expect(values).toMatchObject({
       kind: "player",
       notes: "Backend template notes",
+      profile: {
+        species: "Elf",
+        height: "6 ft",
+        weight: "170 lb",
+        backstory: "A traveling researcher."
+      },
       xpGivenWhenSlayed: "25",
       xpCap: "100",
       coreStats: { strength: "4", arcane: "6" },

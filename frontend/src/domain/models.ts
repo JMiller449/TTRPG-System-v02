@@ -190,6 +190,7 @@ export interface ResolveDamageActionStep {
 export interface GainProficiencyUseActionStep {
   step_id: string;
   proficiency_id: string;
+  proficiency_reference?: "explicit" | "action_attribute" | "source_item_weapon";
   amount: NumericValueSource;
   target?: "caster" | "target";
   type: "gain_proficiency_use";
@@ -399,6 +400,7 @@ export interface ItemDefinition {
   name: string;
   interaction_type: ItemInteractionType;
   category?: string;
+  catalog_folder?: string;
   rank?: string;
   description: string;
   world_anvil_url?: string;
@@ -504,6 +506,7 @@ export interface Sheet {
   id: string;
   name: string;
   notes?: string;
+  profile?: CharacterProfile;
   dm_only: boolean;
   xp_given_when_slayed: number;
   xp_cap: number;
@@ -526,6 +529,7 @@ export interface Sheet {
 export interface PersistentSheet {
   parent_id: string;
   notes?: string;
+  profile?: CharacterProfile;
   health: number;
   mana: number;
   reactions?: number;
@@ -548,6 +552,26 @@ export interface PersistentSheet {
   attributes?: Record<string, AttributeBridge>;
   resistances?: Resistances;
   augments: Record<string, Bridge>;
+}
+
+export interface CharacterProfile {
+  species: string;
+  background: string;
+  alignment: string;
+  pronouns: string;
+  age: string;
+  height: string;
+  weight: string;
+  eyes: string;
+  skin: string;
+  hair: string;
+  appearance: string;
+  personality_traits: string;
+  ideals: string;
+  bonds: string;
+  flaws: string;
+  allies_and_organizations: string;
+  backstory: string;
 }
 
 export interface CombatSheet {

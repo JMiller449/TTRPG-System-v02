@@ -255,16 +255,35 @@ class RuntimeFormulaContext:
         source_item_relationship_id: str | None,
         state: State,
         action_values: dict[str, float | int] | None = None,
+        *,
+        include_gm_only: bool,
     ) -> None:
         self._sheet = sheet
         self._instance = instance
         self._action = action
         self._source_item = source_item
+        self._active_sheet = instance if instance is not None else sheet
+        self._include_gm_only = include_gm_only
         self.source_item_relationship_id = source_item_relationship_id
-        self.sheet = sheet
+        # Rooted `sheet.*` action aliases mean the acting sheet. Reuse this
+        # context's instance-first fallback so existing authored formulas pick up
+        # spawned-character advancement without rewriting their stored paths.
+        self.sheet = self
+        self.template = sheet
         self.instance = instance
+        self.attributes = _numeric_attribute_values(
+            state,
+            self._active_sheet,
+            subject_type="sheet",
+            include_gm_only=include_gm_only,
+        )
         self.action = {
-            "attributes": _numeric_attribute_values(state, action, subject_type="action"),
+            "attributes": _numeric_attribute_values(
+                state,
+                action,
+                subject_type="action",
+                include_gm_only=include_gm_only,
+            ),
             "resolved": _resolved_action_values(state, sheet, action),
         }
         self.source_item = (
@@ -275,6 +294,7 @@ class RuntimeFormulaContext:
                     state,
                     source_item,
                     subject_type="item",
+                    include_gm_only=include_gm_only,
                 ),
                 "resolved": _resolved_source_item_values(
                     state,
@@ -290,8 +310,10 @@ class RuntimeFormulaContext:
             state,
             formula,
             sheet=self._sheet,
+            active_sheet=self._active_sheet,
             action=self._action,
             source_item=self._source_item,
+            include_gm_only=self._include_gm_only,
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -313,9 +335,10 @@ def _valid_numeric_attribute_value(bridge: AttributeBridge) -> float | int | Non
 
 def _numeric_attribute_values(
     state: State,
-    subject: Action | Item,
+    subject: Sheet | InstancedSheet | Action | Item,
     *,
-    subject_type: Literal["action", "item"],
+    subject_type: Literal["sheet", "action", "item"],
+    include_gm_only: bool,
 ) -> dict[str, float | int]:
     values: dict[str, float | int] = {}
     for attribute_id, bridge in subject.attributes.items():
@@ -324,6 +347,7 @@ def _numeric_attribute_values(
             definition is None
             or definition.value_type != "number"
             or subject_type not in definition.subject_types
+            or (not include_gm_only and definition.visibility != "public")
             or (
                 definition.required_profile is not None
                 and definition.required_profile
@@ -398,11 +422,37 @@ def _validate_runtime_attribute_aliases(
     formula: Formula,
     *,
     sheet: Sheet,
+    active_sheet: Sheet | InstancedSheet,
     action: Action,
     source_item: Item | None,
+    include_gm_only: bool,
 ) -> None:
     for alias in formula.aliases or []:
         path = alias.path
+        if path[:2] == ["sheet", "attributes"] or (
+            path and path[0] == "attributes"
+        ):
+            attribute_id = (
+                path[2]
+                if path[:2] == ["sheet", "attributes"] and len(path) == 3
+                else path[1]
+                if len(path) == 2 and path[0] == "attributes"
+                else None
+            )
+            if attribute_id is None:
+                raise ValueError(
+                    f"Sheet Attribute alias '{alias.name}' must reference "
+                    "sheet.attributes.<attribute_id>."
+                )
+            _validate_runtime_numeric_attribute(
+                state,
+                active_sheet,
+                attribute_id,
+                subject_type="sheet",
+                alias_name=alias.name,
+                include_gm_only=include_gm_only,
+            )
+            continue
         if len(path) >= 2 and path[:2] == ["action", "attributes"]:
             if len(path) != 3:
                 raise ValueError(
@@ -415,6 +465,7 @@ def _validate_runtime_attribute_aliases(
                 path[2],
                 subject_type="action",
                 alias_name=alias.name,
+                include_gm_only=include_gm_only,
             )
             continue
         if path[:2] == ["action", "resolved"]:
@@ -446,6 +497,7 @@ def _validate_runtime_attribute_aliases(
                     path[2],
                     subject_type="item",
                     alias_name=alias.name,
+                    include_gm_only=include_gm_only,
                 )
             elif path[:2] == ["source_item", "resolved"]:
                 supported_paths = (
@@ -468,11 +520,12 @@ def _validate_runtime_attribute_aliases(
 
 def _validate_runtime_numeric_attribute(
     state: State,
-    subject: Action | Item,
+    subject: Sheet | InstancedSheet | Action | Item,
     attribute_id: str,
     *,
-    subject_type: Literal["action", "item"],
+    subject_type: Literal["sheet", "action", "item"],
     alias_name: str,
+    include_gm_only: bool,
 ) -> None:
     definition = state.attributes.get(attribute_id)
     if (
@@ -483,6 +536,11 @@ def _validate_runtime_numeric_attribute(
         raise ValueError(
             f"Formula alias '{alias_name}' does not reference a numeric "
             f"{subject_type} Attribute."
+        )
+    if not include_gm_only and definition.visibility != "public":
+        raise ValueError(
+            f"Formula alias '{alias_name}' references inaccessible Attribute "
+            f"'{attribute_id}'."
         )
     if (
         definition.required_profile is not None
@@ -1328,6 +1386,7 @@ async def perform_action(
             current_resolution.source_item_bridge_key,
             state,
             action_values,
+            include_gm_only=actor_role == "dm",
         )
 
         applied_mutations: list[str] = []

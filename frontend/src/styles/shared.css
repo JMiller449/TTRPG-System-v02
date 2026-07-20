@@ -493,6 +493,63 @@ button.formula-tag-suggestion {
   background: var(--r6-control-bg-active, var(--card));
 }
 
+.item-catalog-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 328px;
+  height: 100%;
+}
+
+.item-catalog-browser__search {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.item-catalog-browser__folders {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+}
+
+.item-catalog-browser__folders button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.35rem 0.5rem;
+  color: var(--text);
+  background: var(--card);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.item-catalog-browser__folders button span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.item-catalog-browser__folders .item-catalog-folder--selected {
+  border-color: var(--accent);
+  background: var(--r6-control-bg-active, var(--card));
+}
+
+.item-catalog-browser__results {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Editor content fills the panel height, then flows into extra columns to the right. */
 .authoring-workspace__editor {
   column-width: 400px;

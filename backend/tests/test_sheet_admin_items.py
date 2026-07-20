@@ -159,6 +159,17 @@ def _item_augmentation_payload(
     }
 
 
+def test_item_model_normalizes_persisted_catalog_folder_text() -> None:
+    payload = _item_payload()
+    payload["catalog_folder"] = "  Relics  "
+
+    assert Item.from_dict(payload).catalog_folder == "Relics"
+
+    payload["catalog_folder"] = None
+    with pytest.raises(ValueError, match="catalog folder must be text"):
+        Item.from_dict(payload)
+
+
 def test_dm_can_create_item(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -169,18 +180,24 @@ def test_dm_can_create_item(monkeypatch) -> None:
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
+            payload = _item_payload()
+            payload["catalog_folder"] = "  Weapons  "
             await handle_client_payload(
                 websocket,
                 {
                     "type": "create_item",
-                    "item": _item_payload(),
+                    "item": payload,
                 },
             )
 
             assert StateSingleton.getState().items["sword"].name == "Sword"
+            assert StateSingleton.getState().items["sword"].catalog_folder == "Weapons"
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][0]["path"] == "/items/sword"
             assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "sword"
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "catalog_folder"
+            ] == "Weapons"
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "world_anvil_url"
             ] == "https://www.worldanvil.com/w/test/sword"
@@ -680,21 +697,27 @@ def test_dm_can_update_item(monkeypatch) -> None:
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
+            payload = _item_payload(name="Renamed Sword")
+            payload["catalog_folder"] = "Relics"
             await handle_client_payload(
                 websocket,
                 {
                     "type": "update_item",
                     "item_id": "sword",
-                    "item": _item_payload(name="Renamed Sword"),
+                    "item": payload,
                 },
             )
 
             assert state.items["sword"].name == "Renamed Sword"
+            assert state.items["sword"].catalog_folder == "Relics"
             assert websocket.sent_messages[0]["ops"][0]["op"] == "set"
             assert websocket.sent_messages[0]["ops"][0]["path"] == "/items/sword"
             assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
                 "Renamed Sword"
             )
+            assert websocket.sent_messages[0]["ops"][0]["value"][
+                "catalog_folder"
+            ] == "Relics"
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "world_anvil_url"
             ] == "https://www.worldanvil.com/w/test/sword"

@@ -17,21 +17,17 @@ import {
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: {
-        proficiencies: proficiencyRecords,
-        proficiencyOrder
-      }
+      serverState: { proficiencies: proficiencyRecords, proficiencyOrder }
     }
   } = useAppStore();
 
   const [editingProficiencyId, setEditingProficiencyId] = useState<string | null>(null);
-  const [values, setValues] = useState<ProficiencyEditorValues>(
-    createEmptyProficiencyEditorValues
-  );
+  const [values, setValues] = useState<ProficiencyEditorValues>(createEmptyProficiencyEditorValues);
 
   const proficiencies = useMemo(
     () => selectOrderedProficiencyDefinitions(proficiencyRecords, proficiencyOrder),
@@ -59,10 +55,18 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
   };
 
   const deleteProficiency = (proficiencyId: string): void => {
-    const submission = buildDeleteProficiencySubmission(
-      proficiencyId,
-      proficiencyRecords[proficiencyId]
-    );
+    const proficiency = proficiencyRecords[proficiencyId];
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: proficiency?.name ?? proficiencyId,
+        consequence:
+          "This permanently deletes the proficiency definition. Existing dependency checks still apply."
+      })
+    ) {
+      return;
+    }
+    const submission = buildDeleteProficiencySubmission(proficiencyId, proficiency);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingProficiencyId === proficiencyId) {
       startNewProficiency();

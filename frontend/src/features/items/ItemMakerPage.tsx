@@ -14,7 +14,9 @@ import {
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
+import { ItemCatalogBrowser } from "@/features/items/components/ItemCatalogBrowser";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
+import { selectItemCatalogFolders } from "@/features/items/itemCatalogFolders";
 import {
   createEmptyItemValues,
   toItemEditorValues,
@@ -29,7 +31,7 @@ import {
 import { buildReviewPlayerItemRequest } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
@@ -72,6 +74,10 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         (item) => item.approval_status === "pending"
       ),
     [itemOrder, itemRecords]
+  );
+  const catalogFolders = useMemo(
+    () => selectItemCatalogFolders(items).map((folder) => folder.name),
+    [items]
   );
   const actions = useMemo(
     () => actionOrder.map((id) => actionRecords[id]).filter(Boolean),
@@ -157,7 +163,18 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   };
 
   const deleteItem = (itemId: string): void => {
-    const submission = buildDeleteItemSubmission(itemId, itemRecords[itemId]);
+    const item = itemRecords[itemId];
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: item?.name ?? itemId,
+        consequence:
+          "This permanently deletes the item definition. Existing inventory and dependency checks still apply."
+      })
+    ) {
+      return;
+    }
+    const submission = buildDeleteItemSubmission(itemId, item);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingItemId === itemId) {
       startNewItem();
@@ -190,6 +207,18 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
   };
 
   const removeAugmentation = (augmentationId: string): void => {
+    const augmentation = values.augmentationTemplates.find(
+      (candidate) => candidate.id === augmentationId
+    );
+    if (
+      !confirmDestructiveAction({
+        action: "Remove",
+        subject: augmentation?.name ?? augmentationId,
+        consequence: "This removes the effect from the item draft when you save it."
+      })
+    ) {
+      return;
+    }
     setValues((current) => ({
       ...current,
       augmentationTemplates: current.augmentationTemplates.filter(
@@ -255,12 +284,22 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
                     <button
                       type="button"
                       className="button button--danger"
-                      onClick={() =>
+                      onClick={() => {
+                        if (
+                          !confirmDestructiveAction({
+                            action: "Deny",
+                            subject: item.name,
+                            consequence:
+                              "This permanently deletes the pending player item proposal."
+                          })
+                        ) {
+                          return;
+                        }
                         client.sendProtocolRequest(
                           buildReviewPlayerItemRequest({ itemId: item.id, approved: false }),
                           `Deny item: ${item.name}`
-                        )
-                      }
+                        );
+                      }}
                     >
                       Deny
                     </button>
@@ -273,10 +312,9 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         <CatalogEditorLayout
           catalogLabel="Item Catalog"
           catalog={
-            <CatalogTileGrid
-              items={items.map((item) => ({ id: item.id, name: item.name }))}
+            <ItemCatalogBrowser
+              items={items}
               selectedId={editingItemId}
-              emptyMessage="No items created yet."
               onSelect={(itemId) => {
                 const item = itemRecords[itemId];
                 if (!item) {
@@ -296,6 +334,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
             actions={actions}
             attributeDefinitions={attributeDefinitions}
             proficiencies={proficiencyRecords}
+            catalogFolders={catalogFolders}
             pending={Boolean(submittedCreateId)}
             attributesEditor={
               <ItemAttributesEditor

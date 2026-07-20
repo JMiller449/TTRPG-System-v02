@@ -1,5 +1,12 @@
 import type { AppSnapshot, ServerEvent } from "@/domain/ipc";
-import type { ActiveCondition, EncounterPreset, Role } from "@/domain/models";
+import type {
+  ActiveCondition,
+  EncounterPreset,
+  PersistentSheet,
+  Role,
+  Sheet
+} from "@/domain/models";
+import { resolveCharacterProfile } from "@/features/sheets/characterProfile";
 import type {
   ProtocolBackendState,
   ProtocolPatchOperation,
@@ -8,6 +15,8 @@ import type {
 import type {
   ActiveConditionPayload,
   EncounterPresetPayload,
+  InstancedSheetPayload,
+  SheetPayload,
   StandaloneEffectDefinitionPayload
 } from "@/generated/backendProtocol";
 import type { StandaloneEffectDefinition } from "@/domain/models";
@@ -181,12 +190,32 @@ function projectStandaloneEffect(
   };
 }
 
+function projectSheet(value: SheetPayload): Sheet {
+  if (!value.profile) {
+    return value as Sheet;
+  }
+  return {
+    ...value,
+    profile: resolveCharacterProfile(value.profile)
+  } as Sheet;
+}
+
+function projectPersistentSheet(value: InstancedSheetPayload): PersistentSheet {
+  if (!value.profile) {
+    return value as PersistentSheet;
+  }
+  return {
+    ...value,
+    profile: resolveCharacterProfile(value.profile)
+  } as PersistentSheet;
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
-    sheets: Object.values(state.sheets ?? {}),
+    sheets: Object.values(state.sheets ?? {}).map(projectSheet),
     persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({
       id,
-      value
+      value: projectPersistentSheet(value)
     })),
     items: Object.values(state.items ?? {}),
     proficiencies: Object.values(state.proficiencies ?? {}),

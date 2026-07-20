@@ -33,6 +33,7 @@ export function ItemEditorForm({
   attributesEditor,
   effectEditor,
   pending = false,
+  catalogFolders = [],
   onSubmit,
   onCancel,
   onOpenActionAuthoring
@@ -46,6 +47,7 @@ export function ItemEditorForm({
   attributesEditor: ReactNode;
   effectEditor: ReactNode;
   pending?: boolean;
+  catalogFolders?: readonly string[];
   onSubmit: () => void;
   onCancel: () => void;
   onOpenActionAuthoring?: () => void;
@@ -106,6 +108,19 @@ export function ItemEditorForm({
         </Field>
 
         <div className="inline-group">
+          <Field label="Catalog folder">
+            <input
+              list="item-catalog-folder-options"
+              value={values.catalogFolder}
+              onChange={(event) => onChange({ ...values, catalogFolder: event.target.value })}
+              placeholder="e.g. Weapons"
+            />
+            <datalist id="item-catalog-folder-options">
+              {catalogFolders.map((folder) => (
+                <option key={folder} value={folder} />
+              ))}
+            </datalist>
+          </Field>
           <Field label="Category">
             <input
               value={values.type}

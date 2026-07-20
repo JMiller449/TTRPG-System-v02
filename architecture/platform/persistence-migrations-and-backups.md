@@ -26,7 +26,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 32. Future-version checkpoints are rejected rather than guessed at.
+version 36. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -39,6 +39,22 @@ contribution-point balances and transaction records, and per-instance action
 pins. Existing instances begin with zero reactions and contribution points and
 no pins; normal runtime synchronization establishes any authored reaction
 maximum after load.
+
+Schema version 33 upgrades only unchanged canonical weapon actions with the
+backend-owned proficiency-growth step. Campaign-customized actions remain
+unchanged.
+
+Schema version 34 adds the backend-owned `catalog_folder` field to item
+definitions. Existing items migrate to an empty folder and appear under
+Unfiled; already authored folder metadata is preserved.
+
+Schema version 35 adds structured, non-mechanical character profiles to sheet
+templates and spawned instances. Existing records migrate with empty profile
+fields, preserving Notes as a separate session-journal field.
+
+Schema version 36 makes the canonical Level Attribute required on templates
+and spawned instances. Records without a Level bridge receive Level 1, while
+existing authored Level values are left intact.
 
 Schema version 29 adds explicit visibility to authored Roll20 message steps and
 backfills existing steps as `public`, preserving all pre-feature behavior.

@@ -23,7 +23,10 @@ import {
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
 import { AttributeEditorForm } from "@/features/attributes/components/AttributeEditorForm";
-import { emptyAttributeDraft, attributePayloadFromDraft } from "@/features/attributes/attributeEditorValues";
+import {
+  emptyAttributeDraft,
+  attributePayloadFromDraft
+} from "@/features/attributes/attributeEditorValues";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
 import { buildCreateItemSubmission } from "@/features/items/itemMakerRequests";
@@ -38,6 +41,7 @@ import {
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { buildCreateAttributeRequest } from "@/infrastructure/ws/requestBuilders";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
 
@@ -73,8 +77,7 @@ const DIALOG_GUIDANCE: Record<TemplateContextualEntityKind, string> = {
     "Start with a name and value type. Formula sources and attachment options are advanced and can keep their defaults.",
   proficiency:
     "Name the training and choose its category. The description is optional but helps explain when it applies.",
-  item:
-    "Choose the item type and complete Details first. Attributes, effects, granted actions, and GM metadata are optional.",
+  item: "Choose the item type and complete Details first. Attributes, effects, granted actions, and GM metadata are optional.",
   action:
     "Use a preset when one fits. Otherwise, name the action and add only the steps it needs; roll mode and Attributes are optional."
 };
@@ -195,7 +198,12 @@ export function TemplateContextualCreateDialog({
     if (!attribute) {
       return;
     }
-    submit("attribute", attributeId, buildCreateAttributeRequest({ attribute }), `Create Attribute: ${attribute.name}`);
+    submit(
+      "attribute",
+      attributeId,
+      buildCreateAttributeRequest({ attribute }),
+      `Create Attribute: ${attribute.name}`
+    );
   };
 
   const submitProficiency = (): void => {
@@ -331,6 +339,18 @@ export function TemplateContextualCreateDialog({
                 setAugmentationValues(toAugmentationEditorValues(augmentation));
               }}
               onRemove={(augmentationId) => {
+                const augmentation = itemValues.augmentationTemplates.find(
+                  (candidate) => candidate.id === augmentationId
+                );
+                if (
+                  !confirmDestructiveAction({
+                    action: "Remove",
+                    subject: augmentation?.name ?? augmentationId,
+                    consequence: "This removes the effect from the new item draft before creation."
+                  })
+                ) {
+                  return;
+                }
                 setItemValues((current) => ({
                   ...current,
                   augmentationTemplates: current.augmentationTemplates.filter(

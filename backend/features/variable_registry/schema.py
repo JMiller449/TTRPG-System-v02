@@ -7,7 +7,14 @@ from backend.core.transport import RequestModel, ResponseModel
 from backend.state.models.formula import Formula
 from backend.state.models.stat import FormulaStatName
 
-VariableRoot = Literal["state", "sheet", "instance", "action", "source_item"]
+VariableRoot = Literal[
+    "state",
+    "sheet",
+    "template",
+    "instance",
+    "action",
+    "source_item",
+]
 VariableValueType = Literal["number", "percent", "formula", "resource"]
 VariableEditableRole = Literal["unauthenticated", "player", "dm"]
 ActionStepTarget = Literal["caster", "target"]

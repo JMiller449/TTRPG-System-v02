@@ -32,7 +32,7 @@ from backend.state.models.attribute import (
     ACTION_MANA_COST_ATTRIBUTE_ID,
     ACTION_RANGE_ATTRIBUTE_ID,
     ACTION_TARGET_COUNT_ATTRIBUTE_ID,
-    AMOUNT_OF_REACTIONS_ATTRIBUTE_ID,
+    LEVEL_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
@@ -220,6 +220,14 @@ def validate_subject_attribute_value(
             else attached_attribute_ids
         ),
     )
+    if subject_type == "sheet" and definition.id == LEVEL_ATTRIBUTE_ID:
+        if value.type != "formula" and (
+            not isinstance(value.value, (int, float))
+            or isinstance(value.value, bool)
+            or value.value < 1
+            or int(value.value) != value.value
+        ):
+            raise ValueError("Level must be a positive whole number.")
     if subject_type != "item" or getattr(subject, "attribute_profile", None) != "weapon":
         if subject_type == "action":
             if definition.id in {
@@ -295,7 +303,7 @@ def _required_sheet_and_definition(
     definition = state.attributes.get(attribute_id)
     if definition is None or "sheet" not in definition.subject_types:
         raise ValueError(f"Sheet Attribute '{attribute_id}' does not exist.")
-    if AMOUNT_OF_REACTIONS_ATTRIBUTE_ID not in sheet.attributes:
+    if attribute_id not in sheet.attributes and definition.required:
         synchronize_required_sheet_attributes(sheet)
     bridge = sheet.attributes.get(attribute_id)
     if bridge is None:
@@ -314,7 +322,7 @@ def _required_instance_and_definition(
     definition = state.attributes.get(attribute_id)
     if definition is None or "sheet" not in definition.subject_types:
         raise ValueError(f"Sheet Attribute '{attribute_id}' does not exist.")
-    if AMOUNT_OF_REACTIONS_ATTRIBUTE_ID not in instance.attributes:
+    if attribute_id not in instance.attributes and definition.required:
         synchronize_required_sheet_attributes(instance)
     bridge = instance.attributes.get(attribute_id)
     if bridge is None:
@@ -508,6 +516,14 @@ def validate_and_evaluate_sheet_attributes(
     validate_sheet_formula_dependencies(sheet)
     synchronize_all_sheet_attributes(sheet)
     require_valid_subject_attribute_evaluation(sheet, attribute_ids)
+    level = sheet.attributes[LEVEL_ATTRIBUTE_ID].evaluated_value
+    if (
+        not isinstance(level, (int, float))
+        or isinstance(level, bool)
+        or level < 1
+        or int(level) != level
+    ):
+        raise ValueError("Level must resolve to a positive whole number.")
 
 
 def validate_and_evaluate_subject_attributes(subject: object) -> None:

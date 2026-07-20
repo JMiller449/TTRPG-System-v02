@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { KillEditor } from "@/features/xp/components/KillEditor";
-import { PartyEditor } from "@/features/xp/components/PartyEditor";
+import { PartyFolderWorkspace } from "@/features/xp/components/PartyFolderWorkspace";
 import { XpNumberEditor } from "@/features/xp/XpNumberEditor";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
@@ -18,6 +18,7 @@ import {
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 type XpView = "parties" | "registry" | "progress";
 
@@ -57,9 +58,6 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const playerSheets = useMemo(
     () => sheetOrder.map((id) => sheets[id]).filter((sheet) => sheet && !sheet.dm_only),
     [sheetOrder, sheets]
-  );
-  const unavailablePartyMembers = new Set(
-    xpTracker?.parties.flatMap((party) => party.members.map((member) => member.instance_id)) ?? []
   );
   const selectedParty = xpTracker?.parties.find((party) =>
     party.members.some((member) => member.instance_id === creditedInstanceId)
@@ -127,7 +125,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               setNewPartyName("");
             }}
           >
-            <Field label="New party">
+            <Field label="New party folder">
               <input
                 value={newPartyName}
                 onChange={(event) => setNewPartyName(event.target.value)}
@@ -138,21 +136,14 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               type="submit"
               disabled={!newPartyName.trim()}
             >
-              Create Party
+              Create Party Folder
             </button>
           </form>
-          {xpTracker.parties.length === 0 ? <EmptyState message="No active parties." /> : null}
-          <div className="xp-party-list">
-            {xpTracker.parties.map((party) => (
-              <PartyEditor
-                key={party.id}
-                party={party}
-                characters={characters}
-                unavailableIds={unavailablePartyMembers}
-                client={client}
-              />
-            ))}
-          </div>
+          <PartyFolderWorkspace
+            parties={xpTracker.parties}
+            characters={characters}
+            client={client}
+          />
         </div>
       ) : null}
 
@@ -283,12 +274,22 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                     <button
                       className="button button--danger"
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        if (
+                          !confirmDestructiveAction({
+                            action: "Delete",
+                            subject: `${kill.monster_name} kill record`,
+                            consequence:
+                              "This permanently removes the kill and its XP awards from every participant."
+                          })
+                        ) {
+                          return;
+                        }
                         client.sendProtocolRequest(
                           buildDeleteKillRequest({ killId: kill.id }),
                           `Delete kill: ${kill.monster_name}`
-                        )
-                      }
+                        );
+                      }}
                     >
                       Delete
                     </button>
@@ -398,12 +399,22 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                 <button
                   className="button button--danger"
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (
+                      !confirmDestructiveAction({
+                        action: "Delete",
+                        subject: `${adjustment.instance_name} XP adjustment`,
+                        consequence:
+                          "This permanently removes the adjustment and recalculates the character's XP."
+                      })
+                    ) {
+                      return;
+                    }
                     client.sendProtocolRequest(
                       buildDeleteXpAdjustmentRequest({ adjustmentId: adjustment.id }),
                       "Delete XP adjustment"
-                    )
-                  }
+                    );
+                  }}
                 >
                   Delete
                 </button>

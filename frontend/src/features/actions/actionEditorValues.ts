@@ -31,6 +31,11 @@ export type GainProficiencyUseEditorStep = Extract<
   ActionEditorStep,
   { type: "gain_proficiency_use" }
 >;
+export type ProficiencyTrainingReference = NonNullable<
+  GainProficiencyUseEditorStep["proficiency_reference"]
+>;
+
+const DYNAMIC_PROFICIENCY_ID = "__dynamic_proficiency__";
 
 export interface ActionEditorValues {
   name: string;
@@ -131,6 +136,22 @@ export function getActionEditorValidationError(
     }
     if (step.rolls.some((roll) => !roll.label.trim())) {
       return "Roll result labels are required.";
+    }
+  }
+  for (const step of values.steps) {
+    if (step.type !== "gain_proficiency_use") {
+      continue;
+    }
+    const reference = step.proficiency_reference ?? "explicit";
+    if (
+      reference === "explicit" &&
+      (!step.proficiency_id ||
+        (context.proficiencies !== undefined && !context.proficiencies[step.proficiency_id]))
+    ) {
+      return `Proficiency training step '${step.step_id}' must reference an existing proficiency.`;
+    }
+    if (reference === "action_attribute" && !values.attributes.action_proficiency) {
+      return `Proficiency training step '${step.step_id}' requires the Action Proficiency Attribute.`;
     }
   }
   for (const [attributeId, bridge] of Object.entries(values.attributes)) {
@@ -361,7 +382,7 @@ export function createApplyConditionPresetActionStep(
 
 export function createGainProficiencyUseActionStep(
   stepId: string,
-  proficiencyId: string,
+  proficiencyId = "",
   amountText = "1"
 ): GainProficiencyUseEditorStep {
   return {
@@ -369,6 +390,7 @@ export function createGainProficiencyUseActionStep(
     type: "gain_proficiency_use",
     target: "caster",
     proficiency_id: proficiencyId,
+    proficiency_reference: "explicit",
     amount: {
       aliases: null,
       text: amountText
@@ -853,27 +875,39 @@ export function updateGainProficiencyUseActionStep(
   stepId: string,
   updates: {
     proficiencyId?: string;
+    proficiencyReference?: ProficiencyTrainingReference;
     amountText?: string;
   }
 ): ActionEditorValues {
   const nextValues = cloneActionEditorValues(values);
   return {
     ...nextValues,
-    steps: nextValues.steps.map((step) =>
-      step.step_id === stepId && step.type === "gain_proficiency_use"
-        ? {
-            ...step,
-            proficiency_id: updates.proficiencyId ?? step.proficiency_id,
-            amount: isInlineFormula(step.amount)
-              ? {
-                  ...step.amount,
-                  aliases: step.amount.aliases,
-                  text: updates.amountText ?? step.amount.text
-                }
-              : step.amount
-          }
-        : step
-    )
+    steps: nextValues.steps.map((step) => {
+      if (step.step_id !== stepId || step.type !== "gain_proficiency_use") {
+        return step;
+      }
+      const currentReference = step.proficiency_reference ?? "explicit";
+      const proficiencyReference = updates.proficiencyReference ?? currentReference;
+      const proficiencyId =
+        updates.proficiencyId ??
+        (updates.proficiencyReference === undefined
+          ? step.proficiency_id
+          : proficiencyReference === "explicit"
+            ? ""
+            : DYNAMIC_PROFICIENCY_ID);
+      return {
+        ...step,
+        proficiency_id: proficiencyId,
+        proficiency_reference: proficiencyReference,
+        amount: isInlineFormula(step.amount)
+          ? {
+              ...step.amount,
+              aliases: step.amount.aliases,
+              text: updates.amountText ?? step.amount.text
+            }
+          : step.amount
+      };
+    })
   };
 }
 

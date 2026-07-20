@@ -4,6 +4,7 @@ import type {
   ItemEditorValues
 } from "@/features/items/itemEditorValues";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 function actionSectionTitle(interactionType: ItemInteractionType): string {
@@ -103,12 +104,22 @@ export function ItemActionGrantEditor({
           <button
             className="button button--secondary item-action-row__remove"
             type="button"
-            onClick={() =>
+            onClick={() => {
+              const action = actions.find((candidate) => candidate.id === grant.actionId);
+              if (
+                !confirmDestructiveAction({
+                  action: "Remove",
+                  subject: action?.name || grant.actionId || "unselected action grant",
+                  consequence: "This removes the action grant from the item draft when you save it."
+                })
+              ) {
+                return;
+              }
               onChange({
                 ...values,
                 actionGrants: values.actionGrants.filter((_, grantIndex) => grantIndex !== index)
-              })
-            }
+              });
+            }}
           >
             Remove
           </button>

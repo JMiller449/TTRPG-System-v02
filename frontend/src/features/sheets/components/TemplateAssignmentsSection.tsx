@@ -7,6 +7,7 @@ import type {
   TemplateProficiencyAssignment
 } from "@/features/sheets/templateEditorTypes";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { SearchPopoverPicker } from "@/shared/ui/SearchPopoverPicker";
 import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
 import { makeId } from "@/shared/utils/id";
@@ -131,14 +132,24 @@ export function TemplateActionsSection({
                 <button
                   type="button"
                   className="button button--secondary"
-                  onClick={() =>
+                  onClick={() => {
+                    if (
+                      !confirmDestructiveAction({
+                        action: "Remove",
+                        subject: action?.name ?? entry.actionId,
+                        consequence:
+                          "This removes the action from the template draft when you save it."
+                      })
+                    ) {
+                      return;
+                    }
                     onChange({
                       ...values,
                       actions: values.actions.filter(
                         (candidate) => candidate.relationshipId !== entry.relationshipId
                       )
-                    })
-                  }
+                    });
+                  }}
                 >
                   Remove
                 </button>
@@ -286,14 +297,24 @@ export function TemplateProficienciesSection({
                 <button
                   type="button"
                   className="button button--secondary"
-                  onClick={() =>
+                  onClick={() => {
+                    if (
+                      !confirmDestructiveAction({
+                        action: "Remove",
+                        subject: proficiency?.name ?? entry.proficiencyId,
+                        consequence:
+                          "This removes the proficiency assignment from the template draft when you save it."
+                      })
+                    ) {
+                      return;
+                    }
                     onChange({
                       ...values,
                       proficiencies: values.proficiencies.filter(
                         (candidate) => candidate.relationshipId !== entry.relationshipId
                       )
-                    })
-                  }
+                    });
+                  }}
                 >
                   Remove
                 </button>
@@ -437,14 +458,24 @@ export function TemplateInventorySection({
                 <button
                   type="button"
                   className="button button--secondary"
-                  onClick={() =>
+                  onClick={() => {
+                    if (
+                      !confirmDestructiveAction({
+                        action: "Remove",
+                        subject: item?.name ?? entry.itemId,
+                        consequence:
+                          "This removes the starting inventory assignment from the template draft when you save it."
+                      })
+                    ) {
+                      return;
+                    }
                     onChange({
                       ...values,
                       items: values.items.filter(
                         (candidate) => candidate.relationshipId !== entry.relationshipId
                       )
-                    })
-                  }
+                    });
+                  }}
                 >
                   Remove
                 </button>

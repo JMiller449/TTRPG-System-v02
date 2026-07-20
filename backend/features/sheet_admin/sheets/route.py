@@ -31,6 +31,7 @@ from backend.features.sheet_admin.sheets.schema import (
     DeleteInstancedSheetProficiencyBridge,
     MoveInstancedSheetItem,
     SetInstancedSheetNotes,
+    SetInstancedSheetProfile,
     SetInstancedSheetResource,
     SetSheetNotes,
     UpdateSheetActionBridge,
@@ -128,6 +129,29 @@ class SetInstancedSheetNotesRoute(RequestRoute[SetInstancedSheetNotes]):
             request.instance_id,
         )
         await service.set_instanced_sheet_notes(request)
+
+
+class SetInstancedSheetProfileRoute(RequestRoute[SetInstancedSheetProfile]):
+    type_name = "set_instanced_sheet_profile"
+    request_model = SetInstancedSheetProfile
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("instance_profile_edit")
+    permission_denied_reason = permission_denied_reason("instance_profile_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceProfile",
+        method_name="setInstancedSheetProfile",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetInstancedSheetProfile,
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
+        await service.set_instanced_sheet_profile(request)
 
 
 class SetInstancedSheetResourceRoute(RequestRoute[SetInstancedSheetResource]):
@@ -623,6 +647,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(DeleteSheetRoute())
     registry.register(SetSheetNotesRoute())
     registry.register(SetInstancedSheetNotesRoute())
+    registry.register(SetInstancedSheetProfileRoute())
     registry.register(SetInstancedSheetResourceRoute())
     registry.register(AdjustInstancedSheetResourceRoute())
     registry.register(CreateInstancedSheetRoute())

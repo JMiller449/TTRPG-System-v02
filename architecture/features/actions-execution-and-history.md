@@ -53,11 +53,19 @@ emotes, narrative output, and advanced Roll20 commands.
 
 The frontend authoring surface is
 [`frontend/src/features/actions/`](../../frontend/src/features/actions/). The
-character action surface resolves direct assignments and eligible item grants
-into the same `perform_action` intent. Its execution controls collect both the
-compatible roll mode and a `public` or `gm` Roll20 visibility choice. Public is
-the request default for older clients; choosing GM affects only that invocation
-and does not rewrite the action definition.
+proficiency-use step exposes its target as an explicit proficiency, the
+action's canonical Proficiency Attribute, or the eligible source weapon's
+Proficiency Attribute. Explicit and action-attribute selections are validated
+against the current authoring state; weapon-derived selection is validated
+against the source item chosen at execution. Formula tags remain descriptive
+metadata and never create proficiency mutations without an authored
+`gain_proficiency_use` step.
+
+The character action surface resolves direct assignments and eligible item
+grants into the same `perform_action` intent. Its execution controls collect
+both the compatible roll mode and a `public` or `gm` Roll20 visibility choice.
+Public is the request default for older clients; choosing GM affects only that
+invocation and does not rewrite the action definition.
 
 Action create/update requests remain in the editor as correlated pending saves.
 The draft is retained if the server rejects the request. On success, the editor

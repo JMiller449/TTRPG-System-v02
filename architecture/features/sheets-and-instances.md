@@ -9,11 +9,11 @@ session-specific characters and enemies. Templates live in `State.sheets` as
 `parent_id`.
 
 [`backend/state/models/sheet.py`](../../backend/state/models/sheet.py) defines
-both shapes. A template owns authored name/visibility, notes, XP metadata,
-stats, resource-maximum formulas, resistances, attributes, action bridges,
+both shapes. A template owns authored name/visibility, notes, character profile,
+XP metadata, stats, resource-maximum formulas, resistances, attributes, action bridges,
 proficiency bridges, and starting item bridges. An instance owns the copied
 runtime versions of stats, formulas, resistances, attributes, actions,
-proficiencies, and inventory plus current health, mana, notes, unassigned stat
+proficiencies, and inventory plus current health, mana, notes, character profile, unassigned stat
 points, permanent stat bonuses, and active augmentation bridges.
 
 The current persisted model distinguishes player-facing versus GM-only
@@ -49,6 +49,20 @@ sibling instances. When values such as current HP, current mana, or
 resistances are not supplied, the backend evaluates and copies valid defaults
 from the template.
 
+Level remains the required backend-owned `level` Attribute throughout this
+lifecycle. Template validation attaches it when omitted, spawning deep-copies
+it, instance edits patch that one bridge, and snapshot creation copies the
+instance's current value back into the new template. Load synchronization and
+schema migration attach a default Level 1 only when an existing template or
+instance has no Level bridge, preserving authored values.
+
+Character profiles are structured, non-mechanical flavor text. They include
+species, background, alignment, pronouns, age, height, weight, eyes, skin,
+hair, appearance, personality traits, ideals, bonds, flaws, allies and
+organizations, and free-form backstory. Height and weight intentionally remain
+text and do not participate in inventory weight or formulas. A template profile
+is copied into each new instance; later instance edits are independent.
+
 Encounter presets use the same pure instance builder for each requested copy,
 so count-based encounter spawning has the same field-copy and resource-default
 semantics without generating player access codes.
@@ -66,7 +80,7 @@ augmentations/effects/conditions, or other transient application state.
 
 DMs can edit spawned-sheet definitions and assignments through instance routes.
 Players can edit only explicitly allowed fields on their assigned character,
-including notes, current resources, allocated granted stat points, inventory
+including notes, character profile, current resources, allocated granted stat points, inventory
 operations, equipment, and action execution. Entity IDs in a player request are
 validated against the current session assignment.
 
@@ -82,6 +96,19 @@ The shared character display is implemented by
 [`PlayerCharacterSheet.tsx`](../../frontend/src/features/sheets/PlayerCharacterSheet.tsx),
 and focused sections under `components/`. GM and player views share
 authoritative rendering while controls differ by role.
+
+The shared character display exposes the profile through a dedicated
+Backstory tab. Both a DM and the assigned player submit the complete profile
+through `set_instanced_sheet_profile`; backend instance-access validation is
+the authorization boundary. Template profiles are authored through the DM-only
+template builder. Snapshotting an evolved instance into a template copies its
+current profile along with its other durable character structure.
+
+Both character views display Level beside the XP projection. Player display is
+read-only; the GM view provides the explicit editor and submits through the
+DM-only instanced-sheet Attribute mutation. XP remains independently derived,
+and neither XP readiness nor a Level edit performs automatic advancement or
+stat distribution.
 
 ## Deletion and dependencies
 

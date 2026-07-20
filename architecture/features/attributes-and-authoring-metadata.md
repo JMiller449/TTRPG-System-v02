@@ -22,10 +22,13 @@ owning sheet, instance, item, or action.
 
 ## Backend-owned and authored definitions
 
-The backend seeds required definitions, including Amount of Reactions and the
-weapon attribute profile. It also supplies optional standard sheet, item, and
-action definitions. Required/backend-owned definitions cannot be changed in a
-way that breaks their mechanical contract.
+The backend seeds required definitions, including Amount of Reactions, the
+canonical sheet Level, and the weapon attribute profile. It also supplies
+optional standard sheet, item, and action definitions. Required/backend-owned
+definitions cannot be changed in a way that breaks their mechanical contract.
+Level is attached to every template and spawned instance with a default of 1;
+existing authored Level values are preserved during synchronization and
+migration. A Level write must resolve to a positive whole number.
 
 DMs can create campaign definitions for supported subjects and attach, detach,
 set, or reset values through typed routes in
@@ -49,12 +52,24 @@ Actions and item effects may read evaluated attributes during formula
 execution. Source-item attribute access requires an explicit source inventory
 relationship when more than one owned copy could satisfy the action.
 
+The action-formula authoring catalog also exposes every visible numeric sheet
+Attribute definition as `sheet.attributes.<attribute_id>`. Its generated,
+read-only `@sheet_attribute_*` shortcut is stable even when an Attribute ID is
+not itself a valid formula identifier. During character execution these paths
+read the acting spawned instance's stored evaluated bridge value. They do not
+fall back to the parent template when the bridge is detached or invalid;
+missing definitions, wrong subject/value types, evaluation errors, nonnumeric
+results, and role-inaccessible definitions are rejected before formula
+expansion.
+
 ## Visibility and redaction
 
 Definitions can be public or `gm_only`. Player snapshots remove GM-only
 definitions and their bridges. Item and action payload redaction also removes
 GM-only attached values. Frontend visibility is not the protection boundary;
-the state-sync service performs the filtering before data is sent.
+the state-sync service performs the filtering before data is sent. Formula
+metadata and runtime Attribute resolution apply the same visibility boundary,
+so a player cannot execute an authored alias that reads a GM-only Attribute.
 
 ## Frontend authoring
 
@@ -62,6 +77,11 @@ the state-sync service performs the filtering before data is sent.
 contains definition authoring, typed value editors, subject attachment, and
 formula-variable selection. Template, item, and action editors reuse those
 components rather than maintaining feature-specific value models.
+
+The shared character sheet promotes the same canonical Level bridge beside
+identity and XP. Players receive a read-only value. The GM control writes a
+literal through the existing DM-only instanced-sheet Attribute route, so the
+header does not introduce a second Level field or client-owned state.
 
 Authoring variable metadata comes from backend routes in the variable registry
 feature. Formula fields present that metadata through cursor-aware `@`

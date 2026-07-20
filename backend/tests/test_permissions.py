@@ -91,6 +91,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "save_xp_adjustment": "dm",
     "send_roll20_chat_message": "player",
     "set_instanced_sheet_notes": "player",
+    "set_instanced_sheet_profile": "player",
     "set_instanced_sheet_base_stat": "dm",
     "set_instanced_sheet_attribute_value": "dm",
     "set_instanced_sheet_formula_stat": "dm",
@@ -152,6 +153,7 @@ EXPECTED_CUSTOM_DENIAL_REASONS = {
     "record_player_kill": "This request requires an authenticated player session.",
     "remove_item_augmentation_template": "Only a DM can edit equipment.",
     "set_instanced_sheet_notes": "Authenticate first to edit instance notes.",
+    "set_instanced_sheet_profile": "Authenticate first to edit a character profile.",
     "set_instanced_sheet_base_stat": "Only a DM can edit sheet stats.",
     "set_instanced_sheet_formula_stat": "Only a DM can edit sheet stats.",
     "set_instanced_sheet_item_equipped": "Authenticate first to equip character items.",
@@ -179,6 +181,7 @@ def _session(role: SessionRole) -> WebSocketSession:
 def test_permission_policy_defines_edit_and_execution_roles() -> None:
     assert permission_allowed_roles("notes_edit") == ("dm",)
     assert permission_allowed_roles("instance_notes_edit") == ("player", "dm")
+    assert permission_allowed_roles("instance_profile_edit") == ("player", "dm")
     assert permission_allowed_roles("equipment_edit") == ("dm",)
     assert permission_allowed_roles("proficiency_edit") == ("dm",)
     assert permission_allowed_roles("stat_edit") == ("dm",)
@@ -187,6 +190,7 @@ def test_permission_policy_defines_edit_and_execution_roles() -> None:
 
     assert permission_minimum_role("notes_edit") == "dm"
     assert permission_minimum_role("instance_notes_edit") == "player"
+    assert permission_minimum_role("instance_profile_edit") == "player"
     assert permission_minimum_role("equipment_edit") == "dm"
     assert permission_minimum_role("proficiency_edit") == "dm"
     assert permission_minimum_role("stat_edit") == "dm"
@@ -205,8 +209,10 @@ def test_permission_policy_rejects_unauthenticated_and_disallowed_roles() -> Non
     assert can_role("player", "action_execute")
     assert can_role("player", "resource_edit")
     assert can_role("player", "instance_notes_edit")
+    assert can_role("player", "instance_profile_edit")
     assert can_role("dm", "notes_edit")
     assert can_role("dm", "instance_notes_edit")
+    assert can_role("dm", "instance_profile_edit")
     assert can_role("dm", "equipment_edit")
     assert can_role("dm", "proficiency_edit")
     assert can_role("dm", "stat_edit")
@@ -219,6 +225,10 @@ def test_permission_policy_exposes_specific_denial_reasons() -> None:
     assert (
         permission_denied_reason("instance_notes_edit")
         == "Authenticate first to edit instance notes."
+    )
+    assert (
+        permission_denied_reason("instance_profile_edit")
+        == "Authenticate first to edit a character profile."
     )
     assert permission_denied_reason("equipment_edit") == "Only a DM can edit equipment."
     assert (

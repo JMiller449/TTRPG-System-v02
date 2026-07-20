@@ -5,6 +5,7 @@ from math import isfinite
 from typing import Dict
 
 from backend.state.models.attribute import AttributeBridge
+from backend.state.models.character_profile import CharacterProfile
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -39,6 +40,7 @@ class Sheet:
     stats: Stats
     resistances: Resistances
     actions: Dict[str, Bridge]
+    profile: CharacterProfile = field(default_factory=CharacterProfile)
     attributes: Dict[str, AttributeBridge] = field(default_factory=dict)
     racial_hp_multiplier: float = 1.0
     max_health: Formula = field(default_factory=default_max_health_formula)
@@ -69,6 +71,7 @@ class Sheet:
                 key: Bridge.from_dict(bridge)
                 for key, bridge in raw.get("actions", {}).items()
             },
+            profile=CharacterProfile.from_dict(raw.get("profile")),
             attributes={
                 key: AttributeBridge.from_dict(bridge)
                 for key, bridge in raw_attributes.items()
@@ -102,6 +105,7 @@ class InstancedSheet:
     resistances: Resistances
     augments: Dict[str, Bridge]  # TODO add augments dict
     stats: Stats | None = None
+    profile: CharacterProfile = field(default_factory=CharacterProfile)
     items: Dict[str, ItemBridge] = field(default_factory=dict)
     proficiencies: Dict[str, ProficiencyBridge] = field(default_factory=dict)
     actions: Dict[str, Bridge] = field(default_factory=dict)
@@ -192,6 +196,13 @@ class InstancedSheet:
                 for key, bridge in raw.get("augments", {}).items()
             },
             stats=stats,
+            profile=(
+                CharacterProfile.from_dict(raw["profile"])
+                if raw.get("profile") is not None
+                else deepcopy(template.profile)
+                if template is not None
+                else CharacterProfile()
+            ),
             items=items,
             proficiencies=proficiencies,
             actions=actions,

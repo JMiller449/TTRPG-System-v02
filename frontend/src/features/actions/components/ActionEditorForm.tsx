@@ -29,6 +29,7 @@ import {
   updateSendMessageActionStepFormula,
   updateSendRollActionStep,
   type ActionEditorValues,
+  type ProficiencyTrainingReference,
   type ResolveDamageEditorStep
 } from "@/features/actions/actionEditorValues";
 import {
@@ -749,6 +750,34 @@ export function ActionEditorForm({
                     ) : step.type === "gain_proficiency_use" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
+                          <Field label={`Training Target: ${step.step_id}`}>
+                            <select
+                              value={step.proficiency_reference ?? "explicit"}
+                              onChange={(event) => {
+                                const proficiencyReference = event.target
+                                  .value as ProficiencyTrainingReference;
+                                const currentProficiencyIsAvailable = proficiencies.some(
+                                  (proficiency) => proficiency.id === step.proficiency_id
+                                );
+                                onChange(
+                                  updateGainProficiencyUseActionStep(values, step.step_id, {
+                                    proficiencyReference,
+                                    ...(proficiencyReference === "explicit"
+                                      ? {
+                                          proficiencyId: currentProficiencyIsAvailable
+                                            ? step.proficiency_id
+                                            : defaultProficiencyId
+                                        }
+                                      : {})
+                                  })
+                                );
+                              }}
+                            >
+                              <option value="explicit">Explicit proficiency</option>
+                              <option value="action_attribute">Action Proficiency Attribute</option>
+                              <option value="source_item_weapon">Source weapon proficiency</option>
+                            </select>
+                          </Field>
                           {(step.proficiency_reference ?? "explicit") === "explicit" ? (
                             <Field label={`Proficiency: ${step.step_id}`}>
                               <select
@@ -761,9 +790,11 @@ export function ActionEditorForm({
                                   )
                                 }
                               >
-                                {proficiencies.some(
-                                  (proficiency) => proficiency.id === step.proficiency_id
-                                ) ? null : (
+                                {!step.proficiency_id ? (
+                                  <option value="">Choose a proficiency</option>
+                                ) : proficiencies.some(
+                                    (proficiency) => proficiency.id === step.proficiency_id
+                                  ) ? null : (
                                   <option value={step.proficiency_id}>{step.proficiency_id}</option>
                                 )}
                                 {proficiencies.map((proficiency) => (
@@ -776,8 +807,8 @@ export function ActionEditorForm({
                           ) : (
                             <p className="muted">
                               {(step.proficiency_reference ?? "explicit") === "action_attribute"
-                                ? "Trains the proficiency selected by this action."
-                                : "Trains the selected weapon's proficiency."}
+                                ? "Uses this action's canonical Proficiency Attribute."
+                                : "Requires an eligible source weapon when the action executes."}
                             </p>
                           )}
                           {formulaSourcePicker(step.step_id, step.amount, {

@@ -57,6 +57,7 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "SetInstancedSheetUnassignedStatPoints",
         "AllocateInstancedSheetStatPoints",
         "SetInstancedSheetNotes",
+        "SetInstancedSheetProfile",
         "SetInstancedSheetResource",
         "AdjustInstancedSheetResource",
         "CreateSheetActionBridge",
@@ -433,6 +434,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["set_instanced_sheet_notes"].minimum_role == "player"
     assert contracts["set_instanced_sheet_notes"].emitted_event_models == (
+        StatePatchEvent,
+    )
+    assert contracts["set_instanced_sheet_profile"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceProfile",
+            method_name="setInstancedSheetProfile",
+        )
+    )
+    assert contracts["set_instanced_sheet_profile"].minimum_role == "player"
+    assert contracts["set_instanced_sheet_profile"].emitted_event_models == (
         StatePatchEvent,
     )
     assert contracts["set_instanced_sheet_resource"].client_generation == (

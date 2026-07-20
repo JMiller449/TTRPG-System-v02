@@ -17,6 +17,7 @@ import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/ac
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -68,6 +69,16 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
   };
 
   const deleteFormula = (formulaId: string): void => {
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: formulaId,
+        consequence:
+          "This permanently deletes the formula definition. Existing dependency checks still apply."
+      })
+    ) {
+      return;
+    }
     const submission = buildDeleteFormulaSubmission(formulaId, formulaRecords[formulaId]);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingFormulaId === formulaId) {

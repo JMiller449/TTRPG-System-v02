@@ -37,6 +37,19 @@ const metadata: ActionFormulaAuthoringMetadata = {
       action_mutation_allowed: false
     },
     {
+      key: "template.stats.arcane",
+      label: "Template Arcane",
+      root: "template",
+      path: ["stats", "arcane"],
+      value_type: "number",
+      editable_roles: [],
+      formula_backed: false,
+      description: "Parent-template value.",
+      shortcuts: ["template_arc", "template_arcane"],
+      formula_reference_allowed: true,
+      action_mutation_allowed: false
+    },
+    {
       key: "instance.mana",
       label: "Current Mana",
       root: "instance",
@@ -50,7 +63,7 @@ const metadata: ActionFormulaAuthoringMetadata = {
       action_mutation_allowed: true
     }
   ],
-  formula_roots: ["sheet", "instance"],
+  formula_roots: ["sheet", "template", "instance"],
   action_mutation_roots: ["sheet", "instance"],
   formula_aliases: [],
   action_steps: [],
@@ -62,8 +75,11 @@ describe("variablePicker", () => {
   it("builds formula entries with tokens and alias paths", () => {
     const entries = buildVariablePickerEntries(metadata, "formula");
     const arcane = entries.find((entry) => entry.key === "sheet.stats.arcane");
+    const templateArcane = entries.find(
+      (entry) => entry.key === "template.stats.arcane"
+    );
 
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(4);
     expect(arcane).toMatchObject({
       label: "Arcane",
       token: "@arc",
@@ -73,6 +89,15 @@ describe("variablePicker", () => {
       }
     });
     expect(variablePathLabel(arcane!)).toBe("sheet.stats.arcane");
+    expect(templateArcane).toMatchObject({
+      label: "Template Arcane",
+      token: "@template_arc",
+      alias: {
+        name: "template_arc",
+        path: ["template", "stats", "arcane"]
+      },
+      actionMutationAllowed: false
+    });
   });
 
   it("builds Action Attribute and explicit source-item formula roots", () => {
@@ -80,6 +105,19 @@ describe("variablePicker", () => {
       ...metadata,
       variables: [
         ...metadata.variables,
+        {
+          key: "sheet.attributes.level",
+          label: "Character Attribute: Level",
+          root: "sheet",
+          path: ["attributes", "level"],
+          value_type: "number",
+          editable_roles: [],
+          formula_backed: false,
+          description: "Evaluated Attribute on the acting character instance.",
+          shortcuts: ["sheet_attribute_level"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: false
+        },
         {
           key: "action.attributes.action_base_spell_damage",
           label: "Action: Base Spell Damage",
@@ -107,11 +145,21 @@ describe("variablePicker", () => {
           action_mutation_allowed: false
         }
       ],
-      formula_roots: ["sheet", "instance", "action", "source_item"]
+      formula_roots: ["sheet", "template", "instance", "action", "source_item"]
     };
 
     const entries = buildVariablePickerEntries(attributeMetadata, "formula");
 
+    expect(
+      entries.find((entry) => entry.key === "sheet.attributes.level")
+    ).toMatchObject({
+      token: "@sheet_attribute_level",
+      alias: {
+        name: "sheet_attribute_level",
+        path: ["sheet", "attributes", "level"]
+      },
+      actionMutationAllowed: false
+    });
     expect(
       entries.find((entry) => entry.key === "action.attributes.action_base_spell_damage")
         ?.alias
@@ -141,7 +189,8 @@ describe("variablePicker", () => {
       "instance.mana"
     ]);
     expect(filterVariablePickerEntries(entries, "stats.arcane").map((entry) => entry.key)).toEqual([
-      "sheet.stats.arcane"
+      "sheet.stats.arcane",
+      "template.stats.arcane"
     ]);
   });
 

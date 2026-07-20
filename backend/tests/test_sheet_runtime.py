@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from backend.features.chat import service as chat_service
 from backend.features.sheet_runtime.schema import PerformAction
 from backend.features.sheet_runtime.service import (
+    RuntimeFormulaContext,
     _apply_roll_mode_to_message,
     _apply_roll20_message_visibility,
     _compose_roll20_template_roll,
@@ -20,7 +21,13 @@ from backend.state.models.action import Action, RollResult, SendRollStep
 from backend.state.models.formula import Formula
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.formula import FormulaDefinition
-from backend.state.models.attribute import synchronize_required_sheet_attributes
+from backend.state.models.attribute import (
+    AttributeBridge,
+    AttributeDefinition,
+    AttributeValue,
+    synchronize_all_sheet_attributes,
+    synchronize_required_sheet_attributes,
+)
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -772,6 +779,326 @@ def test_perform_action_resolves_current_global_formula_by_id(monkeypatch) -> No
     asyncio.run(scenario())
 
 
+def test_perform_action_sheet_variables_use_instance_and_template_root_is_explicit(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            instance = _build_instance_state(state.sheets["mage_template"])
+            assert instance.stats is not None
+            instance.stats.arcane = 21
+            state.instanced_sheets["mage_instance"] = instance
+            state.actions["arcane_roots"] = Action.from_dict(
+                {
+                    "id": "arcane_roots",
+                    "name": "Arcane Roots",
+                    "steps": [
+                        {
+                            "step_id": "current-roll",
+                            "type": "send_roll",
+                            "title": "Arcane Variables",
+                            "presentation": "default",
+                            "rolls": [
+                                {
+                                    "label": "Arc shortcut",
+                                    "value": _formula_payload(
+                                        "1 + @arc",
+                                        [
+                                            {
+                                                "name": "arc",
+                                                "path": ["sheet", "stats", "arcane"],
+                                            }
+                                        ],
+                                    ),
+                                },
+                                {
+                                    "label": "Current Arcane",
+                                    "value": _formula_payload(
+                                        "1 + @arcane",
+                                        [
+                                            {
+                                                "name": "arcane",
+                                                "path": ["instance", "stats", "arcane"],
+                                            }
+                                        ],
+                                    ),
+                                },
+                            ],
+                        },
+                        {
+                            "step_id": "template-note",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Template Arcane is @template_arc",
+                                [
+                                    {
+                                        "name": "template_arc",
+                                        "path": ["template", "stats", "arcane"],
+                                    }
+                                ],
+                            ),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "arcane_roots",
+                },
+            )
+
+            messages = [message["message"] for message in bridge_socket.sent_messages]
+            assert "{{Arc shortcut=[[1 + (21)]]}}" in messages[0]
+            assert "{{Current Arcane=[[1 + (21)]]}}" in messages[0]
+            assert messages[1] == "Template Arcane is (14)"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_sheet_attribute_uses_current_instance_evaluated_value(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            template.attributes["level"] = AttributeBridge(
+                relationship_id="template-level",
+                attribute_id="level",
+                value=AttributeValue(type="number", value=2),
+            )
+            synchronize_all_sheet_attributes(template)
+            state.sheets["mage_template"] = template
+            instance = _build_instance_state(template)
+            instance.attributes["level"].value = AttributeValue(type="number", value=7)
+            synchronize_all_sheet_attributes(instance)
+            state.instanced_sheets["mage_instance"] = instance
+            state.actions["show_level"] = Action.from_dict(
+                {
+                    "id": "show_level",
+                    "name": "Show Level",
+                    "steps": [
+                        {
+                            "step_id": "message",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Current level is @sheet_attribute_level",
+                                [
+                                    {
+                                        "name": "sheet_attribute_level",
+                                        "path": ["sheet", "attributes", "level"],
+                                    }
+                                ],
+                            ),
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            websocket = FakeWebSocket()
+            bridge_socket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await chat_service.roll20_chat_bridge.connect(bridge_socket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "show_level",
+                },
+            )
+
+            assert [message["message"] for message in bridge_socket.sent_messages] == [
+                "Current level is (7)"
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_runtime_sheet_attribute_aliases_reject_invalid_or_inaccessible_values() -> None:
+    def attribute_formula(alias_name: str, attribute_id: str) -> Formula:
+        return Formula.from_dict(
+            {
+                "text": f"@{alias_name}",
+                "aliases": [
+                    {
+                        "name": alias_name,
+                        "path": ["sheet", "attributes", attribute_id],
+                    }
+                ],
+            }
+        )
+
+    state = deepcopy(DEFAULT_STATE)
+    template = _build_sheet_state()
+    template.attributes["level"] = AttributeBridge(
+        relationship_id="template-level",
+        attribute_id="level",
+        value=AttributeValue(type="number", value=2),
+        evaluated_value=2,
+    )
+    instance = _build_instance_state(template)
+    instance.attributes.pop("level")
+    action = Action.from_dict({"id": "noop", "name": "Noop", "steps": []})
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+
+    with pytest.raises(ValueError, match="not attached to the current sheet"):
+        context.validate_formula(
+            state,
+            attribute_formula("sheet_attribute_level", "level"),
+        )
+
+    instance.attributes["level"] = AttributeBridge(
+        relationship_id="instance-level",
+        attribute_id="level",
+        value=AttributeValue(type="number", value=2),
+        evaluated_value=True,
+    )
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+    with pytest.raises(ValueError, match="evaluated value is not numeric"):
+        context.validate_formula(
+            state,
+            attribute_formula("sheet_attribute_level", "level"),
+        )
+
+    instance.attributes["level"].evaluated_value = None
+    instance.attributes["level"].evaluation_error = "broken dependency"
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+    with pytest.raises(ValueError, match="invalid Attribute 'level': broken dependency"):
+        context.validate_formula(
+            state,
+            attribute_formula("sheet_attribute_level", "level"),
+        )
+
+    instance.attributes["missing_definition"] = AttributeBridge(
+        relationship_id="missing-definition",
+        attribute_id="missing_definition",
+        value=AttributeValue(type="number", value=3),
+        evaluated_value=3,
+    )
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+    with pytest.raises(ValueError, match="does not reference a numeric sheet Attribute"):
+        context.validate_formula(
+            state,
+            attribute_formula("missing", "missing_definition"),
+        )
+
+    state.attributes["sheet_note"] = AttributeDefinition(
+        id="sheet_note",
+        name="Sheet Note",
+        description="",
+        subject_types=["sheet"],
+        value_type="text",
+        default_value=AttributeValue(type="text", value=""),
+    )
+    instance.attributes["sheet_note"] = AttributeBridge(
+        relationship_id="sheet-note",
+        attribute_id="sheet_note",
+        value=AttributeValue(type="text", value="hello"),
+        evaluated_value="hello",
+    )
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+    with pytest.raises(ValueError, match="does not reference a numeric sheet Attribute"):
+        context.validate_formula(
+            state,
+            attribute_formula("sheet_note", "sheet_note"),
+        )
+
+    state.attributes["private_score"] = AttributeDefinition(
+        id="private_score",
+        name="Private Score",
+        description="",
+        subject_types=["sheet"],
+        value_type="number",
+        default_value=AttributeValue(type="number", value=1),
+        visibility="gm_only",
+    )
+    instance.attributes["private_score"] = AttributeBridge(
+        relationship_id="private-score",
+        attribute_id="private_score",
+        value=AttributeValue(type="number", value=9),
+        evaluated_value=9,
+    )
+    context = RuntimeFormulaContext(
+        template,
+        instance,
+        action,
+        None,
+        None,
+        state,
+        include_gm_only=False,
+    )
+    with pytest.raises(ValueError, match="inaccessible Attribute 'private_score'"):
+        context.validate_formula(
+            state,
+            attribute_formula("private", "private_score"),
+        )
+
+
 def test_perform_action_reuses_calculated_value_once_and_isolates_executions(
     monkeypatch,
 ) -> None:
@@ -1148,6 +1475,19 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
+            state.proficiencies["magic_prof"] = Proficiency(
+                id="magic_prof",
+                name="Magic",
+                description="Spell proficiency.",
+            )
+            state.sheets["mage_template"].proficiencies["magic"] = (
+                ProficiencyBridge(
+                    relationship_id="magic-training",
+                    prof_id="magic_prof",
+                    use_count=2,
+                    growth_rate=0.2,
+                )
+            )
             state.sheets["mage_template"].actions["cast"] = Bridge.from_dict(
                 {"relationship_id": "cast", "entry_id": "costly_cast"}
             )
@@ -1167,6 +1507,14 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
                             "amount": _formula_payload("8"),
                             "min_value": _formula_payload("0"),
                             "on_min_violation": "reject",
+                        },
+                        {
+                            "step_id": "training",
+                            "type": "gain_proficiency_use",
+                            "target": "caster",
+                            "proficiency_id": "magic_prof",
+                            "proficiency_reference": "explicit",
+                            "amount": _formula_payload("1"),
                         },
                         {
                             "step_id": "roll",
@@ -1197,6 +1545,12 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
             )
 
             assert state.instanced_sheets["mage_instance"].mana == 30
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 2
+            )
             assert state.action_history == {}
             assert _request_messages(player, "req-failed-cast") == [
                 {
@@ -3187,6 +3541,92 @@ def test_perform_action_rejects_incrementing_nonnumeric_instance_path(
                     "response_id": None,
                     "reason": "State path /instanced_sheets/mage_instance/parent_id is not numeric.",
                     "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_perform_action_gains_explicit_proficiency_use_once(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions["training"] = Bridge.from_dict(
+                {
+                    "relationship_id": "explicit-training-action",
+                    "entry_id": "explicit_training",
+                }
+            )
+            sheet.proficiencies["magic"] = ProficiencyBridge(
+                relationship_id="explicit-training-proficiency",
+                prof_id="magic_prof",
+                use_count=2,
+                growth_rate=0.2,
+            )
+            state.sheets["mage_template"] = sheet
+            state.proficiencies["magic_prof"] = Proficiency(
+                id="magic_prof",
+                name="Magic",
+                description="Spell proficiency.",
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
+            state.actions["explicit_training"] = Action.from_dict(
+                {
+                    "id": "explicit_training",
+                    "name": "Explicit Training",
+                    "steps": [
+                        {
+                            "step_id": "training",
+                            "type": "gain_proficiency_use",
+                            "target": "caster",
+                            "proficiency_id": "magic_prof",
+                            "proficiency_reference": "explicit",
+                            "amount": _formula_payload("2"),
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "explicit_training",
+                },
+            )
+
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 4
+            )
+            assert _request_messages(websocket) == [
+                {
+                    "response_id": None,
+                    "ops": [
+                        {
+                            "op": "inc",
+                            "path": (
+                                "/instanced_sheets/mage_instance/proficiencies/"
+                                "magic/use_count"
+                            ),
+                            "value": 2,
+                        }
+                    ],
+                    "state_version": 1,
+                    "type": "state_patch",
                     "request_id": "req-1",
                 }
             ]

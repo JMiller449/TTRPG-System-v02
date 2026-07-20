@@ -36,6 +36,20 @@ item relationship, action-scoped calculated values, global formula references,
 and matching evaluation-time or roll-mode effects. Tags and selectors let an
 effect target eligible formula evaluations without rewriting stored values.
 
+For action execution, the rooted `sheet` context means the acting sheet: it
+reads the spawned instance when a character instance is executing and falls
+back to the template only when no instance exists. The read-only `template`
+root explicitly addresses the parent template. This keeps ordinary aliases
+such as `@arc` aligned with character advancement while still allowing an
+author to deliberately select aliases such as `@template_arc`.
+
+Visible numeric sheet Attribute definitions join that catalog under
+`sheet.attributes.<attribute_id>` with stable `@sheet_attribute_*` shortcuts.
+They resolve only through the acting sheet or spawned instance's authoritative
+evaluated Attribute bridge. Runtime validation rejects missing, detached,
+nonnumeric, evaluation-failed, or role-inaccessible Attribute references
+instead of substituting the parent template's value or a definition default.
+
 Formula results used for persisted outcomes are normalized and validated on the
 backend. Roll20-bound formulas are composed into inline roll expressions where
 appropriate; the browser/Roll20 surface performs the visible dice roll, while

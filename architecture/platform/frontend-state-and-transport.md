@@ -80,6 +80,20 @@ console system. Feature styles may control presentation but must not encode
 gameplay truth. Interactive summary cards and editors retain keyboard and
 dismissal behavior tested at the component level.
 
+Destructive controls use the shared
+[`confirmDestructiveAction`](../../frontend/src/shared/ui/confirmDestructiveAction.ts)
+boundary before submitting a request or removing an assignment from a saved
+draft. Messages identify the affected entity and consequence. Cancelling leaves
+the local draft intact and sends no intent; accepting still relies on the
+backend's normal dependency, authorization, and state validation.
+
+The desktop console owns the viewport and gives navigation, panels, editors,
+and character destinations explicit internal scroll regions. On desktop-width
+viewports no taller than 900 CSS pixels, fixed shell and character-sheet chrome
+compacts so the active workspace retains useful height without introducing
+whole-page horizontal scrolling. Viewports at or below 960 CSS pixels continue
+to use the document-flow mobile layout instead of the fixed desktop shell.
+
 ## Principal tests
 
 - Transport and adapters are tested under

@@ -18,7 +18,7 @@ describe("actionStepMenu", () => {
     );
     expect(
       options.find((option) => option.type === "gain_proficiency_use")?.unavailableReason
-    ).toBe("no proficiencies authored");
+    ).toBeNull();
     expect(options.find((option) => option.type === "apply_augmentation")?.unavailableReason).toBe(
       "no standalone effects authored"
     );
@@ -73,14 +73,18 @@ describe("actionStepMenu", () => {
     });
   });
 
-  it("does not add a step when its dependency is unavailable", () => {
+  it("adds an incomplete explicit training step without authored proficiencies", () => {
     expect(
       addActionStepFromMenu({
         values: createEmptyActionEditorValues(),
         type: "gain_proficiency_use",
         stepId: "proficiency_1",
         dependencies: {}
-      })
-    ).toBeNull();
+      })?.steps[0]
+    ).toMatchObject({
+      type: "gain_proficiency_use",
+      proficiency_id: "",
+      proficiency_reference: "explicit"
+    });
   });
 });

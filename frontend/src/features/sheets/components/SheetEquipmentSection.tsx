@@ -8,6 +8,7 @@ import type {
 } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import {
   countItemEffectTypes,
   itemCarryStatus,
@@ -361,7 +362,19 @@ export function SheetEquipmentSection({
                     <button
                       type="button"
                       className="button button--secondary"
-                      onClick={() => onRemoveInventoryItem(entry.relationship_id)}
+                      onClick={() => {
+                        if (
+                          !confirmDestructiveAction({
+                            action: "Remove",
+                            subject: item.name,
+                            consequence:
+                              "This removes the inventory entry and its quantity from the selected character. Nonempty storage containers are still protected by backend validation."
+                          })
+                        ) {
+                          return;
+                        }
+                        onRemoveInventoryItem(entry.relationship_id);
+                      }}
                       aria-label={`Remove ${item.name} from inventory`}
                     >
                       Remove

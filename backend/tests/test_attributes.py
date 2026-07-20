@@ -2,11 +2,13 @@ import asyncio
 from copy import deepcopy
 
 from backend.features.state_sync.service import state_sync_service
+from backend.features.sheet_admin.sheets.service import build_instanced_sheet_from_template
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import synchronize_required_sheet_attributes
 from backend.state.models.action import Action
 from backend.state.models.item import Item
-from backend.state.models.sheet import Sheet
+from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -99,7 +101,7 @@ def test_required_amount_of_reactions_is_seeded_and_evaluated() -> None:
     assert bridge.evaluation_error is None
 
 
-def test_canonical_optional_sheet_attribute_definitions_are_seeded() -> None:
+def test_canonical_sheet_attribute_definitions_seed_required_level() -> None:
     state = deepcopy(DEFAULT_STATE)
     sheet = _sheet()
     synchronize_required_sheet_attributes(sheet)
@@ -115,9 +117,83 @@ def test_canonical_optional_sheet_attribute_definitions_are_seeded() -> None:
         assert definition.value_type == "number"
         assert definition.default_value.value == default_value
         assert definition.unit == unit
-        assert definition.required is False
+        assert definition.required is (attribute_id == "level")
         assert definition.backend_owned is True
-        assert attribute_id not in sheet.attributes
+        if attribute_id == "level":
+            assert sheet.attributes[attribute_id].evaluated_value == 1
+            assert sheet.attributes[attribute_id].relationship_id == "required_attribute_level"
+        else:
+            assert attribute_id not in sheet.attributes
+
+
+def test_state_construction_backfills_level_on_templates_and_instances() -> None:
+    template = _sheet()
+    instance = InstancedSheet.from_dict(
+        {
+            "parent_id": template.id,
+            "health": 10,
+            "mana": 10,
+            "attributes": {},
+        },
+        template=template,
+    )
+
+    state = State(
+        sheets={template.id: template},
+        instanced_sheets={f"{template.id}-1": instance},
+    )
+
+    assert state.sheets[template.id].attributes["level"].evaluated_value == 1
+    assert state.instanced_sheets[f"{template.id}-1"].attributes[
+        "level"
+    ].evaluated_value == 1
+
+
+def test_dm_can_edit_instance_level_and_player_cannot(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_with_sheet()
+            state = StateSingleton.getState()
+            template = state.sheets["mage"]
+            state.instanced_sheets["mage-1"] = build_instanced_sheet_from_template(
+                template,
+                parent_sheet_id=template.id,
+            )
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            player_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+            await websocket_sessions.connect(player_socket, role="player")
+
+            request = {
+                "type": "set_instanced_sheet_attribute_value",
+                "instance_id": "mage-1",
+                "attribute_id": "level",
+                "value": {"type": "number", "value": 4},
+            }
+            await handle_client_payload(dm_socket, request)
+
+            level = state.instanced_sheets["mage-1"].attributes["level"]
+            assert level.evaluated_value == 4
+            assert dm_socket.sent_messages[-1]["ops"][0]["path"] == (
+                "/instanced_sheets/mage-1/attributes/level"
+            )
+
+            await handle_client_payload(player_socket, {**request, "value": {"type": "number", "value": 5}})
+            assert player_socket.sent_messages[-1]["type"] == "error"
+            assert "DM" in player_socket.sent_messages[-1]["reason"]
+            assert level.evaluated_value == 4
+
+            await handle_client_payload(dm_socket, {**request, "value": {"type": "number", "value": 2.5}})
+            assert dm_socket.sent_messages[-1]["type"] == "error"
+            assert "positive whole number" in dm_socket.sent_messages[-1]["reason"]
+            assert level.evaluated_value == 4
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_canonical_optional_item_attribute_definitions_are_seeded() -> None:

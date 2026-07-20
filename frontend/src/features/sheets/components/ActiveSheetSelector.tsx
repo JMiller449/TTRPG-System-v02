@@ -3,6 +3,7 @@ import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildDeleteInstancedSheetRequest } from "@/infrastructure/ws/requestBuilders";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
@@ -19,7 +20,14 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
     if (!client || !selectedSheet) {
       return;
     }
-    if (!window.confirm(`Despawn "${selectedSheet.name}"? This cannot be undone.`)) {
+    if (
+      !confirmDestructiveAction({
+        action: "Despawn",
+        subject: selectedSheet.name,
+        consequence:
+          "This permanently removes the spawned character and its current inventory, assignments, and runtime state."
+      })
+    ) {
       return;
     }
     client.sendProtocolRequest(

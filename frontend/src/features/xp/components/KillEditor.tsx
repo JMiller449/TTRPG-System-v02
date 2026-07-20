@@ -3,6 +3,7 @@ import type { XpTrackerKillEvent } from "@/generated/backendProtocol";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildUpdateKillRequest } from "@/infrastructure/ws/requestBuilders";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 function toLocalDateTime(value: string): string {
   const date = new Date(value);
@@ -80,6 +81,20 @@ export function KillEditor({
             !name.trim() || !Number.isFinite(parsedXp) || parsedXp < 0 || participants.length === 0
           }
           onClick={() => {
+            const removedParticipants = kill.participants.filter(
+              (participant) => !participants.includes(participant.instance_id)
+            );
+            if (
+              removedParticipants.length > 0 &&
+              !confirmDestructiveAction({
+                action: "Remove",
+                subject: removedParticipants.map((participant) => participant.name).join(", "),
+                consequence:
+                  "Saving removes these participants from the historical kill and recalculates XP for the entire record."
+              })
+            ) {
+              return;
+            }
             client.sendProtocolRequest(
               buildUpdateKillRequest({
                 killId: kill.id,

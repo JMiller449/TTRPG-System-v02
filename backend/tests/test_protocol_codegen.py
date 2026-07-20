@@ -161,6 +161,13 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"type": "set_instanced_sheet_notes";' in output
     assert '"clientNamespace": "sheetInstanceNotes"' in output
     assert '"clientMethodName": "setInstancedSheetNotes"' in output
+    assert "export type CharacterProfilePayload = {" in output
+    assert '"species"?: string;' in output
+    assert '"backstory"?: string;' in output
+    assert "export type SetInstancedSheetProfile = {" in output
+    assert '"type": "set_instanced_sheet_profile";' in output
+    assert '"clientNamespace": "sheetInstanceProfile"' in output
+    assert '"clientMethodName": "setInstancedSheetProfile"' in output
     assert "export type SetInstancedSheetResource = {" in output
     assert '"resource": "health" | "mana";' in output
     assert '"type": "set_instanced_sheet_resource";' in output

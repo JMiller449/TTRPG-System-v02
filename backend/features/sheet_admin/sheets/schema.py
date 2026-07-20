@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_va
 from backend.core.transport import RequestModel
 from backend.features.attributes.value_schema import AttributeBridgePayload
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
+from backend.protocol.state_schema import CharacterProfilePayload
 from backend.state.models.stat import FormulaStatName
 
 
@@ -94,6 +95,7 @@ class SheetDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     notes: str = ""
+    profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
     dm_only: bool = False
     xp_given_when_slayed: float = Field(default=0, ge=0)
     xp_cap: float = Field(default=0, ge=0)
@@ -174,6 +176,12 @@ class SetInstancedSheetNotes(RequestModel):
     instance_id: str = Field(min_length=1)
     notes: str
     type: Literal["set_instanced_sheet_notes"]
+
+
+class SetInstancedSheetProfile(RequestModel):
+    instance_id: str = Field(min_length=1)
+    profile: CharacterProfilePayload
+    type: Literal["set_instanced_sheet_profile"]
 
 
 class SetInstancedSheetResource(RequestModel):

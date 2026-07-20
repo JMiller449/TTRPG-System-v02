@@ -1,6 +1,7 @@
 import type { ActiveCondition, Augmentation, ConditionSource } from "@/domain/models";
 import { formatAugmentationLifecycle } from "@/features/augmentations/augmentationEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 function sourceLabel(source: ConditionSource | undefined): string {
   if (!source) {
@@ -70,9 +71,7 @@ export function SheetConditionsSection({
                   {condition.visibility === "gm_only" ? "GM only" : "Public"}
                 </span>
               </div>
-              {condition.description ? (
-                <div className="muted">{condition.description}</div>
-              ) : null}
+              {condition.description ? <div className="muted">{condition.description}</div> : null}
               <div className="muted">Effects: {condition.augmentation_ids.length}</div>
               {lifecycleSummary ? <div className="muted">Duration: {lifecycleSummary}</div> : null}
               {mode === "gm" ? (
@@ -87,7 +86,19 @@ export function SheetConditionsSection({
                   <button
                     className="button button--secondary"
                     type="button"
-                    onClick={() => onRemove(condition.application_id)}
+                    onClick={() => {
+                      if (
+                        !confirmDestructiveAction({
+                          action: "Remove",
+                          subject: condition.condition_name,
+                          consequence:
+                            "This removes the active condition and its condition-owned effects from the selected character."
+                        })
+                      ) {
+                        return;
+                      }
+                      onRemove(condition.application_id);
+                    }}
                   >
                     Remove
                   </button>

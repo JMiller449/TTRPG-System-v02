@@ -18,6 +18,7 @@ export type PlayerSheetTab =
   | "attributes"
   | "proficiencies"
   | "kills"
+  | "backstory"
   | "notes"
   | "action_history"
   | "formula_stats"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Literal
 
 from backend.core.permissions import permission_allowed_roles
@@ -100,6 +102,7 @@ _PLAYER_AND_DM: list[VariableEditableRole] = list(
 _ROOT_ORDER: tuple[VariableRoot, ...] = (
     "state",
     "sheet",
+    "template",
     "instance",
     "action",
     "source_item",
@@ -478,6 +481,12 @@ def _authoring_variable(
     variable: VariablePathMetadata,
 ) -> AuthoringVariablePathMetadata:
     shortcuts = None if variable.shortcuts is None else list(variable.shortcuts)
+    description = variable.description
+    if variable.root == "sheet":
+        description = (
+            f"Acting-sheet value for {variable.label}. Character execution uses the "
+            "spawned instance; template-only formulas must use the explicit template root."
+        )
     return AuthoringVariablePathMetadata(
         key=variable.key,
         label=variable.label,
@@ -486,18 +495,66 @@ def _authoring_variable(
         value_type=variable.value_type,
         editable_roles=list(variable.editable_roles),
         formula_backed=variable.formula_backed,
-        description=variable.description,
+        description=description,
         shortcuts=shortcuts,
         formula_reference_allowed=True,
         action_mutation_allowed=_action_mutation_allowed(variable),
     )
 
 
+def _template_authoring_variable(
+    variable: VariablePathMetadata,
+) -> AuthoringVariablePathMetadata:
+    if variable.root != "sheet":
+        raise ValueError("Only sheet variables can expose template references.")
+    base_shortcuts = variable.shortcuts or [variable.path[-1]]
+    return AuthoringVariablePathMetadata(
+        key=variable.key.replace("sheet.", "template.", 1),
+        label=f"Template {variable.label}",
+        root="template",
+        path=list(variable.path),
+        value_type=variable.value_type,
+        editable_roles=[],
+        formula_backed=variable.formula_backed,
+        description=(
+            f"Parent-template value for {variable.label}. Use the ordinary "
+            "sheet variable for the acting character's current value."
+        ),
+        shortcuts=[f"template_{shortcut}" for shortcut in base_shortcuts],
+        formula_reference_allowed=True,
+        action_mutation_allowed=False,
+    )
+
+
 def _attribute_authoring_variable(
     definition: AttributeDefinition,
     *,
-    root: Literal["action", "source_item"],
+    root: Literal["sheet", "action", "source_item"],
 ) -> AuthoringVariablePathMetadata:
+    if root == "sheet":
+        normalized_id = re.sub(r"[^A-Za-z0-9_]", "_", definition.id)
+        if not normalized_id or normalized_id[0].isdigit():
+            normalized_id = f"attribute_{normalized_id}"
+        if normalized_id != definition.id:
+            digest = hashlib.sha256(definition.id.encode("utf-8")).hexdigest()[:8]
+            normalized_id = f"{normalized_id}_{digest}"
+        return AuthoringVariablePathMetadata(
+            key=f"sheet.attributes.{definition.id}",
+            label=f"Character Attribute: {definition.name}",
+            root="sheet",
+            path=["attributes", definition.id],
+            value_type="number",
+            editable_roles=[],
+            formula_backed=definition.default_value.type == "formula",
+            description=(
+                "Evaluated Attribute on the acting character instance. "
+                + (definition.description or definition.name)
+            ),
+            shortcuts=[f"sheet_attribute_{normalized_id}"],
+            formula_reference_allowed=True,
+            action_mutation_allowed=False,
+        )
+
     shortcuts_by_root = (
         _ACTION_ATTRIBUTE_SHORTCUTS if root == "action" else _SOURCE_ITEM_ATTRIBUTE_SHORTCUTS
     )
@@ -708,10 +765,23 @@ def build_action_formula_authoring_metadata(
         from backend.state.store import StateSingleton
 
         state = StateSingleton.getState()
+    registry_variables = build_variable_registry().variables
     variables = [
         _authoring_variable(variable)
-        for variable in build_variable_registry().variables
+        for variable in registry_variables
     ]
+    variables.extend(
+        _template_authoring_variable(variable)
+        for variable in registry_variables
+        if variable.root == "sheet"
+    )
+    variables.extend(
+        _attribute_authoring_variable(definition, root="sheet")
+        for definition in state.attributes.values()
+        if definition.value_type == "number"
+        and (include_gm_only or definition.visibility == "public")
+        and "sheet" in definition.subject_types
+    )
     variables.extend(
         _attribute_authoring_variable(definition, root="action")
         for definition in state.attributes.values()

@@ -11,6 +11,7 @@ import {
 import type { SheetProficiencyBridgePayload } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 interface ProficiencyBridgeDraft {
   proficiencyId: string;
@@ -270,7 +271,19 @@ export function SheetProficienciesSection({
                     <button
                       type="button"
                       className="button button--secondary"
-                      onClick={() => onDelete(bridge.relationship_id)}
+                      onClick={() => {
+                        if (
+                          !confirmDestructiveAction({
+                            action: "Remove",
+                            subject: label,
+                            consequence:
+                              "This removes the proficiency assignment and its current use progression from the selected character."
+                          })
+                        ) {
+                          return;
+                        }
+                        onDelete(bridge.relationship_id);
+                      }}
                     >
                       Remove
                     </button>

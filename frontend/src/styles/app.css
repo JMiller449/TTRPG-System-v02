@@ -1073,6 +1073,68 @@
   width: auto;
 }
 
+/* Keep the fixed desktop console usable on common laptop-height and zoomed
+   displays without switching to the mobile document-scroll layout. */
+@media (min-width: 961px) and (max-height: 900px) {
+  .app-status-bar {
+    gap: 0.65rem;
+    min-height: 48px;
+    padding: 0.3rem 0.75rem;
+  }
+
+  .app-status-bar__identity {
+    gap: 0.5rem;
+  }
+
+  .app-status-bar__mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-status-bar__statuses {
+    gap: 0.25rem;
+  }
+
+  .app-status-bar__statuses .system-status {
+    min-height: 30px;
+    padding: 0.18rem 0.45rem;
+  }
+
+  .app-notification-slot {
+    flex-basis: 24px;
+  }
+
+  .app-notification-slot .intent-banner-stack {
+    padding: 0.1rem 0.75rem;
+  }
+
+  .app-nav-panel {
+    padding: 0.55rem 0.5rem;
+  }
+
+  .app-main-panel {
+    padding: 0.65rem;
+  }
+
+  .main-panel-stack {
+    gap: 0.6rem;
+  }
+
+  .gm-toolbar__nav {
+    gap: 0.55rem;
+  }
+
+  .gm-toolbar__nav-button {
+    min-height: 35px;
+    padding-block: 0.25rem;
+  }
+
+  .sheet-context-selector {
+    gap: 0.7rem;
+    padding: 0.5rem 0.65rem;
+  }
+}
+
 @media (max-width: 960px) {
   .app-status-bar {
     grid-template-columns: 1fr;

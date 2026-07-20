@@ -86,9 +86,6 @@ function unavailableReason(
   ) {
     return "no editable instance values available";
   }
-  if (type === "gain_proficiency_use" && !dependencies.proficiencyId) {
-    return "no proficiencies authored";
-  }
   if (type === "apply_augmentation" && !dependencies.augmentationId) {
     return "no standalone effects authored";
   }

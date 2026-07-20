@@ -3,7 +3,7 @@
 ## Purpose and ownership
 
 XP is derived from a backend-owned registry of kills and explicit adjustments.
-Characters do not maintain an independently mutable total. Temporary parties
+Characters do not maintain an independently mutable XP total. Temporary parties
 control who participates in a new kill, while each historical kill snapshots
 the participant identities and award values that applied at record time.
 
@@ -62,9 +62,20 @@ not depend on a separately stored total remaining synchronized.
 ## Frontend
 
 [`frontend/src/features/xp/XpTrackerPage.tsx`](../../frontend/src/features/xp/XpTrackerPage.tsx)
-is the DM management workspace. Player/character progress and history use
-`SheetXpProgressBar` and `SheetKillsSection`. After its initial tracker request,
-the UI relies on pushed WebSocket updates instead of a manual refresh control.
+is the DM management workspace. GM/player character progress and player history
+use `SheetXpProgressBar` and `SheetKillsSection`. After its initial tracker
+request, the UI relies on pushed WebSocket updates instead of a manual refresh
+control.
+The shared GM and player character views place the independently stored
+canonical Level Attribute beside this XP projection; XP readiness never mutates
+Level automatically.
+
+The DM party view presents the existing backend-owned parties as named
+character folders. A folder navigator shows party membership counts and a
+derived Unassigned folder, while only the selected party's roster editor is
+expanded. Membership changes use explicit add/remove controls and retain the
+existing `save_party` validation and patch flow; the frontend does not persist
+a second folder model or reinterpret party membership locally.
 
 ## Principal tests
 

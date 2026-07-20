@@ -9,7 +9,12 @@ from backend.features.sheet_access import service as sheet_access_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import Augmentation, StandaloneEffectApplication
-from backend.state.models.attribute import AttributeBridge, AttributeDefinition, AttributeValue
+from backend.state.models.attribute import (
+    AttributeBridge,
+    AttributeDefinition,
+    AttributeValue,
+    synchronize_required_sheet_attributes,
+)
 from backend.state.models.action import Action
 from backend.state.models.condition import ActiveCondition
 from backend.state.models.proficiency import Proficiency
@@ -166,17 +171,25 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
+            payload = _sheet_payload(notes="GM-only template notes.")
+            payload["profile"] = {
+                "species": "  High Elf  ",
+                "background": "Archivist",
+                "backstory": "Raised among the old libraries.",
+            }
             await handle_client_payload(
                 websocket,
                 {
                     "type": "create_sheet",
-                    "sheet": _sheet_payload(notes="GM-only template notes."),
+                    "sheet": payload,
                 },
             )
 
             sheet = StateSingleton.getState().sheets["mage_template"]
             assert sheet.name == "Mage Template"
             assert sheet.notes == "GM-only template notes."
+            assert sheet.profile.species == "High Elf"
+            assert sheet.profile.background == "Archivist"
             assert "baseline_check_strength" in StateSingleton.getState().actions
             assert "attack" not in StateSingleton.getState().actions
             assert "parry" not in StateSingleton.getState().actions
@@ -208,6 +221,7 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             )
             assert sheet_op["op"] == "add"
             assert sheet_op["value"]["id"] == "mage_template"
+            assert sheet_op["value"]["profile"]["species"] == "High Elf"
             projection_op = next(
                 op for op in websocket.sent_messages[0]["ops"]
                 if op["path"] == "/sheets/mage_template/evaluated_stats"
@@ -866,7 +880,14 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            payload = _sheet_payload()
+            payload["profile"] = {
+                "species": "High Elf",
+                "height": "6 ft 1 in",
+                "weight": "175 lb",
+                "backstory": "Template history.",
+            }
+            state.sheets["mage_template"] = Sheet.from_dict(payload)
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -886,6 +907,9 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
             instance = state.instanced_sheets["mage_instance"]
             assert instance.parent_id == "mage_template"
             assert instance.notes == "Instance table notes."
+            assert instance.profile == state.sheets["mage_template"].profile
+            assert instance.profile is not state.sheets["mage_template"].profile
+            assert instance.profile.height == "6 ft 1 in"
             assert instance.health == 100
             assert instance.mana == 20
             assert instance.resistances.fire == 0.0
@@ -896,6 +920,7 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
             instance_payload = websocket.sent_messages[0]["ops"][0]["value"]
             assert instance_payload["stats"]["strength"] == 10
             assert instance_payload["items"] == {}
+            assert instance_payload["profile"]["species"] == "High Elf"
             assert websocket.sent_messages[0]["request_id"] == "req-1"
         finally:
             StateSingleton._state = original_state
@@ -1379,6 +1404,157 @@ def test_set_instanced_sheet_notes_rejects_missing_instance(monkeypatch) -> None
     asyncio.run(scenario())
 
 
+def test_player_can_set_assigned_character_profile(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = Sheet.from_dict(_sheet_payload())
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_profile",
+                    "instance_id": "mage_instance",
+                    "profile": {
+                        "species": "  Moon Elf  ",
+                        "pronouns": "she/her",
+                        "height": "5 ft 10 in",
+                        "weight": "150 lb",
+                        "personality_traits": "Always asks one more question.",
+                        "backstory": "Left home to map forgotten roads.",
+                    },
+                },
+            )
+
+            profile = state.instanced_sheets["mage_instance"].profile
+            assert profile.species == "Moon Elf"
+            assert profile.height == "5 ft 10 in"
+            assert profile.weight == "150 lb"
+            assert profile.backstory == "Left home to map forgotten roads."
+            assert websocket.sent_messages[0]["ops"][0]["path"] == (
+                "/instanced_sheets/mage_instance/profile"
+            )
+            assert websocket.sent_messages[0]["ops"][0]["value"]["species"] == (
+                "Moon Elf"
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_set_another_character_profile(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = Sheet.from_dict(_sheet_payload())
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            state.instanced_sheets["other_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_profile",
+                    "instance_id": "other_instance",
+                    "profile": {"species": "Forbidden edit"},
+                },
+            )
+
+            assert state.instanced_sheets["other_instance"].profile.species == ""
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "You can only edit your assigned sheet instance.",
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_can_set_any_character_profile(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = Sheet.from_dict(_sheet_payload())
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_profile",
+                    "instance_id": "mage_instance",
+                    "profile": {"species": "Human", "background": "Guard"},
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].profile.species == "Human"
+            assert state.instanced_sheets["mage_instance"].profile.background == "Guard"
+            assert websocket.sent_messages[0]["type"] == "state_patch"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_player_can_set_instanced_sheet_health(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -1805,6 +1981,7 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
                 growth_rate=1.0,
             )
             state.sheets["mage_template"] = template
+            synchronize_required_sheet_attributes(template)
             state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
                 {
                     "parent_id": "mage_template",
@@ -1818,6 +1995,10 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
             instance = state.instanced_sheets["mage_instance"]
             instance.stats.strength = 18
             instance.resistances.fire = 0.4
+            instance.profile.species = "Evolved Elf"
+            instance.profile.backstory = "The character's current history."
+            instance.attributes["level"].value = AttributeValue(type="number", value=5)
+            instance.attributes["level"].evaluated_value = 5
             instance.proficiencies["magic_prof_bridge"].use_count = 7
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
@@ -1838,6 +2019,9 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
             assert snapshot.notes == "Evolved character notes."
             assert snapshot.stats.strength == 18
             assert snapshot.resistances.fire == 0.4
+            assert snapshot.profile.species == "Evolved Elf"
+            assert snapshot.profile.backstory == "The character's current history."
+            assert snapshot.attributes["level"].evaluated_value == 5
             assert snapshot.actions == instance.actions
             assert snapshot.proficiencies["magic_prof_bridge"].use_count == 7
             assert snapshot.xp_cap == 0

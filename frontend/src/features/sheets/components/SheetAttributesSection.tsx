@@ -11,6 +11,7 @@ import {
   toAttributeFormulaVariableOptions
 } from "@/features/attributes/attributeFormulaVariables";
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { upsertFormulaAlias } from "@/features/variables/variablePicker";
 
 function displayAttributeValue(value: AttributeBridge["evaluated_value"]): string {
@@ -387,7 +388,24 @@ function SheetAttributeCard({
         </div>
       ) : null}
       {canEdit && !definition?.required && onDetach ? (
-        <button type="button" className="danger" onClick={() => onDetach(bridge.attribute_id)}>
+        <button
+          type="button"
+          className="danger"
+          onClick={() => {
+            if (
+              !confirmDestructiveAction({
+                action: "Detach",
+                subject: definition?.name ?? bridge.attribute_id,
+                consequence: draftMode
+                  ? "This removes the Attribute from the draft when you save it."
+                  : "This immediately removes the Attribute and its authored value from this subject."
+              })
+            ) {
+              return;
+            }
+            onDetach(bridge.attribute_id);
+          }}
+        >
           Detach Attribute
         </button>
       ) : null}

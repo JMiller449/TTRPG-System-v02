@@ -1,5 +1,9 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ItemDefinition } from "@/domain/models";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 
@@ -107,5 +111,63 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain("2.5 lb over capacity");
     expect(markup).toContain("Stored in Bag of Holding");
     expect(markup).toContain("Contents weight ignored");
+  });
+
+  it("requires confirmation before removing an inventory entry", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onRemoveInventoryItem = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    await act(async () => {
+      root.render(
+        <SheetEquipmentSection
+          items={{ sword }}
+          actionDefinitions={{}}
+          attributeDefinitions={{}}
+          proficiencyDefinitions={{}}
+          augmentations={{}}
+          itemOrder={["sword"]}
+          selectedItemId=""
+          selectedItem={null}
+          equipment={[
+            {
+              relationship_id: "main_hand",
+              item_id: "sword",
+              count: 1,
+              equipped: true
+            }
+          ]}
+          currentCarriedWeight={1}
+          carryWeightLimit={10}
+          canManageInventory
+          canEditInventory={false}
+          canToggleEquipped
+          onSelectedItemIdChange={() => undefined}
+          onAddSelectedItem={() => undefined}
+          onQuantityChange={() => undefined}
+          onToggleEquipped={() => undefined}
+          onMoveInventoryItem={() => undefined}
+          onRemoveInventoryItem={onRemoveInventoryItem}
+        />
+      );
+    });
+
+    const removeButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove Sword from inventory"]'
+    );
+    await act(async () => removeButton?.click());
+    expect(onRemoveInventoryItem).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith(
+      "Remove “Sword”?\n\nThis removes the inventory entry and its quantity from the selected character. Nonempty storage containers are still protected by backend validation."
+    );
+
+    confirm.mockReturnValue(true);
+    await act(async () => removeButton?.click());
+    expect(onRemoveInventoryItem).toHaveBeenCalledWith("main_hand");
+
+    await act(async () => root.unmount());
+    confirm.mockRestore();
   });
 });

@@ -9,6 +9,7 @@ const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = 
   { id: "attributes", label: "Attributes" },
   { id: "proficiencies", label: "Proficiencies" },
   { id: "kills", label: "Kills" },
+  { id: "backstory", label: "Backstory" },
   { id: "notes", label: "Notes" }
 ];
 

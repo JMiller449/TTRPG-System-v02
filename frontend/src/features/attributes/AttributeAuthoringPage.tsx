@@ -17,6 +17,7 @@ import {
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
 function attributeValueText(value: AttributeValue): string {
@@ -112,6 +113,16 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
               onClick={() => {
                 const attribute = attributes[editingId];
                 if (!attribute || attribute.backend_owned) {
+                  return;
+                }
+                if (
+                  !confirmDestructiveAction({
+                    action: "Delete",
+                    subject: attribute.name,
+                    consequence:
+                      "This permanently deletes the Attribute definition. Existing attachment and formula dependency checks still apply."
+                  })
+                ) {
                   return;
                 }
                 client.sendProtocolRequest(

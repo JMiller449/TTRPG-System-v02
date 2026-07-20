@@ -29,6 +29,7 @@ import {
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 
@@ -151,7 +152,14 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   const deleteCondition = (conditionId: string): void => {
     const condition = conditionPresets[conditionId];
     const submission = buildDeleteConditionPresetSubmission(conditionId, condition);
-    if (!submission.confirmation || !window.confirm(submission.confirmation)) {
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: condition?.name ?? conditionId,
+        consequence:
+          "This permanently deletes the condition preset. Existing action and active-condition dependency checks still apply."
+      })
+    ) {
       return;
     }
     client.sendProtocolRequest(submission.request, submission.label);
@@ -179,6 +187,18 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   };
 
   const removeAugmentation = (augmentationId: string): void => {
+    const augmentation = values.augmentationTemplates.find(
+      (candidate) => candidate.id === augmentationId
+    );
+    if (
+      !confirmDestructiveAction({
+        action: "Remove",
+        subject: augmentation?.name ?? augmentationId,
+        consequence: "This removes the effect from the condition draft when you save it."
+      })
+    ) {
+      return;
+    }
     setValues((current) => removeConditionEffect(current, augmentationId));
     if (editingAugmentationId === augmentationId) {
       resetAugmentationEditor();

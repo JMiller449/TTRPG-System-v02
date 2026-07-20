@@ -54,6 +54,7 @@ class Item:
     price: str
     weight: float  # pounds
     augmentation_templates: List[Augmentation]
+    catalog_folder: str = ""
     player_visible: bool = True
     approval_status: Literal["approved", "pending"] = "approved"
     submitted_by_instance_id: str | None = None
@@ -65,6 +66,9 @@ class Item:
     attributes: dict[str, AttributeBridge] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.catalog_folder, str):
+            raise ValueError("Item catalog folder must be text.")
+        self.catalog_folder = self.catalog_folder.strip()
         if isinstance(self.weight, bool) or not isinstance(self.weight, int | float):
             raise ValueError("Item weight must be numeric.")
         self.weight = float(self.weight)
@@ -93,6 +97,7 @@ class Item:
             gm_special_properties=raw.get("gm_special_properties", ""),
             price=raw["price"],
             weight=float(raw.get("weight", 0)),
+            catalog_folder=raw.get("catalog_folder", ""),
             player_visible=bool(raw.get("player_visible", True)),
             approval_status=raw.get("approval_status", "approved"),
             submitted_by_instance_id=raw.get("submitted_by_instance_id"),

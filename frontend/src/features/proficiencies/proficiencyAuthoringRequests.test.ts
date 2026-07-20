@@ -16,6 +16,7 @@ function testProficiency(
     name: "Longsword",
     description: "Tracks approved longsword use.",
     category: "custom",
+    default_growth_rate: 0.01,
     ...overrides
   };
 }
@@ -49,7 +50,8 @@ describe("proficiencyAuthoringRequests", () => {
           id: "longsword",
           name: "Longsword",
           description: "Tracks approved longsword use.",
-          category: "weapon_family"
+          category: "weapon_family",
+          default_growth_rate: 0.01
         }
       },
       label: "Create proficiency: Longsword"
@@ -77,7 +79,8 @@ describe("proficiencyAuthoringRequests", () => {
           id: "longsword",
           name: "Longsword Mastery",
           description: "Updated.",
-          category: "custom"
+          category: "custom",
+          default_growth_rate: 0.01
         }
       },
       label: "Update proficiency: Longsword Mastery"

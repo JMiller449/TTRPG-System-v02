@@ -27,7 +27,12 @@ const catalogs: TemplateReferenceCatalogs = {
     action_1: { id: "action_1", name: "Attack", roll_mode_kind: "check", steps: [] }
   },
   proficiencies: {
-    prof_1: { id: "prof_1", name: "Longsword", description: "Sword use" }
+    prof_1: {
+      id: "prof_1",
+      name: "Longsword",
+      description: "Sword use",
+      default_growth_rate: 0.01
+    }
   },
   items: {
     item_1: {

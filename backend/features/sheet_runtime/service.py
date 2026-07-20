@@ -68,6 +68,7 @@ from backend.state.models.attribute import (
     AttributeBridge,
 )
 from backend.state.models.item import Item, ItemActionGrant, ItemBridge
+from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import StateSingleton
@@ -284,7 +285,7 @@ class RuntimeFormulaContext:
                 subject_type="action",
                 include_gm_only=include_gm_only,
             ),
-            "resolved": _resolved_action_values(state, sheet, action),
+            "resolved": _resolved_action_values(state, self._active_sheet, action),
         }
         self.source_item = (
             None
@@ -298,7 +299,7 @@ class RuntimeFormulaContext:
                 ),
                 "resolved": _resolved_source_item_values(
                     state,
-                    sheet,
+                    self._active_sheet,
                     source_item,
                 ),
             }
@@ -309,7 +310,7 @@ class RuntimeFormulaContext:
         _validate_runtime_attribute_aliases(
             state,
             formula,
-            sheet=self._sheet,
+            sheet=self._active_sheet,
             active_sheet=self._active_sheet,
             action=self._action,
             source_item=self._source_item,
@@ -373,7 +374,10 @@ def _attribute_reference_value(subject: Action | Item, attribute_id: str) -> str
     return value if isinstance(value, str) and value else None
 
 
-def _sheet_proficiency_modifier(sheet: Sheet, proficiency_id: str) -> float | None:
+def _sheet_proficiency_modifier(
+    sheet: Sheet | InstancedSheet,
+    proficiency_id: str,
+) -> float | None:
     for bridge_key, bridge in sheet.proficiencies.items():
         if (
             bridge_key == proficiency_id
@@ -386,7 +390,7 @@ def _sheet_proficiency_modifier(sheet: Sheet, proficiency_id: str) -> float | No
 
 def _resolved_action_values(
     state: State,
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     action: Action,
 ) -> dict[str, float | int]:
     proficiency_id = _attribute_reference_value(action, ACTION_PROFICIENCY_ATTRIBUTE_ID)
@@ -398,7 +402,7 @@ def _resolved_action_values(
 
 def _resolved_source_item_values(
     state: State,
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     item: Item,
 ) -> dict[str, float | int]:
     if item.attribute_profile != WEAPON_ATTRIBUTE_PROFILE:
@@ -421,7 +425,7 @@ def _validate_runtime_attribute_aliases(
     state: State,
     formula: Formula,
     *,
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     active_sheet: Sheet | InstancedSheet,
     action: Action,
     source_item: Item | None,
@@ -867,16 +871,6 @@ def _gain_proficiency_id(
 ) -> str:
     if step.proficiency_reference == "explicit":
         return step.proficiency_id
-    if step.proficiency_reference == "action_attribute":
-        proficiency_id = _attribute_reference_value(
-            action, ACTION_PROFICIENCY_ATTRIBUTE_ID
-        )
-        if proficiency_id is not None and proficiency_id in state.proficiencies:
-            return proficiency_id
-        raise ValueError(
-            f"Action '{action.id}' requires an attached valid Action Proficiency "
-            "Attribute to gain proficiency."
-        )
     if (
         source_item is not None
         and source_item.attribute_profile == WEAPON_ATTRIBUTE_PROFILE
@@ -1014,6 +1008,102 @@ def _proficiency_bridge_key(actor: RuntimeActor, proficiency_id: str) -> str:
     raise ValueError(
         f"Sheet '{actor.sheet.id}' does not reference proficiency '{proficiency_id}'."
     )
+
+
+def _action_proficiency_relationship_id(
+    actor: RuntimeActor,
+    proficiency_id: str,
+) -> str:
+    proficiencies = (
+        actor.instance.proficiencies
+        if actor.instance is not None
+        else actor.sheet.proficiencies
+    )
+    base = f"action_proficiency_{proficiency_id}"
+    existing = proficiencies.get(base)
+    if existing is None or existing.prof_id == proficiency_id:
+        return base
+
+    suffix = 2
+    while True:
+        candidate = f"{base}_{suffix}"
+        existing = proficiencies.get(candidate)
+        if existing is None or existing.prof_id == proficiency_id:
+            return candidate
+        suffix += 1
+
+
+def _add_missing_action_proficiency_mutation(
+    state: State,
+    actor: RuntimeActor,
+    action: Action,
+) -> tuple[PatchOp | None, str | None]:
+    proficiency_id = _attribute_reference_value(
+        action,
+        ACTION_PROFICIENCY_ATTRIBUTE_ID,
+    )
+    if proficiency_id is None:
+        return None, None
+    definition = state.proficiencies.get(proficiency_id)
+    if definition is None:
+        return None, None
+
+    proficiencies = (
+        actor.instance.proficiencies
+        if actor.instance is not None
+        else actor.sheet.proficiencies
+    )
+    if any(bridge.prof_id == proficiency_id for bridge in proficiencies.values()):
+        return None, None
+
+    growth_rate = definition.default_growth_rate
+    if (
+        isinstance(growth_rate, bool)
+        or not isinstance(growth_rate, int | float)
+        or not isfinite(growth_rate)
+        or growth_rate < 0
+    ):
+        raise ValueError(
+            f"Proficiency '{proficiency_id}' has an invalid default growth rate."
+        )
+
+    relationship_id = _action_proficiency_relationship_id(actor, proficiency_id)
+    bridge = ProficiencyBridge(
+        relationship_id=relationship_id,
+        prof_id=proficiency_id,
+        use_count=0,
+        growth_rate=float(growth_rate),
+    )
+    path = state_sync_service.join_path(
+        actor.mutation_root,
+        actor.actor_id,
+        "proficiencies",
+        relationship_id,
+    )
+    return state_sync_service.add_mutation(state, path, bridge), relationship_id
+
+
+def _gain_action_proficiency_use_mutation(
+    state: State,
+    actor: RuntimeActor,
+    action: Action,
+) -> tuple[PatchOp | None, str | None]:
+    proficiency_id = _attribute_reference_value(
+        action,
+        ACTION_PROFICIENCY_ATTRIBUTE_ID,
+    )
+    if proficiency_id is None or proficiency_id not in state.proficiencies:
+        return None, None
+
+    bridge_key = _proficiency_bridge_key(actor, proficiency_id)
+    path = state_sync_service.join_path(
+        actor.mutation_root,
+        actor.actor_id,
+        "proficiencies",
+        bridge_key,
+        "use_count",
+    )
+    return state_sync_service.increment_mutation(state, path, 1), bridge_key
 
 
 def _required_instance_id(actor: RuntimeActor, step_type: str) -> str:
@@ -1325,7 +1415,7 @@ async def perform_action(
     *,
     actor_role: SessionRole = "player",
     assigned_instance_id: str | None = None,
-) -> ActionExecuted | None:
+) -> ActionExecuted:
     actor = _resolve_allowed_runtime_actor(
         request,
         actor_role=actor_role,
@@ -1377,6 +1467,15 @@ async def perform_action(
         current_action = current_resolution.action
         _validate_action_roll_mode(current_action, request.roll_mode)
         current_steps = current_action.steps
+        proficiency_op, added_proficiency_relationship_id = (
+            _add_missing_action_proficiency_mutation(
+                state,
+                current_actor,
+                current_action,
+            )
+        )
+        if proficiency_op is not None:
+            ops.append(proficiency_op)
         action_values: dict[str, float | int] = {}
         formula_root = RuntimeFormulaContext(
             current_actor.sheet,
@@ -1390,6 +1489,10 @@ async def perform_action(
         )
 
         applied_mutations: list[str] = []
+        if added_proficiency_relationship_id is not None:
+            applied_mutations.append(
+                f"proficiencies.{added_proficiency_relationship_id}=attached"
+            )
         emitted_messages: list[ActionHistoryText] = []
         roll_mode_requires_transform = False
         roll_mode_applied = False
@@ -1856,6 +1959,19 @@ async def perform_action(
                 "Roll20 check expression."
             )
 
+        action_proficiency_op, action_proficiency_bridge_key = (
+            _gain_action_proficiency_use_mutation(
+                state,
+                current_actor,
+                current_action,
+            )
+        )
+        if action_proficiency_op is not None:
+            ops.append(action_proficiency_op)
+            applied_mutations.append(
+                f"proficiencies.{action_proficiency_bridge_key}.use_count+=1"
+            )
+
         if (
             current_resolution.source_item_grant is not None
             and current_resolution.source_item_bridge_key is not None
@@ -1929,7 +2045,7 @@ async def perform_action(
                 await_delivery=True,
             )
 
-    applied_mutations, emitted_messages, emitted_state_patch = (
+    applied_mutations, emitted_messages, _ = (
         await state_sync_service.apply_mutation(
             mutation,
             request_id=request.request_id,
@@ -1983,9 +2099,6 @@ async def perform_action(
         return None, ops
 
     await state_sync_service.apply_audit_mutation(history_mutation)
-
-    if emitted_state_patch:
-        return None
 
     return ActionExecuted(
         response_id=None,

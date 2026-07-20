@@ -35,7 +35,8 @@ describe("ItemAttributesEditor", () => {
           long_swords: {
             id: "long_swords",
             name: "Long Swords",
-            description: ""
+            description: "",
+            default_growth_rate: 0.01
           }
         }}
         metadata={null}
@@ -93,9 +94,14 @@ describe("ItemAttributesEditor", () => {
   it("sorts and deduplicates authoritative proficiency definitions", () => {
     expect(
       selectAuthoritativeProficiencies({
-        first: { id: "shared", name: "Zulu", description: "" },
-        duplicate: { id: "shared", name: "Duplicate", description: "" },
-        alpha: { id: "alpha", name: "Alpha", description: "" }
+        first: { id: "shared", name: "Zulu", description: "", default_growth_rate: 0.01 },
+        duplicate: {
+          id: "shared",
+          name: "Duplicate",
+          description: "",
+          default_growth_rate: 0.01
+        },
+        alpha: { id: "alpha", name: "Alpha", description: "", default_growth_rate: 0.01 }
       }).map((proficiency) => proficiency.id)
     ).toEqual(["alpha", "shared"]);
   });

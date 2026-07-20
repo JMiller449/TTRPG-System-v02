@@ -17,6 +17,7 @@ function testProficiency(
     name: "Longsword",
     description: "Tracks approved longsword use.",
     category: "custom",
+    default_growth_rate: 0.01,
     ...overrides
   };
 }
@@ -27,7 +28,8 @@ describe("proficiencyEditorValues", () => {
       id: "",
       name: "",
       description: "",
-      category: "custom"
+      category: "custom",
+      defaultGrowthRate: "0.01"
     });
   });
 
@@ -36,7 +38,8 @@ describe("proficiencyEditorValues", () => {
       id: "longsword",
       name: "Longsword",
       description: "Tracks approved longsword use.",
-      category: "custom"
+      category: "custom",
+      defaultGrowthRate: "0.01"
     });
   });
 
@@ -46,7 +49,8 @@ describe("proficiencyEditorValues", () => {
         id: " longsword ",
         name: " Longsword ",
         description: "",
-        category: "weapon_family"
+        category: "weapon_family",
+        defaultGrowthRate: "0.02"
       })
     ).toBe(true);
     expect(
@@ -54,7 +58,8 @@ describe("proficiencyEditorValues", () => {
         id: "",
         name: "Longsword",
         description: "",
-        category: "custom"
+        category: "custom",
+        defaultGrowthRate: "0.01"
       })
     ).toBe(true);
     expect(
@@ -62,7 +67,17 @@ describe("proficiencyEditorValues", () => {
         id: "longsword",
         name: "",
         description: "",
-        category: "custom"
+        category: "custom",
+        defaultGrowthRate: "0.01"
+      })
+    ).toBe(false);
+    expect(
+      hasValidProficiencyEditorValues({
+        id: "longsword",
+        name: "Longsword",
+        description: "",
+        category: "custom",
+        defaultGrowthRate: "-0.01"
       })
     ).toBe(false);
   });
@@ -81,13 +96,15 @@ describe("proficiencyEditorValues", () => {
         id: " longsword ",
         name: " Longsword ",
         description: " Tracks approved longsword use. ",
-        category: "weapon_family"
+        category: "weapon_family",
+        defaultGrowthRate: "0.025"
       })
     ).toEqual({
       id: "longsword",
       name: "Longsword",
       description: "Tracks approved longsword use.",
-      category: "weapon_family"
+      category: "weapon_family",
+      default_growth_rate: 0.025
     });
   });
 
@@ -97,20 +114,23 @@ describe("proficiencyEditorValues", () => {
         id: "ignored",
         name: " Longsword Mastery ",
         description: " Updated. ",
-        category: "weapon_family"
+        category: "weapon_family",
+        defaultGrowthRate: "0.005"
       })
     ).toEqual({
       id: "longsword",
       name: "Longsword Mastery",
       description: "Updated.",
-      category: "weapon_family"
+      category: "weapon_family",
+      default_growth_rate: 0.005
     });
     expect(
       toUpdatedProficiencyDefinitionPayload(undefined, {
         id: "longsword",
         name: "Longsword",
         description: "",
-        category: "custom"
+        category: "custom",
+        defaultGrowthRate: "0.01"
       })
     ).toBeNull();
   });

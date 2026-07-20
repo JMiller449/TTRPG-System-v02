@@ -679,6 +679,7 @@ def test_v12_migration_adds_proficiency_categories_and_weapon_families() -> None
         "name": "Renamed Long Blades",
         "description": "GM edit preserved.",
         "category": "weapon_family",
+        "default_growth_rate": 0.01,
     }
     assert proficiencies["axes"]["name"] == "Axes"
     assert proficiencies["axes"]["category"] == "weapon_family"
@@ -940,6 +941,64 @@ def test_v35_migration_backfills_level_without_overwriting_existing_values() -> 
     assert result.state["sheets"]["existing"]["attributes"]["level"][
         "evaluated_value"
     ] == 7
+
+
+def test_v36_migration_adds_default_proficiency_growth_rate_without_overwriting() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 36,
+            "state": {
+                "proficiencies": {
+                    "new_default": {"id": "new_default", "name": "New Default"},
+                    "customized": {
+                        "id": "customized",
+                        "name": "Customized",
+                        "default_growth_rate": 0.0025,
+                    },
+                }
+            },
+        }
+    )
+
+    assert result.state["proficiencies"]["new_default"]["default_growth_rate"] == 0.01
+    assert result.state["proficiencies"]["customized"]["default_growth_rate"] == 0.0025
+
+
+def test_v37_migration_purges_redundant_action_attribute_training_steps() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 37,
+            "state": {
+                "actions": {
+                    "spell": {
+                        "id": "spell",
+                        "steps": [
+                            {"step_id": "roll", "type": "send_message"},
+                            {
+                                "step_id": "automatic-training",
+                                "type": "gain_proficiency_use",
+                                "proficiency_reference": "action_attribute",
+                            },
+                            {
+                                "step_id": "explicit-training",
+                                "type": "gain_proficiency_use",
+                                "proficiency_reference": "explicit",
+                            },
+                            {
+                                "step_id": "weapon-training",
+                                "type": "gain_proficiency_use",
+                                "proficiency_reference": "source_item_weapon",
+                            },
+                        ],
+                    }
+                }
+            },
+        }
+    )
+
+    assert [
+        step["step_id"] for step in result.state["actions"]["spell"]["steps"]
+    ] == ["roll", "explicit-training", "weapon-training"]
 
 
 def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects() -> None:

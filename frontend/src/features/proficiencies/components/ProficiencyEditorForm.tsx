@@ -46,7 +46,24 @@ export function ProficiencyEditorForm({
               <option value="weapon_family">Weapon Family</option>
             </select>
           </Field>
+          <Field label="Default Growth Rate">
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              value={values.defaultGrowthRate}
+              onChange={(event) =>
+                onChange({ ...values, defaultGrowthRate: event.target.value })
+              }
+              placeholder="0.01"
+            />
+          </Field>
         </div>
+
+        <p className="muted">
+          Used when an action first adds this proficiency to a character. Enter a fraction;
+          0.01 means 1% per qualifying use.
+        </p>
 
         <Field label="Description">
           <textarea

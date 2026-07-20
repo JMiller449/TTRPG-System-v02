@@ -309,6 +309,9 @@ No large architecture feature is currently missing for the stated character-shee
 - [x] Replace separate formula variable insertion fields with inline `@` autocomplete:
   - Formula-bearing action, formula, attribute, sheet, item, condition, and effect editors search
     their backend-provided variable catalogs when an author types `@` in the formula itself.
+  - Action formulas index the currently attached Proficiency Attribute by its selected
+    proficiency ID and name, then insert the backend-supported `@action_proficiency`
+    numeric-modifier alias rather than treating the reference ID as a number.
   - Keyboard or pointer selection replaces the active mention at the cursor and upserts the
     correct canonical, sheet-relative, attribute-relative, or action-scoped alias.
   - Earlier calculated action values participate in the same search instead of requiring a second
@@ -454,20 +457,32 @@ No large architecture feature is currently missing for the stated character-shee
     GMs use the existing DM-only instance-Attribute mutation through an explicit editor.
     XP does not automatically change Level or distribute stats.
   - [x] Proficiency training is now a first-class action-authoring choice. The
-    `gain_proficiency_use` editor selects an explicit proficiency, the action's canonical
-    Proficiency Attribute, or the eligible source weapon's Proficiency Attribute and emits
-    the existing backend reference contract for each mode. Local and backend validation
-    reject missing explicit definitions and missing action attributes, while weapon-derived
-    targets remain authoritative to the source item selected at execution. The add-step
-    flow remains available before an explicit proficiency is authored so a DM can choose a
-    derived mode. Focused authoring, payload, execution, and Roll20-delivery rollback tests
-    cover the three targets; formula tags remain metadata and cannot implicitly mutate
-    proficiency state.
+    `gain_proficiency_use` editor selects an explicit proficiency or the eligible source
+    weapon's Proficiency Attribute and emits the backend reference contract for either mode.
+    Local and backend validation reject missing explicit definitions, while weapon-derived
+    targets remain authoritative to the source item selected at execution. Focused
+    authoring, payload, execution, and Roll20-delivery rollback tests cover both targets;
+    formula tags remain descriptive metadata.
 - [x] Proficiency growth follow-up (2026-07-19): canonical weapon actions now
   advance the selected weapon proficiency and spell presets advance their
   Action Proficiency Attribute target. Character sheets display the capped
   player-facing proficiency percentage alongside uses and growth rate; existing
   unmodified canonical weapon actions migrate safely (schema v33).
+- [x] Action proficiency lazy attachment follow-up (2026-07-20): proficiency
+  definitions own a `0.01` default growth rate, with editable authoring and a
+  schema-v37 backfill. On first execution, an action's valid Proficiency
+  Attribute transactionally adds a missing zero-use bridge to the acting
+  template or spawned instance before formulas resolve; existing bridges remain
+  unchanged. A successfully evaluated action automatically adds exactly one use
+  after formulas read the pre-use modifier, and failed action or Roll20 delivery
+  rolls back both attachment and growth. Schema v38 purges now-redundant
+  action-attribute `gain_proficiency_use` steps while preserving explicit and
+  source-weapon training.
+- [x] Action completion correlation follow-up (2026-07-20): every successful
+  `perform_action` now ends with one correlated `action_executed` event after
+  delivery, mutation commit, and history recording, even when state patches were
+  emitted. Frontend pending intents therefore resolve from a terminal lifecycle
+  signal rather than inferring completion from state synchronization.
 
 ## 6. Explicit Non-Blockers
 

@@ -3,6 +3,7 @@ import type {
   ActiveCondition,
   EncounterPreset,
   PersistentSheet,
+  ProficiencyDefinition,
   Role,
   Sheet
 } from "@/domain/models";
@@ -16,6 +17,7 @@ import type {
   ActiveConditionPayload,
   EncounterPresetPayload,
   InstancedSheetPayload,
+  ProficiencyPayload,
   SheetPayload,
   StandaloneEffectDefinitionPayload
 } from "@/generated/backendProtocol";
@@ -210,6 +212,13 @@ function projectPersistentSheet(value: InstancedSheetPayload): PersistentSheet {
   } as PersistentSheet;
 }
 
+function projectProficiency(value: ProficiencyPayload): ProficiencyDefinition {
+  return {
+    ...value,
+    default_growth_rate: value.default_growth_rate ?? 0.01
+  };
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
     sheets: Object.values(state.sheets ?? {}).map(projectSheet),
@@ -218,7 +227,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
       value: projectPersistentSheet(value)
     })),
     items: Object.values(state.items ?? {}),
-    proficiencies: Object.values(state.proficiencies ?? {}),
+    proficiencies: Object.values(state.proficiencies ?? {}).map(projectProficiency),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),
     attributes: Object.values(state.attributes ?? {}),

@@ -1462,9 +1462,22 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
                 "type": "state_patch",
                 "request_id": "req-1",
             },
+            {
+                "response_id": None,
+                "sheet_id": "mage_instance",
+                "action_id": "spend_mana",
+                "applied_mutations": ["mana-=4"],
+                "emitted_messages": [],
+                "type": "action_executed",
+                "request_id": "req-1",
+            },
         ]
-        assert websocket.sent_messages[-1]["request_id"] is None
-        history_op = websocket.sent_messages[-1]["ops"][0]
+        history_message = next(
+            message
+            for message in websocket.sent_messages
+            if message.get("request_id") is None and message.get("type") == "state_patch"
+        )
+        history_op = history_message["ops"][0]
         assert history_op["op"] == "add"
         assert history_op["path"].startswith("/action_history/action_history_")
         assert history_op["value"]["action_id"] == "spend_mana"

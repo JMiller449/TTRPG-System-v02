@@ -21,6 +21,9 @@ export function ProficiencyDefinitionCard({
         </span>
       </div>
       <div className="muted">{proficiency.description || "(no description)"}</div>
+      <div className="muted">
+        Default growth {proficiency.default_growth_rate * 100}% per qualifying use
+      </div>
       <div className="inline-actions">
         <button className="button button--secondary" onClick={onEdit}>
           Edit

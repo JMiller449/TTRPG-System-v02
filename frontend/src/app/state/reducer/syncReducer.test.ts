@@ -1433,7 +1433,8 @@ describe("authoritative server-state sync", () => {
             id: "longsword",
             name: "Longsword",
             description: "Tracks approved longsword use.",
-            category: "weapon_family"
+            category: "weapon_family",
+            default_growth_rate: 0.01
           }
         }
       ],
@@ -1446,7 +1447,8 @@ describe("authoritative server-state sync", () => {
       id: "longsword",
       name: "Longsword",
       description: "Tracks approved longsword use.",
-      category: "weapon_family"
+      category: "weapon_family",
+      default_growth_rate: 0.01
     });
     expect(created.state.serverState.proficiencyOrder).toEqual(["longsword"]);
 

@@ -15,6 +15,7 @@ function testProficiency(overrides: Partial<ProficiencyDefinition> = {}): Profic
     id: "longsword",
     name: "Longsword",
     description: "Tracks approved longsword use.",
+    default_growth_rate: 0.01,
     ...overrides
   };
 }

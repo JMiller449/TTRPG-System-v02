@@ -53,13 +53,11 @@ emotes, narrative output, and advanced Roll20 commands.
 
 The frontend authoring surface is
 [`frontend/src/features/actions/`](../../frontend/src/features/actions/). The
-proficiency-use step exposes its target as an explicit proficiency, the
-action's canonical Proficiency Attribute, or the eligible source weapon's
-Proficiency Attribute. Explicit and action-attribute selections are validated
-against the current authoring state; weapon-derived selection is validated
-against the source item chosen at execution. Formula tags remain descriptive
-metadata and never create proficiency mutations without an authored
-`gain_proficiency_use` step.
+proficiency-use step exposes its target as an explicit proficiency or the
+eligible source weapon's Proficiency Attribute. Explicit selections are
+validated against the current authoring state; weapon-derived selection is
+validated against the source item chosen at execution. An attached Action
+Proficiency advances automatically, independently of formula tags.
 
 The character action surface resolves direct assignments and eligible item
 grants into the same `perform_action` intent. Its execution controls collect
@@ -79,11 +77,22 @@ resolves the acting sheet/instance, verifies player assignment or DM authority,
 resolves an unambiguous source item when required, validates action assignment,
 and evaluates steps in order against an isolated working state.
 
+Before formula evaluation, an action with a valid Action Proficiency Attribute
+lazily attaches that proficiency to the acting character when missing, using
+the definition's default growth rate. Spawned execution reads and mutates the
+instance rather than its parent template. Existing character bridges are never
+overwritten. The formula sees the pre-use modifier; after authored steps
+evaluate successfully, execution adds exactly one use to that action
+proficiency.
+
 Calculated values are scoped to one execution and evaluated once. Mutations are
 collected against the working state. Roll20 messages are sent to the acting
 user's binding and require correlated delivery acknowledgement. Only after all
 required deliveries succeed are the authoritative mutations committed through
-state sync and persisted.
+state sync and persisted. State patches describe those authoritative changes;
+after history recording completes, the backend always sends one correlated
+`action_executed` event as the terminal success signal. A correlated `error` is
+the terminal failure signal.
 
 A delivery failure, timeout, disconnect, or bridge replacement rejects the
 action and discards backend mutations. Roll20 cannot provide a deletion
@@ -91,8 +100,9 @@ transaction: in a multi-message action, an early message may already be visible
 if a later message fails.
 
 Canonical weapon actions gain the selected weapon family's use count. Spell
-presets gain the definition selected through the authored Action Proficiency
-Attribute. Both mutations occur in the same transaction as the action's output.
+presets automatically gain the definition selected through the authored Action
+Proficiency Attribute. Both mutations occur in the same transaction as the
+action's output.
 
 Players may execute only actions assigned to their claimed instance or granted
 by eligible owned items. DMs may administratively execute an unassigned action

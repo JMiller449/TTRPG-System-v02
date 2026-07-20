@@ -316,7 +316,12 @@ describe("itemEditorValues", () => {
       getItemEditorValidationError(values, {
         definitions: weaponAttributes,
         proficiencies: {
-          long_swords: { id: "long_swords", name: "Long Swords", description: "" }
+          long_swords: {
+            id: "long_swords",
+            name: "Long Swords",
+            description: "",
+            default_growth_rate: 0.01
+          }
         }
       })
     ).toBeNull();

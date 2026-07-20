@@ -150,9 +150,6 @@ export function getActionEditorValidationError(
     ) {
       return `Proficiency training step '${step.step_id}' must reference an existing proficiency.`;
     }
-    if (reference === "action_attribute" && !values.attributes.action_proficiency) {
-      return `Proficiency training step '${step.step_id}' requires the Action Proficiency Attribute.`;
-    }
   }
   for (const [attributeId, bridge] of Object.entries(values.attributes)) {
     const definition = context.definitions?.[attributeId];

@@ -28,6 +28,7 @@ class Proficiency:
     name: str
     description: str
     category: ProficiencyCategory = "custom"
+    default_growth_rate: float = 0.01
 
     @classmethod
     def from_dict(cls, raw: dict) -> "Proficiency":
@@ -36,6 +37,7 @@ class Proficiency:
             name=raw["name"],
             description=raw.get("description", ""),
             category=raw.get("category", "custom"),
+            default_growth_rate=raw.get("default_growth_rate", 0.01),
         )
 
 

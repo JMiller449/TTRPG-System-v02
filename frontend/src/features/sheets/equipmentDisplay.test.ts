@@ -165,7 +165,8 @@ describe("equipmentDisplay", () => {
           longsword: {
             id: "longsword",
             name: "Longsword",
-            description: "Bladed weapon family"
+            description: "Bladed weapon family",
+            default_growth_rate: 0.01
           }
         }
       )

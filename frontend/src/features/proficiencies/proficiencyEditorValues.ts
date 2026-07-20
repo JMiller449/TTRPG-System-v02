@@ -7,6 +7,7 @@ export interface ProficiencyEditorValues {
   name: string;
   description: string;
   category: "custom" | "weapon_family";
+  defaultGrowthRate: string;
 }
 
 export function createEmptyProficiencyEditorValues(): ProficiencyEditorValues {
@@ -14,7 +15,8 @@ export function createEmptyProficiencyEditorValues(): ProficiencyEditorValues {
     id: "",
     name: "",
     description: "",
-    category: "custom"
+    category: "custom",
+    defaultGrowthRate: "0.01"
   };
 }
 
@@ -25,14 +27,20 @@ export function toProficiencyEditorValues(
     id: proficiency.id,
     name: proficiency.name,
     description: proficiency.description,
-    category: proficiency.category ?? "custom"
+    category: proficiency.category ?? "custom",
+    defaultGrowthRate: String(proficiency.default_growth_rate)
   };
 }
 
 export function hasValidProficiencyEditorValues(
   values: ProficiencyEditorValues
 ): boolean {
-  return values.name.trim().length > 0;
+  const defaultGrowthRate = Number(values.defaultGrowthRate);
+  return (
+    values.name.trim().length > 0 &&
+    Number.isFinite(defaultGrowthRate) &&
+    defaultGrowthRate >= 0
+  );
 }
 
 export function deriveProficiencyId(name: string, existingIds: readonly string[]): string {
@@ -62,7 +70,8 @@ export function toProficiencyDefinitionPayload(
     id: proficiencyId.trim(),
     name: values.name.trim(),
     description: values.description.trim(),
-    category: values.category
+    category: values.category,
+    default_growth_rate: Number(values.defaultGrowthRate)
   };
 }
 

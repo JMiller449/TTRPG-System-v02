@@ -52,9 +52,7 @@ class CanonicalActionPreset:
     aliases: tuple[tuple[str, tuple[str, ...]], ...]
     tags: tuple[str, ...]
     attribute_values: tuple[tuple[str, dict], ...] = ()
-    proficiency_reference: Literal[
-        "action_attribute", "source_item_weapon"
-    ] | None = None
+    proficiency_reference: Literal["source_item_weapon"] | None = None
     seed_global: bool = False
     attach_to_new_sheet: bool = False
 
@@ -271,7 +269,6 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         tags=("check", "spell", "attack"),
         attribute_values=_SPELL_ATTRIBUTE_VALUES,
-        proficiency_reference="action_attribute",
     ),
     CanonicalActionPreset(
         id="spell_damage",
@@ -299,7 +296,6 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         tags=("damage", "spell"),
         attribute_values=_SPELL_ATTRIBUTE_VALUES,
-        proficiency_reference="action_attribute",
     ),
 )
 

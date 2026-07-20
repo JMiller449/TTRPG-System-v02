@@ -19,6 +19,7 @@ import { FormulaVariableInput } from "@/features/variables/components/FormulaVar
 import {
   formulaVariableSearchOptions,
   upsertFormulaAlias,
+  type FormulaVariableSearchContexts,
   type VariablePickerEntry
 } from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
@@ -35,6 +36,7 @@ export function ActionBoundedMutationStepEditor({
   values,
   onChange,
   metadata,
+  formulaSearchContexts,
   mutationTargets,
   formulas
 }: {
@@ -42,6 +44,7 @@ export function ActionBoundedMutationStepEditor({
   values: ActionEditorValues;
   onChange: (values: ActionEditorValues) => void;
   metadata: ActionFormulaAuthoringMetadata | null;
+  formulaSearchContexts: FormulaVariableSearchContexts;
   mutationTargets: VariablePickerEntry[];
   formulas: FormulaDefinition[];
 }): JSX.Element {
@@ -73,7 +76,7 @@ export function ActionBoundedMutationStepEditor({
     const formulaId = isFormulaReference(source) ? source.formula_id : null;
     const variableId = isCalculatedValueReference(source) ? source.variable_id : null;
     const mentionOptions = [
-      ...formulaVariableSearchOptions(metadata),
+      ...formulaVariableSearchOptions(metadata, undefined, formulaSearchContexts),
       ...calculatedValues.map((option) => ({
         id: `calculated:${option.stepId}:${option.variableId}`,
         label: option.variableId,

@@ -62,12 +62,15 @@ class FakeWebSocket:
 def _request_messages(
     websocket: FakeWebSocket,
     request_id: str | None = None,
+    *,
+    message_type: str | None = None,
 ) -> list[dict]:
     return [
         message
         for message in websocket.sent_messages
         if message.get("request_id") is not None
         and (request_id is None or message.get("request_id") == request_id)
+        and (message_type is None or message.get("type") == message_type)
     ]
 
 
@@ -1479,14 +1482,7 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
                 id="magic_prof",
                 name="Magic",
                 description="Spell proficiency.",
-            )
-            state.sheets["mage_template"].proficiencies["magic"] = (
-                ProficiencyBridge(
-                    relationship_id="magic-training",
-                    prof_id="magic_prof",
-                    use_count=2,
-                    growth_rate=0.2,
-                )
+                default_growth_rate=0.01,
             )
             state.sheets["mage_template"].actions["cast"] = Bridge.from_dict(
                 {"relationship_id": "cast", "entry_id": "costly_cast"}
@@ -1498,6 +1494,14 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
                 {
                     "id": "costly_cast",
                     "name": "Costly Cast",
+                    "attributes": {
+                        "action_proficiency": {
+                            "relationship_id": "spell-proficiency",
+                            "attribute_id": "action_proficiency",
+                            "value": {"type": "reference", "value": "magic_prof"},
+                            "evaluated_value": "magic_prof",
+                        }
+                    },
                     "steps": [
                         {
                             "step_id": "cost",
@@ -1507,14 +1511,6 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
                             "amount": _formula_payload("8"),
                             "min_value": _formula_payload("0"),
                             "on_min_violation": "reject",
-                        },
-                        {
-                            "step_id": "training",
-                            "type": "gain_proficiency_use",
-                            "target": "caster",
-                            "proficiency_id": "magic_prof",
-                            "proficiency_reference": "explicit",
-                            "amount": _formula_payload("1"),
                         },
                         {
                             "step_id": "roll",
@@ -1545,12 +1541,7 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
             )
 
             assert state.instanced_sheets["mage_instance"].mana == 30
-            assert (
-                state.instanced_sheets["mage_instance"]
-                .proficiencies["magic"]
-                .use_count
-                == 2
-            )
+            assert state.instanced_sheets["mage_instance"].proficiencies == {}
             assert state.action_history == {}
             assert _request_messages(player, "req-failed-cast") == [
                 {
@@ -1916,7 +1907,7 @@ def test_perform_action_modifier_can_read_matched_action_attribute(monkeypatch) 
             )
 
             assert state.instanced_sheets["mage_instance"].health == 73
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
         finally:
             StateSingleton._state = original_state
 
@@ -2123,14 +2114,14 @@ def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatc
             }
             await handle_client_payload(websocket, request)
             assert state.instanced_sheets["mage_instance"].health == 65
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
 
             state.instanced_sheets["mage_instance"].health = 90
             request["source_item_relationship_id"] = "equipped-sword"
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].health == 65
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
         finally:
             StateSingleton._state = original_state
 
@@ -3001,7 +2992,7 @@ def test_player_item_granted_action_requires_source_when_ambiguous_and_consumes(
             instance_items = state.instanced_sheets["mage_instance"].items
             assert instance_items["potion-a"].count == 1
             assert instance_items["potion-b"].count == 0
-            assert _request_messages(websocket)[-1]["ops"] == [
+            assert _request_messages(websocket, message_type="state_patch")[-1]["ops"] == [
                 {
                     "op": "inc",
                     "path": "/instanced_sheets/mage_instance/health",
@@ -3095,7 +3086,7 @@ def test_action_formula_reads_evaluated_action_attribute(monkeypatch) -> None:
             await handle_client_payload(websocket, request)
 
             assert state.instanced_sheets["mage_instance"].mana == 42
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
         finally:
             StateSingleton._state = original_state
 
@@ -3247,7 +3238,7 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                 state.instanced_sheets["mage_instance"].proficiencies["swords"].use_count
                 == 5
             )
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
 
             state.instanced_sheets["mage_instance"].mana = 30
             request["source_item_relationship_id"] = "equipped-sword"
@@ -3261,12 +3252,12 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             state.items["test-sword"].attribute_profile = "weapon"
             await handle_client_payload(websocket, request)
 
-            assert state.instanced_sheets["mage_instance"].mana == 55
+            assert state.instanced_sheets["mage_instance"].mana == 56
             assert (
                 state.instanced_sheets["mage_instance"].proficiencies["swords"].use_count
                 == 6
             )
-            assert _request_messages(websocket)[-1]["type"] == "state_patch"
+            assert _request_messages(websocket, message_type="state_patch")
         finally:
             StateSingleton._state = original_state
 
@@ -3328,7 +3319,7 @@ def test_equipped_item_granted_action_requires_equipped_bridge(monkeypatch) -> N
             instance_item = state.instanced_sheets["mage_instance"].items["sword"]
             instance_item.equipped = True
             await handle_client_payload(websocket, request)
-            assert _request_messages(websocket)[-1]["ops"] == [
+            assert _request_messages(websocket, message_type="state_patch")[-1]["ops"] == [
                 {
                     "op": "inc",
                     "path": "/instanced_sheets/mage_instance/items/sword/count",
@@ -3392,14 +3383,14 @@ def test_dm_can_admin_execute_unassigned_action(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].mana == 29
-            assert _request_messages(websocket)[0]["ops"] == [
+            assert _request_messages(websocket, message_type="state_patch")[0]["ops"] == [
                 {
                     "op": "inc",
                     "path": "/instanced_sheets/mage_instance/mana",
                     "value": -1,
                 }
             ]
-            assert len(_request_messages(websocket)) == 1
+            assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -3464,7 +3455,7 @@ def test_perform_action_can_increment_and_decrement_instance_values(
 
             assert state.instanced_sheets["mage_instance"].mana == 23
             assert state.instanced_sheets["mage_instance"].health == 97
-            assert _request_messages(websocket) == [
+            assert _request_messages(websocket, message_type="state_patch") == [
                 {
                     "response_id": None,
                     "ops": [
@@ -3612,7 +3603,7 @@ def test_perform_action_gains_explicit_proficiency_use_once(monkeypatch) -> None
                 .use_count
                 == 4
             )
-            assert _request_messages(websocket) == [
+            assert _request_messages(websocket, message_type="state_patch") == [
                 {
                     "response_id": None,
                     "ops": [
@@ -3630,6 +3621,113 @@ def test_perform_action_gains_explicit_proficiency_use_once(monkeypatch) -> None
                     "request_id": "req-1",
                 }
             ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_first_use_attaches_default_proficiency_to_acting_instance(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = _build_sheet_state()
+            sheet.actions["spell"] = Bridge.from_dict(
+                {
+                    "relationship_id": "spell-action",
+                    "entry_id": "mana_ball",
+                }
+            )
+            state.sheets["mage_template"] = sheet
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
+            state.proficiencies["mana_ball"] = Proficiency(
+                id="mana_ball",
+                name="Mana Ball",
+                description="Mana Ball spell proficiency.",
+                default_growth_rate=0.01,
+            )
+            state.actions["mana_ball"] = Action.from_dict(
+                {
+                    "id": "mana_ball",
+                    "name": "Mana Ball",
+                    "attributes": {
+                        "action_proficiency": {
+                            "relationship_id": "mana-ball-proficiency",
+                            "attribute_id": "action_proficiency",
+                            "value": {"type": "reference", "value": "mana_ball"},
+                            "evaluated_value": "mana_ball",
+                        }
+                    },
+                    "steps": [
+                        {
+                            "step_id": "roll",
+                            "type": "send_message",
+                            "message": _formula_payload(
+                                "Proficiency: @action_proficiency",
+                                [
+                                    {
+                                        "name": "action_proficiency",
+                                        "path": [
+                                            "action",
+                                            "resolved",
+                                            "proficiency_modifier",
+                                        ],
+                                    }
+                                ],
+                            ),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            await chat_service.roll20_chat_bridge.reset()
+            player = FakeWebSocket()
+            bridge = FakeWebSocket()
+            await _connect_assigned_player(player)
+            await chat_service.roll20_chat_bridge.connect(
+                bridge,
+                binding_key="instance:mage_instance",
+            )
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "mana_ball",
+                    "request_id": "req-first-cast",
+                },
+            )
+
+            instance_proficiencies = state.instanced_sheets[
+                "mage_instance"
+            ].proficiencies
+            assert set(instance_proficiencies) == {"action_proficiency_mana_ball"}
+            added = instance_proficiencies["action_proficiency_mana_ball"]
+            assert added.prof_id == "mana_ball"
+            assert added.growth_rate == 0.01
+            assert added.use_count == 1
+            assert state.sheets["mage_template"].proficiencies == {}
+            assert bridge.sent_messages[0]["message"] == "Proficiency: (0.0)"
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "mana_ball",
+                    "request_id": "req-second-cast",
+                },
+            )
+
+            assert set(instance_proficiencies) == {"action_proficiency_mana_ball"}
+            assert added.use_count == 2
+            assert bridge.sent_messages[1]["message"] == "Proficiency: (0.01)"
         finally:
             StateSingleton._state = original_state
 
@@ -3695,14 +3793,6 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                             "min_value": _formula_payload("0"),
                             "on_min_violation": "reject",
                         },
-                        {
-                            "step_id": "step-2",
-                            "type": "gain_proficiency_use",
-                            "target": "caster",
-                            "proficiency_id": "__dynamic_proficiency__",
-                            "proficiency_reference": "action_attribute",
-                            "amount": _formula_payload("1"),
-                        },
                     ],
                 }
             )
@@ -3733,7 +3823,7 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                 .use_count
                 == 2
             )
-            assert _request_messages(websocket) == [
+            assert _request_messages(websocket, message_type="state_patch") == [
                 {
                     "response_id": None,
                     "ops": [
@@ -3813,7 +3903,7 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
                 f"/standalone_effect_applications/{application_id}",
                 "/instanced_sheets/mage_instance/health",
             ]
-            assert len(_request_messages(websocket)) == 1
+            assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -3887,7 +3977,7 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
                 f"/augmentations/{concrete_id}/applied",
                 f"/augmentations/{concrete_id}/applied_target_id",
             ]
-            assert len(_request_messages(websocket)) == 1
+            assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -4210,7 +4300,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
             )
 
             assert state.instanced_sheets["mage_instance"].health == 20
-            assert _request_messages(websocket) == [
+            assert _request_messages(websocket, message_type="state_patch") == [
                 {
                     "response_id": None,
                     "ops": [
@@ -4277,14 +4367,14 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
             )
 
             assert state.instanced_sheets["mage_instance"].health == 65
-            assert _request_messages(websocket)[0]["ops"] == [
+            assert _request_messages(websocket, message_type="state_patch")[0]["ops"] == [
                 {
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/health",
                     "value": 65,
                 }
             ]
-            assert len(_request_messages(websocket)) == 1
+            assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
             StateSingleton._state = original_state
 
@@ -4335,14 +4425,14 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].health == 0
-            assert _request_messages(websocket)[0]["ops"] == [
+            assert _request_messages(websocket, message_type="state_patch")[0]["ops"] == [
                 {
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/health",
                     "value": 0,
                 }
             ]
-            assert len(_request_messages(websocket)) == 1
+            assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
             StateSingleton._state = original_state
 

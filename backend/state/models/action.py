@@ -10,7 +10,7 @@ ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
 ActionRollModeKind = Literal["none", "check", "damage"]
 Roll20RollPresentation = Literal["simple", "damage", "default"]
-ProficiencyReference = Literal["explicit", "action_attribute", "source_item_weapon"]
+ProficiencyReference = Literal["explicit", "source_item_weapon"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 

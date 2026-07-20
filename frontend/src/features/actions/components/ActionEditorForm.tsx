@@ -47,6 +47,7 @@ import {
   buildVariablePickerEntries,
   formulaVariableSearchOptions,
   upsertFormulaAlias,
+  type FormulaVariableSearchContexts
 } from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
@@ -103,6 +104,28 @@ export function ActionEditorForm({
   const stepMenuOptions = buildActionStepMenuOptions(stepDependencies);
   const selectedMenuOption = stepMenuOptions.find((option) => option.type === stepTypeToAdd);
   const actionIsValid = validationError === null;
+  const actionProficiencyValue = values.attributes.action_proficiency?.value;
+  const actionProficiencyId =
+    actionProficiencyValue?.type === "reference" && typeof actionProficiencyValue.value === "string"
+      ? actionProficiencyValue.value
+      : "";
+  const actionProficiencyName = proficiencies.find(
+    (proficiency) => proficiency.id === actionProficiencyId
+  )?.name;
+  const formulaSearchContexts: FormulaVariableSearchContexts = actionProficiencyId
+    ? {
+        "action.resolved.proficiency_modifier": {
+          keywords: [actionProficiencyId, actionProficiencyName ?? ""],
+          label: `${actionProficiencyName ?? actionProficiencyId} Proficiency Modifier`,
+          detail: `Selected proficiency: ${actionProficiencyName ?? actionProficiencyId}`
+        }
+      }
+    : {};
+  const actionFormulaOptions = formulaVariableSearchOptions(
+    metadata,
+    undefined,
+    formulaSearchContexts
+  );
 
   useEffect(() => {
     if (selectedStepId && values.steps.some((step) => step.step_id === selectedStepId)) {
@@ -130,7 +153,7 @@ export function ActionEditorForm({
   };
 
   const formulaMentionOptions = (stepId: string) => [
-    ...formulaVariableSearchOptions(metadata),
+    ...actionFormulaOptions,
     ...calculatedValuesBeforeStep(values, stepId).map((option) => ({
       id: `calculated:${option.stepId}:${option.variableId}`,
       label: option.variableId,
@@ -668,6 +691,7 @@ export function ActionEditorForm({
                         values={values}
                         onChange={onChange}
                         metadata={metadata}
+                        formulaSearchContexts={formulaSearchContexts}
                         mutationTargets={mutationTargets}
                         formulas={formulas}
                       />
@@ -774,7 +798,6 @@ export function ActionEditorForm({
                               }}
                             >
                               <option value="explicit">Explicit proficiency</option>
-                              <option value="action_attribute">Action Proficiency Attribute</option>
                               <option value="source_item_weapon">Source weapon proficiency</option>
                             </select>
                           </Field>
@@ -806,9 +829,7 @@ export function ActionEditorForm({
                             </Field>
                           ) : (
                             <p className="muted">
-                              {(step.proficiency_reference ?? "explicit") === "action_attribute"
-                                ? "Uses this action's canonical Proficiency Attribute."
-                                : "Requires an eligible source weapon when the action executes."}
+                              Requires an eligible source weapon when the action executes.
                             </p>
                           )}
                           {formulaSourcePicker(step.step_id, step.amount, {

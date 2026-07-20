@@ -17,6 +17,7 @@ def _build_proficiency(payload: ProficiencyDefinitionPayload) -> Proficiency:
         name=payload.name,
         description=payload.description,
         category=payload.category,
+        default_growth_rate=payload.default_growth_rate,
     )
 
 

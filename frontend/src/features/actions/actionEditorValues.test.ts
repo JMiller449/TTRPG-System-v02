@@ -628,16 +628,13 @@ describe("actionEditorValues", () => {
     });
   });
 
-  it("authors each proficiency training reference mode in the action payload", () => {
+  it("authors each explicit proficiency training reference mode in the action payload", () => {
     const explicit = addGainProficiencyUseActionStep(
       { ...createEmptyActionEditorValues(), name: "Training" },
       "training",
       "longsword"
     );
-    const actionAttribute = updateGainProficiencyUseActionStep(explicit, "training", {
-      proficiencyReference: "action_attribute"
-    });
-    const sourceWeapon = updateGainProficiencyUseActionStep(actionAttribute, "training", {
+    const sourceWeapon = updateGainProficiencyUseActionStep(explicit, "training", {
       proficiencyReference: "source_item_weapon"
     });
     const explicitAgain = updateGainProficiencyUseActionStep(sourceWeapon, "training", {
@@ -648,12 +645,6 @@ describe("actionEditorValues", () => {
     expect(toActionDefinitionPayload(explicit, "explicit_training").steps?.[0]).toMatchObject({
       proficiency_id: "longsword",
       proficiency_reference: "explicit"
-    });
-    expect(
-      toActionDefinitionPayload(actionAttribute, "attribute_training").steps?.[0]
-    ).toMatchObject({
-      proficiency_id: "__dynamic_proficiency__",
-      proficiency_reference: "action_attribute"
     });
     expect(toActionDefinitionPayload(sourceWeapon, "weapon_training").steps?.[0]).toMatchObject({
       proficiency_id: "__dynamic_proficiency__",
@@ -982,7 +973,9 @@ describe("actionEditorValues", () => {
     expect(
       getActionEditorValidationError(withPreset, {
         definitions,
-        proficiencies: { magic: { id: "magic", name: "Magic", description: "" } }
+        proficiencies: {
+          magic: { id: "magic", name: "Magic", description: "", default_growth_rate: 0.01 }
+        }
       })
     ).toBeNull();
   });
@@ -1000,7 +993,12 @@ describe("actionEditorValues", () => {
       }
     };
     const proficiencies = {
-      magic: { id: "magic", name: "Magic", description: "Spell training." }
+      magic: {
+        id: "magic",
+        name: "Magic",
+        description: "Spell training.",
+        default_growth_rate: 0.01
+      }
     };
     const explicit = addGainProficiencyUseActionStep(
       { ...createEmptyActionEditorValues(), name: "Train" },
@@ -1011,23 +1009,6 @@ describe("actionEditorValues", () => {
     expect(getActionEditorValidationError(explicit, { definitions, proficiencies })).toContain(
       "existing proficiency"
     );
-
-    const actionAttribute = updateGainProficiencyUseActionStep(explicit, "training", {
-      proficiencyReference: "action_attribute"
-    });
-    expect(
-      getActionEditorValidationError(actionAttribute, { definitions, proficiencies })
-    ).toContain("requires the Action Proficiency Attribute");
-
-    const actionAttributeWithValue = applyActionAttributeValues(
-      actionAttribute,
-      { action_proficiency: { type: "reference", value: "magic" } },
-      definitions,
-      () => "action-proficiency-relationship"
-    );
-    expect(
-      getActionEditorValidationError(actionAttributeWithValue, { definitions, proficiencies })
-    ).toBeNull();
 
     const sourceWeapon = updateGainProficiencyUseActionStep(explicit, "training", {
       proficiencyReference: "source_item_weapon"

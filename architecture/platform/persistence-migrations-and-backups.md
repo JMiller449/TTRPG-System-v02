@@ -26,7 +26,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 36. Future-version checkpoints are rejected rather than guessed at.
+version 38. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -55,6 +55,14 @@ fields, preserving Notes as a separate session-journal field.
 Schema version 36 makes the canonical Level Attribute required on templates
 and spawned instances. Records without a Level bridge receive Level 1, while
 existing authored Level values are left intact.
+
+Schema version 37 adds a default growth rate to proficiency definitions.
+Existing definitions receive `0.01`; already-authored values are preserved.
+
+Schema version 38 removes persisted `gain_proficiency_use` steps whose target
+was the action's own Proficiency Attribute. Action Proficiency inclusion now
+grants that use automatically after successful execution; explicit and source
+weapon proficiency-gain steps are preserved.
 
 Schema version 29 adds explicit visibility to authored Roll20 message steps and
 backfills existing steps as `public`, preserving all pre-feature behavior.

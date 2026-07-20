@@ -263,14 +263,6 @@ def _validate_action_step(
             and step.proficiency_id not in state.proficiencies
         ):
             raise ValueError(f"Proficiency '{step.proficiency_id}' does not exist.")
-        if (
-            step.proficiency_reference == "action_attribute"
-            and "action_proficiency" not in attached_attribute_ids
-        ):
-            raise ValueError(
-                "An action-attribute proficiency gain requires the Action "
-                "Proficiency Attribute."
-            )
         _validate_numeric_value(
             step.amount,
             state=state,

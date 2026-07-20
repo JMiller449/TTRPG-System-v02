@@ -30,12 +30,14 @@ def _proficiency_payload(
     proficiency_id: str = "longsword",
     name: str = "Longsword",
     category: str = "custom",
+    default_growth_rate: float = 0.01,
 ) -> dict:
     return {
         "id": proficiency_id,
         "name": name,
         "description": "Tracks approved longsword use.",
         "category": category,
+        "default_growth_rate": default_growth_rate,
     }
 
 
@@ -59,6 +61,7 @@ def test_dm_can_create_proficiency(monkeypatch) -> None:
 
             proficiency = StateSingleton.getState().proficiencies["longsword"]
             assert proficiency.name == "Longsword"
+            assert proficiency.default_growth_rate == 0.01
             assert websocket.sent_messages[0]["ops"][0] == {
                 "op": "add",
                 "path": "/proficiencies/longsword",
@@ -95,6 +98,7 @@ def test_dm_can_update_proficiency(monkeypatch) -> None:
 
             assert state.proficiencies["longsword"].name == "Longsword Mastery"
             assert state.proficiencies["longsword"].category == "custom"
+            assert state.proficiencies["longsword"].default_growth_rate == 0.01
             assert websocket.sent_messages[0]["ops"][0] == {
                 "op": "set",
                 "path": "/proficiencies/longsword",

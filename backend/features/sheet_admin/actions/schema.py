@@ -100,9 +100,7 @@ class GainProficiencyUseActionStepPayload(BaseModel):
     type: Literal["gain_proficiency_use"]
     target: Literal["caster", "target"] = "caster"
     proficiency_id: str = Field(min_length=1)
-    proficiency_reference: Literal[
-        "explicit", "action_attribute", "source_item_weapon"
-    ] = "explicit"
+    proficiency_reference: Literal["explicit", "source_item_weapon"] = "explicit"
     amount: NumericValuePayload
 
 

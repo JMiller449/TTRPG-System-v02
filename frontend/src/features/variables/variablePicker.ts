@@ -20,6 +20,14 @@ export interface VariablePickerEntry {
 
 export type VariablePickerMode = "formula" | "mutation";
 
+export interface FormulaVariableSearchContext {
+  keywords?: readonly string[];
+  detail?: string;
+  label?: string;
+}
+
+export type FormulaVariableSearchContexts = Readonly<Record<string, FormulaVariableSearchContext>>;
+
 function variableAliasName(variable: AuthoringVariable): string {
   const firstShortcut = variable.shortcuts?.find((shortcut) => shortcut.trim().length > 0);
   return firstShortcut ?? variable.path.at(-1) ?? variable.key;
@@ -119,13 +127,25 @@ export function toVariableSearchOptions(
 
 export function formulaVariableSearchOptions(
   metadata: ActionFormulaAuthoringMetadata | null,
-  root?: VariablePickerEntry["root"]
+  root?: VariablePickerEntry["root"],
+  contexts: FormulaVariableSearchContexts = {}
 ): SearchPopoverOption<VariablePickerEntry>[] {
   return toVariableSearchOptions(
     buildVariablePickerEntries(metadata, "formula").filter(
       (entry) => root === undefined || entry.root === root
     )
-  );
+  ).map((option) => {
+    const context = contexts[option.id];
+    if (!context) {
+      return option;
+    }
+    return {
+      ...option,
+      label: context.label ?? option.label,
+      secondary: context.detail ? `${option.secondary} | ${context.detail}` : option.secondary,
+      keywords: [...(option.keywords ?? []), ...(context.keywords ?? [])]
+    };
+  });
 }
 
 export function upsertFormulaAlias(

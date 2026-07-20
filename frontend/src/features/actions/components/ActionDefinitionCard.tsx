@@ -19,11 +19,9 @@ function stepSummary(step: ActionStep): string {
       return `${step.step_id}: resolve ${step.damage_type} damage`;
     case "gain_proficiency_use":
       return `${step.step_id}: train ${
-        (step.proficiency_reference ?? "explicit") === "action_attribute"
-          ? "action proficiency"
-          : (step.proficiency_reference ?? "explicit") === "source_item_weapon"
-            ? "source weapon proficiency"
-            : step.proficiency_id
+        (step.proficiency_reference ?? "explicit") === "source_item_weapon"
+          ? "source weapon proficiency"
+          : step.proficiency_id
       }`;
     case "apply_augmentation":
       return `${step.step_id}: ${step.operation ?? "apply"} augmentation`;

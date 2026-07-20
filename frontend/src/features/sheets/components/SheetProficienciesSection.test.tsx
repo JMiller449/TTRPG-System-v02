@@ -11,7 +11,8 @@ describe("SheetProficienciesSection", () => {
             id: "longsword",
             name: "Longsword",
             description: "",
-            category: "weapon_family"
+            category: "weapon_family",
+            default_growth_rate: 0.01
           }
         }}
         proficiencyOrder={["longsword"]}

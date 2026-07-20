@@ -16,7 +16,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 36
+CURRENT_STATE_SCHEMA_VERSION = 38
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1932,6 +1932,38 @@ def _migrate_v35_to_v36(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 36, "state": state}
 
 
+def _migrate_v36_to_v37(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    proficiencies = state.get("proficiencies", {})
+    if isinstance(proficiencies, dict):
+        for proficiency in proficiencies.values():
+            if isinstance(proficiency, dict):
+                proficiency.setdefault("default_growth_rate", 0.01)
+    return {"schema_version": 37, "state": state}
+
+
+def _migrate_v37_to_v38(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions", {})
+    if isinstance(actions, dict):
+        for action in actions.values():
+            if not isinstance(action, dict):
+                continue
+            steps = action.get("steps")
+            if not isinstance(steps, list):
+                continue
+            action["steps"] = [
+                step
+                for step in steps
+                if not (
+                    isinstance(step, dict)
+                    and step.get("type") == "gain_proficiency_use"
+                    and step.get("proficiency_reference") == "action_attribute"
+                )
+            ]
+    return {"schema_version": 38, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -1969,6 +2001,8 @@ MIGRATIONS: dict[int, Migration] = {
     33: _migrate_v33_to_v34,
     34: _migrate_v34_to_v35,
     35: _migrate_v35_to_v36,
+    36: _migrate_v36_to_v37,
+    37: _migrate_v37_to_v38,
 }
 
 

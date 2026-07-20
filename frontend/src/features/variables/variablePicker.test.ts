@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
+import { filterSearchPopoverOptions } from "@/shared/ui/searchPopover";
 import {
   buildVariablePickerEntries,
   filterVariablePickerEntries,
+  formulaVariableSearchOptions,
   toVariableSearchOptions,
   upsertFormulaAlias,
   variablePathLabel
@@ -209,6 +211,60 @@ describe("variablePicker", () => {
       }
     });
     expect(arcane?.keywords).toContain("Base sheet stat.");
+  });
+
+  it("adds action-specific search terms without changing the backend alias", () => {
+    const actionMetadata: ActionFormulaAuthoringMetadata = {
+      ...metadata,
+      variables: [
+        ...metadata.variables,
+        {
+          key: "action.resolved.proficiency_modifier",
+          label: "Action: Proficiency Modifier",
+          root: "action",
+          path: ["resolved", "proficiency_modifier"],
+          value_type: "number",
+          editable_roles: [],
+          formula_backed: true,
+          description: "Modifier selected by the Action Proficiency Attribute.",
+          shortcuts: ["action_proficiency", "spell_proficiency"],
+          formula_reference_allowed: true,
+          action_mutation_allowed: false
+        }
+      ]
+    };
+
+    const option = formulaVariableSearchOptions(actionMetadata, undefined, {
+      "action.resolved.proficiency_modifier": {
+        keywords: ["mana_ball", "Mana Ball"],
+        label: "Mana Ball Proficiency Modifier",
+        detail: "Selected proficiency: Mana Ball"
+      }
+    }).find((entry) => entry.id === "action.resolved.proficiency_modifier");
+
+    expect(option).toMatchObject({
+      label: "Mana Ball Proficiency Modifier",
+      secondary:
+        "@action_proficiency | action.resolved.proficiency_modifier | number | Selected proficiency: Mana Ball",
+      value: {
+        token: "@action_proficiency",
+        alias: {
+          name: "action_proficiency",
+          path: ["action", "resolved", "proficiency_modifier"]
+        }
+      }
+    });
+    expect(option?.keywords).toEqual(expect.arrayContaining(["mana_ball", "Mana Ball"]));
+    expect(
+      filterSearchPopoverOptions(
+        formulaVariableSearchOptions(actionMetadata, undefined, {
+          "action.resolved.proficiency_modifier": {
+            keywords: ["mana_ball", "Mana Ball"]
+          }
+        }),
+        "mana_ball"
+      ).map((entry) => entry.id)
+    ).toEqual(["action.resolved.proficiency_modifier"]);
   });
 
   it("upserts formula aliases by alias name", () => {

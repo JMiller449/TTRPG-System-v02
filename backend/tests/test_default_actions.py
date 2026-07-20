@@ -33,9 +33,8 @@ def test_canonical_action_seeding_attaches_only_defense_defaults() -> None:
 
     presets = {preset.id: preset for preset in CANONICAL_ACTION_PRESETS}
     for action_id in ("spell_to_hit", "spell_damage"):
-        gain_step = presets[action_id].action().steps[1]
-        assert gain_step.type == "gain_proficiency_use"
-        assert gain_step.proficiency_reference == "action_attribute"
+        assert len(presets[action_id].action().steps) == 1
+        assert presets[action_id].action().steps[0].type == "send_roll"
 
 
 def test_canonical_spreadsheet_formulas_expand_to_roll20_expressions() -> None:

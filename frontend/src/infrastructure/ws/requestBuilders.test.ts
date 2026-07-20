@@ -150,7 +150,8 @@ const testProficiency: ProficiencyDefinitionPayload = {
   id: "longsword",
   name: "Longsword",
   description: "Tracks approved longsword use.",
-  category: "weapon_family"
+  category: "weapon_family",
+  default_growth_rate: 0.01
 };
 
 const testAugmentation: AugmentationPayload = {

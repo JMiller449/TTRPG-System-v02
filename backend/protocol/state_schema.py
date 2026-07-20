@@ -306,9 +306,7 @@ class ResolveDamageStepPayload(ProtocolModel):
 class GainProficiencyUseStepPayload(ProtocolModel):
     step_id: str
     proficiency_id: str
-    proficiency_reference: Literal[
-        "explicit", "action_attribute", "source_item_weapon"
-    ] = "explicit"
+    proficiency_reference: Literal["explicit", "source_item_weapon"] = "explicit"
     amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["gain_proficiency_use"]
@@ -359,6 +357,7 @@ class ProficiencyPayload(ProtocolModel):
     name: str
     description: str
     category: Literal["custom", "weapon_family"] = "custom"
+    default_growth_rate: float = 0.01
 
 
 class AugmentationSourcePayload(ProtocolModel):

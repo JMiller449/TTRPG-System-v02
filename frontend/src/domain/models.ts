@@ -190,7 +190,7 @@ export interface ResolveDamageActionStep {
 export interface GainProficiencyUseActionStep {
   step_id: string;
   proficiency_id: string;
-  proficiency_reference?: "explicit" | "action_attribute" | "source_item_weapon";
+  proficiency_reference?: "explicit" | "source_item_weapon";
   amount: NumericValueSource;
   target?: "caster" | "target";
   type: "gain_proficiency_use";
@@ -453,6 +453,7 @@ export interface ProficiencyDefinition {
   name: string;
   description: string;
   category?: "custom" | "weapon_family";
+  default_growth_rate: number;
 }
 
 export interface Stats {

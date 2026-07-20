@@ -172,7 +172,9 @@ describe("ActionEditorForm", () => {
           onSubmit={() => undefined}
           onCancel={() => undefined}
           metadata={null}
-          proficiencies={[{ id: "longsword", name: "Longsword", description: "" }]}
+          proficiencies={[
+            { id: "longsword", name: "Longsword", description: "", default_growth_rate: 0.01 }
+          ]}
           formulas={[]}
           standaloneEffects={[]}
           conditions={[]}
@@ -191,7 +193,6 @@ describe("ActionEditorForm", () => {
       Array.from(trainingSelect?.options ?? []).map((option) => [option.value, option.textContent])
     ).toEqual([
       ["explicit", "Explicit proficiency"],
-      ["action_attribute", "Action Proficiency Attribute"],
       ["source_item_weapon", "Source weapon proficiency"]
     ]);
 
@@ -199,14 +200,14 @@ describe("ActionEditorForm", () => {
       if (!trainingSelect) {
         throw new Error("Expected proficiency training target selector.");
       }
-      trainingSelect.value = "action_attribute";
+      trainingSelect.value = "source_item_weapon";
       trainingSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     expect(changedValues.steps[0]).toMatchObject({
       type: "gain_proficiency_use",
       proficiency_id: "__dynamic_proficiency__",
-      proficiency_reference: "action_attribute"
+      proficiency_reference: "source_item_weapon"
     });
 
     await act(async () => root.unmount());

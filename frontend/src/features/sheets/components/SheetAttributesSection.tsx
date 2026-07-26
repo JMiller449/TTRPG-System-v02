@@ -202,6 +202,14 @@ function SheetAttributeCard({
   const unit = definition?.unit ? ` ${definition.unit}` : "";
   const displayedValue = displayedBridgeValue(bridge);
   const validationOptions = definition?.validation_options ?? [];
+  const selectedListOptions =
+    bridge.value.type === "list"
+      ? literalText
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      : [];
+  const shouldUseListOptionSelect = bridge.value.type === "list" && validationOptions.length > 0;
   const shouldUseOptionSelect =
     bridge.value.type !== "list" &&
     (validationOptions.length > 0 ||
@@ -209,7 +217,10 @@ function SheetAttributeCard({
   const optionSelectValue =
     shouldUseOptionSelect && validationOptions.includes(literalText) ? literalText : "";
   const canSaveLiteralValue =
-    !shouldUseOptionSelect || (Boolean(literalText) && validationOptions.includes(literalText));
+    (!shouldUseOptionSelect || (Boolean(literalText) && validationOptions.includes(literalText))) &&
+    (!shouldUseListOptionSelect ||
+      (selectedListOptions.length > 0 &&
+        selectedListOptions.every((option) => validationOptions.includes(option))));
   const validationOptionLabelMap = definition ? validationOptionLabels?.[definition.id] : undefined;
   const missingReferenceId =
     definition?.reference_kind &&
@@ -228,6 +239,10 @@ function SheetAttributeCard({
     if (value) {
       onSaveValue(bridge.attribute_id, value);
     }
+  };
+
+  const commitListOptions = (options: string[]): void => {
+    commitLiteralText(options.join(", "));
   };
 
   return (
@@ -343,6 +358,51 @@ function SheetAttributeCard({
                     </option>
                   ))}
                 </select>
+              ) : shouldUseListOptionSelect ? (
+                <span className="stack">
+                  <select
+                    aria-label={`${name} option`}
+                    value=""
+                    onChange={(event) => {
+                      const option = event.target.value;
+                      if (option && !selectedListOptions.includes(option)) {
+                        commitListOptions([...selectedListOptions, option]);
+                      }
+                    }}
+                  >
+                    <option value="">Add a value</option>
+                    {validationOptions.map((option) => (
+                      <option
+                        key={option}
+                        value={option}
+                        disabled={selectedListOptions.includes(option)}
+                      >
+                        {validationOptionLabelMap?.[option] ?? option}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedListOptions.length > 0 ? (
+                    <span className="inline-actions">
+                      {selectedListOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className="secondary"
+                          aria-label={`Remove ${validationOptionLabelMap?.[option] ?? option}`}
+                          onClick={() =>
+                            commitListOptions(
+                              selectedListOptions.filter((selected) => selected !== option)
+                            )
+                          }
+                        >
+                          {validationOptionLabelMap?.[option] ?? option} ×
+                        </button>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="muted">No values selected</span>
+                  )}
+                </span>
               ) : (
                 <input
                   value={literalText}
@@ -381,9 +441,6 @@ function SheetAttributeCard({
               Missing {definition?.reference_kind} reference: {missingReferenceId}. Select a valid
               replacement{definition?.required ? "" : " or clear this field"}.
             </p>
-          ) : null}
-          {bridge.value.type === "list" && definition?.validation_options?.length ? (
-            <p className="muted">Allowed values: {definition.validation_options.join(", ")}</p>
           ) : null}
         </div>
       ) : null}

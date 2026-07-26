@@ -85,4 +85,46 @@ describe("SheetAttributesSection", () => {
     expect(markup).toContain("Informational reaction amount.");
     expect(markup).not.toContain("sheet-attributes-title");
   });
+
+  it("renders validated physical damage types as a multi-value dropdown", () => {
+    const markup = renderToStaticMarkup(
+      <SheetAttributesSection
+        definitions={{
+          weapon_damage_types: {
+            id: "weapon_damage_types",
+            name: "Physical Damage Types",
+            description: "Physical damage types this weapon can deal.",
+            subject_types: ["item"],
+            value_type: "list",
+            default_value: { type: "list", value: [] },
+            validation_options: ["Slashing", "Bludgeoning", "Piercing"],
+            required: true,
+            required_profile: "weapon"
+          }
+        }}
+        bridges={{
+          weapon_damage_types: {
+            relationship_id: "required_attribute_weapon_damage_types",
+            attribute_id: "weapon_damage_types",
+            value: { type: "list", value: ["Slashing"] },
+            evaluated_value: ["Slashing"],
+            evaluation_error: null
+          }
+        }}
+        canEdit
+        draftMode
+        subjectType="item"
+        onSaveFormula={() => undefined}
+        onSaveValue={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+
+    expect(markup).toContain('aria-label="Physical Damage Types option"');
+    expect(markup).toContain('<option value="Slashing" disabled="">Slashing</option>');
+    expect(markup).toContain('<option value="Bludgeoning">Bludgeoning</option>');
+    expect(markup).toContain('<option value="Piercing">Piercing</option>');
+    expect(markup).toContain('aria-label="Remove Slashing"');
+    expect(markup).not.toContain("Allowed values:");
+  });
 });

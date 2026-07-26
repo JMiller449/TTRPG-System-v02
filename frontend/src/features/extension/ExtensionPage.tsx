@@ -19,8 +19,8 @@ import {
   synchronizeBridgeUserscript,
   type UserscriptDiscovery
 } from "@/features/extension/bridgeUserscriptChannel";
+import { VIOLENTMONKEY_FIREFOX_URL } from "@/features/extension/installUrls";
 
-const VIOLENTMONKEY_FIREFOX_URL = "https://addons.mozilla.org/firefox/addon/violentmonkey/";
 const SYNC_RESPONSE_TIMEOUT_MS = 5000;
 
 type DetectionState = "checking" | "not_detected" | "detected";

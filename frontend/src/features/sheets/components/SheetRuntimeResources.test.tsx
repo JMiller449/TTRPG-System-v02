@@ -6,24 +6,23 @@ import {
 } from "@/features/sheets/components/SheetRuntimeResources";
 
 describe("SheetRuntimeResources", () => {
-  it("renders the shared pool and both one-point consumption labels", () => {
+  it("renders the shared pool with one-click spend, restore, and reset controls", () => {
     const markup = renderToStaticMarkup(
       <SheetReactionResource
         current={1}
         maximum={2}
         canManage
-        onConsume={() => undefined}
+        onSpend={() => undefined}
         onRestore={() => undefined}
         onReset={() => undefined}
       />
     );
     expect(markup).toContain("Action / Reaction Points");
     expect(markup).toContain("1 / 2 available");
-    expect(markup).toContain(">Consume Action Point</button>");
-    expect(markup).toContain(">Consume Reaction Point</button>");
-    expect(markup).toContain(">Restore Point</button>");
+    expect(markup).toContain(">Spend</button>");
+    expect(markup).toContain(">Restore</button>");
     expect(markup).toContain(">Reset</button>");
-    expect(markup).not.toContain("type=\"number\"");
+    expect(markup).not.toContain('type="number"');
   });
 
   it("disables controls at authoritative pool boundaries", () => {
@@ -32,7 +31,7 @@ describe("SheetRuntimeResources", () => {
         current={0}
         maximum={2}
         canManage
-        onConsume={() => undefined}
+        onSpend={() => undefined}
         onRestore={() => undefined}
         onReset={() => undefined}
       />
@@ -42,15 +41,15 @@ describe("SheetRuntimeResources", () => {
         current={2}
         maximum={2}
         canManage
-        onConsume={() => undefined}
+        onSpend={() => undefined}
         onRestore={() => undefined}
         onReset={() => undefined}
       />
     );
 
-    expect(emptyMarkup).toContain('disabled="">Consume Action Point</button>');
-    expect(emptyMarkup).toContain(">Restore Point</button>");
-    expect(fullMarkup).toContain('disabled="">Restore Point</button>');
+    expect(emptyMarkup).toContain('disabled="">Spend</button>');
+    expect(emptyMarkup).toContain(">Restore</button>");
+    expect(fullMarkup).toContain('disabled="">Restore</button>');
     expect(fullMarkup).toContain('disabled="">Reset</button>');
   });
 
@@ -60,14 +59,14 @@ describe("SheetRuntimeResources", () => {
         current={3}
         maximum={3}
         canManage={false}
-        onConsume={() => undefined}
+        onSpend={() => undefined}
         onRestore={() => undefined}
         onReset={() => undefined}
       />
     );
     expect(markup).toContain("3 / 3 available");
-    expect(markup).not.toContain("Consume Action Point");
-    expect(markup).not.toContain("Restore Point");
+    expect(markup).not.toContain(">Spend</button>");
+    expect(markup).not.toContain(">Restore</button>");
     expect(markup).not.toContain(">Reset</button>");
   });
 

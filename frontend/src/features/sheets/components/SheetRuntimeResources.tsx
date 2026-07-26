@@ -9,14 +9,14 @@ export function SheetReactionResource({
   current,
   maximum,
   canManage,
-  onConsume,
+  onSpend,
   onRestore,
   onReset
 }: {
   current: number;
   maximum: number;
   canManage: boolean;
-  onConsume: (usage: "action" | "reaction") => void;
+  onSpend: () => void;
   onRestore: () => void;
   onReset: () => void;
 }): JSX.Element {
@@ -27,40 +27,34 @@ export function SheetReactionResource({
   return (
     <section className="character-sheet__section character-sheet__section--compact">
       <h4>Action / Reaction Points</h4>
-      <p className="muted">
-        {formatFraction(current)} / {formatFraction(maximum)} available
-      </p>
-      {canManage ? (
-        <div className="inline-actions">
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={!canConsume}
-            onClick={() => onConsume("action")}
-          >
-            Consume Action Point
-          </button>
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={!canConsume}
-            onClick={() => onConsume("reaction")}
-          >
-            Consume Reaction Point
-          </button>
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={!canRestore}
-            onClick={onRestore}
-          >
-            Restore Point
-          </button>
-          <button className="button" type="button" disabled={!canReset} onClick={onReset}>
-            Reset
-          </button>
-        </div>
-      ) : null}
+      <div className="inline-actions">
+        <p className="muted">
+          {formatFraction(current)} / {formatFraction(maximum)} available
+        </p>
+        {canManage ? (
+          <>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={!canConsume}
+              onClick={onSpend}
+            >
+              Spend
+            </button>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={!canRestore}
+              onClick={onRestore}
+            >
+              Restore
+            </button>
+            <button className="button" type="button" disabled={!canReset} onClick={onReset}>
+              Reset
+            </button>
+          </>
+        ) : null}
+      </div>
     </section>
   );
 }

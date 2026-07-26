@@ -428,13 +428,13 @@ export function PlayerCharacterSheet({
                   current={detail.reactions.current}
                   maximum={detail.reactions.maximum}
                   canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
-                  onConsume={(usage) =>
+                  onSpend={() =>
                     client.sendProtocolRequest(
                       buildAdjustInstancedSheetReactionsRequest({
                         instanceId: detail.instance.id,
                         delta: -1
                       }),
-                      `Consume ${usage} point`
+                      "Spend action/reaction point"
                     )
                   }
                   onRestore={() =>

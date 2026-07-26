@@ -9,7 +9,6 @@ const IDENTITY_FIELDS: ReadonlyArray<{
   { key: "species", label: "Species", placeholder: "e.g. Human, Elf, Goblin" },
   { key: "background", label: "Background", placeholder: "e.g. Scholar" },
   { key: "alignment", label: "Alignment", placeholder: "Optional" },
-  { key: "pronouns", label: "Pronouns", placeholder: "e.g. they/them" },
   { key: "age", label: "Age", placeholder: "e.g. 32" },
   { key: "height", label: "Height", placeholder: "e.g. 6 ft 2 in" },
   { key: "weight", label: "Weight", placeholder: "e.g. 180 lb" },

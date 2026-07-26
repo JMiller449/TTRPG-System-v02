@@ -97,7 +97,9 @@ class AdjustInstancedSheetReactionsRoute(RequestRoute[AdjustInstancedSheetReacti
     async def handle(
         self, session: WebSocketSession, request: AdjustInstancedSheetReactions
     ) -> None:
-        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
+        sheet_access_service.ensure_session_can_manage_instance_action_points(
+            session, request.instance_id
+        )
         await service.adjust_instanced_sheet_reactions(request)
 
 
@@ -114,7 +116,9 @@ class ResetInstancedSheetReactionsRoute(RequestRoute[ResetInstancedSheetReaction
     async def handle(
         self, session: WebSocketSession, request: ResetInstancedSheetReactions
     ) -> None:
-        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
+        sheet_access_service.ensure_session_can_manage_instance_action_points(
+            session, request.instance_id
+        )
         await service.reset_instanced_sheet_reactions(request)
 
 

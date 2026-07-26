@@ -34,7 +34,7 @@ class SetInstancedSheetItemEquipped(RequestModel):
 
 class AdjustInstancedSheetReactions(RequestModel):
     instance_id: str = Field(min_length=1)
-    delta: float = Field(allow_inf_nan=False)
+    delta: Literal[-1, 1]
     type: Literal["adjust_instanced_sheet_reactions"]
 
 

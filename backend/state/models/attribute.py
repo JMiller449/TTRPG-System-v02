@@ -22,6 +22,23 @@ AttributeProfile = Literal["weapon"]
 EvaluatedAttributeValue = float | int | bool | str | list[str] | None
 
 AMOUNT_OF_REACTIONS_ATTRIBUTE_ID = "amount_of_reactions"
+ACTION_REACTION_POINT_FORMULA_TEXT = (
+    "1"
+    " + min(1, floor(max(0, @reaction_time) / 20))"
+    " + min(1, floor(max(0, @reaction_time) / 40))"
+    " + min(1, floor(max(0, @reaction_time) / 60))"
+    " + min(1, floor(max(0, @reaction_time) / 80))"
+    " + 3 * min(1, floor(max(0, @reaction_time) / 100))"
+    " + min(1, floor(max(0, @reaction_time) / 130))"
+    " + min(1, floor(max(0, @reaction_time) / 160))"
+    " + min(1, floor(max(0, @reaction_time) / 190))"
+    " + min(1, floor(max(0, @reaction_time) / 220))"
+    " + min(1, floor(max(0, @reaction_time) / 250))"
+    " + min(1, floor(max(0, @reaction_time) / 280))"
+    " + min(1, floor(max(0, @reaction_time) / 310))"
+    " + min(1, floor(max(0, @reaction_time) / 340))"
+    " + 4 * min(1, floor(max(0, @reaction_time) / 400))"
+)
 WEAPON_ATTRIBUTE_PROFILE = "weapon"
 WEAPON_TYPE_ATTRIBUTE_ID = "weapon_type"
 WEAPON_BASE_DAMAGE_ATTRIBUTE_ID = "weapon_base_damage"
@@ -157,22 +174,18 @@ class AttributeBridge:
 def amount_of_reactions_definition() -> AttributeDefinition:
     return AttributeDefinition(
         id=AMOUNT_OF_REACTIONS_ATTRIBUTE_ID,
-        name="Amount of Reactions",
+        name="Action / Reaction Points",
         description=(
-            "Informational derived reaction amount. Combat spending and turn "
-            "enforcement remain manual."
+            "Shared action and reaction point maximum derived from the Reaction "
+            "Time threshold table. Spending and turn resets remain manual."
         ),
         subject_types=["sheet"],
         value_type="number",
         default_value=AttributeValue(
             type="formula",
             formula=Formula(
-                text="@registration + @reaction_time",
+                text=ACTION_REACTION_POINT_FORMULA_TEXT,
                 aliases=[
-                    FormulaAliases(
-                        name="registration",
-                        path=["stats", "registration"],
-                    ),
                     FormulaAliases(
                         name="reaction_time",
                         path=["stats", "reaction_time"],
@@ -180,7 +193,7 @@ def amount_of_reactions_definition() -> AttributeDefinition:
                 ],
             ),
         ),
-        unit="reactions",
+        unit="points",
         visibility="public",
         required=True,
         backend_owned=True,

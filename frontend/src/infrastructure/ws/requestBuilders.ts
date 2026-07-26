@@ -489,7 +489,7 @@ export function buildAdjustInstancedSheetReactionsRequest({
   requestId
 }: {
   instanceId: string;
-  delta: number;
+  delta: -1 | 1;
 } & OptionalRequestId): ProtocolRequest<"adjust_instanced_sheet_reactions"> {
   return {
     ...requestIdField(requestId),

@@ -1213,9 +1213,11 @@ def _normalize_reactions(value: float | int) -> float:
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
     except (InvalidOperation, ValueError) as exc:
-        raise ValueError("Reactions must be a finite number with at most two decimal places.") from exc
+        raise ValueError(
+            "Action/reaction points must be a finite number with at most two decimal places."
+        ) from exc
     if not isfinite(float(normalized)) or normalized < 0:
-        raise ValueError("Reactions must be finite and nonnegative.")
+        raise ValueError("Action/reaction points must be finite and nonnegative.")
     return float(normalized)
 
 
@@ -1234,17 +1236,18 @@ async def adjust_instanced_sheet_reactions(
         instance = state.instanced_sheets.get(request.instance_id)
         if instance is None:
             raise ValueError(f"Instance '{request.instance_id}' does not exist.")
-        delta = _normalize_reactions(abs(request.delta))
-        if request.delta < 0:
-            delta = -delta
         current = _normalize_reactions(instance.reactions)
-        raw_next_value = current + delta
+        raw_next_value = current + request.delta
         if raw_next_value < 0:
-            raise ValueError("Cannot spend more reactions than are currently available.")
+            raise ValueError(
+                "Cannot consume more action/reaction points than are currently available."
+            )
         next_value = _normalize_reactions(raw_next_value)
         limit = evaluate_reaction_limit(instance)
         if next_value > limit:
-            raise ValueError("Cannot restore reactions above the current maximum.")
+            raise ValueError(
+                "Cannot restore action/reaction points above the current maximum."
+            )
         path = state_sync_service.join_path("instanced_sheets", request.instance_id, "reactions")
         return None, [state_sync_service.set_mutation(state, path, next_value)]
 

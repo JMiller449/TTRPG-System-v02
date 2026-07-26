@@ -8,55 +8,59 @@ function formatFraction(value: number): string {
 export function SheetReactionResource({
   current,
   maximum,
-  onAdjust,
+  canManage,
+  onConsume,
+  onRestore,
   onReset
 }: {
   current: number;
   maximum: number;
-  onAdjust: (delta: number) => void;
+  canManage: boolean;
+  onConsume: (usage: "action" | "reaction") => void;
+  onRestore: () => void;
   onReset: () => void;
 }): JSX.Element {
-  const [amount, setAmount] = useState("0.5");
-  const parsedAmount = Number(amount);
-  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const canConsume = current >= 1;
+  const canRestore = current + 1 <= maximum;
+  const canReset = current !== maximum;
 
   return (
     <section className="character-sheet__section character-sheet__section--compact">
-      <h4>Reactions</h4>
+      <h4>Action / Reaction Points</h4>
       <p className="muted">
         {formatFraction(current)} / {formatFraction(maximum)} available
       </p>
-      <div className="inline-actions">
-        <Field label="Amount">
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-        </Field>
-        <button
-          className="button button--secondary"
-          type="button"
-          disabled={!validAmount}
-          onClick={() => onAdjust(-parsedAmount)}
-        >
-          Spend
-        </button>
-        <button
-          className="button button--secondary"
-          type="button"
-          disabled={!validAmount}
-          onClick={() => onAdjust(parsedAmount)}
-        >
-          Restore
-        </button>
-        <button className="button" type="button" onClick={onReset}>
-          Reset
-        </button>
-      </div>
+      {canManage ? (
+        <div className="inline-actions">
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={!canConsume}
+            onClick={() => onConsume("action")}
+          >
+            Consume Action Point
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={!canConsume}
+            onClick={() => onConsume("reaction")}
+          >
+            Consume Reaction Point
+          </button>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={!canRestore}
+            onClick={onRestore}
+          >
+            Restore Point
+          </button>
+          <button className="button" type="button" disabled={!canReset} onClick={onReset}>
+            Reset
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

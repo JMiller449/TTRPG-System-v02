@@ -1,12 +1,18 @@
 import asyncio
 from copy import deepcopy
 
+import pytest
+
 from backend.features.state_sync.service import state_sync_service
 from backend.features.sheet_admin.sheets.service import build_instanced_sheet_from_template
 from backend.routes.ws import handle_client_payload, websocket_sessions
-from backend.state.models.attribute import synchronize_required_sheet_attributes
+from backend.state.models.attribute import (
+    ACTION_REACTION_POINT_FORMULA_TEXT,
+    synchronize_required_sheet_attributes,
+)
 from backend.state.models.action import Action
 from backend.state.models.item import Item
+from backend.state.models.formula import Formula
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -97,8 +103,36 @@ def test_required_amount_of_reactions_is_seeded_and_evaluated() -> None:
     bridge = sheet.attributes["amount_of_reactions"]
     assert definition.required is True
     assert definition.default_value.formula is not None
-    assert bridge.evaluated_value == 25
+    assert definition.name == "Action / Reaction Points"
+    assert definition.unit == "points"
+    assert bridge.evaluated_value == 1
     assert bridge.evaluation_error is None
+
+
+@pytest.mark.parametrize(
+    ("reaction_time", "expected_points"),
+    [
+        (0, 1),
+        (19, 1),
+        (20, 2),
+        (99, 5),
+        (100, 8),
+        (175, 10),
+        (399, 16),
+        (400, 20),
+        (500, 20),
+    ],
+)
+def test_action_reaction_point_maximum_uses_reaction_time_thresholds(
+    reaction_time: int,
+    expected_points: int,
+) -> None:
+    sheet = _sheet()
+    sheet.stats.reaction_time = Formula(text=str(reaction_time), aliases=[])
+
+    synchronize_required_sheet_attributes(sheet)
+
+    assert sheet.attributes["amount_of_reactions"].evaluated_value == expected_points
 
 
 def test_canonical_sheet_attribute_definitions_seed_required_level() -> None:
@@ -266,9 +300,9 @@ def test_dm_can_edit_and_reset_required_sheet_attribute(monkeypatch) -> None:
             bridge = StateSingleton.getState().sheets["mage"].attributes[
                 "amount_of_reactions"
             ]
-            assert bridge.evaluated_value == 25
+            assert bridge.evaluated_value == 1
             assert bridge.value.formula is not None
-            assert bridge.value.formula.text == "@registration + @reaction_time"
+            assert bridge.value.formula.text == ACTION_REACTION_POINT_FORMULA_TEXT
         finally:
             StateSingleton._state = original_state
 
@@ -290,17 +324,17 @@ def test_attribute_recomputes_when_dependency_changes(monkeypatch) -> None:
                 {
                     "type": "set_sheet_base_stat",
                     "sheet_id": "mage",
-                    "stat_name": "arcane",
-                    "value": 20,
+                    "stat_name": "dexterity",
+                    "value": 40,
                 },
             )
 
             bridge = StateSingleton.getState().sheets["mage"].attributes[
                 "amount_of_reactions"
             ]
-            assert bridge.evaluated_value == 31
+            assert bridge.evaluated_value == 3
             assert [op["path"] for op in websocket.sent_messages[-1]["ops"]] == [
-                "/sheets/mage/stats/arcane",
+                "/sheets/mage/stats/dexterity",
                 "/sheets/mage/attributes/amount_of_reactions",
                 "/sheets/mage/evaluated_stats",
                 "/sheets/mage/evaluated_max_health",

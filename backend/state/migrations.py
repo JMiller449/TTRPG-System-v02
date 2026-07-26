@@ -16,7 +16,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 38
+CURRENT_STATE_SCHEMA_VERSION = 39
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -1964,6 +1964,98 @@ def _migrate_v37_to_v38(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 38, "state": state}
 
 
+def _action_reaction_point_formula_payload() -> dict[str, Any]:
+    return {
+        "type": "formula",
+        "value": None,
+        "formula": {
+            "text": (
+                "1"
+                " + min(1, floor(max(0, @reaction_time) / 20))"
+                " + min(1, floor(max(0, @reaction_time) / 40))"
+                " + min(1, floor(max(0, @reaction_time) / 60))"
+                " + min(1, floor(max(0, @reaction_time) / 80))"
+                " + 3 * min(1, floor(max(0, @reaction_time) / 100))"
+                " + min(1, floor(max(0, @reaction_time) / 130))"
+                " + min(1, floor(max(0, @reaction_time) / 160))"
+                " + min(1, floor(max(0, @reaction_time) / 190))"
+                " + min(1, floor(max(0, @reaction_time) / 220))"
+                " + min(1, floor(max(0, @reaction_time) / 250))"
+                " + min(1, floor(max(0, @reaction_time) / 280))"
+                " + min(1, floor(max(0, @reaction_time) / 310))"
+                " + min(1, floor(max(0, @reaction_time) / 340))"
+                " + 4 * min(1, floor(max(0, @reaction_time) / 400))"
+            ),
+            "aliases": [
+                {"name": "reaction_time", "path": ["stats", "reaction_time"]}
+            ],
+            "tags": [],
+        },
+    }
+
+
+def _is_legacy_amount_of_reactions_value(value: Any) -> bool:
+    if not isinstance(value, dict) or value.get("type") != "formula":
+        return False
+    formula = value.get("formula")
+    if not isinstance(formula, dict):
+        return False
+    return (
+        formula.get("text") == "@registration + @reaction_time"
+        and formula.get("aliases")
+        == [
+            {"name": "registration", "path": ["stats", "registration"]},
+            {"name": "reaction_time", "path": ["stats", "reaction_time"]},
+        ]
+        and formula.get("tags", []) == []
+    )
+
+
+def _migrate_v38_to_v39(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    attributes = state.get("attributes", {})
+    if isinstance(attributes, dict):
+        definition = attributes.get("amount_of_reactions")
+        if isinstance(definition, dict) and _is_legacy_amount_of_reactions_value(
+            definition.get("default_value")
+        ):
+            definition.update(
+                {
+                    "name": "Action / Reaction Points",
+                    "description": (
+                        "Shared action and reaction point maximum derived from the "
+                        "Reaction Time threshold table. Spending and turn resets "
+                        "remain manual."
+                    ),
+                    "default_value": _action_reaction_point_formula_payload(),
+                    "unit": "points",
+                    "required": True,
+                    "backend_owned": True,
+                }
+            )
+
+    for collection_name in ("sheets", "instanced_sheets"):
+        collection = state.get(collection_name, {})
+        if not isinstance(collection, dict):
+            continue
+        for subject in collection.values():
+            if not isinstance(subject, dict):
+                continue
+            attached = subject.get("attributes", {})
+            if not isinstance(attached, dict):
+                continue
+            bridge = attached.get("amount_of_reactions")
+            if not isinstance(bridge, dict) or not _is_legacy_amount_of_reactions_value(
+                bridge.get("value")
+            ):
+                continue
+            bridge["value"] = _action_reaction_point_formula_payload()
+            bridge["evaluated_value"] = None
+            bridge["evaluation_error"] = None
+
+    return {"schema_version": 39, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2003,6 +2095,7 @@ MIGRATIONS: dict[int, Migration] = {
     35: _migrate_v35_to_v36,
     36: _migrate_v36_to_v37,
     37: _migrate_v37_to_v38,
+    38: _migrate_v38_to_v39,
 }
 
 

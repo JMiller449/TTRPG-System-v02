@@ -26,7 +26,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 38. Future-version checkpoints are rejected rather than guessed at.
+version 39. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -63,6 +63,11 @@ Schema version 38 removes persisted `gain_proficiency_use` steps whose target
 was the action's own Proficiency Attribute. Action Proficiency inclusion now
 grants that use automatically after successful execution; explicit and source
 weapon proficiency-gain steps are preserved.
+
+Schema version 39 updates only unchanged canonical Amount of Reactions
+definitions and bridges to the shared Action / Reaction Point terminology and
+Reaction Time threshold formula. Customized formulas and existing current
+balances, including fractional legacy balances, remain unchanged.
 
 Schema version 29 adds explicit visibility to authored Roll20 message steps and
 backfills existing steps as `public`, preserving all pre-feature behavior.

@@ -115,8 +115,8 @@ class InstancedSheet:
     max_health: Formula = field(default_factory=default_max_health_formula)
     max_mana: Formula = field(default_factory=default_max_mana_formula)
     stat_bonuses: Dict[FormulaStatName, int] = field(default_factory=dict)
-    # Reactions use two decimal places so half reactions and other authored
-    # fractional limits survive checkpoint round trips without binary drift.
+    # The legacy field name and two-decimal storage remain protocol/checkpoint
+    # compatible. Public controls adjust the shared action/reaction pool by one.
     reactions: float = 0.0
     contribution_points: int = 0
     pinned_action_ids: list[str] = field(default_factory=list)
@@ -127,9 +127,9 @@ class InstancedSheet:
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
         except (InvalidOperation, ValueError) as exc:
-            raise ValueError("Reactions must be a finite number.") from exc
+            raise ValueError("Action/reaction points must be a finite number.") from exc
         if not isfinite(float(normalized_reactions)) or normalized_reactions < 0:
-            raise ValueError("Reactions must be finite and nonnegative.")
+            raise ValueError("Action/reaction points must be finite and nonnegative.")
         if isinstance(self.contribution_points, bool) or not isinstance(
             self.contribution_points, int
         ) or self.contribution_points < 0:

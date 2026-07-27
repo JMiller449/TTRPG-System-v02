@@ -184,6 +184,11 @@ No large architecture feature is currently missing for the stated character-shee
   - `just bootstrap` handles first installation; `just deploy-all` performs
     tested maintenance-mode routine deployments and reinstalls backend
     dependencies from `backend/requirements.txt`.
+  - The manual `Deploy Production` GitHub Actions workflow verifies and
+    packages without production credentials, then uses a protected
+    `production` environment to deploy the same archives through the local
+    maintenance-mode deployment sequence. The local `just deploy-all` command
+    remains available as an equivalent fallback.
   - Production started with fresh default state, and a second deployment
     preserved the generated production checkpoint.
   - Direct readiness, public HTTPS, SPA fallback, production-default rejection,

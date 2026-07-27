@@ -84,7 +84,31 @@ just bootstrap
 random player, DM, and service codes. It does not print them. Keep the DM and
 service codes private; distribute the player code only to intended players.
 
-Routine deployment is:
+Routine production deployment is normally started manually from GitHub:
+
+1. Open **Actions** and select **Deploy Production**.
+2. Choose **Run workflow** on `main`.
+3. Approve the protected `production` environment when prompted.
+
+The workflow runs the complete backend/frontend verification and build without
+production credentials. After those checks pass, its protected deployment job
+publishes the verified archives through the same maintenance-mode backend,
+frontend, and public-verification sequence used by the local command.
+
+The repository's `production` environment must define these secrets:
+
+- `PRODUCTION_SSH_HOST`
+- `PRODUCTION_SSH_PORT`
+- `PRODUCTION_SSH_USER`
+- `PRODUCTION_SSH_PRIVATE_KEY`
+- `PRODUCTION_SSH_KNOWN_HOSTS`
+
+Use an independently revocable deployment-only SSH key. Secret values are
+configured in GitHub settings and must never be committed. Restrict the
+environment to `main` and configure the intended required reviewer before the
+first workflow deployment.
+
+The equivalent local fallback remains:
 
 ```bash
 just deploy-all

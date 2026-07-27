@@ -286,6 +286,14 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
               </p>
             ) : null}
             <div className="extension-sync__actions">
+              <a
+                className="button button--secondary"
+                href={installUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Install / Update Userscript
+              </a>
               <button
                 className="button"
                 disabled={!roll20Bridge.bindingKey || syncState === "syncing"}
@@ -317,7 +325,7 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
               <strong>Per-browser setup</strong>
               <p className="muted">
                 Each player and the DM must install and sync their own userscript. Open or reload
-                Roll20 after installing, updating, or switching characters.
+                this page and Roll20 after installing, updating, or switching characters.
               </p>
             </aside>
           </section>

@@ -125,6 +125,11 @@ describe("ExtensionPage", () => {
     expect(container.textContent).toContain("Userscript v1.0.0");
     expect(container.textContent).toContain("ws://127.0.0.1:6767/ws/chat");
     expect(container.textContent).toContain("Resync Bridge");
+    const updateLink = [...container.querySelectorAll("a")].find(
+      (link) => link.textContent === "Install / Update Userscript"
+    );
+    expect(updateLink).toBeDefined();
+    expect(updateLink?.getAttribute("href")).toContain("roll20-bridge.user.js");
     expect(container.textContent).toContain("Roll20 can stay closed");
     expect(container.querySelectorAll(".extension-sync__details > div")).toHaveLength(5);
     expect(container.textContent).not.toContain("SERVICE_AUTH_CODE");

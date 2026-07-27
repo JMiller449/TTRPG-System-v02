@@ -177,6 +177,19 @@ class StatePatchEvent(ProtocolModel):
     request_id: str | None = None
 
 
+class RequestCompletedEvent(ProtocolModel):
+    """Terminal response for a valid request that changed no state.
+
+    Mutating routes normally answer with the resulting `state_patch`. A request
+    that resolves to no operations has no patch to send, so without this event
+    the client would keep that request pending for the rest of the session.
+    """
+
+    response_id: str | None = None
+    type: Literal["request_completed"] = "request_completed"
+    request_id: str | None = None
+
+
 class ActionExecutedEvent(ProtocolModel):
     response_id: str | None = None
     sheet_id: str = Field(min_length=1)
@@ -599,6 +612,7 @@ ServerEvent = Annotated[
     | AuthenticateResponseEvent
     | StateSnapshotEvent
     | StatePatchEvent
+    | RequestCompletedEvent
     | ActionExecutedEvent
     | Roll20BridgeStatusEvent
     | Roll20BridgeSyncConfigEvent

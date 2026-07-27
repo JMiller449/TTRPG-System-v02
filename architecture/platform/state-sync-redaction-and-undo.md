@@ -37,11 +37,20 @@ reconciliation hooks such as derived equipment effects, records inverse
 operations when eligible, dumps the checkpoint, and only then broadcasts the
 result.
 
+Checkpoint persistence happens inside that transaction. A failed write rolls the
+in-memory state back and raises rather than leaving the backend holding a
+mutation that produced no version and no patch.
+
 Processed request IDs are retained in a bounded cache. Repeating the same ID
 does not repeat a state mutation, protecting reconnect/retry flows from
 duplicate effects. A bounded internal mutation-audit trail records version,
 request identity, actor role, request type, affected paths, and relevant entity
 IDs without copying mutation values.
+
+A valid request can resolve to zero operations, in which case no patch is
+broadcast. For routes whose only declared response is `state_patch`, the
+transport layer answers with a `request_completed` event so the client does not
+treat the request as permanently pending.
 
 Some operations intentionally opt out of undo, including action-history
 recording. DM `undo_last_state_change` applies the inverse of the latest
@@ -60,7 +69,14 @@ Filtering includes:
 - Sheet access codes are retrieved through dedicated DM-only events rather
   than ordinary state sync.
 - Players receive their assigned instance and player-visible supporting
-  definitions, not other player runtime state or DM-only templates.
+  definitions, not other player runtime state or DM-only templates. Instances
+  other than the claimed one are withheld entirely rather than shipped with
+  private fields subtracted, so a newly added instance field cannot leak by
+  default. Patch operations addressing those instances are dropped for the same
+  reason.
+- Templates flagged `dm_only` are withheld from players, except the parent of
+  the claimed instance, which the character sheet needs in order to render.
+- Encounter presets are DM-only and never reach player state.
 - The assigned instance's character profile is player-visible and editable;
   profiles on other instances remain absent with the rest of those records.
 - Template notes and GM-only attribute/item/condition details are removed from

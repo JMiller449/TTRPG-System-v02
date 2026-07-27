@@ -40,6 +40,7 @@ DM_ONLY_STATE_ROOTS = {
     "xp_adjustments",
     "player_kill_visibility",
     "contribution_point_transactions",
+    "encounter_presets",
 }
 _MISSING = object()
 
@@ -131,6 +132,7 @@ class StateSyncService:
             maxlen=processed_request_limit
         )
         self._processed_request_id_set: set[str] = set()
+        self._no_op_request_ids: deque[str] = deque(maxlen=processed_request_limit)
         self._mutation_audit: deque[MutationAuditEntry] = deque(
             maxlen=mutation_audit_limit
         )
@@ -191,6 +193,25 @@ class StateSyncService:
             )
         )
 
+    def _player_can_see_sheet(
+        self,
+        sheet_id: str,
+        *,
+        assigned_instance_id: str | None,
+    ) -> bool:
+        state = StateSingleton.getState()
+        sheet = state.sheets.get(sheet_id)
+        if sheet is None:
+            return False
+        if not sheet.dm_only:
+            return True
+        instance = (
+            state.instanced_sheets.get(assigned_instance_id)
+            if assigned_instance_id is not None
+            else None
+        )
+        return instance is not None and instance.parent_id == sheet_id
+
     def _redact_subject_attributes(self, value: dict[str, Any]) -> None:
         subject_attributes = value.get("attributes")
         if not isinstance(subject_attributes, dict):
@@ -238,6 +259,31 @@ class StateSyncService:
 
         for root in PRIVATE_STATE_ROOTS | DM_ONLY_STATE_ROOTS:
             state.pop(root, None)
+
+        # Players receive only the character they claimed. Dropping every other
+        # spawned instance outright, rather than subtracting known-private
+        # fields from it, means a newly added field cannot leak by default.
+        state["instanced_sheets"] = {
+            instance_id: instance
+            for instance_id, instance in state.get("instanced_sheets", {}).items()
+            if instance_id == assigned_instance_id
+        }
+
+        # Templates behind `dm_only` are enemy stat blocks. The claimed
+        # instance's own parent is kept even when it is flagged, because the
+        # character sheet cannot render without it.
+        assigned_instance = state.get("instanced_sheets", {}).get(assigned_instance_id)
+        assigned_parent_id = (
+            assigned_instance.get("parent_id")
+            if isinstance(assigned_instance, dict)
+            else None
+        )
+        state["sheets"] = {
+            sheet_id: sheet
+            for sheet_id, sheet in state.get("sheets", {}).items()
+            if sheet_id == assigned_parent_id
+            or not (isinstance(sheet, dict) and sheet.get("dm_only"))
+        }
 
         hidden_attribute_ids = {
             attribute_id
@@ -303,20 +349,6 @@ class StateSyncService:
                 for attribute_id in hidden_attribute_ids:
                     instance_attributes.pop(attribute_id, None)
 
-        for instance_id, instance in state.get("instanced_sheets", {}).items():
-            if (
-                isinstance(instance, dict)
-                and instance_id != assigned_instance_id
-            ):
-                instance["items"] = {}
-                # Runtime balances and personal action layout belong only to the
-                # claimed character, even though legacy snapshots retain minimal
-                # records for other instances.
-                instance.pop("reactions", None)
-                instance.pop("evaluated_max_reactions", None)
-                instance.pop("contribution_points", None)
-                instance.pop("pinned_action_ids", None)
-
         for sheet in state.get("sheets", {}).values():
             if not isinstance(sheet, dict):
                 continue
@@ -368,19 +400,6 @@ class StateSyncService:
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
             if segments and segments[0] in PRIVATE_STATE_ROOTS:
-                continue
-            if (
-                len(segments) >= 3
-                and segments[0] == "instanced_sheets"
-                and segments[1] != assigned_instance_id
-                and segments[2]
-                in {
-                    "reactions",
-                    "evaluated_max_reactions",
-                    "contribution_points",
-                    "pinned_action_ids",
-                }
-            ):
                 continue
             if segments and segments[0] == "action_history":
                 if op.op == "remove":
@@ -435,13 +454,35 @@ class StateSyncService:
             if segments and segments[0] in DM_ONLY_STATE_ROOTS:
                 continue
 
+            # Mirror of the snapshot rule: a player only ever sees their own
+            # claimed instance, so no other instance's mutations are forwarded.
+            if segments and segments[0] == "instanced_sheets":
+                if len(segments) < 2 or segments[1] != assigned_instance_id:
+                    continue
+
+            # Enemy templates stay GM-only. A template that becomes `dm_only`
+            # after the client already holds it is turned into a removal so the
+            # client cannot keep serving a stale copy.
+            if len(segments) >= 2 and segments[0] == "sheets":
+                sheet_id = segments[1]
+                if op.op == "remove" and len(segments) == 2:
+                    redacted_ops.append(op)
+                    continue
+                if not self._player_can_see_sheet(
+                    sheet_id,
+                    assigned_instance_id=assigned_instance_id,
+                ):
+                    if op.op == "set" and len(segments) == 2:
+                        redacted_ops.append(
+                            PatchOp(op="remove", path=self.join_path("sheets", sheet_id))
+                        )
+                    continue
+
             if (
                 len(segments) >= 3
                 and segments[0] == "instanced_sheets"
                 and segments[2] == "items"
             ):
-                if segments[1] != assigned_instance_id:
-                    continue
                 if len(segments) == 4 and op.op in {"add", "set"}:
                     instance = StateSingleton.getState().instanced_sheets.get(
                         segments[1]
@@ -773,6 +814,7 @@ class StateSyncService:
             self._patch_history.clear()
             self._processed_request_ids.clear()
             self._processed_request_id_set.clear()
+            self._no_op_request_ids.clear()
             self._mutation_audit.clear()
             self._undo_history.clear()
 
@@ -789,6 +831,7 @@ class StateSyncService:
             self._patch_history.clear()
             self._processed_request_ids.clear()
             self._processed_request_id_set.clear()
+            self._no_op_request_ids.clear()
             self._mutation_audit.clear()
             self._undo_history.clear()
             sessions = await websocket_sessions.authenticated_sessions()
@@ -810,6 +853,19 @@ class StateSyncService:
     async def recent_mutations(self) -> tuple[MutationAuditEntry, ...]:
         async with self._lock:
             return tuple(self._mutation_audit)
+
+    def consume_no_op_request(self, request_id: str | None) -> bool:
+        """Report whether a request completed without producing any patch.
+
+        Consuming clears the record, so a request is answered exactly once.
+        """
+        if request_id is None:
+            return False
+        try:
+            self._no_op_request_ids.remove(request_id)
+        except ValueError:
+            return False
+        return True
 
     def _remember_processed_request(self, request_id: str) -> None:
         if request_id in self._processed_request_id_set:
@@ -1337,6 +1393,8 @@ class StateSyncService:
 
             state = StateSingleton.getState()
             previous_state = deepcopy(state)
+            inverse_ops: list[PatchOp] = []
+            patch_ops: list[PatchOp] = []
             try:
                 result, ops = mutation(state)
                 from backend.features.augmentations.service import (
@@ -1355,6 +1413,18 @@ class StateSyncService:
                 ops.extend(synchronize_pinned_actions_mutation(state))
                 if before_commit is not None:
                     await before_commit(result)
+                if ops:
+                    inverse_ops = self._build_inverse_ops(previous_state, ops)
+                    patch_ops = [
+                        *ops,
+                        *self._stat_projection_operations(state, ops),
+                        *self._inventory_projection_operations(state, ops),
+                    ]
+                    # Persist before publishing a version or patch. If the write
+                    # fails, the rollback below restores memory; committing first
+                    # would leave the server holding a mutation no client can see
+                    # and no version gap to recover from.
+                    StateSingleton.dumpState()
             except Exception:
                 for state_field in fields(state):
                     setattr(
@@ -1364,15 +1434,8 @@ class StateSyncService:
                     )
                 raise
             if ops:
-                inverse_ops = self._build_inverse_ops(previous_state, ops)
                 if inverse_ops:
                     self._undo_history.append(inverse_ops)
-                patch_ops = [
-                    *ops,
-                    *self._stat_projection_operations(state, ops),
-                    *self._inventory_projection_operations(state, ops),
-                ]
-                StateSingleton.dumpState()
                 patch = self._next_patch(patch_ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
                 if request_id is not None:
@@ -1386,6 +1449,9 @@ class StateSyncService:
                 )
             elif request_id is not None:
                 self._remember_processed_request(request_id)
+                # No patch will be broadcast for this request, so the transport
+                # layer has to answer it explicitly. See consume_no_op_request.
+                self._no_op_request_ids.append(request_id)
             return result
 
     async def apply_audit_mutation(
@@ -1398,6 +1464,10 @@ class StateSyncService:
             previous_state = deepcopy(state)
             try:
                 result, ops = mutation(state)
+                if ops:
+                    # Same ordering rule as apply_mutation: durable first, then
+                    # versioned and broadcast.
+                    StateSingleton.dumpState()
             except Exception:
                 for state_field in fields(state):
                     setattr(
@@ -1410,7 +1480,6 @@ class StateSyncService:
             if not ops:
                 return result
 
-            StateSingleton.dumpState()
             patch = self._next_patch(ops)
             self._record_mutation(patch, source=current_request_source())
             await websocket_sessions.broadcast_per_session(
@@ -1428,22 +1497,35 @@ class StateSyncService:
                 return False
 
             state = StateSingleton.getState()
+            previous_state = deepcopy(state)
             inverse_ops = self._undo_history.pop()
-            applied_ops = [self._apply_patch_op(state, op) for op in inverse_ops]
-            applied_ops.extend(
-                self._synchronize_sheet_attribute_projections(state, applied_ops)
-            )
-            from backend.features.sheet_runtime.service import (
-                synchronize_resource_bounds_mutation,
-            )
+            try:
+                applied_ops = [self._apply_patch_op(state, op) for op in inverse_ops]
+                applied_ops.extend(
+                    self._synchronize_sheet_attribute_projections(state, applied_ops)
+                )
+                from backend.features.sheet_runtime.service import (
+                    synchronize_resource_bounds_mutation,
+                )
 
-            applied_ops.extend(synchronize_resource_bounds_mutation(state))
-            patch_ops = [
-                *applied_ops,
-                *self._stat_projection_operations(state, applied_ops),
-                *self._inventory_projection_operations(state, applied_ops),
-            ]
-            StateSingleton.dumpState()
+                applied_ops.extend(synchronize_resource_bounds_mutation(state))
+                patch_ops = [
+                    *applied_ops,
+                    *self._stat_projection_operations(state, applied_ops),
+                    *self._inventory_projection_operations(state, applied_ops),
+                ]
+                StateSingleton.dumpState()
+            except Exception:
+                # Restore both the state and the undo entry so a failed undo can
+                # be retried instead of silently consuming history.
+                for state_field in fields(state):
+                    setattr(
+                        state,
+                        state_field.name,
+                        deepcopy(getattr(previous_state, state_field.name)),
+                    )
+                self._undo_history.append(inverse_ops)
+                raise
             patch = self._next_patch(patch_ops, request_id=request_id)
             self._record_mutation(patch, source=current_request_source())
             if request_id is not None:
@@ -1463,8 +1545,18 @@ class StateSyncService:
     ) -> MutationResultT:
         async with self._lock:
             state = StateSingleton.getState()
-            result = mutation(state)
-            StateSingleton.dumpState()
+            previous_state = deepcopy(state)
+            try:
+                result = mutation(state)
+                StateSingleton.dumpState()
+            except Exception:
+                for state_field in fields(state):
+                    setattr(
+                        state,
+                        state_field.name,
+                        deepcopy(getattr(previous_state, state_field.name)),
+                    )
+                raise
             return result
 
     async def add(

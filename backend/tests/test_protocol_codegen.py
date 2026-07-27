@@ -7,7 +7,7 @@ from backend.protocol.generate_typescript import (
     _build_route_contract_manifest,
     _resolve_type_discriminant,
 )
-from backend.protocol.socket import ErrorEvent
+from backend.protocol.socket import ErrorEvent, RequestCompletedEvent
 
 
 def _exported_type_names(output: str) -> set[str]:
@@ -49,9 +49,15 @@ def test_typescript_codegen_exports_registered_request_and_event_models() -> Non
     exported_types = _exported_type_names(output)
 
     request_model_names = {model.__name__ for model in request_registry.request_models()}
+    # ErrorEvent and RequestCompletedEvent are transport-level events that no
+    # single route declares, so the generator adds them to the union directly.
     event_model_names = {
         model.__name__
-        for model in (ErrorEvent, *request_registry.emitted_event_models())
+        for model in (
+            ErrorEvent,
+            RequestCompletedEvent,
+            *request_registry.emitted_event_models(),
+        )
     }
 
     assert request_model_names <= exported_types

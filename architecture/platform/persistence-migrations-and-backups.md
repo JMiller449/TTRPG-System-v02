@@ -11,9 +11,17 @@ object through state sync.
 
 [`backend/state/store.py`](../../backend/state/store.py) serializes a versioned
 envelope containing `schema_version` and the full private state document.
-Writes go to a temporary sibling file, flush and synchronize it, rotate a valid
-primary to `state_dumpy.json.bak`, and atomically replace the primary. An invalid
-primary is not promoted over a recoverable backup.
+Writes go to a temporary sibling file, flush and synchronize it, copy a valid
+primary to `state_dumpy.json.bak`, and atomically replace the primary. The
+primary is copied rather than renamed so an interrupted write leaves both the
+previous primary and its backup readable. An invalid primary is not promoted
+over a recoverable backup. The directory synchronization that follows the
+replace is best effort, because some platforms (notably Windows) refuse to open
+a directory handle for `fsync`.
+
+Persistence runs inside the mutation transaction. A checkpoint write that fails
+rolls the in-memory state back and raises, so the backend never keeps a mutation
+that no client was told about.
 
 The application loads the primary at startup, falls back to the backup when the
 primary is corrupt, unsupported, or cannot reconstruct a valid state, and

@@ -1189,7 +1189,7 @@ def test_websocket_contract_resource_mutation_broadcasts_state_patch(
         dm_socket = FakeWebSocket()
         player_socket = FakeWebSocket()
         await websocket_sessions.connect(dm_socket, role="dm")
-        await websocket_sessions.connect(player_socket, role="player")
+        await _connect_assigned_player(player_socket)
 
         await handle_client_payload(
             dm_socket,
@@ -1217,6 +1217,77 @@ def test_websocket_contract_resource_mutation_broadcasts_state_patch(
         assert state.instanced_sheets["mage_instance"].health == 85
         assert dm_socket.sent_messages == [expected_patch]
         assert player_socket.sent_messages == [expected_patch]
+
+    asyncio.run(scenario())
+
+
+def test_no_op_mutation_still_answers_the_request(monkeypatch) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.sheets["mage_template"] = _build_sheet_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+
+        # Setting the balance to the value it already holds produces no
+        # operations, so no state_patch is broadcast for this request.
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "set_contribution_points",
+                "instance_id": "mage_instance",
+                "value": 0,
+                "request_id": "req-no-op",
+            },
+        )
+
+        assert dm_socket.sent_messages == [
+            {
+                "response_id": None,
+                "type": "request_completed",
+                "request_id": "req-no-op",
+            }
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_unclaimed_player_receives_no_operations_for_other_instances(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        state = StateSingleton.getState()
+        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        await websocket_sessions.reset()
+        dm_socket = FakeWebSocket()
+        player_socket = FakeWebSocket()
+        await websocket_sessions.connect(dm_socket, role="dm")
+        await websocket_sessions.connect(player_socket, role="player")
+
+        await handle_client_payload(
+            dm_socket,
+            {
+                "type": "adjust_instanced_sheet_resource",
+                "instance_id": "mage_instance",
+                "resource": "health",
+                "delta": -5,
+            },
+        )
+
+        # The empty patch is still delivered so the client's state version stays
+        # in lockstep and no spurious resync is triggered.
+        assert player_socket.sent_messages == [
+            {
+                "response_id": None,
+                "ops": [],
+                "state_version": 1,
+                "type": "state_patch",
+                "request_id": "req-1",
+            }
+        ]
 
     asyncio.run(scenario())
 
@@ -1286,7 +1357,7 @@ def test_websocket_contract_undo_last_state_change_broadcasts_inverse_patch(
         dm_socket = FakeWebSocket()
         player_socket = FakeWebSocket()
         await websocket_sessions.connect(dm_socket, role="dm")
-        await websocket_sessions.connect(player_socket, role="player")
+        await _connect_assigned_player(player_socket)
 
         await handle_client_payload(
             dm_socket,

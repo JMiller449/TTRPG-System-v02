@@ -318,6 +318,78 @@ def test_condition_preset_rejects_sheet_target(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_condition_preset_rejects_unremovable_set_effect(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            template = _augmentation_template()
+            template["effect"]["operation"] = "set"
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_condition_preset",
+                    "condition": _condition_payload(augmentation_template=template),
+                },
+            )
+
+            assert StateSingleton.getState().condition_presets == {}
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Condition preset augmentation templates cannot set a direct "
+                        "sheet value ('instance.health'). Removing the condition cannot "
+                        "restore the replaced value. Use add, subtract, multiply, or "
+                        "divide instead."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_condition_preset_allows_set_on_evaluation_time_effect(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            template = _augmentation_template()
+            template["effect"]["type"] = "evaluation_formula_modifier"
+            template["effect"]["operation"] = "set"
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_condition_preset",
+                    "condition": _condition_payload(augmentation_template=template),
+                },
+            )
+
+            # Evaluation-time effects are deactivated rather than inverted on
+            # removal, so `set` stays authorable for them.
+            assert "poisoned" in StateSingleton.getState().condition_presets
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_condition_preset_rejects_global_target(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

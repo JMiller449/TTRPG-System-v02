@@ -311,10 +311,9 @@ def test_player_snapshot_isolates_other_character_runtime_balances() -> None:
             role="player", assigned_instance_id="hero_1"
         )
         own = snapshot.state["instanced_sheets"]["hero_1"]
-        hidden = snapshot.state["instanced_sheets"]["hero_2"]
         assert own["contribution_points"] == 0
-        assert "contribution_points" not in hidden
-        assert "pinned_action_ids" not in hidden
-        assert "reactions" not in hidden
+        # Other spawned characters are withheld entirely rather than shipped
+        # with a handful of private fields subtracted.
+        assert set(snapshot.state["instanced_sheets"]) == {"hero_1"}
 
     asyncio.run(scenario())

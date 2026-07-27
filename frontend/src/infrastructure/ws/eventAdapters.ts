@@ -454,7 +454,17 @@ export function adaptProtocolServerEvent(
         ]
       };
 
+    case "request_completed":
+      return {
+        nextProtocolState: protocolState,
+        events: event.request_id ? [{ type: "ack", requestId: event.request_id }] : []
+      };
+
     case "variable_registry":
+      // Unreachable today: parseProtocolServerEvent has no `variable_registry`
+      // case, so these events are rejected as invalid payloads before they get
+      // here and the originating request is never closed out. Wiring the parser
+      // is tracked separately.
       return {
         nextProtocolState: protocolState,
         events: []

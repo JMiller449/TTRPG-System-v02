@@ -993,6 +993,27 @@ def _remove_condition_effect_mutation(
             ops,
         )
 
+    if augmentation.effect.operation == "set":
+        # A `set` effect overwrote the original value, so there is nothing to
+        # invert. Authoring now rejects this combination, but conditions saved
+        # before that validation existed must still be removable: deactivate the
+        # augmentation and leave the current value in place rather than trapping
+        # the condition on the sheet forever.
+        ops = _set_application_state_ops(
+            state,
+            augmentation_id,
+            applied=False,
+            applied_target_id=None,
+        )
+        return (
+            AugmentationMutationResult(
+                augmentation_id=augmentation_id,
+                operation="removed",
+                reason="set_effect_value_retained",
+            ),
+            ops,
+        )
+
     current_value = _current_numeric_value(state, target.state_path)
     modifier = _evaluate_formula(state, target.root, augmentation)
     next_value = _remove_operation(

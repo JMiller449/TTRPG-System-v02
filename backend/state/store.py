@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -70,12 +71,24 @@ def _checkpoint_document(state: State) -> dict[str, Any]:
 
 
 def _fsync_directory(path: Path) -> None:
+    """Flush the directory entry, best effort.
+
+    Windows refuses to open a directory handle for fsync, and some filesystems
+    reject it as well. The barrier only strengthens ordering guarantees across
+    power loss; the checkpoint data itself is already flushed by the time this
+    runs, so a failure here must never abort the write.
+    """
     flags = os.O_RDONLY
     if hasattr(os, "O_DIRECTORY"):
         flags |= os.O_DIRECTORY
-    directory_fd = os.open(path, flags)
+    try:
+        directory_fd = os.open(path, flags)
+    except OSError:
+        return
     try:
         os.fsync(directory_fd)
+    except OSError:
+        pass
     finally:
         os.close(directory_fd)
 
@@ -91,9 +104,12 @@ def _write_checkpoint(path: Path, state: State) -> None:
             file.flush()
             os.fsync(file.fileno())
 
+        # Copy the current primary aside instead of renaming it. Renaming first
+        # means any later failure leaves no primary checkpoint at all; copying
+        # keeps the old primary readable until the atomic replace succeeds. A
+        # corrupt primary is never allowed to overwrite a good backup.
         if path.exists() and _load_checkpoint(path) is not None:
-            os.replace(path, backup_path)
-            _fsync_directory(path.parent)
+            shutil.copy2(path, backup_path)
 
         os.replace(temporary_path, path)
         _fsync_directory(path.parent)

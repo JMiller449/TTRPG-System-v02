@@ -44,6 +44,13 @@ The request registry is the source of truth for public application request
 availability. Each registered route supplies its request model, emitted event
 models, minimum role, and generated client namespace/method metadata.
 
+Two events belong to the transport layer rather than to any single route, and
+the generator adds them to the event union explicitly: `error`, and
+`request_completed` for a valid request that produced no state patch. Because
+`request_completed` is sent only for routes whose sole declared response is
+`state_patch`, a route's `emitted_event_models` also determines whether it is
+expected to answer for itself.
+
 [`backend/protocol/generate_typescript.py`](../../backend/protocol/generate_typescript.py)
 combines registry-owned request/event models with
 [`backend/protocol/state_schema.py`](../../backend/protocol/state_schema.py) and

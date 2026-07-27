@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from backend.protocol.socket import normalize_server_event
+from backend.protocol.socket import RequestCompletedEvent, normalize_server_event
 from backend.core.request_registry import (
     MalformedRequestError,
     UnknownRequestTypeError,
@@ -16,6 +16,7 @@ from backend.features.auth import service as auth_service
 from backend.features.auth.schema import Authenticate
 from backend.features.chat import service as chat_service
 from backend.features.session.service import websocket_sessions
+from backend.features.state_sync.service import state_sync_service
 from backend.state.migrations import PersistedStateError
 
 router = APIRouter()
@@ -107,6 +108,13 @@ async def handle_client_payload(
                 accept=False,
             )
         await request_registry.dispatch(session, normalized_payload)
+        no_op = state_sync_service.consume_no_op_request(request_id)
+        if no_op and request_registry.answers_with_state_patch_only(request_type):
+            # The request was valid but changed nothing, so the state_patch that
+            # would normally close it out on the client is never broadcast.
+            await websocket.send_json(
+                normalize_server_event(RequestCompletedEvent(request_id=request_id))
+            )
     except ValidationError as exc:
         await websocket.send_json(
             normalize_server_event(
@@ -132,6 +140,25 @@ async def handle_client_payload(
             normalize_server_event(
                 _error_payload(
                     reason=str(exc),
+                    request_id=request_id,
+                )
+            )
+        )
+    except WebSocketDisconnect:
+        raise
+    except Exception:
+        # Anything not modelled as a request error (ZeroDivisionError and
+        # SyntaxError from authored formulas, for example) used to escape the
+        # receive loop and close the socket with no message and no log entry.
+        logger.exception(
+            "Unhandled error while handling request type=%r request_id=%s",
+            request_type,
+            request_id,
+        )
+        await websocket.send_json(
+            normalize_server_event(
+                _error_payload(
+                    reason="The server failed to process that request.",
                     request_id=request_id,
                 )
             )
@@ -250,6 +277,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await handle_client_payload(websocket, payload)
     except WebSocketDisconnect:
         pass
+    except Exception:
+        logger.exception("Application websocket closed by an unhandled error.")
+        raise
     finally:
         await websocket_sessions.disconnect(websocket)
 

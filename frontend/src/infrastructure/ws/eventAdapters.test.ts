@@ -981,4 +981,21 @@ describe("adaptProtocolServerEvent", () => {
     expect(originalBackendState?.action_history).toEqual({});
     expect(adapted.nextProtocolState.backendState).not.toBe(originalBackendState);
   });
+
+  it("acknowledges requests that completed without changing state", () => {
+    const event = parseProtocolServerEvent({
+      response_id: null,
+      type: "request_completed",
+      request_id: "req-no-op"
+    });
+
+    expect(event?.type).toBe("request_completed");
+    if (!event || event.type !== "request_completed") {
+      throw new Error("Expected request_completed event");
+    }
+
+    expect(adaptProtocolServerEvent(initialSocketProtocolState, event).events).toEqual([
+      { type: "ack", requestId: "req-no-op" }
+    ]);
+  });
 });

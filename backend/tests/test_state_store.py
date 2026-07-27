@@ -755,20 +755,24 @@ def test_failed_primary_replace_leaves_recoverable_backup(
     StateSingleton.dumpState()
     StateSingleton._state = State.from_dict(_state_payload(action_name="new"))
 
-    real_replace = os.replace
-    replace_count = 0
+    def fail_replace(source: Path, destination: Path) -> None:
+        raise OSError("simulated interrupted checkpoint replacement")
 
-    def fail_second_replace(source: Path, destination: Path) -> None:
-        nonlocal replace_count
-        replace_count += 1
-        if replace_count == 2:
-            raise OSError("simulated interrupted checkpoint replacement")
-        real_replace(source, destination)
-
-    monkeypatch.setattr(store_module.os, "replace", fail_second_replace)
+    monkeypatch.setattr(store_module.os, "replace", fail_replace)
 
     with pytest.raises(OSError, match="simulated interrupted"):
         StateSingleton.dumpState()
+
+    # The previous primary is copied aside rather than renamed away, so an
+    # interrupted replacement leaves both the primary and its backup readable.
+    backup_path = store_module._backup_path(state_path)
+    assert state_path.exists()
+    assert set(json.loads(state_path.read_text(encoding="utf-8"))["state"]["actions"]) == {
+        "stable"
+    }
+    assert set(json.loads(backup_path.read_text(encoding="utf-8"))["state"]["actions"]) == {
+        "stable"
+    }
 
     StateSingleton._state = None
     loaded = StateSingleton.initializeState()

@@ -97,8 +97,13 @@ roll-mode effects become active selectors.
 Removing the application reverses reversible direct operations and removes the
 bridges, augmentations, and active condition. A direct `set` effect cannot
 derive the value that existed before application and therefore cannot be
-generically reversed. Authoring and runtime flows must avoid relying on
-automatic restoration for that case.
+generically reversed. Condition authoring now rejects that combination: a
+condition-preset template using `set` on a direct sheet value is refused at
+create and update time, and the condition editor does not offer the operation.
+Removing a `set` effect saved before that validation existed deactivates the
+augmentation and retains the current value rather than failing, so an older
+condition can still be taken off a sheet. Evaluation-time and roll-mode effects
+are deactivated rather than inverted, so `set` remains valid for them.
 
 The production apply path is an action step and records the action source,
 actor role, timestamp, and state version. DMs also have a dedicated active

@@ -127,6 +127,19 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
       }
       return null;
 
+    case "request_completed":
+      return {
+        response_id:
+          typeof payload.response_id === "string" || payload.response_id === null
+            ? payload.response_id
+            : null,
+        type: "request_completed",
+        request_id:
+          typeof payload.request_id === "string" || payload.request_id === null
+            ? payload.request_id
+            : undefined
+      };
+
     case "error":
       if (typeof payload.reason === "string") {
         return {

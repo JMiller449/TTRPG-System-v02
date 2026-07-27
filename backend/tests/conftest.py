@@ -2,8 +2,27 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def isolated_state_checkpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Path]:
+    """Keep every test's checkpoint writes out of the developer's real state file.
+
+    Tests reach ``StateSingleton.dumpState`` through any ``apply_mutation`` call.
+    Without this redirection those writes land on the repo-root checkpoint and
+    replace real campaign state with test fixtures.
+    """
+    from backend.state import store as store_module
+
+    state_path = tmp_path / "state_dumpy.json"
+    monkeypatch.setattr(store_module, "STATE_PATH", state_path)
+    yield state_path
 
 
 @pytest.fixture(autouse=True)

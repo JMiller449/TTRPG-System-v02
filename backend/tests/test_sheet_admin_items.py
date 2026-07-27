@@ -1046,9 +1046,9 @@ def test_hidden_carried_item_definition_remains_visible_only_to_owner() -> None:
             assert "hidden" in owner_snapshot.state["items"]
             assert "gm_notes" not in owner_snapshot.state["items"]["hidden"]
             assert "hidden" not in rival_snapshot.state["items"]
-            assert rival_snapshot.state["instanced_sheets"]["hero-instance"][
-                "items"
-            ] == {}
+            # The rival never receives the owner's instance at all, so a carried
+            # entry cannot be correlated back to the hidden definition.
+            assert set(rival_snapshot.state["instanced_sheets"]) == {"rival-instance"}
         finally:
             StateSingleton._state = original_state
 

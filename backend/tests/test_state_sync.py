@@ -10,8 +10,10 @@ from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.service import (
     DuplicateRequestError,
     StateSyncService,
+    build_state_patch,
     state_sync_service,
 )
+from backend.state.models.encounter import EncounterPreset
 from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
@@ -316,13 +318,20 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
                 }
             )
 
-            player_snapshot = await state_sync_service.snapshot(role="player")
+            assigned_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="mage_instance",
+            )
+            unassigned_snapshot = await state_sync_service.snapshot(role="player")
             dm_snapshot = await state_sync_service.snapshot(role="dm")
 
-            assert "notes" not in player_snapshot.state["sheets"]["mage_template"]
-            assert player_snapshot.state["instanced_sheets"]["mage_instance"][
+            assert "notes" not in assigned_snapshot.state["sheets"]["mage_template"]
+            assert assigned_snapshot.state["instanced_sheets"]["mage_instance"][
                 "notes"
             ] == "Shared instance notes."
+            # Instance notes belong to the claimed character only. A session that
+            # has not claimed this instance must not receive it at all.
+            assert unassigned_snapshot.state["instanced_sheets"] == {}
             assert (
                 dm_snapshot.state["sheets"]["mage_template"]["notes"]
                 == "GM-only template notes."
@@ -331,6 +340,133 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_player_snapshot_excludes_dm_only_sheets_and_encounter_presets(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+
+            monster = _build_sheet_state()
+            monster.id = "goblin_template"
+            monster.name = "Goblin"
+            monster.dm_only = True
+            state.sheets["goblin_template"] = monster
+
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "resistances": {},
+                    "augments": {},
+                }
+            )
+            state.encounter_presets["ambush"] = EncounterPreset(
+                id="ambush",
+                name="Forest Ambush",
+                entries=[],
+                updated_at="2026-07-26T00:00:00+00:00",
+            )
+
+            player_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="mage_instance",
+            )
+            dm_snapshot = await state_sync_service.snapshot(role="dm")
+
+            assert "goblin_template" not in player_snapshot.state["sheets"]
+            assert "mage_template" in player_snapshot.state["sheets"]
+            assert "encounter_presets" not in player_snapshot.state
+            assert "goblin_template" in dm_snapshot.state["sheets"]
+            assert "ambush" in dm_snapshot.state["encounter_presets"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_snapshot_keeps_a_dm_only_parent_of_the_claimed_instance(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            parent = _build_sheet_state()
+            parent.dm_only = True
+            state.sheets["mage_template"] = parent
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "resistances": {},
+                    "augments": {},
+                }
+            )
+
+            snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="mage_instance",
+            )
+
+            # The claimed character cannot render without its own parent, so the
+            # dm_only filter must not strip it.
+            assert "mage_template" in snapshot.state["sheets"]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_patches_drop_other_instances_and_dm_only_sheets() -> None:
+    patch = state_sync_service._redact_patch_for_role(
+        build_state_patch(
+            [
+                PatchOp(op="set", path="/instanced_sheets/other_instance/health", value=3),
+                PatchOp(op="set", path="/instanced_sheets/mine/health", value=7),
+                PatchOp(op="set", path="/encounter_presets/ambush", value={"id": "ambush"}),
+            ],
+            state_version=1,
+        ),
+        role="player",
+        assigned_instance_id="mine",
+    )
+
+    assert [op.path for op in patch.ops] == ["/instanced_sheets/mine/health"]
+
+
+def test_dm_patches_retain_instance_runtime_fields() -> None:
+    patch = state_sync_service._redact_patch_for_role(
+        build_state_patch(
+            [
+                PatchOp(op="set", path="/instanced_sheets/any/reactions", value=1),
+                PatchOp(op="set", path="/instanced_sheets/any/contribution_points", value=5),
+                PatchOp(op="set", path="/instanced_sheets/any/pinned_action_ids", value=[]),
+            ],
+            state_version=1,
+        ),
+        role="dm",
+    )
+
+    # A DM has no assigned instance, so the player-only isolation rule must not
+    # strip runtime balances from the GM's patch stream.
+    assert [op.path for op in patch.ops] == [
+        "/instanced_sheets/any/reactions",
+        "/instanced_sheets/any/contribution_points",
+        "/instanced_sheets/any/pinned_action_ids",
+    ]
 
 
 def test_active_condition_snapshots_respect_visibility_and_assignment(monkeypatch) -> None:

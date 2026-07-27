@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pydantic import Field, TypeAdapter  # noqa: E402
-from backend.protocol.socket import ErrorEvent  # noqa: E402
+from backend.protocol.socket import ErrorEvent, RequestCompletedEvent  # noqa: E402
 from backend.core.request_registry import request_registry  # noqa: E402
 
 OUTPUT_PATH = ROOT / "frontend" / "src" / "generated" / "backendProtocol.ts"
@@ -169,7 +169,13 @@ def _build_route_contract_manifest() -> list[dict[str, Any]]:
 
 def _build_output() -> str:
     request_models = request_registry.request_models()
-    event_models: tuple[type[Any], ...] = (ErrorEvent, *request_registry.emitted_event_models())
+    # ErrorEvent and RequestCompletedEvent come from the transport layer rather
+    # than from any single route, so they are added to the union explicitly.
+    event_models: tuple[type[Any], ...] = (
+        ErrorEvent,
+        RequestCompletedEvent,
+        *request_registry.emitted_event_models(),
+    )
 
     request_union = Annotated[
         reduce(operator.or_, request_models[1:], request_models[0]),

@@ -112,6 +112,20 @@ class RequestRegistry:
     def request_types(self) -> tuple[str, ...]:
         return tuple(sorted(self._routes))
 
+    def answers_with_state_patch_only(self, type_name: str) -> bool:
+        """Whether a route's only declared response is the resulting state patch.
+
+        Such a route sends nothing at all when a request changes no state, so
+        the transport layer has to close that request out itself. Routes that
+        declare their own response event already answer for themselves.
+        """
+        route = self._routes.get(type_name)
+        if route is None or not route.emitted_event_models:
+            return False
+        return all(
+            model.__name__ == "StatePatchEvent" for model in route.emitted_event_models
+        )
+
     def routes(self) -> tuple[RequestRoute[Any], ...]:
         return tuple(self._routes[type_name] for type_name in sorted(self._routes))
 

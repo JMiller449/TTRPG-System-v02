@@ -40,6 +40,20 @@ def _add_instance(*, health: float = 100, mana: int = 30) -> None:
     )
 
 
+async def _connect_assigned_player(websocket: FakeWebSocket) -> None:
+    """Connect a player that has claimed the instance these tests mutate.
+
+    Instance patch content is only forwarded to the session that claimed that
+    instance, so ordering and replay assertions need a claimed observer.
+    """
+    await websocket_sessions.connect(websocket, role="player")
+    await websocket_sessions.assign_player_sheet(
+        websocket,
+        sheet_id="rapid_template",
+        instance_id="rapid_instance",
+    )
+
+
 def _adjust_health_payload(index: int, delta: float) -> dict:
     return {
         "type": "adjust_instanced_sheet_resource",
@@ -80,7 +94,7 @@ def test_rapid_intents_from_multiple_clients_emit_one_ordered_patch_stream(
         observer = FakeWebSocket()
         for sender in senders:
             await websocket_sessions.connect(sender, role="dm")
-        await websocket_sessions.connect(observer, role="player")
+        await _connect_assigned_player(observer)
 
         await _submit_concurrently(senders, start=0, count=24, delta=-1)
 
@@ -129,7 +143,7 @@ def test_reconnect_replays_every_patch_after_last_seen_version(monkeypatch) -> N
         sender = FakeWebSocket()
         disconnected_client = FakeWebSocket()
         await websocket_sessions.connect(sender, role="dm")
-        await websocket_sessions.connect(disconnected_client, role="player")
+        await _connect_assigned_player(disconnected_client)
 
         await _submit_concurrently([sender], start=0, count=10, delta=-1)
         assert [
@@ -141,7 +155,7 @@ def test_reconnect_replays_every_patch_after_last_seen_version(monkeypatch) -> N
         assert len(disconnected_client.sent_messages) == 10
 
         reconnected_client = FakeWebSocket()
-        await websocket_sessions.connect(reconnected_client, role="player")
+        await _connect_assigned_player(reconnected_client)
         await handle_client_payload(
             reconnected_client,
             {

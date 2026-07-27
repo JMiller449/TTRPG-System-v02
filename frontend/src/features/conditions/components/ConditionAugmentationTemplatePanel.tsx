@@ -103,6 +103,12 @@ export function ConditionAugmentationTemplatePanel({
   const hasCurrentTargetPath = values.targetPath.some((segment) => segment.trim().length > 0);
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
   const validationError = getEffectValidationError(values, targetOptions);
+  // A direct sheet value replaced by `set` cannot be restored when the
+  // condition is removed, so the backend rejects that combination.
+  const availableOperations =
+    values.effectType === "formula_modifier"
+      ? AUGMENTATION_OPERATIONS.filter((operation) => operation !== "set")
+      : AUGMENTATION_OPERATIONS;
 
   return (
     <section className="condition-effects-section stack">
@@ -212,7 +218,12 @@ export function ConditionAugmentationTemplatePanel({
                     })
                   }
                 >
-                  {AUGMENTATION_OPERATIONS.map((operation) => (
+                  {availableOperations.includes(values.operation) ? null : (
+                    <option value={values.operation} disabled>
+                      {values.operation} (not removable)
+                    </option>
+                  )}
+                  {availableOperations.map((operation) => (
                     <option key={operation} value={operation}>
                       {operation}
                     </option>

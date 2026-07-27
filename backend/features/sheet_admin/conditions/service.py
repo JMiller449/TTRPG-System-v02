@@ -12,7 +12,11 @@ from backend.features.sheet_admin.conditions.schema import (
 )
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.models.augmentation import Augmentation, AugmentationSource
+from backend.state.models.augmentation import (
+    Augmentation,
+    AugmentationSource,
+    FormulaModifierEffect,
+)
 from backend.state.models.action import ApplyConditionPresetStep
 from backend.state.models.condition import ConditionPreset
 from backend.state.models.state import State
@@ -37,6 +41,17 @@ def _validate_condition_augmentation_template(augmentation: Augmentation) -> Non
         raise ValueError(
             "Condition preset augmentation template target "
             f"'{_target_label(augmentation)}' is not allowed."
+        )
+
+    if (
+        isinstance(augmentation.effect, FormulaModifierEffect)
+        and augmentation.effect.operation == "set"
+    ):
+        raise ValueError(
+            "Condition preset augmentation templates cannot set a direct sheet "
+            f"value ('{_target_label(augmentation)}'). Removing the condition "
+            "cannot restore the replaced value. Use add, subtract, multiply, or "
+            "divide instead."
         )
 
 

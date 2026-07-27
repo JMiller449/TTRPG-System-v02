@@ -58,6 +58,10 @@ check: test-backend test-frontend lint-frontend build-frontend
 pack-frontend: check
     rm -f {{frontend_archive_name}}
     tar -czf {{frontend_archive_name}} -C {{frontend_dir}}/dist .
+    just _validate-frontend-archive
+
+_validate-frontend-archive:
+    test -f {{frontend_archive_name}}
     tar -tzf {{frontend_archive_name}} ./index.html >/dev/null
     tar -tzf {{frontend_archive_name}} ./roll20-bridge.user.js >/dev/null
 
@@ -77,6 +81,13 @@ pack-backend:
         --exclude='backend/dev' \
         --exclude='deploy/__pycache__' \
         backend deploy
+    just _validate-backend-archive
+
+_validate-backend-archive:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -f {{backend_archive_name}}
+    tar -tzf {{backend_archive_name}} >/dev/null
     forbidden="$(tar -tzf {{backend_archive_name}} | rg '(^|/)(state_dumpy\.json(\.bak|\.tmp)?|production-secret\.env|\.env|\.venv|node_modules)(/|$)' || true)"; \
     if [[ -n "$forbidden" ]]; then \
         printf 'Backend archive contains forbidden paths:\n%s\n' "$forbidden" >&2; \
@@ -197,7 +208,7 @@ verify-public:
     rg -q -F '// @downloadURL {{public_userscript_url}}' "$body"
     ssh {{host}} "set -a; . {{remote_env_file}}; set +a; {{backend_dir}}/backend/.venv/bin/python {{backend_dir}}/deploy/verify_websockets.py --app-url {{public_app_ws_url}} --chat-url {{public_chat_ws_url}}"
 
-deploy-all: upload-frontend upload-backend deploy-backend-env
+_deploy-all-uploaded:
     #!/usr/bin/env bash
     set -euo pipefail
     just enter-maintenance
@@ -216,6 +227,20 @@ deploy-all: upload-frontend upload-backend deploy-backend-env
         exit 1
     fi
     just clean
+
+deploy-all: upload-frontend upload-backend deploy-backend-env
+    just _deploy-all-uploaded
+
+# Deploy archives built and verified by a separate job, such as GitHub Actions.
+deploy-prebuilt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just _validate-frontend-archive
+    just _validate-backend-archive
+    scp {{frontend_archive_name}} {{host}}:/tmp/{{frontend_archive_name}}
+    scp {{backend_archive_name}} {{host}}:/tmp/{{backend_archive_name}}
+    just deploy-backend-env
+    just _deploy-all-uploaded
 
 deploy-backend: upload-backend deploy-backend-env
     #!/usr/bin/env bash

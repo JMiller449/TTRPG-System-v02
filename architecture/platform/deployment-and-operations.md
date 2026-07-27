@@ -8,9 +8,12 @@ Cloudflare and Nginx serve those assets and proxy `/ttrpg/ws` and
 The backend runs as `www-data` through the systemd unit in
 [`deploy/ttrpg.service`](../../deploy/ttrpg.service).
 
-The deployment workflow depends on the sibling `server_config` repository for
-Nginx configuration and the configured `ssh personal` target. Repository-local
-orchestration lives in [`justfile`](../../justfile).
+Initial installation and Nginx changes depend on the sibling `server_config`
+repository and the configured local `ssh personal` target. Repository-local
+orchestration lives in [`justfile`](../../justfile). Routine deployment can be
+started either from that local target or from the manual
+[`Deploy Production`](../../.github/workflows/deploy-production.yml) GitHub
+Actions workflow.
 
 ## Build and verification
 
@@ -44,6 +47,29 @@ frontend, exits maintenance, and runs public verification. A failed backend,
 frontend, or public verification step leaves or restores maintenance mode so a
 partially deployed application is not presented as healthy.
 
+The GitHub workflow is manual-only and restricted in both workflow logic and
+the production environment to `main`. Its first job runs the same tests and
+build, produces the same code-only frontend and backend archives, records their
+SHA-256 checksums, and uploads them as a one-day workflow artifact. That job
+does not have production credentials.
+
+After verification succeeds and the protected `production` environment is
+approved, a separate job downloads the artifact from the same workflow run,
+verifies its checksums, and materializes a deployment-only SSH identity. It
+then runs `just deploy-prebuilt`, which validates and uploads those archives
+before entering the same internal maintenance, replacement, and public
+verification sequence as `just deploy-all`. GitHub deployments are serialized
+and an active deployment is not canceled when another is requested.
+
+The production environment owns `PRODUCTION_SSH_HOST`,
+`PRODUCTION_SSH_PORT`, `PRODUCTION_SSH_USER`,
+`PRODUCTION_SSH_PRIVATE_KEY`, and `PRODUCTION_SSH_KNOWN_HOSTS`. Only these
+secret names are public. The workflow has read-only repository permissions,
+pins third-party action revisions, disables persisted checkout credentials,
+and uses strict SSH host verification. Repository administrators and required
+deployment reviewers are therefore inside the production trust boundary even
+though untrusted fork workflows do not receive the environment credentials.
+
 First installation uses `just bootstrap` to install the maintenance page,
 systemd service, Nginx configuration, credentials, and application. Routine
 deployments preserve the production primary and backup checkpoints because
@@ -63,6 +89,8 @@ separate recoverable copy outside the server checkpoint pair.
 ## Related implementation
 
 - [`justfile`](../../justfile) is the operational source of truth.
+- [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy-production.yml)
+  is the manual GitHub production entry point.
 - [`deploy/maintenance.html`](../../deploy/maintenance.html) is the static
   maintenance response.
 - [`frontend/vite.config.ts`](../../frontend/vite.config.ts) owns the

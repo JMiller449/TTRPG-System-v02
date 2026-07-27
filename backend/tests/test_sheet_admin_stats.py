@@ -316,7 +316,7 @@ def test_sheet_formula_stat_rejects_cross_attribute_dependency_cycles(monkeypatc
                 {
                     "type": "set_sheet_formula_stat",
                     "sheet_id": "mage_template",
-                    "stat_name": "registration",
+                    "stat_name": "reaction_time",
                     "formula": {
                         "aliases": [
                             {
@@ -331,7 +331,7 @@ def test_sheet_formula_stat_rejects_cross_attribute_dependency_cycles(monkeypatc
 
             assert websocket.sent_messages[-1]["type"] == "error"
             assert "dependency cycle" in websocket.sent_messages[-1]["reason"]
-            assert state.sheets["mage_template"].stats.registration.text == "@arcane"
+            assert state.sheets["mage_template"].stats.reaction_time.text == "@dexterity"
         finally:
             StateSingleton._state = original_state
 

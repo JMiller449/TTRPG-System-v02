@@ -34,14 +34,24 @@ Player and DM resource routes support direct set and bounded adjustment on an
 authorized instance. The frontend exposes full Health and Mana summary cards as
 editor triggers and reconciles their values to subsequent patches.
 
-## Reactions and contribution points
+## Action/reaction points and contribution points
 
-Each instance also persists `reactions`, while its maximum is derived from the
-required **Amount of Reactions** attribute. The runtime rounds values to two
-decimal places, so fractional values such as `0.5 / 1` remain stable across
-requests and checkpoints. Authorized character users can spend, restore, or
-reset reactions; the backend rejects values below zero or above the evaluated
-maximum and reclamps a current value when its authored maximum changes.
+Actions and reactions use one shared point pool. Each instance retains the
+persisted `reactions` field and `evaluated_max_reactions` projection for
+checkpoint and protocol compatibility, while the required **Action / Reaction
+Points** Attribute derives the canonical maximum from the active Reaction Time
+threshold table. The runtime retains two-decimal storage so legacy fractional
+balances and customized formulas round-trip safely, but public adjustments add
+or consume exactly one point. Both labeled consumption controls mutate the same
+authoritative balance; reset remains explicit rather than turn-driven.
+
+An assigned player can consume, restore, or reset the pool on their player
+character. The GM sees that balance read-only. For a monster instance, the GM
+owns those controls and players cannot use them. Backend route authorization
+enforces this distinction from the parent template's `dm_only` classification;
+frontend role checks are presentation only. Values below zero or above the
+evaluated maximum are rejected, and a current value is reclamped when its
+authored maximum changes.
 
 `contribution_points` is a separate nonnegative whole-number character
 balance, not an inventory item. DM-only set/add/subtract routes execute under
@@ -106,5 +116,5 @@ Frontend stat, resource, resistance, and allocation sections live under
 ## Non-goals
 
 The current system does not resolve attacks against another sheet, automate
-defense contests, spend reactions, or run turns. It records and evaluates
-character-sheet values used by authored actions.
+defense contests, automatically consume action/reaction points from authored
+actions, or run turns. Point consumption and reset are explicit sheet controls.

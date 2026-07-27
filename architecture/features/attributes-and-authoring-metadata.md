@@ -22,8 +22,10 @@ owning sheet, instance, item, or action.
 
 ## Backend-owned and authored definitions
 
-The backend seeds required definitions, including Amount of Reactions, the
-canonical sheet Level, and the weapon attribute profile. It also supplies
+The backend seeds required definitions, including the shared Action / Reaction
+Point maximum, the canonical sheet Level, and the weapon attribute profile. The
+point maximum follows the active Reaction Time threshold table while retaining
+the legacy `amount_of_reactions` ID for formula and checkpoint compatibility. It also supplies
 optional standard sheet, item, and action definitions. Required/backend-owned
 definitions cannot be changed in a way that breaks their mechanical contract.
 Level is attached to every template and spawned instance with a default of 1;

@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { DAMAGE_TYPES } from "@/domain/models";
 import {
+  canManageActionReactionPoints,
   formatModifier,
   parseModifierInput,
   PLAYER_HEALTH_DAMAGE_TYPES
 } from "@/features/sheets/sheetDisplay";
 
 describe("sheetDisplay modifier helpers", () => {
+  it("allows players to manage player pools and GMs to manage monster pools", () => {
+    expect(canManageActionReactionPoints("player", "player")).toBe(true);
+    expect(canManageActionReactionPoints("player", "enemy")).toBe(false);
+    expect(canManageActionReactionPoints("gm", "player")).toBe(false);
+    expect(canManageActionReactionPoints("gm", "enemy")).toBe(true);
+  });
+
   it("parses whole-number resource and stat modifiers used by sheet edit controls", () => {
     expect(parseModifierInput("")).toBe(0);
     expect(parseModifierInput("  +10 ")).toBe(10);

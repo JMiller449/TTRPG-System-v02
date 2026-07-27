@@ -55,7 +55,7 @@ describe("ConsolePage player navigation", () => {
     });
 
     const extensionButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Extension"
+      (button) => button.textContent === "Install / Sync Bridge"
     );
     const overviewButton = container.querySelector<HTMLButtonElement>("#sheet-tab-overview");
     expect(extensionButton).toBeDefined();

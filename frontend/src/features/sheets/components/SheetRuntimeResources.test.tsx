@@ -6,19 +6,68 @@ import {
 } from "@/features/sheets/components/SheetRuntimeResources";
 
 describe("SheetRuntimeResources", () => {
-  it("renders fractional reactions without truncating them", () => {
+  it("renders the shared pool with one-click spend, restore, and reset controls", () => {
     const markup = renderToStaticMarkup(
       <SheetReactionResource
-        current={0.5}
-        maximum={1.5}
-        onAdjust={() => undefined}
+        current={1}
+        maximum={2}
+        canManage
+        onSpend={() => undefined}
+        onRestore={() => undefined}
         onReset={() => undefined}
       />
     );
-    expect(markup).toContain("0.5 / 1.5 available");
+    expect(markup).toContain("Action / Reaction Points");
+    expect(markup).toContain("1 / 2 available");
     expect(markup).toContain(">Spend</button>");
     expect(markup).toContain(">Restore</button>");
     expect(markup).toContain(">Reset</button>");
+    expect(markup).not.toContain('type="number"');
+  });
+
+  it("disables controls at authoritative pool boundaries", () => {
+    const emptyMarkup = renderToStaticMarkup(
+      <SheetReactionResource
+        current={0}
+        maximum={2}
+        canManage
+        onSpend={() => undefined}
+        onRestore={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+    const fullMarkup = renderToStaticMarkup(
+      <SheetReactionResource
+        current={2}
+        maximum={2}
+        canManage
+        onSpend={() => undefined}
+        onRestore={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+
+    expect(emptyMarkup).toContain('disabled="">Spend</button>');
+    expect(emptyMarkup).toContain(">Restore</button>");
+    expect(fullMarkup).toContain('disabled="">Restore</button>');
+    expect(fullMarkup).toContain('disabled="">Reset</button>');
+  });
+
+  it("keeps the shared tally visible while hiding controls from read-only viewers", () => {
+    const markup = renderToStaticMarkup(
+      <SheetReactionResource
+        current={3}
+        maximum={3}
+        canManage={false}
+        onSpend={() => undefined}
+        onRestore={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+    expect(markup).toContain("3 / 3 available");
+    expect(markup).not.toContain(">Spend</button>");
+    expect(markup).not.toContain(">Restore</button>");
+    expect(markup).not.toContain(">Reset</button>");
   });
 
   it("keeps contribution-point controls GM-only while always showing balance", () => {

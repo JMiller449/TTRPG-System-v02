@@ -58,7 +58,7 @@ export function ConsolePage({ role, client }: { role: Role; client: GameClient }
               aria-pressed={showExtension}
               onClick={() => setShowExtension(true)}
             >
-              Extension
+              Install / Sync Bridge
             </button>
           </div>
         </aside>

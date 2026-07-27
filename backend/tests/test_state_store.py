@@ -400,9 +400,9 @@ def test_v6_migration_backfills_required_sheet_attribute() -> None:
     definition = migrated.state["attributes"]["amount_of_reactions"]
     bridge = migrated.state["sheets"]["mage"]["attributes"]["amount_of_reactions"]
     assert definition["required"] is True
-    assert definition["default_value"]["formula"]["text"] == (
-        "@registration + @reaction_time"
-    )
+    assert definition["default_value"]["formula"]["text"].startswith("1 + min")
+    assert definition["name"] == "Action / Reaction Points"
+    assert definition["unit"] == "points"
     assert bridge["relationship_id"] == "required_attribute_amount_of_reactions"
 
 
@@ -1434,6 +1434,87 @@ def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:
                 "state": {},
             }
         )
+
+
+def test_v39_migration_updates_only_canonical_action_reaction_formulas() -> None:
+    legacy_value = {
+        "type": "formula",
+        "value": None,
+        "formula": {
+            "text": "@registration + @reaction_time",
+            "aliases": [
+                {"name": "registration", "path": ["stats", "registration"]},
+                {"name": "reaction_time", "path": ["stats", "reaction_time"]},
+            ],
+            "tags": [],
+        },
+    }
+    custom_value = {
+        "type": "formula",
+        "value": None,
+        "formula": {"text": "2", "aliases": [], "tags": []},
+    }
+    result = migrate_persisted_state(
+        {
+            "schema_version": 38,
+            "state": {
+                "attributes": {
+                    "amount_of_reactions": {
+                        "id": "amount_of_reactions",
+                        "name": "Amount of Reactions",
+                        "default_value": deepcopy(legacy_value),
+                    }
+                },
+                "sheets": {
+                    "hero": {
+                        "attributes": {
+                            "amount_of_reactions": {
+                                "value": deepcopy(legacy_value),
+                                "evaluated_value": 25,
+                            }
+                        }
+                    },
+                    "custom": {
+                        "attributes": {
+                            "amount_of_reactions": {
+                                "value": deepcopy(custom_value),
+                                "evaluated_value": 2,
+                            }
+                        }
+                    },
+                },
+                "instanced_sheets": {
+                    "hero_1": {
+                        "reactions": 0.5,
+                        "attributes": {
+                            "amount_of_reactions": {
+                                "value": deepcopy(legacy_value),
+                                "evaluated_value": 25,
+                            }
+                        },
+                    }
+                },
+            },
+        }
+    )
+
+    definition = result.state["attributes"]["amount_of_reactions"]
+    migrated_bridge = result.state["sheets"]["hero"]["attributes"][
+        "amount_of_reactions"
+    ]
+    custom_bridge = result.state["sheets"]["custom"]["attributes"][
+        "amount_of_reactions"
+    ]
+    assert result.source_version == 38
+    assert result.state["instanced_sheets"]["hero_1"]["reactions"] == 0.5
+    assert definition["name"] == "Action / Reaction Points"
+    assert definition["unit"] == "points"
+    assert definition["default_value"]["formula"]["text"].startswith("1 + min")
+    assert migrated_bridge["value"]["formula"]["aliases"] == [
+        {"name": "reaction_time", "path": ["stats", "reaction_time"]}
+    ]
+    assert migrated_bridge["evaluated_value"] is None
+    assert custom_bridge["value"] == custom_value
 
 
 def test_export_and_replace_state_preserve_private_data(isolate_state: Path) -> None:

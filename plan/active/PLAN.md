@@ -372,7 +372,8 @@ No large architecture feature is currently missing for the stated character-shee
   action builder, item/proficiency, inventory weight/container, effects,
   party XP, Roll20 binding, level-attribute, player inventory/visibility, and
   item approval flows against their backend routes, persistence, redaction,
-  and focused tests. Added missing authoritative fractional reaction tracking,
+  and focused tests. Added the legacy-compatible authoritative shared
+  action/reaction-point balance,
   nonnegative contribution-point balances with audit records, and persistent
   per-instance action pins with stale-reference cleanup (schema v32).
 - [x] Resolve the 2026-07-19 table-feedback usability and character-detail follow-up:
@@ -431,10 +432,12 @@ No large architecture feature is currently missing for the stated character-shee
     suggestions, and text search across name, stable ID, category, rank, and folder. Folder
     filtering preserves authoritative item order and editor selection and does not alter
     category metadata, player publication/redaction, inventory relationships, or mechanics.
-  - [x] Spawned characters have a backend-authoritative fractional reaction tally with
-    current/maximum display plus player-accessible Spend, Restore, and Reset controls.
-    This is the generic manual reaction counter; no separate Action Points resource is
-    currently defined.
+  - [x] Spawned characters and monsters have one backend-authoritative Action / Reaction
+    Point pool with a Reaction Time threshold maximum and manual consume, restore, and
+    reset controls. Action and reaction consumption share the same persisted balance.
+    Assigned players control their player character while the GM has read-only visibility;
+    the GM controls monster pools. Schema 39 upgrades unchanged legacy reaction formulas
+    without rewriting customized formulas or fractional legacy balances.
   - [x] Character templates and spawned instances now own a persisted structured profile
     for species, background, alignment, pronouns, age, height, weight, eyes, skin, hair,
     appearance, personality traits, ideals, bonds, flaws, allies/organizations, and

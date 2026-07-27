@@ -26,7 +26,10 @@ import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
 import { buildEquipmentQuantitySubmission } from "@/features/sheets/equipmentQuantity";
-import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
+import {
+  canManageActionReactionPoints,
+  type PlayerSheetTab
+} from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildAttachInstancedSheetActionRequest,
@@ -424,13 +427,23 @@ export function PlayerCharacterSheet({
                 <SheetReactionResource
                   current={detail.reactions.current}
                   maximum={detail.reactions.maximum}
-                  onAdjust={(delta) =>
+                  canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
+                  onSpend={() =>
                     client.sendProtocolRequest(
                       buildAdjustInstancedSheetReactionsRequest({
                         instanceId: detail.instance.id,
-                        delta
+                        delta: -1
                       }),
-                      delta < 0 ? "Spend reactions" : "Restore reactions"
+                      "Spend action/reaction point"
+                    )
+                  }
+                  onRestore={() =>
+                    client.sendProtocolRequest(
+                      buildAdjustInstancedSheetReactionsRequest({
+                        instanceId: detail.instance.id,
+                        delta: 1
+                      }),
+                      "Restore action/reaction point"
                     )
                   }
                   onReset={() =>
@@ -438,7 +451,7 @@ export function PlayerCharacterSheet({
                       buildResetInstancedSheetReactionsRequest({
                         instanceId: detail.instance.id
                       }),
-                      "Reset reactions"
+                      "Reset action/reaction points"
                     )
                   }
                 />

@@ -19,6 +19,7 @@ from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.formula import Formula, FormulaAliases, FormulaDefinition
 from backend.state.models.state import State
+from backend.state.models.tag import validate_tag_ids
 
 
 def _format_path(path: list[str]) -> str:
@@ -138,6 +139,7 @@ async def _create_formula(
         formulas = _formulas_state(state)
         if payload.id in formulas:
             raise ValueError(f"Formula '{payload.id}' already exists.")
+        validate_tag_ids(formula.formula.tags, state.tags)
         path = state_sync_service.join_path("formulas", payload.id)
         op = state_sync_service.add_mutation(state, path, formula)
         return None, [op]
@@ -160,6 +162,7 @@ async def _update_formula(
         formulas = _formulas_state(state)
         if formula_id not in formulas:
             raise ValueError(f"Formula '{formula_id}' does not exist.")
+        validate_tag_ids(formula.formula.tags, state.tags)
         path = state_sync_service.join_path("formulas", formula_id)
         op = state_sync_service.set_mutation(state, path, formula)
         return None, [op]

@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
 import { buildDeleteInstancedSheetRequest } from "@/infrastructure/ws/requestBuilders";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { ModalDialog } from "@/shared/ui/ModalDialog";
 
 export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.Element {
   const { state, dispatch } = useAppStore();
@@ -15,6 +19,7 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
     ? activeSheetId
     : (sheetOptions[0]?.id ?? "");
   const selectedSheet = sheetOptions.find((sheet) => sheet.id === selectedSheetId) ?? null;
+  const [organizerOpen, setOrganizerOpen] = useState(false);
 
   const despawnSelectedSheet = (): void => {
     if (!client || !selectedSheet) {
@@ -45,39 +50,73 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
         </p>
       </div>
       <div className="sheet-context-selector__controls">
-        <label className="sheet-context-selector__field">
-          <span>Active spawned sheet</span>
-          <select
-            value={selectedSheetId ?? ""}
+        <div className="sheet-context-selector__field">
+          <CatalogEntityPicker
+            catalog="sheet_instances"
+            label="Active spawned sheet"
+            placeholder={
+              sheetOptions.length === 0 ? "No spawned sheets available" : "Search spawned sheets"
+            }
+            selectedId={selectedSheetId}
             disabled={sheetOptions.length === 0}
-            onChange={(event) =>
+            options={sheetOptions.map((sheet) => ({
+              id: sheet.id,
+              label: sheet.name,
+              value: sheet.id
+            }))}
+            emptyMessage="No spawned sheets available."
+            onSelect={(sheetId) =>
               dispatch({
                 type: "set_active_sheet_local",
-                sheetId: event.target.value
+                sheetId
               })
             }
-          >
-            {sheetOptions.length === 0 ? (
-              <option value="">No spawned sheets available</option>
-            ) : null}
-            {sheetOptions.map((sheet) => (
-              <option key={sheet.id} value={sheet.id}>
-                {sheet.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
         {client ? (
-          <button
-            type="button"
-            className="button button--danger"
-            onClick={despawnSelectedSheet}
-            disabled={!selectedSheet}
-          >
-            Despawn
-          </button>
+          <>
+            <button
+              type="button"
+              className="button button--secondary"
+              aria-haspopup="dialog"
+              aria-expanded={organizerOpen}
+              onClick={() => setOrganizerOpen(true)}
+            >
+              Organize Sheets
+            </button>
+            <button
+              type="button"
+              className="button button--danger"
+              onClick={despawnSelectedSheet}
+              disabled={!selectedSheet}
+            >
+              Despawn
+            </button>
+          </>
         ) : null}
       </div>
+      {client && organizerOpen ? (
+        <ModalDialog
+          title="Organize spawned sheets"
+          description="Arrange spawned sheets into display-only folders."
+          onClose={() => setOrganizerOpen(false)}
+        >
+          <CatalogBrowser
+            catalog="sheet_instances"
+            client={client}
+            items={sheetOptions.map((sheet) => ({ id: sheet.id, name: sheet.name }))}
+            selectedId={selectedSheetId}
+            entityLabel="sheet"
+            emptyMessage="No spawned sheets available."
+            onSelect={(sheetId) =>
+              dispatch({
+                type: "set_active_sheet_local",
+                sheetId
+              })
+            }
+          />
+        </ModalDialog>
+      ) : null}
     </section>
   );
 }

@@ -11,7 +11,7 @@ traversal.
 ## Formula model and definitions
 
 [`backend/state/models/formula.py`](../../backend/state/models/formula.py)
-defines formula text, explicit aliases, normalized semantic tags, and reusable
+defines formula text, explicit aliases, managed semantic tag IDs, and reusable
 global `FormulaDefinition` records. Aliases map `@name` placeholders to paths
 resolved against the current sheet/instance execution root. Global definitions
 are referenced by ID so an action uses the current authored definition at
@@ -85,12 +85,14 @@ Editors submit formulas and aliases; they do not calculate final gameplay
 results locally. The autocomplete is an authoring aid only, and backend formula
 validation remains authoritative.
 
-Formula tags use one shared chip-and-search control across those editors.
-Selected tags and the search input occupy the same field; typing filters the
-allowed/common suggestions, while Enter, Tab, comma, or pointer selection adds
-a tag. Authors may still create normalized custom tags, and can remove selected
-tags directly from the same control. There is no separate suggestion field or
-staged add button.
+Formula tags use the shared nested tag-catalog multi-select across reusable
+formula editors, formulas embedded in action steps, and augmentation
+required/excluded selectors. The DM creates and organizes definitions in Rules
+Data → Tags; consumer editors can only select existing stable IDs. The backend
+validates the same registry for reusable formulas, complete action payloads,
+items, item templates, and effect selectors. Formula tags select evaluation
+modifiers and roll-mode effects; there is no separate top-level action-step tag
+field.
 
 ## Roll modes
 

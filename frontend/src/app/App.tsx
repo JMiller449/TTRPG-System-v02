@@ -15,6 +15,7 @@ import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ExtensionPage } from "@/features/extension/ExtensionPage";
 import { AttributeAuthoringPage } from "@/features/attributes/AttributeAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
+import { ItemTemplateBuilderPage } from "@/features/items/ItemTemplateBuilderPage";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { RollLog } from "@/features/rolls/RollLog";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
@@ -24,6 +25,7 @@ import { TemplateCreatePage } from "@/features/sheets/TemplateCreatePage";
 import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
 import { XpTrackerPage } from "@/features/xp/XpTrackerPage";
+import { TagAuthoringPage } from "@/features/tags/TagAuthoringPage";
 import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
 
 export function App(): JSX.Element {
@@ -65,12 +67,16 @@ export function App(): JSX.Element {
       <XpTrackerPage client={client} />
     ) : gmView === "item_maker" ? (
       <ItemMakerPage client={client} />
+    ) : gmView === "item_template_builder" ? (
+      <ItemTemplateBuilderPage client={client} />
     ) : gmView === "formula_authoring" ? (
       <FormulaAuthoringPage client={client} />
     ) : gmView === "attribute_authoring" ? (
       <AttributeAuthoringPage client={client} />
     ) : gmView === "proficiency_authoring" ? (
       <ProficiencyAuthoringPage client={client} />
+    ) : gmView === "tag_authoring" ? (
+      <TagAuthoringPage client={client} />
     ) : gmView === "condition_authoring" ? (
       <ConditionAuthoringPage client={client} />
     ) : gmView === "effect_authoring" ? (

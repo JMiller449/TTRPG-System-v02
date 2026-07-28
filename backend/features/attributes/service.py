@@ -34,10 +34,7 @@ from backend.state.models.attribute import (
     ACTION_TARGET_COUNT_ATTRIBUTE_ID,
     LEVEL_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
-    WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
-    WEAPON_TYPE_ATTRIBUTE_ID,
     AttributeBridge,
     AttributeDefinition,
     AttributeValue,
@@ -228,36 +225,30 @@ def validate_subject_attribute_value(
             or int(value.value) != value.value
         ):
             raise ValueError("Level must be a positive whole number.")
-    if subject_type != "item" or getattr(subject, "attribute_profile", None) != "weapon":
-        if subject_type == "action":
-            if definition.id in {
-                ACTION_RANGE_ATTRIBUTE_ID,
-                ACTION_MANA_COST_ATTRIBUTE_ID,
-                ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
-            } and (
-                not isinstance(value.value, (int, float))
-                or isinstance(value.value, bool)
-                or value.value < 0
-            ):
-                raise ValueError(f"Action Attribute '{definition.id}' must be nonnegative.")
-            if definition.id == ACTION_TARGET_COUNT_ATTRIBUTE_ID and (
-                not isinstance(value.value, (int, float))
-                or isinstance(value.value, bool)
-                or value.value < 1
-                or int(value.value) != value.value
-            ):
-                raise ValueError("Action Target Count must be a positive whole number.")
+    if subject_type == "action":
+        if definition.id in {
+            ACTION_RANGE_ATTRIBUTE_ID,
+            ACTION_MANA_COST_ATTRIBUTE_ID,
+            ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
+        } and (
+            not isinstance(value.value, (int, float))
+            or isinstance(value.value, bool)
+            or value.value < 0
+        ):
+            raise ValueError(f"Action Attribute '{definition.id}' must be nonnegative.")
+        if definition.id == ACTION_TARGET_COUNT_ATTRIBUTE_ID and (
+            not isinstance(value.value, (int, float))
+            or isinstance(value.value, bool)
+            or value.value < 1
+            or int(value.value) != value.value
+        ):
+            raise ValueError("Action Target Count must be a positive whole number.")
         return
-    if definition.id == WEAPON_TYPE_ATTRIBUTE_ID:
-        if not isinstance(value.value, str) or not value.value.strip():
-            raise ValueError("Weapon Type is required.")
-    if definition.id == WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID:
-        if not isinstance(value.value, list) or not value.value:
-            raise ValueError("At least one physical weapon damage type is required.")
+    if subject_type != "item":
+        return
     if definition.id in {
         WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
         WEAPON_REACH_ATTRIBUTE_ID,
-        WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
     }:
         if (
             not isinstance(value.value, (int, float))
@@ -446,15 +437,6 @@ def _subject_and_definition(
     if definition is None or subject_type not in definition.subject_types:
         raise ValueError(
             f"{subject_type.title()} Attribute '{attribute_id}' does not exist."
-        )
-    if (
-        subject_type == "item"
-        and definition.required_profile is not None
-        and subject.attribute_profile != definition.required_profile
-    ):
-        raise ValueError(
-            f"Attribute '{attribute_id}' requires item profile "
-            f"'{definition.required_profile}'."
         )
     return subject, definition, subject.attributes.get(attribute_id)
 

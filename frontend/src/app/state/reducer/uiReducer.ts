@@ -39,6 +39,14 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
       }));
     case "set_template_search":
       return updateUiState(state, (uiState) => ({ ...uiState, templateSearch: action.value }));
+    case "set_catalog_creation_target":
+      return updateUiState(state, (uiState) => ({
+        ...uiState,
+        catalogCreationTargets: {
+          ...uiState.catalogCreationTargets,
+          [action.catalog]: action.folderId
+        }
+      }));
     case "set_action_formula_authoring_metadata":
       return updateUiState(state, (uiState) => ({
         ...uiState,
@@ -87,6 +95,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         activeSheetId: initialUiState.activeSheetId,
         templateBuilderSheetId: initialUiState.templateBuilderSheetId,
         templateSearch: initialUiState.templateSearch,
+        catalogCreationTargets: initialUiState.catalogCreationTargets,
         pendingIntentIds: initialUiState.pendingIntentIds,
         intentFeedback: initialUiState.intentFeedback,
         actionFormulaAuthoringMetadata: initialUiState.actionFormulaAuthoringMetadata,

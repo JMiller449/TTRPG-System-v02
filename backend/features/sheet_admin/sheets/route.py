@@ -506,8 +506,8 @@ class MoveInstancedSheetItemRoute(RequestRoute[MoveInstancedSheetItem]):
     type_name = "move_instanced_sheet_item"
     request_model = MoveInstancedSheetItem
     emitted_event_models = (StatePatchEvent,)
-    minimum_role = permission_minimum_role("equipment_edit")
-    permission_denied_reason = permission_denied_reason("equipment_edit")
+    minimum_role = permission_minimum_role("equipment_use")
+    permission_denied_reason = permission_denied_reason("equipment_use")
     client_generation = ClientGenerationMetadata(
         namespace="sheetInstanceItems",
         method_name="moveItem",
@@ -518,6 +518,10 @@ class MoveInstancedSheetItemRoute(RequestRoute[MoveInstancedSheetItem]):
         session: WebSocketSession,
         request: MoveInstancedSheetItem,
     ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
         await service.move_instanced_sheet_item(request)
 
 

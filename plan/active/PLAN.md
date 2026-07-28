@@ -75,7 +75,11 @@ Backend:
 - Formula evaluation is backend-owned and supports arithmetic, dice expressions, aliases, dataclass/dict traversal, cycle guards, `min`, `max`, `floor`, `ceil`, and `round`.
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
-- Weapon-profile items automatically grant canonical equipped weapon actions, and equipping a weapon adds the matching sheet proficiency bridge when it is missing so source-item weapon rolls can resolve and advance `weapon_proficiency`.
+- Items explicitly grant shared actions and attach only the source-item Attributes
+  those actions/effects consume. Equipping an item with a Proficiency Attribute
+  adds the matching sheet proficiency bridge when missing, using the definition's
+  default growth rate. Weapon family/type and damage classifications are managed
+  tags rather than item profiles.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
@@ -321,8 +325,9 @@ No large architecture feature is currently missing for the stated character-shee
     correct canonical, sheet-relative, attribute-relative, or action-scoped alias.
   - Earlier calculated action values participate in the same search instead of requiring a second
     calculated-value insertion control.
-  - Formula tags use a single chip-and-search field across the same editors: typing filters common
-    tags, custom tags remain available, and no separate suggestion field or Add Tags step is shown.
+  - Formula tags use the shared managed tag hierarchy across the same editors,
+    inline action-step formulas, and augmentation selectors. Consumer fields
+    select existing tag IDs; tag creation and nesting live in Rules Data → Tags.
 
 - [x] Create or verify the starter campaign data needed for an actual session:
   - player templates
@@ -397,23 +402,38 @@ No large architecture feature is currently missing for the stated character-shee
     frontend tests cover picker paths, alias stability, visibility, invalid references,
     and current-instance execution.
   - [x] The GM party workspace organizes spawned character sheets through the existing
-    backend-authoritative named parties, presented as character folders with membership
-    counts and a derived Unassigned folder. Only the selected folder's roster editor is
-    expanded, and explicit add/remove controls replace the repeated wall of membership
-    checkboxes. Folder navigation remains frontend-local while membership persistence,
-    exclusivity, XP participation, stable instance IDs, and despawn cleanup continue to
-    use the established `save_party` state and protocol contract. Focused UI tests cover
-    folder navigation, unassigned characters, membership editing, and request payloads.
-  - [x] Item definitions expose an explicit per-item toggle controlling whether players
-    can find and add that item, and the backend enforces the toggle when processing
-    player inventory additions. Broader category- or role-level permission toggles are
-    deferred unless table use demonstrates a need for them.
+    backend-authoritative named parties in a navigator with membership counts and a
+    derived Unassigned view. Only the selected party's roster editor is expanded. Its
+    membership draft reuses the sheet-instance hierarchy as a searchable, collapsible
+    checkbox tree for individual or folder-wide multi-selection, with `Save Party` as the
+    only commit action. Party navigation remains frontend-local while membership
+    persistence, exclusivity, XP participation, stable instance IDs, and despawn cleanup
+    continue to use the established `save_party` state and protocol contract. Focused UI
+    tests cover party navigation, unassigned characters, multi-member editing, and
+    request payloads.
+  - [x] Item definitions expose backend-authoritative player catalog access for no
+    players, all players, or selected spawned player-sheet instance IDs. The item editor
+    uses the sheet-instance catalog hierarchy as a searchable, collapsible checkbox tree
+    with individual selection, partial folder states, and descendant bulk selection.
+    Folder selection snapshots current stable IDs and later folder moves do not alter
+    authorization. Player snapshots and inventory additions enforce the claimed instance,
+    item allow-lists remain private, owned unavailable items remain renderable, and
+    instance removal reconciles stale selections. Schema 41 migrates the former global
+    visibility toggle losslessly to all/none access.
   - [x] Storage items distinguish normally counted contents from weight-ignoring contents;
     authoritative carried-weight calculation, containment validation, nesting, and the
-    corresponding GM authoring controls are implemented.
+    corresponding GM authoring controls are implemented. Storage definitions now also
+    support finite pound limits or unlimited capacity. Backend validation rejects
+    over-capacity moves, quantity changes, and definition edits; snapshots expose current
+    container loads. DMs and assigned players organize unequipped instance inventory
+    through the same nested drag-and-drop UI and accessible location selector, while
+    player requests remain restricted to the claimed sheet. Schema 45 preserves existing
+    containers as unlimited.
   - [x] A DM can remove an equipped item from a spawned character. Nonempty storage
     containers must still be emptied first, and equipment-owned effects reconcile through
-    the authoritative state-sync hooks.
+    the authoritative state-sync hooks. Deleting the underlying item definition now
+    atomically removes all template and spawned-instance copies, including equipped
+    copies; contents of deleted container definitions are preserved at root inventory.
   - [x] A shared, subject-specific confirmation boundary now guards destructive controls
     before they mutate a draft or submit an authoritative request. Coverage includes
     template deletion and instance despawning; item, action, formula, proficiency,
@@ -426,12 +446,33 @@ No large architecture feature is currently missing for the stated character-shee
     authorization, containment, and error validation. Focused tests cover message clarity,
     cancellation, acceptance, request suppression, and representative relationship and
     inventory removals.
-  - [x] Item definitions now own a persisted, trimmed catalog-folder label, with empty
-    values grouped as Unfiled and a sequential schema-34 migration for existing campaigns.
-    The GM item maker provides All/named/Unfiled folder navigation, counts, reusable folder
-    suggestions, and text search across name, stable ID, category, rank, and folder. Folder
-    filtering preserves authoritative item order and editor selection and does not alter
-    category metadata, player publication/redaction, inventory relationships, or mechanics.
+  - [x] Replaced item-owned free-form category/folder text with reusable
+    backend-persisted catalog organization. Top-level folder and entry records support
+    independent nested trees for actions, attributes, conditions, effects, formulas,
+    items, item templates, proficiencies, tags, sheet templates, and spawned sheet
+    instances. Shared frontend
+    catalog UI supports root/folder creation actions, nesting, collapse/expand,
+    rename/delete, search, and drag-and-drop placement. Consumer pickers reuse the
+    hierarchy for inventory, template/sheet assignments, catalog references,
+    encounters, access codes, parties, XP flows, and active-sheet selection. Players
+    receive only branches for records already visible to them. Folder placement remains
+    presentation metadata and never changes mechanics, visibility, permissions, or
+    ownership. Schema 40 converts legacy item category/folder text into nested folders.
+    Encounter-driven folder creation is deliberately deferred.
+  - [x] Added first-class managed tags and copy-based item templates. Tags have
+    stable backend definitions, their own nested display catalog, DM CRUD, and
+    reference-safe deletion. Items, item templates, reusable formulas, inline
+    action-step formulas, and augmentation required/excluded selectors all use
+    the same managed tag IDs; consumer selectors cannot create free-form tags.
+    Item creation now starts with Scratch or Template selection. Template
+    management has its own Content navigation tab, builder page, and independent
+    nested catalog. Template copies receive new
+    relationship/effect IDs and no player availability. Item attribute profiles
+    and automatic weapon-action grants are removed: weapon/damage classifications
+    are tags, action/effect inputs are optional attached Attributes, granted
+    actions are selected explicitly and validated against those Attributes, and
+    proficiency growth comes from the proficiency definition. Schemas 42–44
+    migrate tags, legacy weapon metadata, and the template registry.
   - [x] Spawned characters and monsters have one backend-authoritative Action / Reaction
     Point pool with a Reaction Time threshold maximum and manual consume, restore, and
     reset controls. Action and reaction consumption share the same persisted balance.

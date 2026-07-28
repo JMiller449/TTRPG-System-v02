@@ -97,6 +97,12 @@ The shared character display is implemented by
 and focused sections under `components/`. GM and player views share
 authoritative rendering while controls differ by role.
 
+Sheet templates and spawned instances each participate in an independent
+display-only [catalog organization](catalog-organization.md) scope. The template
+library uses the shared nested browser, while the active spawned-sheet selector
+opens its organizer in a centered modal. Folder placement does not change template
+inheritance, instance ownership, access codes, parties, or runtime behavior.
+
 The shared character display exposes the profile through a dedicated
 Backstory tab. Both a DM and the assigned player submit the complete profile
 through `set_instanced_sheet_profile`; backend instance-access validation is

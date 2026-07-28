@@ -23,6 +23,7 @@ import {
   type VariablePickerEntry
 } from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 function operationLabel(step: BoundedMutationEditorStep): string {
   if (step.type === "set_value") {
@@ -90,36 +91,53 @@ export function ActionBoundedMutationStepEditor({
     ];
     return (
       <div className="stack">
-        <Field label={`${sourceLabel} Source`}>
-          <select
-            value={
-              formulaId ? `global:${formulaId}` : variableId ? `calculated:${variableId}` : "inline"
-            }
-            onChange={(event) => setSourceFromSelection(slot, event.target.value)}
-          >
-            <option value="inline">Inline formula</option>
-            {formulaId && !formulas.some((formula) => formula.id === formulaId) ? (
-              <option value={`global:${formulaId}`} disabled>
-                Missing global formula: {formulaId}
-              </option>
-            ) : null}
-            {formulas.map((formula) => (
-              <option key={formula.id} value={`global:${formula.id}`}>
-                Global: {formula.id}
-              </option>
-            ))}
-            {variableId && !calculatedValues.some((option) => option.variableId === variableId) ? (
-              <option value={`calculated:${variableId}`} disabled>
-                Unavailable: {variableId}
-              </option>
-            ) : null}
-            {calculatedValues.map((option) => (
-              <option key={option.stepId} value={`calculated:${option.variableId}`}>
-                Calculated: {option.variableId}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CatalogEntityPicker
+          catalog="formulas"
+          label={`${sourceLabel} Source`}
+          placeholder="Search formula catalog"
+          selectedId={
+            formulaId ? `global:${formulaId}` : variableId ? `calculated:${variableId}` : "inline"
+          }
+          options={[
+            { id: "inline", label: "Inline formula", value: "inline" },
+            ...(formulaId && !formulas.some((formula) => formula.id === formulaId)
+              ? [
+                  {
+                    id: `global:${formulaId}`,
+                    label: `Missing global formula: ${formulaId}`,
+                    organizationEntryId: formulaId,
+                    disabledReason: "Missing definition",
+                    value: `global:${formulaId}`
+                  }
+                ]
+              : []),
+            ...formulas.map((formula) => ({
+              id: `global:${formula.id}`,
+              label: formula.id,
+              secondary: formula.formula.text,
+              organizationEntryId: formula.id,
+              value: `global:${formula.id}`
+            })),
+            ...(variableId && !calculatedValues.some((option) => option.variableId === variableId)
+              ? [
+                  {
+                    id: `calculated:${variableId}`,
+                    label: `Unavailable: ${variableId}`,
+                    disabledReason: "Earlier value is unavailable",
+                    value: `calculated:${variableId}`
+                  }
+                ]
+              : []),
+            ...calculatedValues.map((option) => ({
+              id: `calculated:${option.variableId}`,
+              label: `Calculated: ${option.variableId}`,
+              secondary: `Earlier step: ${option.stepId}`,
+              value: `calculated:${option.variableId}`
+            }))
+          ]}
+          emptyMessage="No formula sources available."
+          onSelect={(selection) => setSourceFromSelection(slot, selection)}
+        />
         {isInlineFormula(source) ? (
           <>
             <FormulaVariableInput

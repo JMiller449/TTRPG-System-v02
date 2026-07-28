@@ -25,6 +25,7 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 
 interface PendingTemplateSave {
   requestId: string;
@@ -72,6 +73,11 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
     () => ({ actions, proficiencies, items, attributes }),
     [actions, attributes, items, proficiencies]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "sheet_templates",
+    client,
+    entries: sheets
+  });
 
   useEffect(() => {
     const draftSource =
@@ -189,9 +195,13 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
       request,
       templateBuilderSheetId ? `Update ${values.name.trim()}` : `Create ${values.name.trim()}`
     );
+    if (!templateBuilderSheetId) {
+      queueCreatedEntry(sheetId);
+    }
   };
 
   const exitBuilder = (): void => {
+    beginCreation(null);
     dispatch({ type: "set_template_builder_sheet", sheetId: null });
     dispatch({ type: "set_gm_view", view: "template_library" });
   };

@@ -16,7 +16,8 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
@@ -67,6 +68,11 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
         .filter((attribute) => !attribute.backend_owned),
     [attributeOrder, attributes]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "attributes",
+    client,
+    entries: attributes
+  });
 
   useEffect(() => {
     if (actionFormulaAuthoringMetadata || requestedMetadataRef.current) {
@@ -77,7 +83,8 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
     client.sendProtocolRequest(submission.request, submission.label);
   }, [actionFormulaAuthoringMetadata, client]);
 
-  const reset = (): void => {
+  const reset = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingId(null);
     setDraft(emptyAttributeDraft());
   };
@@ -94,6 +101,9 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
         : buildCreateAttributeRequest({ attribute }),
       editingId ? `Update Attribute: ${attribute.name}` : `Create Attribute: ${attribute.name}`
     );
+    if (!editingId) {
+      queueCreatedEntry(id);
+    }
     reset();
   };
 
@@ -104,7 +114,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
       actions={
         editingId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" type="button" onClick={reset}>
+            <button className="button button--secondary" type="button" onClick={() => reset()}>
               New Attribute
             </button>
             <button
@@ -141,18 +151,23 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
       <CatalogEditorLayout
         catalogLabel="Attribute Catalog"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="attributes"
+            client={client}
             items={orderedAttributes.map((attribute) => ({
               id: attribute.id,
               name: attribute.name
             }))}
             selectedId={editingId}
+            entityLabel="attribute"
             emptyMessage="No custom attributes yet. Built-in attributes are managed by the system and stay out of this list."
+            onCreateEntry={reset}
             onSelect={(attributeId) => {
               const attribute = attributes[attributeId];
               if (!attribute || attribute.backend_owned) {
                 return;
               }
+              beginCreation(null);
               setEditingId(attribute.id);
               setDraft(draftFromAttribute(attribute));
             }}

@@ -762,6 +762,8 @@ describe("adaptProtocolServerEvent", () => {
         incremental: false,
         requestId: undefined,
         snapshot: {
+          catalogFolders: [],
+          catalogEntries: [],
           sheets: [protocolEvent.state.sheets?.sheet_1],
           persistentSheets: [
             {
@@ -770,6 +772,8 @@ describe("adaptProtocolServerEvent", () => {
             }
           ],
           items: [],
+          itemTemplates: [],
+          tags: [],
           proficiencies: [],
           actions: [],
           formulas: [],

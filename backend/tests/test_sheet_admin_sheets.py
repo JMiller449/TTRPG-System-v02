@@ -2272,6 +2272,7 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
                 id="axes",
                 name="Axes",
                 description="Axe proficiency.",
+                default_growth_rate=0.25,
             )
             state.items["axe"] = Item.from_dict(
                 {
@@ -2295,12 +2296,6 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
                             "attribute_id": "weapon_proficiency",
                             "value": {"type": "reference", "value": "axes"},
                             "evaluated_value": "axes",
-                        },
-                        "weapon_proficiency_growth_rate": {
-                            "relationship_id": "weapon-growth",
-                            "attribute_id": "weapon_proficiency_growth_rate",
-                            "value": {"type": "number", "value": 0.25},
-                            "evaluated_value": 0.25,
                         },
                     },
                 }

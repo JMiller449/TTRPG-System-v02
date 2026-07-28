@@ -181,6 +181,9 @@ class RequestRegistry:
 def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.auth.route import register_routes as register_auth_routes
     from backend.features.chat.route import register_routes as register_chat_routes
+    from backend.features.catalog_organization.route import (
+        register_routes as register_catalog_organization_routes,
+    )
     from backend.features.encounters.route import (
         register_routes as register_encounter_routes,
     )
@@ -212,6 +215,9 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     from backend.features.sheet_admin.proficiencies.route import (
         register_routes as register_sheet_admin_proficiencies_routes,
     )
+    from backend.features.sheet_admin.tags.route import (
+        register_routes as register_sheet_admin_tags_routes,
+    )
     from backend.features.sheet_admin.sheets.route import (
         register_routes as register_sheet_admin_sheets_routes,
     )
@@ -235,6 +241,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     )
 
     register_auth_routes(registry)
+    register_catalog_organization_routes(registry)
     register_chat_routes(registry)
     register_encounter_routes(registry)
     register_contribution_point_routes(registry)
@@ -244,6 +251,7 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
     register_sheet_admin_formulas_routes(registry)
     register_sheet_admin_items_routes(registry)
     register_sheet_admin_proficiencies_routes(registry)
+    register_sheet_admin_tags_routes(registry)
     register_sheet_admin_sheets_routes(registry)
     register_sheet_admin_stats_routes(registry)
     register_sheet_access_routes(registry)

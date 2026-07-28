@@ -12,6 +12,7 @@ import type { SheetProficiencyBridgePayload } from "@/infrastructure/ws/requestB
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 interface ProficiencyBridgeDraft {
   proficiencyId: string;
@@ -99,21 +100,21 @@ export function SheetProficienciesSection({
     <section className="character-sheet__section" aria-label="Proficiency assignments">
       {canEdit ? (
         <div className="sheet-proficiency-add-row">
-          <Field label="Proficiency">
-            <select
-              value={selectedProficiencyId}
-              onChange={(event) => setSelectedProficiencyId(event.target.value)}
-            >
-              {availableProficiencies.length === 0 ? (
-                <option value="">No proficiencies available</option>
-              ) : null}
-              {availableProficiencies.map((proficiency) => (
-                <option key={proficiency.id} value={proficiency.id}>
-                  {proficiency.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="proficiencies"
+            label="Proficiency"
+            placeholder="Search proficiency catalog"
+            selectedId={selectedProficiencyId}
+            options={availableProficiencies.map((proficiency) => ({
+              id: proficiency.id,
+              label: proficiency.name,
+              secondary: proficiency.description,
+              keywords: [proficiency.id],
+              value: proficiency.id
+            }))}
+            emptyMessage="No proficiencies available."
+            onSelect={setSelectedProficiencyId}
+          />
           <Field label="Uses">
             <input
               type="number"
@@ -187,31 +188,41 @@ export function SheetProficienciesSection({
               {proficiency?.description ? <p className="muted">{proficiency.description}</p> : null}
               {canEdit ? (
                 <div className="sheet-proficiency-editor">
-                  <Field label="Proficiency">
-                    <select
-                      value={draft.proficiencyId}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [bridge.relationship_id]: {
-                            ...draft,
-                            proficiencyId: event.target.value
-                          }
-                        }))
-                      }
-                    >
-                      {proficiencyDefinitions[draft.proficiencyId] ? null : (
-                        <option value={draft.proficiencyId} disabled>
-                          {draft.proficiencyId}
-                        </option>
-                      )}
-                      {options.map((entry) => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  <CatalogEntityPicker
+                    catalog="proficiencies"
+                    label="Proficiency"
+                    placeholder="Search proficiency catalog"
+                    selectedId={draft.proficiencyId}
+                    options={[
+                      ...(proficiencyDefinitions[draft.proficiencyId]
+                        ? []
+                        : [
+                            {
+                              id: draft.proficiencyId,
+                              label: `Missing proficiency: ${draft.proficiencyId}`,
+                              disabledReason: "Missing definition",
+                              value: draft.proficiencyId
+                            }
+                          ]),
+                      ...options.map((entry) => ({
+                        id: entry.id,
+                        label: entry.name,
+                        secondary: entry.description,
+                        keywords: [entry.id],
+                        value: entry.id
+                      }))
+                    ]}
+                    emptyMessage="No replacement proficiencies."
+                    onSelect={(proficiencyId) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [bridge.relationship_id]: {
+                          ...draft,
+                          proficiencyId
+                        }
+                      }))
+                    }
+                  />
                   <Field label="Uses">
                     <input
                       type="number"

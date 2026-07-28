@@ -11,6 +11,9 @@ import type {
   ActionHistoryEntry,
   ActiveCondition,
   Augmentation,
+  CatalogEntry,
+  CatalogFolder,
+  CatalogKey,
   ConditionPreset,
   EncounterPreset,
   AttributeDefinition,
@@ -21,7 +24,8 @@ import type {
   Role,
   Sheet,
   StandaloneEffectApplication,
-  StandaloneEffectDefinition
+  StandaloneEffectDefinition,
+  TagDefinition
 } from "@/domain/models";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -35,9 +39,11 @@ export type GMView =
   | "create_template"
   | "encounter_presets"
   | "item_maker"
+  | "item_template_builder"
   | "formula_authoring"
   | "attribute_authoring"
   | "proficiency_authoring"
+  | "tag_authoring"
   | "condition_authoring"
   | "effect_authoring"
   | "action_authoring"
@@ -56,12 +62,20 @@ export interface IntentFeedbackItem {
 export interface ServerState {
   role: Role | null;
   gmAuthenticated: boolean;
+  catalogFolders: Record<string, CatalogFolder>;
+  catalogFolderOrder: string[];
+  catalogEntries: Record<string, CatalogEntry>;
+  catalogEntryOrder: string[];
   sheets: Record<string, Sheet>;
   sheetOrder: string[];
   persistentSheets: Record<string, PersistentSheet>;
   persistentSheetOrder: string[];
   items: Record<string, ItemDefinition>;
   itemOrder: string[];
+  itemTemplates: Record<string, ItemDefinition>;
+  itemTemplateOrder: string[];
+  tags: Record<string, TagDefinition>;
+  tagOrder: string[];
   proficiencies: Record<string, ProficiencyDefinition>;
   proficiencyOrder: string[];
   actions: Record<string, ActionDefinition>;
@@ -103,6 +117,7 @@ export interface UIState {
   activeSheetId: string | null;
   templateBuilderSheetId: string | null;
   templateSearch: string;
+  catalogCreationTargets: Partial<Record<CatalogKey, string | null>>;
   pendingIntentIds: string[];
   intentFeedback: IntentFeedbackItem[];
   actionFormulaAuthoringMetadata: ActionFormulaAuthoringMetadata | null;
@@ -125,6 +140,7 @@ export type AppAction =
   | { type: "set_active_sheet_local"; sheetId: string | null }
   | { type: "set_template_builder_sheet"; sheetId: string | null }
   | { type: "set_template_search"; value: string }
+  | { type: "set_catalog_creation_target"; catalog: CatalogKey; folderId: string | null }
   | { type: "reset_session_ui" }
   | { type: "connection_status"; status: ConnectionStatus }
   | { type: "connection_error"; error?: string }

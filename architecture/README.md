@@ -46,6 +46,7 @@ defect. Do not change this documentation to make the conflict appear intended.
 
 | Feature | Document | Includes |
 | --- | --- | --- |
+| Display organization | [Catalog organization](features/catalog-organization.md) | Reusable nested folders, placements, and catalog UI |
 | Characters | [Sheets and instances](features/sheets-and-instances.md) | Templates, spawned characters, bridges, and instance cleanup |
 | Character mechanics | [Stats, resources, resistances, and damage](features/stats-resources-resistances-and-damage.md) | Derived values, HP/mana, allocation, and damage intake |
 | Typed properties | [Attributes and authoring metadata](features/attributes-and-authoring-metadata.md) | Definitions, values, attachment, visibility, and evaluation |

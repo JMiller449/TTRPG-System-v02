@@ -2,31 +2,21 @@ import { describe, expect, it } from "vitest";
 import type { AttributeDefinition, ItemDefinition } from "@/domain/models";
 import {
   createEmptyItemValues,
+  createItemValuesFromTemplate,
   getItemEditorValidationError,
-  setItemAttributeProfile,
   toItemDefinitionPayload,
   toItemEditorValues,
   toUpdatedItemDefinitionPayload
 } from "@/features/items/itemEditorValues";
 
 const weaponAttributes: Record<string, AttributeDefinition> = {
-  weapon_type: {
-    id: "weapon_type",
-    name: "Weapon Type",
-    subject_types: ["item"],
-    value_type: "text",
-    default_value: { type: "text", value: "" },
-    required: true,
-    required_profile: "weapon"
-  },
   weapon_base_damage: {
     id: "weapon_base_damage",
     name: "Base Damage",
     subject_types: ["item"],
     value_type: "number",
     default_value: { type: "number", value: 0 },
-    required: true,
-    required_profile: "weapon"
+    required: false
   },
   weapon_governing_stat: {
     id: "weapon_governing_stat",
@@ -34,17 +24,7 @@ const weaponAttributes: Record<string, AttributeDefinition> = {
     subject_types: ["item"],
     value_type: "enum",
     default_value: { type: "enum", value: "strength" },
-    required: true,
-    required_profile: "weapon"
-  },
-  weapon_damage_types: {
-    id: "weapon_damage_types",
-    name: "Physical Damage Types",
-    subject_types: ["item"],
-    value_type: "list",
-    default_value: { type: "list", value: [] },
-    required: true,
-    required_profile: "weapon"
+    required: false
   },
   weapon_reach: {
     id: "weapon_reach",
@@ -52,8 +32,7 @@ const weaponAttributes: Record<string, AttributeDefinition> = {
     subject_types: ["item"],
     value_type: "number",
     default_value: { type: "number", value: 0 },
-    required: true,
-    required_profile: "weapon"
+    required: false
   },
   weapon_proficiency: {
     id: "weapon_proficiency",
@@ -62,17 +41,7 @@ const weaponAttributes: Record<string, AttributeDefinition> = {
     value_type: "reference",
     default_value: { type: "reference", value: "" },
     reference_kind: "proficiency",
-    required: true,
-    required_profile: "weapon"
-  },
-  weapon_proficiency_growth_rate: {
-    id: "weapon_proficiency_growth_rate",
-    name: "Proficiency Growth Rate",
-    subject_types: ["item"],
-    value_type: "number",
-    default_value: { type: "number", value: 0 },
-    required: true,
-    required_profile: "weapon"
+    required: false
   }
 };
 
@@ -81,8 +50,6 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     id: "item_1",
     name: "Sword of Mana",
     interaction_type: "equippable",
-    category: "Sword",
-    catalog_folder: "Relics",
     rank: "S",
     description: "A blade that conducts mana.",
     world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -90,7 +57,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: 3,
-    attribute_profile: null,
+    tags: [],
     attributes: {},
     augmentation_templates: [],
     ...overrides
@@ -101,8 +68,6 @@ describe("itemEditorValues", () => {
   it("maps item editor values to backend item definitions", () => {
     const values = createEmptyItemValues();
     values.name = "  Sword of Mana  ";
-    values.type = " Sword ";
-    values.catalogFolder = " Weapons ";
     values.rank = "S";
     values.weight = " 3 ";
     values.value = " NA ";
@@ -115,8 +80,6 @@ describe("itemEditorValues", () => {
       id: "item_1",
       name: "Sword of Mana",
       interaction_type: "equippable",
-      category: "Sword",
-      catalog_folder: "Weapons",
       rank: "S",
       description: "A blade that conducts mana.",
       world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -124,13 +87,31 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Adds +50 to sword enchantments.",
       price: "NA",
       weight: 3,
-      player_visible: false,
+      player_catalog_access: {
+        mode: "none",
+        instance_ids: []
+      },
       can_contain_items: false,
+      storage_capacity_weight: null,
       contents_weight_behavior: "normal",
-      attribute_profile: null,
+      tags: [],
       attributes: {},
       augmentation_templates: [],
       action_grants: []
+    });
+  });
+
+  it("maps selected player catalog access to stable instance IDs", () => {
+    const values = createEmptyItemValues();
+    values.name = "Hero Reward";
+    values.playerCatalogAccess = {
+      mode: "selected",
+      instanceIds: ["hero-instance", "rival-instance"]
+    };
+
+    expect(toItemDefinitionPayload(values, "hero_reward").player_catalog_access).toEqual({
+      mode: "selected",
+      instance_ids: ["hero-instance", "rival-instance"]
     });
   });
 
@@ -138,22 +119,64 @@ describe("itemEditorValues", () => {
     expect(toItemEditorValues(testItem())).toEqual({
       name: "Sword of Mana",
       interactionType: "equippable",
-      type: "Sword",
-      catalogFolder: "Relics",
       rank: "S",
       weight: "3",
       canContainItems: false,
+      storageCapacityWeight: "",
       contentsWeightBehavior: "normal",
       value: "NA",
       worldAnvilUrl: "https://worldanvil.example/items/sword-of-mana",
       gmNotes: "Award only after the mana trial.",
       gmSpecialProperties: "Adds +50 to sword enchantments.",
-      playerVisible: true,
+      playerCatalogAccess: {
+        mode: "all",
+        instanceIds: []
+      },
       description: "A blade that conducts mana.",
-      attributeProfile: null,
+      tags: [],
       attributes: {},
       augmentationTemplates: [],
       actionGrants: []
+    });
+  });
+
+  it("copies template defaults into an independent private item draft", () => {
+    const template = testItem({
+      tags: ["weapon"],
+      player_catalog_access: { mode: "all", instanceIds: [] },
+      attributes: {
+        weapon_base_damage: {
+          relationship_id: "template_damage",
+          attribute_id: "weapon_base_damage",
+          value: { type: "number", value: 12 }
+        }
+      },
+      augmentation_templates: [
+        {
+          id: "template_effect",
+          name: "Template Effect",
+          source: { type: "item", id: "template" },
+          scope: "instance",
+          target: { root: "instance", path: ["mana"] },
+          effect: {
+            type: "formula_modifier",
+            operation: "add",
+            value: { aliases: null, text: "1" }
+          }
+        }
+      ]
+    });
+
+    const draft = createItemValuesFromTemplate(template);
+
+    expect(draft.playerCatalogAccess).toEqual({ mode: "none", instanceIds: [] });
+    expect(draft.tags).toEqual(["weapon"]);
+    expect(draft.attributes.weapon_base_damage.relationship_id).not.toBe("template_damage");
+    expect(draft.augmentationTemplates[0]?.id).not.toBe("template_effect");
+    draft.attributes.weapon_base_damage.value = { type: "number", value: 20 };
+    expect(template.attributes?.weapon_base_damage.value).toEqual({
+      type: "number",
+      value: 12
     });
   });
 
@@ -163,14 +186,11 @@ describe("itemEditorValues", () => {
         testItem({
           description: "A plain text item description.",
           world_anvil_url: undefined,
-          catalog_folder: undefined,
           gm_notes: undefined,
           gm_special_properties: undefined
         })
       )
     ).toMatchObject({
-      type: "Sword",
-      catalogFolder: "",
       rank: "S",
       description: "A plain text item description.",
       worldAnvilUrl: "",
@@ -183,8 +203,6 @@ describe("itemEditorValues", () => {
     const item = testItem();
     const values = createEmptyItemValues();
     values.name = "  Edited Sword of Mana  ";
-    values.type = " Sword ";
-    values.catalogFolder = " Weapons ";
     values.rank = "S+";
     values.weight = " 4 ";
     values.value = " 1,000CP ";
@@ -196,8 +214,6 @@ describe("itemEditorValues", () => {
     expect(toUpdatedItemDefinitionPayload(item, values)).toEqual({
       ...item,
       name: "Edited Sword of Mana",
-      category: "Sword",
-      catalog_folder: "Weapons",
       rank: "S+",
       description: "Better enchantment channeling.",
       world_anvil_url: "https://worldanvil.example/items/edited-sword",
@@ -205,8 +221,12 @@ describe("itemEditorValues", () => {
       gm_special_properties: "Updated hidden property.",
       price: "1,000CP",
       weight: 4,
-      player_visible: false,
+      player_catalog_access: {
+        mode: "none",
+        instance_ids: []
+      },
       can_contain_items: false,
+      storage_capacity_weight: null,
       contents_weight_behavior: "normal",
       action_grants: []
     });
@@ -289,29 +309,29 @@ describe("itemEditorValues", () => {
     expect(getItemEditorValidationError(values)).toContain("only once");
   });
 
-  it("attaches and validates backend-declared weapon profile Attributes", () => {
-    let values = createEmptyItemValues();
+  it("validates ordinary item Attributes and managed tag IDs without applying a profile", () => {
+    const values = createEmptyItemValues();
     values.name = "Never Dulls";
-    values = setItemAttributeProfile(values, "weapon", weaponAttributes);
-
-    expect(values.interactionType).toBe("equippable");
-    expect(Object.keys(values.attributes)).toEqual(Object.keys(weaponAttributes));
-    expect(values.actionGrants.map((grant) => grant.actionId)).toEqual([
-      "weapon_attack",
-      "weapon_damage",
-      "weapon_parry",
-      "weapon_contest"
-    ]);
-    expect(getItemEditorValidationError(values, { definitions: weaponAttributes })).toContain(
-      "Weapon Type"
-    );
-
-    values.attributes.weapon_type.value = { type: "text", value: "Long Sword" };
-    values.attributes.weapon_damage_types.value = { type: "list", value: ["Slashing"] };
-    values.attributes.weapon_proficiency.value = {
-      type: "reference",
-      value: "long_swords"
+    values.tags = ["weapon", "long_sword", "slashing"];
+    values.attributes.weapon_base_damage = {
+      relationship_id: "item_attribute_damage",
+      attribute_id: "weapon_base_damage",
+      value: { type: "number", value: 15 },
+      evaluated_value: null,
+      evaluation_error: null
     };
+    values.attributes.weapon_proficiency = {
+      relationship_id: "item_attribute_proficiency",
+      attribute_id: "weapon_proficiency",
+      value: { type: "reference", value: "missing_proficiency" },
+      evaluated_value: null,
+      evaluation_error: null
+    };
+    expect(
+      getItemEditorValidationError(values, { definitions: weaponAttributes })
+    ).toContain("missing proficiency ID");
+
+    values.attributes.weapon_proficiency.value = { type: "reference", value: "long_swords" };
     expect(
       getItemEditorValidationError(values, {
         definitions: weaponAttributes,
@@ -326,19 +346,34 @@ describe("itemEditorValues", () => {
       })
     ).toBeNull();
     expect(toItemDefinitionPayload(values, "sword")).toMatchObject({
-      attribute_profile: "weapon",
-      action_grants: [
-        { action_id: "weapon_attack", availability: "equipped", consume_quantity: 0 },
-        { action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 },
-        { action_id: "weapon_parry", availability: "equipped", consume_quantity: 0 },
-        { action_id: "weapon_contest", availability: "equipped", consume_quantity: 0 }
-      ],
+      tags: ["weapon", "long_sword", "slashing"],
+      action_grants: [],
       attributes: {
-        weapon_type: { value: { type: "text", value: "Long Sword" } },
+        weapon_base_damage: { value: { type: "number", value: 15 } },
         weapon_proficiency: {
           value: { type: "reference", value: "long_swords" }
         }
       }
     });
+  });
+
+  it("maps and validates storage capacity and carried-weight negation", () => {
+    const values = createEmptyItemValues();
+    values.name = "Bag of Holding";
+    values.canContainItems = true;
+    values.storageCapacityWeight = " 500 ";
+    values.contentsWeightBehavior = "ignored";
+
+    expect(getItemEditorValidationError(values)).toBeNull();
+    expect(toItemDefinitionPayload(values, "holding_bag")).toMatchObject({
+      can_contain_items: true,
+      storage_capacity_weight: 500,
+      contents_weight_behavior: "ignored"
+    });
+
+    values.storageCapacityWeight = "-1";
+    expect(getItemEditorValidationError(values)).toContain(
+      "finite nonnegative number"
+    );
   });
 });

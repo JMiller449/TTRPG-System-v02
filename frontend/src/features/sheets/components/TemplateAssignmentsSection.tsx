@@ -8,8 +8,8 @@ import type {
 } from "@/features/sheets/templateEditorTypes";
 import { Field } from "@/shared/ui/Field";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
-import { SearchPopoverPicker } from "@/shared/ui/SearchPopoverPicker";
 import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 import { makeId } from "@/shared/utils/id";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 
@@ -79,7 +79,8 @@ export function TemplateActionsSection({
           </button>
         ) : null}
       </div>
-      <SearchPopoverPicker
+      <CatalogEntityPicker
+        catalog="actions"
         label="Add Action"
         placeholder="Search available actions"
         options={options}
@@ -221,7 +222,8 @@ export function TemplateProficienciesSection({
           </button>
         ) : null}
       </div>
-      <SearchPopoverPicker
+      <CatalogEntityPicker
+        catalog="proficiencies"
         label="Add Proficiency"
         placeholder="Search available proficiencies"
         options={options}
@@ -356,7 +358,7 @@ export function TemplateInventorySection({
       id: item.id,
       label: item.name,
       secondary: item.interaction_type.replace("_", " "),
-      keywords: [item.id, item.category ?? "", item.description],
+      keywords: [item.id, item.description],
       disabledReason: assignedIds.has(item.id) ? "Already in starting inventory" : undefined,
       value: item
     })
@@ -382,7 +384,8 @@ export function TemplateInventorySection({
           </button>
         ) : null}
       </div>
-      <SearchPopoverPicker
+      <CatalogEntityPicker
+        catalog="items"
         label="Add Item"
         placeholder="Search available items"
         options={options}

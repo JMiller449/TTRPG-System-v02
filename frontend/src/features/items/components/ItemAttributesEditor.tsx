@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { AttributeDefinition, ProficiencyDefinition } from "@/domain/models";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
-import { setItemAttributeProfile, type ItemEditorValues } from "@/features/items/itemEditorValues";
+import type { ItemEditorValues } from "@/features/items/itemEditorValues";
 import { makeId } from "@/shared/utils/id";
 import { selectAuthoritativeProficiencies } from "@/features/items/proficiencyOptions";
 
@@ -22,17 +22,6 @@ export function ItemAttributesEditor({
   const authoritativeProficiencies = useMemo(
     () => selectAuthoritativeProficiencies(proficiencies),
     [proficiencies]
-  );
-  const profiles = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          Object.values(definitions)
-            .map((definition) => definition.required_profile)
-            .filter((profile): profile is "weapon" => Boolean(profile))
-        )
-      ).sort(),
-    [definitions]
   );
   const displayDefinitions = useMemo(
     () =>
@@ -91,32 +80,9 @@ export function ItemAttributesEditor({
       <div>
         <h3>Attributes</h3>
         <p className="muted">
-          Profiles attach backend-required Attributes. Optional Attributes can be added to the same
-          item.
+          Attach named values that granted actions and effects can reference from this item.
         </p>
       </div>
-      <label>
-        Attribute profile
-        <select
-          value={values.attributeProfile ?? ""}
-          onChange={(event) =>
-            onChange(
-              setItemAttributeProfile(
-                values,
-                event.target.value ? (event.target.value as "weapon") : null,
-                definitions
-              )
-            )
-          }
-        >
-          <option value="">No required profile</option>
-          {profiles.map((profile) => (
-            <option key={profile} value={profile}>
-              {profile.charAt(0).toUpperCase() + profile.slice(1)}
-            </option>
-          ))}
-        </select>
-      </label>
       <SheetAttributesSection
         definitions={displayDefinitions}
         bridges={values.attributes}

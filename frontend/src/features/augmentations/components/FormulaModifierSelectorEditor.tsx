@@ -3,6 +3,7 @@ import type { AugmentationSelectorOptions } from "@/features/augmentations/augme
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
 import { Field } from "@/shared/ui/Field";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 export function FormulaModifierSelectorEditor({
   idPrefix,
@@ -27,9 +28,9 @@ export function FormulaModifierSelectorEditor({
       <div>
         <strong>Which Rolls Does This Affect?</strong>
         <p className="muted formula-selector-editor__hint">
-          Narrow the modifier down to specific tags, actions, formulas, or steps. Leave a
-          field on &ldquo;Any&rdquo; to match everything. Every filled-in constraint must
-          match for the modifier to apply.
+          Narrow the modifier down to specific tags, actions, formulas, or steps. Leave a field on
+          &ldquo;Any&rdquo; to match everything. Every filled-in constraint must match for the
+          modifier to apply.
         </p>
       </div>
 
@@ -55,34 +56,36 @@ export function FormulaModifierSelectorEditor({
       ) : null}
 
       <div className="inline-group">
-        <Field label="Limit to Action">
-          <select
-            id={`${idPrefix}-action-options`}
-            value={values.selectorActionId}
-            onChange={(event) => onChange({ ...values, selectorActionId: event.target.value })}
-          >
-            <option value="">Any action</option>
-            {options.actions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Limit to Formula">
-          <select
-            id={`${idPrefix}-formula-options`}
-            value={values.selectorFormulaId}
-            onChange={(event) => onChange({ ...values, selectorFormulaId: event.target.value })}
-          >
-            <option value="">Any formula</option>
-            {options.formulas.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CatalogEntityPicker
+          catalog="actions"
+          label="Limit to Action"
+          placeholder="Any action or search catalog"
+          selectedId={values.selectorActionId}
+          options={[
+            { id: "", label: "Any action", value: "" },
+            ...options.actions.map((option) => ({
+              id: option.id,
+              label: option.label,
+              value: option.id
+            }))
+          ]}
+          onSelect={(selectorActionId) => onChange({ ...values, selectorActionId })}
+        />
+        <CatalogEntityPicker
+          catalog="formulas"
+          label="Limit to Formula"
+          placeholder="Any formula or search catalog"
+          selectedId={values.selectorFormulaId}
+          options={[
+            { id: "", label: "Any formula", value: "" },
+            ...options.formulas.map((option) => ({
+              id: option.id,
+              label: option.label,
+              value: option.id
+            }))
+          ]}
+          onSelect={(selectorFormulaId) => onChange({ ...values, selectorFormulaId })}
+        />
         <Field label="Limit to Step">
           <select
             id={`${idPrefix}-step-options`}

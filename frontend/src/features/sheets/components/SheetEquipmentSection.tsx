@@ -1,3 +1,4 @@
+import { useMemo, useState, type DragEvent } from "react";
 import type {
   ActionDefinition,
   Augmentation,
@@ -22,6 +23,7 @@ import {
   eligibleContainerDestinations,
   formatWeight
 } from "@/features/sheets/inventoryDisplay";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 function ItemDetailHoverLabel({
   description,
@@ -92,6 +94,7 @@ export function SheetEquipmentSection({
   carryWeightLimit,
   canManageInventory,
   canEditInventory,
+  canMoveInventory,
   canToggleEquipped,
   onSelectedItemIdChange,
   onAddSelectedItem,
@@ -113,6 +116,7 @@ export function SheetEquipmentSection({
   carryWeightLimit: number;
   canManageInventory: boolean;
   canEditInventory: boolean;
+  canMoveInventory: boolean;
   canToggleEquipped: boolean;
   onSelectedItemIdChange: (itemId: string) => void;
   onAddSelectedItem: () => void;
@@ -122,6 +126,54 @@ export function SheetEquipmentSection({
   onRemoveInventoryItem: (inventoryItemId: string) => void;
 }): JSX.Element {
   const overBy = Math.max(0, currentCarriedWeight - carryWeightLimit);
+  const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(
+    null
+  );
+  const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
+  const eligibleDropTargetIds = useMemo(
+    () =>
+      new Set(
+        draggedInventoryItemId
+          ? eligibleContainerDestinations(
+              draggedInventoryItemId,
+              equipment,
+              items
+            ).map((entry) => entry.relationship_id)
+          : []
+      ),
+    [draggedInventoryItemId, equipment, items]
+  );
+  const draggedEntry = draggedInventoryItemId
+    ? equipment.find((entry) => entry.relationship_id === draggedInventoryItemId)
+    : undefined;
+  const hasStorageInteraction = equipment.some(
+    (entry) =>
+      Boolean(entry.parent_container_id) ||
+      (entry.count === 1 && Boolean(items[entry.item_id]?.can_contain_items))
+  );
+
+  const finishDrag = (): void => {
+    setDraggedInventoryItemId(null);
+    setActiveDropTarget(null);
+  };
+
+  const moveDraggedItem = (
+    event: DragEvent<HTMLElement>,
+    parentContainerId: string | null
+  ): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const relationshipId =
+      draggedInventoryItemId ||
+      event.dataTransfer.getData("application/x-ttrpg-inventory-item");
+    if (!relationshipId) {
+      finishDrag();
+      return;
+    }
+    onMoveInventoryItem(relationshipId, parentContainerId);
+    finishDrag();
+  };
+
   return (
     <section className="character-sheet__section sheet-equipment-section">
       <div className="equipment-section__heading">
@@ -139,25 +191,28 @@ export function SheetEquipmentSection({
       </div>
       {canManageInventory ? (
         <div className="equipment-add-row">
-          <Field label="Item">
-            <select
-              value={selectedItemId}
-              onChange={(event) => onSelectedItemIdChange(event.target.value)}
-            >
-              {itemOrder.length === 0 ? <option value="">No items loaded yet</option> : null}
-              {itemOrder.map((itemId) => {
-                const item = items[itemId];
-                if (!item) {
-                  return null;
-                }
-                return (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                );
-              })}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="items"
+            label="Item"
+            placeholder="Search inventory catalog"
+            selectedId={selectedItemId}
+            options={itemOrder.flatMap((itemId) => {
+              const item = items[itemId];
+              return item
+                ? [
+                    {
+                      id: item.id,
+                      label: item.name,
+                      secondary: item.description,
+                      keywords: [item.id, item.rank ?? ""],
+                      value: item.id
+                    }
+                  ]
+                : [];
+            })}
+            emptyMessage="No items loaded yet."
+            onSelect={onSelectedItemIdChange}
+          />
           <button
             type="button"
             className="button"
@@ -210,6 +265,39 @@ export function SheetEquipmentSection({
             );
           })()
         : null}
+      {canMoveInventory && hasStorageInteraction ? (
+        <div
+          className={`inventory-root-drop-zone ${
+            activeDropTarget === "root" ? "inventory-drop-target--active" : ""
+          }`}
+          onDragEnter={(event) => {
+            if (draggedEntry?.parent_container_id) {
+              event.preventDefault();
+              setActiveDropTarget("root");
+            }
+          }}
+          onDragOver={(event) => {
+            if (draggedEntry?.parent_container_id) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }
+          }}
+          onDragLeave={() =>
+            setActiveDropTarget((current) => (current === "root" ? null : current))
+          }
+          onDrop={(event) => {
+            if (draggedEntry?.parent_container_id) {
+              moveDraggedItem(event, null);
+            }
+          }}
+        >
+          <strong>Root inventory</strong>
+          <span>
+            Drag an item here to remove it from storage. Drop items onto storage cards
+            to put them inside.
+          </span>
+        </div>
+      ) : null}
       <div
         className="list sheet-equipment-section__items"
         role="region"
@@ -242,11 +330,71 @@ export function SheetEquipmentSection({
             equipment,
             items
           );
+          const storageCapacity = item.storage_capacity_weight;
+          const storedWeight = entry.current_contents_weight ?? 0;
+          const storageOverBy =
+            storageCapacity == null ? 0 : Math.max(0, storedWeight - storageCapacity);
+          const isEligibleDropTarget = eligibleDropTargetIds.has(entry.relationship_id);
+          const canDragEntry =
+            canMoveInventory &&
+            !entry.equipped &&
+            (Boolean(entry.parent_container_id) || destinations.length > 0);
           return (
             <article
               key={entry.relationship_id}
-              className={`list-item list-item--block equipment-card ${entry.count <= 0 ? "equipment-card--depleted" : ""}`}
+              className={[
+                "list-item",
+                "list-item--block",
+                "equipment-card",
+                entry.count <= 0 ? "equipment-card--depleted" : "",
+                draggedInventoryItemId === entry.relationship_id
+                  ? "equipment-card--dragging"
+                  : "",
+                activeDropTarget === entry.relationship_id
+                  ? "inventory-drop-target--active"
+                  : ""
+              ]
+                .filter(Boolean)
+                .join(" ")}
               tabIndex={0}
+              draggable={canDragEntry}
+              onDragStart={(event) => {
+                if (!canDragEntry) {
+                  event.preventDefault();
+                  return;
+                }
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData(
+                  "application/x-ttrpg-inventory-item",
+                  entry.relationship_id
+                );
+                setDraggedInventoryItemId(entry.relationship_id);
+              }}
+              onDragEnd={finishDrag}
+              onDragEnter={(event) => {
+                if (isEligibleDropTarget) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setActiveDropTarget(entry.relationship_id);
+                }
+              }}
+              onDragOver={(event) => {
+                if (isEligibleDropTarget) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDragLeave={() =>
+                setActiveDropTarget((current) =>
+                  current === entry.relationship_id ? null : current
+                )
+              }
+              onDrop={(event) => {
+                if (isEligibleDropTarget) {
+                  moveDraggedItem(event, entry.relationship_id);
+                }
+              }}
               style={{ paddingInlineStart: `${0.75 + Math.min(depth, 6) * 1.1}rem` }}
             >
               <div className="equipment-card__body">
@@ -258,10 +406,11 @@ export function SheetEquipmentSection({
                     <span className="pill">Quantity {entry.count}</span>
                     {item.can_contain_items ? (
                       <span className="pill">
-                        Storage ·{" "}
-                        {item.contents_weight_behavior === "ignored"
-                          ? "contents weight ignored"
-                          : "contents weight counts"}
+                        Storage · {formatWeight(storedWeight)} /{" "}
+                        {storageCapacity == null
+                          ? "unlimited"
+                          : formatWeight(storageCapacity)}{" "}
+                        lb
                       </span>
                     ) : null}
                   </div>
@@ -270,6 +419,37 @@ export function SheetEquipmentSection({
                   <div className="equipment-card__containment">
                     Stored in {parentItem.name} · Contents weight{" "}
                     {parentItem.contents_weight_behavior === "ignored" ? "ignored" : "counts"}
+                  </div>
+                ) : null}
+                {item.can_contain_items ? (
+                  <div
+                    className={`equipment-storage-summary ${
+                      storageOverBy > 0 ? "equipment-storage-summary--over" : ""
+                    }`}
+                  >
+                    <div>
+                      <strong>
+                        Stored weight: {formatWeight(storedWeight)} /{" "}
+                        {storageCapacity == null
+                          ? "Unlimited"
+                          : `${formatWeight(storageCapacity)} lb`}
+                      </strong>
+                      <span>
+                        {item.contents_weight_behavior === "ignored"
+                          ? "Stored contents do not add to carried weight."
+                          : "Stored contents add to carried weight normally."}
+                      </span>
+                    </div>
+                    {storageCapacity != null ? (
+                      <progress
+                        max={Math.max(storageCapacity, 1)}
+                        value={Math.min(storedWeight, Math.max(storageCapacity, 1))}
+                        aria-label={`${item.name} storage capacity`}
+                      />
+                    ) : null}
+                    {storageOverBy > 0 ? (
+                      <span>{formatWeight(storageOverBy)} lb over capacity</span>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="muted">
@@ -288,9 +468,13 @@ export function SheetEquipmentSection({
                   actionSummaries={actionSummaries}
                 />
               </div>
-              {canManageInventory || canEditInventory || canToggleEquipped ? (
+              {canManageInventory ||
+              canEditInventory ||
+              canMoveInventory ||
+              canToggleEquipped ? (
                 <div className="inline-actions">
-                  {canEditInventory ? (
+                  {canMoveInventory &&
+                  (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
                     <Field label={`Storage location for ${item.name}`}>
                       <select
                         value={entry.parent_container_id ?? ""}

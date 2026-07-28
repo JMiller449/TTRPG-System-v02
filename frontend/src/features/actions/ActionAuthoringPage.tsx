@@ -20,7 +20,8 @@ import {
 } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
@@ -59,6 +60,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     () => selectOrderedActionDefinitions(actionRecords, actionOrder),
     [actionOrder, actionRecords]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "actions",
+    client,
+    entries: actionRecords
+  });
   const proficiencies = useMemo(
     () =>
       proficiencyOrder
@@ -102,10 +108,11 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     Object.keys(values.attributes).length
   );
 
-  const startNewAction = (): void => {
+  const startNewAction = (folderId: string | null = null): void => {
     if (pendingSave) {
       return;
     }
+    beginCreation(folderId);
     setEditingActionId(null);
     setValues(createEmptyActionEditorValues());
     setSaveConfirmation(null);
@@ -172,6 +179,9 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
       operation: editingActionId ? "update" : "create"
     });
     client.sendProtocolRequest({ ...submission.request, request_id: requestId }, submission.label);
+    if (!editingActionId) {
+      queueCreatedEntry(actionId);
+    }
   };
 
   const deleteAction = (actionId: string): void => {
@@ -203,7 +213,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
           <div className="inline-actions">
             <button
               className="button button--secondary"
-              onClick={startNewAction}
+              onClick={() => startNewAction()}
               disabled={Boolean(pendingSave)}
             >
               New Action
@@ -223,14 +233,19 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         catalogLabel="Authored Actions"
         editorClassName="authoring-workspace__editor--vertical"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="actions"
+            client={client}
             items={actions.map((action) => ({ id: action.id, name: action.name }))}
             selectedId={editingActionId}
+            entityLabel="action"
             emptyMessage="No actions created yet."
+            onCreateEntry={startNewAction}
             onSelect={(actionId) => {
               if (pendingSave) {
                 return;
               }
+              beginCreation(null);
               const action = actionRecords[actionId];
               if (!action) {
                 return;
@@ -251,6 +266,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
                 return;
               }
               setEditingActionId(null);
+              beginCreation(null);
               setValues(
                 applyActionPresetTemplate(
                   createEmptyActionEditorValues(),

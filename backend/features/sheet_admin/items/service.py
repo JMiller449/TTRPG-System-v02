@@ -6,7 +6,9 @@ from uuid import uuid4
 
 from backend.features.sheet_admin.items.schema import (
     CreateItem,
+    CreateItemTemplate,
     DeleteItem,
+    DeleteItemTemplate,
     AddPlayerInventoryItem,
     ItemDefinitionPayload,
     RemovePlayerInventoryItem,
@@ -14,6 +16,7 @@ from backend.features.sheet_admin.items.schema import (
     ReviewPlayerItem,
     SubmitPlayerItem,
     UpdateItem,
+    UpdateItemTemplate,
     UpsertItemAugmentationTemplate,
 )
 from backend.features.sheet_admin.shared.schema import (
@@ -29,23 +32,24 @@ from backend.features.sheet_admin.formulas.service import validate_formula_alias
 from backend.features.inventory.service import validate_inventory
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.default_actions import (
-    normalize_weapon_action_grant_payloads,
-    seeded_global_actions,
-)
+from backend.state.default_actions import seeded_global_actions
 from backend.state.models.augmentation import Augmentation, AugmentationSource
 from backend.state.models.attribute import (
-    WEAPON_ATTRIBUTE_IDS,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
     AttributeBridge,
-    AttributeDefinition,
     synchronize_required_item_attributes,
 )
 from backend.features.session.models import WebSocketSession
-from backend.state.models.item import Item, ItemActionGrant, ItemBridge
+from backend.state.models.item import (
+    Item,
+    ItemActionGrant,
+    ItemBridge,
+    ItemPlayerCatalogAccess,
+)
 from backend.state.models.sheet import InstancedSheet
 from backend.state.models.state import State
+from backend.state.models.tag import collect_tag_references, validate_tag_ids
 
 
 def _target_label(augmentation: Augmentation) -> str:
@@ -97,7 +101,6 @@ def _validate_item_numeric_attribute_alias(
         raise ValueError(
             f"Formula alias '{alias_name}' does not reference a numeric item Attribute."
         )
-    _validate_item_attribute_profile(definition, item, alias_name)
     bridge = item.attributes.get(attribute_id)
     if bridge is None or bridge.attribute_id != attribute_id:
         raise ValueError(
@@ -116,21 +119,6 @@ def _validate_item_numeric_attribute_alias(
         )
 
 
-def _validate_item_attribute_profile(
-    definition: AttributeDefinition,
-    item: Item,
-    alias_name: str,
-) -> None:
-    if (
-        definition.required_profile is not None
-        and definition.required_profile != item.attribute_profile
-    ):
-        raise ValueError(
-            f"Formula alias '{alias_name}' requires source-item profile "
-            f"'{definition.required_profile}'."
-        )
-
-
 def _validate_item_resolved_alias(
     *,
     item: Item,
@@ -144,9 +132,9 @@ def _validate_item_resolved_alias(
     else:
         raise ValueError(f"Source-item alias '{alias_name}' is not supported.")
 
-    if item.attribute_profile != "weapon" or required_attribute_id not in item.attributes:
+    if required_attribute_id not in item.attributes:
         raise ValueError(
-            f"Source-item alias '{alias_name}' requires a weapon item with "
+            f"Source-item alias '{alias_name}' requires an item with "
             f"Attribute '{required_attribute_id}'."
         )
 
@@ -227,19 +215,13 @@ def _build_item_augmentation_templates(
 
 
 def _build_item(payload: ItemDefinitionPayload) -> Item:
-    action_grants = (
-        normalize_weapon_action_grant_payloads(
-            grant.model_dump(mode="json") for grant in payload.action_grants
-        )
-        if payload.attribute_profile == "weapon"
-        else [grant.model_dump(mode="json") for grant in payload.action_grants]
-    )
+    action_grants = [
+        grant.model_dump(mode="json") for grant in payload.action_grants
+    ]
     return Item(
         id=payload.id,
         name=payload.name,
         interaction_type=payload.interaction_type,
-        category=payload.category,
-        catalog_folder=payload.catalog_folder,
         rank=payload.rank,
         description=payload.description,
         world_anvil_url=payload.world_anvil_url,
@@ -247,10 +229,14 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         gm_special_properties=payload.gm_special_properties,
         price=payload.price,
         weight=payload.weight,
-        player_visible=payload.player_visible,
+        player_catalog_access=ItemPlayerCatalogAccess(
+            mode=payload.player_catalog_access.mode,
+            instance_ids=list(payload.player_catalog_access.instance_ids),
+        ),
         can_contain_items=payload.can_contain_items,
+        storage_capacity_weight=payload.storage_capacity_weight,
         contents_weight_behavior=payload.contents_weight_behavior,
-        attribute_profile=payload.attribute_profile,
+        tags=list(payload.tags),
         augmentation_templates=_build_item_augmentation_templates(payload),
         action_grants=[
             ItemActionGrant(
@@ -283,14 +269,6 @@ def _validate_item_attributes(item: Item, state: State) -> None:
         definition = state.attributes.get(attribute_id)
         if definition is None or "item" not in definition.subject_types:
             raise ValueError(f"Item Attribute '{attribute_id}' does not exist.")
-        if (
-            definition.required_profile is not None
-            and definition.required_profile != item.attribute_profile
-        ):
-            raise ValueError(
-                f"Attribute '{attribute_id}' requires item profile "
-                f"'{definition.required_profile}'."
-            )
         validate_subject_attribute_value(state, "item", item, definition, bridge.value)
         if definition.reference_kind == "proficiency":
             stored_value = (
@@ -302,19 +280,115 @@ def _validate_item_attributes(item: Item, state: State) -> None:
                     f"Item Attribute '{attribute_id}' references nonexistent proficiency "
                     f"'{missing_id}'."
                 )
-
-    if item.attribute_profile == "weapon":
-        missing = [attribute_id for attribute_id in WEAPON_ATTRIBUTE_IDS if attribute_id not in item.attributes]
-        if missing:
-            raise ValueError("Weapon profile is missing required Attributes: " + ", ".join(missing))
     validate_and_evaluate_subject_attributes(item)
 
 
+def _validate_item_tags(item: Item, state: State) -> None:
+    validate_tag_ids(sorted(collect_tag_references(asdict(item))), state.tags)
+
+
 def _validate_item_action_grants(item: Item, state: State) -> None:
-    valid_action_ids = set(state.actions) | set(seeded_global_actions())
+    default_actions = seeded_global_actions()
+    valid_action_ids = set(state.actions) | set(default_actions)
+
+    def validate_source_item_aliases(value: object) -> None:
+        if isinstance(value, dict):
+            if value.get("type") == "formula_reference":
+                formula_id = value.get("formula_id")
+                definition = (
+                    state.formulas.get(formula_id)
+                    if isinstance(formula_id, str)
+                    else None
+                )
+                if definition is not None:
+                    validate_source_item_aliases(asdict(definition.formula))
+            path = value.get("path")
+            alias_name = value.get("name")
+            if (
+                isinstance(path, list)
+                and isinstance(alias_name, str)
+                and path[:2] == ["source_item", "attributes"]
+            ):
+                if len(path) != 3 or not isinstance(path[2], str):
+                    raise ValueError(
+                        f"Source-item Attribute alias '{alias_name}' must reference "
+                        "source_item.attributes.<attribute_id>."
+                    )
+                _validate_item_numeric_attribute_alias(
+                    state=state,
+                    item=item,
+                    attribute_id=path[2],
+                    alias_name=alias_name,
+                )
+            elif (
+                isinstance(path, list)
+                and isinstance(alias_name, str)
+                and path[:2] == ["source_item", "resolved"]
+            ):
+                _validate_item_resolved_alias(
+                    item=item,
+                    path=path,
+                    alias_name=alias_name,
+                )
+            for child in value.values():
+                validate_source_item_aliases(child)
+            return
+        if isinstance(value, (list, tuple)):
+            for child in value:
+                validate_source_item_aliases(child)
+
     for grant in item.action_grants:
         if grant.action_id not in valid_action_ids:
             raise ValueError(f"Action '{grant.action_id}' does not exist.")
+        action = state.actions.get(grant.action_id) or default_actions.get(
+            grant.action_id
+        )
+        if action is not None:
+            validate_source_item_aliases(asdict(action))
+
+
+def _validate_item_player_catalog_access(item: Item, state: State) -> None:
+    for instance_id in item.player_catalog_access.instance_ids:
+        instance = state.instanced_sheets.get(instance_id)
+        parent = state.sheets.get(instance.parent_id) if instance else None
+        if instance is None or parent is None or parent.dm_only:
+            raise ValueError(
+                "Item player catalog access references invalid player instance "
+                f"'{instance_id}'."
+            )
+
+
+def synchronize_item_player_catalog_access_mutation(state: State) -> list:
+    ops = []
+    valid_player_instance_ids = {
+        instance_id
+        for instance_id, instance in state.instanced_sheets.items()
+        if (
+            (parent := state.sheets.get(instance.parent_id)) is not None
+            and not parent.dm_only
+        )
+    }
+    for item_id, item in sorted(state.items.items()):
+        access = item.player_catalog_access
+        if access.mode != "selected":
+            continue
+        retained_ids = [
+            instance_id
+            for instance_id in access.instance_ids
+            if instance_id in valid_player_instance_ids
+        ]
+        if retained_ids == access.instance_ids:
+            continue
+        updated_item = deepcopy(item)
+        updated_item.player_catalog_access.instance_ids = retained_ids
+        ops.append(
+            state_sync_service.set_mutation(
+                state,
+                state_sync_service.join_path("items", item_id),
+                updated_item,
+            )
+        )
+    return ops
 
 
 def _add_missing_default_action_mutations(
@@ -403,8 +477,10 @@ async def _create_item(
         if payload.id in items:
             raise ValueError(f"Item '{payload.id}' already exists.")
         _validate_item_attributes(item, state)
+        _validate_item_tags(item, state)
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
+        _validate_item_player_catalog_access(item, state)
         _validate_existing_item_bridges(item, state)
         action_ops = _add_missing_default_action_mutations(
             state,
@@ -437,8 +513,10 @@ async def _update_item(
             raise ValueError("Review the player item before editing it.")
 
         _validate_item_attributes(item, state)
+        _validate_item_tags(item, state)
         _validate_item_augmentation_formulas(item, state)
         _validate_item_action_grants(item, state)
+        _validate_item_player_catalog_access(item, state)
         _validate_existing_item_bridges(item, state)
         action_ops = _add_missing_default_action_mutations(
             state,
@@ -461,29 +539,169 @@ async def _delete_item(
         if item_id not in items:
             raise ValueError(f"Item '{item_id}' does not exist.")
 
-        sheet_ids = sorted(
-            [
-                sheet.id
-                for sheet in state.sheets.values()
-                if any(bridge.item_id == item_id for bridge in sheet.items.values())
-            ]
-            + [
-                instance_id
+        remaining_definitions = {
+            definition_id: definition
+            for definition_id, definition in items.items()
+            if definition_id != item_id
+        }
+        inventory_changes: list[
+            tuple[str, str, list[str], list[str]]
+        ] = []
+        inventory_owners = [
+            *(
+                ("sheets", sheet_id, sheet.items)
+                for sheet_id, sheet in state.sheets.items()
+            ),
+            *(
+                ("instanced_sheets", instance_id, instance.items)
                 for instance_id, instance in state.instanced_sheets.items()
-                if any(bridge.item_id == item_id for bridge in instance.items.values())
-            ]
-        )
-        if sheet_ids:
-            raise ValueError(
-                f"Item '{item_id}' cannot be deleted while attached to sheets: "
-                f"{', '.join(sheet_ids)}."
+            ),
+        ]
+        for root, owner_id, inventory in inventory_owners:
+            removed_relationship_ids = sorted(
+                relationship_id
+                for relationship_id, bridge in inventory.items()
+                if bridge.item_id == item_id
+            )
+            if not removed_relationship_ids:
+                continue
+            removed_id_set = set(removed_relationship_ids)
+            candidate = deepcopy(inventory)
+            for relationship_id in removed_relationship_ids:
+                candidate.pop(relationship_id, None)
+            reparented_relationship_ids = sorted(
+                relationship_id
+                for relationship_id, bridge in candidate.items()
+                if bridge.parent_container_id in removed_id_set
+            )
+            for relationship_id in reparented_relationship_ids:
+                candidate[relationship_id].parent_container_id = None
+            validate_inventory(candidate, remaining_definitions)
+            inventory_changes.append(
+                (
+                    root,
+                    owner_id,
+                    removed_relationship_ids,
+                    reparented_relationship_ids,
+                )
             )
 
+        ops = []
+        for (
+            root,
+            owner_id,
+            removed_relationship_ids,
+            reparented_relationship_ids,
+        ) in inventory_changes:
+            for relationship_id in reparented_relationship_ids:
+                ops.append(
+                    state_sync_service.set_mutation(
+                        state,
+                        state_sync_service.join_path(
+                            root,
+                            owner_id,
+                            "items",
+                            relationship_id,
+                            "parent_container_id",
+                        ),
+                        None,
+                    )
+                )
+            for relationship_id in removed_relationship_ids:
+                _, remove_bridge_op = state_sync_service.remove_mutation(
+                    state,
+                    state_sync_service.join_path(
+                        root,
+                        owner_id,
+                        "items",
+                        relationship_id,
+                    ),
+                )
+                ops.append(remove_bridge_op)
         path = state_sync_service.join_path("items", item_id)
+        _, remove_item_op = state_sync_service.remove_mutation(state, path)
+        return None, [*ops, remove_item_op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+def _validate_item_template(template: Item, state: State) -> None:
+    template.player_catalog_access = ItemPlayerCatalogAccess(
+        mode="none",
+        instance_ids=[],
+    )
+    _validate_item_attributes(template, state)
+    _validate_item_augmentation_formulas(template, state)
+    _validate_item_action_grants(template, state)
+    _validate_item_tags(template, state)
+
+
+async def create_item_template(request: CreateItemTemplate) -> None:
+    template = _build_item(request.template)
+
+    def mutation(state: State) -> tuple[None, list]:
+        if template.id in state.item_templates:
+            raise ValueError(f"Item template '{template.id}' already exists.")
+        _validate_item_template(template, state)
+        action_ops = _add_missing_default_action_mutations(
+            state,
+            required_action_ids={grant.action_id for grant in template.action_grants},
+        )
+        path = state_sync_service.join_path("item_templates", template.id)
+        op = state_sync_service.add_mutation(state, path, template)
+        return None, [*action_ops, op]
+
+    await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
+
+
+async def update_item_template(request: UpdateItemTemplate) -> None:
+    if request.template.id != request.template_id:
+        raise ValueError("Item template ID cannot be changed.")
+    template = _build_item(request.template)
+
+    def mutation(state: State) -> tuple[None, list]:
+        if request.template_id not in state.item_templates:
+            raise ValueError(
+                f"Item template '{request.template_id}' does not exist."
+            )
+        _validate_item_template(template, state)
+        action_ops = _add_missing_default_action_mutations(
+            state,
+            required_action_ids={grant.action_id for grant in template.action_grants},
+        )
+        path = state_sync_service.join_path(
+            "item_templates",
+            request.template_id,
+        )
+        op = state_sync_service.set_mutation(state, path, template)
+        return None, [*action_ops, op]
+
+    await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
+
+
+async def delete_item_template(request: DeleteItemTemplate) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        if request.template_id not in state.item_templates:
+            raise ValueError(
+                f"Item template '{request.template_id}' does not exist."
+            )
+        path = state_sync_service.join_path(
+            "item_templates",
+            request.template_id,
+        )
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]
 
-    await state_sync_service.apply_mutation(mutation, request_id=request_id)
+    await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
 
 
 async def create_item(request: CreateEntity) -> None:
@@ -560,7 +778,7 @@ async def add_player_inventory_item(
         if (
             item is None
             or item.approval_status != "approved"
-            or not item.player_visible
+            or not item.player_catalog_access.allows(instance_id)
         ):
             raise ValueError("That item is not available to players.")
         relationship_id = f"item_bridge_{uuid4()}"
@@ -617,7 +835,6 @@ async def submit_player_item(
             id=item_id,
             name=payload.name.strip(),
             interaction_type=payload.interaction_type,
-            category=payload.category.strip(),
             rank=payload.rank.strip(),
             description=payload.description.strip(),
             world_anvil_url=payload.world_anvil_url.strip(),
@@ -626,11 +843,12 @@ async def submit_player_item(
             price=payload.price.strip(),
             weight=payload.weight,
             augmentation_templates=[],
-            player_visible=False,
+            player_catalog_access=ItemPlayerCatalogAccess(mode="none"),
             approval_status="pending",
             submitted_by_instance_id=instance_id,
             submitted_by_name=parent.name,
             can_contain_items=payload.can_contain_items,
+            storage_capacity_weight=payload.storage_capacity_weight,
             contents_weight_behavior="normal",
         )
         path = state_sync_service.join_path("items", item_id)
@@ -655,7 +873,7 @@ async def review_player_item(request: ReviewPlayerItem) -> None:
             raise ValueError("The submitting player sheet no longer exists.")
         approved_item = deepcopy(item)
         approved_item.approval_status = "approved"
-        approved_item.player_visible = True
+        approved_item.player_catalog_access = ItemPlayerCatalogAccess(mode="all")
         approved_item.submitted_by_instance_id = None
         approved_item.submitted_by_name = None
         relationship_id = f"item_bridge_{uuid4()}"

@@ -6,8 +6,7 @@ import {
 } from "@/features/actions/actionEditorValues";
 import {
   toItemDefinitionPayload,
-  toItemEditorValues,
-  WEAPON_ACTION_IDS
+  toItemEditorValues
 } from "@/features/items/itemEditorValues";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
@@ -31,11 +30,8 @@ describe("DM example acceptance fixtures", () => {
       expect(payload.name).toBe(item.name);
       expect(payload.interaction_type).toBe(item.interaction_type);
       expect(payload.attributes).toEqual(item.attributes ?? {});
-      if (item.attribute_profile === "weapon") {
-        expect(payload.action_grants?.map((grant) => grant.action_id)).toEqual(WEAPON_ACTION_IDS);
-      } else {
-        expect(payload.action_grants).toEqual(item.action_grants ?? []);
-      }
+      expect(payload.tags).toEqual(item.tags ?? []);
+      expect(payload.action_grants).toEqual(item.action_grants ?? []);
       expect((payload.augmentation_templates ?? []).map((effect) => effect.id)).toEqual(
         (item.augmentation_templates ?? []).map((effect) => effect.id)
       );
@@ -83,6 +79,7 @@ describe("DM example acceptance fixtures", () => {
         carryWeightLimit={10}
         canManageInventory={false}
         canEditInventory={false}
+        canMoveInventory={false}
         canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}

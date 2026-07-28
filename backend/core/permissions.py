@@ -61,9 +61,9 @@ PERMISSION_RULES: dict[PermissionKey, PermissionRule] = {
     ),
     "equipment_use": PermissionRule(
         key="equipment_use",
-        label="Instance equipment use",
+        label="Instance inventory and equipment use",
         allowed_roles=("player", "dm"),
-        denied_reason="Authenticate first to equip character items.",
+        denied_reason="Authenticate first to manage character inventory.",
     ),
     "proficiency_edit": PermissionRule(
         key="proficiency_edit",

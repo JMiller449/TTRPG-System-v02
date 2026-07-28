@@ -20,6 +20,7 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 export function SheetActionsSection({
   assignedActions,
@@ -119,21 +120,21 @@ export function SheetActionsSection({
         </summary>
         <div className="sheet-actions-section__manager-body">
           <div className="inline-group">
-            <Field label="Global Action">
-              <select
-                value={selectedActionId}
-                onChange={(event) => setSelectedActionId(event.target.value)}
-              >
-                {availableActions.length === 0 ? (
-                  <option value="">No unassigned actions</option>
-                ) : null}
-                {availableActions.map((action) => (
-                  <option key={action.id} value={action.id}>
-                    {action.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <CatalogEntityPicker
+              catalog="actions"
+              label="Global Action"
+              placeholder="Search action catalog"
+              selectedId={selectedActionId}
+              options={availableActions.map((action) => ({
+                id: action.id,
+                label: action.name,
+                secondary: action.notes,
+                keywords: [action.id],
+                value: action.id
+              }))}
+              emptyMessage="No unassigned actions."
+              onSelect={setSelectedActionId}
+            />
             <button
               type="button"
               className="button"
@@ -175,23 +176,26 @@ export function SheetActionsSection({
                   ) : null}
                   {entry.bridge ? (
                     <div className="inline-group">
-                      <Field label="Assigned Action">
-                        <select
-                          value={draftActionId}
-                          onChange={(event) =>
-                            setDraftActionIds((current) => ({
-                              ...current,
-                              [entry.relationshipId]: event.target.value
-                            }))
-                          }
-                        >
-                          {replacementOptions.map((action) => (
-                            <option key={action.id} value={action.id}>
-                              {action.name}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
+                      <CatalogEntityPicker
+                        catalog="actions"
+                        label="Assigned Action"
+                        placeholder="Search action catalog"
+                        selectedId={draftActionId}
+                        options={replacementOptions.map((action) => ({
+                          id: action.id,
+                          label: action.name,
+                          secondary: action.notes,
+                          keywords: [action.id],
+                          value: action.id
+                        }))}
+                        emptyMessage="No replacement actions."
+                        onSelect={(actionId) =>
+                          setDraftActionIds((current) => ({
+                            ...current,
+                            [entry.relationshipId]: actionId
+                          }))
+                        }
+                      />
                       <button
                         type="button"
                         className="button button--secondary"
@@ -375,21 +379,21 @@ export function SheetActionsSection({
     <section className="sheet-actions-section">
       {canEdit ? (
         <div className="inline-group">
-          <Field label="Global Action">
-            <select
-              value={selectedActionId}
-              onChange={(event) => setSelectedActionId(event.target.value)}
-            >
-              {availableActions.length === 0 ? (
-                <option value="">No unassigned actions</option>
-              ) : null}
-              {availableActions.map((action) => (
-                <option key={action.id} value={action.id}>
-                  {action.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="actions"
+            label="Global Action"
+            placeholder="Search action catalog"
+            selectedId={selectedActionId}
+            options={availableActions.map((action) => ({
+              id: action.id,
+              label: action.name,
+              secondary: action.notes,
+              keywords: [action.id],
+              value: action.id
+            }))}
+            emptyMessage="No unassigned actions."
+            onSelect={setSelectedActionId}
+          />
           <button
             type="button"
             className="button"
@@ -463,23 +467,26 @@ export function SheetActionsSection({
               />
               {canEdit && entry.bridge ? (
                 <div className="inline-group">
-                  <Field label="Assigned Action">
-                    <select
-                      value={draftActionId}
-                      onChange={(event) =>
-                        setDraftActionIds((current) => ({
-                          ...current,
-                          [entry.relationshipId]: event.target.value
-                        }))
-                      }
-                    >
-                      {replacementOptions.map((action) => (
-                        <option key={action.id} value={action.id}>
-                          {action.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  <CatalogEntityPicker
+                    catalog="actions"
+                    label="Assigned Action"
+                    placeholder="Search action catalog"
+                    selectedId={draftActionId}
+                    options={replacementOptions.map((action) => ({
+                      id: action.id,
+                      label: action.name,
+                      secondary: action.notes,
+                      keywords: [action.id],
+                      value: action.id
+                    }))}
+                    emptyMessage="No replacement actions."
+                    onSelect={(actionId) =>
+                      setDraftActionIds((current) => ({
+                        ...current,
+                        [entry.relationshipId]: actionId
+                      }))
+                    }
+                  />
                   <button
                     type="button"
                     className="button button--secondary"

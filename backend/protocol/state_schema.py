@@ -66,12 +66,13 @@ class ProficiencyBridgePayload(ProtocolModel):
     growth_rate: float
 
 
-class ItemBridgePayload(ProtocolModel):
+class InventoryItemBridgePayload(ProtocolModel):
     relationship_id: str
     count: int
     equipped: bool
     item_id: str
     parent_container_id: str | None = None
+    current_contents_weight: float = 0
 
 
 class StatsPayload(ProtocolModel):
@@ -155,7 +156,7 @@ class SheetPayload(ProtocolModel):
     xp_given_when_slayed: float
     xp_cap: float
     proficiencies: dict[str, ProficiencyBridgePayload]
-    items: dict[str, ItemBridgePayload]
+    items: dict[str, InventoryItemBridgePayload]
     stats: StatsPayload
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
     current_carried_weight: float = 0
@@ -190,7 +191,7 @@ class InstancedSheetPayload(ProtocolModel):
     evaluated_max_health: int = 0
     evaluated_max_mana: int = 0
     stat_bonuses: dict[str, int] = Field(default_factory=dict)
-    items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
+    items: dict[str, InventoryItemBridgePayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     actions: dict[str, BridgePayload] = Field(default_factory=dict)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
@@ -516,12 +517,15 @@ class ItemActionGrantPayload(ProtocolModel):
     consume_quantity: int = 0
 
 
+class ItemPlayerCatalogAccessPayload(ProtocolModel):
+    mode: Literal["none", "all", "selected"]
+    instance_ids: list[str] = Field(default_factory=list)
+
+
 class ItemPayload(ProtocolModel):
     id: str
     name: str
     interaction_type: Literal["equippable", "consumable", "inventory_only"]
-    category: str = ""
-    catalog_folder: str = ""
     rank: str = ""
     description: str
     world_anvil_url: str = ""
@@ -529,16 +533,23 @@ class ItemPayload(ProtocolModel):
     gm_special_properties: str = ""
     price: str
     weight: float
-    player_visible: bool = True
+    player_catalog_access: ItemPlayerCatalogAccessPayload | None = None
     approval_status: Literal["approved", "pending"] = "approved"
     submitted_by_instance_id: str | None = None
     submitted_by_name: str | None = None
     can_contain_items: bool = False
+    storage_capacity_weight: float | None = None
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
-    attribute_profile: Literal["weapon"] | None = None
+    tags: list[str] = Field(default_factory=list)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
+
+
+class TagDefinitionPayload(ProtocolModel):
+    id: str
+    name: str
+    description: str = ""
 
 
 class ConditionPresetPayload(ProtocolModel):
@@ -627,6 +638,46 @@ class ContributionPointTransactionPayload(ProtocolModel):
     actor_role: Literal["dm"] = "dm"
 
 
+class CatalogFolderPayload(ProtocolModel):
+    id: str
+    catalog: Literal[
+        "actions",
+        "attributes",
+        "conditions",
+        "effects",
+        "formulas",
+        "item_templates",
+        "items",
+        "proficiencies",
+        "sheet_instances",
+        "sheet_templates",
+        "tags",
+    ]
+    name: str
+    parent_id: str | None = None
+    position: int = 0
+
+
+class CatalogEntryPayload(ProtocolModel):
+    id: str
+    catalog: Literal[
+        "actions",
+        "attributes",
+        "conditions",
+        "effects",
+        "formulas",
+        "item_templates",
+        "items",
+        "proficiencies",
+        "sheet_instances",
+        "sheet_templates",
+        "tags",
+    ]
+    entry_id: str
+    folder_id: str | None = None
+    position: int = 0
+
+
 class BackendStateSnapshotPayload(ProtocolModel):
     action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
     parties: dict[str, PartyPayload] = Field(default_factory=dict)
@@ -636,13 +687,17 @@ class BackendStateSnapshotPayload(ProtocolModel):
         str, ContributionPointTransactionPayload
     ] = Field(default_factory=dict)
     player_kill_visibility: dict[str, bool] = Field(default_factory=dict)
+    catalog_folders: dict[str, CatalogFolderPayload] = Field(default_factory=dict)
+    catalog_entries: dict[str, CatalogEntryPayload] = Field(default_factory=dict)
     sheets: dict[str, SheetPayload] = Field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheetPayload] = Field(default_factory=dict)
     formulas: dict[str, FormulaDefinitionPayload] = Field(default_factory=dict)
     attributes: dict[str, AttributeDefinitionPayload] = Field(default_factory=dict)
     actions: dict[str, ActionPayload] = Field(default_factory=dict)
+    item_templates: dict[str, ItemPayload] = Field(default_factory=dict)
     items: dict[str, ItemPayload] = Field(default_factory=dict)
     proficiencies: dict[str, ProficiencyPayload] = Field(default_factory=dict)
+    tags: dict[str, TagDefinitionPayload] = Field(default_factory=dict)
     augmentations: dict[str, AugmentationPayload] = Field(default_factory=dict)
     standalone_effects: dict[str, StandaloneEffectDefinitionPayload] = Field(
         default_factory=dict

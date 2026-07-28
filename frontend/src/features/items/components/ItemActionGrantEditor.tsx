@@ -6,6 +6,7 @@ import type {
 import { Field } from "@/shared/ui/Field";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 function actionSectionTitle(interactionType: ItemInteractionType): string {
   return interactionType === "consumable" ? "Use Actions" : "Equipped Actions";
@@ -67,23 +68,25 @@ export function ItemActionGrantEditor({
       ) : null}
       {values.actionGrants.map((grant, index) => (
         <div className="item-action-row" key={grant.draftId ?? `legacy-grant-${index}`}>
-          <Field label={isConsumable ? "Use Action" : "Equipped Action"}>
-            <select
-              value={grant.actionId}
-              onChange={(event) => {
-                const actionGrants = [...values.actionGrants];
-                actionGrants[index] = { ...grant, actionId: event.target.value };
-                onChange({ ...values, actionGrants });
-              }}
-            >
-              <option value="">Select action</option>
-              {actions.map((action) => (
-                <option key={action.id} value={action.id}>
-                  {action.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="actions"
+            label={isConsumable ? "Use Action" : "Equipped Action"}
+            placeholder="Search action catalog"
+            selectedId={grant.actionId}
+            options={actions.map((action) => ({
+              id: action.id,
+              label: action.name,
+              secondary: action.notes,
+              keywords: [action.id],
+              value: action.id
+            }))}
+            emptyMessage="No actions available."
+            onSelect={(actionId) => {
+              const actionGrants = [...values.actionGrants];
+              actionGrants[index] = { ...grant, actionId };
+              onChange({ ...values, actionGrants });
+            }}
+          />
           <Field label="Quantity Consumed">
             <input
               type="number"

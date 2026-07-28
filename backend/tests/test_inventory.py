@@ -1,6 +1,10 @@
 import pytest
 
-from backend.features.inventory.service import calculate_carried_weight, validate_inventory
+from backend.features.inventory.service import (
+    calculate_carried_weight,
+    calculate_container_contents_weights,
+    validate_inventory,
+)
 from backend.state.models.item import Item, ItemBridge
 
 
@@ -10,6 +14,7 @@ def item(
     *,
     container: bool = False,
     ignored: bool = False,
+    capacity: float | None = None,
 ) -> Item:
     return Item.from_dict(
         {
@@ -20,6 +25,7 @@ def item(
             "price": "",
             "weight": weight,
             "can_contain_items": container,
+            "storage_capacity_weight": capacity,
             "contents_weight_behavior": "ignored" if ignored else "normal",
         }
     )
@@ -74,6 +80,49 @@ def test_weight_negating_storage_counts_only_the_bag_and_restores_at_root() -> N
     assert calculate_carried_weight(inventory, definitions) == 2
     inventory["sword"].parent_container_id = None
     assert calculate_carried_weight(inventory, definitions) == 8
+
+
+def test_storage_capacity_uses_effective_nested_weight() -> None:
+    definitions = {
+        "pack": item("pack", 2, container=True, capacity=8),
+        "holding_bag": item(
+            "holding_bag",
+            1,
+            container=True,
+            ignored=True,
+            capacity=20,
+        ),
+        "stone": item("stone", 3),
+    }
+    inventory = {
+        "pack": bridge("pack", "pack"),
+        "holding_bag": bridge("holding_bag", "holding_bag", parent="pack"),
+        "stone": bridge("stone", "stone", 2, parent="holding_bag"),
+    }
+
+    validate_inventory(inventory, definitions)
+    assert calculate_container_contents_weights(inventory, definitions) == {
+        "pack": 1,
+        "holding_bag": 6,
+    }
+    assert calculate_carried_weight(inventory, definitions) == 3
+
+
+def test_storage_capacity_rejects_an_overweight_move_or_quantity() -> None:
+    definitions = {
+        "pack": item("pack", 2, container=True, capacity=5),
+        "stone": item("stone", 3),
+    }
+    inventory = {
+        "pack": bridge("pack", "pack"),
+        "stone": bridge("stone", "stone", 2, parent="pack"),
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"Storage container 'Pack' is over capacity: 6 lb stored exceeds its 5 lb limit",
+    ):
+        validate_inventory(inventory, definitions)
 
 
 @pytest.mark.parametrize(

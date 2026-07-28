@@ -40,9 +40,9 @@ export function PartyFolderWorkspace({
 
   return (
     <div className="xp-party-folders">
-      <nav className="xp-party-folder-nav" aria-label="Character party folders">
+      <nav className="xp-party-folder-nav" aria-label="Parties">
         <div className="xp-party-folder-nav__heading">
-          <h3>Character Folders</h3>
+          <h3>Parties</h3>
           <small>{characters.length} spawned characters</small>
         </div>
         <div className="xp-party-folder-nav__list">

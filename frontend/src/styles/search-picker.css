@@ -24,6 +24,24 @@
   padding: 0.5rem 0.55rem;
 }
 
+.search-popover-picker__folder {
+  display: flex;
+  width: 100%;
+  min-height: 2.1rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.search-popover-picker__folder:hover {
+  background: var(--r6-control-bg-active, var(--card));
+}
+
 .search-popover-picker__option + .search-popover-picker__option {
   border-top: 1px solid var(--line);
 }

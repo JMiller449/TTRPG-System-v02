@@ -18,7 +18,10 @@ from backend.features.formula_runtime.service import (
     evaluate_resource_maxima,
     evaluate_sheet_stats,
 )
-from backend.features.inventory.service import calculate_carried_weight
+from backend.features.inventory.service import (
+    calculate_carried_weight,
+    calculate_container_contents_weights,
+)
 from backend.features.session.models import SessionRole, WebSocketSession
 from backend.features.session.service import websocket_sessions
 from backend.features.state_sync.schema import (
@@ -30,7 +33,11 @@ from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
 logger = logging.getLogger(__name__)
-PRIVATE_ITEM_FIELDS = {"gm_notes", "gm_special_properties"}
+PRIVATE_ITEM_FIELDS = {
+    "gm_notes",
+    "gm_special_properties",
+    "player_catalog_access",
+}
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
 PRIVATE_STATE_ROOTS = {"direct_effect_projections"}
@@ -41,6 +48,7 @@ DM_ONLY_STATE_ROOTS = {
     "player_kill_visibility",
     "contribution_point_transactions",
     "encounter_presets",
+    "item_templates",
 }
 _MISSING = object()
 
@@ -185,7 +193,7 @@ class StateSyncService:
             carried
             or (
                 item.approval_status == "approved"
-                and item.player_visible
+                and item.player_catalog_access.allows(assigned_instance_id)
             )
             or (
                 item.approval_status == "pending"
@@ -246,6 +254,57 @@ class StateSyncService:
             for attribute_id in hidden_attribute_ids:
                 sheet_attributes.pop(attribute_id, None)
         return value
+
+    def _filter_catalog_organization_for_visible_state(
+        self,
+        state: dict[str, Any],
+    ) -> None:
+        visible_entry_ids = {
+            "actions": set(state.get("actions", {})),
+            "attributes": set(state.get("attributes", {})),
+            "conditions": set(state.get("condition_presets", {})),
+            "effects": set(state.get("standalone_effects", {})),
+            "formulas": set(state.get("formulas", {})),
+            "item_templates": set(state.get("item_templates", {})),
+            "items": set(state.get("items", {})),
+            "proficiencies": set(state.get("proficiencies", {})),
+            "sheet_instances": set(state.get("instanced_sheets", {})),
+            "sheet_templates": set(state.get("sheets", {})),
+            "tags": set(state.get("tags", {})),
+        }
+        folders = state.get("catalog_folders", {})
+        entries = state.get("catalog_entries", {})
+        if not isinstance(folders, dict) or not isinstance(entries, dict):
+            state["catalog_folders"] = {}
+            state["catalog_entries"] = {}
+            return
+
+        visible_entries = {
+            placement_id: placement
+            for placement_id, placement in entries.items()
+            if isinstance(placement, dict)
+            and placement.get("catalog") in visible_entry_ids
+            and placement.get("entry_id")
+            in visible_entry_ids[placement["catalog"]]
+        }
+        visible_folder_ids: set[str] = set()
+        for placement in visible_entries.values():
+            folder_id = placement.get("folder_id")
+            visited: set[str] = set()
+            while isinstance(folder_id, str) and folder_id not in visited:
+                visited.add(folder_id)
+                folder = folders.get(folder_id)
+                if not isinstance(folder, dict):
+                    break
+                visible_folder_ids.add(folder_id)
+                folder_id = folder.get("parent_id")
+
+        state["catalog_entries"] = visible_entries
+        state["catalog_folders"] = {
+            folder_id: folder
+            for folder_id, folder in folders.items()
+            if folder_id in visible_folder_ids
+        }
 
     def _redact_state_for_role(
         self,
@@ -383,6 +442,7 @@ class StateSyncService:
         for action in state.get("actions", {}).values():
             if isinstance(action, dict):
                 self._redact_subject_attributes(action)
+        self._filter_catalog_organization_for_visible_state(state)
         return state
 
     def _redact_patch_for_role(
@@ -397,6 +457,7 @@ class StateSyncService:
             return redacted_patch
 
         redacted_ops: list[PatchOp] = []
+        refresh_catalog_projection = False
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
             if segments and segments[0] in PRIVATE_STATE_ROOTS:
@@ -449,6 +510,25 @@ class StateSyncService:
                 continue
             if role == "dm":
                 redacted_ops.append(op)
+                continue
+
+            if len(segments) == 2 and segments[0] == "items":
+                refresh_catalog_projection = True
+
+            if segments and segments[0] in {"catalog_entries", "catalog_folders"}:
+                projected_state = self._redact_state_for_role(
+                    StateSingleton.getState().to_dict(),
+                    role=role,
+                    assigned_instance_id=assigned_instance_id,
+                )
+                root = segments[0]
+                redacted_ops.append(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(root),
+                        value=projected_state[root],
+                    )
+                )
                 continue
 
             if segments and segments[0] in DM_ONLY_STATE_ROOTS:
@@ -730,6 +810,29 @@ class StateSyncService:
                     self._redact_subject_attributes(op.value)
             redacted_ops.append(op)
 
+        if refresh_catalog_projection:
+            projected_state = self._redact_state_for_role(
+                StateSingleton.getState().to_dict(),
+                role=role,
+                assigned_instance_id=assigned_instance_id,
+            )
+            redacted_ops = [
+                op
+                for op in redacted_ops
+                if op.path
+                not in {
+                    self.join_path("catalog_entries"),
+                    self.join_path("catalog_folders"),
+                }
+            ]
+            for root in ("catalog_folders", "catalog_entries"):
+                redacted_ops.append(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(root),
+                        value=projected_state[root],
+                    )
+                )
         redacted_patch.ops = redacted_ops
         return redacted_patch
 
@@ -750,6 +853,16 @@ class StateSyncService:
                     sheet.items,
                     state_model.items,
                 )
+                contents_weights = calculate_container_contents_weights(
+                    sheet.items,
+                    state_model.items,
+                )
+                for relationship_id, contents_weight in contents_weights.items():
+                    bridge_payload = sheet_payload.get("items", {}).get(
+                        relationship_id
+                    )
+                    if isinstance(bridge_payload, dict):
+                        bridge_payload["current_contents_weight"] = contents_weight
                 maxima = evaluate_resource_maxima(sheet)
                 sheet_payload["evaluated_max_health"] = maxima["health"]
                 sheet_payload["evaluated_max_mana"] = maxima["mana"]
@@ -769,6 +882,16 @@ class StateSyncService:
                         instance.items,
                         state_model.items,
                     )
+                    contents_weights = calculate_container_contents_weights(
+                        instance.items,
+                        state_model.items,
+                    )
+                    for relationship_id, contents_weight in contents_weights.items():
+                        bridge_payload = instance_payload.get("items", {}).get(
+                            relationship_id
+                        )
+                        if isinstance(bridge_payload, dict):
+                            bridge_payload["current_contents_weight"] = contents_weight
                     maxima = evaluate_resource_maxima(runtime_stat_owner)
                     instance_payload["evaluated_max_health"] = maxima["health"]
                     instance_payload["evaluated_max_mana"] = maxima["mana"]
@@ -1335,7 +1458,12 @@ class StateSyncService:
             if segments[0] == "items" and (
                 len(segments) <= 2
                 or segments[2]
-                in {"weight", "can_contain_items", "contents_weight_behavior"}
+                in {
+                    "weight",
+                    "can_contain_items",
+                    "storage_capacity_weight",
+                    "contents_weight_behavior",
+                }
             ):
                 affected_sheet_ids.update(state.sheets)
                 affected_instance_ids.update(state.instanced_sheets)
@@ -1352,6 +1480,10 @@ class StateSyncService:
         for sheet_id in sorted(affected_sheet_ids):
             sheet = state.sheets.get(sheet_id)
             if sheet is not None:
+                contents_weights = calculate_container_contents_weights(
+                    sheet.items,
+                    state.items,
+                )
                 projected.append(
                     PatchOp(
                         op="set",
@@ -1361,9 +1493,27 @@ class StateSyncService:
                         value=calculate_carried_weight(sheet.items, state.items),
                     )
                 )
+                projected.extend(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "sheets",
+                            sheet_id,
+                            "items",
+                            relationship_id,
+                            "current_contents_weight",
+                        ),
+                        value=contents_weights.get(relationship_id, 0),
+                    )
+                    for relationship_id in sorted(contents_weights)
+                )
         for instance_id in sorted(affected_instance_ids):
             instance = state.instanced_sheets.get(instance_id)
             if instance is not None:
+                contents_weights = calculate_container_contents_weights(
+                    instance.items,
+                    state.items,
+                )
                 projected.append(
                     PatchOp(
                         op="set",
@@ -1374,6 +1524,20 @@ class StateSyncService:
                         ),
                         value=calculate_carried_weight(instance.items, state.items),
                     )
+                )
+                projected.extend(
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets",
+                            instance_id,
+                            "items",
+                            relationship_id,
+                            "current_contents_weight",
+                        ),
+                        value=contents_weights.get(relationship_id, 0),
+                    )
+                    for relationship_id in sorted(contents_weights)
                 )
         return projected
 
@@ -1406,11 +1570,19 @@ class StateSyncService:
                 from backend.features.pinned_actions.service import (
                     synchronize_pinned_actions_mutation,
                 )
+                from backend.features.catalog_organization.service import (
+                    synchronize_catalog_entries_mutation,
+                )
+                from backend.features.sheet_admin.items.service import (
+                    synchronize_item_player_catalog_access_mutation,
+                )
 
                 ops.extend(synchronize_equipment_augmentations_mutation(state))
                 ops.extend(self._synchronize_sheet_attribute_projections(state, ops))
                 ops.extend(synchronize_resource_bounds_mutation(state))
                 ops.extend(synchronize_pinned_actions_mutation(state))
+                ops.extend(synchronize_catalog_entries_mutation(state))
+                ops.extend(synchronize_item_player_catalog_access_mutation(state))
                 if before_commit is not None:
                     await before_commit(result)
                 if ops:

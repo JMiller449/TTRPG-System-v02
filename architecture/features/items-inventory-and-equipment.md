@@ -4,14 +4,16 @@
 
 The item system separates reusable catalog definitions from per-character
 inventory relationships. It supports equipment, consumables, ordinary carried
-objects, storage containment, item-authored effects, granted actions, weapon
-profiles, player-visible catalogs, and player item proposals.
+objects, storage containment, item-authored effects, granted actions, managed
+tags, reusable item templates, player-visible catalogs, and player item
+proposals.
 
 [`backend/state/models/item.py`](../../backend/state/models/item.py) defines:
 
-- `Item`: authored identity, interaction type, descriptive/GM fields, catalog
-  folder, price, numeric weight, publication/approval state, storage behavior,
-  optional weapon profile, attributes, action grants, and augmentation templates.
+- `Item`: authored identity, interaction type, descriptive/GM fields, price,
+  rank, numeric weight, player-catalog access and approval state, storage
+  capacity and carried-weight behavior, managed tag IDs, attributes, action
+  grants, and augmentation templates.
 - `ItemBridge`: a template or instance relationship with quantity, equipped
   state, definition ID, and optional parent-container relationship.
 - `ItemActionGrant`: an action available while carried or equipped, with an
@@ -38,14 +40,24 @@ which controls the frontend happens to show.
 validates an instance inventory as a graph. Items can be at the root or inside
 a bridge whose definition is a storage container. Moves reject missing or
 stacked destinations, self-containment, cycles, equipped items, and other
-invalid relationships. Nonempty containers cannot be removed until their
-contents are moved.
+invalid relationships. A container may define a finite nonnegative contents
+weight limit or remain explicitly unlimited. Moves, quantity changes, and item
+definition edits reject any resulting over-capacity inventory. Nested
+containers contribute their effective loaded weight to their parent, so a
+weight-negating inner container contributes only its own definition weight.
+Nonempty containers cannot be removed until their contents are moved.
+Deleting an item definition is a broader DM cascade: every template and
+instance bridge referencing that definition is removed atomically, including
+equipped copies. Surviving entries directly inside a deleted container are
+promoted to root inventory, and normal state-sync reconciliation removes
+equipment-owned effects and refreshes weight projections.
 
 Carried weight is a backend-derived projection. It multiplies definition
 weight by quantity, includes equipped items, traverses containment, and honors
 containers configured to ignore contained weight. Item weights must be finite
-nonnegative numeric pounds. The evaluated total is sent in snapshots and
-patches; the frontend only formats it.
+nonnegative numeric pounds. The evaluated total and per-container current
+contents weights are sent in snapshots and patches; the frontend only formats
+them.
 
 ## Equipment, effects, and actions
 
@@ -60,35 +72,72 @@ equipped availability is enforced at execution time. Quantity consumption is
 part of the action transaction and occurs only after required Roll20 delivery
 succeeds.
 
-Weapon-profile items require canonical weapon attributes. They automatically
-grant the canonical weapon actions and add a missing matching instance
-proficiency on equip. Source-item formulas and `same_source_item` effect
-selectors use the relationship ID to distinguish multiple copies of the same
-definition.
+Items attach ordinary typed Attributes only when their granted actions or
+effects need those values. Standard source-item Attributes include base damage,
+governing stat, reach, and proficiency. Weapon family/type and damage-type
+classification are managed tags instead of bespoke fields. Items never
+automatically receive action grants from a profile: the DM explicitly selects
+shared action definitions, and creation validates that every source-item alias
+used by a granted action refers to an Attribute attached to the item.
+
+Equipping an item with a valid Proficiency Attribute adds a missing matching
+instance proficiency bridge. Its growth rate comes from the proficiency
+definition, never from the item. Source-item formulas and `same_source_item`
+effect selectors use the relationship ID to distinguish multiple copies of the
+same definition.
+
+## Tags and item templates
+
+[`backend/state/models/tag.py`](../../backend/state/models/tag.py) defines the
+shared `TagDefinition` registry used by items, formulas embedded in action
+steps, reusable formulas, and augmentation tag selectors. Item payloads store
+stable tag IDs. Tag folders remain presentation-only and carry no inherited
+mechanics.
+
+`item_templates` is a separate DM-only definition registry with its own
+Item Templates navigation tab and builder page. The Item Maker remains focused
+on creating items: its explicit start screen offers start from scratch or
+choose a template. Choosing a template deep-copies its descriptive fields,
+tags, Attributes, effects, and action grants into an independent item draft
+with new relationship/effect IDs and no player availability. Later template
+changes or deletion do not alter items already created from it.
 
 ## Catalog visibility and player proposals
 
 DMs author definitions through
 [`backend/features/sheet_admin/items/`](../../backend/features/sheet_admin/items/)
 and [`frontend/src/features/items/ItemMakerPage.tsx`](../../frontend/src/features/items/ItemMakerPage.tsx).
-They can publish or hide an approved definition from the player catalog.
+Each approved definition has backend-authoritative player catalog access:
+`none`, `all`, or `selected`. Selected access stores stable spawned
+player-sheet instance IDs. The item editor presents those IDs through a
+searchable nested sheet-instance folder tree with individual and tri-state
+folder selection. Folder selection copies the current descendant IDs into the
+item; later folder moves do not change authorization.
 
-`catalog_folder` is trimmed, backend-owned definition metadata. An empty value
-means Unfiled. The GM catalog derives named folder navigation and counts from
-the authoritative items, while its folder filter and text query are local view
-state. Search covers item name, stable ID, category, rank, and folder without
-changing authoritative item order or the current editor selection. Folder
-membership does not replace category metadata and does not affect publication,
-redaction, inventory relationships, or mechanics.
+The GM item catalog uses the shared top-level
+[catalog organization](catalog-organization.md) records. Nested folders and
+entry placements reference item IDs without adding classification fields to an
+item. Search covers item name, stable ID, and rank. Organization does not
+directly affect access, redaction, inventory relationships, or mechanics.
+Inventory-add consumers use the shared collapsible catalog picker. Players see
+folder placement only for item definitions already visible to them.
 
-An assigned player may add one copy of a published item or remove an eligible
-item from their own inventory. A hidden definition is normally redacted, but it
-remains visible when needed to render an item the assigned character already
-owns.
+Items and item templates have independent catalog trees. Creating either from
+a folder's `+` menu queues the normal entity creation followed by a separate
+placement request; no folder ID enters the item/template payload.
+
+An assigned player may add one copy of an item allowed for their claimed
+instance or remove an eligible item from their own inventory. The backend
+checks that stable instance ID for both snapshot visibility and inventory-add
+requests. Item allow-lists are private and never sent to players. An
+unavailable definition remains visible when needed to render an item the
+assigned character already owns. Despawning a selected character or changing
+its template to GM-only removes its stale allow-list reference.
 
 Players may propose non-mechanical equippable or inventory-only items. Pending
 proposals are visible only to the submitting character and DM. Approval
-atomically publishes the definition and grants one copy to the submitter;
+atomically makes the definition available to all players and grants one copy
+to the submitter;
 denial removes it. Players cannot propose effects, mechanical attributes,
 action grants, consumable behavior, or other DM-owned mechanics.
 
@@ -100,11 +149,18 @@ definition authoring and the proposal form are under
 [`frontend/src/features/items/`](../../frontend/src/features/items/). Local
 helpers calculate display groupings and labels only; quantities, containment,
 weight, equipment eligibility, and action availability remain backend-owned.
+DMs and players can drag an unequipped item onto a valid storage card or the
+root inventory drop zone. The location selector remains the keyboard and touch
+fallback. The shared move route is available to authenticated players only for
+their claimed player-sheet instance; DMs retain access to every instance.
 
 ## Principal tests
 
 - [`backend/tests/test_sheet_admin_items.py`](../../backend/tests/test_sheet_admin_items.py)
-  covers definition authoring, profiles, visibility, and proposals.
+  covers definition authoring, explicit Attributes/action grants, visibility,
+  and proposals.
+- [`backend/tests/test_sheet_admin_tags_and_item_templates.py`](../../backend/tests/test_sheet_admin_tags_and_item_templates.py)
+  covers managed-tag references and item-template CRUD.
 - [`backend/tests/test_sheet_admin_item_bridges.py`](../../backend/tests/test_sheet_admin_item_bridges.py)
   and [`backend/tests/test_inventory.py`](../../backend/tests/test_inventory.py)
   cover quantities, containment, moves, removals, and carried weight.
@@ -117,6 +173,7 @@ weight, equipment eligibility, and action availability remain backend-owned.
 
 ## Limitations
 
-Equipment capacity, slots, hands, encumbrance penalties, and automatic
-container capacity are not implemented. Carried weight is authoritative data,
-but consequences beyond authored formulas/effects are not inferred.
+Equipment slots, hands, storage volume/item slots, and encumbrance penalties
+are not implemented. Weight and storage capacity are authoritative data, but
+consequences beyond rejecting invalid containment and authored formulas/effects
+are not inferred.

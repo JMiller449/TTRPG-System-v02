@@ -56,8 +56,8 @@ export function ItemDefinitionCard({
         ) : null}
       </div>
       <div className="muted">
-        {ITEM_TYPE_LABELS[item.interaction_type]} · {preview.type || "Item"} · Rank {preview.rank} ·
-        Weight {formatWeight(item.weight)} lb · Price {item.price || "(none)"}
+        {ITEM_TYPE_LABELS[item.interaction_type]} · Rank {preview.rank} · Weight{" "}
+        {formatWeight(item.weight)} lb · Price {item.price || "(none)"}
       </div>
       {preview.description ? (
         <div className="muted item-definition-card__description">{preview.description}</div>

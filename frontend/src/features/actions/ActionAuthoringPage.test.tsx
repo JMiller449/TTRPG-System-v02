@@ -49,10 +49,7 @@ describe("ActionAuthoringPage", () => {
       if (!nameInput) {
         return;
       }
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value"
-      )?.set;
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(nameInput, "Shield Bash");
       nameInput.dispatchEvent(new Event("input", { bubbles: true }));
       await Promise.resolve();
@@ -73,7 +70,7 @@ describe("ActionAuthoringPage", () => {
     expect(createCall).toBeDefined();
     const request = createCall?.[0];
     expect(request?.request_id).toBeTruthy();
-    expect(container.querySelector<HTMLInputElement>("input")?.value).toBe("Shield Bash");
+    expect(nameInput?.value).toBe("Shield Bash");
     expect(container.textContent).toContain("Creating…");
     expect(container.textContent).not.toContain("Name is required.");
 
@@ -96,7 +93,7 @@ describe("ActionAuthoringPage", () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector<HTMLInputElement>("input")?.value).toBe("Shield Bash");
+    expect(nameInput?.value).toBe("Shield Bash");
     const retryButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Create Action"
     );
@@ -133,7 +130,7 @@ describe("ActionAuthoringPage", () => {
 
     expect(container.textContent).toContain("Action “Shield Bash” created.");
     expect(container.textContent).toContain("Edit Action");
-    expect(container.querySelector<HTMLInputElement>("input")?.value).toBe("Shield Bash");
+    expect(nameInput?.value).toBe("Shield Bash");
 
     await act(async () => root.unmount());
   });

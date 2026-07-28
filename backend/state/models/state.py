@@ -16,6 +16,11 @@ from backend.state.models.augmentation import (
     StandaloneEffectDefinition,
 )
 from backend.state.models.condition import ActiveCondition, ConditionPreset
+from backend.state.models.catalog import (
+    CatalogEntry,
+    CatalogFolder,
+    validate_catalog_organization,
+)
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.formula import FormulaDefinition
 from backend.state.models.attribute import (
@@ -28,6 +33,7 @@ from backend.state.models.attribute import (
 from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.tag import TagDefinition, seeded_tag_definitions
 from backend.state.models.xp import KillRecord, Party, XpAdjustment
 from backend.state.models.contribution_points import ContributionPointTransaction
 
@@ -42,13 +48,17 @@ class State:
         default_factory=dict
     )
     player_kill_visibility: dict[str, bool] = field(default_factory=dict)
+    catalog_folders: dict[str, CatalogFolder] = field(default_factory=dict)
+    catalog_entries: dict[str, CatalogEntry] = field(default_factory=dict)
     sheets: dict[str, Sheet] = field(default_factory=dict)
     instanced_sheets: dict[str, InstancedSheet] = field(default_factory=dict)
     formulas: dict[str, FormulaDefinition] = field(default_factory=dict)
     attributes: dict[str, AttributeDefinition] = field(default_factory=dict)
     actions: dict[str, Action] = field(default_factory=dict)
     items: dict[str, Item] = field(default_factory=dict)
+    item_templates: dict[str, Item] = field(default_factory=dict)
     proficiencies: dict[str, Proficiency] = field(default_factory=dict)
+    tags: dict[str, TagDefinition] = field(default_factory=seeded_tag_definitions)
     augmentations: dict[str, Augmentation] = field(default_factory=dict)
     standalone_effects: dict[str, StandaloneEffectDefinition] = field(
         default_factory=dict
@@ -72,6 +82,8 @@ class State:
             synchronize_all_sheet_attributes(instance)
         for item in self.items.values():
             synchronize_required_item_attributes(item, self.attributes)
+        for template in self.item_templates.values():
+            synchronize_required_item_attributes(template, self.attributes)
         for action in self.actions.values():
             evaluate_all_subject_attributes(action)
         assigned_party_members: set[str] = set()
@@ -91,6 +103,32 @@ class State:
                         f"'{instance_id}'."
                     )
                 assigned_party_members.add(instance_id)
+        for item in self.items.values():
+            for instance_id in item.player_catalog_access.instance_ids:
+                instance = self.instanced_sheets.get(instance_id)
+                parent = self.sheets.get(instance.parent_id) if instance else None
+                if instance is None or parent is None or parent.dm_only:
+                    raise ValueError(
+                        f"Item '{item.id}' player catalog access references invalid "
+                        f"player instance '{instance_id}'."
+                    )
+        validate_catalog_organization(
+            self.catalog_folders,
+            self.catalog_entries,
+            entity_ids={
+                "actions": set(self.actions),
+                "attributes": set(self.attributes),
+                "conditions": set(self.condition_presets),
+                "effects": set(self.standalone_effects),
+                "formulas": set(self.formulas),
+                "item_templates": set(self.item_templates),
+                "items": set(self.items),
+                "proficiencies": set(self.proficiencies),
+                "sheet_instances": set(self.instanced_sheets),
+                "sheet_templates": set(self.sheets),
+                "tags": set(self.tags),
+            },
+        )
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
@@ -136,6 +174,14 @@ class State:
                 ).items()
                 if visible is True
             },
+            catalog_folders={
+                key: CatalogFolder.from_dict(folder)
+                for key, folder in raw.get("catalog_folders", {}).items()
+            },
+            catalog_entries={
+                key: CatalogEntry.from_dict(entry)
+                for key, entry in raw.get("catalog_entries", {}).items()
+            },
             sheets=sheets,
             instanced_sheets=instanced_sheets,
             formulas={
@@ -153,9 +199,17 @@ class State:
             items={
                 key: Item.from_dict(item) for key, item in raw.get("items", {}).items()
             },
+            item_templates={
+                key: Item.from_dict(item)
+                for key, item in raw.get("item_templates", {}).items()
+            },
             proficiencies={
                 key: Proficiency.from_dict(proficiency)
                 for key, proficiency in raw.get("proficiencies", {}).items()
+            },
+            tags={
+                key: TagDefinition.from_dict(tag)
+                for key, tag in raw.get("tags", {}).items()
             },
             augmentations={
                 key: Augmentation.from_dict(augmentation)

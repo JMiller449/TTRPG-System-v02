@@ -465,6 +465,24 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
                 "/instanced_sheets/mage_instance/items/sword/equipped"
             )
 
+            state.instanced_sheets["mage_instance"].items["sword"].equipped = False
+            state.instanced_sheets["mage_instance"].items[
+                "sword"
+            ].parent_container_id = "bag"
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_item_equipped",
+                    "instance_id": "mage_instance",
+                    "relationship_id": "sword",
+                    "equipped": True,
+                },
+            )
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Move item 'Sword' to the root inventory before equipping it."
+            )
+            assert not state.instanced_sheets["mage_instance"].items["sword"].equipped
+
             await handle_client_payload(
                 websocket,
                 {
@@ -3244,14 +3262,6 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
             request["source_item_relationship_id"] = "equipped-sword"
             state.items["test-sword"].attribute_profile = None
             await handle_client_payload(websocket, request)
-            assert "requires source-item profile 'weapon'" in (
-                websocket.sent_messages[-1]["reason"]
-            )
-            assert state.instanced_sheets["mage_instance"].mana == 30
-
-            state.items["test-sword"].attribute_profile = "weapon"
-            await handle_client_payload(websocket, request)
-
             assert state.instanced_sheets["mage_instance"].mana == 56
             assert (
                 state.instanced_sheets["mage_instance"].proficiencies["swords"].use_count

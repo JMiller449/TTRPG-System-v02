@@ -12,12 +12,15 @@ from backend.features.sheet_admin.items import service
 from backend.features.sheet_admin.items.schema import (
     AddPlayerInventoryItem,
     CreateItem,
+    CreateItemTemplate,
     DeleteItem,
+    DeleteItemTemplate,
     RemovePlayerInventoryItem,
     RemoveItemAugmentationTemplate,
     ReviewPlayerItem,
     SubmitPlayerItem,
     UpdateItem,
+    UpdateItemTemplate,
     UpsertItemAugmentationTemplate,
 )
 from backend.protocol.socket import StatePatchEvent
@@ -66,6 +69,60 @@ class DeleteItemRoute(RequestRoute[DeleteItem]):
 
     async def handle(self, session: WebSocketSession, request: DeleteItem) -> None:
         await service.delete_typed_item(request)
+
+
+class CreateItemTemplateRoute(RequestRoute[CreateItemTemplate]):
+    type_name = "create_item_template"
+    request_model = CreateItemTemplate
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="itemTemplates",
+        method_name="createItemTemplate",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateItemTemplate,
+    ) -> None:
+        await service.create_item_template(request)
+
+
+class UpdateItemTemplateRoute(RequestRoute[UpdateItemTemplate]):
+    type_name = "update_item_template"
+    request_model = UpdateItemTemplate
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="itemTemplates",
+        method_name="updateItemTemplate",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: UpdateItemTemplate,
+    ) -> None:
+        await service.update_item_template(request)
+
+
+class DeleteItemTemplateRoute(RequestRoute[DeleteItemTemplate]):
+    type_name = "delete_item_template"
+    request_model = DeleteItemTemplate
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="itemTemplates",
+        method_name="deleteItemTemplate",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: DeleteItemTemplate,
+    ) -> None:
+        await service.delete_item_template(request)
 
 
 class AddPlayerInventoryItemRoute(RequestRoute[AddPlayerInventoryItem]):
@@ -178,6 +235,9 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateItemRoute())
     registry.register(UpdateItemRoute())
     registry.register(DeleteItemRoute())
+    registry.register(CreateItemTemplateRoute())
+    registry.register(UpdateItemTemplateRoute())
+    registry.register(DeleteItemTemplateRoute())
     registry.register(AddPlayerInventoryItemRoute())
     registry.register(RemovePlayerInventoryItemRoute())
     registry.register(SubmitPlayerItemRoute())

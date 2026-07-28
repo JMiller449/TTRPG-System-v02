@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
 from backend.state.models.formula import FormulaDefinition
+from backend.state.models.tag import TagDefinition
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -55,7 +56,6 @@ def test_dm_can_create_formula(monkeypatch) -> None:
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
-
             await handle_client_payload(
                 websocket,
                 {
@@ -87,6 +87,10 @@ def test_dm_formula_create_normalizes_semantic_tags(monkeypatch) -> None:
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
+            StateSingleton.getState().tags["spell attack"] = TagDefinition(
+                id="spell attack",
+                name="Spell Attack",
+            )
             payload = _formula_definition_payload()
             payload["formula"]["tags"] = [
                 " Damage ",

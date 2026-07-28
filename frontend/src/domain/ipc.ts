@@ -3,6 +3,8 @@ import type {
   ActionHistoryEntry,
   ActiveCondition,
   Augmentation,
+  CatalogEntry,
+  CatalogFolder,
   ConditionPreset,
   EncounterPreset,
   AttributeDefinition,
@@ -13,7 +15,8 @@ import type {
   Role,
   Sheet,
   StandaloneEffectApplication,
-  StandaloneEffectDefinition
+  StandaloneEffectDefinition,
+  TagDefinition
 } from "@/domain/models";
 import type {
   ProtocolActionFormulaAuthoringMetadataEvent,
@@ -46,9 +49,13 @@ export interface SheetAccessCode {
   active: boolean;
 }
 export interface AppSnapshot {
+  catalogFolders?: CatalogFolder[];
+  catalogEntries?: CatalogEntry[];
   sheets: Sheet[];
   persistentSheets: PersistentSheetRecord[];
   items: ItemDefinition[];
+  itemTemplates?: ItemDefinition[];
+  tags?: TagDefinition[];
   proficiencies: ProficiencyDefinition[];
   actions: ActionDefinition[];
   formulas: FormulaDefinition[];

@@ -61,6 +61,7 @@ from backend.state.models.action import (
 )
 from backend.state.models.state import State
 from backend.state.models.attribute import AttributeBridge
+from backend.state.models.tag import collect_tag_references, validate_tag_ids
 
 
 def _format_path(path: list[str]) -> str:
@@ -557,6 +558,7 @@ async def _create_action(
             raise ValueError(f"Action '{payload.id}' already exists.")
         action = _build_action(payload, state)
         _validate_action_attributes(action, state)
+        validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
         path = state_sync_service.join_path("actions", payload.id)
         op = state_sync_service.add_mutation(state, path, action)
         return None, [op]
@@ -580,6 +582,7 @@ async def _update_action(
 
         action = _build_action(payload, state)
         _validate_action_attributes(action, state)
+        validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
         path = state_sync_service.join_path("actions", action_id)
         op = state_sync_service.set_mutation(state, path, action)
         return None, [op]

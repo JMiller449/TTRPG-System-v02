@@ -24,11 +24,23 @@ function normalizeUiSelections(state: AppState): AppState {
 export function syncReducer(state: AppState, action: AppAction): AppState | undefined {
   switch (action.type) {
     case "apply_snapshot": {
+      const catalogFolders = Object.fromEntries(
+        (action.snapshot.catalogFolders ?? []).map((item) => [item.id, item])
+      );
+      const catalogEntries = Object.fromEntries(
+        (action.snapshot.catalogEntries ?? []).map((item) => [item.id, item])
+      );
       const sheets = Object.fromEntries(action.snapshot.sheets.map((item) => [item.id, item]));
       const persistentSheets = Object.fromEntries(
         action.snapshot.persistentSheets.map((item) => [item.id, item.value])
       );
       const items = Object.fromEntries(action.snapshot.items.map((item) => [item.id, item]));
+      const itemTemplates = Object.fromEntries(
+        (action.snapshot.itemTemplates ?? []).map((item) => [item.id, item])
+      );
+      const tags = Object.fromEntries(
+        (action.snapshot.tags ?? []).map((item) => [item.id, item])
+      );
       const proficiencies = Object.fromEntries(
         action.snapshot.proficiencies.map((item) => [item.id, item])
       );
@@ -64,12 +76,20 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       return normalizeUiSelections(
         updateServerState(state, (serverState) => ({
           ...serverState,
+          catalogFolders,
+          catalogFolderOrder: (action.snapshot.catalogFolders ?? []).map((item) => item.id),
+          catalogEntries,
+          catalogEntryOrder: (action.snapshot.catalogEntries ?? []).map((item) => item.id),
           sheets,
           sheetOrder: action.snapshot.sheets.map((item) => item.id),
           persistentSheets,
           persistentSheetOrder: action.snapshot.persistentSheets.map((item) => item.id),
           items,
           itemOrder: action.snapshot.items.map((item) => item.id),
+          itemTemplates,
+          itemTemplateOrder: (action.snapshot.itemTemplates ?? []).map((item) => item.id),
+          tags,
+          tagOrder: (action.snapshot.tags ?? []).map((item) => item.id),
           proficiencies,
           proficiencyOrder: action.snapshot.proficiencies.map((item) => item.id),
           actions,

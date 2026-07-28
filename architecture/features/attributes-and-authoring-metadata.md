@@ -10,8 +10,7 @@ profiles without adding bespoke fields for every authored concept.
 defines:
 
 - `AttributeDefinition`: ID, name, supported subject types, value type, default,
-  unit, visibility, validation options, reference kind, and ownership/profile
-  metadata.
+  unit, visibility, validation options, reference kind, and ownership metadata.
 - `AttributeBridge`: relationship ID, definition ID, authored value, evaluated
   value, and evaluation error.
 - `AttributeValue`: literal number, boolean, text, enum, reference, or list
@@ -23,10 +22,13 @@ owning sheet, instance, item, or action.
 ## Backend-owned and authored definitions
 
 The backend seeds required definitions, including the shared Action / Reaction
-Point maximum, the canonical sheet Level, and the weapon attribute profile. The
+Point maximum and the canonical sheet Level. The
 point maximum follows the active Reaction Time threshold table while retaining
 the legacy `amount_of_reactions` ID for formula and checkpoint compatibility. It also supplies
-optional standard sheet, item, and action definitions. Required/backend-owned
+optional standard sheet, item, and action definitions. Standard item Attributes
+include base damage, governing stat, reach, and proficiency; they remain
+optional until an item's selected action or effect consumes them.
+Required/backend-owned
 definitions cannot be changed in a way that breaks their mechanical contract.
 Level is attached to every template and spawned instance with a default of 1;
 existing authored Level values are preserved during synchronization and
@@ -36,7 +38,7 @@ DMs can create campaign definitions for supported subjects and attach, detach,
 set, or reset values through typed routes in
 [`backend/features/attributes/`](../../backend/features/attributes/). A bridge
 value must match the definition's declared type, enum/list options, reference
-kind, subject eligibility, and required-profile rules. Deletion is rejected
+kind, and subject eligibility. Deletion is rejected
 while live bridges or formula references depend on a definition.
 
 Complete template/item/action authoring may include attribute bridges

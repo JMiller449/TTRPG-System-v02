@@ -13,6 +13,7 @@ import {
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { upsertFormulaAlias } from "@/features/variables/variablePicker";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 function displayAttributeValue(value: AttributeBridge["evaluated_value"]): string {
   if (value === null || value === undefined) {
@@ -103,20 +104,21 @@ export function SheetAttributesSection({
       ) : null}
       {canEdit && onAttach && availableDefinitions.length > 0 ? (
         <div className="inline-actions">
-          <label>
-            Add optional Attribute
-            <select
-              value={selectedAttributeId}
-              onChange={(event) => setSelectedAttributeId(event.target.value)}
-            >
-              <option value="">Select an Attribute</option>
-              {availableDefinitions.map((definition) => (
-                <option key={definition.id} value={definition.id}>
-                  {definition.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CatalogEntityPicker
+            catalog="attributes"
+            label="Add optional Attribute"
+            placeholder="Search Attribute catalog"
+            selectedId={selectedAttributeId}
+            options={availableDefinitions.map((definition) => ({
+              id: definition.id,
+              label: definition.name,
+              secondary: definition.description,
+              keywords: [definition.id],
+              value: definition.id
+            }))}
+            emptyMessage="No optional Attributes available."
+            onSelect={setSelectedAttributeId}
+          />
           <button
             className="button"
             type="button"
@@ -333,83 +335,100 @@ function SheetAttributeCard({
       {canEdit && bridge.value.type !== "formula" && onSaveValue ? (
         <div className="stack">
           <div className="inline-actions">
-            <label>
-              Value
-              {bridge.value.type === "boolean" ? (
-                <select
-                  value={literalText}
-                  onChange={(event) => commitLiteralText(event.target.value)}
-                >
-                  <option value="false">False</option>
-                  <option value="true">True</option>
-                </select>
-              ) : shouldUseOptionSelect ? (
-                <select
-                  value={optionSelectValue}
-                  onChange={(event) => commitLiteralText(event.target.value)}
-                  disabled={validationOptions.length === 0}
-                >
-                  <option value="">
-                    {validationOptions.length === 0 ? "No options available" : "Select a value"}
-                  </option>
-                  {validationOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {validationOptionLabelMap?.[option] ?? option}
-                    </option>
-                  ))}
-                </select>
-              ) : shouldUseListOptionSelect ? (
-                <span className="stack">
+            {definition?.reference_kind === "proficiency" && shouldUseOptionSelect ? (
+              <CatalogEntityPicker
+                catalog="proficiencies"
+                label="Value"
+                placeholder="Search proficiency catalog"
+                selectedId={optionSelectValue}
+                options={validationOptions.map((option) => ({
+                  id: option,
+                  label: validationOptionLabelMap?.[option] ?? option,
+                  keywords: [option],
+                  value: option
+                }))}
+                emptyMessage="No proficiencies available."
+                onSelect={commitLiteralText}
+              />
+            ) : (
+              <label>
+                Value
+                {bridge.value.type === "boolean" ? (
                   <select
-                    aria-label={`${name} option`}
-                    value=""
-                    onChange={(event) => {
-                      const option = event.target.value;
-                      if (option && !selectedListOptions.includes(option)) {
-                        commitListOptions([...selectedListOptions, option]);
-                      }
-                    }}
+                    value={literalText}
+                    onChange={(event) => commitLiteralText(event.target.value)}
                   >
-                    <option value="">Add a value</option>
+                    <option value="false">False</option>
+                    <option value="true">True</option>
+                  </select>
+                ) : shouldUseOptionSelect ? (
+                  <select
+                    value={optionSelectValue}
+                    onChange={(event) => commitLiteralText(event.target.value)}
+                    disabled={validationOptions.length === 0}
+                  >
+                    <option value="">
+                      {validationOptions.length === 0 ? "No options available" : "Select a value"}
+                    </option>
                     {validationOptions.map((option) => (
-                      <option
-                        key={option}
-                        value={option}
-                        disabled={selectedListOptions.includes(option)}
-                      >
+                      <option key={option} value={option}>
                         {validationOptionLabelMap?.[option] ?? option}
                       </option>
                     ))}
                   </select>
-                  {selectedListOptions.length > 0 ? (
-                    <span className="inline-actions">
-                      {selectedListOptions.map((option) => (
-                        <button
+                ) : shouldUseListOptionSelect ? (
+                  <span className="stack">
+                    <select
+                      aria-label={`${name} option`}
+                      value=""
+                      onChange={(event) => {
+                        const option = event.target.value;
+                        if (option && !selectedListOptions.includes(option)) {
+                          commitListOptions([...selectedListOptions, option]);
+                        }
+                      }}
+                    >
+                      <option value="">Add a value</option>
+                      {validationOptions.map((option) => (
+                        <option
                           key={option}
-                          type="button"
-                          className="secondary"
-                          aria-label={`Remove ${validationOptionLabelMap?.[option] ?? option}`}
-                          onClick={() =>
-                            commitListOptions(
-                              selectedListOptions.filter((selected) => selected !== option)
-                            )
-                          }
+                          value={option}
+                          disabled={selectedListOptions.includes(option)}
                         >
-                          {validationOptionLabelMap?.[option] ?? option} ×
-                        </button>
+                          {validationOptionLabelMap?.[option] ?? option}
+                        </option>
                       ))}
-                    </span>
-                  ) : (
-                    <span className="muted">No values selected</span>
-                  )}
-                </span>
-              ) : (
-                <input
-                  value={literalText}
-                  onChange={(event) => commitLiteralText(event.target.value)}
-                />
-              )}
-            </label>
+                    </select>
+                    {selectedListOptions.length > 0 ? (
+                      <span className="inline-actions">
+                        {selectedListOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className="secondary"
+                            aria-label={`Remove ${validationOptionLabelMap?.[option] ?? option}`}
+                            onClick={() =>
+                              commitListOptions(
+                                selectedListOptions.filter((selected) => selected !== option)
+                              )
+                            }
+                          >
+                            {validationOptionLabelMap?.[option] ?? option} ×
+                          </button>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="muted">No values selected</span>
+                    )}
+                  </span>
+                ) : (
+                  <input
+                    value={literalText}
+                    onChange={(event) => commitLiteralText(event.target.value)}
+                  />
+                )}
+              </label>
+            )}
             {!draftMode ? (
               <button
                 type="button"

@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from math import isfinite
+import hashlib
 import re
 from typing import Any
 
@@ -16,7 +17,7 @@ from backend.state.default_actions import (
     seeded_global_action_payloads,
 )
 
-CURRENT_STATE_SCHEMA_VERSION = 39
+CURRENT_STATE_SCHEMA_VERSION = 45
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2056,6 +2057,303 @@ def _migrate_v38_to_v39(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 39, "state": state}
 
 
+def _legacy_catalog_folder_id(
+    *,
+    catalog: str,
+    parent_id: str | None,
+    name: str,
+) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", name.casefold()).strip("_") or "folder"
+    identity = f"{catalog}\0{parent_id or ''}\0{name.casefold()}".encode("utf-8")
+    digest = hashlib.sha1(identity).hexdigest()[:10]
+    return f"catalog_folder_{catalog}_{slug}_{digest}"
+
+
+def _migrate_v39_to_v40(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    folders = state.setdefault("catalog_folders", {})
+    entries = state.setdefault("catalog_entries", {})
+    items = state.get("items", {})
+    if not isinstance(folders, dict):
+        folders = {}
+        state["catalog_folders"] = folders
+    if not isinstance(entries, dict):
+        entries = {}
+        state["catalog_entries"] = entries
+
+    folder_ids_by_parent_and_name: dict[tuple[str | None, str], str] = {}
+
+    def ensure_folder(name: str, parent_id: str | None) -> str:
+        key = (parent_id, name.casefold())
+        existing_id = folder_ids_by_parent_and_name.get(key)
+        if existing_id is not None:
+            return existing_id
+        folder_id = _legacy_catalog_folder_id(
+            catalog="items",
+            parent_id=parent_id,
+            name=name,
+        )
+        suffix = 2
+        while folder_id in folders and (
+            not isinstance(folders[folder_id], dict)
+            or folders[folder_id].get("catalog") != "items"
+            or folders[folder_id].get("parent_id") != parent_id
+            or str(folders[folder_id].get("name", "")).casefold() != name.casefold()
+        ):
+            folder_id = f"{folder_id}_{suffix}"
+            suffix += 1
+        folders.setdefault(
+            folder_id,
+            {
+                "id": folder_id,
+                "catalog": "items",
+                "name": name,
+                "parent_id": parent_id,
+                "position": len(folders),
+            },
+        )
+        folder_ids_by_parent_and_name[key] = folder_id
+        return folder_id
+
+    if isinstance(items, dict):
+        for position, (item_id, item) in enumerate(items.items()):
+            if not isinstance(item, dict):
+                continue
+            folder_name = str(item.pop("catalog_folder", "") or "").strip()
+            category_name = str(item.pop("category", "") or "").strip()
+            parent_id = ensure_folder(folder_name, None) if folder_name else None
+            if category_name and category_name.casefold() != folder_name.casefold():
+                parent_id = ensure_folder(category_name, parent_id)
+            placement_id = f"items:{item_id}"
+            entries.setdefault(
+                placement_id,
+                {
+                    "id": placement_id,
+                    "catalog": "items",
+                    "entry_id": item_id,
+                    "folder_id": parent_id,
+                    "position": position,
+                },
+            )
+
+    return {"schema_version": 40, "state": state}
+
+
+def _migrate_v40_to_v41(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if not isinstance(item, dict):
+                continue
+            legacy_visible = bool(item.pop("player_visible", True))
+            item.setdefault(
+                "player_catalog_access",
+                {
+                    "mode": "all" if legacy_visible else "none",
+                    "instance_ids": [],
+                },
+            )
+    return {"schema_version": 41, "state": state}
+
+
+def _normalized_legacy_tag(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
+def _migrate_v41_to_v42(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    tags = state.setdefault("tags", {})
+    if not isinstance(tags, dict):
+        tags = {}
+        state["tags"] = tags
+
+    common = {
+        "check",
+        "hit",
+        "attack",
+        "damage",
+        "healing",
+        "dodge",
+        "block",
+        "parry",
+        "contest",
+        "stealth",
+        "spell",
+        "weapon",
+        "mana_regeneration",
+        "physical",
+        "magical",
+        "arcane",
+        "slashing",
+        "bludgeoning",
+        "piercing",
+        "fire",
+        "water",
+        "earth",
+        "wind",
+        "light",
+        "dark",
+        "lightning",
+        "ice",
+        "time",
+        "gravity",
+        "psychic",
+    }
+
+    discovered: set[str] = set(common)
+
+    def normalize_references(value: object) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in {"tags", "required_tags", "excluded_tags"} and isinstance(
+                    child, list
+                ):
+                    normalized: list[str] = []
+                    for tag in child:
+                        if not isinstance(tag, str):
+                            continue
+                        tag_id = _normalized_legacy_tag(tag)
+                        if tag_id and tag_id not in normalized:
+                            normalized.append(tag_id)
+                            discovered.add(tag_id)
+                    value[key] = normalized
+                    continue
+                normalize_references(child)
+            return
+        if isinstance(value, list):
+            for child in value:
+                normalize_references(child)
+
+    roots = {key: value for key, value in state.items() if key != "tags"}
+    normalize_references(roots)
+    for tag_id in sorted(discovered):
+        tags.setdefault(
+            tag_id,
+            {
+                "id": tag_id,
+                "name": tag_id.replace("_", " ").title(),
+                "description": "",
+            },
+        )
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if isinstance(item, dict):
+                item.setdefault("tags", [])
+    state.setdefault("item_templates", {})
+    return {"schema_version": 42, "state": state}
+
+
+def _legacy_attribute_value(item: dict, attribute_id: str) -> object:
+    attributes = item.get("attributes", item.get("facts", {}))
+    if not isinstance(attributes, dict):
+        return None
+    bridge = attributes.get(attribute_id)
+    if not isinstance(bridge, dict):
+        return None
+    value = bridge.get("value")
+    if not isinstance(value, dict) or value.get("type") == "formula":
+        return None
+    return value.get("value")
+
+
+def _migrate_v42_to_v43(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    tags = state.setdefault("tags", {})
+    items = state.get("items", {})
+    if isinstance(items, dict):
+        for item in items.values():
+            if not isinstance(item, dict):
+                continue
+            item_tags = item.setdefault("tags", [])
+            if not isinstance(item_tags, list):
+                item_tags = []
+                item["tags"] = item_tags
+            if item.get("attribute_profile") == "weapon":
+                for label in (
+                    "weapon",
+                    _legacy_attribute_value(item, "weapon_type"),
+                ):
+                    if not isinstance(label, str):
+                        continue
+                    tag_id = _normalized_legacy_tag(label)
+                    if not tag_id:
+                        continue
+                    if tag_id not in item_tags:
+                        item_tags.append(tag_id)
+                    tags.setdefault(
+                        tag_id,
+                        {
+                            "id": tag_id,
+                            "name": label.strip(),
+                            "description": "",
+                        },
+                    )
+                damage_types = _legacy_attribute_value(item, "weapon_damage_types")
+                if isinstance(damage_types, list):
+                    for label in damage_types:
+                        if not isinstance(label, str):
+                            continue
+                        tag_id = _normalized_legacy_tag(label)
+                        if not tag_id:
+                            continue
+                        if tag_id not in item_tags:
+                            item_tags.append(tag_id)
+                        tags.setdefault(
+                            tag_id,
+                            {
+                                "id": tag_id,
+                                "name": label.strip(),
+                                "description": "",
+                            },
+                        )
+            attributes = item.get("attributes", item.get("facts", {}))
+            if isinstance(attributes, dict):
+                attributes.pop("weapon_type", None)
+                attributes.pop("weapon_damage_types", None)
+                attributes.pop("weapon_proficiency_growth_rate", None)
+            item.pop("attribute_profile", None)
+            item.pop("fact_profile", None)
+
+    attributes = state.get("attributes", state.get("facts", {}))
+    if isinstance(attributes, dict):
+        attributes.pop("weapon_type", None)
+        attributes.pop("weapon_damage_types", None)
+        attributes.pop("weapon_proficiency_growth_rate", None)
+        for definition in attributes.values():
+            if isinstance(definition, dict):
+                definition.pop("required_profile", None)
+        for attribute_id in (
+            "weapon_base_damage",
+            "weapon_governing_stat",
+            "weapon_reach",
+            "weapon_proficiency",
+        ):
+            definition = attributes.get(attribute_id)
+            if isinstance(definition, dict):
+                definition["required"] = False
+    return {"schema_version": 43, "state": state}
+
+
+def _migrate_v43_to_v44(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    state.setdefault("item_templates", {})
+    return {"schema_version": 44, "state": state}
+
+
+def _migrate_v44_to_v45(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    for registry_name in ("items", "item_templates"):
+        registry = state.get(registry_name, {})
+        if not isinstance(registry, dict):
+            continue
+        for item in registry.values():
+            if isinstance(item, dict):
+                item.setdefault("storage_capacity_weight", None)
+    return {"schema_version": 45, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2096,6 +2394,12 @@ MIGRATIONS: dict[int, Migration] = {
     36: _migrate_v36_to_v37,
     37: _migrate_v37_to_v38,
     38: _migrate_v38_to_v39,
+    39: _migrate_v39_to_v40,
+    40: _migrate_v40_to_v41,
+    41: _migrate_v41_to_v42,
+    42: _migrate_v42_to_v43,
+    43: _migrate_v43_to_v44,
+    44: _migrate_v44_to_v45,
 }
 
 

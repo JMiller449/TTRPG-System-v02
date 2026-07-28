@@ -31,7 +31,8 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
     label: "Content",
     items: [
       { view: "action_authoring", label: "Actions", glyph: "AC" },
-      { view: "item_maker", label: "Items", glyph: "IT" }
+      { view: "item_maker", label: "Items", glyph: "IT" },
+      { view: "item_template_builder", label: "Item Templates", glyph: "TM" }
     ]
   },
   {
@@ -39,7 +40,8 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
     items: [
       { view: "attribute_authoring", label: "Attributes", glyph: "AT" },
       { view: "formula_authoring", label: "Formulas", glyph: "FX" },
-      { view: "proficiency_authoring", label: "Proficiencies", glyph: "PF" }
+      { view: "proficiency_authoring", label: "Proficiencies", glyph: "PF" },
+      { view: "tag_authoring", label: "Tags", glyph: "TG" }
     ]
   },
   {

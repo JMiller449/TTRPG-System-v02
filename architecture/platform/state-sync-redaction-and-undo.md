@@ -77,13 +77,18 @@ Filtering includes:
 - Templates flagged `dm_only` are withheld from players, except the parent of
   the claimed instance, which the character sheet needs in order to render.
 - Encounter presets are DM-only and never reach player state.
+- Item templates are DM-only. Managed tag definitions are player-visible so
+  visible item/formula references can render stable labels; tag catalog
+  placement is still filtered through the normal visible-entry rules.
 - The assigned instance's character profile is player-visible and editable;
   profiles on other instances remain absent with the rest of those records.
 - Template notes and GM-only attribute/item/condition details are removed from
   player views.
 - Item definitions remain visible to a player when required to render an item
   already owned by the assigned character, even if the catalog definition is
-  no longer generally published.
+  no longer available to that sheet. Otherwise `all` or selected stable
+  instance access determines visibility. The private item allow-list is
+  removed from every player snapshot and patch.
 - Action history and active condition/effect applications are filtered and may
   be reduced to player-safe content.
 

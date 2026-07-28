@@ -5,6 +5,66 @@ from collections.abc import Mapping
 from backend.state.models.item import Item, ItemBridge
 
 
+def _children_by_parent(
+    inventory: Mapping[str, ItemBridge],
+) -> dict[str, list[str]]:
+    children: dict[str, list[str]] = {}
+    for relationship_id, bridge in inventory.items():
+        parent_id = bridge.parent_container_id
+        if parent_id in inventory and parent_id != relationship_id:
+            children.setdefault(parent_id, []).append(relationship_id)
+    return children
+
+
+def calculate_container_contents_weights(
+    inventory: Mapping[str, ItemBridge],
+    item_definitions: Mapping[str, Item],
+) -> dict[str, float]:
+    """Project each container's effective stored weight in pounds.
+
+    A nested weight-negating container contributes only its own weight to its
+    parent. Its own capacity still measures the effective weight of the entries
+    stored directly inside it.
+    """
+
+    children = _children_by_parent(inventory)
+
+    def contribution(relationship_id: str, active: set[str]) -> float:
+        if relationship_id in active:
+            return 0.0
+        bridge = inventory.get(relationship_id)
+        if bridge is None:
+            return 0.0
+        definition = item_definitions.get(bridge.item_id)
+        if definition is None:
+            return 0.0
+        next_active = {*active, relationship_id}
+        own_weight = definition.weight * bridge.count
+        if (
+            definition.can_contain_items
+            and definition.contents_weight_behavior == "ignored"
+        ):
+            return own_weight
+        return own_weight + sum(
+            contribution(child_id, next_active)
+            for child_id in children.get(relationship_id, [])
+        )
+
+    projected: dict[str, float] = {}
+    for relationship_id, bridge in inventory.items():
+        definition = item_definitions.get(bridge.item_id)
+        if definition is None or not definition.can_contain_items:
+            continue
+        projected[relationship_id] = round(
+            sum(
+                contribution(child_id, {relationship_id})
+                for child_id in children.get(relationship_id, [])
+            ),
+            10,
+        )
+    return projected
+
+
 def validate_inventory(
     inventory: Mapping[str, ItemBridge],
     item_definitions: Mapping[str, Item],
@@ -65,6 +125,20 @@ def validate_inventory(
     for relationship_id in inventory:
         visit(relationship_id)
 
+    contents_weights = calculate_container_contents_weights(
+        inventory,
+        item_definitions,
+    )
+    for relationship_id, contents_weight in contents_weights.items():
+        bridge = inventory[relationship_id]
+        definition = item_definitions[bridge.item_id]
+        capacity = definition.storage_capacity_weight
+        if capacity is not None and contents_weight > capacity + 1e-9:
+            raise ValueError(
+                f"Storage container '{definition.name}' is over capacity: "
+                f"{contents_weight:g} lb stored exceeds its {capacity:g} lb limit."
+            )
+
 
 def calculate_carried_weight(
     inventory: Mapping[str, ItemBridge],
@@ -72,11 +146,7 @@ def calculate_carried_weight(
 ) -> float:
     """Calculate weight in pounds with containment and cycle protection."""
 
-    children_by_parent: dict[str, list[str]] = {}
-    for relationship_id, bridge in inventory.items():
-        parent_id = bridge.parent_container_id
-        if parent_id in inventory and parent_id != relationship_id:
-            children_by_parent.setdefault(parent_id, []).append(relationship_id)
+    children_by_parent = _children_by_parent(inventory)
 
     counted: set[str] = set()
 

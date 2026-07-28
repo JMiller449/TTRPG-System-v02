@@ -442,7 +442,7 @@ Weapons provide:
 - One or more physical damage types
 - A reach
 - A weapon type
-- A proficiency growth rate
+- A proficiency reference whose definition owns the growth rate
 - Optional stat bonuses, skills, traits, or special effects
 
 A weapon skill may only be used while the required weapon is equipped unless the skill explicitly says otherwise.
@@ -618,7 +618,9 @@ Examples:
 - Casting a spell that is Dodged can still increase spell proficiency.
 - Attempting a skill check and failing can still increase skill proficiency.
 
-Each weapon, skill, or spell has its own proficiency growth rate.
+Each weapon, skill, or spell references a proficiency definition. That
+definition owns the growth rate shared by qualifying actions and equipment;
+the item or action does not duplicate the rate.
 
 Examples:
 
@@ -807,7 +809,7 @@ A spell entry should normally list:
 - Range
 - Area of effect, if any
 - Overload modifier
-- Proficiency growth rate
+- Proficiency reference (including its configured growth rate)
 - Special effects
 - Prerequisites
 

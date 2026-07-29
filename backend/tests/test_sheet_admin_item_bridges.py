@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.item import Item, ItemBridge
+from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -85,6 +86,30 @@ def _item_payload(item_id: str = "sword") -> dict:
         "price": "10g",
         "weight": 3,
         "augmentation_templates": [],
+    }
+
+
+def _weapon_item_payload(
+    item_id: str = "axe",
+    proficiency_id: str = "axes",
+) -> dict:
+    return {
+        **_item_payload(item_id),
+        "attribute_profile": "weapon",
+        "attributes": {
+            "weapon_proficiency": {
+                "relationship_id": "weapon-prof",
+                "attribute_id": "weapon_proficiency",
+                "value": {"type": "reference", "value": proficiency_id},
+                "evaluated_value": proficiency_id,
+            },
+            "weapon_proficiency_growth_rate": {
+                "relationship_id": "weapon-growth",
+                "attribute_id": "weapon_proficiency_growth_rate",
+                "value": {"type": "number", "value": 0.25},
+                "evaluated_value": 0.25,
+            },
+        },
     }
 
 
@@ -263,6 +288,105 @@ def test_nonempty_instance_container_cannot_be_removed(monkeypatch) -> None:
             )
             assert "Empty a storage container" in websocket.sent_messages[-1]["reason"]
             assert "bag-entry" in state.instanced_sheets["mage"].items
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_instanced_item_create_and_update_add_equipped_weapon_proficiency(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            sheet = Sheet.from_dict(_sheet_payload())
+            state.sheets[sheet.id] = sheet
+            state.proficiencies["axes"] = Proficiency(
+                id="axes",
+                name="Axes",
+                description="Axe proficiency.",
+            )
+            state.items["axe"] = Item.from_dict(_weapon_item_payload())
+            state.items["sword"] = Item.from_dict(_item_payload())
+            state.instanced_sheets["created-item-instance"] = _instance_with_items(
+                sheet,
+                {},
+            )
+            state.instanced_sheets["updated-item-instance"] = _instance_with_items(
+                sheet,
+                {
+                    "main-hand": _bridge_payload(
+                        relationship_id="main-hand",
+                        equipped=False,
+                    )
+                },
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_instanced_sheet_item_bridge",
+                    "instance_id": "created-item-instance",
+                    "bridge": _bridge_payload(
+                        relationship_id="main-hand",
+                        item_id="axe",
+                    ),
+                },
+            )
+
+            created_instance = state.instanced_sheets["created-item-instance"]
+            created_proficiency = created_instance.proficiencies[
+                "weapon_proficiency_axes"
+            ]
+            assert created_proficiency.prof_id == "axes"
+            assert created_proficiency.use_count == 0
+            assert created_proficiency.growth_rate == 0.25
+            assert any(
+                op["path"]
+                == (
+                    "/instanced_sheets/created-item-instance/"
+                    "proficiencies/weapon_proficiency_axes"
+                )
+                for op in websocket.sent_messages[0]["ops"]
+            )
+
+            websocket.sent_messages.clear()
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_instanced_sheet_item_bridge",
+                    "instance_id": "updated-item-instance",
+                    "relationship_id": "main-hand",
+                    "bridge": _bridge_payload(
+                        relationship_id="main-hand",
+                        item_id="axe",
+                    ),
+                },
+            )
+
+            updated_instance = state.instanced_sheets["updated-item-instance"]
+            updated_proficiency = updated_instance.proficiencies[
+                "weapon_proficiency_axes"
+            ]
+            assert updated_proficiency.prof_id == "axes"
+            assert updated_proficiency.use_count == 0
+            assert updated_proficiency.growth_rate == 0.25
+            assert any(
+                op["path"]
+                == (
+                    "/instanced_sheets/updated-item-instance/"
+                    "proficiencies/weapon_proficiency_axes"
+                )
+                for op in websocket.sent_messages[0]["ops"]
+            )
+            assert state.sheets[sheet.id].proficiencies == {}
         finally:
             StateSingleton._state = original_state
 

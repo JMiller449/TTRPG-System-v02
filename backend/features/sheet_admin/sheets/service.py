@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
+from typing import Literal
 
 from backend.features.sheet_admin.formulas.service import (
     build_formula,
@@ -601,7 +602,10 @@ def _valid_weapon_proficiency_values(
     return proficiency_id, float(growth_rate)
 
 
-def _weapon_proficiency_relationship_id(sheet: Sheet, proficiency_id: str) -> str:
+def _weapon_proficiency_relationship_id(
+    sheet: Sheet | InstancedSheet,
+    proficiency_id: str,
+) -> str:
     base = f"weapon_proficiency_{proficiency_id}"
     if base not in sheet.proficiencies:
         return base
@@ -622,8 +626,9 @@ def _add_weapon_proficiency_bridge_mutations(
     state: State,
     *,
     sheet_id: str,
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     item_bridge: ItemBridge,
+    root_path: Literal["sheets", "instanced_sheets"],
 ) -> list:
     if not item_bridge.equipped:
         return []
@@ -642,7 +647,7 @@ def _add_weapon_proficiency_bridge_mutations(
         growth_rate=growth_rate,
     )
     path = state_sync_service.join_path(
-        "sheets",
+        root_path,
         sheet_id,
         "proficiencies",
         relationship_id,
@@ -1336,6 +1341,7 @@ async def attach_sheet_item(request: CreateSheetItemBridge) -> None:
             sheet_id=request.sheet_id,
             sheet=sheet,
             item_bridge=bridge,
+            root_path="sheets",
         )
         return None, [op, *proficiency_ops]
 
@@ -1371,6 +1377,7 @@ async def update_attached_sheet_item(request: UpdateSheetItemBridge) -> None:
             sheet_id=request.sheet_id,
             sheet=sheet,
             item_bridge=bridge,
+            root_path="sheets",
         )
         return None, [op, *proficiency_ops]
 
@@ -1425,7 +1432,15 @@ async def attach_instanced_sheet_item(
             "items",
             request.bridge.relationship_id,
         )
-        return None, [state_sync_service.add_mutation(state, path, bridge)]
+        op = state_sync_service.add_mutation(state, path, bridge)
+        proficiency_ops = _add_weapon_proficiency_bridge_mutations(
+            state,
+            sheet_id=request.instance_id,
+            sheet=instance,
+            item_bridge=bridge,
+            root_path="instanced_sheets",
+        )
+        return None, [op, *proficiency_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -1453,7 +1468,15 @@ async def update_instanced_sheet_item(
             "items",
             request.relationship_id,
         )
-        return None, [state_sync_service.set_mutation(state, path, bridge)]
+        op = state_sync_service.set_mutation(state, path, bridge)
+        proficiency_ops = _add_weapon_proficiency_bridge_mutations(
+            state,
+            sheet_id=request.instance_id,
+            sheet=instance,
+            item_bridge=bridge,
+            root_path="instanced_sheets",
+        )
+        return None, [op, *proficiency_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 

@@ -26,6 +26,9 @@ from backend.features.formula_runtime.service import (
     resolve_roll_mode,
 )
 from backend.features.session.models import SessionRole
+from backend.features.sheet_admin.sheets.service import (
+    _add_weapon_proficiency_bridge_mutations,
+)
 from backend.features.sheet_runtime.schema import (
     ActionExecuted,
     ApplyInstancedSheetDamage,
@@ -1323,7 +1326,14 @@ async def set_instanced_sheet_item_equipped(
             "equipped",
         )
         op = state_sync_service.set_mutation(state, path, request.equipped)
-        return None, [op]
+        proficiency_ops = _add_weapon_proficiency_bridge_mutations(
+            state,
+            sheet_id=request.instance_id,
+            sheet=instance,
+            item_bridge=bridge,
+            root_path="instanced_sheets",
+        )
+        return None, [op, *proficiency_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 

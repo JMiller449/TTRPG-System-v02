@@ -442,7 +442,27 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
                     "description": "",
                     "price": "",
                     "weight": 0,
+                    "attribute_profile": "weapon",
+                    "attributes": {
+                        "weapon_proficiency": {
+                            "relationship_id": "weapon-prof",
+                            "attribute_id": "weapon_proficiency",
+                            "value": {"type": "reference", "value": "axes"},
+                            "evaluated_value": "axes",
+                        },
+                        "weapon_proficiency_growth_rate": {
+                            "relationship_id": "weapon-growth",
+                            "attribute_id": "weapon_proficiency_growth_rate",
+                            "value": {"type": "number", "value": 0.25},
+                            "evaluated_value": 0.25,
+                        },
+                    },
                 }
+            )
+            state.proficiencies["axes"] = Proficiency(
+                id="axes",
+                name="Axes",
+                description="Axe proficiency.",
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
@@ -463,6 +483,26 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
             assert not state.sheets["mage_template"].items["sword"].equipped
             assert websocket.sent_messages[0]["ops"][0]["path"] == (
                 "/instanced_sheets/mage_instance/items/sword/equipped"
+            )
+            proficiency = state.instanced_sheets["mage_instance"].proficiencies[
+                "weapon_proficiency_axes"
+            ]
+            assert proficiency.prof_id == "axes"
+            assert proficiency.use_count == 0
+            assert proficiency.growth_rate == 0.25
+            assert any(
+                op["path"]
+                == (
+                    "/instanced_sheets/mage_instance/"
+                    "proficiencies/weapon_proficiency_axes"
+                )
+                for op in websocket.sent_messages[0]["ops"]
+            )
+            assert "weapon_proficiency_axes" not in (
+                state.instanced_sheets["other_instance"].proficiencies
+            )
+            assert "weapon_proficiency_axes" not in (
+                state.sheets["mage_template"].proficiencies
             )
 
             await handle_client_payload(

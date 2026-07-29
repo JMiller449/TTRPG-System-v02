@@ -16,7 +16,8 @@ import {
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
@@ -36,6 +37,11 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
     () => selectOrderedFormulaDefinitions(formulaRecords, formulaOrder),
     [formulaOrder, formulaRecords]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "formulas",
+    client,
+    entries: formulaRecords
+  });
 
   useEffect(() => {
     if (actionFormulaAuthoringMetadata || requestedMetadataRef.current) {
@@ -47,7 +53,8 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
     client.sendProtocolRequest(submission.request, submission.label);
   }, [actionFormulaAuthoringMetadata, client]);
 
-  const startNewFormula = (): void => {
+  const startNewFormula = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingFormulaId(null);
     setValues(createEmptyFormulaEditorValues());
   };
@@ -57,14 +64,18 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
       return;
     }
 
+    const formulaId = editingFormulaId ?? makeId("formula");
     const submission = editingFormulaId
       ? buildUpdateFormulaSubmission(formulaRecords[editingFormulaId], values)
-      : buildCreateFormulaSubmission(values, makeId("formula"));
+      : buildCreateFormulaSubmission(values, formulaId);
     if (!submission) {
       return;
     }
 
     client.sendProtocolRequest(submission.request, submission.label);
+    if (!editingFormulaId) {
+      queueCreatedEntry(formulaId);
+    }
     startNewFormula();
   };
 
@@ -93,7 +104,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
       actions={
         editingFormulaId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" onClick={startNewFormula}>
+            <button className="button button--secondary" onClick={() => startNewFormula()}>
               New Formula
             </button>
             <button
@@ -109,15 +120,20 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
       <CatalogEditorLayout
         catalogLabel="Formula Catalog"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="formulas"
+            client={client}
             items={formulas.map((formula) => ({ id: formula.id, name: formula.id }))}
             selectedId={editingFormulaId}
+            entityLabel="formula"
             emptyMessage="No formulas created yet."
+            onCreateEntry={startNewFormula}
             onSelect={(formulaId) => {
               const formula = formulaRecords[formulaId];
               if (!formula) {
                 return;
               }
+              beginCreation(null);
               setEditingFormulaId(formula.id);
               setValues(toFormulaEditorValues(formula));
             }}

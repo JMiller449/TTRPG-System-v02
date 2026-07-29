@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  addFormulaTags,
   COMMON_FORMULA_TAGS,
-  normalizeFormulaTags,
-  removeFormulaTag
+  normalizeFormulaTags
 } from "@/features/formulas/formulaTags";
 
 describe("formulaTags", () => {
@@ -13,15 +11,6 @@ describe("formulaTags", () => {
       "fire",
       "spell attack"
     ]);
-  });
-
-  it("adds comma-separated custom tags and removes normalized matches", () => {
-    expect(addFormulaTags(["damage"], " Fire, spell   attack, DAMAGE ")).toEqual([
-      "damage",
-      "fire",
-      "spell attack"
-    ]);
-    expect(removeFormulaTag(["damage", "fire"], " FIRE ")).toEqual(["damage"]);
   });
 
   it("provides semantic and canonical damage-type suggestions", () => {

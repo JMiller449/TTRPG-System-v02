@@ -5,9 +5,8 @@ import { selectAuthoritativeProficiencies } from "@/features/items/proficiencyOp
 import { createEmptyItemValues } from "@/features/items/itemEditorValues";
 
 describe("ItemAttributesEditor", () => {
-  it("renders backend-declared profiles and proficiency reference choices", () => {
+  it("renders attached Attributes and proficiency reference choices", () => {
     const values = createEmptyItemValues();
-    values.attributeProfile = "weapon";
     values.attributes.weapon_proficiency = {
       relationship_id: "required_attribute_weapon_proficiency",
       attribute_id: "weapon_proficiency",
@@ -27,8 +26,7 @@ describe("ItemAttributesEditor", () => {
             value_type: "reference",
             default_value: { type: "reference", value: "" },
             reference_kind: "proficiency",
-            required: true,
-            required_profile: "weapon"
+            required: false
           }
         }}
         proficiencies={{
@@ -44,16 +42,14 @@ describe("ItemAttributesEditor", () => {
       />
     );
 
-    expect(markup).toContain("Attribute profile");
-    expect(markup).toContain('value="weapon" selected=""');
+    expect(markup).toContain("Attach named values");
     expect(markup).toContain("Proficiency");
-    expect(markup).toContain('value="long_swords" selected=""');
-    expect(markup).toContain("Required");
+    expect(markup).toContain('placeholder="Search proficiency catalog"');
+    expect(markup).toContain('value="Long Swords"');
   });
 
   it("does not offer missing proficiency references as selectable choices", () => {
     const values = createEmptyItemValues();
-    values.attributeProfile = "weapon";
     values.attributes.weapon_proficiency = {
       relationship_id: "required_attribute_weapon_proficiency",
       attribute_id: "weapon_proficiency",
@@ -73,8 +69,7 @@ describe("ItemAttributesEditor", () => {
             value_type: "reference",
             default_value: { type: "reference", value: "" },
             reference_kind: "proficiency",
-            required: true,
-            required_profile: "weapon"
+            required: false
           }
         }}
         proficiencies={{}}
@@ -83,11 +78,11 @@ describe("ItemAttributesEditor", () => {
       />
     );
 
-    expect(markup).toContain("No options available");
+    expect(markup).toContain('placeholder="Search proficiency catalog"');
     expect(markup).toContain("Missing proficiency reference: deleted_proficiency");
     expect(markup).toContain("Select a valid replacement");
     expect(markup).not.toContain("Save Value");
-    expect(markup).toContain("disabled");
+    expect(markup).toContain('value=""');
     expect(markup).not.toContain('value="deleted_proficiency"');
   });
 

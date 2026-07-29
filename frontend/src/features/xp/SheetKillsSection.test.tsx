@@ -133,18 +133,24 @@ describe("SheetKillsSection player recording", () => {
     await renderSection();
     sendProtocolRequest.mockClear();
 
-    const select = container.querySelector("select");
+    const select = container.querySelector<HTMLInputElement>('[role="combobox"]');
     const form = container.querySelector("form");
     expect(select).not.toBeNull();
     expect(form).not.toBeNull();
-    expect(container.textContent).toContain("Goblin");
     expect(container.textContent).not.toContain("100 XP");
 
     await act(async () => {
       if (!select || !form) return;
-      select.value = "goblin";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      select.focus();
+      select.click();
+      await Promise.resolve();
+    });
+    const goblinOption = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent?.includes("Goblin")
+    );
+    await act(async () => goblinOption?.click());
+    await act(async () => {
+      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
 
     const request = sendProtocolRequest.mock.calls[0]?.[0] as {
@@ -170,20 +176,27 @@ describe("SheetKillsSection player recording", () => {
       });
     });
     expect(select?.disabled).toBe(false);
-    expect(select?.value).toBe("goblin");
+    expect(select?.value).toBe("Goblin");
   });
 
   it("clears the selection after the matching successful tracker response", async () => {
     await renderSection();
     sendProtocolRequest.mockClear();
-    const select = container.querySelector("select");
+    const select = container.querySelector<HTMLInputElement>('[role="combobox"]');
     const form = container.querySelector("form");
 
     await act(async () => {
       if (!select || !form) return;
-      select.value = "goblin";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      select.focus();
+      select.click();
+      await Promise.resolve();
+    });
+    const goblinOption = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent?.includes("Goblin")
+    );
+    await act(async () => goblinOption?.click());
+    await act(async () => {
+      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
     const requestId = sendProtocolRequest.mock.calls[0]?.[0].request_id as string;
 

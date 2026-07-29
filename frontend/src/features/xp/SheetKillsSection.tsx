@@ -6,8 +6,8 @@ import {
   buildRecordPlayerKillRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { Field } from "@/shared/ui/Field";
 import { makeId } from "@/shared/utils/id";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 function formatXp(value: number): string {
   return value.toFixed(2).replace(/\.00$/, "");
@@ -79,20 +79,20 @@ export function SheetKillsSection({
             );
           }}
         >
-          <Field label="Defeated enemy">
-            <select
-              value={selectedMobId}
-              disabled={pendingRequestId !== null}
-              onChange={(event) => setSelectedMobId(event.target.value)}
-            >
-              <option value="">Select enemy</option>
-              {xpTracker.recordable_mobs.map((mob) => (
-                <option key={mob.sheet_id} value={mob.sheet_id}>
-                  {mob.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="sheet_templates"
+            label="Defeated enemy"
+            placeholder="Search enemy templates"
+            selectedId={selectedMobId}
+            disabled={pendingRequestId !== null}
+            options={xpTracker.recordable_mobs.map((mob) => ({
+              id: mob.sheet_id,
+              label: mob.name,
+              value: mob.sheet_id
+            }))}
+            emptyMessage="No enemies are currently available."
+            onSelect={setSelectedMobId}
+          />
           <button
             className="button button--primary"
             type="submit"

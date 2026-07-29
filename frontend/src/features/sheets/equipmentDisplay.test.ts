@@ -64,13 +64,6 @@ const weaponAttributeDefinitions: Record<string, AttributeDefinition> = {
     default_value: { type: "reference", value: "" },
     reference_kind: "proficiency"
   },
-  weapon_proficiency_growth_rate: {
-    id: "weapon_proficiency_growth_rate",
-    name: "Weapon Proficiency Growth Rate",
-    subject_types: ["item"],
-    value_type: "number",
-    default_value: { type: "number", value: 0 }
-  },
   weapon_reach: {
     id: "weapon_reach",
     name: "Weapon Reach",
@@ -148,11 +141,6 @@ describe("equipmentDisplay", () => {
               attribute_id: "weapon_proficiency",
               value: { type: "reference", value: "longsword" }
             },
-            weapon_proficiency_growth_rate: {
-              relationship_id: "item_attr_growth",
-              attribute_id: "weapon_proficiency_growth_rate",
-              value: { type: "number", value: 0.5 }
-            },
             weapon_reach: {
               relationship_id: "item_attr_reach",
               attribute_id: "weapon_reach",
@@ -170,6 +158,6 @@ describe("equipmentDisplay", () => {
           }
         }
       )
-    ).toEqual(["Proficiency: Longsword", "Growth: 0.5", "Reach: 5"]);
+    ).toEqual(["Proficiency: Longsword", "Reach: 5"]);
   });
 });

@@ -18,7 +18,8 @@ import {
 import type { GameClient } from "@/hooks/useGameClient";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
@@ -47,6 +48,11 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
     () => selectOrderedStandaloneEffects(standaloneEffects, standaloneEffectOrder),
     [standaloneEffectOrder, standaloneEffects]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "effects",
+    client,
+    entries: standaloneEffects
+  });
   const selectorOptions = useMemo(
     () =>
       buildAugmentationSelectorOptions({
@@ -103,7 +109,8 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
     setValues(createEmptyAugmentationEditorValues());
   }, [editingEffectId, standaloneEffects]);
 
-  const startNewEffect = (): void => {
+  const startNewEffect = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingEffectId(null);
     setPendingCreatedEffectId(null);
     setValues(createEmptyAugmentationEditorValues());
@@ -120,6 +127,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
     client.sendProtocolRequest(submission.request, submission.label);
     if (!editingEffectId) {
       setPendingCreatedEffectId(effectId);
+      queueCreatedEntry(effectId);
     }
   };
 
@@ -146,7 +154,11 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
       actions={
         editingEffectId || pendingCreatedEffectId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" type="button" onClick={startNewEffect}>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => startNewEffect()}
+            >
               New Effect
             </button>
             {editingEffectId ? (
@@ -165,15 +177,20 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
       <CatalogEditorLayout
         catalogLabel="Effect Catalog"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="effects"
+            client={client}
             items={orderedEffects.map((effect) => ({ id: effect.id, name: effect.name }))}
             selectedId={editingEffectId}
+            entityLabel="effect"
             emptyMessage="No effects created yet."
+            onCreateEntry={startNewEffect}
             onSelect={(effectId) => {
               const effect = standaloneEffects[effectId];
               if (!effect) {
                 return;
               }
+              beginCreation(null);
               setEditingEffectId(effect.id);
               setPendingCreatedEffectId(null);
               setValues(toAugmentationEditorValues(effect));

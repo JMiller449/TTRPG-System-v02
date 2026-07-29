@@ -1,6 +1,7 @@
 import type { SheetTemplateView } from "@/domain/models";
 import type { DraftEncounterEntry } from "@/features/encounters/encounterDraft";
 import { Field } from "@/shared/ui/Field";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 export function EncounterEntryRow({
   entry,
@@ -17,16 +18,20 @@ export function EncounterEntryRow({
 }): JSX.Element {
   return (
     <div className="inline-group encounter-entry-row">
-      <Field label={`Enemy Template ${index + 1}`}>
-        <select value={entry.templateId} onChange={(event) => onChange(entry.id, { templateId: event.target.value })}>
-          <option value="">Select template</option>
-          {templateOptions.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <CatalogEntityPicker
+        catalog="sheet_templates"
+        label={`Enemy Template ${index + 1}`}
+        placeholder="Search template catalog"
+        selectedId={entry.templateId}
+        options={templateOptions.map((template) => ({
+          id: template.id,
+          label: template.name,
+          secondary: template.kind,
+          value: template.id
+        }))}
+        emptyMessage="No enemy templates available."
+        onSelect={(templateId) => onChange(entry.id, { templateId })}
+      />
 
       <Field label="Count">
         <input

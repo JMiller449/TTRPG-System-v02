@@ -18,7 +18,6 @@ AttributeStoredValueType = Literal[
     "number", "formula", "boolean", "text", "enum", "reference", "list"
 ]
 AttributeVisibility = Literal["public", "gm_only"]
-AttributeProfile = Literal["weapon"]
 EvaluatedAttributeValue = float | int | bool | str | list[str] | None
 
 AMOUNT_OF_REACTIONS_ATTRIBUTE_ID = "amount_of_reactions"
@@ -39,14 +38,10 @@ ACTION_REACTION_POINT_FORMULA_TEXT = (
     " + min(1, floor(max(0, @reaction_time) / 340))"
     " + 4 * min(1, floor(max(0, @reaction_time) / 400))"
 )
-WEAPON_ATTRIBUTE_PROFILE = "weapon"
-WEAPON_TYPE_ATTRIBUTE_ID = "weapon_type"
 WEAPON_BASE_DAMAGE_ATTRIBUTE_ID = "weapon_base_damage"
 WEAPON_GOVERNING_STAT_ATTRIBUTE_ID = "weapon_governing_stat"
-WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID = "weapon_damage_types"
 WEAPON_REACH_ATTRIBUTE_ID = "weapon_reach"
 WEAPON_PROFICIENCY_ATTRIBUTE_ID = "weapon_proficiency"
-WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID = "weapon_proficiency_growth_rate"
 LEVEL_ATTRIBUTE_ID = "level"
 MOVEMENT_ATTRIBUTE_ID = "movement"
 MANA_REGENERATION_ATTRIBUTE_ID = "mana_regeneration"
@@ -56,13 +51,10 @@ ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID = "item_flat_effect_bonus"
 ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID = "item_mana_regeneration_modifier"
 
 WEAPON_ATTRIBUTE_IDS = (
-    WEAPON_TYPE_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
-    WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
 )
 ACTION_RANK_ATTRIBUTE_ID = "action_rank"
 ACTION_RANGE_ATTRIBUTE_ID = "action_range"
@@ -130,7 +122,7 @@ class AttributeDefinition:
     validation_options: list[str] = field(default_factory=list)
     reference_kind: str | None = None
     required: bool = False
-    required_profile: AttributeProfile | None = None
+    required_profile: Literal["weapon"] | None = None
     backend_owned: bool = False
 
     @classmethod
@@ -204,19 +196,11 @@ def weapon_attribute_definitions() -> dict[str, AttributeDefinition]:
     shared = {
         "subject_types": ["item"],
         "visibility": "public",
-        "required": True,
-        "required_profile": WEAPON_ATTRIBUTE_PROFILE,
+        "required": False,
+        "required_profile": None,
         "backend_owned": True,
     }
     definitions = (
-        AttributeDefinition(
-            id=WEAPON_TYPE_ATTRIBUTE_ID,
-            name="Weapon Type",
-            description="Authored weapon family or form, such as Sword or Bow.",
-            value_type="text",
-            default_value=AttributeValue(type="text", value=""),
-            **shared,
-        ),
         AttributeDefinition(
             id=WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
             name="Base Damage",
@@ -243,15 +227,6 @@ def weapon_attribute_definitions() -> dict[str, AttributeDefinition]:
             **shared,
         ),
         AttributeDefinition(
-            id=WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
-            name="Physical Damage Types",
-            description="Physical damage types this weapon can deal.",
-            value_type="list",
-            default_value=AttributeValue(type="list", value=[]),
-            validation_options=list(PHYSICAL_DAMAGE_TYPES),
-            **shared,
-        ),
-        AttributeDefinition(
             id=WEAPON_REACH_ATTRIBUTE_ID,
             name="Reach",
             description="Authored reach for display and future eligible actions.",
@@ -268,21 +243,13 @@ def weapon_attribute_definitions() -> dict[str, AttributeDefinition]:
             reference_kind="proficiency",
             **shared,
         ),
-        AttributeDefinition(
-            id=WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
-            name="Proficiency Growth Rate",
-            description="Growth rate supplied when this weapon grants proficiency use.",
-            value_type="number",
-            default_value=AttributeValue(type="number", value=0),
-            **shared,
-        ),
     )
     return {definition.id: definition for definition in definitions}
 
 
 def required_attribute_definitions() -> dict[str, AttributeDefinition]:
     definition = amount_of_reactions_definition()
-    return {definition.id: definition, **weapon_attribute_definitions()}
+    return {definition.id: definition}
 
 
 def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
@@ -484,6 +451,7 @@ def item_attribute_definitions() -> dict[str, AttributeDefinition]:
 def backend_attribute_definitions() -> dict[str, AttributeDefinition]:
     return {
         **required_attribute_definitions(),
+        **weapon_attribute_definitions(),
         **sheet_attribute_definitions(),
         **action_attribute_definitions(),
         **item_attribute_definitions(),
@@ -668,21 +636,4 @@ def synchronize_required_item_attributes(
     item: Any,
     definitions: dict[str, AttributeDefinition],
 ) -> None:
-    active_profile = item.attribute_profile
-    for attribute_id, definition in definitions.items():
-        if definition.required_profile is None:
-            continue
-        if definition.required_profile != active_profile:
-            item.attributes.pop(attribute_id, None)
-            continue
-        bridge = item.attributes.get(attribute_id)
-        if bridge is None:
-            bridge = AttributeBridge(
-                relationship_id=f"required_attribute_{attribute_id}",
-                attribute_id=attribute_id,
-                value=deepcopy(definition.default_value),
-            )
-            item.attributes[attribute_id] = bridge
-        bridge.attribute_id = attribute_id
-        bridge.relationship_id = f"required_attribute_{attribute_id}"
     evaluate_all_subject_attributes(item)

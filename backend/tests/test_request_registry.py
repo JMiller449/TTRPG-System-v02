@@ -86,6 +86,10 @@ def test_request_registry_exposes_registered_request_models() -> None:
         "DeleteEncounterPreset",
         "SpawnEncounterPreset",
         "UndoLastStateChange",
+        "CreateCatalogFolder",
+        "RenameCatalogFolder",
+        "MoveCatalogNode",
+        "DeleteCatalogFolder",
     }.issubset(model_names)
 
 

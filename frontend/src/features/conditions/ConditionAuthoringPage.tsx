@@ -28,7 +28,8 @@ import {
 } from "@/features/conditions/conditionEditorValues";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
@@ -63,6 +64,11 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     () => selectOrderedConditionPresets(conditionPresets, conditionPresetOrder),
     [conditionPresetOrder, conditionPresets]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "conditions",
+    client,
+    entries: conditionPresets
+  });
   const selectorOptions = useMemo(
     () =>
       buildAugmentationSelectorOptions({
@@ -127,7 +133,8 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     setEffectEditorOpen(false);
   };
 
-  const startNewCondition = (): void => {
+  const startNewCondition = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingConditionId(null);
     setPendingCreatedConditionId(null);
     setValues(createEmptyConditionPresetEditorValues());
@@ -146,6 +153,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     client.sendProtocolRequest(submission.request, submission.label);
     if (!editingConditionId) {
       setPendingCreatedConditionId(conditionId);
+      queueCreatedEntry(conditionId);
     }
   };
 
@@ -212,7 +220,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
       actions={
         editingConditionId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" onClick={startNewCondition}>
+            <button className="button button--secondary" onClick={() => startNewCondition()}>
               New Condition
             </button>
             <button
@@ -228,15 +236,20 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
       <CatalogEditorLayout
         catalogLabel="Condition Catalog"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="conditions"
+            client={client}
             items={conditions.map((condition) => ({ id: condition.id, name: condition.name }))}
             selectedId={editingConditionId}
+            entityLabel="condition"
             emptyMessage="No conditions created yet."
+            onCreateEntry={startNewCondition}
             onSelect={(conditionId) => {
               const condition = conditionPresets[conditionId];
               if (!condition) {
                 return;
               }
+              beginCreation(null);
               setEditingConditionId(condition.id);
               setPendingCreatedConditionId(null);
               setValues(toConditionPresetEditorValues(condition));

@@ -45,6 +45,7 @@ export type AttributeDefinitionPayload = ProtocolRequest<"create_attribute">["at
 export type FormulaDefinitionPayload = ProtocolRequest<"create_formula">["formula"];
 export type ActionDefinitionPayload = ProtocolRequest<"create_action">["action"];
 export type ProficiencyDefinitionPayload = ProtocolRequest<"create_proficiency">["proficiency"];
+export type TagDefinitionPayload = ProtocolRequest<"create_tag">["tag"];
 export type ConditionPresetPayload = ProtocolRequest<"create_condition_preset">["condition"];
 export type StandaloneEffectDefinitionPayload =
   ProtocolRequest<"create_standalone_effect">["effect"];
@@ -56,6 +57,7 @@ export type ActionExecutionVisibility = NonNullable<
 export type AugmentationTargetContext = NonNullable<
   ProtocolRequest<"get_augmentation_target_metadata">["context"]
 >;
+export type CatalogKey = ProtocolRequest<"create_catalog_folder">["catalog"];
 
 export function buildAuthenticateRequest({
   token,
@@ -67,6 +69,82 @@ export function buildAuthenticateRequest({
     ...requestIdField(requestId),
     type: "authenticate",
     token
+  };
+}
+
+export function buildCreateCatalogFolderRequest({
+  folderId,
+  catalog,
+  name,
+  parentId,
+  requestId
+}: {
+  folderId: string;
+  catalog: CatalogKey;
+  name: string;
+  parentId?: string | null;
+} & OptionalRequestId): ProtocolRequest<"create_catalog_folder"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_catalog_folder",
+    folder_id: folderId,
+    catalog,
+    name,
+    parent_id: parentId ?? null
+  };
+}
+
+export function buildRenameCatalogFolderRequest({
+  folderId,
+  name,
+  requestId
+}: {
+  folderId: string;
+  name: string;
+} & OptionalRequestId): ProtocolRequest<"rename_catalog_folder"> {
+  return {
+    ...requestIdField(requestId),
+    type: "rename_catalog_folder",
+    folder_id: folderId,
+    name
+  };
+}
+
+export function buildMoveCatalogNodeRequest({
+  catalog,
+  nodeType,
+  nodeId,
+  parentId,
+  position,
+  requestId
+}: {
+  catalog: CatalogKey;
+  nodeType: "folder" | "entry";
+  nodeId: string;
+  parentId?: string | null;
+  position?: number | null;
+} & OptionalRequestId): ProtocolRequest<"move_catalog_node"> {
+  return {
+    ...requestIdField(requestId),
+    type: "move_catalog_node",
+    catalog,
+    node_type: nodeType,
+    node_id: nodeId,
+    parent_id: parentId ?? null,
+    ...(position === undefined ? {} : { position })
+  };
+}
+
+export function buildDeleteCatalogFolderRequest({
+  folderId,
+  requestId
+}: {
+  folderId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_catalog_folder"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_catalog_folder",
+    folder_id: folderId
   };
 }
 
@@ -1529,6 +1607,48 @@ export function buildDeleteItemRequest({
   };
 }
 
+export function buildCreateItemTemplateRequest({
+  template,
+  requestId
+}: {
+  template: ItemDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_item_template"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_item_template",
+    template
+  };
+}
+
+export function buildUpdateItemTemplateRequest({
+  templateId,
+  template,
+  requestId
+}: {
+  templateId: string;
+  template: ItemDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_item_template"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_item_template",
+    template_id: templateId,
+    template
+  };
+}
+
+export function buildDeleteItemTemplateRequest({
+  templateId,
+  requestId
+}: {
+  templateId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_item_template"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_item_template",
+    template_id: templateId
+  };
+}
+
 export function buildAddPlayerInventoryItemRequest({
   itemId,
   requestId
@@ -1623,6 +1743,48 @@ export function buildDeleteProficiencyRequest({
     ...requestIdField(requestId),
     type: "delete_proficiency",
     proficiency_id: proficiencyId
+  };
+}
+
+export function buildCreateTagRequest({
+  tag,
+  requestId
+}: {
+  tag: TagDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"create_tag"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_tag",
+    tag
+  };
+}
+
+export function buildUpdateTagRequest({
+  tagId,
+  tag,
+  requestId
+}: {
+  tagId: string;
+  tag: TagDefinitionPayload;
+} & OptionalRequestId): ProtocolRequest<"update_tag"> {
+  return {
+    ...requestIdField(requestId),
+    type: "update_tag",
+    tag_id: tagId,
+    tag
+  };
+}
+
+export function buildDeleteTagRequest({
+  tagId,
+  requestId
+}: {
+  tagId: string;
+} & OptionalRequestId): ProtocolRequest<"delete_tag"> {
+  return {
+    ...requestIdField(requestId),
+    type: "delete_tag",
+    tag_id: tagId
   };
 }
 

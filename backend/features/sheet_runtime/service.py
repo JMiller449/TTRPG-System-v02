@@ -67,7 +67,6 @@ from backend.state.models.attribute import (
     ACTION_PROFICIENCY_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-    WEAPON_ATTRIBUTE_PROFILE,
     AttributeBridge,
 )
 from backend.state.models.item import Item, ItemActionGrant, ItemBridge
@@ -352,11 +351,6 @@ def _numeric_attribute_values(
             or definition.value_type != "number"
             or subject_type not in definition.subject_types
             or (not include_gm_only and definition.visibility != "public")
-            or (
-                definition.required_profile is not None
-                and definition.required_profile
-                != getattr(subject, "attribute_profile", None)
-            )
         ):
             continue
         value = _valid_numeric_attribute_value(bridge)
@@ -408,8 +402,6 @@ def _resolved_source_item_values(
     sheet: Sheet | InstancedSheet,
     item: Item,
 ) -> dict[str, float | int]:
-    if item.attribute_profile != WEAPON_ATTRIBUTE_PROFILE:
-        return {}
     values: dict[str, float | int] = {}
     governing_stat = _attribute_reference_value(item, WEAPON_GOVERNING_STAT_ATTRIBUTE_ID)
     if governing_stat is not None:
@@ -548,14 +540,6 @@ def _validate_runtime_numeric_attribute(
         raise ValueError(
             f"Formula alias '{alias_name}' references inaccessible Attribute "
             f"'{attribute_id}'."
-        )
-    if (
-        definition.required_profile is not None
-        and definition.required_profile != getattr(subject, "attribute_profile", None)
-    ):
-        raise ValueError(
-            f"Formula alias '{alias_name}' requires source-item profile "
-            f"'{definition.required_profile}'."
         )
     bridge = subject.attributes.get(attribute_id)
     if bridge is None or bridge.attribute_id != attribute_id:
@@ -874,10 +858,7 @@ def _gain_proficiency_id(
 ) -> str:
     if step.proficiency_reference == "explicit":
         return step.proficiency_id
-    if (
-        source_item is not None
-        and source_item.attribute_profile == WEAPON_ATTRIBUTE_PROFILE
-    ):
+    if source_item is not None:
         proficiency_id = _attribute_reference_value(
             source_item, WEAPON_PROFICIENCY_ATTRIBUTE_ID
         )
@@ -1315,6 +1296,10 @@ async def set_instanced_sheet_item_equipped(
             raise ValueError(f"Item '{item.name}' cannot be equipped.")
         if request.equipped and bridge.count <= 0:
             raise ValueError(f"Item '{item.name}' has no remaining quantity.")
+        if request.equipped and bridge.parent_container_id is not None:
+            raise ValueError(
+                f"Move item '{item.name}' to the root inventory before equipping it."
+            )
         if bridge.equipped == request.equipped:
             return None, []
 

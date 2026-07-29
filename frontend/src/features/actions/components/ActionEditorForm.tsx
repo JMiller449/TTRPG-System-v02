@@ -51,6 +51,7 @@ import {
 } from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 const ACTION_STEP_GROUPS: readonly ActionStepMenuGroup[] = [
   "Calculation & Output",
@@ -185,60 +186,82 @@ export function ActionEditorForm({
     const options = calculatedValuesBeforeStep(values, stepId);
     const currentVariable = isCalculatedValueReference(source) ? source.variable_id : null;
     const currentFormulaId = isFormulaReference(source) ? source.formula_id : null;
+    const selectedSourceId = currentVariable
+      ? `calculated:${currentVariable}`
+      : currentFormulaId
+        ? `global:${currentFormulaId}`
+        : "inline";
     return (
-      <Field label={label}>
-        <select
-          value={
-            currentVariable
-              ? `calculated:${currentVariable}`
-              : currentFormulaId
-                ? `global:${currentFormulaId}`
-                : "inline"
-          }
-          onChange={(event) => {
-            const value = event.target.value;
-            if (value.startsWith("calculated:")) {
-              onChange(
-                setNumericStepCalculatedValue(values, stepId, value.slice("calculated:".length))
-              );
-              return;
-            }
-            onChange(
-              setActionStepFormulaReference(
-                values,
-                stepId,
-                value.startsWith("global:") ? value.slice("global:".length) : null
-              )
-            );
-          }}
-        >
-          <option value="inline">Inline formula</option>
-          {currentFormulaId && !formulas.some((formula) => formula.id === currentFormulaId) ? (
-            <option value={`global:${currentFormulaId}`} disabled>
-              Missing global formula: {currentFormulaId}
-            </option>
-          ) : null}
-          {formulas.map((formula) => (
-            <option key={formula.id} value={`global:${formula.id}`}>
-              Global: {formula.id}
-            </option>
-          ))}
-          {allowCalculated &&
+      <CatalogEntityPicker
+        catalog="formulas"
+        label={label}
+        placeholder="Search formula catalog"
+        selectedId={selectedSourceId}
+        options={[
+          {
+            id: "inline",
+            label: "Inline formula",
+            keywords: ["local"],
+            value: "inline"
+          },
+          ...(currentFormulaId && !formulas.some((formula) => formula.id === currentFormulaId)
+            ? [
+                {
+                  id: `global:${currentFormulaId}`,
+                  label: `Missing global formula: ${currentFormulaId}`,
+                  organizationEntryId: currentFormulaId,
+                  disabledReason: "Missing definition",
+                  value: `global:${currentFormulaId}`
+                }
+              ]
+            : []),
+          ...formulas.map((formula) => ({
+            id: `global:${formula.id}`,
+            label: formula.id,
+            secondary: formula.formula.text,
+            keywords: [formula.id, "global"],
+            organizationEntryId: formula.id,
+            value: `global:${formula.id}`
+          })),
+          ...(allowCalculated &&
           currentVariable &&
-          !options.some((option) => option.variableId === currentVariable) ? (
-            <option value={`calculated:${currentVariable}`} disabled>
-              Unavailable: {currentVariable}
-            </option>
-          ) : null}
-          {allowCalculated
-            ? options.map((option) => (
-                <option key={option.stepId} value={`calculated:${option.variableId}`}>
-                  Calculated: {option.variableId}
-                </option>
-              ))
-            : null}
-        </select>
-      </Field>
+          !options.some((option) => option.variableId === currentVariable)
+            ? [
+                {
+                  id: `calculated:${currentVariable}`,
+                  label: `Unavailable: ${currentVariable}`,
+                  disabledReason: "Earlier value is unavailable",
+                  value: `calculated:${currentVariable}`
+                }
+              ]
+            : []),
+          ...(allowCalculated
+            ? options.map((option) => ({
+                id: `calculated:${option.variableId}`,
+                label: `Calculated: ${option.variableId}`,
+                secondary: `Earlier step: ${option.stepId}`,
+                keywords: [option.variableId, option.stepId, "calculated"],
+                value: `calculated:${option.variableId}`
+              }))
+            : [])
+        ]}
+        emptyMessage="No formula sources available."
+        onSelect={(value) => {
+          if (value.startsWith("calculated:")) {
+            onChange(
+              setNumericStepCalculatedValue(values, stepId, value.slice("calculated:".length))
+            );
+            return;
+          }
+          onChange(
+            setActionStepFormulaReference(
+              values,
+              stepId,
+              value.startsWith("global:") ? value.slice("global:".length) : null
+            )
+          );
+        }}
+      />
     );
   };
 
@@ -486,56 +509,78 @@ export function ActionEditorForm({
                           </select>
                         </Field>
                         {step.rolls.map((roll, rollIndex) => (
-                          <div className="list-item list-item--block" key={`${step.step_id}-${rollIndex}`}>
+                          <div
+                            className="list-item list-item--block"
+                            key={`${step.step_id}-${rollIndex}`}
+                          >
                             <Field label={`Result ${rollIndex + 1} Label`}>
                               <input
                                 value={roll.label}
                                 onChange={(event) => {
                                   const rolls = structuredClone(step.rolls);
-                                  rolls[rollIndex] = { ...rolls[rollIndex], label: event.target.value };
-                                  onChange(updateSendRollActionStep(values, step.step_id, { rolls }));
-                                }}
-                              />
-                            </Field>
-                            <Field label={`Result ${rollIndex + 1} Source`}>
-                              <select
-                                value={
-                                  isFormulaReference(roll.value)
-                                    ? `global:${roll.value.formula_id}`
-                                    : "inline"
-                                }
-                                onChange={(event) => {
-                                  const rolls = structuredClone(step.rolls);
-                                  const formulaId = event.target.value.startsWith("global:")
-                                    ? event.target.value.slice("global:".length)
-                                    : null;
                                   rolls[rollIndex] = {
                                     ...rolls[rollIndex],
-                                    value: formulaId
-                                      ? { type: "formula_reference", formula_id: formulaId }
-                                      : { aliases: null, text: "" }
+                                    label: event.target.value
                                   };
                                   onChange(
                                     updateSendRollActionStep(values, step.step_id, { rolls })
                                   );
                                 }}
-                              >
-                                <option value="inline">Inline formula</option>
-                                {isFormulaReference(roll.value) &&
+                              />
+                            </Field>
+                            <CatalogEntityPicker
+                              catalog="formulas"
+                              label={`Result ${rollIndex + 1} Source`}
+                              placeholder="Search formula catalog"
+                              selectedId={
+                                isFormulaReference(roll.value)
+                                  ? `global:${roll.value.formula_id}`
+                                  : "inline"
+                              }
+                              options={[
+                                {
+                                  id: "inline",
+                                  label: "Inline formula",
+                                  value: "inline"
+                                },
+                                ...(isFormulaReference(roll.value) &&
                                 !formulas
                                   .map((formula) => formula.id)
-                                  .includes(roll.value.formula_id) ? (
-                                  <option value={`global:${roll.value.formula_id}`} disabled>
-                                    Missing global formula: {roll.value.formula_id}
-                                  </option>
-                                ) : null}
-                                {formulas.map((formula) => (
-                                  <option key={formula.id} value={`global:${formula.id}`}>
-                                    Global: {formula.id}
-                                  </option>
-                                ))}
-                              </select>
-                            </Field>
+                                  .includes(roll.value.formula_id)
+                                  ? [
+                                      {
+                                        id: `global:${roll.value.formula_id}`,
+                                        label: `Missing global formula: ${roll.value.formula_id}`,
+                                        organizationEntryId: roll.value.formula_id,
+                                        disabledReason: "Missing definition",
+                                        value: `global:${roll.value.formula_id}`
+                                      }
+                                    ]
+                                  : []),
+                                ...formulas.map((formula) => ({
+                                  id: `global:${formula.id}`,
+                                  label: formula.id,
+                                  secondary: formula.formula.text,
+                                  keywords: [formula.id, "global"],
+                                  organizationEntryId: formula.id,
+                                  value: `global:${formula.id}`
+                                }))
+                              ]}
+                              emptyMessage="No formula sources available."
+                              onSelect={(sourceId) => {
+                                const rolls = structuredClone(step.rolls);
+                                const formulaId = sourceId.startsWith("global:")
+                                  ? sourceId.slice("global:".length)
+                                  : null;
+                                rolls[rollIndex] = {
+                                  ...rolls[rollIndex],
+                                  value: formulaId
+                                    ? { type: "formula_reference", formula_id: formulaId }
+                                    : { aliases: null, text: "" }
+                                };
+                                onChange(updateSendRollActionStep(values, step.step_id, { rolls }));
+                              }}
+                            />
                             {isInlineFormula(roll.value) ? (
                               <>
                                 <FormulaVariableInput
@@ -645,11 +690,7 @@ export function ActionEditorForm({
                               loading={!metadata}
                               onChange={(messageText) =>
                                 onChange(
-                                  updateSendMessageActionStepText(
-                                    values,
-                                    step.step_id,
-                                    messageText
-                                  )
+                                  updateSendMessageActionStepText(values, step.step_id, messageText)
                                 )
                               }
                               onVariableSelect={(entry, messageText) => {
@@ -731,7 +772,9 @@ export function ActionEditorForm({
                               loading={!metadata}
                               onChange={(amountText) =>
                                 onChange(
-                                  updateResolveDamageActionStep(values, step.step_id, { amountText })
+                                  updateResolveDamageActionStep(values, step.step_id, {
+                                    amountText
+                                  })
                                 )
                               }
                               onVariableSelect={(entry, amountText) => {
@@ -802,31 +845,42 @@ export function ActionEditorForm({
                             </select>
                           </Field>
                           {(step.proficiency_reference ?? "explicit") === "explicit" ? (
-                            <Field label={`Proficiency: ${step.step_id}`}>
-                              <select
-                                value={step.proficiency_id}
-                                onChange={(event) =>
-                                  onChange(
-                                    updateGainProficiencyUseActionStep(values, step.step_id, {
-                                      proficiencyId: event.target.value
-                                    })
-                                  )
-                                }
-                              >
-                                {!step.proficiency_id ? (
-                                  <option value="">Choose a proficiency</option>
-                                ) : proficiencies.some(
-                                    (proficiency) => proficiency.id === step.proficiency_id
-                                  ) ? null : (
-                                  <option value={step.proficiency_id}>{step.proficiency_id}</option>
-                                )}
-                                {proficiencies.map((proficiency) => (
-                                  <option key={proficiency.id} value={proficiency.id}>
-                                    {proficiency.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </Field>
+                            <CatalogEntityPicker
+                              catalog="proficiencies"
+                              label={`Proficiency: ${step.step_id}`}
+                              placeholder="Search proficiency catalog"
+                              selectedId={step.proficiency_id}
+                              options={[
+                                ...(!step.proficiency_id ||
+                                proficiencies.some(
+                                  (proficiency) => proficiency.id === step.proficiency_id
+                                )
+                                  ? []
+                                  : [
+                                      {
+                                        id: step.proficiency_id,
+                                        label: `Missing proficiency: ${step.proficiency_id}`,
+                                        disabledReason: "Missing definition",
+                                        value: step.proficiency_id
+                                      }
+                                    ]),
+                                ...proficiencies.map((proficiency) => ({
+                                  id: proficiency.id,
+                                  label: proficiency.name,
+                                  secondary: proficiency.description,
+                                  keywords: [proficiency.id],
+                                  value: proficiency.id
+                                }))
+                              ]}
+                              emptyMessage="No proficiencies available."
+                              onSelect={(proficiencyId) =>
+                                onChange(
+                                  updateGainProficiencyUseActionStep(values, step.step_id, {
+                                    proficiencyId
+                                  })
+                                )
+                              }
+                            />
                           ) : (
                             <p className="muted">
                               Requires an eligible source weapon when the action executes.
@@ -924,7 +978,13 @@ export function ActionEditorForm({
         ) : null}
         <div className="template-editor__actions action-editor__footer">
           <button className="button" onClick={onSubmit} disabled={!actionIsValid || pending}>
-            {pending ? (editingActionId ? "Saving…" : "Creating…") : editingActionId ? "Save Action" : "Create Action"}
+            {pending
+              ? editingActionId
+                ? "Saving…"
+                : "Creating…"
+              : editingActionId
+                ? "Save Action"
+                : "Create Action"}
           </button>
           {editingActionId ? (
             <button className="button button--secondary" onClick={onCancel}>

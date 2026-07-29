@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.attributes.value_schema import AttributeBridgePayload
@@ -15,14 +15,31 @@ class ItemActionGrantPayload(BaseModel):
     consume_quantity: int = Field(default=0, ge=0)
 
 
+class ItemPlayerCatalogAccessPayload(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    mode: Literal["none", "all", "selected"] = "none"
+    instance_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_access(self) -> "ItemPlayerCatalogAccessPayload":
+        if any(not instance_id for instance_id in self.instance_ids):
+            raise ValueError("Player catalog instance IDs cannot be blank.")
+        if len(self.instance_ids) != len(set(self.instance_ids)):
+            raise ValueError("Player catalog instance IDs must be unique.")
+        if self.mode != "selected" and self.instance_ids:
+            raise ValueError(
+                "Only selected player catalog access can contain instance IDs."
+            )
+        return self
+
+
 class ItemDefinitionPayload(BaseModel):
     model_config = ConfigDict(strict=True)
 
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     interaction_type: Literal["equippable", "consumable", "inventory_only"]
-    category: str = ""
-    catalog_folder: str = ""
     rank: str = ""
     description: str = ""
     world_anvil_url: str = ""
@@ -30,18 +47,20 @@ class ItemDefinitionPayload(BaseModel):
     gm_special_properties: str = ""
     price: str = ""
     weight: float = Field(default=0, ge=0, allow_inf_nan=False)
-    player_visible: bool = False
+    player_catalog_access: ItemPlayerCatalogAccessPayload = Field(
+        default_factory=ItemPlayerCatalogAccessPayload
+    )
     can_contain_items: bool = False
+    storage_capacity_weight: float | None = Field(
+        default=None,
+        ge=0,
+        allow_inf_nan=False,
+    )
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
-    attribute_profile: Literal["weapon"] | None = None
+    tags: list[str] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
     augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
-
-    @field_validator("catalog_folder")
-    @classmethod
-    def normalize_catalog_folder(cls, value: str) -> str:
-        return value.strip()
 
     @model_validator(mode="after")
     def validate_item_type(self) -> "ItemDefinitionPayload":
@@ -55,12 +74,13 @@ class ItemDefinitionPayload(BaseModel):
             if self.action_grants:
                 raise ValueError("Inventory-only items cannot grant actions.")
 
-        if self.attribute_profile == "weapon" and self.interaction_type != "equippable":
-            raise ValueError("Weapon-profile items must be equippable.")
-
-        if not self.can_contain_items and self.contents_weight_behavior != "normal":
+        if not self.can_contain_items and (
+            self.contents_weight_behavior != "normal"
+            or self.storage_capacity_weight is not None
+        ):
             raise ValueError(
-                "Only storage containers can change how the weight of their contents counts."
+                "Only storage containers can define capacity or change how stored "
+                "weight counts."
             )
 
         if self.interaction_type == "consumable":
@@ -95,6 +115,22 @@ class DeleteItem(RequestModel):
     type: Literal["delete_item"]
 
 
+class CreateItemTemplate(RequestModel):
+    template: ItemDefinitionPayload
+    type: Literal["create_item_template"]
+
+
+class UpdateItemTemplate(RequestModel):
+    template_id: str = Field(min_length=1)
+    template: ItemDefinitionPayload
+    type: Literal["update_item_template"]
+
+
+class DeleteItemTemplate(RequestModel):
+    template_id: str = Field(min_length=1)
+    type: Literal["delete_item_template"]
+
+
 class AddPlayerInventoryItem(RequestModel):
     item_id: str = Field(min_length=1)
     type: Literal["add_player_inventory_item"]
@@ -110,13 +146,17 @@ class PlayerItemSubmissionPayload(BaseModel):
 
     name: str = Field(min_length=1)
     interaction_type: Literal["equippable", "inventory_only"] = "inventory_only"
-    category: str = ""
     rank: str = ""
     description: str = ""
     world_anvil_url: str = ""
     price: str = ""
     weight: float = Field(default=0, ge=0, allow_inf_nan=False)
     can_contain_items: bool = False
+    storage_capacity_weight: float | None = Field(
+        default=None,
+        ge=0,
+        allow_inf_nan=False,
+    )
 
     @model_validator(mode="after")
     def validate_name(self) -> "PlayerItemSubmissionPayload":

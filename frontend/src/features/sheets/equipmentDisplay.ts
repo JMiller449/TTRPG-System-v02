@@ -26,7 +26,6 @@ export interface ItemActionAvailabilitySummary {
 
 const KEY_ITEM_ATTRIBUTE_IDS = [
   "weapon_proficiency",
-  "weapon_proficiency_growth_rate",
   "weapon_reach"
 ];
 const KEY_ITEM_ATTRIBUTE_ID_SET = new Set(KEY_ITEM_ATTRIBUTE_IDS);
@@ -86,10 +85,7 @@ export function summarizeKeyItemAttributes(
     }
 
     const definition = attributeDefinitions[attributeId];
-    const label =
-      attributeId === "weapon_proficiency_growth_rate"
-        ? "Growth"
-        : definition?.name.replace(/^Weapon\s+/i, "") ?? attributeId;
+    const label = definition?.name.replace(/^Weapon\s+/i, "") ?? attributeId;
     return summarizeAttribute(bridge, definition, proficiencies, label);
   }).filter((summary): summary is string => Boolean(summary));
 }

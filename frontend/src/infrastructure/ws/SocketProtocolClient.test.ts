@@ -99,9 +99,13 @@ describe("SocketProtocolClient", () => {
       {
         type: "snapshot",
         snapshot: {
+          catalogFolders: [],
+          catalogEntries: [],
           sheets: [],
           persistentSheets: [],
           items: [],
+          itemTemplates: [],
+          tags: [],
           proficiencies: [],
           actions: [],
           formulas: [],

@@ -74,9 +74,7 @@ from backend.state.default_actions import (
 from backend.state.models.action import Action, RollResult, SendRollStep
 from backend.state.models.formula import Formula, FormulaAliases
 from backend.state.models.attribute import (
-    WEAPON_ATTRIBUTE_PROFILE,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
     AttributeBridge,
     synchronize_required_sheet_attributes,
 )
@@ -579,20 +577,19 @@ def _valid_weapon_proficiency_values(
     state: State,
 ) -> tuple[str, float] | None:
     item = state.items.get(item_id)
-    if item is None or item.attribute_profile != WEAPON_ATTRIBUTE_PROFILE:
+    if item is None:
         return None
     proficiency_bridge = item.attributes.get(WEAPON_PROFICIENCY_ATTRIBUTE_ID)
-    growth_rate_bridge = item.attributes.get(WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID)
-    if proficiency_bridge is None or growth_rate_bridge is None:
+    if proficiency_bridge is None:
         return None
     proficiency_id = proficiency_bridge.evaluated_value
-    growth_rate = growth_rate_bridge.evaluated_value
     if (
         not isinstance(proficiency_id, str)
         or not proficiency_id
         or proficiency_id not in state.proficiencies
     ):
         return None
+    growth_rate = state.proficiencies[proficiency_id].default_growth_rate
     if (
         isinstance(growth_rate, bool)
         or not isinstance(growth_rate, int | float)

@@ -7,6 +7,7 @@ import {
   type ApplyConditionPresetEditorStep
 } from "@/features/actions/actionEditorValues";
 import { Field } from "@/shared/ui/Field";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 export function ActionRecordStepEditor({
   step,
@@ -30,33 +31,42 @@ export function ActionRecordStepEditor({
   return (
     <div className="list-item list-item--block">
       <div className="inline-group">
-        <Field label={`${isAugmentation ? "Standalone Effect" : "Condition"}: ${step.step_id}`}>
-          <select
-            value={currentId}
-            onChange={(event) =>
-              onChange(
-                isAugmentation
-                  ? updateApplyAugmentationActionStep(values, step.step_id, {
-                      augmentationId: event.target.value
-                    })
-                  : updateApplyConditionPresetActionStep(values, step.step_id, {
-                      conditionId: event.target.value
-                    })
-              )
-            }
-          >
-            {records.some((record) => record.id === currentId) ? null : (
-              <option value={currentId} disabled>
-                Missing record: {currentId}
-              </option>
-            )}
-            {records.map((record) => (
-              <option key={record.id} value={record.id}>
-                {record.name} ({record.id})
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CatalogEntityPicker
+          catalog={isAugmentation ? "effects" : "conditions"}
+          label={`${isAugmentation ? "Standalone Effect" : "Condition"}: ${step.step_id}`}
+          placeholder={`Search ${isAugmentation ? "effect" : "condition"} catalog`}
+          selectedId={currentId}
+          options={[
+            ...(!currentId || records.some((record) => record.id === currentId)
+              ? []
+              : [
+                  {
+                    id: currentId,
+                    label: `Missing record: ${currentId}`,
+                    disabledReason: "Missing definition",
+                    value: currentId
+                  }
+                ]),
+            ...records.map((record) => ({
+              id: record.id,
+              label: record.name,
+              keywords: [record.id],
+              value: record.id
+            }))
+          ]}
+          emptyMessage={`No ${isAugmentation ? "effects" : "conditions"} available.`}
+          onSelect={(recordId) =>
+            onChange(
+              isAugmentation
+                ? updateApplyAugmentationActionStep(values, step.step_id, {
+                    augmentationId: recordId
+                  })
+                : updateApplyConditionPresetActionStep(values, step.step_id, {
+                    conditionId: recordId
+                  })
+            )
+          }
+        />
         <Field label="Operation">
           <select
             value={step.operation ?? "apply"}

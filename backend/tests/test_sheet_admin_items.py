@@ -107,13 +107,10 @@ def _add_player_instance(instance_id: str, sheet_id: str, name: str) -> None:
 
 def _weapon_attribute_bridges(proficiency_id: str = "long_swords") -> dict:
     values = {
-        "weapon_type": {"type": "text", "value": "Long Sword"},
         "weapon_base_damage": {"type": "number", "value": 15},
         "weapon_governing_stat": {"type": "enum", "value": "strength"},
-        "weapon_damage_types": {"type": "list", "value": ["Slashing"]},
         "weapon_reach": {"type": "number", "value": 5},
         "weapon_proficiency": {"type": "reference", "value": proficiency_id},
-        "weapon_proficiency_growth_rate": {"type": "number", "value": 0.8},
     }
     return {
         attribute_id: {
@@ -159,15 +156,14 @@ def _item_augmentation_payload(
     }
 
 
-def test_item_model_normalizes_persisted_catalog_folder_text() -> None:
+def test_item_model_ignores_removed_legacy_catalog_fields() -> None:
     payload = _item_payload()
     payload["catalog_folder"] = "  Relics  "
+    payload["category"] = "Sword"
 
-    assert Item.from_dict(payload).catalog_folder == "Relics"
-
-    payload["catalog_folder"] = None
-    with pytest.raises(ValueError, match="catalog folder must be text"):
-        Item.from_dict(payload)
+    item = Item.from_dict(payload)
+    assert not hasattr(item, "catalog_folder")
+    assert not hasattr(item, "category")
 
 
 def test_dm_can_create_item(monkeypatch) -> None:
@@ -181,7 +177,6 @@ def test_dm_can_create_item(monkeypatch) -> None:
             await websocket_sessions.connect(websocket, role="dm")
 
             payload = _item_payload()
-            payload["catalog_folder"] = "  Weapons  "
             await handle_client_payload(
                 websocket,
                 {
@@ -191,13 +186,11 @@ def test_dm_can_create_item(monkeypatch) -> None:
             )
 
             assert StateSingleton.getState().items["sword"].name == "Sword"
-            assert StateSingleton.getState().items["sword"].catalog_folder == "Weapons"
             assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
             assert websocket.sent_messages[0]["ops"][0]["path"] == "/items/sword"
             assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "sword"
-            assert websocket.sent_messages[0]["ops"][0]["value"][
-                "catalog_folder"
-            ] == "Weapons"
+            assert "catalog_folder" not in websocket.sent_messages[0]["ops"][0]["value"]
+            assert "category" not in websocket.sent_messages[0]["ops"][0]["value"]
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "world_anvil_url"
             ] == "https://www.worldanvil.com/w/test/sword"
@@ -207,6 +200,39 @@ def test_dm_can_create_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "gm_special_properties"
             ] == "Cursed under moonlight."
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_item_player_catalog_access_rejects_invalid_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = {
+                **_item_payload(),
+                "player_catalog_access": {
+                    "mode": "selected",
+                    "instance_ids": ["missing-instance"],
+                },
+            }
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+
+            assert "sword" not in StateSingleton.getState().items
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Item player catalog access references invalid player instance "
+                "'missing-instance'."
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -311,7 +337,8 @@ def test_item_augmentation_formula_rejects_missing_owning_item_attribute(
 
             assert "sword" not in StateSingleton.getState().items
             assert websocket.sent_messages[0]["reason"] == (
-                "Formula alias 'base_damage' requires source-item profile 'weapon'."
+                "Formula alias 'base_damage' references Attribute 'weapon_base_damage', "
+                "but it is not attached to this item."
             )
         finally:
             StateSingleton._state = original_state
@@ -370,7 +397,7 @@ def test_direct_item_augmentation_formula_rejects_action_context(
     asyncio.run(scenario())
 
 
-def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypatch) -> None:
+def test_dm_can_create_tagged_weapon_with_explicit_attributes_and_action_grants(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -389,8 +416,15 @@ def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypat
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "attribute_profile": "weapon",
+                    "tags": ["weapon", "slashing"],
                     "attributes": _weapon_attribute_bridges(),
+                    "action_grants": [
+                        {
+                            "action_id": "weapon_damage",
+                            "availability": "equipped",
+                            "consume_quantity": 0,
+                        }
+                    ],
                 }
             )
 
@@ -401,30 +435,22 @@ def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypat
 
             weapon = state.items["sword"]
             assert weapon.attribute_profile == "weapon"
-            assert [grant.action_id for grant in weapon.action_grants] == [
-                "weapon_attack",
-                "weapon_damage",
-                "weapon_parry",
-                "weapon_contest",
-            ]
+            assert weapon.tags == ["weapon", "slashing"]
+            assert [grant.action_id for grant in weapon.action_grants] == ["weapon_damage"]
             assert all(
                 grant.availability == "equipped" and grant.consume_quantity == 0
                 for grant in weapon.action_grants
             )
-            assert {
-                "weapon_attack",
-                "weapon_damage",
-                "weapon_parry",
-                "weapon_contest",
-            }.issubset(state.actions)
+            assert "weapon_damage" in state.actions
             assert set(weapon.attributes) == set(_weapon_attribute_bridges())
             assert weapon.attributes["weapon_base_damage"].evaluated_value == 15
             assert weapon.attributes["weapon_proficiency"].evaluated_value == "long_swords"
             assert all(
-                bridge.relationship_id == f"required_attribute_{attribute_id}"
+                bridge.relationship_id == f"client-{attribute_id}"
                 for attribute_id, bridge in weapon.attributes.items()
             )
-            assert state.attributes["weapon_base_damage"].required_profile == "weapon"
+            assert state.attributes["weapon_base_damage"].required is False
+            assert state.attributes["weapon_base_damage"].required_profile is None
 
             await handle_client_payload(
                 websocket,
@@ -448,15 +474,15 @@ def test_dm_can_create_weapon_profile_with_backend_required_attributes(monkeypat
                     "attribute_id": "weapon_base_damage",
                 },
             )
-            assert websocket.sent_messages[-1]["type"] == "error"
-            assert "Required Attributes cannot be detached" in websocket.sent_messages[-1]["reason"]
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+            assert "weapon_base_damage" not in state.items["sword"].attributes
         finally:
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
 
 
-def test_weapon_profile_rejects_missing_proficiency_and_removes_attributes_on_clear(
+def test_item_attributes_reject_missing_proficiency_and_can_be_cleared_explicitly(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -472,7 +498,7 @@ def test_weapon_profile_rejects_missing_proficiency_and_removes_attributes_on_cl
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "attribute_profile": "weapon",
+                    "tags": ["weapon"],
                     "attributes": _weapon_attribute_bridges("missing"),
                 }
             )
@@ -494,7 +520,8 @@ def test_weapon_profile_rejects_missing_proficiency_and_removes_attributes_on_cl
                 websocket,
                 {"type": "create_item", "item": payload},
             )
-            payload["attribute_profile"] = None
+            payload["tags"] = []
+            payload["attributes"] = {}
             await handle_client_payload(
                 websocket,
                 {"type": "update_item", "item_id": "sword", "item": payload},
@@ -543,6 +570,30 @@ def test_item_interaction_type_rejects_invalid_cross_type_mechanics() -> None:
     ]
     with pytest.raises(ValidationError, match="must use carried availability"):
         ItemDefinitionPayload.model_validate(consumable)
+
+
+def test_item_player_catalog_access_payload_requires_canonical_ids() -> None:
+    with pytest.raises(ValidationError, match="Only selected"):
+        ItemDefinitionPayload.model_validate(
+            {
+                **_item_payload(),
+                "player_catalog_access": {
+                    "mode": "all",
+                    "instance_ids": ["hero-instance"],
+                },
+            }
+        )
+
+    with pytest.raises(ValidationError, match="must be unique"):
+        ItemDefinitionPayload.model_validate(
+            {
+                **_item_payload(),
+                "player_catalog_access": {
+                    "mode": "selected",
+                    "instance_ids": ["hero-instance", "hero-instance"],
+                },
+            }
+        )
 
 
 def test_dm_can_author_item_action_grants(monkeypatch) -> None:
@@ -625,6 +676,79 @@ def test_item_action_grants_reject_unknown_and_duplicate_actions(monkeypatch) ->
     asyncio.run(scenario())
 
 
+def test_item_action_grant_requires_its_source_item_attributes(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.actions["item_strike"] = Action.from_dict(
+                {
+                    "id": "item_strike",
+                    "name": "Item Strike",
+                    "steps": [
+                        {
+                            "step_id": "damage",
+                            "type": "calculate_value",
+                            "variable_id": "damage",
+                            "value": {
+                                "text": "@base_damage",
+                                "aliases": [
+                                    {
+                                        "name": "base_damage",
+                                        "path": [
+                                            "source_item",
+                                            "attributes",
+                                            "weapon_base_damage",
+                                        ],
+                                    }
+                                ],
+                            },
+                        }
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            payload = _item_payload()
+            payload["interaction_type"] = "equippable"
+            payload["action_grants"] = [
+                {
+                    "action_id": "item_strike",
+                    "availability": "equipped",
+                    "consume_quantity": 0,
+                }
+            ]
+
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+            assert "sword" not in state.items
+            assert "not attached to this item" in websocket.sent_messages[-1]["reason"]
+
+            payload["attributes"] = {
+                "weapon_base_damage": {
+                    "relationship_id": "item_damage",
+                    "attribute_id": "weapon_base_damage",
+                    "value": {"type": "number", "value": 12},
+                }
+            }
+            await handle_client_payload(
+                websocket,
+                {"type": "create_item", "item": payload},
+            )
+            assert state.items["sword"].attributes[
+                "weapon_base_damage"
+            ].evaluated_value == 12
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -641,7 +765,13 @@ def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:
                 dm_socket,
                 {
                     "type": "create_item",
-                    "item": {**_item_payload(), "player_visible": True},
+                    "item": {
+                        **_item_payload(),
+                        "player_catalog_access": {
+                            "mode": "all",
+                            "instance_ids": [],
+                        },
+                    },
                 },
             )
 
@@ -649,8 +779,10 @@ def test_player_item_patch_redacts_gm_only_fields(monkeypatch) -> None:
             player_value = player_socket.sent_messages[0]["ops"][0]["value"]
             assert dm_value["gm_notes"] == "Hidden lore."
             assert dm_value["gm_special_properties"] == "Cursed under moonlight."
+            assert dm_value["player_catalog_access"]["mode"] == "all"
             assert "gm_notes" not in player_value
             assert "gm_special_properties" not in player_value
+            assert "player_catalog_access" not in player_value
             assert player_socket.sent_messages[0]["state_version"] == (
                 dm_socket.sent_messages[0]["state_version"]
             )
@@ -698,7 +830,6 @@ def test_dm_can_update_item(monkeypatch) -> None:
             await websocket_sessions.connect(websocket, role="dm")
 
             payload = _item_payload(name="Renamed Sword")
-            payload["catalog_folder"] = "Relics"
             await handle_client_payload(
                 websocket,
                 {
@@ -709,15 +840,13 @@ def test_dm_can_update_item(monkeypatch) -> None:
             )
 
             assert state.items["sword"].name == "Renamed Sword"
-            assert state.items["sword"].catalog_folder == "Relics"
             assert websocket.sent_messages[0]["ops"][0]["op"] == "set"
             assert websocket.sent_messages[0]["ops"][0]["path"] == "/items/sword"
             assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
                 "Renamed Sword"
             )
-            assert websocket.sent_messages[0]["ops"][0]["value"][
-                "catalog_folder"
-            ] == "Relics"
+            assert "catalog_folder" not in websocket.sent_messages[0]["ops"][0]["value"]
+            assert "category" not in websocket.sent_messages[0]["ops"][0]["value"]
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "world_anvil_url"
             ] == "https://www.worldanvil.com/w/test/sword"
@@ -952,18 +1081,39 @@ def test_player_can_add_and_remove_only_available_inventory_items(monkeypatch) -
             _reset_state()
             state = StateSingleton.getState()
             _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            _add_player_instance("rival-instance", "rival-sheet", "Rival")
             state.items["visible"] = Item.from_dict(
                 {
                     **_item_payload("visible", "Visible Item"),
-                    "player_visible": True,
+                    "player_catalog_access": {
+                        "mode": "selected",
+                        "instance_ids": ["hero-instance"],
+                    },
                 }
             )
             state.items["hidden"] = Item.from_dict(
                 {
                     **_item_payload("hidden", "Hidden Item"),
-                    "player_visible": False,
+                    "player_catalog_access": {
+                        "mode": "none",
+                        "instance_ids": [],
+                    },
                 }
             )
+            hero_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="hero-instance",
+            )
+            rival_snapshot = await state_sync_service.snapshot(
+                role="player",
+                assigned_instance_id="rival-instance",
+            )
+            assert "visible" in hero_snapshot.state["items"]
+            assert (
+                "player_catalog_access"
+                not in hero_snapshot.state["items"]["visible"]
+            )
+            assert "visible" not in rival_snapshot.state["items"]
             await websocket_sessions.reset()
             socket = FakeWebSocket()
             session = await websocket_sessions.connect(socket, role="player")
@@ -974,6 +1124,15 @@ def test_player_can_add_and_remove_only_available_inventory_items(monkeypatch) -
             )
             assert socket.sent_messages[-1]["reason"] == (
                 "Claim a sheet access code before managing your inventory."
+            )
+            session.assigned_instance_id = "rival-instance"
+            await handle_client_payload(
+                socket,
+                {"type": "add_player_inventory_item", "item_id": "visible"},
+            )
+            assert state.instanced_sheets["rival-instance"].items == {}
+            assert socket.sent_messages[-1]["reason"] == (
+                "That item is not available to players."
             )
             session.assigned_instance_id = "hero-instance"
 
@@ -1010,6 +1169,47 @@ def test_player_can_add_and_remove_only_available_inventory_items(monkeypatch) -
     asyncio.run(scenario())
 
 
+def test_despawning_player_reconciles_selected_item_access(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            state.items["hero-only"] = Item.from_dict(
+                {
+                    **_item_payload("hero-only", "Hero Reward"),
+                    "player_catalog_access": {
+                        "mode": "selected",
+                        "instance_ids": ["hero-instance"],
+                    },
+                }
+            )
+            await websocket_sessions.reset()
+            dm_socket = FakeWebSocket()
+            await websocket_sessions.connect(dm_socket, role="dm")
+
+            await handle_client_payload(
+                dm_socket,
+                {
+                    "type": "delete_instanced_sheet",
+                    "instance_id": "hero-instance",
+                },
+            )
+
+            assert state.items["hero-only"].player_catalog_access.instance_ids == []
+            assert any(
+                op["path"] == "/items/hero-only" and op["op"] == "set"
+                for message in dm_socket.sent_messages
+                for op in message.get("ops", [])
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_hidden_carried_item_definition_remains_visible_only_to_owner() -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -1021,7 +1221,10 @@ def test_hidden_carried_item_definition_remains_visible_only_to_owner() -> None:
             state.items["hidden"] = Item.from_dict(
                 {
                     **_item_payload("hidden", "Hidden Reward"),
-                    "player_visible": False,
+                    "player_catalog_access": {
+                        "mode": "none",
+                        "instance_ids": [],
+                    },
                 }
             )
             state.instanced_sheets["hero-instance"].items["hidden-entry"] = (
@@ -1085,7 +1288,6 @@ def test_player_item_approval_publishes_and_adds_to_submitter(monkeypatch) -> No
                     "item": {
                         "name": "Handmade Rope",
                         "interaction_type": "inventory_only",
-                        "category": "Gear",
                         "rank": "F",
                         "description": "Braided during camp.",
                         "world_anvil_url": "",
@@ -1098,7 +1300,7 @@ def test_player_item_approval_publishes_and_adds_to_submitter(monkeypatch) -> No
 
             pending_id, pending = next(iter(state.items.items()))
             assert pending.approval_status == "pending"
-            assert pending.player_visible is False
+            assert pending.player_catalog_access.mode == "none"
             assert pending.submitted_by_instance_id == "hero-instance"
             assert pending.submitted_by_name == "Hero"
             owner_snapshot = await state_sync_service.snapshot(
@@ -1121,7 +1323,7 @@ def test_player_item_approval_publishes_and_adds_to_submitter(monkeypatch) -> No
 
             approved = state.items[pending_id]
             assert approved.approval_status == "approved"
-            assert approved.player_visible is True
+            assert approved.player_catalog_access.mode == "all"
             assert approved.submitted_by_instance_id is None
             assert {
                 bridge.item_id

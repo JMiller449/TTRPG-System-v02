@@ -18,7 +18,7 @@ const sword = {
 } as ItemDefinition;
 
 describe("SheetEquipmentSection", () => {
-  it("lets players add and remove items without GM quantity or storage controls", () => {
+  it("lets players add, remove, equip, and organize items without GM quantity controls", () => {
     const markup = renderToStaticMarkup(
       <SheetEquipmentSection
         items={{ sword }}
@@ -41,6 +41,7 @@ describe("SheetEquipmentSection", () => {
         carryWeightLimit={10}
         canManageInventory
         canEditInventory={false}
+        canMoveInventory
         canToggleEquipped
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
@@ -71,6 +72,7 @@ describe("SheetEquipmentSection", () => {
       price: "",
       weight: 2,
       can_contain_items: true,
+      storage_capacity_weight: 20,
       contents_weight_behavior: "ignored"
     };
     const markup = renderToStaticMarkup(
@@ -84,7 +86,13 @@ describe("SheetEquipmentSection", () => {
         selectedItemId=""
         selectedItem={null}
         equipment={[
-          { relationship_id: "bag-entry", item_id: "bag", count: 1, equipped: false },
+          {
+            relationship_id: "bag-entry",
+            item_id: "bag",
+            count: 1,
+            equipped: false,
+            current_contents_weight: 3
+          },
           {
             relationship_id: "sword-entry",
             item_id: "sword",
@@ -97,6 +105,7 @@ describe("SheetEquipmentSection", () => {
         carryWeightLimit={10}
         canManageInventory={false}
         canEditInventory={false}
+        canMoveInventory={false}
         canToggleEquipped={false}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
@@ -111,6 +120,8 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain("2.5 lb over capacity");
     expect(markup).toContain("Stored in Bag of Holding");
     expect(markup).toContain("Contents weight ignored");
+    expect(markup).toContain("Stored weight: 3 / 20 lb");
+    expect(markup).toContain("Stored contents do not add to carried weight.");
   });
 
   it("requires confirmation before removing an inventory entry", async () => {
@@ -143,6 +154,7 @@ describe("SheetEquipmentSection", () => {
           carryWeightLimit={10}
           canManageInventory
           canEditInventory={false}
+          canMoveInventory
           canToggleEquipped
           onSelectedItemIdChange={() => undefined}
           onAddSelectedItem={() => undefined}
@@ -169,5 +181,85 @@ describe("SheetEquipmentSection", () => {
 
     await act(async () => root.unmount());
     confirm.mockRestore();
+  });
+
+  it("moves an inventory item when it is dropped onto storage", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onMoveInventoryItem = vi.fn();
+    const bag: ItemDefinition = {
+      id: "bag",
+      name: "Pack",
+      interaction_type: "inventory_only",
+      description: "",
+      price: "",
+      weight: 1,
+      can_contain_items: true,
+      storage_capacity_weight: 10
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetEquipmentSection
+          items={{ sword, bag }}
+          actionDefinitions={{}}
+          attributeDefinitions={{}}
+          proficiencyDefinitions={{}}
+          augmentations={{}}
+          itemOrder={["bag", "sword"]}
+          selectedItemId=""
+          selectedItem={null}
+          equipment={[
+            {
+              relationship_id: "bag-entry",
+              item_id: "bag",
+              count: 1,
+              equipped: false
+            },
+            {
+              relationship_id: "sword-entry",
+              item_id: "sword",
+              count: 1,
+              equipped: false
+            }
+          ]}
+          currentCarriedWeight={1}
+          carryWeightLimit={10}
+          canManageInventory
+          canEditInventory={false}
+          canMoveInventory
+          canToggleEquipped
+          onSelectedItemIdChange={() => undefined}
+          onAddSelectedItem={() => undefined}
+          onQuantityChange={() => undefined}
+          onToggleEquipped={() => undefined}
+          onMoveInventoryItem={onMoveInventoryItem}
+          onRemoveInventoryItem={() => undefined}
+        />
+      );
+    });
+
+    const cards = [...container.querySelectorAll<HTMLElement>("article.equipment-card")];
+    const bagCard = cards.find((card) => card.textContent?.includes("Pack"));
+    const swordCard = cards.find((card) => card.textContent?.includes("Sword"));
+    const data = new Map<string, string>();
+    const dataTransfer = {
+      dropEffect: "none",
+      effectAllowed: "none",
+      setData: (type: string, value: string) => data.set(type, value),
+      getData: (type: string) => data.get(type) ?? ""
+    };
+    const dragStart = new Event("dragstart", { bubbles: true, cancelable: true });
+    Object.defineProperty(dragStart, "dataTransfer", { value: dataTransfer });
+    await act(async () => swordCard?.dispatchEvent(dragStart));
+
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", { value: dataTransfer });
+    await act(async () => bagCard?.dispatchEvent(drop));
+
+    expect(onMoveInventoryItem).toHaveBeenCalledWith("sword-entry", "bag-entry");
+
+    await act(async () => root.unmount());
   });
 });

@@ -34,7 +34,6 @@ def _item_payload() -> dict:
         "id": "sword",
         "name": "Sword",
         "interaction_type": "equippable",
-        "category": "Weapon",
         "rank": "F",
         "description": "A test sword.",
         "price": "10g",

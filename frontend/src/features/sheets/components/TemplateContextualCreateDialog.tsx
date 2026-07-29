@@ -313,6 +313,7 @@ export function TemplateContextualCreateDialog({
           actions={actions}
           attributeDefinitions={serverState.attributes}
           proficiencies={serverState.proficiencies}
+          tagDefinitions={serverState.tags}
           attributesEditor={
             <ItemAttributesEditor
               values={itemValues}

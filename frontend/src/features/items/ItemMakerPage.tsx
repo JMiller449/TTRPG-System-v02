@@ -14,11 +14,13 @@ import {
 import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
-import { ItemCatalogBrowser } from "@/features/items/components/ItemCatalogBrowser";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
-import { selectItemCatalogFolders } from "@/features/items/itemCatalogFolders";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import {
   createEmptyItemValues,
+  createItemValuesFromTemplate,
+  toItemDefinitionPayload,
   toItemEditorValues,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
@@ -29,29 +31,56 @@ import {
   selectOrderedItemDefinitions
 } from "@/features/items/itemMakerRequests";
 import { buildReviewPlayerItemRequest } from "@/infrastructure/ws/requestBuilders";
+import {
+  buildCreateItemTemplateRequest,
+  buildDeleteItemTemplateRequest,
+  buildUpdateItemTemplateRequest
+} from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
-export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
+type ItemWorkspaceMode =
+  | "start"
+  | "item"
+  | "choose_template"
+  | "template_idle"
+  | "templates";
+
+export function ItemMakerPage({
+  client,
+  templateManagement = false
+}: {
+  client: GameClient;
+  templateManagement?: boolean;
+}): JSX.Element {
   const {
     state: {
       serverState: {
         items: itemRecords,
         itemOrder,
+        itemTemplates: itemTemplateRecords,
+        itemTemplateOrder,
         actions: actionRecords,
         actionOrder,
         formulas: formulaRecords,
         formulaOrder,
         attributes: attributeDefinitions,
-        proficiencies: proficiencyRecords
+        proficiencies: proficiencyRecords,
+        tags: tagDefinitions
       },
       uiState: { augmentationTargetMetadata, actionFormulaAuthoringMetadata }
     },
     dispatch
   } = useAppStore();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<ItemWorkspaceMode>(
+    templateManagement ? "template_idle" : "start"
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [draftItemId, setDraftItemId] = useState(() => makeId("item"));
   const [submittedCreateId, setSubmittedCreateId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
@@ -75,9 +104,9 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       ),
     [itemOrder, itemRecords]
   );
-  const catalogFolders = useMemo(
-    () => selectItemCatalogFolders(items).map((folder) => folder.name),
-    [items]
+  const itemTemplates = useMemo(
+    () => selectOrderedItemDefinitions(itemTemplateRecords, itemTemplateOrder),
+    [itemTemplateOrder, itemTemplateRecords]
   );
   const actions = useMemo(
     () => actionOrder.map((id) => actionRecords[id]).filter(Boolean),
@@ -97,6 +126,19 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     augmentationTargetMetadata?.context === "item_template"
       ? augmentationTargetMetadata.targets
       : [];
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "items",
+    client,
+    entries: itemRecords
+  });
+  const {
+    beginCreation: beginTemplateCreation,
+    queueCreatedEntry: queueCreatedTemplateEntry
+  } = useCatalogCreationTarget({
+    catalog: "item_templates",
+    client,
+    entries: itemTemplateRecords
+  });
 
   useEffect(() => {
     if (augmentationTargetMetadata?.context === "item_template") {
@@ -121,10 +163,37 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     setAugmentationValues(createEmptyAugmentationEditorValues());
   };
 
-  const startNewItem = (): void => {
+  const startNewItem = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingItemId(null);
+    setEditingTemplateId(null);
+    setWorkspaceMode("item");
     setDraftItemId(makeId("item"));
     setSubmittedCreateId(null);
+    setValues(createEmptyItemValues());
+    resetAugmentationEditor();
+  };
+
+  const showStart = (): void => {
+    if (templateManagement) {
+      beginTemplateCreation(null);
+    } else {
+      beginCreation(null);
+    }
+    setEditingItemId(null);
+    setEditingTemplateId(null);
+    setWorkspaceMode(templateManagement ? "template_idle" : "start");
+    setSelectedTemplateId("");
+    setValues(createEmptyItemValues());
+    resetAugmentationEditor();
+  };
+
+  const startNewTemplate = (folderId: string | null = null): void => {
+    beginTemplateCreation(folderId);
+    setEditingItemId(null);
+    setEditingTemplateId(null);
+    setWorkspaceMode("templates");
+    setDraftItemId(makeId("item_template"));
     setValues(createEmptyItemValues());
     resetAugmentationEditor();
   };
@@ -134,6 +203,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       setEditingItemId(null);
       setDraftItemId(makeId("item"));
       setSubmittedCreateId(null);
+      setWorkspaceMode("start");
       setValues(createEmptyItemValues());
       setEditingAugmentationId(null);
       setAugmentationValues(createEmptyAugmentationEditorValues());
@@ -149,6 +219,27 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
       definitions: attributeDefinitions,
       proficiencies: proficiencyRecords
     };
+    if (workspaceMode === "templates") {
+      const templateId = editingTemplateId ?? draftItemId;
+      const template = {
+        ...toItemDefinitionPayload(values, templateId),
+        player_catalog_access: { mode: "none" as const, instance_ids: [] }
+      };
+      client.sendProtocolRequest(
+        editingTemplateId
+          ? buildUpdateItemTemplateRequest({
+              templateId: editingTemplateId,
+              template
+            })
+          : buildCreateItemTemplateRequest({ template }),
+        `${editingTemplateId ? "Update" : "Create"} item template: ${template.name}`
+      );
+      if (!editingTemplateId) {
+        queueCreatedTemplateEntry(templateId);
+      }
+      showStart();
+      return;
+    }
     const submission = editingItemId
       ? buildUpdateItemSubmission(itemRecords[editingItemId], values, validationContext)
       : buildCreateItemSubmission(values, draftItemId, validationContext);
@@ -159,7 +250,27 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     client.sendProtocolRequest(submission.request, submission.label);
     if (!editingItemId) {
       setSubmittedCreateId(draftItemId);
+      queueCreatedEntry(draftItemId);
     }
+  };
+
+  const deleteTemplate = (templateId: string): void => {
+    const template = itemTemplateRecords[templateId];
+    if (
+      !confirmDestructiveAction({
+        action: "Delete",
+        subject: template?.name ?? templateId,
+        consequence:
+          "This deletes the reusable template. Items previously created from it remain unchanged."
+      })
+    ) {
+      return;
+    }
+    client.sendProtocolRequest(
+      buildDeleteItemTemplateRequest({ templateId }),
+      `Delete item template: ${template?.name ?? templateId}`
+    );
+    showStart();
   };
 
   const deleteItem = (itemId: string): void => {
@@ -169,7 +280,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
         action: "Delete",
         subject: item?.name ?? itemId,
         consequence:
-          "This permanently deletes the item definition. Existing inventory and dependency checks still apply."
+          "This permanently deletes the item definition and every copy attached to character templates or spawned characters, including equipped copies. Contents of deleted containers move to root inventory."
       })
     ) {
       return;
@@ -177,7 +288,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
     const submission = buildDeleteItemSubmission(itemId, item);
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingItemId === itemId) {
-      startNewItem();
+      showStart();
     }
   };
 
@@ -232,23 +343,39 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
 
   return (
     <Panel
-      title="Item / Equipment Maker"
-      subtitle="Gear, consumables, and loot. Items can grant actions and passive effects to whoever carries or equips them."
+      title={templateManagement ? "Item Template Builder" : "Item / Equipment Maker"}
+      subtitle={
+        templateManagement
+          ? "Reusable starting points for item creation. Existing items remain independent."
+          : "Gear, consumables, and loot. Items can grant actions and passive effects to whoever carries or equips them."
+      }
       actions={
-        editingItemId ? (
+        (templateManagement
+          ? workspaceMode === "templates"
+          : Boolean(editingItemId) || workspaceMode !== "start") ? (
           <div className="inline-actions">
-            <button className="button button--secondary" onClick={startNewItem}>
-              New Item
+            <button className="button button--secondary" onClick={showStart}>
+              {templateManagement ? "Template Start" : "Item Start"}
             </button>
-            <button className="button button--danger" onClick={() => deleteItem(editingItemId)}>
-              Delete Item
-            </button>
+            {editingItemId ? (
+              <button className="button button--danger" onClick={() => deleteItem(editingItemId)}>
+                Delete Item
+              </button>
+            ) : null}
+            {editingTemplateId ? (
+              <button
+                className="button button--danger"
+                onClick={() => deleteTemplate(editingTemplateId)}
+              >
+                Delete Template
+              </button>
+            ) : null}
           </div>
         ) : null
       }
     >
       <div className="stack">
-        {pendingPlayerItems.length > 0 ? (
+        {!templateManagement && pendingPlayerItems.length > 0 ? (
           <section className="stack" aria-labelledby="pending-player-items-title">
             <div>
               <h3 id="pending-player-items-title">Player Item Approvals</h3>
@@ -264,7 +391,7 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
                     <strong>{item.name}</strong>
                     <p className="muted">
                       Submitted by {item.submitted_by_name ?? "Unknown character"} ·{" "}
-                      {item.category || "Uncategorized"} · {item.weight} lb
+                      {item.interaction_type.replace("_", " ")} · {item.weight} lb
                     </p>
                     {item.description ? <p>{item.description}</p> : null}
                   </div>
@@ -310,66 +437,189 @@ export function ItemMakerPage({ client }: { client: GameClient }): JSX.Element {
           </section>
         ) : null}
         <CatalogEditorLayout
-          catalogLabel="Item Catalog"
+          catalogLabel={templateManagement ? "Item Templates" : "Item Catalog"}
           catalog={
-            <ItemCatalogBrowser
-              items={items}
-              selectedId={editingItemId}
-              onSelect={(itemId) => {
-                const item = itemRecords[itemId];
-                if (!item) {
-                  return;
-                }
-                setEditingItemId(item.id);
-                setValues(toItemEditorValues(item));
-                resetAugmentationEditor();
-              }}
-            />
+            templateManagement ? (
+              <CatalogBrowser
+                catalog="item_templates"
+                client={client}
+                items={itemTemplates.map((template) => ({
+                  id: template.id,
+                  name: template.name,
+                  searchText: [...(template.tags ?? []), template.rank ?? ""].join(" ")
+                }))}
+                selectedId={editingTemplateId}
+                entityLabel="item template"
+                emptyMessage="No item templates created yet."
+                searchPlaceholder="Name, ID, tag, rank, or folder"
+                onCreateEntry={startNewTemplate}
+                onSelect={(templateId) => {
+                  const template = itemTemplateRecords[templateId];
+                  if (!template) return;
+                  setEditingTemplateId(templateId);
+                  setEditingItemId(null);
+                  setWorkspaceMode("templates");
+                  beginTemplateCreation(null);
+                  setValues(toItemEditorValues(template));
+                  resetAugmentationEditor();
+                }}
+              />
+            ) : (
+              <CatalogBrowser
+                catalog="items"
+                client={client}
+                items={items.map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  searchText: [...(item.tags ?? []), item.rank ?? ""].join(" ")
+                }))}
+                selectedId={editingItemId}
+                entityLabel="item"
+                emptyMessage="No items created yet."
+                searchPlaceholder="Name, ID, tag, rank, or folder"
+                onCreateEntry={startNewItem}
+                onSelect={(itemId) => {
+                  const item = itemRecords[itemId];
+                  if (!item) return;
+                  setEditingItemId(item.id);
+                  setEditingTemplateId(null);
+                  setWorkspaceMode("item");
+                  beginCreation(null);
+                  setValues(toItemEditorValues(item));
+                  resetAugmentationEditor();
+                }}
+              />
+            )
           }
         >
-          <ItemEditorForm
-            editingItemId={editingItemId}
-            values={values}
-            onChange={setValues}
-            actions={actions}
-            attributeDefinitions={attributeDefinitions}
-            proficiencies={proficiencyRecords}
-            catalogFolders={catalogFolders}
-            pending={Boolean(submittedCreateId)}
-            attributesEditor={
-              <ItemAttributesEditor
-                values={values}
-                definitions={attributeDefinitions}
-                proficiencies={proficiencyRecords}
-                metadata={actionFormulaAuthoringMetadata}
-                onChange={setValues}
+          {templateManagement && workspaceMode === "template_idle" ? (
+            <section className="stack item-creation-start" aria-label="Start template creation">
+              <div>
+                <h3>Build an item template</h3>
+                <p className="muted">
+                  Create reusable defaults here, or select an existing template from the
+                  catalog to edit it.
+                </p>
+              </div>
+              <div className="inline-actions">
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() => startNewTemplate()}
+                >
+                  New Item Template
+                </button>
+              </div>
+            </section>
+          ) : workspaceMode === "start" ? (
+            <section className="stack item-creation-start" aria-label="Start item creation">
+              <div>
+                <h3>Create an item</h3>
+                <p className="muted">
+                  Begin with an empty draft or copy reusable defaults from an item template.
+                </p>
+              </div>
+              <div className="inline-actions">
+                <button className="button button--primary" type="button" onClick={() => startNewItem()}>
+                  Start from Scratch
+                </button>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => setWorkspaceMode("choose_template")}
+                >
+                  Use a Template
+                </button>
+              </div>
+            </section>
+          ) : workspaceMode === "choose_template" ? (
+            <section className="stack" aria-label="Choose item template">
+              <h3>Choose an Item Template</h3>
+              <CatalogEntityPicker
+                catalog="item_templates"
+                label="Template"
+                placeholder="Search item templates"
+                selectedId={selectedTemplateId}
+                options={itemTemplates.map((template) => ({
+                  id: template.id,
+                  label: template.name,
+                  secondary: (template.tags ?? []).join(", "),
+                  value: template.id
+                }))}
+                emptyMessage="No item templates exist yet."
+                onSelect={setSelectedTemplateId}
               />
-            }
-            effectEditor={
-              <ItemAugmentationTemplatePanel
-                itemName={values.name.trim() || "New equippable item"}
-                editingAugmentationId={editingAugmentationId}
-                templates={values.augmentationTemplates}
-                targetOptions={targetOptions}
-                selectorOptions={selectorOptions}
-                formulaMetadata={actionFormulaAuthoringMetadata}
-                values={augmentationValues}
-                onChange={setAugmentationValues}
-                onSubmit={submitAugmentation}
-                onCancel={resetAugmentationEditor}
-                onEdit={(augmentation) => {
-                  setEditingAugmentationId(augmentation.id);
-                  setAugmentationValues(toAugmentationEditorValues(augmentation));
-                }}
-                onRemove={removeAugmentation}
-              />
-            }
-            onSubmit={onSubmit}
-            onCancel={startNewItem}
-            onOpenActionAuthoring={() =>
-              dispatch({ type: "set_gm_view", view: "action_authoring" })
-            }
-          />
+              <div className="inline-actions">
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={!selectedTemplateId}
+                  onClick={() => {
+                    const template = itemTemplateRecords[selectedTemplateId];
+                    if (!template) return;
+                    setValues(createItemValuesFromTemplate(template));
+                    setDraftItemId(makeId("item"));
+                    setWorkspaceMode("item");
+                    setEditingItemId(null);
+                    resetAugmentationEditor();
+                  }}
+                >
+                  Use Template
+                </button>
+                <button className="button button--secondary" type="button" onClick={showStart}>
+                  Cancel
+                </button>
+              </div>
+            </section>
+          ) : (
+            <ItemEditorForm
+              editingItemId={
+                templateManagement ? editingTemplateId : editingItemId
+              }
+              editorKind={templateManagement ? "template" : "item"}
+              showPlayerAvailability={!templateManagement}
+              values={values}
+              onChange={setValues}
+              actions={actions}
+              attributeDefinitions={attributeDefinitions}
+              proficiencies={proficiencyRecords}
+              tagDefinitions={tagDefinitions}
+              pending={!templateManagement && workspaceMode === "item" && Boolean(submittedCreateId)}
+              attributesEditor={
+                <ItemAttributesEditor
+                  values={values}
+                  definitions={attributeDefinitions}
+                  proficiencies={proficiencyRecords}
+                  metadata={actionFormulaAuthoringMetadata}
+                  onChange={setValues}
+                />
+              }
+              effectEditor={
+                <ItemAugmentationTemplatePanel
+                  itemName={values.name.trim() || "New equippable item"}
+                  editingAugmentationId={editingAugmentationId}
+                  templates={values.augmentationTemplates}
+                  targetOptions={targetOptions}
+                  selectorOptions={selectorOptions}
+                  formulaMetadata={actionFormulaAuthoringMetadata}
+                  values={augmentationValues}
+                  onChange={setAugmentationValues}
+                  onSubmit={submitAugmentation}
+                  onCancel={resetAugmentationEditor}
+                  onEdit={(augmentation) => {
+                    setEditingAugmentationId(augmentation.id);
+                    setAugmentationValues(toAugmentationEditorValues(augmentation));
+                  }}
+                  onRemove={removeAugmentation}
+                />
+              }
+              onSubmit={onSubmit}
+              onCancel={showStart}
+              onOpenActionAuthoring={() =>
+                dispatch({ type: "set_gm_view", view: "action_authoring" })
+              }
+            />
+          )}
         </CatalogEditorLayout>
       </div>
     </Panel>

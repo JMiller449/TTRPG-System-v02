@@ -15,12 +15,9 @@ from backend.state.models.attribute import (
     ITEM_MANA_EFFICIENCY_ATTRIBUTE_ID,
     ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
-    WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
-    WEAPON_TYPE_ATTRIBUTE_ID,
 )
 from backend.state.models.stat import (
     default_max_health_formula,
@@ -331,13 +328,10 @@ def weapon_attributes(
     proficiency: str = "long_swords",
 ) -> dict[str, dict[str, Any]]:
     values = {
-        WEAPON_TYPE_ATTRIBUTE_ID: ("text", weapon_type),
         WEAPON_BASE_DAMAGE_ATTRIBUTE_ID: ("number", base_damage),
         WEAPON_GOVERNING_STAT_ATTRIBUTE_ID: ("enum", governing_stat),
-        WEAPON_DAMAGE_TYPES_ATTRIBUTE_ID: ("list", damage_types or ["Slashing"]),
         WEAPON_REACH_ATTRIBUTE_ID: ("number", 5),
         WEAPON_PROFICIENCY_ATTRIBUTE_ID: ("reference", proficiency),
-        WEAPON_PROFICIENCY_GROWTH_RATE_ATTRIBUTE_ID: ("number", 0.01),
     }
     return {
         attribute_id: {
@@ -568,7 +562,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "10,000 CP",
             "weight": 15,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [
                 augmentation(
                     "light_steps_resistance",
@@ -597,7 +591,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "500 CP",
             "weight": 3,
             "attributes": weapon_attributes(base_damage=15, name="never_dulls"),
-            "attribute_profile": "weapon",
+            "tags": ["weapon", "sword", "slashing"],
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -628,7 +622,7 @@ def item_payloads() -> list[dict[str, Any]]:
                     "Fire",
                 )
             },
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [
                 augmentation(
                     "fire_shard_damage",
@@ -650,7 +644,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "5,000 CP",
             "weight": 2,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [
                 augmentation(
                     "helm_of_sight_perception",
@@ -672,7 +666,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "100,000 CP",
             "weight": 1,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [
                 augmentation(
                     "pyromancy_robe_fire",
@@ -701,7 +695,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "N/A",
             "weight": 3,
             "attributes": sword_of_mana_attributes,
-            "attribute_profile": "weapon",
+            "tags": ["weapon", "sword", "slashing"],
             "augmentation_templates": [
                 augmentation(
                     "sword_of_mana_effect_bonus",
@@ -751,7 +745,7 @@ def item_payloads() -> list[dict[str, Any]]:
                 damage_types=["Piercing"],
                 proficiency="knives",
             ),
-            "attribute_profile": "weapon",
+            "tags": ["weapon", "dagger", "piercing"],
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -776,7 +770,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "250 CP",
             "weight": 0.2,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -796,7 +790,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "80 CP",
             "weight": 0.5,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [],
             "action_grants": [
                 {
@@ -816,7 +810,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "N/A",
             "weight": 0,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [],
             "action_grants": [],
         },
@@ -830,7 +824,7 @@ def item_payloads() -> list[dict[str, Any]]:
             "price": "Unknown",
             "weight": 2,
             "attributes": {},
-            "attribute_profile": None,
+            "tags": [],
             "augmentation_templates": [],
             "action_grants": [],
         },

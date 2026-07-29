@@ -70,12 +70,14 @@ The shared GM and player character views place the independently stored
 canonical Level Attribute beside this XP projection; XP readiness never mutates
 Level automatically.
 
-The DM party view presents the existing backend-owned parties as named
-character folders. A folder navigator shows party membership counts and a
-derived Unassigned folder, while only the selected party's roster editor is
-expanded. Membership changes use explicit add/remove controls and retain the
-existing `save_party` validation and patch flow; the frontend does not persist
-a second folder model or reinterpret party membership locally.
+The DM party view presents the existing backend-owned parties in a party
+navigator with membership counts and a derived Unassigned view, while only the
+selected party's roster editor is expanded. The membership control reuses the
+sheet-instance catalog hierarchy as a searchable checkbox tree, supporting
+individual and folder-wide editing of the local party-membership draft. `Save
+Party` is the only commit action.
+Membership changes retain the existing `save_party` validation and patch flow;
+the frontend does not reinterpret party membership locally.
 
 ## Principal tests
 

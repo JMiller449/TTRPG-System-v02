@@ -190,7 +190,8 @@ def test_v1_item_migration_preserves_text_and_replaces_active_equipment() -> Non
     potion = migrated.state["items"]["potion"]
     bridge = migrated.state["sheets"]["hero"]["items"]["sword_bridge"]
     assert sword["interaction_type"] == "equippable"
-    assert sword["category"] == "Longsword"
+    sword_folder_id = migrated.state["catalog_entries"]["items:sword"]["folder_id"]
+    assert migrated.state["catalog_folders"][sword_folder_id]["name"] == "Longsword"
     assert sword["rank"] == "B"
     assert sword["description"] == (
         "Immediate effect (legacy reference): +2 fire damage"
@@ -231,12 +232,16 @@ def test_v23_migration_normalizes_weight_and_storage_defaults() -> None:
         "id": "bag",
         "weight": 2.5,
         "can_contain_items": False,
+        "storage_capacity_weight": None,
         "contents_weight_behavior": "normal",
-        "player_visible": True,
+        "player_catalog_access": {
+            "mode": "all",
+            "instance_ids": [],
+        },
         "approval_status": "approved",
         "submitted_by_instance_id": None,
         "submitted_by_name": None,
-        "catalog_folder": "",
+        "tags": [],
     }
     assert migrated.state["items"]["weightless"]["weight"] == 0
     assert (
@@ -300,7 +305,8 @@ def test_v3_item_migration_normalizes_descriptions_and_template_ownership() -> N
 
     helm = migrated.state["items"]["helm"]
     template = helm["augmentation_templates"][0]
-    assert helm["category"] == "Helmet"
+    helm_folder_id = migrated.state["catalog_entries"]["items:helm"]["folder_id"]
+    assert migrated.state["catalog_folders"][helm_folder_id]["name"] == "Helmet"
     assert helm["rank"] == "A"
     assert helm["description"] == (
         "Immediate effect (legacy reference): +2 perception\n"
@@ -406,7 +412,7 @@ def test_v6_migration_backfills_required_sheet_attribute() -> None:
     assert bridge["relationship_id"] == "required_attribute_amount_of_reactions"
 
 
-def test_v7_migration_adds_weapon_attribute_profile_metadata_without_inference() -> None:
+def test_v7_migration_finishes_without_legacy_item_profile_metadata() -> None:
     migrated = migrate_persisted_state(
         {
             "schema_version": 7,
@@ -423,11 +429,12 @@ def test_v7_migration_adds_weapon_attribute_profile_metadata_without_inference()
         }
     )
 
-    assert migrated.state["items"]["sword"]["attribute_profile"] is None
+    assert "attribute_profile" not in migrated.state["items"]["sword"]
+    assert migrated.state["items"]["sword"]["tags"] == []
     assert migrated.state["items"]["sword"]["attributes"] == {}
     definition = migrated.state["attributes"]["weapon_proficiency"]
-    assert definition["required"] is True
-    assert definition["required_profile"] == "weapon"
+    assert definition["required"] is False
+    assert definition.get("required_profile") is None
     assert definition["reference_kind"] == "proficiency"
 
 
@@ -641,7 +648,7 @@ def test_v11_migration_adds_backend_owned_optional_item_attributes() -> None:
         attributes[attribute_id]["backend_owned"] is True
         and attributes[attribute_id]["required"] is False
         and attributes[attribute_id]["subject_types"] == ["item"]
-        and attributes[attribute_id]["required_profile"] is None
+        and attributes[attribute_id].get("required_profile") is None
         for attribute_id in (
             "item_attribute",
             "item_mana_efficiency",
@@ -807,6 +814,90 @@ def test_newer_primary_schema_falls_back_to_supported_backup(
     }
 
 
+def test_v41_migration_manages_tags_and_removes_item_profile_fields() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 41,
+            "state": {
+                "formulas": {
+                    "damage_roll": {
+                        "id": "damage_roll",
+                        "formula": {
+                            "aliases": None,
+                            "text": "1",
+                            "tags": [" Damage "],
+                        },
+                    }
+                },
+                "attributes": {
+                    "weapon_type": {"id": "weapon_type"},
+                    "weapon_damage_types": {"id": "weapon_damage_types"},
+                    "weapon_proficiency_growth_rate": {
+                        "id": "weapon_proficiency_growth_rate"
+                    },
+                },
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "attribute_profile": "weapon",
+                        "attributes": {
+                            "weapon_type": {
+                                "value": {"type": "text", "value": "Long Sword"}
+                            },
+                            "weapon_damage_types": {
+                                "value": {"type": "list", "value": ["Slashing"]}
+                            },
+                            "weapon_proficiency_growth_rate": {
+                                "value": {"type": "number", "value": 0.5}
+                            },
+                        },
+                    }
+                },
+            },
+        }
+    )
+
+    sword = migrated.state["items"]["sword"]
+    assert migrated.state["formulas"]["damage_roll"]["formula"]["tags"] == ["damage"]
+    assert sword["tags"] == ["weapon", "long sword", "slashing"]
+    assert "attribute_profile" not in sword
+    assert sword["attributes"] == {}
+    assert "weapon_type" not in migrated.state["attributes"]
+    assert "weapon_damage_types" not in migrated.state["attributes"]
+    assert "weapon_proficiency_growth_rate" not in migrated.state["attributes"]
+    assert migrated.state["tags"]["long sword"]["name"] == "Long Sword"
+    assert migrated.state["item_templates"] == {}
+
+
+def test_v45_migration_adds_unlimited_storage_capacity_defaults() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 44,
+            "state": {
+                "items": {
+                    "bag": {
+                        "id": "bag",
+                        "can_contain_items": True,
+                    }
+                },
+                "item_templates": {
+                    "pouch": {
+                        "id": "pouch",
+                        "can_contain_items": True,
+                        "storage_capacity_weight": 12,
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["items"]["bag"]["storage_capacity_weight"] is None
+    assert (
+        migrated.state["item_templates"]["pouch"]["storage_capacity_weight"]
+        == 12
+    )
+
+
 def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     legacy = migrate_persisted_state({"sheets": {}, "items": {}})
     current = migrate_persisted_state(build_persisted_state({"actions": {}}))
@@ -816,9 +907,13 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     required_attribute = legacy.state.pop("attributes")
     seeded_actions = legacy.state.pop("actions")
     seeded_proficiencies = legacy.state.pop("proficiencies")
+    seeded_tags = legacy.state.pop("tags")
+    item_templates = legacy.state.pop("item_templates")
     assert required_attribute["amount_of_reactions"]["required"] is True
     assert seeded_actions == seeded_global_action_payloads()
     assert seeded_proficiencies["long_swords"]["category"] == "weapon_family"
+    assert seeded_tags["weapon"]["name"] == "Weapon"
+    assert item_templates == {}
     assert legacy.state == {
         "sheets": {},
         "items": {},
@@ -831,6 +926,8 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
             "xp_adjustments": {},
             "contribution_point_transactions": {},
             "player_kill_visibility": {},
+            "catalog_folders": {},
+            "catalog_entries": {},
     }
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False
@@ -865,21 +962,31 @@ def test_v32_migration_adds_growth_to_unmodified_canonical_weapon_actions() -> N
     assert result.state["actions"]["custom_weapon_attack"] == customized
 
 
-def test_v33_migration_backfills_item_catalog_folders_without_overwriting_them() -> None:
+def test_legacy_item_catalog_labels_migrate_to_structured_folders() -> None:
     result = migrate_persisted_state(
         {
             "schema_version": 33,
             "state": {
                 "items": {
                     "unfiled": {"id": "unfiled"},
-                    "filed": {"id": "filed", "catalog_folder": "Relics"},
+                    "filed": {
+                        "id": "filed",
+                        "catalog_folder": "Relics",
+                        "category": "Weapons",
+                    },
                 }
             },
         }
     )
 
-    assert result.state["items"]["unfiled"]["catalog_folder"] == ""
-    assert result.state["items"]["filed"]["catalog_folder"] == "Relics"
+    assert "catalog_folder" not in result.state["items"]["unfiled"]
+    assert "catalog_folder" not in result.state["items"]["filed"]
+    assert result.state["catalog_entries"]["items:unfiled"]["folder_id"] is None
+    folder_id = result.state["catalog_entries"]["items:filed"]["folder_id"]
+    assert result.state["catalog_folders"][folder_id]["name"] == "Weapons"
+    parent_id = result.state["catalog_folders"][folder_id]["parent_id"]
+    assert result.state["catalog_folders"][parent_id]["name"] == "Relics"
+    assert "category" not in result.state["items"]["filed"]
 
 
 def test_v34_migration_backfills_character_profiles_on_templates_and_instances() -> None:
@@ -1373,10 +1480,45 @@ def test_v28_migration_publishes_existing_items_and_backfills_approval_metadata(
     )
 
     item = result.state["items"]["legacy_rope"]
-    assert item["player_visible"] is True
+    assert item["player_catalog_access"] == {
+        "mode": "all",
+        "instance_ids": [],
+    }
+    assert "player_visible" not in item
     assert item["approval_status"] == "approved"
     assert item["submitted_by_instance_id"] is None
     assert item["submitted_by_name"] is None
+
+
+def test_v41_migration_converts_item_visibility_to_catalog_access() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 40,
+            "state": {
+                "items": {
+                    "public": {
+                        "id": "public",
+                        "player_visible": True,
+                    },
+                    "private": {
+                        "id": "private",
+                        "player_visible": False,
+                    },
+                }
+            },
+        }
+    )
+
+    assert result.state["items"]["public"]["player_catalog_access"] == {
+        "mode": "all",
+        "instance_ids": [],
+    }
+    assert result.state["items"]["private"]["player_catalog_access"] == {
+        "mode": "none",
+        "instance_ids": [],
+    }
+    assert "player_visible" not in result.state["items"]["public"]
+    assert "player_visible" not in result.state["items"]["private"]
 
 
 def test_v31_migration_removes_authored_action_message_visibility() -> None:

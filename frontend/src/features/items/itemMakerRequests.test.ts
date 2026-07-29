@@ -13,7 +13,6 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     id: "item_1",
     name: "Sword of Mana",
     interaction_type: "equippable",
-    category: "Sword",
     rank: "S",
     description: "A blade that conducts mana.",
     world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -21,7 +20,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     gm_special_properties: "Adds +50 to sword enchantments.",
     price: "NA",
     weight: 3,
-    attribute_profile: null,
+    tags: [],
     attributes: {},
     augmentation_templates: [],
     ...overrides
@@ -47,8 +46,6 @@ describe("itemMakerRequests", () => {
   it("builds create submissions from editor values", () => {
     const values = createEmptyItemValues();
     values.name = "  Sword of Mana  ";
-    values.type = " Sword ";
-    values.catalogFolder = " Weapons ";
     values.rank = "S";
     values.weight = " 3 ";
     values.value = " NA ";
@@ -64,8 +61,6 @@ describe("itemMakerRequests", () => {
           id: "item_created",
           name: "Sword of Mana",
           interaction_type: "equippable",
-          category: "Sword",
-          catalog_folder: "Weapons",
           rank: "S",
           description: "A blade that conducts mana.",
           world_anvil_url: "https://worldanvil.example/items/sword-of-mana",
@@ -73,10 +68,14 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Adds +50 to sword enchantments.",
           price: "NA",
           weight: 3,
-          player_visible: false,
+          player_catalog_access: {
+            mode: "none",
+            instance_ids: []
+          },
           can_contain_items: false,
+          storage_capacity_weight: null,
           contents_weight_behavior: "normal",
-          attribute_profile: null,
+          tags: [],
           attributes: {},
           augmentation_templates: [],
           action_grants: []
@@ -98,8 +97,6 @@ describe("itemMakerRequests", () => {
     const item = testItem();
     const values = createEmptyItemValues();
     values.name = "  Edited Sword of Mana  ";
-    values.type = " Sword ";
-    values.catalogFolder = " Weapons ";
     values.rank = "S+";
     values.weight = " 4 ";
     values.value = " 1,000CP ";
@@ -115,8 +112,6 @@ describe("itemMakerRequests", () => {
         item: {
           ...item,
           name: "Edited Sword of Mana",
-          category: "Sword",
-          catalog_folder: "Weapons",
           rank: "S+",
           description: "Better enchantment channeling.",
           world_anvil_url: "https://worldanvil.example/items/edited-sword",
@@ -124,8 +119,12 @@ describe("itemMakerRequests", () => {
           gm_special_properties: "Updated hidden property.",
           price: "1,000CP",
           weight: 4,
-          player_visible: false,
+          player_catalog_access: {
+            mode: "none",
+            instance_ids: []
+          },
           can_contain_items: false,
+          storage_capacity_weight: null,
           contents_weight_behavior: "normal",
           action_grants: []
         }

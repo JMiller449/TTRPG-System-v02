@@ -4,28 +4,33 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { initialState } from "@/app/state/initialState";
+import { StoreContext } from "@/app/state/storeContext";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
 
-function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  setter?.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
 describe("FormulaTagEditor", () => {
-  it("uses one inline chip-and-search control without staged add controls", () => {
+  it("uses the managed nested tag catalog inside the application store", () => {
+    const state = structuredClone(initialState);
+    state.serverState.tags.damage = {
+      id: "damage",
+      name: "Damage",
+      description: "Damage formula context"
+    };
+    state.serverState.tagOrder = ["damage"];
+
     const markup = renderToStaticMarkup(
-      <FormulaTagEditor tags={["damage"]} onChange={() => undefined} />
+      <StoreContext.Provider value={{ state, dispatch: () => undefined }}>
+        <FormulaTagEditor tags={[]} onChange={() => undefined} />
+      </StoreContext.Provider>
     );
 
-    expect(markup).toContain('role="combobox"');
-    expect(markup).toContain("damage ×");
-    expect(markup).toContain("Add another tag");
-    expect(markup).not.toContain("Add Tags");
-    expect(markup).not.toContain("Common tags");
+    expect(markup).toContain("Search Formula Tags");
+    expect(markup).toContain("Select tag Damage");
+    expect(markup).not.toContain('role="combobox"');
+    expect(markup).not.toContain("Create custom tag");
   });
 
-  it("filters suggestions, accepts custom tags, and removes the last chip with Backspace", async () => {
+  it("selects existing suggestions without offering free-form creation", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -42,41 +47,29 @@ describe("FormulaTagEditor", () => {
     }
 
     await act(async () => root.render(<Harness />));
-    const input = container.querySelector("input");
-    expect(input).not.toBeNull();
+    const damage = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Select tag damage"]'
+    );
+    expect(damage?.checked).toBe(false);
 
+    await act(async () => damage?.click());
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Select tag damage"]')?.checked
+    ).toBe(true);
+
+    const search = container.querySelector<HTMLInputElement>('input[type="search"]');
     await act(async () => {
-      input?.focus();
-      if (input) {
-        setInputValue(input, "dam");
+      if (search) {
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          "value"
+        )?.set;
+        setter?.call(search, "homebrew");
+        search.dispatchEvent(new Event("input", { bubbles: true }));
       }
-      await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(document.body.textContent).toContain("damage");
-    expect(document.body.textContent).not.toContain("healing");
-
-    await act(async () => {
-      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    });
-    expect(container.textContent).toContain("damage ×");
-    expect(input?.value).toBe("");
-
-    await act(async () => {
-      if (input) {
-        setInputValue(input, "homebrew");
-      }
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    });
-    expect(container.textContent).toContain("homebrew ×");
-
-    await act(async () => {
-      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }));
-    });
-    expect(container.textContent).not.toContain("homebrew ×");
-    expect(container.textContent).toContain("damage ×");
+    expect(container.textContent).toContain("No managed tags match this search.");
+    expect(container.textContent).not.toContain("Create custom tag");
 
     await act(async () => root.unmount());
   });

@@ -218,7 +218,7 @@ export function PlayerCharacterSheet({
     Number.isInteger(parsedUnassignedStatPointsDraft) && parsedUnassignedStatPointsDraft >= 0;
   const inventoryCatalogOrder = itemOrder.filter((itemId) => {
     const item = items[itemId];
-    return item?.approval_status !== "pending" && (mode === "gm" || item?.player_visible === true);
+    return item?.approval_status !== "pending";
   });
   const inventorySelectedItemId = inventoryCatalogOrder.includes(selectedItemId)
     ? selectedItemId
@@ -845,6 +845,7 @@ export function PlayerCharacterSheet({
               carryWeightLimit={detail.stats.carry_weight ?? 0}
               canManageInventory={canManageEquipment}
               canEditInventory={canEditEquipment}
+              canMoveInventory
               canToggleEquipped
               onSelectedItemIdChange={setSelectedItemId}
               onAddSelectedItem={() => {

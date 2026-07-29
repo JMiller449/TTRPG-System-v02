@@ -7,8 +7,8 @@ import {
   buildGetSheetAccessCodesRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
@@ -77,20 +77,19 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
     >
       <div className="stack">
         <div className="inline-group">
-          <Field label="Player Instance">
-            <select
-              value={selectedInstanceId}
-              onChange={(event) => setSelectedInstanceId(event.target.value)}
-              disabled={playerInstances.length === 0}
-            >
-              {playerInstances.length === 0 ? <option value="">No player instances</option> : null}
-              {playerInstances.map((instance) => (
-                <option key={instance.id} value={instance.id}>
-                  {instance.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <CatalogEntityPicker
+            catalog="sheet_instances"
+            label="Player Instance"
+            placeholder="Search spawned sheets"
+            selectedId={selectedInstanceId}
+            options={playerInstances.map((instance) => ({
+              id: instance.id,
+              label: instance.name,
+              value: instance.id
+            }))}
+            emptyMessage="No player instances."
+            onSelect={setSelectedInstanceId}
+          />
           <button
             type="button"
             className="button"
@@ -117,25 +116,25 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
               : null;
             const templateName = state.serverState.sheets[entry.sheetId]?.name;
             return (
-            <article className="list-item" key={entry.code}>
-              <div>
-                <strong>{entry.code}</strong>
-                <div className="muted">
-                  {instanceName
-                    ? `Unlocks ${instanceName}`
-                    : templateName
-                      ? `Unlocks a ${templateName} sheet (unclaimed)`
-                      : "Not assigned to a character yet"}
+              <article className="list-item" key={entry.code}>
+                <div>
+                  <strong>{entry.code}</strong>
+                  <div className="muted">
+                    {instanceName
+                      ? `Unlocks ${instanceName}`
+                      : templateName
+                        ? `Unlocks a ${templateName} sheet (unclaimed)`
+                        : "Not assigned to a character yet"}
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={() => void copyCode(entry.code)}
-              >
-                {copiedCode === entry.code ? "Copied" : "Copy"}
-              </button>
-            </article>
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={() => void copyCode(entry.code)}
+                >
+                  {copiedCode === entry.code ? "Copied" : "Copy"}
+                </button>
+              </article>
             );
           })}
         </div>

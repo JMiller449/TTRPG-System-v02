@@ -1,5 +1,34 @@
 export type Role = "player" | "gm";
 
+export type CatalogKey =
+  | "actions"
+  | "attributes"
+  | "conditions"
+  | "effects"
+  | "formulas"
+  | "item_templates"
+  | "items"
+  | "proficiencies"
+  | "sheet_instances"
+  | "sheet_templates"
+  | "tags";
+
+export interface CatalogFolder {
+  id: string;
+  catalog: CatalogKey;
+  name: string;
+  parent_id?: string | null;
+  position: number;
+}
+
+export interface CatalogEntry {
+  id: string;
+  catalog: CatalogKey;
+  entry_id: string;
+  folder_id?: string | null;
+  position: number;
+}
+
 export type SheetKind = "player" | "enemy";
 
 export type StatKey =
@@ -399,8 +428,6 @@ export interface ItemDefinition {
   id: string;
   name: string;
   interaction_type: ItemInteractionType;
-  category?: string;
-  catalog_folder?: string;
   rank?: string;
   description: string;
   world_anvil_url?: string;
@@ -408,19 +435,31 @@ export interface ItemDefinition {
   gm_special_properties?: string;
   price: string;
   weight: number;
-  player_visible?: boolean;
+  player_catalog_access?: ItemPlayerCatalogAccess | null;
   approval_status?: "approved" | "pending";
   submitted_by_instance_id?: string | null;
   submitted_by_name?: string | null;
   can_contain_items?: boolean;
+  storage_capacity_weight?: number | null;
   contents_weight_behavior?: "normal" | "ignored";
-  attribute_profile?: "weapon" | null;
+  tags?: string[];
   augmentation_templates?: Augmentation[];
   action_grants?: ItemActionGrant[];
   attributes?: Record<string, AttributeBridge>;
 }
 
+export interface TagDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export type ItemInteractionType = "equippable" | "consumable" | "inventory_only";
+
+export interface ItemPlayerCatalogAccess {
+  mode: "none" | "all" | "selected";
+  instanceIds: string[];
+}
 
 export interface ItemActionGrant {
   action_id: string;
@@ -439,6 +478,7 @@ export interface ItemBridge {
   equipped: boolean;
   item_id: string;
   parent_container_id?: string | null;
+  current_contents_weight?: number;
 }
 
 export interface ProficiencyBridge {

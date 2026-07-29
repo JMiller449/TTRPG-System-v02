@@ -35,15 +35,15 @@ describe("XP registry editors", () => {
     expect(markup).toContain("Near the Gate");
     expect(markup).toContain("Hero One");
     expect(markup).not.toContain("Hero Two");
-    expect(markup).toContain("Hero Three");
-    expect(markup).toContain("Add Character");
-    expect(markup).toContain("Remove");
+    expect(markup).toContain("Party members");
+    expect(markup).toContain("Search by name, ID, or folder");
+    expect(markup).not.toContain("Add Characters");
     expect(markup).toContain("Save Party");
-    expect(markup).not.toContain('type="checkbox"');
+    expect(markup).toContain('type="checkbox"');
     expect(markup).toContain("disabled");
   });
 
-  it("navigates named party folders and the unassigned character folder", async () => {
+  it("navigates named parties and unassigned characters", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -100,10 +100,10 @@ describe("XP registry editors", () => {
       );
     });
 
-    expect(container.textContent).toContain("Character Folders");
+    expect(container.textContent).toContain("Parties");
     expect(container.textContent).toContain("Hero One");
     expect(container.textContent).not.toContain("Hero Two");
-    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
 
     const unassignedButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Unassigned")
@@ -123,7 +123,7 @@ describe("XP registry editors", () => {
     await act(async () => root.unmount());
   });
 
-  it("saves explicit character moves without checkbox membership controls", async () => {
+  it("adds multiple selected characters and saves the resulting party roster", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
@@ -141,7 +141,8 @@ describe("XP registry editors", () => {
           }}
           characters={[
             { instance_id: "hero_1", name: "Hero One" },
-            { instance_id: "hero_2", name: "Hero Two" }
+            { instance_id: "hero_2", name: "Hero Two" },
+            { instance_id: "hero_3", name: "Hero Three" }
           ]}
           unavailableIds={new Set(["hero_1"])}
           client={interactiveClient}
@@ -149,31 +150,25 @@ describe("XP registry editors", () => {
       );
     });
 
-    const removeButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Remove"
+    const heroOne = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Allow Hero One"]'
     );
-    await act(async () => removeButton?.click());
+    await act(async () => heroOne?.click());
     expect(container.textContent).toContain("Hero One");
     expect(confirm).toHaveBeenCalledWith(
-      "Remove “Hero One”?\n\nThis removes the character from this party when you save the folder."
+      "Remove “Hero One”?\n\nThis removes the character from this party when you save the party."
     );
     confirm.mockReturnValue(true);
-    await act(async () => removeButton?.click());
+    await act(async () => heroOne?.click());
 
-    const selector = container.querySelector<HTMLSelectElement>("select");
-    await act(async () => {
-      if (!selector) return;
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLSelectElement.prototype,
-        "value"
-      )?.set;
-      valueSetter?.call(selector, "hero_2");
-      selector.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    const addButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Add Character"
+    const heroTwo = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Allow Hero Two"]'
     );
-    await act(async () => addButton?.click());
+    const heroThree = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Allow Hero Three"]'
+    );
+    await act(async () => heroTwo?.click());
+    await act(async () => heroThree?.click());
     const saveButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Save Party"
     );
@@ -185,11 +180,11 @@ describe("XP registry editors", () => {
         type: "save_party",
         party_id: "party_1",
         name: "Near the Gate",
-        member_instance_ids: ["hero_2"]
+        member_instance_ids: ["hero_2", "hero_3"]
       },
       "Save party: Near the Gate"
     );
-    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
 
     await act(async () => root.unmount());
     confirm.mockRestore();

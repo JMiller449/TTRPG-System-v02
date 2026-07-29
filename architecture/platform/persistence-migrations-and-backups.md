@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 39. Future-version checkpoints are rejected rather than guessed at.
+version 45. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -55,6 +55,32 @@ unchanged.
 Schema version 34 adds the backend-owned `catalog_folder` field to item
 definitions. Existing items migrate to an empty folder and appear under
 Unfiled; already authored folder metadata is preserved.
+
+Schema version 40 replaces that item-owned field with reusable top-level
+catalog folders and entry placements. Legacy item `catalog_folder` and
+free-form `category` text is converted into nested item folders before those
+fields are removed. Unfiled items remain at the catalog root.
+
+Schema version 41 replaces the global item `player_visible` boolean with
+structured player-catalog access. Visible items migrate to `all`, hidden items
+migrate to `none`, and both receive an empty stable instance-ID selection.
+
+Schema version 42 introduces managed `TagDefinition` records and independent
+tag/item-template catalog scopes. Existing formula, inline action-formula,
+augmentation-selector, and item tag strings are normalized into stable IDs and
+receive definitions.
+
+Schema version 43 removes item attribute profiles. Legacy weapon type and
+damage-type values become managed item tags; their bespoke Attribute
+definitions are removed. The item proficiency-growth Attribute is also removed,
+while base damage, governing stat, reach, and proficiency remain optional
+standard Attributes.
+
+Schema version 44 adds the separate DM-only `item_templates` registry.
+
+Schema version 45 adds optional storage weight limits to item and item-template
+definitions. Existing containers migrate as unlimited so no valid inventory is
+silently rejected.
 
 Schema version 35 adds structured, non-mechanical character profiles to sheet
 templates and spawned instances. Existing records migrate with empty profile

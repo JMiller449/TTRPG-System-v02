@@ -36,12 +36,3 @@ export function normalizeFormulaTags(tags: readonly string[]): string[] {
   });
   return normalized;
 }
-
-export function addFormulaTags(current: readonly string[], input: string): string[] {
-  return normalizeFormulaTags([...current, ...input.split(",")]);
-}
-
-export function removeFormulaTag(current: readonly string[], tag: string): string[] {
-  const normalizedTag = normalizeFormulaTag(tag);
-  return normalizeFormulaTags(current).filter((value) => value !== normalizedTag);
-}

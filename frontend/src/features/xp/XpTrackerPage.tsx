@@ -19,6 +19,7 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
 type XpView = "parties" | "registry" | "progress";
 
@@ -125,7 +126,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               setNewPartyName("");
             }}
           >
-            <Field label="New party folder">
+            <Field label="New party">
               <input
                 value={newPartyName}
                 onChange={(event) => setNewPartyName(event.target.value)}
@@ -136,7 +137,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               type="submit"
               disabled={!newPartyName.trim()}
             >
-              Create Party Folder
+              Create Party
             </button>
           </form>
           <PartyFolderWorkspace
@@ -176,33 +177,41 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             }}
           >
             <h3>Record Kill</h3>
-            <Field label="Credited character">
-              <select
-                value={creditedInstanceId}
-                onChange={(event) => setCreditedInstanceId(event.target.value)}
-              >
-                <option value="">Select character</option>
-                {characters.map((character) => (
-                  <option key={character.instance_id} value={character.instance_id}>
-                    {character.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Monster">
-              <select
-                value={monsterChoice}
-                onChange={(event) => setMonsterChoice(event.target.value)}
-              >
-                <option value="">Select monster</option>
-                {xpTracker.mobs.map((mob) => (
-                  <option key={mob.sheet_id} value={mob.sheet_id}>
-                    {mob.name} · {formatXp(mob.xp_value)} XP
-                  </option>
-                ))}
-                <option value="custom">Arbitrary kill</option>
-              </select>
-            </Field>
+            <CatalogEntityPicker
+              catalog="sheet_instances"
+              label="Credited character"
+              placeholder="Search spawned sheets"
+              selectedId={creditedInstanceId}
+              options={characters.map((character) => ({
+                id: character.instance_id,
+                label: character.name,
+                value: character.instance_id
+              }))}
+              emptyMessage="No characters available."
+              onSelect={setCreditedInstanceId}
+            />
+            <CatalogEntityPicker
+              catalog="sheet_templates"
+              label="Monster"
+              placeholder="Search enemy templates"
+              selectedId={monsterChoice}
+              options={[
+                ...xpTracker.mobs.map((mob) => ({
+                  id: mob.sheet_id,
+                  label: mob.name,
+                  secondary: `${formatXp(mob.xp_value)} XP`,
+                  value: mob.sheet_id
+                })),
+                {
+                  id: "custom",
+                  label: "Arbitrary kill",
+                  keywords: ["custom"],
+                  value: "custom"
+                }
+              ]}
+              emptyMessage="No monsters available."
+              onSelect={setMonsterChoice}
+            />
             {monsterChoice === "custom" ? (
               <div className="xp-custom-kill-fields">
                 <Field label="Monster name">
@@ -359,19 +368,19 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                 setAdjustmentReason("");
               }}
             >
-              <Field label="Character">
-                <select
-                  value={adjustmentInstanceId}
-                  onChange={(event) => setAdjustmentInstanceId(event.target.value)}
-                >
-                  <option value="">Select character</option>
-                  {characters.map((character) => (
-                    <option key={character.instance_id} value={character.instance_id}>
-                      {character.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <CatalogEntityPicker
+                catalog="sheet_instances"
+                label="Character"
+                placeholder="Search spawned sheets"
+                selectedId={adjustmentInstanceId}
+                options={characters.map((character) => ({
+                  id: character.instance_id,
+                  label: character.name,
+                  value: character.instance_id
+                }))}
+                emptyMessage="No characters available."
+                onSelect={setAdjustmentInstanceId}
+              />
               <Field label="XP amount">
                 <input
                   type="number"

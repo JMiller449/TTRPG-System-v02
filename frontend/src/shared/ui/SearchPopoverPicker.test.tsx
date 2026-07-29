@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SearchPopoverPicker } from "@/shared/ui/SearchPopoverPicker";
 import {
+  buildOrganizedSearchPopoverRows,
   calculateSearchPopoverPosition,
   filterSearchPopoverOptions,
   nextEnabledOptionIndex,
@@ -47,6 +48,36 @@ describe("SearchPopoverPicker", () => {
     expect(nextEnabledOptionIndex({ options, currentIndex: 2, direction: "next" })).toBe(0);
     expect(nextEnabledOptionIndex({ options, currentIndex: 0, direction: "previous" })).toBe(2);
     expect(nextEnabledOptionIndex({ options, currentIndex: 0, direction: "last" })).toBe(2);
+  });
+
+  it("builds collapsible nested organization and reveals matches through collapsed folders", () => {
+    const organization = {
+      folders: [
+        { id: "weapons", name: "Weapons", parentId: null, position: 0 },
+        { id: "swords", name: "Swords", parentId: "weapons", position: 0 }
+      ],
+      placements: [{ entryId: "longsword", folderId: "swords", position: 0 }]
+    };
+    const organizedOptions: SearchPopoverOption<string>[] = [
+      { id: "longsword", label: "Longsword", value: "longsword" }
+    ];
+
+    expect(
+      buildOrganizedSearchPopoverRows({
+        options: organizedOptions,
+        organization,
+        query: "",
+        collapsedFolderIds: new Set(["weapons", "swords"])
+      })
+    ).toEqual([{ type: "folder", id: "weapons", name: "Weapons", depth: 0, expanded: false }]);
+    expect(
+      buildOrganizedSearchPopoverRows({
+        options: organizedOptions,
+        organization,
+        query: "long",
+        collapsedFolderIds: new Set(["weapons", "swords"])
+      }).map((row) => (row.type === "folder" ? row.name : row.option.label))
+    ).toEqual(["Weapons", "Swords", "Longsword"]);
   });
 
   it("keeps popup geometry within the viewport and opens above cramped anchors", () => {

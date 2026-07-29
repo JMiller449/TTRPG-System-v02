@@ -1,0 +1,1 @@
+"""Managed tag definition authoring."""

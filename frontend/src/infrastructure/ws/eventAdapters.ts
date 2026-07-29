@@ -2,6 +2,7 @@ import type { AppSnapshot, ServerEvent } from "@/domain/ipc";
 import type {
   ActiveCondition,
   EncounterPreset,
+  ItemDefinition,
   PersistentSheet,
   ProficiencyDefinition,
   Role,
@@ -17,6 +18,7 @@ import type {
   ActiveConditionPayload,
   EncounterPresetPayload,
   InstancedSheetPayload,
+  ItemPayload,
   ProficiencyPayload,
   SheetPayload,
   StandaloneEffectDefinitionPayload
@@ -219,14 +221,41 @@ function projectProficiency(value: ProficiencyPayload): ProficiencyDefinition {
   };
 }
 
+function projectItem(value: ItemPayload): ItemDefinition {
+  const { player_catalog_access: access, ...item } = value;
+  if (!access) {
+    return item;
+  }
+  return {
+    ...item,
+    player_catalog_access: {
+      mode: access.mode,
+      instanceIds: access.instance_ids ?? []
+    }
+  };
+}
+
 function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
   return {
+    catalogFolders: Object.values(state.catalog_folders ?? {}).map((folder) => ({
+      ...folder,
+      position: folder.position ?? 0
+    })),
+    catalogEntries: Object.values(state.catalog_entries ?? {}).map((entry) => ({
+      ...entry,
+      position: entry.position ?? 0
+    })),
     sheets: Object.values(state.sheets ?? {}).map(projectSheet),
     persistentSheets: Object.entries(state.instanced_sheets ?? {}).map(([id, value]) => ({
       id,
       value: projectPersistentSheet(value)
     })),
-    items: Object.values(state.items ?? {}),
+    items: Object.values(state.items ?? {}).map(projectItem),
+    itemTemplates: Object.values(state.item_templates ?? {}).map(projectItem),
+    tags: Object.values(state.tags ?? {}).map((tag) => ({
+      ...tag,
+      description: tag.description ?? ""
+    })),
     proficiencies: Object.values(state.proficiencies ?? {}).map(projectProficiency),
     actions: Object.values(state.actions ?? {}),
     formulas: Object.values(state.formulas ?? {}),

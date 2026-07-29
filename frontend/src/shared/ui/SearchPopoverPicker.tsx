@@ -10,10 +10,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  buildOrganizedSearchPopoverRows,
   calculateSearchPopoverPosition,
-  filterSearchPopoverOptions,
   nextEnabledOptionIndex,
   type SearchPopoverOption,
+  type SearchPopoverOrganization,
   type SearchPopoverPosition
 } from "@/shared/ui/searchPopover";
 
@@ -21,6 +22,9 @@ export function SearchPopoverPicker<T>({
   label,
   placeholder,
   options,
+  organization,
+  selectedId,
+  disabled = false,
   loading = false,
   emptyMessage = "No matching options.",
   onSelect
@@ -28,6 +32,9 @@ export function SearchPopoverPicker<T>({
   label: string;
   placeholder: string;
   options: SearchPopoverOption<T>[];
+  organization?: SearchPopoverOrganization;
+  selectedId?: string | null;
+  disabled?: boolean;
   loading?: boolean;
   emptyMessage?: string;
   onSelect: (value: T) => void;
@@ -42,9 +49,29 @@ export function SearchPopoverPicker<T>({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [position, setPosition] = useState<SearchPopoverPosition | null>(null);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set());
+  const collapsedFolderIds = useMemo(
+    () =>
+      new Set(
+        organization?.folders
+          .map((folder) => folder.id)
+          .filter((folderId) => !expandedFolderIds.has(folderId)) ?? []
+      ),
+    [expandedFolderIds, organization]
+  );
+  const visibleRows = useMemo(
+    () =>
+      buildOrganizedSearchPopoverRows({
+        options,
+        organization,
+        query,
+        collapsedFolderIds
+      }),
+    [collapsedFolderIds, options, organization, query]
+  );
   const visibleOptions = useMemo(
-    () => filterSearchPopoverOptions(options, query),
-    [options, query]
+    () => visibleRows.flatMap((row) => (row.type === "option" ? [row.option] : [])),
+    [visibleRows]
   );
   const activeOption = activeIndex >= 0 ? visibleOptions[activeIndex] : undefined;
 
@@ -99,7 +126,7 @@ export function SearchPopoverPicker<T>({
 
   useEffect(() => {
     setActiveIndex(-1);
-  }, [query, options]);
+  }, [expandedFolderIds, options, organization, query]);
 
   useEffect(() => {
     if (!open || activeIndex < 0) {
@@ -192,10 +219,17 @@ export function SearchPopoverPicker<T>({
           aria-activedescendant={
             activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
           }
-          value={query}
+          value={
+            open ? query : (options.find((option) => option.id === selectedId)?.label ?? query)
+          }
+          disabled={disabled}
           placeholder={placeholder}
-          onFocus={() => setOpen(true)}
-          onClick={() => setOpen(true)}
+          onFocus={() => {
+            if (!disabled) setOpen(true);
+          }}
+          onClick={() => {
+            if (!disabled) setOpen(true);
+          }}
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
@@ -217,11 +251,39 @@ export function SearchPopoverPicker<T>({
               {loading ? (
                 <div className="search-popover-picker__status">Loading options...</div>
               ) : null}
-              {!loading && visibleOptions.length === 0 ? (
+              {!loading && visibleRows.length === 0 ? (
                 <div className="search-popover-picker__status">{emptyMessage}</div>
               ) : null}
               {!loading
-                ? visibleOptions.map((option, index) => {
+                ? visibleRows.map((row) => {
+                    if (row.type === "folder") {
+                      return (
+                        <button
+                          type="button"
+                          className="search-popover-picker__folder"
+                          key={`folder:${row.id}`}
+                          aria-expanded={row.expanded}
+                          style={{ paddingInlineStart: `${0.65 + row.depth * 0.8}rem` }}
+                          onPointerDown={(event) => event.preventDefault()}
+                          onClick={() =>
+                            setExpandedFolderIds((current) => {
+                              const next = new Set(current);
+                              if (next.has(row.id)) {
+                                next.delete(row.id);
+                              } else {
+                                next.add(row.id);
+                              }
+                              return next;
+                            })
+                          }
+                        >
+                          <span aria-hidden="true">{row.expanded ? "▾" : "▸"}</span>
+                          <strong>{row.name}</strong>
+                        </button>
+                      );
+                    }
+                    const option = row.option;
+                    const index = visibleOptions.indexOf(option);
                     const active = index === activeIndex;
                     return (
                       <div
@@ -234,6 +296,7 @@ export function SearchPopoverPicker<T>({
                         aria-selected={active}
                         aria-disabled={Boolean(option.disabledReason)}
                         data-option-index={index}
+                        style={{ paddingInlineStart: `${0.65 + row.depth * 0.8}rem` }}
                         onPointerEnter={() => setActiveIndex(index)}
                         onPointerDown={(event) => event.preventDefault()}
                         onClick={() => selectOption(option)}

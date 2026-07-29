@@ -24,6 +24,9 @@ export function ModalDialog({
     const previouslyFocused = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (dialogRef.current?.querySelector('[role="dialog"]')) {
+        return;
+      }
       if (event.key === "Tab") {
         const focusable = Array.from(
           dialogRef.current?.querySelectorAll<HTMLElement>(

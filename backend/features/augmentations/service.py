@@ -84,10 +84,6 @@ def _source_item_formula_values(
             definition is None
             or definition.value_type != "number"
             or "item" not in definition.subject_types
-            or (
-                definition.required_profile is not None
-                and definition.required_profile != item.attribute_profile
-            )
             or bridge.evaluation_error is not None
             or isinstance(bridge.evaluated_value, bool)
             or not isinstance(bridge.evaluated_value, int | float)

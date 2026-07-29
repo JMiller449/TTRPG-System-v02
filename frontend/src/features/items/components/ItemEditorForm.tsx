@@ -3,16 +3,18 @@ import { Field } from "@/shared/ui/Field";
 import {
   getItemEditorValidationError,
   ITEM_RANK_OPTIONS,
-  setItemAttributeProfile,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
 import type {
   ActionDefinition,
   AttributeDefinition,
   ItemInteractionType,
-  ProficiencyDefinition
+  ProficiencyDefinition,
+  TagDefinition
 } from "@/domain/models";
 import { ItemActionGrantEditor } from "@/features/items/components/ItemActionGrantEditor";
+import { ItemPlayerAvailabilityEditor } from "@/features/items/components/ItemPlayerAvailabilityEditor";
+import { CatalogEntityMultiSelect } from "@/features/catalogs/CatalogEntityMultiSelect";
 
 const ITEM_INTERACTION_TYPES: ReadonlyArray<{
   value: ItemInteractionType;
@@ -30,10 +32,12 @@ export function ItemEditorForm({
   actions,
   attributeDefinitions,
   proficiencies,
+  tagDefinitions,
   attributesEditor,
   effectEditor,
   pending = false,
-  catalogFolders = [],
+  editorKind = "item",
+  showPlayerAvailability = true,
   onSubmit,
   onCancel,
   onOpenActionAuthoring
@@ -44,10 +48,12 @@ export function ItemEditorForm({
   actions: ActionDefinition[];
   attributeDefinitions: Record<string, AttributeDefinition>;
   proficiencies: Record<string, ProficiencyDefinition>;
+  tagDefinitions: Record<string, TagDefinition>;
   attributesEditor: ReactNode;
   effectEditor: ReactNode;
   pending?: boolean;
-  catalogFolders?: readonly string[];
+  editorKind?: "item" | "template";
+  showPlayerAvailability?: boolean;
   onSubmit: () => void;
   onCancel: () => void;
   onOpenActionAuthoring?: () => void;
@@ -58,7 +64,7 @@ export function ItemEditorForm({
   });
 
   const setInteractionType = (interactionType: ItemInteractionType): void => {
-    let nextValues: ItemEditorValues = {
+    const nextValues: ItemEditorValues = {
       ...values,
       interactionType,
       actionGrants: values.actionGrants.map((grant) => ({
@@ -70,16 +76,21 @@ export function ItemEditorForm({
             : grant.consumeQuantity
       }))
     };
-    if (interactionType !== "equippable" && nextValues.attributeProfile) {
-      nextValues = setItemAttributeProfile(nextValues, null, attributeDefinitions);
-    }
     onChange(nextValues);
   };
 
   return (
     <div className="item-editor stack">
       <div className="item-editor__heading">
-        <h3>{editingItemId ? "Edit Item" : "Create Item"}</h3>
+        <h3>
+          {editingItemId
+            ? editorKind === "template"
+              ? "Edit Item Template"
+              : "Edit Item"
+            : editorKind === "template"
+              ? "Create Item Template"
+              : "Create Item"}
+        </h3>
         <div className="item-type-control" aria-label="Item interaction type">
           {ITEM_INTERACTION_TYPES.map((option) => (
             <button
@@ -108,26 +119,6 @@ export function ItemEditorForm({
         </Field>
 
         <div className="inline-group">
-          <Field label="Catalog folder">
-            <input
-              list="item-catalog-folder-options"
-              value={values.catalogFolder}
-              onChange={(event) => onChange({ ...values, catalogFolder: event.target.value })}
-              placeholder="e.g. Weapons"
-            />
-            <datalist id="item-catalog-folder-options">
-              {catalogFolders.map((folder) => (
-                <option key={folder} value={folder} />
-              ))}
-            </datalist>
-          </Field>
-          <Field label="Category">
-            <input
-              value={values.type}
-              onChange={(event) => onChange({ ...values, type: event.target.value })}
-              placeholder="e.g. Sword"
-            />
-          </Field>
           <Field label="Rank">
             <select
               value={values.rank}
@@ -159,14 +150,38 @@ export function ItemEditorForm({
           </Field>
         </div>
 
-        <label className="augmentation-template-panel__active">
-          <input
-            type="checkbox"
-            checked={values.playerVisible}
-            onChange={(event) => onChange({ ...values, playerVisible: event.target.checked })}
+        {showPlayerAvailability ? (
+          <ItemPlayerAvailabilityEditor
+            value={values.playerCatalogAccess}
+            onChange={(playerCatalogAccess) => onChange({ ...values, playerCatalogAccess })}
           />
-          <span>Players can find and add this item to their inventory</span>
-        </label>
+        ) : null}
+
+        <details className="authoring-disclosure">
+          <summary>
+            <span>
+              <strong>Tags</strong>
+              <small>Managed classification and action context</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body">
+            <CatalogEntityMultiSelect
+              catalog="tags"
+              label="Item tags"
+              options={Object.values(tagDefinitions).map((tag) => ({
+                id: tag.id,
+                label: tag.name,
+                secondary: tag.description || tag.id
+              }))}
+              selectedIds={values.tags}
+              onChange={(tags) => onChange({ ...values, tags })}
+              emptyMessage="No managed tags exist yet."
+              noResultsMessage="No managed tags match this search."
+              selectionAriaLabel={(tagName) => `Select tag ${tagName}`}
+              folderSelectionAriaLabel={(folderName) => `Select all tags in ${folderName}`}
+            />
+          </div>
+        </details>
 
         <details className="authoring-disclosure">
           <summary>
@@ -231,6 +246,9 @@ export function ItemEditorForm({
                 onChange({
                   ...values,
                   canContainItems: event.target.checked,
+                  storageCapacityWeight: event.target.checked
+                    ? values.storageCapacityWeight
+                    : "",
                   contentsWeightBehavior: event.target.checked
                     ? values.contentsWeightBehavior
                     : "normal"
@@ -240,23 +258,40 @@ export function ItemEditorForm({
             <span>This item can contain other inventory entries</span>
           </label>
           {values.canContainItems ? (
-            <Field label="Weight of stored contents">
-              <select
-                value={values.contentsWeightBehavior}
-                onChange={(event) =>
-                  onChange({
-                    ...values,
-                    contentsWeightBehavior: event.target.value as "normal" | "ignored"
-                  })
-                }
-              >
-                <option value="normal">Counts normally</option>
-                <option value="ignored">Ignored for carried weight</option>
-              </select>
-            </Field>
+            <>
+              <Field label="Storage weight limit (lb)">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={values.storageCapacityWeight}
+                  onChange={(event) =>
+                    onChange({
+                      ...values,
+                      storageCapacityWeight: event.target.value
+                    })
+                  }
+                  placeholder="Unlimited"
+                />
+              </Field>
+              <label className="augmentation-template-panel__active">
+                <input
+                  type="checkbox"
+                  checked={values.contentsWeightBehavior === "ignored"}
+                  onChange={(event) =>
+                    onChange({
+                      ...values,
+                      contentsWeightBehavior: event.target.checked ? "ignored" : "normal"
+                    })
+                  }
+                />
+                <span>Stored contents do not add to carried weight</span>
+              </label>
+            </>
           ) : null}
           <p className="muted">
-            The container's own weight always counts. Capacity and volume are not tracked.
+            The container's own weight always counts. Leave the limit blank for unlimited
+            storage. Volume and item slots are not tracked.
           </p>
         </div>
       </details>
@@ -265,7 +300,7 @@ export function ItemEditorForm({
         <summary>
           <span>
             <strong>Attributes</strong>
-            <small>Optional named values and profiles</small>
+            <small>Optional values consumed by actions and effects</small>
           </span>
         </summary>
         <div className="authoring-disclosure__body">{attributesEditor}</div>
@@ -314,7 +349,15 @@ export function ItemEditorForm({
           onClick={onSubmit}
           disabled={Boolean(validationError) || pending}
         >
-          {pending ? "Creating…" : editingItemId ? "Save Item" : "Create Item"}
+          {pending
+            ? "Creating…"
+            : editingItemId
+              ? editorKind === "template"
+                ? "Save Template"
+                : "Save Item"
+              : editorKind === "template"
+                ? "Create Template"
+                : "Create Item"}
         </button>
         <button className="button button--secondary" onClick={onCancel} disabled={pending}>
           {editingItemId ? "Cancel" : "Discard Draft"}

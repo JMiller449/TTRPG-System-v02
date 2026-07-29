@@ -34,7 +34,8 @@ not define parallel transport payload shapes.
 [`frontend/src/app/state/`](../../frontend/src/app/state/) separates:
 
 - `serverState`: normalized projections of sheets, instances, actions, items,
-  formulas, attributes, effects, conditions, encounters, and action history.
+  item templates, tags, formulas, attributes, effects, conditions, encounters,
+  catalog organization, and action history.
 - `uiState`: role-specific views, active instance selection, sheet tabs,
   connection presentation, and other local navigation choices.
 - intent state: request-scoped pending, success, and failure feedback.

@@ -56,10 +56,12 @@ bridges and their rates are preserved. Attachment and use gain are part of the
 action transaction, so formula, mutation, or Roll20-delivery failure rolls both
 back.
 
-Weapon-profile items reference a weapon-family proficiency through required
-item attributes. Equipping a weapon automatically adds the matching instance
-proficiency bridge when missing so canonical weapon actions can resolve
-`weapon_proficiency`. This does not add the bridge to the template or siblings.
+An item may reference a weapon-family proficiency through its optional
+Proficiency Attribute. Equipping such an item automatically adds the matching
+instance proficiency bridge when missing so a granted action can resolve
+`weapon_proficiency`. The new bridge uses the proficiency definition's default
+growth rate; items do not own a growth-rate field. This does not add the bridge
+to the template or siblings.
 
 ## Frontend
 

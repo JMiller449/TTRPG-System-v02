@@ -4,26 +4,27 @@ import type {
   AttributeDefinition,
   ItemDefinition,
   ItemInteractionType,
+  ItemPlayerCatalogAccess,
   ProficiencyDefinition
 } from "@/domain/models";
 import type { ItemDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
+import { makeId } from "@/shared/utils/id";
 
 export type ItemEditorValues = {
   name: string;
   interactionType: ItemInteractionType;
-  type: string;
-  catalogFolder: string;
   rank: string;
   weight: string;
-  playerVisible: boolean;
+  playerCatalogAccess: ItemPlayerCatalogAccess;
   canContainItems: boolean;
+  storageCapacityWeight: string;
   contentsWeightBehavior: "normal" | "ignored";
   value: string;
   worldAnvilUrl: string;
   gmNotes: string;
   gmSpecialProperties: string;
   description: string;
-  attributeProfile: "weapon" | null;
+  tags: string[];
   attributes: Record<string, AttributeBridge>;
   augmentationTemplates: Augmentation[];
   actionGrants: ItemActionGrantEditorValues[];
@@ -35,13 +36,6 @@ export type ItemActionGrantEditorValues = {
   availability: "carried" | "equipped";
   consumeQuantity: string;
 };
-
-export const WEAPON_ACTION_IDS = [
-  "weapon_attack",
-  "weapon_damage",
-  "weapon_parry",
-  "weapon_contest"
-] as const;
 
 export const ITEM_RANK_OPTIONS = [
   "F",
@@ -66,74 +60,21 @@ export function createEmptyItemValues(): ItemEditorValues {
   return {
     name: "",
     interactionType: "equippable",
-    type: "",
-    catalogFolder: "",
     rank: ITEM_RANK_OPTIONS[0],
     weight: "0",
-    playerVisible: false,
+    playerCatalogAccess: { mode: "none", instanceIds: [] },
     canContainItems: false,
+    storageCapacityWeight: "",
     contentsWeightBehavior: "normal",
     value: "",
     worldAnvilUrl: "",
     gmNotes: "",
     gmSpecialProperties: "",
     description: "",
-    attributeProfile: null,
+    tags: [],
     attributes: {},
     augmentationTemplates: [],
     actionGrants: []
-  };
-}
-
-function canonicalWeaponActionGrants(): ItemActionGrantEditorValues[] {
-  return WEAPON_ACTION_IDS.map((actionId) => ({
-    draftId: `weapon_grant_${actionId}`,
-    actionId,
-    availability: "equipped",
-    consumeQuantity: "0"
-  }));
-}
-
-function normalizeWeaponActionGrantValues(
-  grants: ItemActionGrantEditorValues[]
-): ItemActionGrantEditorValues[] {
-  return [
-    ...grants.filter((grant) => !(WEAPON_ACTION_IDS as readonly string[]).includes(grant.actionId)),
-    ...canonicalWeaponActionGrants()
-  ];
-}
-
-export function setItemAttributeProfile(
-  values: ItemEditorValues,
-  attributeProfile: "weapon" | null,
-  definitions: Record<string, AttributeDefinition>
-): ItemEditorValues {
-  const attributes = Object.fromEntries(
-    Object.entries(values.attributes).filter(
-      ([attributeId]) => !definitions[attributeId]?.required_profile
-    )
-  );
-  for (const definition of Object.values(definitions)) {
-    if (definition.required_profile !== attributeProfile) {
-      continue;
-    }
-    attributes[definition.id] = {
-      relationship_id: `required_attribute_${definition.id}`,
-      attribute_id: definition.id,
-      value: structuredClone(definition.default_value),
-      evaluated_value: null,
-      evaluation_error: null
-    };
-  }
-  return {
-    ...values,
-    interactionType: attributeProfile === "weapon" ? "equippable" : values.interactionType,
-    attributeProfile,
-    attributes,
-    actionGrants:
-      attributeProfile === "weapon"
-        ? normalizeWeaponActionGrantValues(values.actionGrants)
-        : values.actionGrants
   };
 }
 
@@ -141,19 +82,22 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
   return {
     name: item.name,
     interactionType: item.interaction_type,
-    type: item.category ?? "",
-    catalogFolder: item.catalog_folder ?? "",
     rank: item.rank || ITEM_RANK_OPTIONS[0],
     weight: String(item.weight),
-    playerVisible: item.player_visible ?? true,
+    playerCatalogAccess: {
+      mode: item.player_catalog_access?.mode ?? "all",
+      instanceIds: [...(item.player_catalog_access?.instanceIds ?? [])]
+    },
     canContainItems: item.can_contain_items ?? false,
+    storageCapacityWeight:
+      item.storage_capacity_weight == null ? "" : String(item.storage_capacity_weight),
     contentsWeightBehavior: item.contents_weight_behavior ?? "normal",
     value: item.price,
     worldAnvilUrl: item.world_anvil_url ?? "",
     gmNotes: item.gm_notes ?? "",
     gmSpecialProperties: item.gm_special_properties ?? "",
     description: item.description ?? "",
-    attributeProfile: item.attribute_profile ?? null,
+    tags: [...(item.tags ?? [])],
     attributes: Object.fromEntries(
       Object.entries(item.attributes ?? {}).map(([attributeId, bridge]) => [
         attributeId,
@@ -161,22 +105,37 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
       ])
     ),
     augmentationTemplates: [...(item.augmentation_templates ?? [])],
-    actionGrants:
-      item.attribute_profile === "weapon"
-        ? normalizeWeaponActionGrantValues(
-            (item.action_grants ?? []).map((grant) => ({
-              draftId: `item_grant_${grant.action_id}`,
-              actionId: grant.action_id,
-              availability: grant.availability,
-              consumeQuantity: String(grant.consume_quantity ?? 0)
-            }))
-          )
-        : (item.action_grants ?? []).map((grant) => ({
-            draftId: `item_grant_${grant.action_id}`,
-            actionId: grant.action_id,
-            availability: grant.availability,
-            consumeQuantity: String(grant.consume_quantity ?? 0)
-          }))
+    actionGrants: (item.action_grants ?? []).map((grant) => ({
+      draftId: `item_grant_${grant.action_id}`,
+      actionId: grant.action_id,
+      availability: grant.availability,
+      consumeQuantity: String(grant.consume_quantity ?? 0)
+    }))
+  };
+}
+
+export function createItemValuesFromTemplate(template: ItemDefinition): ItemEditorValues {
+  const values = toItemEditorValues(template);
+  return {
+    ...values,
+    playerCatalogAccess: { mode: "none", instanceIds: [] },
+    attributes: Object.fromEntries(
+      Object.entries(values.attributes).map(([attributeId, bridge]) => [
+        attributeId,
+        {
+          ...structuredClone(bridge),
+          relationship_id: makeId("item_attribute")
+        }
+      ])
+    ),
+    augmentationTemplates: values.augmentationTemplates.map((augmentation) => ({
+      ...structuredClone(augmentation),
+      id: makeId("augmentation")
+    })),
+    actionGrants: values.actionGrants.map((grant) => ({
+      ...grant,
+      draftId: makeId("item_action")
+    }))
   };
 }
 
@@ -185,12 +144,7 @@ function toActionGrantPayloads(values: ItemEditorValues): ItemDefinitionPayload[
     return [];
   }
 
-  const grants =
-    values.attributeProfile === "weapon"
-      ? normalizeWeaponActionGrantValues(values.actionGrants)
-      : values.actionGrants;
-
-  return grants
+  return values.actionGrants
     .filter((grant) => grant.actionId.trim())
     .map((grant) => ({
       action_id: grant.actionId.trim(),
@@ -247,6 +201,15 @@ export function getItemEditorValidationError(
   if (!values.canContainItems && values.contentsWeightBehavior !== "normal") {
     return "Only storage containers can ignore the weight of their contents.";
   }
+  if (!values.canContainItems && values.storageCapacityWeight.trim()) {
+    return "Only storage containers can define a storage weight limit.";
+  }
+  if (values.canContainItems && values.storageCapacityWeight.trim()) {
+    const storageCapacityWeight = Number(values.storageCapacityWeight);
+    if (!Number.isFinite(storageCapacityWeight) || storageCapacityWeight < 0) {
+      return "Storage weight limit must be a finite nonnegative number in pounds.";
+    }
+  }
   for (const [attributeId, bridge] of Object.entries(values.attributes)) {
     const definition = context.definitions?.[attributeId];
     if (definition?.reference_kind !== "proficiency" || bridge.value.type === "formula") {
@@ -255,39 +218,6 @@ export function getItemEditorValidationError(
     const proficiencyId = String(bridge.value.value ?? "");
     if (proficiencyId && !context.proficiencies?.[proficiencyId]) {
       return `${definition.name} references missing proficiency ID '${proficiencyId}'. Select a replacement or clear it.`;
-    }
-  }
-  if (values.attributeProfile === "weapon") {
-    if (values.interactionType !== "equippable") {
-      return "Weapon-profile items must be equippable.";
-    }
-    const requiredAttributes = Object.values(context.definitions ?? {}).filter(
-      (definition) => definition.required_profile === "weapon"
-    );
-    for (const definition of requiredAttributes) {
-      const bridge = values.attributes[definition.id];
-      if (!bridge) {
-        return `Weapon profile is missing ${definition.name}.`;
-      }
-      const stored = bridge.value.type === "formula" ? null : bridge.value.value;
-      if (definition.value_type === "text" && !String(stored ?? "").trim()) {
-        return `${definition.name} is required.`;
-      }
-      if (definition.value_type === "list" && (!Array.isArray(stored) || stored.length === 0)) {
-        return `${definition.name} requires at least one value.`;
-      }
-      if (
-        definition.value_type === "number" &&
-        (typeof stored !== "number" || !Number.isFinite(stored) || stored < 0)
-      ) {
-        return `${definition.name} must be nonnegative.`;
-      }
-      if (definition.reference_kind === "proficiency") {
-        const proficiencyId = String(stored ?? "");
-        if (!proficiencyId || !context.proficiencies?.[proficiencyId]) {
-          return `${definition.name} must reference an existing proficiency.`;
-        }
-      }
     }
   }
   if (values.interactionType === "inventory_only") {
@@ -323,8 +253,6 @@ export function toItemDefinitionPayload(
     id: itemId,
     name: values.name.trim(),
     interaction_type: values.interactionType,
-    category: values.type.trim(),
-    catalog_folder: values.catalogFolder.trim(),
     rank: values.rank.trim(),
     description: values.description.trim(),
     world_anvil_url: values.worldAnvilUrl.trim(),
@@ -333,10 +261,20 @@ export function toItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: Number(values.weight),
-    player_visible: values.playerVisible,
+    player_catalog_access: {
+      mode: values.playerCatalogAccess.mode,
+      instance_ids:
+        values.playerCatalogAccess.mode === "selected"
+          ? [...values.playerCatalogAccess.instanceIds]
+          : []
+    },
     can_contain_items: values.canContainItems,
+    storage_capacity_weight:
+      values.canContainItems && values.storageCapacityWeight.trim()
+        ? Number(values.storageCapacityWeight)
+        : null,
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
-    attribute_profile: values.attributeProfile,
+    tags: [...values.tags],
     attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, itemId),
     action_grants: toActionGrantPayloads(values)
@@ -351,8 +289,6 @@ export function toUpdatedItemDefinitionPayload(
     ...item,
     name: values.name.trim(),
     interaction_type: values.interactionType,
-    category: values.type.trim(),
-    catalog_folder: values.catalogFolder.trim(),
     rank: values.rank.trim(),
     description: values.description.trim(),
     world_anvil_url: values.worldAnvilUrl.trim(),
@@ -361,10 +297,20 @@ export function toUpdatedItemDefinitionPayload(
       values.interactionType === "inventory_only" ? "" : values.gmSpecialProperties.trim(),
     price: values.value.trim(),
     weight: Number(values.weight),
-    player_visible: values.playerVisible,
+    player_catalog_access: {
+      mode: values.playerCatalogAccess.mode,
+      instance_ids:
+        values.playerCatalogAccess.mode === "selected"
+          ? [...values.playerCatalogAccess.instanceIds]
+          : []
+    },
     can_contain_items: values.canContainItems,
+    storage_capacity_weight:
+      values.canContainItems && values.storageCapacityWeight.trim()
+        ? Number(values.storageCapacityWeight)
+        : null,
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
-    attribute_profile: values.attributeProfile,
+    tags: [...values.tags],
     attributes: values.attributes,
     augmentation_templates: toAugmentationTemplatePayloads(values, item.id),
     action_grants: toActionGrantPayloads(values)

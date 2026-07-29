@@ -136,7 +136,6 @@
 .xp-party-folder-nav__heading small,
 .xp-party-folder-detail__header p,
 .xp-character-roster small,
-.xp-party-editor__summary small,
 .xp-party-editor__footer span {
   color: var(--muted);
 }
@@ -205,18 +204,13 @@
   font-size: 0.8rem;
 }
 
-.xp-party-editor__header > div,
-.xp-party-editor__add {
+.xp-party-editor__header > div {
   display: grid;
+  flex: 1;
   gap: 0.35rem;
 }
 
-.xp-party-editor__header > div {
-  flex: 1;
-}
-
-.xp-party-editor__header label,
-.xp-party-editor__add label {
+.xp-party-editor__header label {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 700;
@@ -227,25 +221,6 @@
   width: 100%;
   min-width: 0;
   flex: 1;
-}
-
-.xp-party-editor__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
-}
-
-.xp-party-editor__summary > div {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-}
-
-.xp-party-editor__summary > div strong {
-  font-size: 1.25rem;
 }
 
 .xp-character-roster {
@@ -283,12 +258,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.xp-party-editor__add > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
 }
 
 .xp-party-editor__footer {
@@ -650,8 +619,7 @@
   .xp-progress-layout,
   .xp-custom-kill-fields,
   .xp-player-kill-form,
-  .xp-party-folders,
-  .xp-party-editor__add > div {
+  .xp-party-folders {
     grid-template-columns: 1fr;
   }
 
@@ -669,7 +637,6 @@
   }
 
   .xp-party-folder-detail__header,
-  .xp-party-editor__summary,
   .xp-party-editor__footer {
     align-items: stretch;
     flex-direction: column;

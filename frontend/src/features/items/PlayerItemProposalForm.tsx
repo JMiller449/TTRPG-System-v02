@@ -11,7 +11,6 @@ export function PlayerItemProposalForm({
   onSubmit: (item: PlayerItemSubmissionPayload) => void;
 }): JSX.Element {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("0");
@@ -19,8 +18,17 @@ export function PlayerItemProposalForm({
     "inventory_only"
   );
   const [canContainItems, setCanContainItems] = useState(false);
+  const [storageCapacityWeight, setStorageCapacityWeight] = useState("");
   const parsedWeight = Number(weight);
-  const valid = name.trim().length > 0 && Number.isFinite(parsedWeight) && parsedWeight >= 0;
+  const parsedStorageCapacityWeight = storageCapacityWeight.trim()
+    ? Number(storageCapacityWeight)
+    : null;
+  const valid =
+    name.trim().length > 0 &&
+    Number.isFinite(parsedWeight) &&
+    parsedWeight >= 0 &&
+    (parsedStorageCapacityWeight === null ||
+      (Number.isFinite(parsedStorageCapacityWeight) && parsedStorageCapacityWeight >= 0));
 
   return (
     <section
@@ -48,9 +56,6 @@ export function PlayerItemProposalForm({
             <option value="inventory_only">Inventory item</option>
             <option value="equippable">Equippable item</option>
           </select>
-        </Field>
-        <Field label="Category">
-          <input value={category} onChange={(event) => setCategory(event.target.value)} />
         </Field>
         <Field label="Weight (lb)">
           <input
@@ -80,6 +85,18 @@ export function PlayerItemProposalForm({
         />
         <span>This is a storage container</span>
       </label>
+      {canContainItems ? (
+        <Field label="Storage weight limit (lb)">
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={storageCapacityWeight}
+            onChange={(event) => setStorageCapacityWeight(event.target.value)}
+            placeholder="Unlimited"
+          />
+        </Field>
+      ) : null}
       <button
         type="button"
         className="button"
@@ -88,21 +105,21 @@ export function PlayerItemProposalForm({
           onSubmit({
             name: name.trim(),
             interaction_type: interactionType,
-            category: category.trim(),
             rank: "",
             description: description.trim(),
             world_anvil_url: "",
             price: price.trim(),
             weight: parsedWeight,
-            can_contain_items: canContainItems
+            can_contain_items: canContainItems,
+            storage_capacity_weight: canContainItems ? parsedStorageCapacityWeight : null
           });
           setName("");
-          setCategory("");
           setDescription("");
           setPrice("");
           setWeight("0");
           setInteractionType("inventory_only");
           setCanContainItems(false);
+          setStorageCapacityWeight("");
         }}
       >
         Send for DM Approval

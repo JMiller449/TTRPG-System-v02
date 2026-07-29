@@ -16,7 +16,8 @@ import {
 } from "@/features/proficiencies/proficiencyEditorValues";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
-import { CatalogTileGrid } from "@/shared/ui/CatalogTileGrid";
+import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
+import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JSX.Element {
@@ -33,24 +34,32 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
     () => selectOrderedProficiencyDefinitions(proficiencyRecords, proficiencyOrder),
     [proficiencyOrder, proficiencyRecords]
   );
+  const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
+    catalog: "proficiencies",
+    client,
+    entries: proficiencyRecords
+  });
 
-  const startNewProficiency = (): void => {
+  const startNewProficiency = (folderId: string | null = null): void => {
+    beginCreation(folderId);
     setEditingProficiencyId(null);
     setValues(createEmptyProficiencyEditorValues());
   };
 
   const onSubmit = (): void => {
+    const proficiencyId =
+      editingProficiencyId ?? deriveProficiencyId(values.name, Object.keys(proficiencyRecords));
     const submission = editingProficiencyId
       ? buildUpdateProficiencySubmission(proficiencyRecords[editingProficiencyId], values)
-      : buildCreateProficiencySubmission(
-          values,
-          deriveProficiencyId(values.name, Object.keys(proficiencyRecords))
-        );
+      : buildCreateProficiencySubmission(values, proficiencyId);
     if (!submission) {
       return;
     }
 
     client.sendProtocolRequest(submission.request, submission.label);
+    if (!editingProficiencyId) {
+      queueCreatedEntry(proficiencyId);
+    }
     startNewProficiency();
   };
 
@@ -80,7 +89,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
       actions={
         editingProficiencyId ? (
           <div className="inline-actions">
-            <button className="button button--secondary" onClick={startNewProficiency}>
+            <button className="button button--secondary" onClick={() => startNewProficiency()}>
               New Proficiency
             </button>
             <button
@@ -96,18 +105,23 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
       <CatalogEditorLayout
         catalogLabel="Proficiency Catalog"
         catalog={
-          <CatalogTileGrid
+          <CatalogBrowser
+            catalog="proficiencies"
+            client={client}
             items={proficiencies.map((proficiency) => ({
               id: proficiency.id,
               name: proficiency.name
             }))}
             selectedId={editingProficiencyId}
+            entityLabel="proficiency"
             emptyMessage="No proficiencies created yet."
+            onCreateEntry={startNewProficiency}
             onSelect={(proficiencyId) => {
               const proficiency = proficiencyRecords[proficiencyId];
               if (!proficiency) {
                 return;
               }
+              beginCreation(null);
               setEditingProficiencyId(proficiency.id);
               setValues(toProficiencyEditorValues(proficiency));
             }}

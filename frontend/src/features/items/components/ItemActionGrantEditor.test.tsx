@@ -9,7 +9,7 @@ describe("ItemActionGrantEditor", () => {
     values.interactionType = "equippable";
     values.actionGrants = [
       {
-        actionId: "",
+        actionId: "weapon_attack",
         availability: "equipped",
         consumeQuantity: "0"
       }
@@ -29,9 +29,8 @@ describe("ItemActionGrantEditor", () => {
     );
 
     expect(markup).toContain("Equipped Actions");
-    expect(markup).toContain('value="weapon_attack"');
-    expect(markup).toContain("Weapon Damage");
-    expect(markup).toContain("Weapon Parry");
-    expect(markup).toContain("Weapon Contest");
+    expect(markup).toContain('role="combobox"');
+    expect(markup).toContain('placeholder="Search action catalog"');
+    expect(markup).toContain('value="Weapon Attack"');
   });
 });

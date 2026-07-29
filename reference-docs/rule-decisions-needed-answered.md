@@ -92,7 +92,7 @@ Current understanding:
 ```md
 Q: What fields are required to define a weapon?
 PA: Required and optional field list, including damage, stat, reach, damage type, proficiency, tags, and notes.
-A: Required resolver/reference fields are name, weapon type, base damage, governing stat, one or more physical damage types, reach, proficiency reference, and proficiency growth rate. Optional fields include stat bonuses, attached skills, traits, special effects, prerequisites, tags, and notes.
+A: Required resolver/reference data is name, managed weapon-type and damage-type tags, base damage, governing stat, reach, and a proficiency reference. The referenced proficiency definition owns the growth rate; the item does not duplicate it. Optional data includes stat bonuses, attached skills, traits, special effects, prerequisites, other tags, and notes.
 ```
 
 ```md
@@ -128,7 +128,7 @@ A: Represent them as item tags or reference metadata by default. Any mechanical 
 ```md
 Q: Which equipment effects must be first-class fields instead of generic augmentations?
 PA: Minimal field list that cannot be represented as augmentations, plus the reason each field needs resolver support.
-A: First-class weapon fields are the values the core resolver or play reference must read directly: weapon type, base damage, governing stat, damage type or types, reach, proficiency reference, and proficiency growth rate. Other bonuses, penalties, skills, traits, resistances, and special effects should use generic augmentations or authored actions whenever possible.
+A: Typed weapon Attributes are values an authored action or play reference may consume directly: base damage, governing stat, reach, and proficiency reference. Weapon type and damage type or types are managed tags. Growth rate belongs to the referenced proficiency definition. Other bonuses, penalties, skills, traits, resistances, and special effects should use generic augmentations or authored actions whenever possible.
 ```
 
 ### Physical Attack Resolution
@@ -273,6 +273,19 @@ PA: Stacking rule and examples.
 A: Yes. Resistance from armor stacks additively with other resistance sources and caps at 100%.
 ```
 
+### Inventory Storage
+
+```md
+Q: How should storage-container capacity and carried weight work?
+A: A storage item may define a finite nonnegative contents-weight limit or be
+unlimited. Its own weight always counts. A separate authored toggle may prevent
+stored contents from contributing to the character's carried weight, such as
+for a bag of holding. Capacity is enforced by the backend for moves, quantity
+changes, and relevant item-definition edits. A nested weight-negating container
+contributes only its own weight to its parent. Volume, item slots, and automatic
+encumbrance consequences are not tracked.
+```
+
 ### Proficiency Growth
 
 Current understanding:
@@ -291,13 +304,13 @@ Current understanding:
 ```md
 Q: What is the exact formula for increasing proficiency on use?
 PA: Formula using current proficiency, action amount, growth rate, and any caps.
-A: For each qualifying meaningful use, `New Proficiency = MIN(1.00, Current Proficiency + Growth Rate)`. Growth Rate is the weapon, skill, or spell's configured per-use increase, such as `0.01` for 1% or `0.001` for 0.1%.
+A: For each qualifying meaningful use, `New Proficiency = MIN(1.00, Current Proficiency + Growth Rate)`. Growth Rate comes from the referenced proficiency definition, such as `0.01` for 1% or `0.001` for 0.1%.
 ```
 
 ```md
 Q: Does `growth_rate` multiply the gained amount, cap the amount, or represent something else?
 PA: Definition of `growth_rate` with example values.
-A: `growth_rate` represents the per-use proficiency increase rate for that weapon/spell/skill. Example: `1%` per use for longsword or `0.1%` per use for a harder weapon type.
+A: `growth_rate` represents the per-use increase stored by a reusable proficiency definition. A weapon, spell, skill, or action trains that definition by reference. Example: the Longsword proficiency may gain `1%` per use, while a harder proficiency gains `0.1%`.
 ```
 
 ```md

@@ -2944,8 +2944,129 @@ def test_player_cannot_perform_unassigned_action(monkeypatch) -> None:
                 {
                     "response_id": None,
                     "reason": (
-                        "Sheet 'mage_template' does not reference action "
+                        "Sheet 'mage_instance' does not reference action "
                         "'unassigned'."
+                    ),
+                    "type": "error",
+                    "request_id": "req-1",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_can_perform_action_assigned_only_to_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            template.actions = {}
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = _build_instance_state(template)
+            state.instanced_sheets["mage_instance"].actions = {
+                "instance-action": Bridge(
+                    relationship_id="instance-action",
+                    entry_id="instance_action",
+                )
+            }
+            state.actions["instance_action"] = Action.from_dict(
+                {
+                    "id": "instance_action",
+                    "name": "Instance Action",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("1"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "instance_action",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 29
+            assert _request_messages(websocket, message_type="error") == []
+            assert _request_messages(websocket, message_type="action_executed")[0][
+                "action_id"
+            ] == "instance_action"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_perform_action_assigned_only_to_parent_template(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            template.actions = {
+                "parent-action": Bridge(
+                    relationship_id="parent-action",
+                    entry_id="parent_action",
+                )
+            }
+            state.sheets["mage_template"] = template
+            state.instanced_sheets["mage_instance"] = _build_instance_state(template)
+            state.instanced_sheets["mage_instance"].actions = {}
+            state.actions["parent_action"] = Action.from_dict(
+                {
+                    "id": "parent_action",
+                    "name": "Parent Action",
+                    "steps": [
+                        {
+                            "step_id": "step-1",
+                            "type": "decrement_value",
+                            "target": "caster",
+                            "path": ["mana"],
+                            "amount": _formula_payload("1"),
+                        },
+                    ],
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "parent_action",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].mana == 30
+            assert _request_messages(websocket) == [
+                {
+                    "response_id": None,
+                    "reason": (
+                        "Sheet 'mage_instance' does not reference action "
+                        "'parent_action'."
                     ),
                     "type": "error",
                     "request_id": "req-1",
@@ -3080,7 +3201,7 @@ def test_action_formula_reads_evaluated_action_attribute(monkeypatch) -> None:
                 "spell": Bridge(relationship_id="spell", entry_id="spell_burst")
             }
             state.sheets["mage_template"] = sheet
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(sheet)
             state.actions["spell_burst"] = Action.from_dict(
                 {
                     "id": "spell_burst",
@@ -3398,7 +3519,9 @@ def test_dm_can_admin_execute_unassigned_action(monkeypatch) -> None:
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
             state.sheets["mage_template"].actions = {}
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["unassigned"] = Action.from_dict(
                 {
                     "id": "unassigned",
@@ -3458,7 +3581,9 @@ def test_perform_action_can_increment_and_decrement_instance_values(
                     "entry_id": "cast_spell",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["cast_spell"] = Action.from_dict(
                 {
                     "id": "cast_spell",
@@ -3542,7 +3667,9 @@ def test_perform_action_rejects_incrementing_nonnumeric_instance_path(
                     "entry_id": "bad_action",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["bad_action"] = Action.from_dict(
                 {
                     "id": "bad_action",
@@ -3908,7 +4035,9 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
                     "entry_id": "ward",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.standalone_effects["shielded"] = _build_standalone_effect_state()
             state.actions["ward"] = Action.from_dict(
                 {
@@ -3969,7 +4098,9 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
                     "entry_id": "poison",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.condition_presets["poisoned"] = _build_condition_preset_state()
             state.actions["poison"] = Action.from_dict(
                 {
@@ -4095,12 +4226,14 @@ def test_apply_semantic_steps_reject_missing_records(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
             state.sheets["mage_template"].actions["ward"] = Bridge.from_dict(
                 {
                     "relationship_id": "bridge-ward",
                     "entry_id": "ward",
                 }
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
             )
             state.actions["ward"] = Action.from_dict(
                 {
@@ -4185,13 +4318,15 @@ def test_apply_augmentation_step_rejects_target_runtime(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
             state.augmentations["shielded"] = _build_augmentation_state()
             state.sheets["mage_template"].actions["ward"] = Bridge.from_dict(
                 {
                     "relationship_id": "bridge-ward",
                     "entry_id": "ward",
                 }
+            )
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
             )
             state.actions["ward"] = Action.from_dict(
                 {
@@ -4250,7 +4385,9 @@ def test_perform_action_rejects_resource_overspend_without_patch(
                     "entry_id": "overcast",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["overcast"] = Action.from_dict(
                 {
                     "id": "overcast",
@@ -4314,7 +4451,9 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
                     "entry_id": "take_damage",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.instanced_sheets["mage_instance"].resistances.fire = 0.125
             state.actions["take_damage"] = Action.from_dict(
                 {
@@ -4382,7 +4521,9 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
                     "entry_id": "blocked_damage",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["blocked_damage"] = Action.from_dict(
                 {
                     "id": "blocked_damage",
@@ -4440,7 +4581,9 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
                     "entry_id": "massive_damage",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["massive_damage"] = Action.from_dict(
                 {
                     "id": "massive_damage",
@@ -4554,7 +4697,9 @@ def test_resolve_damage_step_rejects_negative_amount(monkeypatch) -> None:
                     "entry_id": "bad_damage",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.actions["bad_damage"] = Action.from_dict(
                 {
                     "id": "bad_damage",
@@ -4614,7 +4759,9 @@ def test_perform_action_applies_healing_to_instance_health_with_max_clamp(
                     "entry_id": "heal_wounds",
                 }
             )
-            state.instanced_sheets["mage_instance"] = _build_instance_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
             state.instanced_sheets["mage_instance"].health = 115
             state.actions["heal_wounds"] = Action.from_dict(
                 {

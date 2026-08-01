@@ -173,14 +173,15 @@ def _build_sheet_state() -> Sheet:
     )
 
 
-def _build_instance_state() -> InstancedSheet:
+def _build_instance_state(template: Sheet | None = None) -> InstancedSheet:
     return InstancedSheet.from_dict(
         {
             "parent_id": "mage_template",
             "health": 90,
             "mana": 30,
             "augments": {},
-        }
+        },
+        template=template,
     )
 
 
@@ -1496,7 +1497,9 @@ def test_websocket_contract_perform_action_variable_mutation_emits_patch(
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         state = StateSingleton.getState()
         state.sheets["mage_template"] = _build_sheet_state()
-        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state(
+            state.sheets["mage_template"]
+        )
         state.actions["spend_mana"] = Action.from_dict(
             {
                 "id": "spend_mana",
@@ -1574,7 +1577,9 @@ def test_websocket_contract_roll20_only_action_returns_action_executed() -> None
     async def scenario() -> None:
         state = StateSingleton.getState()
         state.sheets["mage_template"] = _build_sheet_state()
-        state.instanced_sheets["mage_instance"] = _build_instance_state()
+        state.instanced_sheets["mage_instance"] = _build_instance_state(
+            state.sheets["mage_template"]
+        )
         state.actions["announce"] = Action.from_dict(
             {
                 "id": "announce",

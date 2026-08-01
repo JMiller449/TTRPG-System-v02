@@ -239,6 +239,12 @@ class RuntimeActor:
             return "sheets"
         return "instanced_sheets"
 
+    @property
+    def active_sheet(self) -> Sheet | InstancedSheet:
+        if self.instance is None:
+            return self.sheet
+        return self.instance
+
 
 @dataclass(frozen=True)
 class ResolvedAction:
@@ -741,14 +747,14 @@ def _apply_set_value(
 
 
 def _resolve_item_action_source(
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     action_id: str,
     *,
+    sheet_id: str,
     state: State,
     relationship_id: str,
-    item_bridges: dict[str, ItemBridge] | None = None,
 ) -> tuple[str, ItemActionGrant, Item]:
-    inventory = sheet.items if item_bridges is None else item_bridges
+    inventory = sheet.items
     matches = [
         (bridge_key, bridge)
         for bridge_key, bridge in inventory.items()
@@ -757,12 +763,12 @@ def _resolve_item_action_source(
     if not matches:
         raise ValueError(
             f"Sheet item bridge '{relationship_id}' does not exist on sheet "
-            f"'{sheet.id}'."
+            f"'{sheet_id}'."
         )
     if len(matches) > 1:
         raise ValueError(
             f"Sheet item relationship '{relationship_id}' is ambiguous on sheet "
-            f"'{sheet.id}'."
+            f"'{sheet_id}'."
         )
 
     bridge_key, bridge = matches[0]
@@ -871,12 +877,12 @@ def _gain_proficiency_id(
 
 
 def _resolve_action(
-    sheet: Sheet,
+    sheet: Sheet | InstancedSheet,
     action_id: str,
     *,
+    sheet_id: str,
     actor_role: SessionRole,
     source_item_relationship_id: str | None = None,
-    item_bridges: dict[str, ItemBridge] | None = None,
     state: State | None = None,
 ) -> ResolvedAction:
     current_state = _state() if state is None else state
@@ -888,9 +894,9 @@ def _resolve_action(
         bridge_key, grant, item = _resolve_item_action_source(
             sheet,
             action_id,
+            sheet_id=sheet_id,
             state=current_state,
             relationship_id=source_item_relationship_id,
-            item_bridges=item_bridges,
         )
         return ResolvedAction(
             action=action,
@@ -909,16 +915,16 @@ def _resolve_action(
             return ResolvedAction(action=action)
 
     eligible_sources: list[tuple[str, ItemActionGrant, Item]] = []
-    inventory = sheet.items if item_bridges is None else item_bridges
+    inventory = sheet.items
     for bridge_key in inventory:
         try:
             eligible_sources.append(
                 _resolve_item_action_source(
                     sheet,
                     action_id,
+                    sheet_id=sheet_id,
                     state=current_state,
                     relationship_id=bridge_key,
-                    item_bridges=inventory,
                 )
             )
         except ValueError:
@@ -945,7 +951,7 @@ def _resolve_action(
         )
 
     raise ValueError(
-        f"Sheet '{sheet.id}' does not reference action '{action_id}'."
+        f"Sheet '{sheet_id}' does not reference action '{action_id}'."
     )
 
 
@@ -1420,11 +1426,11 @@ async def perform_action(
         assigned_instance_id=assigned_instance_id,
     )
     resolution = _resolve_action(
-        actor.sheet,
+        actor.active_sheet,
         request.action_id,
+        sheet_id=actor.actor_id,
         actor_role=actor_role,
         source_item_relationship_id=request.source_item_relationship_id,
-        item_bridges=actor.instance.items if actor.instance is not None else None,
     )
     action = resolution.action
     _validate_action_roll_mode(action, request.roll_mode)
@@ -1451,15 +1457,11 @@ async def perform_action(
         )
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
         current_resolution = _resolve_action(
-            current_actor.sheet,
+            current_actor.active_sheet,
             request.action_id,
+            sheet_id=current_actor.actor_id,
             actor_role=actor_role,
             source_item_relationship_id=request.source_item_relationship_id,
-            item_bridges=(
-                current_actor.instance.items
-                if current_actor.instance is not None
-                else None
-            ),
             state=state,
         )
         current_action = current_resolution.action

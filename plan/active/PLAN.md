@@ -247,6 +247,8 @@ No large architecture feature is currently missing for the stated character-shee
 - [x] Resolve the 2026-07-12 builder and inventory findings:
   - Long Action Builder drafts now use one vertical editor scroll region with a sticky final
     action footer, keeping Save Action keyboard- and pointer-reachable at constrained heights.
+  - Action Attributes use the same direct attach-and-edit draft workflow as Item Attributes;
+    the redundant standalone Attribute preset control is no longer exposed.
   - Item proficiency references are sourced only from the authoritative proficiency registry;
     stale IDs are shown as invalid and rejected independently by backend validation.
   - Item create/edit authoring uses one local draft and one complete final item request, including

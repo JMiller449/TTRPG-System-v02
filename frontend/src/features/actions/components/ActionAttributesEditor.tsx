@@ -1,10 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { AttributeDefinition, AttributeValue, ProficiencyDefinition } from "@/domain/models";
-import {
-  applyActionAttributeValues,
-  type ActionEditorValues
-} from "@/features/actions/actionEditorValues";
+import type { ActionEditorValues } from "@/features/actions/actionEditorValues";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 import { makeId } from "@/shared/utils/id";
 
@@ -21,8 +18,6 @@ export function ActionAttributesEditor({
   metadata: ActionFormulaAuthoringMetadata | null;
   onChange: (values: ActionEditorValues) => void;
 }): JSX.Element {
-  const [selectedPresetId, setSelectedPresetId] = useState("");
-  const presets = metadata?.action_attribute_presets ?? [];
   const displayDefinitions = useMemo(
     () =>
       Object.fromEntries(
@@ -69,60 +64,26 @@ export function ActionAttributesEditor({
     });
   };
 
-  const applyPreset = (): void => {
-    const preset = presets.find((candidate) => candidate.id === selectedPresetId);
-    if (!preset) {
-      return;
-    }
-    onChange(
-      applyActionAttributeValues(values, preset.attribute_values, definitions, () => makeId("action_attribute"))
-    );
-    setSelectedPresetId("");
-  };
-
   return (
     <section className="stack">
       <div>
         <h3>Attributes</h3>
         <p className="muted">
-          Attributes describe this action (range, mana cost, and so on). They only change a
-          roll when a formula or step actually references them.
+          Attributes describe this action (range, mana cost, and so on). They only change a roll
+          when a formula or step actually references them.
         </p>
       </div>
-      {presets.length > 0 ? (
-        <div className="inline-actions">
-          <label>
-            Attribute preset
-            <select
-              value={selectedPresetId}
-              onChange={(event) => setSelectedPresetId(event.target.value)}
-            >
-              <option value="">Select an Attribute preset</option>
-              {presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="button"
-            type="button"
-            disabled={!selectedPresetId}
-            onClick={applyPreset}
-          >
-            Apply Attribute Preset
-          </button>
-        </div>
-      ) : null}
       <SheetAttributesSection
         definitions={displayDefinitions}
         bridges={values.attributes}
         canEdit
         subjectType="action"
+        draftMode
         formulaMetadata={metadata}
         validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) =>
+          updateBridge(attributeId, { type: "formula", formula })
+        }
         onSaveValue={updateBridge}
         onReset={(attributeId) => {
           const definition = definitions[attributeId];

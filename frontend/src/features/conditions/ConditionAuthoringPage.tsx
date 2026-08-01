@@ -20,6 +20,7 @@ import {
 } from "@/features/conditions/conditionAuthoringRequests";
 import {
   createEmptyConditionPresetEditorValues,
+  hasValidConditionPresetValues,
   removeConditionEffect,
   toConditionAugmentationTemplatePayload,
   toConditionPresetEditorValues,
@@ -33,6 +34,7 @@ import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreation
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -59,6 +61,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
+  const validation = useFormValidationAttempt();
 
   const conditions = useMemo(
     () => selectOrderedConditionPresets(conditionPresets, conditionPresetOrder),
@@ -134,6 +137,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   };
 
   const startNewCondition = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingConditionId(null);
     setPendingCreatedConditionId(null);
@@ -142,6 +146,9 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
   };
 
   const onSubmit = (): void => {
+    if (!validation.validate(hasValidConditionPresetValues(values) && !effectEditorOpen)) {
+      return;
+    }
     const conditionId = editingConditionId ?? makeId("condition");
     const submission = editingConditionId
       ? buildUpdateConditionPresetSubmission(conditionPresets[editingConditionId], values)
@@ -254,6 +261,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
               setPendingCreatedConditionId(null);
               setValues(toConditionPresetEditorValues(condition));
               resetAugmentationEditor();
+              validation.reset();
             }}
           />
         }
@@ -261,6 +269,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
         <ConditionPresetEditorForm
           editingConditionId={editingConditionId}
           values={values}
+          validationAttempted={validation.attempted}
           onChange={setValues}
           onSubmit={onSubmit}
           onCancel={startNewCondition}

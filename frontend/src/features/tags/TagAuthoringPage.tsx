@@ -10,7 +10,9 @@ import {
 } from "@/infrastructure/ws/requestBuilders";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { Field } from "@/shared/ui/Field";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 import { Panel } from "@/shared/ui/Panel";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 
@@ -30,6 +32,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [draftTagId, setDraftTagId] = useState(() => makeId("tag"));
   const [draft, setDraft] = useState<TagDraft>(emptyDraft);
+  const validation = useFormValidationAttempt();
   const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
     catalog: "tags",
     client,
@@ -37,6 +40,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
   });
 
   const startNew = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingTagId(null);
     setDraftTagId(makeId("tag"));
@@ -45,7 +49,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
 
   const save = (): void => {
     const name = draft.name.trim();
-    if (!name) return;
+    if (!validation.validate(Boolean(name))) return;
     const tag = {
       id: editingTagId ?? draftTagId,
       name,
@@ -74,7 +78,10 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
     ) {
       return;
     }
-    client.sendProtocolRequest(buildDeleteTagRequest({ tagId }), `Delete tag: ${tag?.name ?? tagId}`);
+    client.sendProtocolRequest(
+      buildDeleteTagRequest({ tagId }),
+      `Delete tag: ${tag?.name ?? tagId}`
+    );
     if (editingTagId === tagId) startNew();
   };
 
@@ -98,9 +105,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
             client={client}
             items={tagOrder.flatMap((tagId) => {
               const tag = tags[tagId];
-              return tag
-                ? [{ id: tag.id, name: tag.name, searchText: tag.description }]
-                : [];
+              return tag ? [{ id: tag.id, name: tag.name, searchText: tag.description }] : [];
             })}
             selectedId={editingTagId}
             entityLabel="tag"
@@ -113,15 +118,18 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
               beginCreation(null);
               setEditingTagId(tagId);
               setDraft({ name: tag.name, description: tag.description });
+              validation.reset();
             }}
           />
         }
       >
         <section className="stack" aria-label={editingTagId ? "Edit tag" : "Create tag"}>
           <h3>{editingTagId ? "Edit Tag" : "Create Tag"}</h3>
-          <Field label="Name">
+          <Field label="Name" required invalid={validation.attempted && !draft.name.trim()}>
             <input
               value={draft.name}
+              required
+              aria-invalid={validation.attempted && !draft.name.trim()}
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               placeholder="e.g. Long Sword"
             />
@@ -134,12 +142,17 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
               placeholder="How this tag is intended to be used"
             />
           </Field>
+          <FormValidationSummary visible={validation.attempted && !draft.name.trim()} />
           <div className="inline-actions">
-            <button className="button button--primary" type="button" disabled={!draft.name.trim()} onClick={save}>
+            <button className="button button--primary" type="button" onClick={save}>
               {editingTagId ? "Save Tag" : "Create Tag"}
             </button>
             {editingTagId ? (
-              <button className="button button--danger" type="button" onClick={() => remove(editingTagId)}>
+              <button
+                className="button button--danger"
+                type="button"
+                onClick={() => remove(editingTagId)}
+              >
                 Delete Tag
               </button>
             ) : null}

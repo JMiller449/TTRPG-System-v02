@@ -3,7 +3,7 @@ import { useAppStore } from "@/app/state/useAppStore";
 import systemMark from "@/assets/system-mark.svg";
 import type { GameClient } from "@/hooks/useGameClient";
 import { Field } from "@/shared/ui/Field";
-import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
+import { IntentFeedbackToasts } from "@/shared/ui/IntentFeedbackBanners";
 import { Panel } from "@/shared/ui/Panel";
 
 export function SessionLanding({ client }: { client: GameClient }): JSX.Element {
@@ -87,7 +87,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
           </div>
         </Panel>
       </div>
-      <IntentFeedbackBanners />
+      <IntentFeedbackToasts />
     </div>
   );
 }

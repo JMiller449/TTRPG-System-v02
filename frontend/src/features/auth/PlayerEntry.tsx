@@ -5,7 +5,7 @@ import type { GameClient } from "@/hooks/useGameClient";
 import { userscriptInstallUrl } from "@/infrastructure/config/websocketConfig";
 import { buildClaimSheetAccessCodeRequest } from "@/infrastructure/ws/requestBuilders";
 import { Field } from "@/shared/ui/Field";
-import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
+import { IntentFeedbackToasts } from "@/shared/ui/IntentFeedbackBanners";
 import { Panel } from "@/shared/ui/Panel";
 
 export function PlayerBridgeInstallPanel({ installUrl }: { installUrl: string }): JSX.Element {
@@ -98,7 +98,7 @@ export function PlayerEntry({ client }: { client: GameClient }): JSX.Element {
           </button>
         </div>
       </div>
-      <IntentFeedbackBanners />
+      <IntentFeedbackToasts />
     </div>
   );
 }

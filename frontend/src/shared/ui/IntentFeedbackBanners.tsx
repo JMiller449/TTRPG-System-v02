@@ -1,96 +1,62 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { IntentFeedbackItem } from "@/app/state/types";
-import { shouldDisplayIntentFeedback } from "@/shared/ui/intentFeedbackVisibility";
 
-const INTENT_BANNER_TTL_MS = {
-  pending: 4000,
-  success: 3500
-} as const;
+const INTENT_TOAST_TTL_MS: Record<Exclude<IntentFeedbackItem["status"], "pending">, number> = {
+  success: 4000,
+  error: 8000
+};
 
-function dedupeFeedback(items: IntentFeedbackItem[]): IntentFeedbackItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = `${item.status}:${item.message}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
+const MAX_VISIBLE_TOASTS = 4;
 
-export function IntentFeedbackBanners(): JSX.Element | null {
+export function IntentFeedbackToasts(): JSX.Element | null {
   const {
     state: {
-      uiState: { connection, intentFeedback, roll20Bridge }
-    },
-    dispatch
+      uiState: { intentFeedback }
+    }
   } = useAppStore();
-  const [dismissedSystemIds, setDismissedSystemIds] = useState<string[]>([]);
+  const [dismissedToastIds, setDismissedToastIds] = useState<string[]>([]);
   const timeoutIdsRef = useRef<Record<string, number>>({});
-  const systemFeedback = useMemo<IntentFeedbackItem[]>(() => {
-    const items: IntentFeedbackItem[] = [];
-    if (connection.error) {
-      items.push({
-        id: `system-connection:${connection.error}`,
-        status: "error",
-        message: connection.error,
-        createdAt: new Date().toISOString()
-      });
+  const visibleFeedback = intentFeedback
+    .filter((item) => !dismissedToastIds.includes(item.id))
+    .slice(0, MAX_VISIBLE_TOASTS);
+
+  const dismissToast = (id: string): void => {
+    const timeoutId = timeoutIdsRef.current[id];
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      delete timeoutIdsRef.current[id];
     }
-    if (roll20Bridge.lastError) {
-      items.push({
-        id: `system-roll20:${roll20Bridge.lastError}`,
-        status: "error",
-        message: roll20Bridge.lastError,
-        createdAt: roll20Bridge.lastCheckedAt ?? new Date().toISOString()
-      });
-    }
-    return items.filter((item) => !dismissedSystemIds.includes(item.id));
-  }, [connection.error, dismissedSystemIds, roll20Bridge.lastCheckedAt, roll20Bridge.lastError]);
-  const visibleFeedback = dedupeFeedback([
-    ...intentFeedback.filter(shouldDisplayIntentFeedback),
-    ...systemFeedback
-  ]);
+    setDismissedToastIds((current) => (current.includes(id) ? current : [...current, id]));
+  };
 
   useEffect(() => {
     const activeIds = new Set(intentFeedback.map((item) => item.id));
 
     intentFeedback.forEach((item) => {
-      if (item.status === "error") {
+      if (
+        item.status === "pending" ||
+        dismissedToastIds.includes(item.id) ||
+        timeoutIdsRef.current[item.id]
+      ) {
         return;
       }
-      if (timeoutIdsRef.current[item.id]) {
-        return;
-      }
-
       timeoutIdsRef.current[item.id] = window.setTimeout(() => {
         delete timeoutIdsRef.current[item.id];
-        dispatch({ type: "dismiss_intent_feedback", id: item.id });
-      }, INTENT_BANNER_TTL_MS[item.status]);
+        setDismissedToastIds((current) =>
+          current.includes(item.id) ? current : [...current, item.id]
+        );
+      }, INTENT_TOAST_TTL_MS[item.status]);
     });
 
     Object.entries(timeoutIdsRef.current).forEach(([id, timeoutId]) => {
-      if (activeIds.has(id)) {
+      if (activeIds.has(id) && !dismissedToastIds.includes(id)) {
         return;
       }
       window.clearTimeout(timeoutId);
       delete timeoutIdsRef.current[id];
     });
-  }, [dispatch, intentFeedback]);
-
-  useEffect(() => {
-    setDismissedSystemIds((current) =>
-      current.filter((id) =>
-        id.startsWith("system-connection:")
-          ? id === `system-connection:${connection.error}`
-          : id.startsWith("system-roll20:")
-            ? id === `system-roll20:${roll20Bridge.lastError}`
-            : true
-      )
-    );
-  }, [connection.error, roll20Bridge.lastError]);
+  }, [dismissedToastIds, intentFeedback]);
 
   useEffect(
     () => () => {
@@ -107,28 +73,24 @@ export function IntentFeedbackBanners(): JSX.Element | null {
   }
 
   return (
-    <section className="intent-banner-stack" aria-live="polite" aria-label="System messages">
+    <section className="intent-toast-stack" aria-live="polite" aria-label="Recent notifications">
       {visibleFeedback.map((item) => (
-        <article key={item.id} className={`intent-banner intent-banner--${item.status}`}>
-          <div>
-            <strong className="intent-banner__status">{item.status}</strong>{" "}
-            <span className="intent-banner__message" title={item.message}>
-              {item.message}
-            </span>
+        <article
+          key={item.id}
+          className={`intent-toast intent-toast--${item.status}`}
+          role={item.status === "error" ? "alert" : "status"}
+        >
+          <div className="intent-toast__content">
+            <strong className="intent-toast__status">{item.status}</strong>
+            <p className="intent-toast__message">{item.message}</p>
           </div>
           <button
-            className="link-button"
-            onClick={() => {
-              if (item.id.startsWith("system-")) {
-                setDismissedSystemIds((current) =>
-                  current.includes(item.id) ? current : [...current, item.id]
-                );
-                return;
-              }
-              dispatch({ type: "dismiss_intent_feedback", id: item.id });
-            }}
+            type="button"
+            className="intent-toast__dismiss"
+            aria-label={`Dismiss ${item.status} notification`}
+            onClick={() => dismissToast(item.id)}
           >
-            Dismiss
+            ×
           </button>
         </article>
       ))}

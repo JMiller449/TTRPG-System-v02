@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import {
   createEmptyAugmentationEditorValues,
+  isKnownAugmentationEditorTarget,
   toAugmentationEditorValues,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
@@ -22,6 +23,8 @@ import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { hasValidStandaloneEffectValues } from "@/features/effects/standaloneEffectEditorValues";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -43,6 +46,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   const [values, setValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
+  const validation = useFormValidationAttempt();
 
   const orderedEffects = useMemo(
     () => selectOrderedStandaloneEffects(standaloneEffects, standaloneEffectOrder),
@@ -110,6 +114,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   }, [editingEffectId, standaloneEffects]);
 
   const startNewEffect = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingEffectId(null);
     setPendingCreatedEffectId(null);
@@ -117,6 +122,14 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   };
 
   const submitEffect = (): void => {
+    if (
+      !validation.validate(
+        hasValidStandaloneEffectValues(values) &&
+          isKnownAugmentationEditorTarget(values, targetOptions)
+      )
+    ) {
+      return;
+    }
     const effectId = editingEffectId ?? makeId("standalone_effect");
     const submission = editingEffectId
       ? buildUpdateStandaloneEffectSubmission(standaloneEffects[editingEffectId], values)
@@ -194,6 +207,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
               setEditingEffectId(effect.id);
               setPendingCreatedEffectId(null);
               setValues(toAugmentationEditorValues(effect));
+              validation.reset();
             }}
           />
         }
@@ -201,6 +215,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
         <StandaloneEffectEditorForm
           editingEffectId={editingEffectId}
           values={values}
+          validationAttempted={validation.attempted}
           targetOptions={targetOptions}
           selectorOptions={selectorOptions}
           formulaMetadata={actionFormulaAuthoringMetadata}

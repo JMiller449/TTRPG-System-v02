@@ -80,6 +80,7 @@ describe("AppStatusBar", () => {
     await renderStatusBar();
 
     expect(container.textContent).toContain("Extension Connected");
+    expect(container.textContent).toContain("History 0");
     expect(container.textContent).not.toContain("Synced");
   });
 

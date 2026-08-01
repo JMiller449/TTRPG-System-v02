@@ -15,6 +15,7 @@ import type {
 import { ItemActionGrantEditor } from "@/features/items/components/ItemActionGrantEditor";
 import { ItemPlayerAvailabilityEditor } from "@/features/items/components/ItemPlayerAvailabilityEditor";
 import { CatalogEntityMultiSelect } from "@/features/catalogs/CatalogEntityMultiSelect";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 const ITEM_INTERACTION_TYPES: ReadonlyArray<{
   value: ItemInteractionType;
@@ -36,6 +37,7 @@ export function ItemEditorForm({
   attributesEditor,
   effectEditor,
   pending = false,
+  validationAttempted = false,
   editorKind = "item",
   showPlayerAvailability = true,
   onSubmit,
@@ -52,6 +54,7 @@ export function ItemEditorForm({
   attributesEditor: ReactNode;
   effectEditor: ReactNode;
   pending?: boolean;
+  validationAttempted?: boolean;
   editorKind?: "item" | "template";
   showPlayerAvailability?: boolean;
   onSubmit: () => void;
@@ -62,6 +65,14 @@ export function ItemEditorForm({
     definitions: attributeDefinitions,
     proficiencies
   });
+  const nameMissing = !values.name.trim();
+  const weight = Number(values.weight);
+  const weightInvalid = !values.weight.trim() || !Number.isFinite(weight) || weight < 0;
+  const storageWeight = Number(values.storageCapacityWeight);
+  const storageWeightInvalid =
+    values.canContainItems &&
+    Boolean(values.storageCapacityWeight.trim()) &&
+    (!Number.isFinite(storageWeight) || storageWeight < 0);
 
   const setInteractionType = (interactionType: ItemInteractionType): void => {
     const nextValues: ItemEditorValues = {
@@ -110,9 +121,11 @@ export function ItemEditorForm({
 
       <section className="item-details-section stack">
         <h3>Details</h3>
-        <Field label="Name">
+        <Field label="Name" required invalid={validationAttempted && nameMissing}>
           <input
             value={values.name}
+            required
+            aria-invalid={validationAttempted && nameMissing}
             onChange={(event) => onChange({ ...values, name: event.target.value })}
             placeholder="e.g. Sword of mana"
           />
@@ -131,12 +144,14 @@ export function ItemEditorForm({
               ))}
             </select>
           </Field>
-          <Field label="Weight">
+          <Field label="Weight" required invalid={validationAttempted && weightInvalid}>
             <input
               type="number"
               min="0"
               step="any"
               value={values.weight}
+              required
+              aria-invalid={validationAttempted && weightInvalid}
               onChange={(event) => onChange({ ...values, weight: event.target.value })}
               placeholder="e.g. 3"
             />
@@ -246,9 +261,7 @@ export function ItemEditorForm({
                 onChange({
                   ...values,
                   canContainItems: event.target.checked,
-                  storageCapacityWeight: event.target.checked
-                    ? values.storageCapacityWeight
-                    : "",
+                  storageCapacityWeight: event.target.checked ? values.storageCapacityWeight : "",
                   contentsWeightBehavior: event.target.checked
                     ? values.contentsWeightBehavior
                     : "normal"
@@ -259,12 +272,16 @@ export function ItemEditorForm({
           </label>
           {values.canContainItems ? (
             <>
-              <Field label="Storage weight limit (lb)">
+              <Field
+                label="Storage weight limit (lb)"
+                invalid={validationAttempted && storageWeightInvalid}
+              >
                 <input
                   type="number"
                   min="0"
                   step="any"
                   value={values.storageCapacityWeight}
+                  aria-invalid={validationAttempted && storageWeightInvalid}
                   onChange={(event) =>
                     onChange({
                       ...values,
@@ -290,8 +307,8 @@ export function ItemEditorForm({
             </>
           ) : null}
           <p className="muted">
-            The container's own weight always counts. Leave the limit blank for unlimited
-            storage. Volume and item slots are not tracked.
+            The container's own weight always counts. Leave the limit blank for unlimited storage.
+            Volume and item slots are not tracked.
           </p>
         </div>
       </details>
@@ -337,18 +354,16 @@ export function ItemEditorForm({
         </details>
       ) : null}
 
-      {validationError ? (
-        <div className="item-editor__validation" role="alert">
-          <strong>Item cannot be saved yet</strong>
-          <p className="error-text">{validationError}</p>
-        </div>
-      ) : null}
+      <FormValidationSummary
+        visible={validationAttempted && Boolean(validationError)}
+        message={
+          nameMissing
+            ? "Complete all required fields."
+            : (validationError ?? "Review the indicated fields.")
+        }
+      />
       <div className="template-editor__actions item-editor__actions">
-        <button
-          className="button"
-          onClick={onSubmit}
-          disabled={Boolean(validationError) || pending}
-        >
+        <button className="button" onClick={onSubmit} disabled={pending}>
           {pending
             ? "Creating…"
             : editingItemId

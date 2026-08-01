@@ -21,6 +21,7 @@ import {
   upsertFormulaAlias
 } from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 const EFFECT_TYPES = [
   ["formula_modifier", "Direct instance value"],
@@ -41,6 +42,7 @@ export function StandaloneEffectEditorForm({
   targetOptions,
   selectorOptions,
   formulaMetadata,
+  validationAttempted = false,
   onChange,
   onSubmit,
   onCancel
@@ -50,6 +52,7 @@ export function StandaloneEffectEditorForm({
   targetOptions: AugmentationTargetOption[];
   selectorOptions: AugmentationSelectorOptions;
   formulaMetadata: ActionFormulaAuthoringMetadata | null;
+  validationAttempted?: boolean;
   onChange: (values: AugmentationEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -65,16 +68,19 @@ export function StandaloneEffectEditorForm({
       </h3>
 
       <div className="inline-group">
-        <Field label="Name">
+        <Field label="Name" required invalid={validationAttempted && !values.name.trim()}>
           <input
             value={values.name}
-            aria-invalid={!values.name.trim()}
+            required
+            aria-invalid={validationAttempted && !values.name.trim()}
             onChange={(event) => onChange({ ...values, name: event.target.value })}
             placeholder="e.g. Burning weapon"
           />
         </Field>
         <Field
           label={values.effectType === "formula_modifier" ? "Instance Value" : "Context Value"}
+          required
+          invalid={validationAttempted && !targetIsKnown && targetOptions.length > 0}
         >
           <select
             value={targetIsKnown ? targetKey : ""}
@@ -87,6 +93,8 @@ export function StandaloneEffectEditorForm({
               }
             }}
             disabled={targetOptions.length === 0}
+            required
+            aria-invalid={validationAttempted && !targetIsKnown && targetOptions.length > 0}
           >
             <option value="">
               {targetOptions.length === 0 ? "Targets unavailable" : "Select target"}
@@ -173,7 +181,8 @@ export function StandaloneEffectEditorForm({
           value={values.formulaText}
           options={formulaVariableSearchOptions(formulaMetadata)}
           loading={!formulaMetadata}
-          ariaInvalid={!values.formulaText.trim()}
+          required
+          ariaInvalid={validationAttempted && !values.formulaText.trim()}
           onChange={(formulaText) => onChange({ ...values, formulaText })}
           onVariableSelect={(entry, formulaText) =>
             onChange({
@@ -191,6 +200,7 @@ export function StandaloneEffectEditorForm({
           idPrefix="standalone-effect-selector"
           values={values}
           options={selectorOptions}
+          showValidationError={validationAttempted}
           onChange={onChange}
         />
       ) : null}
@@ -220,9 +230,7 @@ export function StandaloneEffectEditorForm({
               type="number"
               min={0}
               value={values.lifecycleRemaining}
-              onChange={(event) =>
-                onChange({ ...values, lifecycleRemaining: event.target.value })
-              }
+              onChange={(event) => onChange({ ...values, lifecycleRemaining: event.target.value })}
               placeholder="e.g. 3"
             />
           </Field>
@@ -245,9 +253,7 @@ export function StandaloneEffectEditorForm({
           <Field label="Notes">
             <input
               value={values.lifecycleNotes}
-              onChange={(event) =>
-                onChange({ ...values, lifecycleNotes: event.target.value })
-              }
+              onChange={(event) => onChange({ ...values, lifecycleNotes: event.target.value })}
               placeholder="e.g. action removes effect"
             />
           </Field>
@@ -280,9 +286,7 @@ export function StandaloneEffectEditorForm({
                 type="number"
                 min={1}
                 value={values.stackingMaxStacks}
-                onChange={(event) =>
-                  onChange({ ...values, stackingMaxStacks: event.target.value })
-                }
+                onChange={(event) => onChange({ ...values, stackingMaxStacks: event.target.value })}
                 placeholder="e.g. 3 (blank = unlimited)"
               />
             </Field>
@@ -299,13 +303,23 @@ export function StandaloneEffectEditorForm({
         <span>Available to actions</span>
       </label>
 
-      {!values.name.trim() ? <p className="error-text">Name is required.</p> : null}
-      {!targetIsKnown ? <p className="error-text">Select an instance target.</p> : null}
-      {values.effectType !== "roll_mode_modifier" && !values.formulaText.trim() ? (
-        <p className="error-text">Formula is required.</p>
-      ) : null}
+      <FormValidationSummary
+        visible={validationAttempted && !valid}
+        message={
+          !values.name.trim() ||
+          (!targetIsKnown && targetOptions.length > 0) ||
+          (values.effectType !== "roll_mode_modifier" && !values.formulaText.trim())
+            ? "Complete all required fields."
+            : "Review the indicated fields."
+        }
+      />
       <div className="template-editor__actions">
-        <button className="button" type="button" onClick={onSubmit} disabled={!valid}>
+        <button
+          className="button"
+          type="button"
+          onClick={onSubmit}
+          disabled={targetOptions.length === 0}
+        >
           {editingEffectId ? "Save Effect" : "Create Effect"}
         </button>
         {editingEffectId ? (

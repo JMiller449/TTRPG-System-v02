@@ -20,6 +20,7 @@ import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreation
 import {
   createEmptyItemValues,
   createItemValuesFromTemplate,
+  getItemEditorValidationError,
   toItemDefinitionPayload,
   toItemEditorValues,
   type ItemEditorValues
@@ -41,13 +42,9 @@ import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
-type ItemWorkspaceMode =
-  | "start"
-  | "item"
-  | "choose_template"
-  | "template_idle"
-  | "templates";
+type ItemWorkspaceMode = "start" | "item" | "choose_template" | "template_idle" | "templates";
 
 export function ItemMakerPage({
   client,
@@ -89,6 +86,7 @@ export function ItemMakerPage({
     createEmptyAugmentationEditorValues
   );
   const requestedFormulaMetadataRef = useRef(false);
+  const validation = useFormValidationAttempt();
 
   const items = useMemo(
     () =>
@@ -131,14 +129,12 @@ export function ItemMakerPage({
     client,
     entries: itemRecords
   });
-  const {
-    beginCreation: beginTemplateCreation,
-    queueCreatedEntry: queueCreatedTemplateEntry
-  } = useCatalogCreationTarget({
-    catalog: "item_templates",
-    client,
-    entries: itemTemplateRecords
-  });
+  const { beginCreation: beginTemplateCreation, queueCreatedEntry: queueCreatedTemplateEntry } =
+    useCatalogCreationTarget({
+      catalog: "item_templates",
+      client,
+      entries: itemTemplateRecords
+    });
 
   useEffect(() => {
     if (augmentationTargetMetadata?.context === "item_template") {
@@ -164,6 +160,7 @@ export function ItemMakerPage({
   };
 
   const startNewItem = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingItemId(null);
     setEditingTemplateId(null);
@@ -175,6 +172,7 @@ export function ItemMakerPage({
   };
 
   const showStart = (): void => {
+    validation.reset();
     if (templateManagement) {
       beginTemplateCreation(null);
     } else {
@@ -189,6 +187,7 @@ export function ItemMakerPage({
   };
 
   const startNewTemplate = (folderId: string | null = null): void => {
+    validation.reset();
     beginTemplateCreation(folderId);
     setEditingItemId(null);
     setEditingTemplateId(null);
@@ -211,14 +210,13 @@ export function ItemMakerPage({
   }, [itemRecords, submittedCreateId]);
 
   const onSubmit = (): void => {
-    if (!values.name.trim()) {
-      return;
-    }
-
     const validationContext = {
       definitions: attributeDefinitions,
       proficiencies: proficiencyRecords
     };
+    if (!validation.validate(getItemEditorValidationError(values, validationContext) === null)) {
+      return;
+    }
     if (workspaceMode === "templates") {
       const templateId = editingTemplateId ?? draftItemId;
       const template = {
@@ -350,9 +348,11 @@ export function ItemMakerPage({
           : "Gear, consumables, and loot. Items can grant actions and passive effects to whoever carries or equips them."
       }
       actions={
-        (templateManagement
-          ? workspaceMode === "templates"
-          : Boolean(editingItemId) || workspaceMode !== "start") ? (
+        (
+          templateManagement
+            ? workspaceMode === "templates"
+            : Boolean(editingItemId) || workspaceMode !== "start"
+        ) ? (
           <div className="inline-actions">
             <button className="button button--secondary" onClick={showStart}>
               {templateManagement ? "Template Start" : "Item Start"}
@@ -462,6 +462,7 @@ export function ItemMakerPage({
                   beginTemplateCreation(null);
                   setValues(toItemEditorValues(template));
                   resetAugmentationEditor();
+                  validation.reset();
                 }}
               />
             ) : (
@@ -487,6 +488,7 @@ export function ItemMakerPage({
                   beginCreation(null);
                   setValues(toItemEditorValues(item));
                   resetAugmentationEditor();
+                  validation.reset();
                 }}
               />
             )
@@ -497,8 +499,8 @@ export function ItemMakerPage({
               <div>
                 <h3>Build an item template</h3>
                 <p className="muted">
-                  Create reusable defaults here, or select an existing template from the
-                  catalog to edit it.
+                  Create reusable defaults here, or select an existing template from the catalog to
+                  edit it.
                 </p>
               </div>
               <div className="inline-actions">
@@ -520,7 +522,11 @@ export function ItemMakerPage({
                 </p>
               </div>
               <div className="inline-actions">
-                <button className="button button--primary" type="button" onClick={() => startNewItem()}>
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() => startNewItem()}
+                >
                   Start from Scratch
                 </button>
                 <button
@@ -562,6 +568,7 @@ export function ItemMakerPage({
                     setWorkspaceMode("item");
                     setEditingItemId(null);
                     resetAugmentationEditor();
+                    validation.reset();
                   }}
                 >
                   Use Template
@@ -573,18 +580,19 @@ export function ItemMakerPage({
             </section>
           ) : (
             <ItemEditorForm
-              editingItemId={
-                templateManagement ? editingTemplateId : editingItemId
-              }
+              editingItemId={templateManagement ? editingTemplateId : editingItemId}
               editorKind={templateManagement ? "template" : "item"}
               showPlayerAvailability={!templateManagement}
               values={values}
+              validationAttempted={validation.attempted}
               onChange={setValues}
               actions={actions}
               attributeDefinitions={attributeDefinitions}
               proficiencies={proficiencyRecords}
               tagDefinitions={tagDefinitions}
-              pending={!templateManagement && workspaceMode === "item" && Boolean(submittedCreateId)}
+              pending={
+                !templateManagement && workspaceMode === "item" && Boolean(submittedCreateId)
+              }
               attributesEditor={
                 <ItemAttributesEditor
                   values={values}

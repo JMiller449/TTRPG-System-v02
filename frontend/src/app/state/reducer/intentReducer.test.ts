@@ -14,7 +14,7 @@ function makeFeedback(overrides: Partial<IntentFeedbackItem> = {}): IntentFeedba
 }
 
 describe("intentReducer", () => {
-  it("collapses duplicate feedback messages instead of stacking them", () => {
+  it("collapses duplicate system feedback messages instead of stacking them", () => {
     const first = intentReducer(initialState, {
       type: "push_intent_feedback",
       item: makeFeedback({ id: "feedback_1" })
@@ -25,16 +25,42 @@ describe("intentReducer", () => {
     });
 
     expect(second?.uiState.intentFeedback).toHaveLength(1);
-    expect(second?.uiState.intentFeedback[0]?.id).toBe("feedback_2");
+    expect(second?.uiState.intentFeedback[0]?.id).toBe("feedback_1");
   });
 
-  it("keeps only the three most recent feedback banners", () => {
-    const state = [
-      makeFeedback({ id: "feedback_1", message: "one" }),
-      makeFeedback({ id: "feedback_2", message: "two" }),
-      makeFeedback({ id: "feedback_3", message: "three" }),
-      makeFeedback({ id: "feedback_4", message: "four" })
-    ].reduce(
+  it("replaces pending feedback with the final request lifecycle result", () => {
+    const pending = intentReducer(initialState, {
+      type: "push_intent_feedback",
+      item: makeFeedback({
+        id: "feedback_pending",
+        intentId: "request_1",
+        status: "pending",
+        message: "Saving..."
+      })
+    });
+    const completed = intentReducer(pending ?? initialState, {
+      type: "push_intent_feedback",
+      item: makeFeedback({
+        id: "feedback_success",
+        intentId: "request_1",
+        status: "success",
+        message: "Saved."
+      })
+    });
+
+    expect(completed?.uiState.intentFeedback).toEqual([
+      expect.objectContaining({ id: "feedback_success", status: "success" })
+    ]);
+  });
+
+  it("keeps only the fifty most recent history entries", () => {
+    const state = Array.from({ length: 52 }, (_, index) =>
+      makeFeedback({
+        id: `feedback_${index}`,
+        intentId: `request_${index}`,
+        message: `message ${index}`
+      })
+    ).reduce(
       (currentState, item) =>
         intentReducer(currentState, {
           type: "push_intent_feedback",
@@ -43,11 +69,52 @@ describe("intentReducer", () => {
       initialState
     );
 
-    expect(state.uiState.intentFeedback).toHaveLength(3);
-    expect(state.uiState.intentFeedback.map((item) => item.id)).toEqual([
-      "feedback_4",
-      "feedback_3",
-      "feedback_2"
-    ]);
+    expect(state.uiState.intentFeedback).toHaveLength(50);
+    expect(state.uiState.intentFeedback[0]?.id).toBe("feedback_51");
+    expect(state.uiState.intentFeedback.at(-1)?.id).toBe("feedback_2");
+  });
+
+  it("supports individual and complete history clearing", () => {
+    const withHistory = {
+      ...initialState,
+      uiState: {
+        ...initialState.uiState,
+        intentFeedback: [
+          makeFeedback({ id: "feedback_1", intentId: "request_1" }),
+          makeFeedback({ id: "feedback_2", intentId: "request_2" })
+        ]
+      }
+    };
+    const dismissed = intentReducer(withHistory, {
+      type: "dismiss_intent_feedback",
+      id: "feedback_1"
+    });
+    const cleared = intentReducer(dismissed ?? withHistory, { type: "clear_intent_feedback" });
+
+    expect(dismissed?.uiState.intentFeedback.map((item) => item.id)).toEqual(["feedback_2"]);
+    expect(cleared?.uiState.intentFeedback).toEqual([]);
+  });
+
+  it("preserves active pending lifecycles when history is cleared", () => {
+    const pending = makeFeedback({
+      id: "feedback_pending",
+      intentId: "request_pending",
+      status: "pending"
+    });
+    const withHistory = {
+      ...initialState,
+      uiState: {
+        ...initialState.uiState,
+        intentFeedback: [pending, makeFeedback({ id: "feedback_success" })]
+      }
+    };
+    const cleared = intentReducer(withHistory, { type: "clear_intent_feedback" });
+    const attemptedDismiss = intentReducer(cleared ?? withHistory, {
+      type: "dismiss_intent_feedback",
+      id: pending.id
+    });
+
+    expect(cleared?.uiState.intentFeedback).toEqual([pending]);
+    expect(attemptedDismiss?.uiState.intentFeedback).toEqual([pending]);
   });
 });

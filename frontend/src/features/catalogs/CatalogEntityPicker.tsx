@@ -17,6 +17,9 @@ export function CatalogEntityPicker<T>({
   disabled?: boolean;
   loading?: boolean;
   emptyMessage?: string;
+  required?: boolean;
+  invalid?: boolean;
+  ariaDescribedBy?: string;
   onSelect: (value: T) => void;
 }): JSX.Element {
   const organization = useCatalogOrganization(catalog);

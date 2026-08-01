@@ -45,16 +45,19 @@ export function FormulaTagEditor({
   }, [appState, normalizedTags, suggestions]);
 
   return (
-    <CatalogEntityMultiSelect
-      catalog="tags"
-      label={label}
-      options={options}
-      selectedIds={normalizedTags}
-      onChange={onChange}
-      emptyMessage="No managed tags exist yet. Create them from Rules Data → Tags."
-      noResultsMessage="No managed tags match this search."
-      selectionAriaLabel={(tagName) => `Select tag ${tagName}`}
-      folderSelectionAriaLabel={(folderName) => `Select all tags in ${folderName}`}
-    />
+    <div className="formula-tag-catalog">
+      <CatalogEntityMultiSelect
+        catalog="tags"
+        label={label}
+        options={options}
+        selectedIds={normalizedTags}
+        onChange={onChange}
+        emptyMessage="No managed tags exist yet. Create them from Rules Data → Tags."
+        noResultsMessage="No managed tags match this search."
+        selectionAriaLabel={(tagName) => `Select tag ${tagName}`}
+        folderSelectionAriaLabel={(folderName) => `Select all tags in ${folderName}`}
+        persistentScrollIndicator
+      />
+    </div>
   );
 }

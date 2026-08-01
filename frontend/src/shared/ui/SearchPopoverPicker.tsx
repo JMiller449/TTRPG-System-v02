@@ -27,6 +27,9 @@ export function SearchPopoverPicker<T>({
   disabled = false,
   loading = false,
   emptyMessage = "No matching options.",
+  required = false,
+  invalid = false,
+  ariaDescribedBy,
   onSelect
 }: {
   label: string;
@@ -37,6 +40,9 @@ export function SearchPopoverPicker<T>({
   disabled?: boolean;
   loading?: boolean;
   emptyMessage?: string;
+  required?: boolean;
+  invalid?: boolean;
+  ariaDescribedBy?: string;
   onSelect: (value: T) => void;
 }): JSX.Element {
   const generatedId = useId().replace(/:/g, "");
@@ -207,8 +213,18 @@ export function SearchPopoverPicker<T>({
         });
       }}
     >
-      <label className="field" htmlFor={inputId}>
-        <span className="field__label">{label}</span>
+      <label className={`field${invalid ? " field--invalid" : ""}`} htmlFor={inputId}>
+        <span className="field__label">
+          {label}
+          {required ? (
+            <>
+              <span className="field__required-marker" aria-hidden="true">
+                *
+              </span>
+              <span className="r6-sr-only"> (required)</span>
+            </>
+          ) : null}
+        </span>
         <input
           id={inputId}
           ref={inputRef}
@@ -219,6 +235,9 @@ export function SearchPopoverPicker<T>({
           aria-activedescendant={
             activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
           }
+          aria-invalid={invalid}
+          aria-describedby={ariaDescribedBy}
+          required={required}
           value={
             open ? query : (options.find((option) => option.id === selectedId)?.label ?? query)
           }

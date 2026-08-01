@@ -24,6 +24,10 @@ describe("FormulaTagEditor", () => {
       </StoreContext.Provider>
     );
 
+    expect(markup).toContain('class="formula-tag-catalog"');
+    expect(markup).toContain("0 of 1 selected");
+    expect(markup).toContain("catalog-multi-select__tree-frame--persistent");
+    expect(markup).toContain("catalog-multi-select__scroll-track");
     expect(markup).toContain("Search Formula Tags");
     expect(markup).toContain("Select tag Damage");
     expect(markup).not.toContain('role="combobox"');

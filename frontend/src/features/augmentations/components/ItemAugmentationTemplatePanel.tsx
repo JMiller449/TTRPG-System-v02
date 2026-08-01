@@ -22,6 +22,8 @@ import {
   formulaVariableSearchOptions,
   upsertFormulaAlias
 } from "@/features/variables/variablePicker";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 const AUGMENTATION_OPERATIONS = ["add", "subtract", "multiply", "divide", "set"] as const;
 const AUGMENTATION_EFFECT_TYPES = [
@@ -122,6 +124,7 @@ export function ItemAugmentationTemplatePanel({
   const hasCurrentTargetPath = values.targetPath.some((segment) => segment.trim().length > 0);
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
   const canSubmit = hasValidAugmentationEditorValues(values) && targetIsKnown;
+  const validation = useFormValidationAttempt();
   const wearerEffects = templates.filter(
     (augmentation) => augmentation.effect.type === "formula_modifier"
   );
@@ -137,14 +140,20 @@ export function ItemAugmentationTemplatePanel({
 
       <div className="stack">
         <div className="inline-group">
-          <Field label="Name">
+          <Field label="Name" required invalid={validation.attempted && !values.name.trim()}>
             <input
               value={values.name}
+              required
+              aria-invalid={validation.attempted && !values.name.trim()}
               onChange={(event) => onChange({ ...values, name: event.target.value })}
               placeholder="e.g. Arcane guard"
             />
           </Field>
-          <Field label={values.effectType === "formula_modifier" ? "Wearer Value" : "Effect Scope"}>
+          <Field
+            label={values.effectType === "formula_modifier" ? "Wearer Value" : "Effect Scope"}
+            required
+            invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
+          >
             <select
               value={targetIsKnown ? selectedTargetKey : ""}
               onChange={(event) => {
@@ -156,6 +165,8 @@ export function ItemAugmentationTemplatePanel({
                 }
               }}
               disabled={targetOptions.length === 0}
+              required
+              aria-invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
             >
               <option value="">
                 {targetOptions.length === 0 ? "Target metadata unavailable" : "Select target"}
@@ -245,6 +256,8 @@ export function ItemAugmentationTemplatePanel({
             value={values.formulaText}
             options={formulaVariableSearchOptions(formulaMetadata)}
             loading={!formulaMetadata}
+            required
+            ariaInvalid={validation.attempted && !values.formulaText.trim()}
             onChange={(formulaText) => onChange({ ...values, formulaText })}
             onVariableSelect={(entry, formulaText) =>
               onChange({
@@ -262,6 +275,7 @@ export function ItemAugmentationTemplatePanel({
             idPrefix="item-augmentation-selector"
             values={values}
             options={selectorOptions}
+            showValidationError={validation.attempted}
             onChange={onChange}
           />
         ) : null}
@@ -275,8 +289,27 @@ export function ItemAugmentationTemplatePanel({
           <span>Active</span>
         </label>
 
+        <FormValidationSummary
+          visible={validation.attempted && !canSubmit}
+          message={
+            !values.name.trim() ||
+            (!targetIsKnown && targetOptions.length > 0) ||
+            (values.effectType !== "roll_mode_modifier" && !values.formulaText.trim())
+              ? "Complete all required fields."
+              : "Review the indicated fields."
+          }
+        />
+
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit} disabled={!canSubmit}>
+          <button
+            className="button"
+            onClick={() => {
+              if (validation.validate(canSubmit)) {
+                onSubmit();
+              }
+            }}
+            disabled={targetOptions.length === 0}
+          >
             {editingAugmentationId ? "Update Effect" : "Add Effect"}
           </button>
           {editingAugmentationId ? (

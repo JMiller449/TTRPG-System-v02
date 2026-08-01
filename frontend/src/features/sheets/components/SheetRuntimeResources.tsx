@@ -73,13 +73,27 @@ export function SheetContributionPoints({
   const [amount, setAmount] = useState("0");
   const parsedAmount = Number(amount);
   const validAmount = Number.isInteger(parsedAmount) && parsedAmount >= 0;
+
+  if (!canManage) {
+    return (
+      <section className="character-sheet__section character-sheet__section--compact">
+        <h4>Contribution Points</h4>
+        <p className="muted">
+          Current balance: <strong>{value}</strong>
+        </p>
+      </section>
+    );
+  }
+
   return (
-    <section className="character-sheet__section character-sheet__section--compact">
-      <h4>Contribution Points</h4>
-      <p className="muted">
-        Current balance: <strong>{value}</strong>
-      </p>
-      {canManage ? (
+    <details className="character-sheet__utility character-sheet__section--compact">
+      <summary className="character-sheet__utility-summary">
+        <span>Contribution Points</span>
+        <span className="character-sheet__utility-value">
+          Current balance: <strong>{value}</strong>
+        </span>
+      </summary>
+      <div className="character-sheet__utility-body">
         <div className="inline-actions">
           <Field label="Whole points">
             <input
@@ -116,7 +130,7 @@ export function SheetContributionPoints({
             Set
           </button>
         </div>
-      ) : null}
-    </section>
+      </div>
+    </details>
   );
 }

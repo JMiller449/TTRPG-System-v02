@@ -86,6 +86,34 @@ describe("SheetAttributesSection", () => {
     expect(markup).not.toContain("sheet-attributes-title");
   });
 
+  it("keeps page-layout attach controls outside the attribute card grid", () => {
+    const markup = renderToStaticMarkup(
+      <SheetAttributesSection
+        definitions={{
+          ...definitions,
+          optional_note: {
+            id: "optional_note",
+            name: "Optional Note",
+            description: "Optional text.",
+            subject_types: ["sheet"],
+            value_type: "text",
+            default_value: { type: "text", value: "" },
+            required: false
+          }
+        }}
+        bridges={bridges}
+        canEdit
+        pageLayout
+        onSaveFormula={() => undefined}
+        onReset={() => undefined}
+        onAttach={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("sheet-attributes__attach");
+    expect(markup).toContain(">Attach Attribute</button>");
+  });
+
   it("renders validated physical damage types as a multi-value dropdown", () => {
     const markup = renderToStaticMarkup(
       <SheetAttributesSection

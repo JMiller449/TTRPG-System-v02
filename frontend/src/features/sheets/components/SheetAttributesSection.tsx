@@ -103,7 +103,7 @@ export function SheetAttributesSection({
         </div>
       ) : null}
       {canEdit && onAttach && availableDefinitions.length > 0 ? (
-        <div className="inline-actions">
+        <div className="inline-actions sheet-attributes__attach">
           <CatalogEntityPicker
             catalog="attributes"
             label="Add optional Attribute"
@@ -271,7 +271,7 @@ function SheetAttributeCard({
         </p>
       ) : null}
       {canEdit && formula ? (
-        <div className="stack">
+        <div className="stack sheet-attribute-card__editor">
           <FormulaVariableInput
             label="Formula"
             value={formulaText}
@@ -306,10 +306,11 @@ function SheetAttributeCard({
             }}
             placeholder="Type @ to insert a variable"
           />
-          <div className="inline-actions">
+          <div className="inline-actions sheet-attribute-card__actions">
             {!draftMode ? (
               <button
                 type="button"
+                className="button"
                 disabled={!formulaText.trim() || formulaText === formula.text}
                 onClick={() =>
                   onSaveFormula(bridge.attribute_id, {
@@ -324,7 +325,7 @@ function SheetAttributeCard({
             ) : null}
             <button
               type="button"
-              className="secondary"
+              className="button button--secondary"
               onClick={() => onReset(bridge.attribute_id)}
             >
               Reset to Default
@@ -333,8 +334,8 @@ function SheetAttributeCard({
         </div>
       ) : null}
       {canEdit && bridge.value.type !== "formula" && onSaveValue ? (
-        <div className="stack">
-          <div className="inline-actions">
+        <div className="stack sheet-attribute-card__editor">
+          <div className="inline-actions sheet-attribute-card__value-editor">
             {definition?.reference_kind === "proficiency" && shouldUseOptionSelect ? (
               <CatalogEntityPicker
                 catalog="proficiencies"
@@ -405,7 +406,7 @@ function SheetAttributeCard({
                           <button
                             key={option}
                             type="button"
-                            className="secondary"
+                            className="button button--secondary"
                             aria-label={`Remove ${validationOptionLabelMap?.[option] ?? option}`}
                             onClick={() =>
                               commitListOptions(
@@ -432,6 +433,7 @@ function SheetAttributeCard({
             {!draftMode ? (
               <button
                 type="button"
+                className="button"
                 disabled={!canSaveLiteralValue}
                 onClick={() => {
                   const current = bridge.value;
@@ -449,7 +451,7 @@ function SheetAttributeCard({
             ) : null}
             <button
               type="button"
-              className="secondary"
+              className="button button--secondary"
               onClick={() => onReset(bridge.attribute_id)}
             >
               Reset to Default
@@ -466,7 +468,7 @@ function SheetAttributeCard({
       {canEdit && !definition?.required && onDetach ? (
         <button
           type="button"
-          className="danger"
+          className="button button--danger sheet-attribute-card__detach"
           onClick={() => {
             if (
               !confirmDestructiveAction({

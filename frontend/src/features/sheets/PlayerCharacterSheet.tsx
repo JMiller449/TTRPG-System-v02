@@ -26,10 +26,7 @@ import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
 import { buildEquipmentQuantitySubmission } from "@/features/sheets/equipmentQuantity";
-import {
-  canManageActionReactionPoints,
-  type PlayerSheetTab
-} from "@/features/sheets/sheetDisplay";
+import { canManageActionReactionPoints, type PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildAttachInstancedSheetActionRequest,
@@ -192,6 +189,7 @@ export function PlayerCharacterSheet({
   const showNotesSection = activeTab === "notes";
   const showActionHistorySection = mode === "gm" && activeTab === "action_history";
   const showFormulaStatsSection = mode === "gm" && activeTab === "formula_stats";
+  const showSnapshotSection = mode === "gm" && activeTab === "snapshot";
   const showResistancesSection = activeTab === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
@@ -307,57 +305,6 @@ export function PlayerCharacterSheet({
           ) : null}
         </div>
 
-        {mode === "gm" ? (
-          <section className="character-sheet__snapshot" aria-label="Snapshot as template">
-            <div>
-              <p className="template-editor__title">Snapshot as Template</p>
-              <p className="muted">
-                Save this instanced sheet as a new template checkpoint. Current health, mana, and
-                active runtime effects are not copied.
-              </p>
-            </div>
-            <div className="character-sheet__snapshot-fields">
-              <Field label="Template ID">
-                <input
-                  value={snapshotSheetId}
-                  onChange={(event) => setSnapshotSheetId(event.target.value)}
-                  placeholder="sheet_snapshot_..."
-                />
-              </Field>
-              <Field label="Template Name">
-                <input
-                  value={snapshotName}
-                  onChange={(event) => setSnapshotName(event.target.value)}
-                  placeholder="Checkpoint name"
-                />
-              </Field>
-              <button
-                type="button"
-                className="button"
-                disabled={!snapshotSheetId.trim() || !snapshotName.trim()}
-                onClick={() => {
-                  const nextId = snapshotSheetId.trim();
-                  const nextName = snapshotName.trim();
-                  if (!nextId || !nextName) {
-                    return;
-                  }
-                  client.sendProtocolRequest(
-                    buildCreateSheetFromInstanceRequest({
-                      instanceId: detail.instance.id,
-                      sheetId: nextId,
-                      name: nextName
-                    }),
-                    `Snapshot template: ${nextName}`
-                  );
-                  setSnapshotSheetId(makeId("sheet_snapshot"));
-                }}
-              >
-                Create Template Snapshot
-              </button>
-            </div>
-          </section>
-        ) : null}
-
         {showTabs ? (
           <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
         ) : null}
@@ -373,40 +320,47 @@ export function PlayerCharacterSheet({
             <div className="character-sheet__overview-grid">
               <div className="character-sheet__overview-main">
                 {mode === "gm" ? (
-                  <section className="character-sheet__section character-sheet__section--compact">
-                    <h4>Unassigned Stat Points</h4>
-                    <div className="inline-actions">
-                      <Field label="Current Pool">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputMode="numeric"
-                          value={unassignedStatPointsDraft}
-                          onChange={(event) => setUnassignedStatPointsDraft(event.target.value)}
-                        />
-                      </Field>
-                      <button
-                        type="button"
-                        className="button"
-                        disabled={!canSaveUnassignedStatPoints}
-                        onClick={() => {
-                          if (!canSaveUnassignedStatPoints) {
-                            return;
-                          }
-                          client.sendProtocolRequest(
-                            buildSetInstancedSheetUnassignedStatPointsRequest({
-                              instanceId: detail.instance.id,
-                              value: parsedUnassignedStatPointsDraft
-                            }),
-                            "Set unassigned stat points"
-                          );
-                        }}
-                      >
-                        Set Points
-                      </button>
+                  <details className="character-sheet__utility character-sheet__section--compact">
+                    <summary className="character-sheet__utility-summary">
+                      <span>Unassigned Stat Points</span>
+                      <span className="character-sheet__utility-value">
+                        Current pool: <strong>{unassignedStatPoints}</strong>
+                      </span>
+                    </summary>
+                    <div className="character-sheet__utility-body">
+                      <div className="inline-actions">
+                        <Field label="Current Pool">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputMode="numeric"
+                            value={unassignedStatPointsDraft}
+                            onChange={(event) => setUnassignedStatPointsDraft(event.target.value)}
+                          />
+                        </Field>
+                        <button
+                          type="button"
+                          className="button"
+                          disabled={!canSaveUnassignedStatPoints}
+                          onClick={() => {
+                            if (!canSaveUnassignedStatPoints) {
+                              return;
+                            }
+                            client.sendProtocolRequest(
+                              buildSetInstancedSheetUnassignedStatPointsRequest({
+                                instanceId: detail.instance.id,
+                                value: parsedUnassignedStatPointsDraft
+                              }),
+                              "Set unassigned stat points"
+                            );
+                          }}
+                        >
+                          Set Points
+                        </button>
+                      </div>
                     </div>
-                  </section>
+                  </details>
                 ) : null}
                 {mode === "player" ? (
                   <SheetStatPointAllocator
@@ -969,6 +923,70 @@ export function PlayerCharacterSheet({
             ) : (
               <EmptyState message="No formula stats available for this instance." />
             )}
+          </div>
+        ) : null}
+
+        {showSnapshotSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="tabpanel"
+            id="sheet-panel-snapshot"
+            aria-labelledby="sheet-tab-snapshot"
+            tabIndex={0}
+          >
+            <section
+              className="character-sheet__snapshot character-sheet__snapshot--tab"
+              aria-label="Snapshot as template"
+            >
+              <div className="character-sheet__snapshot-body">
+                <div>
+                  <h4>Snapshot as Template</h4>
+                  <p className="muted">
+                    Save this instanced sheet as a new template checkpoint. Current health, mana,
+                    and active runtime effects are not copied.
+                  </p>
+                </div>
+                <div className="character-sheet__snapshot-fields">
+                  <Field label="Template ID">
+                    <input
+                      value={snapshotSheetId}
+                      onChange={(event) => setSnapshotSheetId(event.target.value)}
+                      placeholder="sheet_snapshot_..."
+                    />
+                  </Field>
+                  <Field label="Template Name">
+                    <input
+                      value={snapshotName}
+                      onChange={(event) => setSnapshotName(event.target.value)}
+                      placeholder="Checkpoint name"
+                    />
+                  </Field>
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={!snapshotSheetId.trim() || !snapshotName.trim()}
+                    onClick={() => {
+                      const nextId = snapshotSheetId.trim();
+                      const nextName = snapshotName.trim();
+                      if (!nextId || !nextName) {
+                        return;
+                      }
+                      client.sendProtocolRequest(
+                        buildCreateSheetFromInstanceRequest({
+                          instanceId: detail.instance.id,
+                          sheetId: nextId,
+                          name: nextName
+                        }),
+                        `Snapshot template: ${nextName}`
+                      );
+                      setSnapshotSheetId(makeId("sheet_snapshot"));
+                    }}
+                  >
+                    Create Template Snapshot
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         ) : null}
 

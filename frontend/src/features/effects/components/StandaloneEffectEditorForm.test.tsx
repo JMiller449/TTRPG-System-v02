@@ -14,7 +14,7 @@ const target = {
 };
 const selectorOptions = { tags: [], actions: [], formulas: [], steps: [] };
 
-function renderEditor(valid: boolean): string {
+function renderEditor(valid: boolean, validationAttempted = false): string {
   const values = createEmptyAugmentationEditorValues();
   if (valid) {
     values.name = "Focused";
@@ -29,6 +29,7 @@ function renderEditor(valid: boolean): string {
       targetOptions={[target]}
       selectorOptions={selectorOptions}
       formulaMetadata={null}
+      validationAttempted={validationAttempted}
       onChange={() => undefined}
       onSubmit={() => undefined}
       onCancel={() => undefined}
@@ -53,11 +54,14 @@ describe("StandaloneEffectEditorForm", () => {
     expect(markup).not.toContain("Name is required.");
   });
 
-  it("shows required-field errors and disables incomplete submissions", () => {
-    const markup = renderEditor(false);
-    expect(markup).toContain("Name is required.");
-    expect(markup).toContain("Select an instance target.");
-    expect(markup).toContain("Formula is required.");
-    expect(markup).toContain("disabled");
+  it("highlights required fields only after an incomplete submission attempt", () => {
+    const pristineMarkup = renderEditor(false);
+    expect(pristineMarkup).not.toContain("Complete all required fields.");
+    expect(pristineMarkup).toContain('aria-invalid="false"');
+
+    const failedMarkup = renderEditor(false, true);
+    expect(failedMarkup).toContain("Complete all required fields.");
+    expect(failedMarkup).toContain('aria-invalid="true"');
+    expect(failedMarkup).not.toContain("disabled");
   });
 });

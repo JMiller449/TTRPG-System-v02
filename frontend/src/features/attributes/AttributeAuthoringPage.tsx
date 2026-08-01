@@ -20,6 +20,7 @@ import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 function attributeValueText(value: AttributeValue): string {
   if (value.type === "formula") {
@@ -59,6 +60,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   const { actionFormulaAuthoringMetadata } = state.uiState;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AttributeDraft>(emptyAttributeDraft);
+  const validation = useFormValidationAttempt();
   const requestedMetadataRef = useRef(false);
   const orderedAttributes = useMemo(
     () =>
@@ -84,6 +86,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   }, [actionFormulaAuthoringMetadata, client]);
 
   const reset = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingId(null);
     setDraft(emptyAttributeDraft());
@@ -92,7 +95,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
   const submit = (): void => {
     const id = editingId ?? makeId("attribute");
     const attribute = attributePayloadFromDraft(draft, id);
-    if (!attribute) {
+    if (!validation.validate(Boolean(attribute)) || !attribute) {
       return;
     }
     client.sendProtocolRequest(
@@ -170,6 +173,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
               beginCreation(null);
               setEditingId(attribute.id);
               setDraft(draftFromAttribute(attribute));
+              validation.reset();
             }}
           />
         }
@@ -177,6 +181,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
         <AttributeEditorForm
           editingId={editingId}
           draft={draft}
+          validationAttempted={validation.attempted}
           metadata={actionFormulaAuthoringMetadata}
           onChange={setDraft}
           onSubmit={submit}

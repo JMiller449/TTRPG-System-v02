@@ -30,12 +30,17 @@ import {
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
 import { buildCreateItemSubmission } from "@/features/items/itemMakerRequests";
-import { createEmptyItemValues, type ItemEditorValues } from "@/features/items/itemEditorValues";
+import {
+  createEmptyItemValues,
+  getItemEditorValidationError,
+  type ItemEditorValues
+} from "@/features/items/itemEditorValues";
 import { ProficiencyEditorForm } from "@/features/proficiencies/components/ProficiencyEditorForm";
 import { buildCreateProficiencySubmission } from "@/features/proficiencies/proficiencyAuthoringRequests";
 import {
   createEmptyProficiencyEditorValues,
   deriveProficiencyId,
+  hasValidProficiencyEditorValues,
   type ProficiencyEditorValues
 } from "@/features/proficiencies/proficiencyEditorValues";
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
@@ -44,6 +49,7 @@ import { buildCreateAttributeRequest } from "@/infrastructure/ws/requestBuilders
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export interface TemplateContextualCreateSubmission {
   kind: TemplateContextualEntityKind;
@@ -118,6 +124,7 @@ export function TemplateContextualCreateDialog({
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
+  const validation = useFormValidationAttempt();
   const copy = DIALOG_COPY[kind];
 
   const actions = useMemo(
@@ -195,7 +202,7 @@ export function TemplateContextualCreateDialog({
   const submitAttribute = (): void => {
     const attributeId = makeId("attribute");
     const attribute = attributePayloadFromDraft(attributeDraft, attributeId);
-    if (!attribute) {
+    if (!validation.validate(Boolean(attribute)) || !attribute) {
       return;
     }
     submit(
@@ -207,7 +214,7 @@ export function TemplateContextualCreateDialog({
   };
 
   const submitProficiency = (): void => {
-    if (proficiencyValidationError) {
+    if (!validation.validate(hasValidProficiencyEditorValues(proficiencyValues))) {
       return;
     }
     const submission = buildCreateProficiencySubmission(proficiencyValues, proficiencyId);
@@ -218,11 +225,17 @@ export function TemplateContextualCreateDialog({
   };
 
   const submitItem = (): void => {
-    const itemId = makeId("item");
-    const submission = buildCreateItemSubmission(itemValues, itemId, {
+    const itemValidationContext = {
       definitions: serverState.attributes,
       proficiencies: serverState.proficiencies
-    });
+    };
+    if (
+      !validation.validate(getItemEditorValidationError(itemValues, itemValidationContext) === null)
+    ) {
+      return;
+    }
+    const itemId = makeId("item");
+    const submission = buildCreateItemSubmission(itemValues, itemId, itemValidationContext);
     if (!submission) {
       return;
     }
@@ -230,6 +243,9 @@ export function TemplateContextualCreateDialog({
   };
 
   const submitAction = (): void => {
+    if (!validation.validate(actionValidationError === null)) {
+      return;
+    }
     const actionId = makeId("action");
     const submission = buildCreateActionSubmission(actionValues, actionId, {
       definitions: serverState.attributes,
@@ -288,6 +304,7 @@ export function TemplateContextualCreateDialog({
           draft={attributeDraft}
           metadata={formulaMetadata}
           pending={pending}
+          validationAttempted={validation.attempted}
           requiredSubjectType="sheet"
           onChange={setAttributeDraft}
           onSubmit={submitAttribute}
@@ -299,6 +316,7 @@ export function TemplateContextualCreateDialog({
           values={proficiencyValues}
           pending={pending}
           validationError={proficiencyValidationError}
+          validationAttempted={validation.attempted}
           onChange={setProficiencyValues}
           onSubmit={submitProficiency}
           onCancel={onClose}
@@ -309,6 +327,7 @@ export function TemplateContextualCreateDialog({
           editingItemId={null}
           values={itemValues}
           pending={pending}
+          validationAttempted={validation.attempted}
           onChange={setItemValues}
           actions={actions}
           attributeDefinitions={serverState.attributes}
@@ -387,6 +406,7 @@ export function TemplateContextualCreateDialog({
             editingActionId={null}
             values={actionValues}
             pending={pending}
+            validationAttempted={validation.attempted}
             onChange={setActionValues}
             onSubmit={submitAction}
             onCancel={onClose}

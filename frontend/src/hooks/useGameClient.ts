@@ -127,6 +127,21 @@ export function useGameClient(): GameClient {
     const unsubscribeConnection = client.onConnectionState((connection) => {
       dispatch({ type: "connection_status", status: connection.status });
       dispatch({ type: "connection_error", error: connection.error });
+      if (connection.error) {
+        dispatch({
+          type: "push_intent_feedback",
+          item: {
+            id: makeId("feedback"),
+            status: "error",
+            message: buildIntentErrorMessage({
+              label: "Transport",
+              message: connection.error,
+              isRoll20BridgeError: false
+            }),
+            createdAt: new Date().toISOString()
+          }
+        });
+      }
     });
 
     const unsubscribeEvents = client.onEvent((event) => {

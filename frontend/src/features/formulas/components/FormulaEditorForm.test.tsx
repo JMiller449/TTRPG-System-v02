@@ -2,6 +2,7 @@
 
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { FormulaEditorForm } from "@/features/formulas/components/FormulaEditorForm";
@@ -27,6 +28,36 @@ const metadata = {
 } as unknown as ActionFormulaAuthoringMetadata;
 
 describe("FormulaEditorForm", () => {
+  it("marks the formula as required without showing a pristine-draft error", () => {
+    const pristineMarkup = renderToStaticMarkup(
+      <FormulaEditorForm
+        editingFormulaId={null}
+        values={createEmptyFormulaEditorValues()}
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+        onCancel={() => undefined}
+        metadata={metadata}
+      />
+    );
+    expect(pristineMarkup).toContain("(required)");
+    expect(pristineMarkup).toContain('aria-invalid="false"');
+    expect(pristineMarkup).not.toContain("Complete all required fields.");
+
+    const failedMarkup = renderToStaticMarkup(
+      <FormulaEditorForm
+        editingFormulaId={null}
+        values={createEmptyFormulaEditorValues()}
+        validationAttempted
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+        onCancel={() => undefined}
+        metadata={metadata}
+      />
+    );
+    expect(failedMarkup).toContain('aria-invalid="true"');
+    expect(failedMarkup).toContain("Complete all required fields.");
+  });
+
   it("inserts @ variables in place and stores their aliases", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
@@ -49,10 +80,7 @@ describe("FormulaEditorForm", () => {
     await act(async () => root.render(<Harness />));
     const textarea = container.querySelector("textarea");
     await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value"
-      )?.set;
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
       setter?.call(textarea, "Total: @ma + 2");
       textarea?.setSelectionRange(10, 10);
       textarea?.dispatchEvent(new Event("input", { bubbles: true }));

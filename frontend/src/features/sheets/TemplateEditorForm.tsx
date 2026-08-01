@@ -172,13 +172,22 @@ export function TemplateEditorForm({
 
       <div className="template-builder__content" role="tabpanel">
         {activeSection === "details" ? (
-          <TemplateDetailsSection values={values} onChange={onChange} />
+          <TemplateDetailsSection
+            values={values}
+            validationAttempted={reviewRequested}
+            onChange={onChange}
+          />
         ) : null}
         {activeSection === "profile" ? (
           <TemplateProfileSection values={values} onChange={onChange} />
         ) : null}
         {activeSection === "stats" ? (
-          <TemplateStatsSection values={values} metadata={metadata} onChange={onChange} />
+          <TemplateStatsSection
+            values={values}
+            metadata={metadata}
+            validationAttempted={reviewRequested}
+            onChange={onChange}
+          />
         ) : null}
         {activeSection === "attributes" ? (
           <TemplateAttributesSection
@@ -243,7 +252,7 @@ export function TemplateEditorForm({
           </button>
         ) : null}
         {activeSection === "review" ? (
-          <button type="submit" className="button" disabled={!validation.isValid || pending}>
+          <button type="submit" className="button" disabled={pending}>
             {pending ? "Saving..." : submitLabel}
           </button>
         ) : (

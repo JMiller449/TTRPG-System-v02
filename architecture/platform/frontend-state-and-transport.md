@@ -38,7 +38,9 @@ not define parallel transport payload shapes.
   catalog organization, and action history.
 - `uiState`: role-specific views, active instance selection, sheet tabs,
   connection presentation, and other local navigation choices.
-- intent state: request-scoped pending, success, and failure feedback.
+- intent state: request-scoped pending, success, and failure lifecycles plus a
+  bounded frontend-only session history. History is neither persisted nor sent
+  to the backend and therefore clears on refresh or session reset.
 
 Snapshots replace normalized server collections. Patches are first applied to
 the retained protocol document, projected into a complete domain snapshot, and
@@ -59,8 +61,13 @@ capabilities and the extension workflow.
 
 The shared console and status components under
 [`frontend/src/features/console/`](../../frontend/src/features/console/) present
-session state, navigation, and persistent request feedback. Role checks in the
-UI improve usability but do not replace backend authorization or redaction.
+session state and navigation. Request feedback appears in temporary overlay
+toasts that never reserve or shift workspace layout: pending toasts remain until
+resolution, while success and error toasts expire independently or may be
+dismissed. The status bar exposes an adjacent session-history panel containing
+the longer-lived request status, timestamp, message, and request ID where
+available. Dismissing a toast does not remove its history record. Role checks in
+the UI improve usability but do not replace backend authorization or redaction.
 
 ## Reconnection and reconciliation
 
@@ -81,6 +88,15 @@ console system. Feature styles may control presentation but must not encode
 gameplay truth. Interactive summary cards and editors retain keyboard and
 dismissal behavior tested at the component level.
 
+Authoring forms share a required-field and validation-attempt presentation
+contract. Required controls are identified before interaction. Incomplete or
+invalid controls receive their error styling and `aria-invalid` state only
+after the user requests create/save, while one form-level alert explains the
+failed attempt. Feature modules continue to own their domain-specific draft
+validation, and submit controls remain available for validation unless a
+request is pending or required authoring metadata is unavailable. The Template
+Builder retains its explicit Review step as the validation-attempt boundary.
+
 Destructive controls use the shared
 [`confirmDestructiveAction`](../../frontend/src/shared/ui/confirmDestructiveAction.ts)
 boundary before submitting a request or removing an assignment from a saved
@@ -93,7 +109,12 @@ and character destinations explicit internal scroll regions. On desktop-width
 viewports no taller than 900 CSS pixels, fixed shell and character-sheet chrome
 compacts so the active workspace retains useful height without introducing
 whole-page horizontal scrolling. Viewports at or below 960 CSS pixels continue
-to use the document-flow mobile layout instead of the fixed desktop shell.
+to use the document-flow mobile layout instead of the fixed desktop shell. The
+GM spawned-sheet workspace also uses this denser chrome at all desktop heights
+because its selector, runtime controls, and tabs share one fixed workspace. Its
+infrequent template-snapshot form has a dedicated GM-only tab rather than
+occupying permanent sheet chrome. Player sheets retain the standard desktop
+spacing on taller displays.
 
 ## Principal tests
 

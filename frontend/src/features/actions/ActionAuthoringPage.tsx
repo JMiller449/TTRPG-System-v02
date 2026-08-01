@@ -25,6 +25,7 @@ import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreation
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -55,6 +56,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     operation: "create" | "update";
   } | null>(null);
   const [saveConfirmation, setSaveConfirmation] = useState<string | null>(null);
+  const validation = useFormValidationAttempt();
 
   const actions = useMemo(
     () => selectOrderedActionDefinitions(actionRecords, actionOrder),
@@ -101,13 +103,6 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     proficiencies: proficiencyRecords
   };
   const validationError = getActionEditorValidationError(values, attributeValidationContext);
-  const draftHasContent = Boolean(
-    values.name.trim() ||
-    values.notes.trim() ||
-    values.steps.length ||
-    Object.keys(values.attributes).length
-  );
-
   const startNewAction = (folderId: string | null = null): void => {
     if (pendingSave) {
       return;
@@ -116,6 +111,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     setEditingActionId(null);
     setValues(createEmptyActionEditorValues());
     setSaveConfirmation(null);
+    validation.reset();
   };
 
   useEffect(() => {
@@ -155,7 +151,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
   }, [actionRecords, intentFeedback, pendingSave]);
 
   const onSubmit = (): void => {
-    if (pendingSave || validationError) {
+    if (pendingSave || !validation.validate(validationError === null)) {
       return;
     }
 
@@ -253,6 +249,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
               setEditingActionId(action.id);
               setValues(toActionEditorValues(action));
               setSaveConfirmation(null);
+              validation.reset();
             }}
           />
         }
@@ -276,6 +273,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
                 )
               );
               setSaveConfirmation(null);
+              validation.reset();
             }}
           />
           {saveConfirmation ? (
@@ -298,7 +296,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             standaloneEffects={standaloneEffects}
             conditions={conditions}
             validationError={validationError}
-            showValidationError={draftHasContent}
+            validationAttempted={validation.attempted}
             pending={Boolean(pendingSave)}
             attributesEditor={
               <ActionAttributesEditor

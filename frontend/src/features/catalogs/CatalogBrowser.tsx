@@ -11,6 +11,9 @@ import {
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
+import { Field } from "@/shared/ui/Field";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export interface CatalogBrowserItem {
   id: string;
@@ -70,10 +73,12 @@ export function CatalogBrowser({
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(() => new Set());
+  const validation = useFormValidationAttempt();
   const closeFolderDialog = useCallback(() => {
+    validation.reset();
     setCreatingUnder(undefined);
     setNewFolderName("");
-  }, []);
+  }, [validation]);
 
   const folders = useMemo(
     () =>
@@ -154,7 +159,7 @@ export function CatalogBrowser({
 
   const submitFolder = (): void => {
     const name = newFolderName.trim();
-    if (!name || creatingUnder === undefined) {
+    if (!validation.validate(Boolean(name)) || !name || creatingUnder === undefined) {
       return;
     }
     client.sendProtocolRequest(
@@ -273,6 +278,7 @@ export function CatalogBrowser({
             event.currentTarget.closest("details")?.removeAttribute("open");
             setCreatingUnder(parentId);
             setNewFolderName("");
+            validation.reset();
           }}
         >
           New folder
@@ -423,21 +429,28 @@ export function CatalogBrowser({
         >
           <form
             className="catalog-browser__folder-dialog-form"
+            noValidate
             onSubmit={(event) => {
               event.preventDefault();
               submitFolder();
             }}
           >
-            <label>
-              <span>Folder name</span>
+            <Field
+              label="Folder name"
+              required
+              invalid={validation.attempted && !newFolderName.trim()}
+            >
               <input
                 aria-label="Folder name"
                 autoFocus
                 value={newFolderName}
+                required
+                aria-invalid={validation.attempted && !newFolderName.trim()}
                 onChange={(event) => setNewFolderName(event.target.value)}
                 placeholder="Folder name"
               />
-            </label>
+            </Field>
+            <FormValidationSummary visible={validation.attempted && !newFolderName.trim()} />
             <div className="catalog-browser__folder-dialog-actions">
               <button
                 type="button"
@@ -446,11 +459,7 @@ export function CatalogBrowser({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="button button--primary"
-                disabled={!newFolderName.trim()}
-              >
+              <button type="submit" className="button button--primary">
                 Create folder
               </button>
             </div>

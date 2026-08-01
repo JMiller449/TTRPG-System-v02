@@ -4,6 +4,7 @@ import { selectActiveSheetDetail } from "@/app/state/selectors";
 import systemMark from "@/assets/system-mark.svg";
 import type { Role } from "@/domain/models";
 import { GM_TOOLBAR_NAV_ITEMS } from "@/features/console/gmConsoleToolbarData";
+import { IntentFeedbackHistory } from "@/features/console/IntentFeedbackHistory";
 import { discoverBridgeUserscript } from "@/features/extension/bridgeUserscriptChannel";
 import type { GameClient } from "@/hooks/useGameClient";
 
@@ -85,6 +86,7 @@ export function AppStatusBar({ role, client }: { role: Role; client: GameClient 
           <span aria-hidden="true" />
           Pending {pendingIntentIds.length}
         </span>
+        <IntentFeedbackHistory />
       </div>
       <button
         type="button"

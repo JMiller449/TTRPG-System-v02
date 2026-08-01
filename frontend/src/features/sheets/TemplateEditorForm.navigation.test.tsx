@@ -86,7 +86,7 @@ describe("TemplateEditorForm navigation", () => {
     await act(async () => button("Review and Finish").click());
 
     expect(container.textContent).toContain("Review Template");
-    expect(button("Create Template").disabled).toBe(true);
+    expect(button("Create Template").disabled).toBe(false);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });

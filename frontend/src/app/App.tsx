@@ -26,7 +26,7 @@ import { TemplateLibrary } from "@/features/sheets/TemplateLibrary";
 import { useGameClient } from "@/hooks/useGameClient";
 import { XpTrackerPage } from "@/features/xp/XpTrackerPage";
 import { TagAuthoringPage } from "@/features/tags/TagAuthoringPage";
-import { IntentFeedbackBanners } from "@/shared/ui/IntentFeedbackBanners";
+import { IntentFeedbackToasts } from "@/shared/ui/IntentFeedbackBanners";
 
 export function App(): JSX.Element {
   const { state } = useAppStore();
@@ -99,9 +99,7 @@ export function App(): JSX.Element {
   return (
     <div className={`r6-theme app-shell ${role === "player" ? "app-shell--player" : ""}`}>
       <AppStatusBar role={role} client={client} />
-      <div className="app-notification-slot">
-        <IntentFeedbackBanners />
-      </div>
+      <IntentFeedbackToasts />
 
       {role === "player" ? (
         <ConsolePage role="player" client={client} />

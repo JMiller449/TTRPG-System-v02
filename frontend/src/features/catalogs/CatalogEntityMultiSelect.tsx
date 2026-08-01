@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { CatalogKey } from "@/domain/models";
 import { useCatalogOrganization } from "@/features/catalogs/useCatalogOrganization";
 import {
@@ -52,7 +52,8 @@ export function CatalogEntityMultiSelect({
   emptyMessage = "No options are available.",
   noResultsMessage = "No options match this search.",
   selectionAriaLabel = (optionLabel) => `Allow ${optionLabel}`,
-  folderSelectionAriaLabel = (folderName) => `Allow all players in ${folderName}`
+  folderSelectionAriaLabel = (folderName) => `Allow all players in ${folderName}`,
+  persistentScrollIndicator = false
 }: {
   catalog: CatalogKey;
   label: string;
@@ -63,10 +64,17 @@ export function CatalogEntityMultiSelect({
   noResultsMessage?: string;
   selectionAriaLabel?: (optionLabel: string) => string;
   folderSelectionAriaLabel?: (folderName: string) => string;
+  persistentScrollIndicator?: boolean;
 }): JSX.Element {
   const organization = useCatalogOrganization(catalog);
   const [query, setQuery] = useState("");
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set());
+  const treeRef = useRef<HTMLUListElement>(null);
+  const [scrollIndicator, setScrollIndicator] = useState({
+    scrollable: false,
+    thumbHeight: 0,
+    thumbOffset: 0
+  });
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const collapsedFolderIds = useMemo(
     () =>
@@ -163,6 +171,35 @@ export function CatalogEntityMultiSelect({
     onChange(options.map((option) => option.id).filter((id) => next.has(id)));
   };
 
+  const updateScrollIndicator = useCallback((): void => {
+    const tree = treeRef.current;
+    if (!tree || !persistentScrollIndicator) {
+      return;
+    }
+    const { clientHeight, scrollHeight, scrollTop } = tree;
+    const scrollable = scrollHeight > clientHeight && clientHeight > 0;
+    if (!scrollable) {
+      setScrollIndicator({ scrollable: false, thumbHeight: clientHeight, thumbOffset: 0 });
+      return;
+    }
+    const thumbHeight = Math.max(28, (clientHeight / scrollHeight) * clientHeight);
+    const availableTrack = clientHeight - thumbHeight;
+    const thumbOffset = (scrollTop / (scrollHeight - clientHeight)) * availableTrack;
+    setScrollIndicator({ scrollable: true, thumbHeight, thumbOffset });
+  }, [persistentScrollIndicator]);
+
+  useEffect(() => {
+    if (!persistentScrollIndicator) {
+      return;
+    }
+    const frameId = requestAnimationFrame(updateScrollIndicator);
+    window.addEventListener("resize", updateScrollIndicator);
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateScrollIndicator);
+    };
+  }, [persistentScrollIndicator, rows, updateScrollIndicator]);
+
   return (
     <section className="catalog-multi-select" aria-label={label}>
       <div className="catalog-multi-select__heading">
@@ -184,70 +221,94 @@ export function CatalogEntityMultiSelect({
       ) : rows.length === 0 ? (
         <p className="muted">{noResultsMessage}</p>
       ) : (
-        <ul className="catalog-multi-select__tree">
-          {rows.map((row) => {
-            if (row.type === "option") {
-              const option = row.option;
+        <div
+          className={`catalog-multi-select__tree-frame ${persistentScrollIndicator ? "catalog-multi-select__tree-frame--persistent" : ""}`}
+        >
+          <ul
+            ref={treeRef}
+            className="catalog-multi-select__tree"
+            onScroll={persistentScrollIndicator ? updateScrollIndicator : undefined}
+          >
+            {rows.map((row) => {
+              if (row.type === "option") {
+                const option = row.option;
+                return (
+                  <li
+                    className="catalog-multi-select__entity"
+                    key={`entity:${option.id}`}
+                    style={{ paddingInlineStart: `${0.6 + row.depth * 1.1}rem` }}
+                  >
+                    <label>
+                      <SelectionCheckbox
+                        checked={selectedIdSet.has(option.id)}
+                        label={selectionAriaLabel(option.label)}
+                        onChange={(selected) => setEntitySelected(option.id, selected)}
+                      />
+                      <span>
+                        <strong>{option.label}</strong>
+                        {option.secondary ? <small>{option.secondary}</small> : null}
+                      </span>
+                    </label>
+                  </li>
+                );
+              }
+              const descendantIds = descendantIdsByFolder.get(row.id) ?? [];
+              const selectedCount = descendantIds.filter((id) => selectedIdSet.has(id)).length;
               return (
                 <li
-                  className="catalog-multi-select__entity"
-                  key={`entity:${option.id}`}
-                  style={{ paddingInlineStart: `${0.6 + row.depth * 1.1}rem` }}
+                  className="catalog-multi-select__folder"
+                  key={`folder:${row.id}`}
+                  style={{ paddingInlineStart: `${0.35 + row.depth * 1.1}rem` }}
                 >
-                  <label>
-                    <SelectionCheckbox
-                      checked={selectedIdSet.has(option.id)}
-                      label={selectionAriaLabel(option.label)}
-                      onChange={(selected) => setEntitySelected(option.id, selected)}
-                    />
-                    <span>
-                      <strong>{option.label}</strong>
-                      {option.secondary ? <small>{option.secondary}</small> : null}
-                    </span>
-                  </label>
+                  <button
+                    type="button"
+                    aria-label={`${row.expanded ? "Collapse" : "Expand"} ${row.name}`}
+                    aria-expanded={row.expanded}
+                    onClick={() =>
+                      setExpandedFolderIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(row.id)) {
+                          next.delete(row.id);
+                        } else {
+                          next.add(row.id);
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    <span aria-hidden="true">{row.expanded ? "▾" : "▸"}</span>
+                  </button>
+                  <SelectionCheckbox
+                    checked={descendantIds.length > 0 && selectedCount === descendantIds.length}
+                    indeterminate={selectedCount > 0 && selectedCount < descendantIds.length}
+                    label={folderSelectionAriaLabel(row.name)}
+                    onChange={(selected) => setFolderSelected(row.id, selected)}
+                  />
+                  <strong>{row.name}</strong>
+                  <small className="muted">
+                    {selectedCount}/{descendantIds.length}
+                  </small>
                 </li>
               );
-            }
-            const descendantIds = descendantIdsByFolder.get(row.id) ?? [];
-            const selectedCount = descendantIds.filter((id) => selectedIdSet.has(id)).length;
-            return (
-              <li
-                className="catalog-multi-select__folder"
-                key={`folder:${row.id}`}
-                style={{ paddingInlineStart: `${0.35 + row.depth * 1.1}rem` }}
-              >
-                <button
-                  type="button"
-                  aria-label={`${row.expanded ? "Collapse" : "Expand"} ${row.name}`}
-                  aria-expanded={row.expanded}
-                  onClick={() =>
-                    setExpandedFolderIds((current) => {
-                      const next = new Set(current);
-                      if (next.has(row.id)) {
-                        next.delete(row.id);
-                      } else {
-                        next.add(row.id);
-                      }
-                      return next;
-                    })
-                  }
-                >
-                  <span aria-hidden="true">{row.expanded ? "▾" : "▸"}</span>
-                </button>
-                <SelectionCheckbox
-                  checked={descendantIds.length > 0 && selectedCount === descendantIds.length}
-                  indeterminate={selectedCount > 0 && selectedCount < descendantIds.length}
-                  label={folderSelectionAriaLabel(row.name)}
-                  onChange={(selected) => setFolderSelected(row.id, selected)}
-                />
-                <strong>{row.name}</strong>
-                <small className="muted">
-                  {selectedCount}/{descendantIds.length}
-                </small>
-              </li>
-            );
-          })}
-        </ul>
+            })}
+          </ul>
+          {persistentScrollIndicator ? (
+            <span
+              className={`catalog-multi-select__scroll-track ${scrollIndicator.scrollable ? "catalog-multi-select__scroll-track--active" : ""}`}
+              aria-hidden="true"
+            >
+              <span
+                className="catalog-multi-select__scroll-thumb"
+                style={
+                  {
+                    "--catalog-scroll-thumb-height": `${scrollIndicator.thumbHeight}px`,
+                    "--catalog-scroll-thumb-offset": `${scrollIndicator.thumbOffset}px`
+                  } as CSSProperties
+                }
+              />
+            </span>
+          ) : null}
+        </div>
       )}
     </section>
   );

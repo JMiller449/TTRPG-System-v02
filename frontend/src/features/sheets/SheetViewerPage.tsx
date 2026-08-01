@@ -4,7 +4,7 @@ import type { GameClient } from "@/hooks/useGameClient";
 
 export function SheetViewerPage({ client }: { client: GameClient }): JSX.Element {
   return (
-    <div className="main-panel-stack">
+    <div className="main-panel-stack main-panel-stack--sheet-viewer">
       <ActiveSheetSelector client={client} />
       <PlayerCharacterSheet mode="gm" panelTitle="Spawned Sheet" client={client} />
     </div>

@@ -22,10 +22,12 @@ import { Field } from "@/shared/ui/Field";
 export function TemplateStatsSection({
   values,
   metadata,
+  validationAttempted = false,
   onChange
 }: {
   values: TemplateEditorValues;
   metadata: ActionFormulaAuthoringMetadata | null;
+  validationAttempted?: boolean;
   onChange: (next: TemplateEditorValues) => void;
 }): JSX.Element {
   const [selectedFormula, setSelectedFormula] = useState<SheetFormulaStatName>(
@@ -50,11 +52,28 @@ export function TemplateStatsSection({
       </div>
       <div className="template-builder__core-grid">
         {CORE_TEMPLATE_STATS.map((key) => (
-          <Field key={key} label={CORE_STAT_LABELS[key]}>
+          <Field
+            key={key}
+            label={CORE_STAT_LABELS[key]}
+            required
+            invalid={
+              validationAttempted &&
+              (!values.coreStats[key].trim() ||
+                !Number.isFinite(Number(values.coreStats[key])) ||
+                !Number.isInteger(Number(values.coreStats[key])))
+            }
+          >
             <input
               type="number"
               step="1"
               value={values.coreStats[key]}
+              required
+              aria-invalid={
+                validationAttempted &&
+                (!values.coreStats[key].trim() ||
+                  !Number.isFinite(Number(values.coreStats[key])) ||
+                  !Number.isInteger(Number(values.coreStats[key])))
+              }
               onChange={(event) =>
                 onChange({
                   ...values,
@@ -66,10 +85,12 @@ export function TemplateStatsSection({
         ))}
       </div>
       <div className="template-builder__core-grid">
-        {([
-          ["Maximum Health Formula", "maxHealth"],
-          ["Maximum Mana Formula", "maxMana"]
-        ] as const).map(([label, key]) => {
+        {(
+          [
+            ["Maximum Health Formula", "maxHealth"],
+            ["Maximum Mana Formula", "maxMana"]
+          ] as const
+        ).map(([label, key]) => {
           const resourceFormula = values[key];
           return (
             <FormulaVariableInput
@@ -79,9 +100,9 @@ export function TemplateStatsSection({
               value={resourceFormula.text}
               options={formulaVariableSearchOptions(metadata, "sheet")}
               loading={!metadata}
-              onChange={(text) =>
-                onChange({ ...values, [key]: { ...resourceFormula, text } })
-              }
+              required
+              ariaInvalid={validationAttempted && !resourceFormula.text.trim()}
+              onChange={(text) => onChange({ ...values, [key]: { ...resourceFormula, text } })}
               onVariableSelect={(entry, text) => {
                 const alias = toSheetRelativeFormulaAlias(entry);
                 if (!alias) {
@@ -138,6 +159,8 @@ export function TemplateStatsSection({
               value={formula.text}
               options={formulaVariableSearchOptions(metadata, "sheet")}
               loading={!metadata}
+              required
+              ariaInvalid={validationAttempted && !formula.text.trim()}
               onChange={(text) => updateFormula({ ...formula, text })}
               onVariableSelect={(entry, text) => {
                 const alias = toSheetRelativeFormulaAlias(entry);

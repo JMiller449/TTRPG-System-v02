@@ -157,6 +157,7 @@ export type AppAction =
   | { type: "clear_intent"; intentId: string }
   | { type: "push_intent_feedback"; item: IntentFeedbackItem }
   | { type: "dismiss_intent_feedback"; id: string }
+  | { type: "clear_intent_feedback" }
   | { type: "set_action_formula_authoring_metadata"; metadata: ActionFormulaAuthoringMetadata }
   | { type: "set_augmentation_target_metadata"; metadata: AugmentationTargetMetadata }
   | { type: "set_xp_tracker"; tracker: XpTrackerView }

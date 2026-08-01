@@ -1,8 +1,5 @@
-import type {
-  Augmentation,
-  AugmentationOperation,
-  LifecycleMode
-} from "@/domain/models";
+import { useEffect } from "react";
+import type { Augmentation, AugmentationOperation, LifecycleMode } from "@/domain/models";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import { Field } from "@/shared/ui/Field";
 import {
@@ -27,6 +24,8 @@ import {
   formulaVariableSearchOptions,
   upsertFormulaAlias
 } from "@/features/variables/variablePicker";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 const AUGMENTATION_OPERATIONS: readonly AugmentationOperation[] = [
   "add",
@@ -103,6 +102,12 @@ export function ConditionAugmentationTemplatePanel({
   const hasCurrentTargetPath = values.targetPath.some((segment) => segment.trim().length > 0);
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
   const validationError = getEffectValidationError(values, targetOptions);
+  const validation = useFormValidationAttempt();
+  useEffect(() => {
+    if (!editorOpen) {
+      validation.reset();
+    }
+  }, [editorOpen, validation]);
   // A direct sheet value replaced by `set` cannot be restored when the
   // condition is removed, so the backend rejects that combination.
   const availableOperations =
@@ -136,15 +141,20 @@ export function ConditionAugmentationTemplatePanel({
           </div>
 
           <div className="inline-group">
-            <Field label="Name">
+            <Field label="Name" required invalid={validation.attempted && !values.name.trim()}>
               <input
                 value={values.name}
-                aria-invalid={!values.name.trim()}
+                required
+                aria-invalid={validation.attempted && !values.name.trim()}
                 onChange={(event) => onChange({ ...values, name: event.target.value })}
                 placeholder="e.g. Poison penalty"
               />
             </Field>
-            <Field label={values.effectType === "formula_modifier" ? "Sheet Value" : "Scope"}>
+            <Field
+              label={values.effectType === "formula_modifier" ? "Sheet Value" : "Scope"}
+              required
+              invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
+            >
               <select
                 value={targetIsKnown ? selectedTargetKey : ""}
                 onChange={(event) => {
@@ -156,6 +166,8 @@ export function ConditionAugmentationTemplatePanel({
                   }
                 }}
                 disabled={targetOptions.length === 0}
+                required
+                aria-invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
               >
                 <option value="">
                   {targetOptions.length === 0 ? "Targets unavailable" : "Select target"}
@@ -250,7 +262,8 @@ export function ConditionAugmentationTemplatePanel({
               value={values.formulaText}
               options={formulaVariableSearchOptions(formulaMetadata)}
               loading={!formulaMetadata}
-              ariaInvalid={!values.formulaText.trim()}
+              required
+              ariaInvalid={validation.attempted && !values.formulaText.trim()}
               onChange={(formulaText) => onChange({ ...values, formulaText })}
               onVariableSelect={(entry, formulaText) =>
                 onChange({
@@ -268,6 +281,7 @@ export function ConditionAugmentationTemplatePanel({
               idPrefix="condition-effect-selector"
               values={values}
               options={selectorOptions}
+              showValidationError={validation.attempted}
               onChange={onChange}
             />
           ) : null}
@@ -325,9 +339,7 @@ export function ConditionAugmentationTemplatePanel({
               <Field label="Notes">
                 <input
                   value={values.lifecycleNotes}
-                  onChange={(event) =>
-                    onChange({ ...values, lifecycleNotes: event.target.value })
-                  }
+                  onChange={(event) => onChange({ ...values, lifecycleNotes: event.target.value })}
                   placeholder="e.g. cured"
                 />
               </Field>
@@ -343,17 +355,26 @@ export function ConditionAugmentationTemplatePanel({
             <span>Enabled</span>
           </label>
 
-          {validationError ? (
-            <p className="error-text" role="alert">
-              {validationError}
-            </p>
-          ) : null}
+          <FormValidationSummary
+            visible={validation.attempted && Boolean(validationError)}
+            message={
+              !values.name.trim() ||
+              (!targetIsKnown && targetOptions.length > 0) ||
+              (values.effectType !== "roll_mode_modifier" && !values.formulaText.trim())
+                ? "Complete all required fields."
+                : (validationError ?? "Review the indicated fields.")
+            }
+          />
           <div className="template-editor__actions">
             <button
               className="button"
               type="button"
-              onClick={onSubmit}
-              disabled={Boolean(validationError)}
+              onClick={() => {
+                if (validation.validate(validationError === null)) {
+                  onSubmit();
+                }
+              }}
+              disabled={targetOptions.length === 0}
             >
               {editingAugmentationId ? "Save Effect" : "Add Effect"}
             </button>

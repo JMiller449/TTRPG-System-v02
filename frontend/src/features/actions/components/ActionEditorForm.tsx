@@ -52,6 +52,7 @@ import {
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 const ACTION_STEP_GROUPS: readonly ActionStepMenuGroup[] = [
   "Calculation & Output",
@@ -72,7 +73,7 @@ export function ActionEditorForm({
   conditions,
   attributesEditor,
   validationError,
-  showValidationError = true,
+  validationAttempted = false,
   pending = false
 }: {
   editingActionId: string | null;
@@ -87,7 +88,7 @@ export function ActionEditorForm({
   conditions: ConditionPreset[];
   attributesEditor: ReactNode;
   validationError: string | null;
-  showValidationError?: boolean;
+  validationAttempted?: boolean;
   pending?: boolean;
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
@@ -104,7 +105,17 @@ export function ActionEditorForm({
   };
   const stepMenuOptions = buildActionStepMenuOptions(stepDependencies);
   const selectedMenuOption = stepMenuOptions.find((option) => option.type === stepTypeToAdd);
-  const actionIsValid = validationError === null;
+  const requiredFieldMissing =
+    !values.name.trim() ||
+    values.steps.some(
+      (step) =>
+        (step.type === "send_roll" &&
+          (!step.title.trim() || step.rolls.some((roll) => !roll.label.trim()))) ||
+        (step.type === "gain_proficiency_use" &&
+          (step.proficiency_reference ?? "explicit") === "explicit" &&
+          (!step.proficiency_id ||
+            !proficiencies.some((proficiency) => proficiency.id === step.proficiency_id)))
+    );
   const actionProficiencyValue = values.attributes.action_proficiency?.value;
   const actionProficiencyId =
     actionProficiencyValue?.type === "reference" && typeof actionProficiencyValue.value === "string"
@@ -272,10 +283,11 @@ export function ActionEditorForm({
       </h3>
       <div className="stack">
         <div className="action-editor__identity">
-          <Field label="Name">
+          <Field label="Name" required invalid={validationAttempted && !values.name.trim()}>
             <input
               value={values.name}
-              aria-invalid={!values.name.trim()}
+              required
+              aria-invalid={validationAttempted && !values.name.trim()}
               onChange={(event) => onChange({ ...values, name: event.target.value })}
               placeholder="e.g. Mana burst"
             />
@@ -477,9 +489,15 @@ export function ActionEditorForm({
                       </div>
                     ) : step.type === "send_roll" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
-                        <Field label="Roll Title">
+                        <Field
+                          label="Roll Title"
+                          required
+                          invalid={validationAttempted && !step.title.trim()}
+                        >
                           <input
                             value={step.title}
+                            required
+                            aria-invalid={validationAttempted && !step.title.trim()}
                             onChange={(event) =>
                               onChange(
                                 updateSendRollActionStep(values, step.step_id, {
@@ -513,9 +531,15 @@ export function ActionEditorForm({
                             className="list-item list-item--block"
                             key={`${step.step_id}-${rollIndex}`}
                           >
-                            <Field label={`Result ${rollIndex + 1} Label`}>
+                            <Field
+                              label={`Result ${rollIndex + 1} Label`}
+                              required
+                              invalid={validationAttempted && !roll.label.trim()}
+                            >
                               <input
                                 value={roll.label}
+                                required
+                                aria-invalid={validationAttempted && !roll.label.trim()}
                                 onChange={(event) => {
                                   const rolls = structuredClone(step.rolls);
                                   rolls[rollIndex] = {
@@ -848,6 +872,14 @@ export function ActionEditorForm({
                             <CatalogEntityPicker
                               catalog="proficiencies"
                               label={`Proficiency: ${step.step_id}`}
+                              required
+                              invalid={
+                                validationAttempted &&
+                                (!step.proficiency_id ||
+                                  !proficiencies.some(
+                                    (proficiency) => proficiency.id === step.proficiency_id
+                                  ))
+                              }
                               placeholder="Search proficiency catalog"
                               selectedId={step.proficiency_id}
                               options={[
@@ -971,13 +1003,16 @@ export function ActionEditorForm({
           <div className="authoring-disclosure__body">{attributesEditor}</div>
         </details>
 
-        {showValidationError && validationError ? (
-          <p className="error-text" role="alert">
-            {validationError}
-          </p>
-        ) : null}
+        <FormValidationSummary
+          visible={validationAttempted && Boolean(validationError)}
+          message={
+            requiredFieldMissing
+              ? "Complete all required fields."
+              : (validationError ?? "Review the indicated fields.")
+          }
+        />
         <div className="template-editor__actions action-editor__footer">
-          <button className="button" onClick={onSubmit} disabled={!actionIsValid || pending}>
+          <button className="button" onClick={onSubmit} disabled={pending}>
             {pending
               ? editingActionId
                 ? "Saving…"

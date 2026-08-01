@@ -51,12 +51,14 @@ describe("ActionEditorForm", () => {
         conditions={[]}
         attributesEditor={null}
         validationError="Name is required."
-        showValidationError={false}
+        validationAttempted={false}
       />
     );
 
     expect(markup).not.toContain("Name is required.");
-    expect(markup).toContain("disabled");
+    expect(markup).toContain("(required)");
+    expect(markup).toContain('aria-invalid="false"');
+    expect(markup).not.toContain('<button class="button" disabled="">Create Action');
   });
 
   it("renders one grouped Add Step control with unavailable dependency reasons", () => {
@@ -144,7 +146,9 @@ describe("ActionEditorForm", () => {
 
     expect(container.textContent).not.toContain("Insert Message Variable");
     expect(container.textContent).not.toContain("Earlier Calculated Value");
-    expect(container.querySelector('textarea[placeholder="Type @ to insert a variable"]')).not.toBeNull();
+    expect(
+      container.querySelector('textarea[placeholder="Type @ to insert a variable"]')
+    ).not.toBeNull();
     expect(container.textContent).not.toContain("Roll20 Visibility");
 
     await act(async () => root.unmount());

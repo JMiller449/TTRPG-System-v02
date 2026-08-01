@@ -6,6 +6,7 @@ import {
   formulaVariableSearchOptions,
   upsertFormulaAlias
 } from "@/features/variables/variablePicker";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 export function FormulaEditorForm({
   editingFormulaId,
@@ -13,7 +14,8 @@ export function FormulaEditorForm({
   onChange,
   onSubmit,
   onCancel,
-  metadata
+  metadata,
+  validationAttempted = false
 }: {
   editingFormulaId: string | null;
   values: FormulaEditorValues;
@@ -21,6 +23,7 @@ export function FormulaEditorForm({
   onSubmit: () => void;
   onCancel: () => void;
   metadata: ActionFormulaAuthoringMetadata | null;
+  validationAttempted?: boolean;
 }): JSX.Element {
   return (
     <div className="template-editor formula-editor">
@@ -34,6 +37,8 @@ export function FormulaEditorForm({
           value={values.formulaText}
           options={formulaVariableSearchOptions(metadata)}
           loading={!metadata}
+          required
+          ariaInvalid={validationAttempted && !values.formulaText.trim()}
           onChange={(formulaText) => onChange({ ...values, formulaText })}
           onVariableSelect={(entry, formulaText) =>
             onChange({
@@ -44,6 +49,8 @@ export function FormulaEditorForm({
           }
           placeholder="Type @ to insert a variable"
         />
+
+        <FormValidationSummary visible={validationAttempted && !values.formulaText.trim()} />
 
         <FormulaTagEditor tags={values.tags} onChange={(tags) => onChange({ ...values, tags })} />
 

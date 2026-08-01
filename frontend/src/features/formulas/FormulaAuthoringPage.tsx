@@ -20,6 +20,7 @@ import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -32,6 +33,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
 
   const [editingFormulaId, setEditingFormulaId] = useState<string | null>(null);
   const [values, setValues] = useState<FormulaEditorValues>(createEmptyFormulaEditorValues);
+  const validation = useFormValidationAttempt();
 
   const formulas = useMemo(
     () => selectOrderedFormulaDefinitions(formulaRecords, formulaOrder),
@@ -54,13 +56,14 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
   }, [actionFormulaAuthoringMetadata, client]);
 
   const startNewFormula = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingFormulaId(null);
     setValues(createEmptyFormulaEditorValues());
   };
 
   const onSubmit = (): void => {
-    if (!values.formulaText.trim()) {
+    if (!validation.validate(Boolean(values.formulaText.trim()))) {
       return;
     }
 
@@ -136,6 +139,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
               beginCreation(null);
               setEditingFormulaId(formula.id);
               setValues(toFormulaEditorValues(formula));
+              validation.reset();
             }}
           />
         }
@@ -144,6 +148,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
           <FormulaEditorForm
             editingFormulaId={editingFormulaId}
             values={values}
+            validationAttempted={validation.attempted}
             onChange={setValues}
             onSubmit={onSubmit}
             onCancel={startNewFormula}

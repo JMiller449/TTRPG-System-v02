@@ -43,8 +43,9 @@ describe("ActionAuthoringPage", () => {
       await Promise.resolve();
     });
 
-    const nameInput = container.querySelector<HTMLInputElement>('input[aria-invalid="true"]');
+    const nameInput = container.querySelector<HTMLInputElement>("input[required]");
     expect(nameInput).not.toBeNull();
+    expect(nameInput?.getAttribute("aria-invalid")).toBe("false");
     await act(async () => {
       if (!nameInput) {
         return;

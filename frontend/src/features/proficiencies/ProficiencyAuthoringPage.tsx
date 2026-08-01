@@ -11,6 +11,7 @@ import {
 import {
   createEmptyProficiencyEditorValues,
   deriveProficiencyId,
+  hasValidProficiencyEditorValues,
   toProficiencyEditorValues,
   type ProficiencyEditorValues
 } from "@/features/proficiencies/proficiencyEditorValues";
@@ -19,6 +20,7 @@ import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
@@ -29,6 +31,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
 
   const [editingProficiencyId, setEditingProficiencyId] = useState<string | null>(null);
   const [values, setValues] = useState<ProficiencyEditorValues>(createEmptyProficiencyEditorValues);
+  const validation = useFormValidationAttempt();
 
   const proficiencies = useMemo(
     () => selectOrderedProficiencyDefinitions(proficiencyRecords, proficiencyOrder),
@@ -41,12 +44,16 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
   });
 
   const startNewProficiency = (folderId: string | null = null): void => {
+    validation.reset();
     beginCreation(folderId);
     setEditingProficiencyId(null);
     setValues(createEmptyProficiencyEditorValues());
   };
 
   const onSubmit = (): void => {
+    if (!validation.validate(hasValidProficiencyEditorValues(values))) {
+      return;
+    }
     const proficiencyId =
       editingProficiencyId ?? deriveProficiencyId(values.name, Object.keys(proficiencyRecords));
     const submission = editingProficiencyId
@@ -124,6 +131,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
               beginCreation(null);
               setEditingProficiencyId(proficiency.id);
               setValues(toProficiencyEditorValues(proficiency));
+              validation.reset();
             }}
           />
         }
@@ -131,6 +139,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
         <ProficiencyEditorForm
           editingProficiencyId={editingProficiencyId}
           values={values}
+          validationAttempted={validation.attempted}
           onChange={setValues}
           onSubmit={onSubmit}
           onCancel={startNewProficiency}

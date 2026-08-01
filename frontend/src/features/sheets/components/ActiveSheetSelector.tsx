@@ -43,7 +43,7 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
 
   return (
     <section className="sheet-context-selector" aria-label="Active spawned sheet context">
-      <div>
+      <div className="sheet-context-selector__copy">
         <p className="sheet-context-selector__eyebrow">Spawned Sheet Context</p>
         <p className="sheet-context-selector__description">
           Choose the spawned sheet instance used by this workspace.

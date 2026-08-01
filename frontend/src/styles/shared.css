@@ -120,6 +120,34 @@ textarea:disabled {
   color: var(--muted);
 }
 
+.field__required-marker {
+  margin-left: 0.18rem;
+  color: var(--error);
+  font-weight: 800;
+}
+
+.field--invalid :is(input, select, textarea),
+.search-popover-picker .field--invalid input {
+  border-color: var(--error);
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+.fieldset--invalid {
+  border-color: var(--error);
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+.field--invalid :is(input, select, textarea):focus-visible,
+.search-popover-picker .field--invalid input:focus-visible {
+  outline-color: var(--error);
+}
+
+.form-validation-summary {
+  margin: 0;
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--error);
+}
+
 .r6-theme label:not(.field):has(> select),
 .r6-theme label:not(.field):has(> textarea),
 .r6-theme label:not(.field):has(> input:not([type="checkbox"]):not([type="radio"])) {
@@ -717,6 +745,10 @@ button.formula-tag-suggestion {
   list-style: none;
 }
 
+.catalog-multi-select__tree-frame {
+  min-width: 0;
+}
+
 .catalog-multi-select__folder,
 .catalog-multi-select__entity {
   min-height: 2rem;
@@ -750,6 +782,137 @@ button.formula-tag-suggestion {
   width: 100%;
   padding: 0.4rem 0.3rem;
   cursor: pointer;
+}
+
+/* Formula tags reuse the catalog selector in dense editors, where a compact
+   one-line inventory is easier to scan than full catalog cards. */
+.formula-tag-catalog {
+  min-width: 0;
+}
+
+.formula-tag-catalog .catalog-multi-select {
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem 0.45rem;
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+}
+
+.formula-tag-catalog .catalog-multi-select__heading > strong {
+  font-size: 0.88rem;
+}
+
+.formula-tag-catalog .catalog-multi-select__heading > .muted {
+  border: 1px solid color-mix(in srgb, var(--line), transparent 35%);
+  padding: 0.08rem 0.3rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.formula-tag-catalog .catalog-multi-select__search {
+  min-height: 38px;
+  padding-block: 0.35rem;
+}
+
+.formula-tag-catalog .catalog-multi-select__tree {
+  display: block;
+  height: auto;
+  max-height: 14rem;
+  padding: 0.1rem 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  border-top: 0;
+}
+
+.formula-tag-catalog .catalog-multi-select__tree-frame--persistent {
+  position: relative;
+  padding-right: 12px;
+}
+
+.formula-tag-catalog .catalog-multi-select__tree-frame--persistent .catalog-multi-select__tree {
+  scrollbar-width: none;
+}
+
+.formula-tag-catalog
+  .catalog-multi-select__tree-frame--persistent
+  .catalog-multi-select__tree::-webkit-scrollbar {
+  display: none;
+}
+
+.catalog-multi-select__scroll-track {
+  position: absolute;
+  inset: 0 1px 0 auto;
+  width: 8px;
+  border: 1px solid color-mix(in srgb, var(--line), transparent 35%);
+  background: color-mix(in srgb, var(--card) 82%, black);
+  opacity: 0.55;
+}
+
+.catalog-multi-select__scroll-track--active {
+  opacity: 1;
+}
+
+.catalog-multi-select__scroll-thumb {
+  display: block;
+  width: 100%;
+  height: var(--catalog-scroll-thumb-height, 0);
+  background: var(--accent);
+  transform: translateY(var(--catalog-scroll-thumb-offset, 0));
+}
+
+.formula-tag-catalog :is(.catalog-multi-select__folder, .catalog-multi-select__entity) {
+  min-height: 2.15rem;
+  border-bottom: 0;
+}
+
+.formula-tag-catalog .catalog-multi-select__tree > li + li {
+  border-top: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
+}
+
+.formula-tag-catalog .catalog-multi-select__entity label {
+  align-items: center;
+  gap: 0.55rem;
+  height: auto;
+  min-height: 2.15rem;
+  padding: 0.35rem;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.formula-tag-catalog .catalog-multi-select__entity label > span {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity strong,
+.formula-tag-catalog .catalog-multi-select__entity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity strong {
+  font-size: 0.84rem;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity small {
+  max-width: 48%;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.formula-tag-catalog .catalog-multi-select__folder {
+  min-height: 2.15rem;
+  padding-block: 0.3rem;
+  font-size: 0.82rem;
 }
 
 /* Editor content fills the panel height, then flows into extra columns to the right. */
@@ -800,24 +963,21 @@ button.formula-tag-suggestion {
 .authoring-workspace__editor,
 .authoring-workspace__catalog-scroll,
 .character-sheet__tab-panel,
-#sheet-panel-actions .sheet-actions-section__manager-body > .list,
-.app-notification-slot .intent-banner-stack {
+#sheet-panel-actions .sheet-actions-section__manager-body > .list {
   cursor: grab;
 }
 
 .r6-theme .authoring-workspace__editor,
 .r6-theme .authoring-workspace__catalog-scroll,
 .r6-theme .character-sheet__tab-panel,
-.r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list,
-.r6-theme .app-notification-slot .intent-banner-stack {
+.r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list {
   scrollbar-width: none;
 }
 
 .r6-theme .authoring-workspace__editor::-webkit-scrollbar,
 .r6-theme .authoring-workspace__catalog-scroll::-webkit-scrollbar,
 .r6-theme .character-sheet__tab-panel::-webkit-scrollbar,
-.r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list::-webkit-scrollbar,
-.r6-theme .app-notification-slot .intent-banner-stack::-webkit-scrollbar {
+.r6-theme #sheet-panel-actions .sheet-actions-section__manager-body > .list::-webkit-scrollbar {
   display: none;
 }
 

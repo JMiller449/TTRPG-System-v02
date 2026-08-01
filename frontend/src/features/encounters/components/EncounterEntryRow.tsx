@@ -7,12 +7,14 @@ export function EncounterEntryRow({
   entry,
   index,
   templateOptions,
+  invalid = false,
   onChange,
   onRemove
 }: {
   entry: DraftEncounterEntry;
   index: number;
   templateOptions: SheetTemplateView[];
+  invalid?: boolean;
   onChange: (entryId: string, changes: Partial<DraftEncounterEntry>) => void;
   onRemove: (entryId: string) => void;
 }): JSX.Element {
@@ -21,6 +23,7 @@ export function EncounterEntryRow({
       <CatalogEntityPicker
         catalog="sheet_templates"
         label={`Enemy Template ${index + 1}`}
+        invalid={invalid}
         placeholder="Search template catalog"
         selectedId={entry.templateId}
         options={templateOptions.map((template) => ({

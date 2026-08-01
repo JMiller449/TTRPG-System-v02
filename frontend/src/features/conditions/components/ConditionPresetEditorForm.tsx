@@ -4,6 +4,7 @@ import {
   hasValidConditionPresetValues,
   type ConditionPresetEditorValues
 } from "@/features/conditions/conditionEditorValues";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 export function ConditionPresetEditorForm({
   editingConditionId,
@@ -11,6 +12,7 @@ export function ConditionPresetEditorForm({
   onChange,
   onSubmit,
   onCancel,
+  validationAttempted = false,
   hasOpenEffectEditor,
   effectEditor
 }: {
@@ -19,6 +21,7 @@ export function ConditionPresetEditorForm({
   onChange: (values: ConditionPresetEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  validationAttempted?: boolean;
   hasOpenEffectEditor: boolean;
   effectEditor: ReactNode;
 }): JSX.Element {
@@ -36,10 +39,11 @@ export function ConditionPresetEditorForm({
       </h3>
       <div className="stack">
         <div className="inline-group">
-          <Field label="Name">
+          <Field label="Name" required invalid={validationAttempted && !nameIsValid}>
             <input
               value={values.name}
-              aria-invalid={!nameIsValid}
+              required
+              aria-invalid={validationAttempted && !nameIsValid}
               onChange={(event) => onChange({ ...values, name: event.target.value })}
               placeholder="e.g. Poisoned"
             />
@@ -71,13 +75,16 @@ export function ConditionPresetEditorForm({
 
         {effectEditor}
 
-        {validationError ? (
-          <p className="error-text" role="alert">
-            {validationError}
-          </p>
-        ) : null}
+        <FormValidationSummary
+          visible={validationAttempted && Boolean(validationError)}
+          message={
+            !nameIsValid
+              ? "Complete all required fields."
+              : (validationError ?? "Review the indicated fields.")
+          }
+        />
         <div className="template-editor__actions">
-          <button className="button" onClick={onSubmit} disabled={Boolean(validationError)}>
+          <button className="button" onClick={onSubmit}>
             {editingConditionId ? "Save Condition" : "Create Condition"}
           </button>
           {editingConditionId ? (

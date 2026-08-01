@@ -13,7 +13,7 @@ const selectorOptions = {
   steps: []
 };
 
-function renderEditor(effectEditorOpen: boolean): string {
+function renderEditor(effectEditorOpen: boolean, validationAttempted = false): string {
   const values = createEmptyConditionPresetEditorValues();
   if (effectEditorOpen) {
     values.name = "Poisoned";
@@ -25,6 +25,7 @@ function renderEditor(effectEditorOpen: boolean): string {
       onChange={() => undefined}
       onSubmit={() => undefined}
       onCancel={() => undefined}
+      validationAttempted={validationAttempted}
       hasOpenEffectEditor={effectEditorOpen}
       effectEditor={
         <ConditionAugmentationTemplatePanel
@@ -55,18 +56,18 @@ describe("ConditionPresetEditorForm", () => {
     expect(markup).toContain("Add Effect");
     expect(markup).toContain("No effects configured.");
     expect(markup).not.toContain("Condition Augmentations");
-    expect(markup).toContain("Name is required.");
-    expect(markup).toContain('aria-invalid="true"');
-    expect(markup).toContain("disabled");
+    expect(markup).toContain("(required)");
+    expect(markup).not.toContain("Complete all required fields.");
+    expect(markup).toContain('aria-invalid="false"');
+    expect(markup).not.toContain('<button class="button" disabled="">Create Condition');
   });
 
   it("labels lifecycle fields and validates incomplete effects", () => {
-    const markup = renderEditor(true);
+    const markup = renderEditor(true, true);
 
     expect(markup).toContain("Lifecycle (GM-tracked)");
     expect(markup).toContain("Expiration note");
     expect(markup).toContain("Remove when source inactive");
-    expect(markup).toContain("Effect name is required.");
     expect(markup).toContain("Save or cancel the open effect before saving the condition.");
   });
 

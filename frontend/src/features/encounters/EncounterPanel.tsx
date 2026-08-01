@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetTemplateViews } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
@@ -16,6 +16,8 @@ import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
+import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 export function EncounterPanel({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
@@ -24,6 +26,7 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
   const [name, setName] = useState("");
   const [entries, setEntries] = useState<DraftEncounterEntry[]>([newRosterEntry()]);
   const [editingEncounterId, setEditingEncounterId] = useState<string | null>(null);
+  const validation = useFormValidationAttempt();
 
   const templateOptions = useMemo(
     () => selectSheetTemplateViews(state).filter((template) => template.kind === "enemy"),
@@ -35,19 +38,21 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
     [encounterOrder, encounters]
   );
 
-  const resetEditor = (): void => {
+  const resetEditor = useCallback((): void => {
+    validation.reset();
     setEditingEncounterId(null);
     setName("");
     setEntries([newRosterEntry()]);
-  };
+  }, [validation]);
 
   useEffect(() => {
     if (editingEncounterId && !encounters[editingEncounterId]) {
       resetEditor();
     }
-  }, [editingEncounterId, encounters]);
+  }, [editingEncounterId, encounters, resetEditor]);
 
   const editEncounter = (encounter: EncounterPreset): void => {
+    validation.reset();
     setEditingEncounterId(encounter.id);
     setName(encounter.name);
     setEntries(encounter.entries.map((entry) => newRosterEntry(entry.templateId, entry.count)));
@@ -89,7 +94,7 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
         count: Math.max(1, entry.count)
       }));
 
-    if (!name.trim() || validEntries.length === 0) {
+    if (!validation.validate(Boolean(name.trim()) && validEntries.length > 0)) {
       return;
     }
 
@@ -123,9 +128,11 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
       subtitle="Save enemy groups ahead of time so you can spawn a whole encounter in one click."
     >
       <div className="stack">
-        <Field label="Preset Name">
+        <Field label="Preset Name" required invalid={validation.attempted && !name.trim()}>
           <input
             value={name}
+            required
+            aria-invalid={validation.attempted && !name.trim()}
             onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Cave Ambush"
           />
@@ -134,9 +141,17 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
         <EncounterEntryList
           entries={entries}
           templateOptions={templateOptions}
+          validationAttempted={validation.attempted}
           onChange={updateEntry}
           onRemove={removeEntry}
           onAdd={addEntry}
+        />
+
+        <FormValidationSummary
+          visible={
+            validation.attempted &&
+            (!name.trim() || !entries.some((entry) => Boolean(entry.templateId)))
+          }
         />
 
         <div className="inline-actions">

@@ -4,9 +4,14 @@ import {
   buildAttributeFormulaVariableEntries,
   toAttributeFormulaVariableOptions
 } from "@/features/attributes/attributeFormulaVariables";
-import { attributePayloadFromDraft, type AttributeDraft } from "@/features/attributes/attributeEditorValues";
+import {
+  attributePayloadFromDraft,
+  type AttributeDraft
+} from "@/features/attributes/attributeEditorValues";
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import { upsertFormulaAlias } from "@/features/variables/variablePicker";
+import { Field } from "@/shared/ui/Field";
+import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
 type AttributeSubjectType = AttributeDefinition["subject_types"][number];
 type AttributeValueType = AttributeDefinition["value_type"];
@@ -16,6 +21,7 @@ export function AttributeEditorForm({
   draft,
   metadata,
   pending = false,
+  validationAttempted = false,
   requiredSubjectType,
   onChange,
   onSubmit,
@@ -25,12 +31,23 @@ export function AttributeEditorForm({
   draft: AttributeDraft;
   metadata: ActionFormulaAuthoringMetadata | null;
   pending?: boolean;
+  validationAttempted?: boolean;
   requiredSubjectType?: AttributeSubjectType;
   onChange: (draft: AttributeDraft) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }): JSX.Element {
   const canSubmit = Boolean(attributePayloadFromDraft(draft, editingId ?? "draft-attribute"));
+  const nameMissing = !draft.name.trim();
+  const subjectsMissing = draft.subjectTypes.length === 0;
+  const defaultInvalid =
+    draft.valueType === "number" &&
+    (draft.numberMode === "formula"
+      ? !draft.defaultText.trim()
+      : !Number.isFinite(Number(draft.defaultText)));
+  const optionsMissing =
+    ["enum", "list"].includes(draft.valueType) && !draft.validationOptions.trim();
+  const referenceMissing = draft.valueType === "reference" && !draft.referenceKind.trim();
 
   return (
     <div className="stack attribute-editor-form">
@@ -42,14 +59,15 @@ export function AttributeEditorForm({
           Name it, choose what kind of value it holds, and pick where it can be attached.
         </p>
       </div>
-      <label>
-        Name
+      <Field label="Name" required invalid={validationAttempted && nameMissing}>
         <input
           value={draft.name}
+          required
+          aria-invalid={validationAttempted && nameMissing}
           onChange={(event) => onChange({ ...draft, name: event.target.value })}
           placeholder="e.g. Range"
         />
-      </label>
+      </Field>
       <label>
         Description
         <textarea
@@ -58,8 +76,17 @@ export function AttributeEditorForm({
           placeholder="What this Attribute means at the table"
         />
       </label>
-      <fieldset className="attribute-subject-options">
-        <legend>Can be attached to</legend>
+      <fieldset
+        className={`attribute-subject-options${validationAttempted && subjectsMissing ? " fieldset--invalid" : ""}`}
+        aria-invalid={validationAttempted && subjectsMissing}
+      >
+        <legend>
+          Can be attached to
+          <span className="field__required-marker" aria-hidden="true">
+            *
+          </span>
+          <span className="r6-sr-only"> (required)</span>
+        </legend>
         {(["sheet", "item", "action"] as const).map((subjectType) => {
           const required = requiredSubjectType === subjectType;
           return (
@@ -209,6 +236,8 @@ export function AttributeEditorForm({
             )
           )}
           loading={!metadata}
+          required
+          ariaInvalid={validationAttempted && defaultInvalid}
           onChange={(defaultText) => onChange({ ...draft, defaultText })}
           onVariableSelect={(entry, defaultText) =>
             onChange({
@@ -220,28 +249,41 @@ export function AttributeEditorForm({
           placeholder="Type @ to insert a variable"
         />
       ) : (
-        <label>
+        <label className={validationAttempted && defaultInvalid ? "field--invalid" : undefined}>
           Default {draft.valueType === "list" ? "(comma separated)" : "value"}
           <input
             value={draft.defaultText}
+            aria-invalid={validationAttempted && defaultInvalid}
             onChange={(event) => onChange({ ...draft, defaultText: event.target.value })}
           />
         </label>
       )}
       {["enum", "list"].includes(draft.valueType) ? (
-        <label>
+        <label className={validationAttempted && optionsMissing ? "field--invalid" : undefined}>
           Allowed values (comma separated)
+          <span className="field__required-marker" aria-hidden="true">
+            *
+          </span>
+          <span className="r6-sr-only"> (required)</span>
           <input
             value={draft.validationOptions}
+            required
+            aria-invalid={validationAttempted && optionsMissing}
             onChange={(event) => onChange({ ...draft, validationOptions: event.target.value })}
           />
         </label>
       ) : null}
       {draft.valueType === "reference" ? (
-        <label>
+        <label className={validationAttempted && referenceMissing ? "field--invalid" : undefined}>
           Reference kind
+          <span className="field__required-marker" aria-hidden="true">
+            *
+          </span>
+          <span className="r6-sr-only"> (required)</span>
           <select
             value={draft.referenceKind}
+            required
+            aria-invalid={validationAttempted && referenceMissing}
             onChange={(event) => onChange({ ...draft, referenceKind: event.target.value })}
           >
             <option value="">Select a reference kind</option>
@@ -274,8 +316,22 @@ export function AttributeEditorForm({
           <option value="gm_only">GM only</option>
         </select>
       </label>
+      <FormValidationSummary
+        visible={validationAttempted && !canSubmit}
+        message={
+          nameMissing ||
+          subjectsMissing ||
+          (draft.numberMode === "formula" && defaultInvalid) ||
+          optionsMissing ||
+          referenceMissing
+            ? "Complete all required fields."
+            : defaultInvalid
+              ? "Enter a valid numeric default."
+              : "Review the indicated fields."
+        }
+      />
       <div className="inline-actions">
-        <button className="button" type="button" onClick={onSubmit} disabled={!canSubmit || pending}>
+        <button className="button" type="button" onClick={onSubmit} disabled={pending}>
           {pending ? "Creating…" : editingId ? "Save Attribute" : "Create Attribute"}
         </button>
         {onCancel ? (

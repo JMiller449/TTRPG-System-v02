@@ -36,7 +36,9 @@ export function FormulaVariableInput<T extends { token: string }>({
   disabled = false,
   loading = false,
   emptyMessage = "No matching variables.",
-  ariaInvalid
+  ariaInvalid,
+  required = false,
+  ariaDescribedBy
 }: {
   label: string;
   value: string;
@@ -50,6 +52,8 @@ export function FormulaVariableInput<T extends { token: string }>({
   loading?: boolean;
   emptyMessage?: string;
   ariaInvalid?: boolean;
+  required?: boolean;
+  ariaDescribedBy?: string;
 }): JSX.Element {
   const generatedId = useId().replace(/:/g, "");
   const inputId = `formula-variable-${generatedId}`;
@@ -191,10 +195,10 @@ export function FormulaVariableInput<T extends { token: string }>({
     "aria-expanded": open,
     "aria-controls": listboxId,
     "aria-activedescendant":
-      open && visibleOptions[activeIndex]
-        ? `${listboxId}-option-${activeIndex}`
-        : undefined,
+      open && visibleOptions[activeIndex] ? `${listboxId}-option-${activeIndex}` : undefined,
     "aria-invalid": ariaInvalid,
+    "aria-describedby": ariaDescribedBy,
+    required,
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       onChange(event.target.value);
       updateMention(event.target.value, event.target.selectionStart);
@@ -228,12 +232,8 @@ export function FormulaVariableInput<T extends { token: string }>({
 
   return (
     <div className="formula-variable-input" ref={rootRef}>
-      <Field label={label}>
-        {multiline ? (
-          <textarea {...sharedProps} rows={rows} />
-        ) : (
-          <input {...sharedProps} />
-        )}
+      <Field label={label} required={required} invalid={Boolean(ariaInvalid)}>
+        {multiline ? <textarea {...sharedProps} rows={rows} /> : <input {...sharedProps} />}
       </Field>
       {open && position && typeof document !== "undefined"
         ? createPortal(

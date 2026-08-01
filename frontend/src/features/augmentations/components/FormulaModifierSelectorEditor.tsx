@@ -9,11 +9,13 @@ export function FormulaModifierSelectorEditor({
   idPrefix,
   values,
   options,
+  showValidationError = true,
   onChange
 }: {
   idPrefix: string;
   values: AugmentationEditorValues;
   options: AugmentationSelectorOptions;
+  showValidationError?: boolean;
   onChange: (values: AugmentationEditorValues) => void;
 }): JSX.Element {
   const requiredTags = normalizeFormulaTags(values.selectorRequiredTags);
@@ -49,7 +51,7 @@ export function FormulaModifierSelectorEditor({
         />
       </div>
 
-      {overlap.length > 0 ? (
+      {showValidationError && overlap.length > 0 ? (
         <p className="error-text" role="alert">
           Tags cannot be both required and excluded: {overlap.join(", ")}.
         </p>

@@ -89,6 +89,9 @@ describe("SheetRuntimeResources", () => {
     );
     expect(playerMarkup).toContain("Current balance: <strong>12</strong>");
     expect(playerMarkup).not.toContain(">Add</button>");
+    expect(playerMarkup).not.toContain("<details");
+    expect(gmMarkup).toContain("<details");
+    expect(gmMarkup).toContain("<summary");
     expect(gmMarkup).toContain(">Add</button>");
     expect(gmMarkup).toContain(">Subtract</button>");
     expect(gmMarkup).toContain(">Set</button>");

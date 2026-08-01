@@ -1,0 +1,9 @@
+.sheet-access-codes__provisioning {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+@media (max-width: 640px) {
+  .sheet-access-codes__provisioning {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -25,11 +25,13 @@ describe("FormulaTagEditor", () => {
     );
 
     expect(markup).toContain('class="formula-tag-catalog"');
+    expect(markup).toContain("catalog-multi-select--chips");
     expect(markup).toContain("0 of 1 selected");
     expect(markup).toContain("catalog-multi-select__tree-frame--persistent");
     expect(markup).toContain("catalog-multi-select__scroll-track");
     expect(markup).toContain("Search Formula Tags");
     expect(markup).toContain("Select tag Damage");
+    expect(markup).toContain('title="Damage formula context"');
     expect(markup).not.toContain('role="combobox"');
     expect(markup).not.toContain("Create custom tag");
   });
@@ -42,11 +44,7 @@ describe("FormulaTagEditor", () => {
     function Harness(): JSX.Element {
       const [tags, setTags] = useState<string[]>([]);
       return (
-        <FormulaTagEditor
-          tags={tags}
-          suggestions={["damage", "healing"]}
-          onChange={setTags}
-        />
+        <FormulaTagEditor tags={tags} suggestions={["damage", "healing"]} onChange={setTags} />
       );
     }
 
@@ -64,10 +62,7 @@ describe("FormulaTagEditor", () => {
     const search = container.querySelector<HTMLInputElement>('input[type="search"]');
     await act(async () => {
       if (search) {
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLInputElement.prototype,
-          "value"
-        )?.set;
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
         setter?.call(search, "homebrew");
         search.dispatchEvent(new Event("input", { bubbles: true }));
       }

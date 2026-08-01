@@ -53,7 +53,8 @@ export function CatalogEntityMultiSelect({
   noResultsMessage = "No options match this search.",
   selectionAriaLabel = (optionLabel) => `Allow ${optionLabel}`,
   folderSelectionAriaLabel = (folderName) => `Allow all players in ${folderName}`,
-  persistentScrollIndicator = false
+  persistentScrollIndicator = false,
+  layout = "list"
 }: {
   catalog: CatalogKey;
   label: string;
@@ -65,6 +66,7 @@ export function CatalogEntityMultiSelect({
   selectionAriaLabel?: (optionLabel: string) => string;
   folderSelectionAriaLabel?: (folderName: string) => string;
   persistentScrollIndicator?: boolean;
+  layout?: "list" | "chips";
 }): JSX.Element {
   const organization = useCatalogOrganization(catalog);
   const [query, setQuery] = useState("");
@@ -107,12 +109,8 @@ export function CatalogEntityMultiSelect({
     const folderById = new Map(organization.folders.map((folder) => [folder.id, folder]));
     const childrenByParent = new Map<string | null, string[]>();
     for (const folder of organization.folders) {
-      const parentId =
-        folder.parentId && folderById.has(folder.parentId) ? folder.parentId : null;
-      childrenByParent.set(parentId, [
-        ...(childrenByParent.get(parentId) ?? []),
-        folder.id
-      ]);
+      const parentId = folder.parentId && folderById.has(folder.parentId) ? folder.parentId : null;
+      childrenByParent.set(parentId, [...(childrenByParent.get(parentId) ?? []), folder.id]);
     }
     const placementByEntryId = new Map(
       organization.placements.map((placement) => [placement.entryId, placement])
@@ -123,10 +121,7 @@ export function CatalogEntityMultiSelect({
       if (!folderId || !folderById.has(folderId)) {
         continue;
       }
-      directIdsByFolder.set(folderId, [
-        ...(directIdsByFolder.get(folderId) ?? []),
-        option.id
-      ]);
+      directIdsByFolder.set(folderId, [...(directIdsByFolder.get(folderId) ?? []), option.id]);
     }
     const result = new Map<string, string[]>();
     const collect = (folderId: string, visited: Set<string>): string[] => {
@@ -201,7 +196,7 @@ export function CatalogEntityMultiSelect({
   }, [persistentScrollIndicator, rows, updateScrollIndicator]);
 
   return (
-    <section className="catalog-multi-select" aria-label={label}>
+    <section className={`catalog-multi-select catalog-multi-select--${layout}`} aria-label={label}>
       <div className="catalog-multi-select__heading">
         <strong>{label}</strong>
         <span className="muted">
@@ -238,7 +233,7 @@ export function CatalogEntityMultiSelect({
                     key={`entity:${option.id}`}
                     style={{ paddingInlineStart: `${0.6 + row.depth * 1.1}rem` }}
                   >
-                    <label>
+                    <label title={layout === "chips" ? option.secondary : undefined}>
                       <SelectionCheckbox
                         checked={selectedIdSet.has(option.id)}
                         label={selectionAriaLabel(option.label)}

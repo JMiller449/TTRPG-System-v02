@@ -76,7 +76,7 @@ export function SheetAccessCodesPanel({ client }: { client: GameClient }): JSX.E
       }
     >
       <div className="stack">
-        <div className="inline-group">
+        <div className="inline-group sheet-access-codes__provisioning">
           <CatalogEntityPicker
             catalog="sheet_instances"
             label="Player Instance"

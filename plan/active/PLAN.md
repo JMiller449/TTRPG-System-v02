@@ -152,7 +152,7 @@ Frontend:
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
 - GM spawned-sheet density pass (2026-07-31): the desktop Characters workspace now consistently compacts its sheet selector, panel chrome, identity/resources, advancement, tabs, action toolbar, and action cards instead of waiting for the constrained-height breakpoint. The infrequent template-snapshot form moved from permanent sheet chrome into a dedicated GM-only Snapshot tab beside Formula Stats. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. Mobile flow and the taller-display player sheet remain unchanged. Presentation-only; no protocol or gameplay changes.
 - GM Attributes layout cleanup (2026-07-31): optional-Attribute attachment now owns a compact full-width toolbar above the card collection instead of consuming the first grid cell, attached Attribute cards use the available width in a responsive grid, and value/formula actions use the shared control styling with aligned fields and buttons. Presentation-only; authoritative Attribute behavior is unchanged.
-- Formula-tag selector cleanup (2026-07-31): the shared managed-tag picker uses compact single-line tag rows, visible selected-row treatment, reduced internal spacing, separators positioned between rather than through row content, and a permanently visible scrollbar gutter for its bounded list. Its catalog remains visible and searchable inside narrow formula editors. Catalog organization and saved tag semantics are unchanged.
+- Formula-tag selector cleanup (2026-07-31): the shared managed-tag picker presents tags as compact wrapping toggle chips, with selected treatment, hidden checkbox chrome, hover/focus feedback, description tooltips, and a permanently visible scrollbar gutter for its bounded list. Its catalog remains visible and searchable inside narrow formula editors, while folder controls keep full-width hierarchy rows. Catalog organization and saved tag semantics are unchanged.
 - Authoring-form validation consistency (2026-07-31): required fields are visibly marked before interaction across entity creation pages and contextual editors; pristine drafts remain neutral; failed create/save attempts highlight the relevant controls and show one concise form-level explanation. Ordinary incomplete drafts no longer produce silent no-ops or disabled submit controls, while pending requests and unavailable backend-provided metadata still disable actions when necessary. Feature-owned validation and backend-authoritative requests remain unchanged.
 - Toast feedback and session history (2026-07-31): pending, success, error, transport, and bridge feedback now appears as dismissible overlay toasts instead of consuming a permanent shell row. Pending toasts remain until resolution; success and error toasts expire after four and eight seconds. The status bar exposes a History control beside Pending with up to 50 frontend-only lifecycle records, timestamps, messages, request IDs, individual removal, and Clear All; this history clears on refresh or session reset and is never persisted or sent to the backend.
 - Template Builder newcomer pass (2026-07-04): sections are grouped into core setup, optional starting content, advanced customization, and final review; validation is deferred until review; empty states explain safe defaults; derived formulas and the full resistance matrix are progressively disclosed; and contextual creation dialogs now identify the quickest valid path in table-facing language. Presentation-only; backend validation and authoring contracts are unchanged.
@@ -204,10 +204,10 @@ No large architecture feature is currently missing for the stated character-shee
   - Direct readiness, public HTTPS, SPA fallback, production-default rejection,
     and both authenticated public WebSockets were verified on 2026-07-04.
 - [ ] Complete the final hosted Roll20 browser smoke test by installing
-  Violentmonkey and the production-hosted userscript from both the DM and a
-  claimed player's **Extension** page, running **Sync Bridge** in each browser,
-  opening active Roll20 editor tabs, and confirming each authored action reaches
-  Roll20 exactly once through its originating user's connection.
+      Violentmonkey and the production-hosted userscript from both the DM and a
+      claimed player's **Extension** page, running **Sync Bridge** in each browser,
+      opening active Roll20 editor tabs, and confirming each authored action reaches
+      Roll20 exactly once through its originating user's connection.
 
 - [x] Resolve the 2026-07-05 builder and table-readiness defects:
   - Template Builder footer actions now walk through sections with destination-specific
@@ -382,164 +382,164 @@ No large architecture feature is currently missing for the stated character-shee
   - backup/export/import expectations
 
 - [x] Checklist verification follow-up (2026-07-19): verified the existing
-  action builder, item/proficiency, inventory weight/container, effects,
-  party XP, Roll20 binding, level-attribute, player inventory/visibility, and
-  item approval flows against their backend routes, persistence, redaction,
-  and focused tests. Added the legacy-compatible authoritative shared
-  action/reaction-point balance,
-  nonnegative contribution-point balances with audit records, and persistent
-  per-instance action pins with stale-reference cleanup (schema v32).
+      action builder, item/proficiency, inventory weight/container, effects,
+      party XP, Roll20 binding, level-attribute, player inventory/visibility, and
+      item approval flows against their backend routes, persistence, redaction,
+      and focused tests. Added the legacy-compatible authoritative shared
+      action/reaction-point balance,
+      nonnegative contribution-point balances with audit records, and persistent
+      per-instance action pins with stale-reference cleanup (schema v32).
 - [x] Resolve the 2026-07-19 table-feedback usability and character-detail follow-up:
   - [x] Base-template and current-instance formula variables are unambiguous. During
-    character action execution, ordinary rooted `sheet` aliases such as `@arc` resolve
-    through the spawned character's authoritative current values, while explicit
-    read-only `template` variables such as `@template_arc` retain access to the parent
-    template. Existing stored `sheet.stats.*` action formulas gain the corrected runtime
-    behavior without a persistence migration. Regression coverage includes authoring
-    metadata and validation, picker paths, instance stat advancement, styled Roll20
-    output, and explicit template reads. Complete-token alias expansion also prevents
-    overlapping names such as `@arc` and `@arcane` from replacing each other by prefix or
-    leaking suffixes such as `ane` into Roll20 output, regardless of alias order.
+        character action execution, ordinary rooted `sheet` aliases such as `@arc` resolve
+        through the spawned character's authoritative current values, while explicit
+        read-only `template` variables such as `@template_arc` retain access to the parent
+        template. Existing stored `sheet.stats.*` action formulas gain the corrected runtime
+        behavior without a persistence migration. Regression coverage includes authoring
+        metadata and validation, picker paths, instance stat advancement, styled Roll20
+        output, and explicit template reads. Complete-token alias expansion also prevents
+        overlapping names such as `@arc` and `@arcane` from replacing each other by prefix or
+        leaking suffixes such as `ane` into Roll20 output, regardless of alias order.
   - [x] The backend-provided action-formula catalog exposes visible numeric sheet
-    Attribute definitions as read-only `sheet.attributes.<attribute_id>` variables with
-    stable, formula-safe `@sheet_attribute_*` aliases. Action execution reads the acting
-    spawned instance's authoritative evaluated Attribute value without falling back to
-    the parent template or definition default. Catalog and runtime enforcement exclude
-    or clearly reject missing definitions, detached bridges, nonnumeric definitions or
-    evaluated values, evaluation errors, and role-inaccessible Attributes. Backend and
-    frontend tests cover picker paths, alias stability, visibility, invalid references,
-    and current-instance execution.
+        Attribute definitions as read-only `sheet.attributes.<attribute_id>` variables with
+        stable, formula-safe `@sheet_attribute_*` aliases. Action execution reads the acting
+        spawned instance's authoritative evaluated Attribute value without falling back to
+        the parent template or definition default. Catalog and runtime enforcement exclude
+        or clearly reject missing definitions, detached bridges, nonnumeric definitions or
+        evaluated values, evaluation errors, and role-inaccessible Attributes. Backend and
+        frontend tests cover picker paths, alias stability, visibility, invalid references,
+        and current-instance execution.
   - [x] The GM party workspace organizes spawned character sheets through the existing
-    backend-authoritative named parties in a navigator with membership counts and a
-    derived Unassigned view. Only the selected party's roster editor is expanded. Its
-    membership draft reuses the sheet-instance hierarchy as a searchable, collapsible
-    checkbox tree for individual or folder-wide multi-selection, with `Save Party` as the
-    only commit action. Party navigation remains frontend-local while membership
-    persistence, exclusivity, XP participation, stable instance IDs, and despawn cleanup
-    continue to use the established `save_party` state and protocol contract. Focused UI
-    tests cover party navigation, unassigned characters, multi-member editing, and
-    request payloads.
+        backend-authoritative named parties in a navigator with membership counts and a
+        derived Unassigned view. Only the selected party's roster editor is expanded. Its
+        membership draft reuses the sheet-instance hierarchy as a searchable, collapsible
+        checkbox tree for individual or folder-wide multi-selection, with `Save Party` as the
+        only commit action. Party navigation remains frontend-local while membership
+        persistence, exclusivity, XP participation, stable instance IDs, and despawn cleanup
+        continue to use the established `save_party` state and protocol contract. Focused UI
+        tests cover party navigation, unassigned characters, multi-member editing, and
+        request payloads.
   - [x] Item definitions expose backend-authoritative player catalog access for no
-    players, all players, or selected spawned player-sheet instance IDs. The item editor
-    uses the sheet-instance catalog hierarchy as a searchable, collapsible checkbox tree
-    with individual selection, partial folder states, and descendant bulk selection.
-    Folder selection snapshots current stable IDs and later folder moves do not alter
-    authorization. Player snapshots and inventory additions enforce the claimed instance,
-    item allow-lists remain private, owned unavailable items remain renderable, and
-    instance removal reconciles stale selections. Schema 41 migrates the former global
-    visibility toggle losslessly to all/none access.
+        players, all players, or selected spawned player-sheet instance IDs. The item editor
+        uses the sheet-instance catalog hierarchy as a searchable, collapsible checkbox tree
+        with individual selection, partial folder states, and descendant bulk selection.
+        Folder selection snapshots current stable IDs and later folder moves do not alter
+        authorization. Player snapshots and inventory additions enforce the claimed instance,
+        item allow-lists remain private, owned unavailable items remain renderable, and
+        instance removal reconciles stale selections. Schema 41 migrates the former global
+        visibility toggle losslessly to all/none access.
   - [x] Storage items distinguish normally counted contents from weight-ignoring contents;
-    authoritative carried-weight calculation, containment validation, nesting, and the
-    corresponding GM authoring controls are implemented. Storage definitions now also
-    support finite pound limits or unlimited capacity. Backend validation rejects
-    over-capacity moves, quantity changes, and definition edits; snapshots expose current
-    container loads. DMs and assigned players organize unequipped instance inventory
-    through the same nested drag-and-drop UI and accessible location selector, while
-    player requests remain restricted to the claimed sheet. Schema 45 preserves existing
-    containers as unlimited.
+        authoritative carried-weight calculation, containment validation, nesting, and the
+        corresponding GM authoring controls are implemented. Storage definitions now also
+        support finite pound limits or unlimited capacity. Backend validation rejects
+        over-capacity moves, quantity changes, and definition edits; snapshots expose current
+        container loads. DMs and assigned players organize unequipped instance inventory
+        through the same nested drag-and-drop UI and accessible location selector, while
+        player requests remain restricted to the claimed sheet. Schema 45 preserves existing
+        containers as unlimited.
   - [x] A DM can remove an equipped item from a spawned character. Nonempty storage
-    containers must still be emptied first, and equipment-owned effects reconcile through
-    the authoritative state-sync hooks. Deleting the underlying item definition now
-    atomically removes all template and spawned-instance copies, including equipped
-    copies; contents of deleted container definitions are preserved at root inventory.
+        containers must still be emptied first, and equipment-owned effects reconcile through
+        the authoritative state-sync hooks. Deleting the underlying item definition now
+        atomically removes all template and spawned-instance copies, including equipped
+        copies; contents of deleted container definitions are preserved at root inventory.
   - [x] A shared, subject-specific confirmation boundary now guards destructive controls
-    before they mutate a draft or submit an authoritative request. Coverage includes
-    template deletion and instance despawning; item, action, formula, proficiency,
-    Attribute, condition, effect, and encounter definitions; pending-item denial; parties
-    and party membership;
-    kills and XP adjustments, historical kill participants, inventory entries, active
-    conditions, item/condition effects, encounter entries, item action grants, and sheet
-    or template action/proficiency/item/Attribute assignments. Cancelling preserves the
-    current draft and emits no request; accepting retains all existing backend dependency,
-    authorization, containment, and error validation. Focused tests cover message clarity,
-    cancellation, acceptance, request suppression, and representative relationship and
-    inventory removals.
+        before they mutate a draft or submit an authoritative request. Coverage includes
+        template deletion and instance despawning; item, action, formula, proficiency,
+        Attribute, condition, effect, and encounter definitions; pending-item denial; parties
+        and party membership;
+        kills and XP adjustments, historical kill participants, inventory entries, active
+        conditions, item/condition effects, encounter entries, item action grants, and sheet
+        or template action/proficiency/item/Attribute assignments. Cancelling preserves the
+        current draft and emits no request; accepting retains all existing backend dependency,
+        authorization, containment, and error validation. Focused tests cover message clarity,
+        cancellation, acceptance, request suppression, and representative relationship and
+        inventory removals.
   - [x] Replaced item-owned free-form category/folder text with reusable
-    backend-persisted catalog organization. Top-level folder and entry records support
-    independent nested trees for actions, attributes, conditions, effects, formulas,
-    items, item templates, proficiencies, tags, sheet templates, and spawned sheet
-    instances. Shared frontend
-    catalog UI supports root/folder creation actions, nesting, collapse/expand,
-    rename/delete, search, and drag-and-drop placement. Consumer pickers reuse the
-    hierarchy for inventory, template/sheet assignments, catalog references,
-    encounters, access codes, parties, XP flows, and active-sheet selection. Players
-    receive only branches for records already visible to them. Folder placement remains
-    presentation metadata and never changes mechanics, visibility, permissions, or
-    ownership. Schema 40 converts legacy item category/folder text into nested folders.
-    Encounter-driven folder creation is deliberately deferred.
+        backend-persisted catalog organization. Top-level folder and entry records support
+        independent nested trees for actions, attributes, conditions, effects, formulas,
+        items, item templates, proficiencies, tags, sheet templates, and spawned sheet
+        instances. Shared frontend
+        catalog UI supports root/folder creation actions, nesting, collapse/expand,
+        rename/delete, search, and drag-and-drop placement. Consumer pickers reuse the
+        hierarchy for inventory, template/sheet assignments, catalog references,
+        encounters, access codes, parties, XP flows, and active-sheet selection. Players
+        receive only branches for records already visible to them. Folder placement remains
+        presentation metadata and never changes mechanics, visibility, permissions, or
+        ownership. Schema 40 converts legacy item category/folder text into nested folders.
+        Encounter-driven folder creation is deliberately deferred.
   - [x] Added first-class managed tags and copy-based item templates. Tags have
-    stable backend definitions, their own nested display catalog, DM CRUD, and
-    reference-safe deletion. Items, item templates, reusable formulas, inline
-    action-step formulas, and augmentation required/excluded selectors all use
-    the same managed tag IDs; consumer selectors cannot create free-form tags.
-    Item creation now starts with Scratch or Template selection. Template
-    management has its own Content navigation tab, builder page, and independent
-    nested catalog. Template copies receive new
-    relationship/effect IDs and no player availability. Item attribute profiles
-    and automatic weapon-action grants are removed: weapon/damage classifications
-    are tags, action/effect inputs are optional attached Attributes, granted
-    actions are selected explicitly and validated against those Attributes, and
-    proficiency growth comes from the proficiency definition. Schemas 42–44
-    migrate tags, legacy weapon metadata, and the template registry.
+        stable backend definitions, their own nested display catalog, DM CRUD, and
+        reference-safe deletion. Items, item templates, reusable formulas, inline
+        action-step formulas, and augmentation required/excluded selectors all use
+        the same managed tag IDs; consumer selectors cannot create free-form tags.
+        Item creation now starts with Scratch or Template selection. Template
+        management has its own Content navigation tab, builder page, and independent
+        nested catalog. Template copies receive new
+        relationship/effect IDs and no player availability. Item attribute profiles
+        and automatic weapon-action grants are removed: weapon/damage classifications
+        are tags, action/effect inputs are optional attached Attributes, granted
+        actions are selected explicitly and validated against those Attributes, and
+        proficiency growth comes from the proficiency definition. Schemas 42–44
+        migrate tags, legacy weapon metadata, and the template registry.
   - [x] Spawned characters and monsters have one backend-authoritative Action / Reaction
-    Point pool with a Reaction Time threshold maximum and manual consume, restore, and
-    reset controls. Action and reaction consumption share the same persisted balance.
-    Assigned players control their player character while the GM has read-only visibility;
-    the GM controls monster pools. Schema 39 upgrades unchanged legacy reaction formulas
-    without rewriting customized formulas or fractional legacy balances.
+        Point pool with a Reaction Time threshold maximum and manual consume, restore, and
+        reset controls. Action and reaction consumption share the same persisted balance.
+        Assigned players control their player character while the GM has read-only visibility;
+        the GM controls monster pools. Schema 39 upgrades unchanged legacy reaction formulas
+        without rewriting customized formulas or fractional legacy balances.
   - [x] Character templates and spawned instances now own a persisted structured profile
-    for species, background, alignment, pronouns, age, height, weight, eyes, skin, hair,
-    appearance, personality traits, ideals, bonds, flaws, allies/organizations, and
-    free-form backstory. These values are descriptive strings and never feed formulas,
-    inventory weight, or species mechanics. Template profiles seed independent spawned
-    copies, evolved profiles copy into GM-created snapshots, and schema 35 safely backfills
-    existing records. A dedicated Backstory tab lets the GM or assigned player save the
-    complete instance profile through an ownership-checked backend route, while the
-    template builder provides an optional Profile step. Notes remain a separate journal.
+        for species, background, alignment, pronouns, age, height, weight, eyes, skin, hair,
+        appearance, personality traits, ideals, bonds, flaws, allies/organizations, and
+        free-form backstory. These values are descriptive strings and never feed formulas,
+        inventory weight, or species mechanics. Template profiles seed independent spawned
+        copies, evolved profiles copy into GM-created snapshots, and schema 35 safely backfills
+        existing records. A dedicated Backstory tab lets the GM or assigned player save the
+        complete instance profile through an ownership-checked backend route, while the
+        template builder provides an optional Profile step. Notes remain a separate journal.
   - [x] Constrained-display scaling keeps the fixed desktop application shell and
-    character-sheet workspaces usable on shorter or zoomed displays. Desktop viewports at
-    or below 900 CSS pixels tall compact shell chrome, navigation spacing, sheet context,
-    character identity/resources, snapshot controls, and tabs while retaining intentional
-    owned scroll regions. Live viewport checks covered 1920x1080, 1600x900, and 1366x768 at
-    100% zoom plus the 1536x864 CSS viewport equivalent of 1920x1080 at 125%; navigation,
-    headers, controls, and editors remain reachable without clipping, overlap, or whole-page
-    horizontal scrolling. Tall desktop and the existing 960px-and-under mobile flow remain
-    unchanged.
+        character-sheet workspaces usable on shorter or zoomed displays. Desktop viewports at
+        or below 900 CSS pixels tall compact shell chrome, navigation spacing, sheet context,
+        character identity/resources, snapshot controls, and tabs while retaining intentional
+        owned scroll regions. Live viewport checks covered 1920x1080, 1600x900, and 1366x768 at
+        100% zoom plus the 1536x864 CSS viewport equivalent of 1920x1080 at 125%; navigation,
+        headers, controls, and editors remain reachable without clipping, overlap, or whole-page
+        horizontal scrolling. Tall desktop and the existing 960px-and-under mobile flow remain
+        unchanged.
   - [x] The canonical Level Attribute is now required first-class character-sheet
-    information. Template validation, spawning, instance updates, snapshots, persistence,
-    and patches preserve one backend-authoritative bridge; load synchronization and schema
-    36 add Level 1 only where an existing template or instance lacks it. Existing values
-    survive unchanged, and accepted values must resolve to positive whole numbers. GM and
-    player character views render Level beside XP; players receive a read-only display and
-    GMs use the existing DM-only instance-Attribute mutation through an explicit editor.
-    XP does not automatically change Level or distribute stats.
+        information. Template validation, spawning, instance updates, snapshots, persistence,
+        and patches preserve one backend-authoritative bridge; load synchronization and schema
+        36 add Level 1 only where an existing template or instance lacks it. Existing values
+        survive unchanged, and accepted values must resolve to positive whole numbers. GM and
+        player character views render Level beside XP; players receive a read-only display and
+        GMs use the existing DM-only instance-Attribute mutation through an explicit editor.
+        XP does not automatically change Level or distribute stats.
   - [x] Proficiency training is now a first-class action-authoring choice. The
-    `gain_proficiency_use` editor selects an explicit proficiency or the eligible source
-    weapon's Proficiency Attribute and emits the backend reference contract for either mode.
-    Local and backend validation reject missing explicit definitions, while weapon-derived
-    targets remain authoritative to the source item selected at execution. Focused
-    authoring, payload, execution, and Roll20-delivery rollback tests cover both targets;
-    formula tags remain descriptive metadata.
+        `gain_proficiency_use` editor selects an explicit proficiency or the eligible source
+        weapon's Proficiency Attribute and emits the backend reference contract for either mode.
+        Local and backend validation reject missing explicit definitions, while weapon-derived
+        targets remain authoritative to the source item selected at execution. Focused
+        authoring, payload, execution, and Roll20-delivery rollback tests cover both targets;
+        formula tags remain descriptive metadata.
 - [x] Proficiency growth follow-up (2026-07-19): canonical weapon actions now
-  advance the selected weapon proficiency and spell presets advance their
-  Action Proficiency Attribute target. Character sheets display the capped
-  player-facing proficiency percentage alongside uses and growth rate; existing
-  unmodified canonical weapon actions migrate safely (schema v33).
+      advance the selected weapon proficiency and spell presets advance their
+      Action Proficiency Attribute target. Character sheets display the capped
+      player-facing proficiency percentage alongside uses and growth rate; existing
+      unmodified canonical weapon actions migrate safely (schema v33).
 - [x] Action proficiency lazy attachment follow-up (2026-07-20): proficiency
-  definitions own a `0.01` default growth rate, with editable authoring and a
-  schema-v37 backfill. On first execution, an action's valid Proficiency
-  Attribute transactionally adds a missing zero-use bridge to the acting
-  template or spawned instance before formulas resolve; existing bridges remain
-  unchanged. A successfully evaluated action automatically adds exactly one use
-  after formulas read the pre-use modifier, and failed action or Roll20 delivery
-  rolls back both attachment and growth. Schema v38 purges now-redundant
-  action-attribute `gain_proficiency_use` steps while preserving explicit and
-  source-weapon training.
+      definitions own a `0.01` default growth rate, with editable authoring and a
+      schema-v37 backfill. On first execution, an action's valid Proficiency
+      Attribute transactionally adds a missing zero-use bridge to the acting
+      template or spawned instance before formulas resolve; existing bridges remain
+      unchanged. A successfully evaluated action automatically adds exactly one use
+      after formulas read the pre-use modifier, and failed action or Roll20 delivery
+      rolls back both attachment and growth. Schema v38 purges now-redundant
+      action-attribute `gain_proficiency_use` steps while preserving explicit and
+      source-weapon training.
 - [x] Action completion correlation follow-up (2026-07-20): every successful
-  `perform_action` now ends with one correlated `action_executed` event after
-  delivery, mutation commit, and history recording, even when state patches were
-  emitted. Frontend pending intents therefore resolve from a terminal lifecycle
-  signal rather than inferring completion from state synchronization.
+      `perform_action` now ends with one correlated `action_executed` event after
+      delivery, mutation commit, and history recording, even when state patches were
+      emitted. Frontend pending intents therefore resolve from a terminal lifecycle
+      signal rather than inferring completion from state synchronization.
 
 ## 6. Explicit Non-Blockers
 
@@ -560,25 +560,25 @@ These are not required for the app to be usable as the MVP character sheet and a
 Future work should be prioritized only after the table-readiness pass proves the MVP workflow.
 
 - [ ] Effects & conditions system conceptual cleanup — phased plan tracked in
-  `plan/active/effects_conditions_review.md`. Phase 1 complete: current pipeline documentation
-  (`backend/features/augmentations/ARCHITECTURE.md`) and gap tests are in place. Phase 2
-  complete: `equipment_effect_projections` renamed to `direct_effect_projections`
-  (`EquipmentEffectProjection` → `DirectEffectProjection`) with schema migration v17→v18; this
-  is private/redacted state so no protocol/frontend change was needed. Phase 3 complete:
-  regenerated stale protocol codegen (a prerequisite unrelated to effects — prior commits had
-  drifted the checked-in frontend types), decided to keep `Augmentation` as the internal model
-  name, made `ConditionPreset` a pure definition by removing the dead `augmentation_ids` field
-  (schema v19), and added source/timing metadata to `ActiveCondition` (`source`, `applied_at`,
-  `applied_by_role`, `applied_at_state_version`; schema v20) so the GM can see why/who/when a
-  condition was applied. Phase 4 (part): restructured the augmentation lifecycle into a
-  declarative `mode`/`remaining`/`expires_at`/`remove_when_source_inactive`/`notes` shape
-  (schema v21) — GM-tracked, not an auto-tick engine (turn/round automation stays a non-goal).
-  Standalone effect stacking (schema v22): `StandaloneEffectDefinition.stacking` (`unique`
-  default / `stack` with `max_stacks`); stacked applications accumulate through the existing
-  projection path and removal clears the whole stack. Remaining: `refresh`/`replace` modes and
-  condition stacking (need per-application lifecycle state / condition multi-application), GM
-  refresh/expire controls, and the authoring UI refresh incl. the Active Effects inspector
-  (Phase 5 — paused pending a UI-capable environment).
+      `plan/active/effects_conditions_review.md`. Phase 1 complete: current pipeline documentation
+      (`backend/features/augmentations/ARCHITECTURE.md`) and gap tests are in place. Phase 2
+      complete: `equipment_effect_projections` renamed to `direct_effect_projections`
+      (`EquipmentEffectProjection` → `DirectEffectProjection`) with schema migration v17→v18; this
+      is private/redacted state so no protocol/frontend change was needed. Phase 3 complete:
+      regenerated stale protocol codegen (a prerequisite unrelated to effects — prior commits had
+      drifted the checked-in frontend types), decided to keep `Augmentation` as the internal model
+      name, made `ConditionPreset` a pure definition by removing the dead `augmentation_ids` field
+      (schema v19), and added source/timing metadata to `ActiveCondition` (`source`, `applied_at`,
+      `applied_by_role`, `applied_at_state_version`; schema v20) so the GM can see why/who/when a
+      condition was applied. Phase 4 (part): restructured the augmentation lifecycle into a
+      declarative `mode`/`remaining`/`expires_at`/`remove_when_source_inactive`/`notes` shape
+      (schema v21) — GM-tracked, not an auto-tick engine (turn/round automation stays a non-goal).
+      Standalone effect stacking (schema v22): `StandaloneEffectDefinition.stacking` (`unique`
+      default / `stack` with `max_stacks`); stacked applications accumulate through the existing
+      projection path and removal clears the whole stack. Remaining: `refresh`/`replace` modes and
+      condition stacking (need per-application lifecycle state / condition multi-application), GM
+      refresh/expire controls, and the authoring UI refresh incl. the Active Effects inspector
+      (Phase 5 — paused pending a UI-capable environment).
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode and alternative handling.
 - [ ] Mastery unlock enforcement and visibility for disabled/hidden content.
@@ -587,8 +587,8 @@ Future work should be prioritized only after the table-readiness pass proves the
 - [ ] Equipment capacity and slot/hand rules.
 - [ ] Multi-campaign support and durable player identity/account binding.
 - [ ] If the player-client threat model changes, audit websocket state redaction so
-  raw DM-only template, instance, encounter, and referenced-definition metadata
-  cannot reveal untoggled encounter content to a client inspecting network state.
+      raw DM-only template, instance, encounter, and referenced-definition metadata
+      cannot reveal untoggled encounter content to a client inspecting network state.
 - [ ] Frontend previews for formulas that remain Roll20-resolved, clearly marked as non-authoritative previews.
 
 ## 8. Rule Decisions Captured

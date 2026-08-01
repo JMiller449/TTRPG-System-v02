@@ -813,10 +813,14 @@ button.formula-tag-suggestion {
 }
 
 .formula-tag-catalog .catalog-multi-select__tree {
-  display: block;
+  display: flex;
+  align-content: flex-start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   height: auto;
   max-height: 14rem;
-  padding: 0.1rem 0;
+  padding: 0.35rem 0;
   overflow-x: hidden;
   overflow-y: scroll;
   border-top: 0;
@@ -859,59 +863,83 @@ button.formula-tag-suggestion {
 }
 
 .formula-tag-catalog :is(.catalog-multi-select__folder, .catalog-multi-select__entity) {
-  min-height: 2.15rem;
+  min-height: 0;
   border-bottom: 0;
 }
 
-.formula-tag-catalog .catalog-multi-select__tree > li + li {
-  border-top: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
+.formula-tag-catalog .catalog-multi-select__entity {
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding-inline-start: 0 !important;
 }
 
 .formula-tag-catalog .catalog-multi-select__entity label {
   align-items: center;
-  gap: 0.55rem;
+  gap: 0;
+  width: auto;
+  max-width: 100%;
   height: auto;
-  min-height: 2.15rem;
-  padding: 0.35rem;
+  min-height: 1.85rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--line), transparent 15%);
+  border-radius: 999px;
+  background: var(--r6-control-bg-soft, var(--card));
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .formula-tag-catalog .catalog-multi-select__entity input[type="checkbox"] {
-  flex: 0 0 auto;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.formula-tag-catalog .catalog-multi-select__entity:has(input:checked) {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+.formula-tag-catalog .catalog-multi-select__entity label:hover {
+  border-color: var(--accent);
+}
+
+.formula-tag-catalog .catalog-multi-select__entity label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.formula-tag-catalog .catalog-multi-select__entity label:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--r6-cyan-soft, var(--text));
+  background: var(--r6-control-bg-active, color-mix(in srgb, var(--accent) 14%, var(--card)));
 }
 
 .formula-tag-catalog .catalog-multi-select__entity label > span {
+  display: block;
   min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.65rem;
 }
 
-.formula-tag-catalog .catalog-multi-select__entity strong,
-.formula-tag-catalog .catalog-multi-select__entity small {
+.formula-tag-catalog .catalog-multi-select__entity strong {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .formula-tag-catalog .catalog-multi-select__entity strong {
-  font-size: 0.84rem;
+  font-size: 0.78rem;
 }
 
 .formula-tag-catalog .catalog-multi-select__entity small {
-  max-width: 48%;
-  font-size: 0.7rem;
-  text-align: right;
+  display: none;
 }
 
 .formula-tag-catalog .catalog-multi-select__folder {
+  flex: 1 0 100%;
   min-height: 2.15rem;
   padding-block: 0.3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
   font-size: 0.82rem;
 }
 

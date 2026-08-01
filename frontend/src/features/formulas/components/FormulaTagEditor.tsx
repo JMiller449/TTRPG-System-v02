@@ -57,6 +57,7 @@ export function FormulaTagEditor({
         selectionAriaLabel={(tagName) => `Select tag ${tagName}`}
         folderSelectionAriaLabel={(folderName) => `Select all tags in ${folderName}`}
         persistentScrollIndicator
+        layout="chips"
       />
     </div>
   );

@@ -381,6 +381,7 @@ export function PlayerCharacterSheet({
                 <SheetReactionResource
                   current={detail.reactions.current}
                   maximum={detail.reactions.maximum}
+                  dodgeChance={detail.stats.dexterity ?? 0}
                   canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
                   onSpend={() =>
                     client.sendProtocolRequest(

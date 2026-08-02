@@ -11,6 +11,7 @@ describe("SheetRuntimeResources", () => {
       <SheetReactionResource
         current={1}
         maximum={2}
+        dodgeChance={26}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -19,6 +20,9 @@ describe("SheetRuntimeResources", () => {
     );
     expect(markup).toContain("Action / Reaction Points");
     expect(markup).toContain("1 / 2 available");
+    expect(markup).toContain("Dodge Chance");
+    expect(markup).toContain("Dodge = FLOOR(Dexterity × (d100 / 100))");
+    expect(markup).toContain("<strong>26</strong>");
     expect(markup).toContain(">Spend</button>");
     expect(markup).toContain(">Restore</button>");
     expect(markup).toContain(">Reset</button>");
@@ -30,6 +34,7 @@ describe("SheetRuntimeResources", () => {
       <SheetReactionResource
         current={0}
         maximum={2}
+        dodgeChance={26}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -40,6 +45,7 @@ describe("SheetRuntimeResources", () => {
       <SheetReactionResource
         current={2}
         maximum={2}
+        dodgeChance={26}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -58,6 +64,7 @@ describe("SheetRuntimeResources", () => {
       <SheetReactionResource
         current={3}
         maximum={3}
+        dodgeChance={26}
         canManage={false}
         onSpend={() => undefined}
         onRestore={() => undefined}

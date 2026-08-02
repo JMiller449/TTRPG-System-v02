@@ -607,6 +607,39 @@
   margin-bottom: 0.35rem;
 }
 
+.sheet-runtime-resource__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sheet-runtime-resource__heading h4 {
+  flex: 1 1 auto;
+}
+
+.sheet-runtime-resource__dodge-chance {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sheet-runtime-resource__dodge-chance span {
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sheet-runtime-resource__dodge-chance strong {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
 .character-sheet__utility {
   margin-top: 0.55rem;
   border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 35%);

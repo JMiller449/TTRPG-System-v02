@@ -8,6 +8,7 @@ function formatFraction(value: number): string {
 export function SheetReactionResource({
   current,
   maximum,
+  dodgeChance,
   canManage,
   onSpend,
   onRestore,
@@ -15,6 +16,7 @@ export function SheetReactionResource({
 }: {
   current: number;
   maximum: number;
+  dodgeChance: number;
   canManage: boolean;
   onSpend: () => void;
   onRestore: () => void;
@@ -26,7 +28,16 @@ export function SheetReactionResource({
 
   return (
     <section className="character-sheet__section character-sheet__section--compact">
-      <h4>Action / Reaction Points</h4>
+      <div className="sheet-runtime-resource__heading">
+        <h4>Action / Reaction Points</h4>
+        <p
+          className="sheet-runtime-resource__dodge-chance"
+          title="Dodge = FLOOR(Dexterity × (d100 / 100))"
+        >
+          <span>Dodge Chance</span>
+          <strong>{formatFraction(dodgeChance)}</strong>
+        </p>
+      </div>
       <div className="inline-actions">
         <p className="muted">
           {formatFraction(current)} / {formatFraction(maximum)} available

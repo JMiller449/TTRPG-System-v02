@@ -24,10 +24,7 @@ export interface ItemActionAvailabilitySummary {
   status: string;
 }
 
-const KEY_ITEM_ATTRIBUTE_IDS = [
-  "weapon_proficiency",
-  "weapon_reach"
-];
+const KEY_ITEM_ATTRIBUTE_IDS = ["weapon_proficiency", "weapon_reach"];
 const KEY_ITEM_ATTRIBUTE_ID_SET = new Set(KEY_ITEM_ATTRIBUTE_IDS);
 
 function displayAttributeBridgeValue(
@@ -64,8 +61,7 @@ function summarizeAttribute(
   proficiencies: Record<string, ProficiencyDefinition>,
   labelOverride?: string
 ): string {
-  const label =
-    labelOverride ?? definition?.name.replace(/^Weapon\s+/i, "") ?? bridge.attribute_id;
+  const label = labelOverride ?? definition?.name.replace(/^Weapon\s+/i, "") ?? bridge.attribute_id;
   const value = displayAttributeBridgeValue(bridge, definition, proficiencies);
   const unit = definition?.unit ? ` ${definition.unit}` : "";
   return `${label}: ${value || "None"}${unit}`;

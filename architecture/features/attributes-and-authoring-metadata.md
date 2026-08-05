@@ -87,6 +87,16 @@ identity and XP. Players receive a read-only value. The GM control writes a
 literal through the existing DM-only instanced-sheet Attribute route, so the
 header does not introduce a second Level field or client-owned state.
 
+The character Attributes page renders attached values as a compact responsive
+grid. Formula-backed cards expose their complete expression and aliases on
+hover or keyboard focus. A GM opens a focused dialog from a card to edit that
+instance value, while Add Existing and Create Attribute use separate dialogs;
+a newly authored definition is attached only after its authoritative creation
+response succeeds. Character Attribute creation uses a viewport-bounded,
+scrollable editor with persistent create controls. Template, item, and action drafts retain their inline
+Attribute editors because those values are part of a larger atomic authoring
+submission.
+
 Authoring variable metadata comes from backend routes in the variable registry
 feature. Formula fields present that metadata through cursor-aware `@`
 autocomplete rather than a separate variable-picker field. Selecting a result

@@ -5,7 +5,7 @@ import { StoreContext } from "@/app/state/storeContext";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { createEmptyItemValues } from "@/features/items/itemEditorValues";
 
-function renderEditor(validationAttempted: boolean): string {
+function renderEditor(validationAttempted: boolean, effectEditorFocused = false): string {
   return renderToStaticMarkup(
     <StoreContext.Provider value={{ state: structuredClone(initialState), dispatch: vi.fn() }}>
       <ItemEditorForm
@@ -18,7 +18,8 @@ function renderEditor(validationAttempted: boolean): string {
         proficiencies={{}}
         tagDefinitions={{}}
         attributesEditor={null}
-        effectEditor={null}
+        effectEditor={<div>Focused effect editor</div>}
+        effectEditorFocused={effectEditorFocused}
         onSubmit={() => undefined}
         onCancel={() => undefined}
       />
@@ -36,5 +37,14 @@ describe("ItemEditorForm validation", () => {
     expect(failedMarkup).toContain('aria-invalid="true"');
     expect(failedMarkup).toContain("Complete all required fields.");
     expect(failedMarkup).not.toContain('<button class="button" disabled="">Create Item');
+  });
+
+  it("marks the Item editor for focused Equipment Effect navigation", () => {
+    const markup = renderEditor(false, true);
+
+    expect(markup).toContain("item-editor--effect-focused");
+    expect(markup).toContain("item-editor__effects-disclosure");
+    expect(markup).toContain('open=""');
+    expect(markup).toContain("Focused effect editor");
   });
 });

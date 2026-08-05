@@ -35,7 +35,7 @@ export function SessionLanding({ client }: { client: GameClient }): JSX.Element 
 
     setLocalError(null);
     await ensureConnected();
-    dispatch({ type: "set_gm_view", view: "console" });
+    dispatch({ type: "set_gm_view", view: "sheet_viewer" });
     client.authenticateWithCode(code);
   };
 

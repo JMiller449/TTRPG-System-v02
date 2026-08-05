@@ -53,9 +53,7 @@ export function App(): JSX.Element {
   }
 
   const gmContent =
-    gmView === "sheet_viewer" ? (
-      <SheetViewerPage client={client} />
-    ) : gmView === "action_history" ? (
+    gmView === "action_history" ? (
       <RollLog />
     ) : gmView === "template_library" ? (
       <TemplateLibrary client={client} />
@@ -91,9 +89,7 @@ export function App(): JSX.Element {
     ) : gmView === "extension" ? (
       <ExtensionPage client={client} />
     ) : (
-      <div className="main-panel-stack main-panel-stack--dashboard">
-        <ConsolePage role="gm" client={client} />
-      </div>
+      <SheetViewerPage client={client} />
     );
 
   return (
@@ -102,7 +98,7 @@ export function App(): JSX.Element {
       <IntentFeedbackToasts />
 
       {role === "player" ? (
-        <ConsolePage role="player" client={client} />
+        <ConsolePage client={client} />
       ) : (
         <div className="app-layout app-layout--gm">
           <GMConsoleToolbar />

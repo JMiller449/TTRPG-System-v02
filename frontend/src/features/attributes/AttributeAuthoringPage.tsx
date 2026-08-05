@@ -153,6 +153,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
     >
       <CatalogEditorLayout
         catalogLabel="Attribute Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="attributes"

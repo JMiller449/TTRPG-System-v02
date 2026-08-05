@@ -34,10 +34,7 @@ export function updateServerState(
   return nextServerState === state.serverState ? state : { ...state, serverState: nextServerState };
 }
 
-export function updateUiState(
-  state: AppState,
-  updater: (uiState: UIState) => UIState
-): AppState {
+export function updateUiState(state: AppState, updater: (uiState: UIState) => UIState): AppState {
   const nextUiState = updater(state.uiState);
   return nextUiState === state.uiState ? state : { ...state, uiState: nextUiState };
 }

@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  RESISTANCE_FIELDS,
-  type ResistanceKey
-} from "@/features/sheets/sheetDefinitionEditing";
+import { RESISTANCE_FIELDS, type ResistanceKey } from "@/features/sheets/sheetDefinitionEditing";
 import type { TemplateEditorValues } from "@/features/sheets/templateEditorTypes";
 import { Field } from "@/shared/ui/Field";
 

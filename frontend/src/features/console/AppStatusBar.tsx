@@ -28,7 +28,7 @@ export function AppStatusBar({ role, client }: { role: Role; client: GameClient 
       ? "synced"
       : "stale";
   const playerTitle = activeDetail?.instance.name ?? "No active sheet";
-  const gmTitle = GM_TOOLBAR_NAV_ITEMS.find((item) => item.view === gmView)?.label ?? "Dashboard";
+  const gmTitle = GM_TOOLBAR_NAV_ITEMS.find((item) => item.view === gmView)?.label ?? "Characters";
 
   useEffect(() => {
     let active = true;

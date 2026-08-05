@@ -15,7 +15,6 @@ describe("gmConsoleToolbar", () => {
 
     expect(new Set(views).size).toBe(views.length);
     expect(views).toEqual([
-      "console",
       "sheet_viewer",
       "action_history",
       "template_library",
@@ -34,6 +33,14 @@ describe("gmConsoleToolbar", () => {
       "state_backup",
       "extension"
     ]);
+  });
+
+  it("uses Characters as the primary session workspace", () => {
+    expect(GM_TOOLBAR_NAV_GROUPS[0]?.items[0]).toEqual({
+      view: "sheet_viewer",
+      label: "Characters",
+      glyph: "CH"
+    });
   });
 
   it("groups GM pages into task-oriented workspaces", () => {

@@ -16,14 +16,14 @@ describe("CharacterSheetTabs", () => {
     expect(markup).not.toContain(">Details</button>");
   });
 
-  it("retains the GM-only history, formula, and snapshot destinations", () => {
+  it("retains the GM-only history and management destinations", () => {
     const markup = renderToStaticMarkup(
       <CharacterSheetTabs activeTab="action_history" onChange={() => undefined} mode="gm" />
     );
 
     expect(markup).toContain("Action History");
-    expect(markup).toContain("Formula Stats");
-    expect(markup).toContain('id="sheet-tab-snapshot"');
-    expect(markup).toContain(">Snapshot</button>");
+    expect(markup).not.toContain("Formula Stats");
+    expect(markup).toContain('id="sheet-tab-management"');
+    expect(markup).toContain(">Management</button>");
   });
 });

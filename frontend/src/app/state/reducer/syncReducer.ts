@@ -38,9 +38,7 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       const itemTemplates = Object.fromEntries(
         (action.snapshot.itemTemplates ?? []).map((item) => [item.id, item])
       );
-      const tags = Object.fromEntries(
-        (action.snapshot.tags ?? []).map((item) => [item.id, item])
-      );
+      const tags = Object.fromEntries((action.snapshot.tags ?? []).map((item) => [item.id, item]));
       const proficiencies = Object.fromEntries(
         action.snapshot.proficiencies.map((item) => [item.id, item])
       );

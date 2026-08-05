@@ -49,7 +49,7 @@ describe("ConsolePage player navigation", () => {
         createElement(
           StoreContext.Provider,
           { value: { state: initialState, dispatch: () => undefined } },
-          createElement(ConsolePage, { role: "player", client })
+          createElement(ConsolePage, { client })
         )
       );
     });

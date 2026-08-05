@@ -3,8 +3,6 @@ import { useAppStore } from "@/app/state/useAppStore";
 import { selectSheetInstanceView } from "@/app/state/selectors";
 import type { SheetInstanceView } from "@/domain/models";
 import type { GameClient } from "@/hooks/useGameClient";
-import { buildDeleteInstancedSheetRequest } from "@/infrastructure/ws/requestBuilders";
-import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
@@ -18,28 +16,7 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
   const selectedSheetId = sheetOptions.some((sheet) => sheet.id === activeSheetId)
     ? activeSheetId
     : (sheetOptions[0]?.id ?? "");
-  const selectedSheet = sheetOptions.find((sheet) => sheet.id === selectedSheetId) ?? null;
   const [organizerOpen, setOrganizerOpen] = useState(false);
-
-  const despawnSelectedSheet = (): void => {
-    if (!client || !selectedSheet) {
-      return;
-    }
-    if (
-      !confirmDestructiveAction({
-        action: "Despawn",
-        subject: selectedSheet.name,
-        consequence:
-          "This permanently removes the spawned character and its current inventory, assignments, and runtime state."
-      })
-    ) {
-      return;
-    }
-    client.sendProtocolRequest(
-      buildDeleteInstancedSheetRequest({ instanceId: selectedSheet.id }),
-      `Despawn ${selectedSheet.name}`
-    );
-  };
 
   return (
     <section className="sheet-context-selector" aria-label="Active spawned sheet context">
@@ -83,14 +60,6 @@ export function ActiveSheetSelector({ client }: { client?: GameClient }): JSX.El
               onClick={() => setOrganizerOpen(true)}
             >
               Organize Sheets
-            </button>
-            <button
-              type="button"
-              className="button button--danger"
-              onClick={despawnSelectedSheet}
-              disabled={!selectedSheet}
-            >
-              Despawn
             </button>
           </>
         ) : null}

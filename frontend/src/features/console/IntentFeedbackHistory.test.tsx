@@ -47,10 +47,12 @@ describe("IntentFeedbackHistory", () => {
     expect(trigger?.textContent).toContain("History 1");
 
     await act(async () => trigger?.click());
-    expect(container.textContent).toContain("Create action rejected: invalid formula");
-    expect(container.textContent).toContain("Request: request_1");
+    const panel = document.body.querySelector<HTMLElement>(".feedback-history__panel");
+    expect(panel?.parentElement).toBe(document.body);
+    expect(panel?.textContent).toContain("Create action rejected: invalid formula");
+    expect(panel?.textContent).toContain("Request: request_1");
 
-    const clear = Array.from(container.querySelectorAll("button")).find(
+    const clear = Array.from(panel?.querySelectorAll("button") ?? []).find(
       (button) => button.textContent === "Clear All"
     );
     await act(async () => (clear as HTMLButtonElement | undefined)?.click());

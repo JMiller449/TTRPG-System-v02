@@ -89,7 +89,10 @@ equipment interaction are in
 Frontend stat, resource, resistance, and allocation sections live under
 [`frontend/src/features/sheets/`](../../frontend/src/features/sheets/), notably
 `SheetStatsSection`, `SheetResourceHeader`, `SheetResistancesEditor`, and
-`SheetStatPointAllocator`.
+`SheetStatPointAllocator`. Overview keeps each derived formula attached to its
+evaluated substat: hover or keyboard focus exposes the stored expression and
+alias paths, while a GM click opens a modal editor for that substat alone.
+Players receive the same read-only explanation without formula-edit controls.
 
 ## Permissions
 

@@ -76,56 +76,49 @@ export function ItemAttributesEditor({
   };
 
   return (
-    <section className="stack">
-      <div>
-        <h3>Attributes</h3>
-        <p className="muted">
-          Attach named values that granted actions and effects can reference from this item.
-        </p>
-      </div>
-      <SheetAttributesSection
-        definitions={displayDefinitions}
-        bridges={values.attributes}
-        canEdit
-        subjectType="item"
-        draftMode
-        formulaMetadata={metadata}
-        validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(attributeId, formula) =>
-          updateBridge(attributeId, { type: "formula", formula })
+    <SheetAttributesSection
+      definitions={displayDefinitions}
+      bridges={values.attributes}
+      canEdit
+      subjectType="item"
+      draftMode
+      compactCards
+      formulaMetadata={metadata}
+      validationOptionLabels={validationOptionLabels}
+      onSaveFormula={(attributeId, formula) =>
+        updateBridge(attributeId, { type: "formula", formula })
+      }
+      onSaveValue={updateBridge}
+      onReset={(attributeId) => {
+        const definition = definitions[attributeId];
+        if (definition) {
+          updateBridge(attributeId, structuredClone(definition.default_value));
         }
-        onSaveValue={updateBridge}
-        onReset={(attributeId) => {
-          const definition = definitions[attributeId];
-          if (definition) {
-            updateBridge(attributeId, structuredClone(definition.default_value));
-          }
-        }}
-        onAttach={(attributeId) => {
-          const definition = definitions[attributeId];
-          if (!definition) {
-            return;
-          }
-          onChange({
-            ...values,
-            attributes: {
-              ...values.attributes,
-              [attributeId]: {
-                relationship_id: makeId("item_attribute"),
-                attribute_id: attributeId,
-                value: structuredClone(definition.default_value),
-                evaluated_value: null,
-                evaluation_error: null
-              }
+      }}
+      onAttach={(attributeId) => {
+        const definition = definitions[attributeId];
+        if (!definition) {
+          return;
+        }
+        onChange({
+          ...values,
+          attributes: {
+            ...values.attributes,
+            [attributeId]: {
+              relationship_id: makeId("item_attribute"),
+              attribute_id: attributeId,
+              value: structuredClone(definition.default_value),
+              evaluated_value: null,
+              evaluation_error: null
             }
-          });
-        }}
-        onDetach={(attributeId) => {
-          const attributes = { ...values.attributes };
-          delete attributes[attributeId];
-          onChange({ ...values, attributes });
-        }}
-      />
-    </section>
+          }
+        });
+      }}
+      onDetach={(attributeId) => {
+        const attributes = { ...values.attributes };
+        delete attributes[attributeId];
+        onChange({ ...values, attributes });
+      }}
+    />
   );
 }

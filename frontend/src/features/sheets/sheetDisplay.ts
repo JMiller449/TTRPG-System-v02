@@ -21,8 +21,7 @@ export type PlayerSheetTab =
   | "backstory"
   | "notes"
   | "action_history"
-  | "formula_stats"
-  | "snapshot"
+  | "management"
   | "resistances";
 
 export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({
@@ -32,10 +31,7 @@ export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({
 
 export type HealthDamageType = DamageType | "";
 
-export function canManageActionReactionPoints(
-  mode: "player" | "gm",
-  kind: SheetKind
-): boolean {
+export function canManageActionReactionPoints(mode: "player" | "gm", kind: SheetKind): boolean {
   return (mode === "player" && kind === "player") || (mode === "gm" && kind === "enemy");
 }
 

@@ -5,9 +5,7 @@ import type { SheetActionBridgePayload } from "@/infrastructure/ws/requestBuilde
 export function selectExplicitAssignedSheetActionIds(
   assignedActions: AssignedSheetAction[]
 ): Set<string> {
-  return new Set(
-    assignedActions.filter((entry) => entry.bridge).map((entry) => entry.actionId)
-  );
+  return new Set(assignedActions.filter((entry) => entry.bridge).map((entry) => entry.actionId));
 }
 
 export function selectOrderedSheetActions(

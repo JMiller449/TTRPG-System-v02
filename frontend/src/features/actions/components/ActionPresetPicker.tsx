@@ -5,11 +5,13 @@ import { Field } from "@/shared/ui/Field";
 export function ActionPresetPicker({
   presets,
   onApply,
-  disabled = false
+  disabled = false,
+  showIntro = true
 }: {
   presets: ActionPresetTemplate[];
   onApply: (preset: ActionPresetTemplate) => void;
   disabled?: boolean;
+  showIntro?: boolean;
 }): JSX.Element | null {
   const [selectedPresetId, setSelectedPresetId] = useState("");
   if (presets.length === 0) {
@@ -21,13 +23,15 @@ export function ActionPresetPicker({
 
   return (
     <section className="stack">
-      <div>
-        <h3>Start from an Action Preset</h3>
-        <p className="muted">
-          Presets create an editable draft. Weapon presets require an explicit source item when
-          performed; spell presets require selecting a proficiency before saving.
-        </p>
-      </div>
+      {showIntro ? (
+        <div>
+          <h3>Start from an Action Preset</h3>
+          <p className="muted">
+            Presets create an editable draft. Weapon presets require an explicit source item when
+            performed; spell presets require selecting a proficiency before saving.
+          </p>
+        </div>
+      ) : null}
       <div className="inline-actions">
         <Field label="Action Preset">
           <select

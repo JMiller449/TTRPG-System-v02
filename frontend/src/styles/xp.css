@@ -383,6 +383,23 @@
   align-content: start;
 }
 
+.sheet-kills-section__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 35%);
+  padding-bottom: 0.75rem;
+}
+
+.sheet-kill-create-dialog .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.sheet-kill-create-dialog__actions {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
 .sheet-kill-history__header {
   display: flex;
   justify-content: space-between;

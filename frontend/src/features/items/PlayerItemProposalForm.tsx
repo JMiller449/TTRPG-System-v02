@@ -4,9 +4,11 @@ import type { PlayerItemSubmissionPayload } from "@/infrastructure/ws/requestBui
 import { Field } from "@/shared/ui/Field";
 
 export function PlayerItemProposalForm({
+  embedded = false,
   pendingItems,
   onSubmit
 }: {
+  embedded?: boolean;
   pendingItems: ItemDefinition[];
   onSubmit: (item: PlayerItemSubmissionPayload) => void;
 }): JSX.Element {
@@ -35,13 +37,19 @@ export function PlayerItemProposalForm({
       className="character-sheet__section stack player-item-proposal"
       aria-labelledby="propose-item-title"
     >
-      <div>
-        <h4 id="propose-item-title">Propose a New Item</h4>
-        <p className="muted">
-          The DM must approve a proposed item before it is added to your inventory. Approved
-          proposals become available to every player.
-        </p>
-      </div>
+      {!embedded ? (
+        <div>
+          <h4 id="propose-item-title">Propose a New Item</h4>
+          <p className="muted">
+            The DM must approve a proposed item before it is added to your inventory. Approved
+            proposals become available to every player.
+          </p>
+        </div>
+      ) : (
+        <h4 id="propose-item-title" className="r6-sr-only">
+          Item proposal details
+        </h4>
+      )}
       <div className="inline-group">
         <Field label="Name">
           <input value={name} onChange={(event) => setName(event.target.value)} />

@@ -173,7 +173,11 @@ body:has(.r6-theme) {
   font-weight: 750;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
 
 .r6-button:not(:disabled):hover {
@@ -217,7 +221,9 @@ body:has(.r6-theme) {
 }
 
 @supports not (color: color-mix(in srgb, white, black)) {
-  .r6-chip--success { border-color: rgba(88, 240, 179, 0.45); }
+  .r6-chip--success {
+    border-color: rgba(88, 240, 179, 0.45);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

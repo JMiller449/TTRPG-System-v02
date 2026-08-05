@@ -4,10 +4,7 @@ import {
   toActionDefinitionPayload,
   toActionEditorValues
 } from "@/features/actions/actionEditorValues";
-import {
-  toItemDefinitionPayload,
-  toItemEditorValues
-} from "@/features/items/itemEditorValues";
+import { toItemDefinitionPayload, toItemEditorValues } from "@/features/items/itemEditorValues";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";

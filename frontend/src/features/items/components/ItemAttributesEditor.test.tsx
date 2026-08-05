@@ -1,3 +1,7 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
@@ -42,13 +46,16 @@ describe("ItemAttributesEditor", () => {
       />
     );
 
-    expect(markup).toContain("Attach named values");
+    expect(markup).toContain("sheet-attribute-summary");
     expect(markup).toContain("Proficiency");
-    expect(markup).toContain('placeholder="Search proficiency catalog"');
-    expect(markup).toContain('value="Long Swords"');
+    expect(markup).toContain("Add Existing");
+    expect(markup).not.toContain("Attach Attribute");
+    expect(markup).not.toContain('placeholder="Search proficiency catalog"');
+    expect(markup).not.toContain("Save Value");
   });
 
-  it("does not offer missing proficiency references as selectable choices", () => {
+  it("does not offer missing proficiency references in the focused editor", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const values = createEmptyItemValues();
     values.attributes.weapon_proficiency = {
       relationship_id: "required_attribute_weapon_proficiency",
@@ -58,25 +65,37 @@ describe("ItemAttributesEditor", () => {
       evaluation_error: null
     };
 
-    const markup = renderToStaticMarkup(
-      <ItemAttributesEditor
-        values={values}
-        definitions={{
-          weapon_proficiency: {
-            id: "weapon_proficiency",
-            name: "Proficiency",
-            subject_types: ["item"],
-            value_type: "reference",
-            default_value: { type: "reference", value: "" },
-            reference_kind: "proficiency",
-            required: false
-          }
-        }}
-        proficiencies={{}}
-        metadata={null}
-        onChange={() => undefined}
-      />
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <ItemAttributesEditor
+          values={values}
+          definitions={{
+            weapon_proficiency: {
+              id: "weapon_proficiency",
+              name: "Proficiency",
+              subject_types: ["item"],
+              value_type: "reference",
+              default_value: { type: "reference", value: "" },
+              reference_kind: "proficiency",
+              required: false
+            }
+          }}
+          proficiencies={{}}
+          metadata={null}
+          onChange={() => undefined}
+        />
+      );
+    });
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Edit Proficiency"]'
     );
+    await act(async () => editButton?.click());
+    const markup = container.querySelector<HTMLElement>('[role="dialog"]')?.innerHTML ?? "";
 
     expect(markup).toContain('placeholder="Search proficiency catalog"');
     expect(markup).toContain("Missing proficiency reference: deleted_proficiency");
@@ -84,6 +103,9 @@ describe("ItemAttributesEditor", () => {
     expect(markup).not.toContain("Save Value");
     expect(markup).toContain('value=""');
     expect(markup).not.toContain('value="deleted_proficiency"');
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   it("sorts and deduplicates authoritative proficiency definitions", () => {

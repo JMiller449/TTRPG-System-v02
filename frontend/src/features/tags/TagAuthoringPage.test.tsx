@@ -31,6 +31,7 @@ describe("TagAuthoringPage validation", () => {
     const createButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Create Tag"
     );
+    expect(container.querySelector(".authoring-workspace__editor--vertical")).not.toBeNull();
     expect(nameInput?.required).toBe(true);
     expect(nameInput?.getAttribute("aria-invalid")).toBe("false");
     expect(createButton?.disabled).toBe(false);

@@ -122,6 +122,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
     >
       <CatalogEditorLayout
         catalogLabel="Formula Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="formulas"

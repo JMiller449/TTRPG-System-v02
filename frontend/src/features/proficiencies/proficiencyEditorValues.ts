@@ -32,14 +32,10 @@ export function toProficiencyEditorValues(
   };
 }
 
-export function hasValidProficiencyEditorValues(
-  values: ProficiencyEditorValues
-): boolean {
+export function hasValidProficiencyEditorValues(values: ProficiencyEditorValues): boolean {
   const defaultGrowthRate = Number(values.defaultGrowthRate);
   return (
-    values.name.trim().length > 0 &&
-    Number.isFinite(defaultGrowthRate) &&
-    defaultGrowthRate >= 0
+    values.name.trim().length > 0 && Number.isFinite(defaultGrowthRate) && defaultGrowthRate >= 0
   );
 }
 

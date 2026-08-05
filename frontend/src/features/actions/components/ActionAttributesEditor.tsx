@@ -65,57 +65,49 @@ export function ActionAttributesEditor({
   };
 
   return (
-    <section className="stack">
-      <div>
-        <h3>Attributes</h3>
-        <p className="muted">
-          Attributes describe this action (range, mana cost, and so on). They only change a roll
-          when a formula or step actually references them.
-        </p>
-      </div>
-      <SheetAttributesSection
-        definitions={displayDefinitions}
-        bridges={values.attributes}
-        canEdit
-        subjectType="action"
-        draftMode
-        formulaMetadata={metadata}
-        validationOptionLabels={validationOptionLabels}
-        onSaveFormula={(attributeId, formula) =>
-          updateBridge(attributeId, { type: "formula", formula })
+    <SheetAttributesSection
+      definitions={displayDefinitions}
+      bridges={values.attributes}
+      canEdit
+      compactCards
+      subjectType="action"
+      draftMode
+      formulaMetadata={metadata}
+      validationOptionLabels={validationOptionLabels}
+      onSaveFormula={(attributeId, formula) =>
+        updateBridge(attributeId, { type: "formula", formula })
+      }
+      onSaveValue={updateBridge}
+      onReset={(attributeId) => {
+        const definition = definitions[attributeId];
+        if (definition) {
+          updateBridge(attributeId, structuredClone(definition.default_value));
         }
-        onSaveValue={updateBridge}
-        onReset={(attributeId) => {
-          const definition = definitions[attributeId];
-          if (definition) {
-            updateBridge(attributeId, structuredClone(definition.default_value));
-          }
-        }}
-        onAttach={(attributeId) => {
-          const definition = definitions[attributeId];
-          if (!definition) {
-            return;
-          }
-          onChange({
-            ...values,
-            attributes: {
-              ...values.attributes,
-              [attributeId]: {
-                relationship_id: makeId("action_attribute"),
-                attribute_id: attributeId,
-                value: structuredClone(definition.default_value),
-                evaluated_value: null,
-                evaluation_error: null
-              }
+      }}
+      onAttach={(attributeId) => {
+        const definition = definitions[attributeId];
+        if (!definition) {
+          return;
+        }
+        onChange({
+          ...values,
+          attributes: {
+            ...values.attributes,
+            [attributeId]: {
+              relationship_id: makeId("action_attribute"),
+              attribute_id: attributeId,
+              value: structuredClone(definition.default_value),
+              evaluated_value: null,
+              evaluation_error: null
             }
-          });
-        }}
-        onDetach={(attributeId) => {
-          const attributes = { ...values.attributes };
-          delete attributes[attributeId];
-          onChange({ ...values, attributes });
-        }}
-      />
-    </section>
+          }
+        });
+      }}
+      onDetach={(attributeId) => {
+        const attributes = { ...values.attributes };
+        delete attributes[attributeId];
+        onChange({ ...values, attributes });
+      }}
+    />
   );
 }

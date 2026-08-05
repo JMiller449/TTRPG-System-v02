@@ -20,7 +20,9 @@ export function selectOrderedFormulaDefinitions(
   formulaRecords: Record<string, FormulaDefinition>,
   formulaOrder: string[]
 ): FormulaDefinition[] {
-  return formulaOrder.map((id) => formulaRecords[id]).filter((formula): formula is FormulaDefinition => Boolean(formula));
+  return formulaOrder
+    .map((id) => formulaRecords[id])
+    .filter((formula): formula is FormulaDefinition => Boolean(formula));
 }
 
 export function buildCreateFormulaSubmission(

@@ -61,9 +61,12 @@ describe("ActionAttributesEditor", () => {
       />
     );
 
-    expect(markup).toContain("Attach Attribute");
+    expect(markup).toContain("sheet-attribute-summary");
+    expect(markup).toContain("Add Existing");
+    expect(markup).not.toContain("Attach Attribute");
+    expect(markup).not.toContain("Backend-evaluated named values for this action.");
+    expect(markup).not.toContain("Save Value");
     expect(markup).not.toContain("Attribute preset");
     expect(markup).not.toContain("Apply Attribute Preset");
-    expect(markup).not.toContain("Save Value");
   });
 });

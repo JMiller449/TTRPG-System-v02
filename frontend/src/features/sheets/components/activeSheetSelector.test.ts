@@ -98,7 +98,7 @@ describe("ActiveSheetSelector", () => {
     expect(markup).toContain("disabled");
   });
 
-  it("shows a despawn control when a client is provided", () => {
+  it("keeps lifecycle controls out of the selector when a client is provided", () => {
     const state = {
       ...initialState,
       serverState: {
@@ -123,7 +123,8 @@ describe("ActiveSheetSelector", () => {
       )
     );
 
-    expect(markup).toContain("Despawn");
+    expect(markup).toContain("Organize Sheets");
+    expect(markup).not.toContain("Despawn");
   });
 
   it("opens the spawned-sheet organizer in a modal", async () => {

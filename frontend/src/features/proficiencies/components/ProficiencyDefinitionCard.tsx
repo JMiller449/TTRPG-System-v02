@@ -9,8 +9,7 @@ export function ProficiencyDefinitionCard({
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
-  const categoryLabel =
-    proficiency.category === "weapon_family" ? "Weapon Family" : "Custom";
+  const categoryLabel = proficiency.category === "weapon_family" ? "Weapon Family" : "Custom";
 
   return (
     <article className="list-item list-item--block proficiency-definition-card">

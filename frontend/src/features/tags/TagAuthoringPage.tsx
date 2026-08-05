@@ -99,6 +99,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
     >
       <CatalogEditorLayout
         catalogLabel="Tag Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="tags"

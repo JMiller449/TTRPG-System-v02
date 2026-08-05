@@ -65,6 +65,35 @@ both the compatible roll mode and a `public` or `gm` Roll20 visibility choice.
 Public is the request default for older clients; choosing GM affects only that
 invocation and does not rewrite the action definition.
 
+On the GM character surface, direct assignment controls live on the action cards
+instead of in a separate horizontally scrolling manager. Add Existing opens a
+filtered action-catalog dialog. Create Action reuses the contextual validated
+Action editor, waits for the authoritative definition to arrive, and then sends
+the existing instance-action attachment request for the selected character.
+Item-granted actions remain managed through their source item rather than being
+detached from the action catalog.
+
+The standalone Action catalog keeps create and edit drafts beside the catalog,
+using the workspace's available width while the preset picker stays collapsed
+until requested. Its overview presents ordered step summaries with explicit
+Edit controls. Editing one step replaces the overview inside that same editor
+instead of increasing its height. The character-context editor uses the same
+focused view inside its existing modal and temporarily removes the preset
+sidebar, so it does not create a nested dialog. Returning to the overview
+retains the local draft.
+
+Within an Action draft, the optional Attributes disclosure uses compact value
+cards rather than permanent bridge editors. Add Existing opens a nested catalog
+dialog, and clicking an attached card opens its focused literal/formula editor;
+both update the same local Action draft without submitting it early.
+
+Styled-roll steps add one internal result level without opening another modal.
+The step overview owns the roll title and card presentation and summarizes a
+Primary Result plus, where supported, one optional Secondary Result. Simple
+cards require only the Primary Result; damage and portable-default cards may
+add the Secondary Result. Opening a result replaces the step overview with its
+label, formula source, expression, and tags, and returning retains the draft.
+
 Action create/update requests remain in the editor as correlated pending saves.
 The draft is retained if the server rejects the request. On success, the editor
 reconciles to and selects the authoritative action returned through state sync,
@@ -162,7 +191,7 @@ erase the record of the action that produced the reverted mutation.
   permissions, delivery acknowledgement, and rollback.
 - [`backend/tests/test_action_history.py`](../../backend/tests/test_action_history.py)
   covers bounded storage and redaction.
-- Frontend action authoring, quick action, roll-mode, and history tests live
+- Frontend action authoring, sheet execution, roll-mode, and history tests live
   under [`frontend/src/features/actions/`](../../frontend/src/features/actions/),
   [`frontend/src/features/rolls/`](../../frontend/src/features/rolls/), and the
   sheets feature.

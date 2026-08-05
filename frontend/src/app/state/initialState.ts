@@ -51,7 +51,7 @@ export const initialUiState: UIState = {
     bindingKey: null,
     bindingLabel: null
   },
-  gmView: "console",
+  gmView: "sheet_viewer",
   activeSheetId: null,
   templateBuilderSheetId: null,
   templateSearch: "",

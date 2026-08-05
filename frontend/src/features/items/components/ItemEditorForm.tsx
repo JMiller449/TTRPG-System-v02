@@ -36,6 +36,7 @@ export function ItemEditorForm({
   tagDefinitions,
   attributesEditor,
   effectEditor,
+  effectEditorFocused = false,
   pending = false,
   validationAttempted = false,
   editorKind = "item",
@@ -53,6 +54,7 @@ export function ItemEditorForm({
   tagDefinitions: Record<string, TagDefinition>;
   attributesEditor: ReactNode;
   effectEditor: ReactNode;
+  effectEditorFocused?: boolean;
   pending?: boolean;
   validationAttempted?: boolean;
   editorKind?: "item" | "template";
@@ -91,7 +93,9 @@ export function ItemEditorForm({
   };
 
   return (
-    <div className="item-editor stack">
+    <div
+      className={`item-editor stack${effectEditorFocused ? " item-editor--effect-focused" : ""}`}
+    >
       <div className="item-editor__heading">
         <h3>
           {editingItemId
@@ -324,7 +328,10 @@ export function ItemEditorForm({
       </details>
 
       {values.interactionType === "equippable" ? (
-        <details className="authoring-disclosure">
+        <details
+          className="authoring-disclosure item-editor__effects-disclosure"
+          open={effectEditorFocused || undefined}
+        >
           <summary>
             <span>
               <strong>Equipment effects</strong>

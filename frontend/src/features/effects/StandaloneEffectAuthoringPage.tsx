@@ -189,6 +189,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
     >
       <CatalogEditorLayout
         catalogLabel="Effect Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="effects"

@@ -4,7 +4,10 @@ import {
   initialSocketProtocolState,
   type SocketProtocolState
 } from "@/infrastructure/ws/eventAdapters";
-import { parseProtocolServerEvent, type ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
+import {
+  parseProtocolServerEvent,
+  type ProtocolApplicationRequest
+} from "@/infrastructure/ws/protocol";
 
 export type SocketProtocolClientUnsubscribe = () => void;
 

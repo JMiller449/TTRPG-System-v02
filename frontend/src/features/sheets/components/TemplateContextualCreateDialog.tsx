@@ -78,16 +78,6 @@ const DIALOG_COPY: Record<TemplateContextualEntityKind, { title: string; descrip
   }
 };
 
-const DIALOG_GUIDANCE: Record<TemplateContextualEntityKind, string> = {
-  attribute:
-    "Start with a name and value type. Formula sources and attachment options are advanced and can keep their defaults.",
-  proficiency:
-    "Name the training and choose its category. The description is optional but helps explain when it applies.",
-  item: "Choose the item type and complete Details first. Attributes, effects, granted actions, and GM metadata are optional.",
-  action:
-    "Use a preset when one fits. Otherwise, name the action and add only the steps it needs; roll mode and Attributes are optional."
-};
-
 function requestWithId(
   request: ProtocolApplicationRequest,
   requestId: string
@@ -101,6 +91,7 @@ export function TemplateContextualCreateDialog({
   serverState,
   formulaMetadata,
   augmentationTargetMetadata,
+  attachmentTarget,
   onSubmit,
   onClose
 }: {
@@ -109,6 +100,7 @@ export function TemplateContextualCreateDialog({
   serverState: ServerState;
   formulaMetadata: ActionFormulaAuthoringMetadata | null;
   augmentationTargetMetadata: AugmentationTargetMetadata | null;
+  attachmentTarget?: string;
   onSubmit: (submission: TemplateContextualCreateSubmission) => void;
   onClose: () => void;
 }): JSX.Element {
@@ -120,12 +112,38 @@ export function TemplateContextualCreateDialog({
   const [actionValues, setActionValues] = useState<ActionEditorValues>(
     createEmptyActionEditorValues
   );
+  const [actionStepFocused, setActionStepFocused] = useState(false);
   const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
+  const [itemEffectFocused, setItemEffectFocused] = useState(false);
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
   const validation = useFormValidationAttempt();
-  const copy = DIALOG_COPY[kind];
+  const isCharacterAttribute = kind === "attribute" && Boolean(attachmentTarget);
+  const isCharacterProficiency = kind === "proficiency" && Boolean(attachmentTarget);
+  const isCharacterAction = kind === "action" && Boolean(attachmentTarget);
+  const isCharacterItem = kind === "item" && Boolean(attachmentTarget);
+  const copy = isCharacterAttribute
+    ? {
+        title: "Create Attribute",
+        description: `Create a reusable Attribute and attach it to “${attachmentTarget}”.`
+      }
+    : isCharacterProficiency
+      ? {
+          title: "Create Proficiency",
+          description: `Create a reusable Proficiency and assign it to “${attachmentTarget}”.`
+        }
+      : isCharacterAction
+        ? {
+            title: "Create Action",
+            description: `Create a reusable Action and assign it to “${attachmentTarget}”.`
+          }
+        : isCharacterItem
+          ? {
+              title: "Create Item",
+              description: `Create a reusable Item and add one copy to “${attachmentTarget}”.`
+            }
+          : DIALOG_COPY[kind];
 
   const actions = useMemo(
     () => serverState.actionOrder.map((id) => serverState.actions[id]).filter(Boolean),
@@ -258,6 +276,7 @@ export function TemplateContextualCreateDialog({
   };
 
   const resetAugmentation = (): void => {
+    setItemEffectFocused(false);
     setEditingAugmentationId(null);
     setAugmentationValues(createEmptyAugmentationEditorValues());
   };
@@ -292,12 +311,15 @@ export function TemplateContextualCreateDialog({
       description={copy.description}
       pending={pending}
       size={kind === "attribute" || kind === "proficiency" ? "compact" : "large"}
+      dialogClassName={
+        isCharacterAction
+          ? "template-contextual-modal__dialog--character-action"
+          : isCharacterAttribute
+            ? "template-contextual-modal__dialog--character-attribute"
+            : undefined
+      }
       onClose={onClose}
     >
-      <div className="template-contextual-modal__guidance">
-        <strong>Quick start</strong>
-        <span>{DIALOG_GUIDANCE[kind]}</span>
-      </div>
       {kind === "attribute" ? (
         <AttributeEditorForm
           editingId={null}
@@ -351,7 +373,9 @@ export function TemplateContextualCreateDialog({
               selectorOptions={selectorOptions}
               formulaMetadata={formulaMetadata}
               values={augmentationValues}
+              focused={itemEffectFocused}
               onChange={setAugmentationValues}
+              onFocusedChange={setItemEffectFocused}
               onSubmit={submitAugmentation}
               onCancel={resetAugmentation}
               onEdit={(augmentation) => {
@@ -383,49 +407,69 @@ export function TemplateContextualCreateDialog({
               }}
             />
           }
+          effectEditorFocused={itemEffectFocused}
           onSubmit={submitItem}
           onCancel={onClose}
         />
       ) : null}
       {kind === "action" ? (
-        <div className="stack">
-          <ActionPresetPicker
-            presets={formulaMetadata?.action_preset_templates ?? []}
-            onApply={(preset) =>
-              setActionValues(
-                applyActionPresetTemplate(
-                  createEmptyActionEditorValues(),
-                  preset,
-                  serverState.attributes,
-                  () => makeId("action_attribute")
+        <div
+          className={
+            isCharacterAction
+              ? `template-contextual-action-workspace${actionStepFocused ? " template-contextual-action-workspace--step-focused" : ""}`
+              : "stack"
+          }
+        >
+          <div
+            className={
+              isCharacterAction ? "template-contextual-action-workspace__setup" : undefined
+            }
+          >
+            <ActionPresetPicker
+              presets={formulaMetadata?.action_preset_templates ?? []}
+              onApply={(preset) =>
+                setActionValues(
+                  applyActionPresetTemplate(
+                    createEmptyActionEditorValues(),
+                    preset,
+                    serverState.attributes,
+                    () => makeId("action_attribute")
+                  )
                 )
-              )
+              }
+            />
+          </div>
+          <div
+            className={
+              isCharacterAction ? "template-contextual-action-workspace__editor" : undefined
             }
-          />
-          <ActionEditorForm
-            editingActionId={null}
-            values={actionValues}
-            pending={pending}
-            validationAttempted={validation.attempted}
-            onChange={setActionValues}
-            onSubmit={submitAction}
-            onCancel={onClose}
-            metadata={formulaMetadata}
-            proficiencies={proficiencies}
-            formulas={formulas}
-            standaloneEffects={standaloneEffects}
-            conditions={conditions}
-            validationError={actionValidationError}
-            attributesEditor={
-              <ActionAttributesEditor
-                values={actionValues}
-                definitions={serverState.attributes}
-                proficiencies={serverState.proficiencies}
-                metadata={formulaMetadata}
-                onChange={setActionValues}
-              />
-            }
-          />
+          >
+            <ActionEditorForm
+              editingActionId={null}
+              values={actionValues}
+              pending={pending}
+              validationAttempted={validation.attempted}
+              onChange={setActionValues}
+              onSubmit={submitAction}
+              onCancel={onClose}
+              metadata={formulaMetadata}
+              proficiencies={proficiencies}
+              formulas={formulas}
+              standaloneEffects={standaloneEffects}
+              conditions={conditions}
+              validationError={actionValidationError}
+              onFocusedStepChange={(stepId) => setActionStepFocused(Boolean(stepId))}
+              attributesEditor={
+                <ActionAttributesEditor
+                  values={actionValues}
+                  definitions={serverState.attributes}
+                  proficiencies={serverState.proficiencies}
+                  metadata={formulaMetadata}
+                  onChange={setActionValues}
+                />
+              }
+            />
+          </div>
         </div>
       ) : null}
     </ModalDialog>

@@ -61,13 +61,16 @@ export function TemplateAttributesSection({
   };
 
   return (
-    <section className="template-builder__section stack" aria-labelledby="template-attributes-title">
+    <section
+      className="template-builder__section stack"
+      aria-labelledby="template-attributes-title"
+    >
       <div className="template-builder__section-heading">
         <div>
           <h3 id="template-attributes-title">Attributes</h3>
           <p className="muted">
-            Optional named values for campaign-specific rules, such as movement speed, ancestry,
-            or reaction count. Most templates do not need a custom Attribute.
+            Optional named values for campaign-specific rules, such as movement speed, ancestry, or
+            reaction count. Most templates do not need a custom Attribute.
           </p>
         </div>
         {onCreateNew ? (
@@ -86,7 +89,9 @@ export function TemplateAttributesSection({
         canEdit
         subjectType="sheet"
         formulaMetadata={metadata}
-        onSaveFormula={(attributeId, formula) => updateBridge(attributeId, { type: "formula", formula })}
+        onSaveFormula={(attributeId, formula) =>
+          updateBridge(attributeId, { type: "formula", formula })
+        }
         onSaveValue={updateBridge}
         onReset={(attributeId) => {
           const definition = definitions[attributeId];

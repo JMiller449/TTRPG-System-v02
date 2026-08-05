@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  COMMON_FORMULA_TAGS,
-  normalizeFormulaTags
-} from "@/features/formulas/formulaTags";
+import { COMMON_FORMULA_TAGS, normalizeFormulaTags } from "@/features/formulas/formulaTags";
 
 describe("formulaTags", () => {
   it("normalizes whitespace and case while preserving first-seen order", () => {

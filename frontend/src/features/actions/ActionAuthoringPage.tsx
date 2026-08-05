@@ -50,6 +50,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
 
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
   const [values, setValues] = useState<ActionEditorValues>(createEmptyActionEditorValues);
+  const [stepFocused, setStepFocused] = useState(false);
   const [pendingSave, setPendingSave] = useState<{
     requestId: string;
     actionId: string;
@@ -110,6 +111,22 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     beginCreation(folderId);
     setEditingActionId(null);
     setValues(createEmptyActionEditorValues());
+    setStepFocused(false);
+    setSaveConfirmation(null);
+    validation.reset();
+  };
+  const openAction = (actionId: string): void => {
+    if (pendingSave) {
+      return;
+    }
+    const action = actionRecords[actionId];
+    if (!action) {
+      return;
+    }
+    beginCreation(null);
+    setEditingActionId(action.id);
+    setValues(toActionEditorValues(action));
+    setStepFocused(false);
     setSaveConfirmation(null);
     validation.reset();
   };
@@ -237,45 +254,45 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             entityLabel="action"
             emptyMessage="No actions created yet."
             onCreateEntry={startNewAction}
-            onSelect={(actionId) => {
-              if (pendingSave) {
-                return;
-              }
-              beginCreation(null);
-              const action = actionRecords[actionId];
-              if (!action) {
-                return;
-              }
-              setEditingActionId(action.id);
-              setValues(toActionEditorValues(action));
-              setSaveConfirmation(null);
-              validation.reset();
-            }}
+            onSelect={openAction}
           />
         }
       >
         <div className="stack action-authoring-editor">
-          <ActionPresetPicker
-            presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
-            disabled={Boolean(pendingSave)}
-            onApply={(preset) => {
-              if (pendingSave) {
-                return;
-              }
-              setEditingActionId(null);
-              beginCreation(null);
-              setValues(
-                applyActionPresetTemplate(
-                  createEmptyActionEditorValues(),
-                  preset,
-                  attributeDefinitions,
-                  () => makeId("action_attribute")
-                )
-              );
-              setSaveConfirmation(null);
-              validation.reset();
-            }}
-          />
+          {!stepFocused ? (
+            <details className="authoring-disclosure action-authoring-preset-disclosure">
+              <summary>
+                <span>
+                  <strong>Start from a preset</strong>
+                  <small>Optional shortcuts for common Actions</small>
+                </span>
+              </summary>
+              <div className="authoring-disclosure__body">
+                <ActionPresetPicker
+                  presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
+                  disabled={Boolean(pendingSave)}
+                  showIntro={false}
+                  onApply={(preset) => {
+                    if (pendingSave) {
+                      return;
+                    }
+                    setEditingActionId(null);
+                    beginCreation(null);
+                    setValues(
+                      applyActionPresetTemplate(
+                        createEmptyActionEditorValues(),
+                        preset,
+                        attributeDefinitions,
+                        () => makeId("action_attribute")
+                      )
+                    );
+                    setSaveConfirmation(null);
+                    validation.reset();
+                  }}
+                />
+              </div>
+            </details>
+          ) : null}
           {saveConfirmation ? (
             <p className="action-authoring-feedback" role="status">
               {saveConfirmation}
@@ -298,13 +315,17 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
             validationError={validationError}
             validationAttempted={validation.attempted}
             pending={Boolean(pendingSave)}
+            onFocusedStepChange={(stepId) => setStepFocused(Boolean(stepId))}
             attributesEditor={
               <ActionAttributesEditor
                 values={values}
                 definitions={attributeDefinitions}
                 proficiencies={proficiencyRecords}
                 metadata={actionFormulaAuthoringMetadata}
-                onChange={setValues}
+                onChange={(nextValues) => {
+                  setValues(nextValues);
+                  setSaveConfirmation(null);
+                }}
               />
             }
           />

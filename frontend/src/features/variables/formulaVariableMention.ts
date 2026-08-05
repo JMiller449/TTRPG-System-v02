@@ -6,10 +6,7 @@ export interface ActiveFormulaMention {
 
 const MENTION_PATTERN = /(^|[\s([{,:+\-*/=<>!&|%?])@([A-Za-z0-9_.]*)$/;
 
-export function activeFormulaMention(
-  text: string,
-  cursor: number
-): ActiveFormulaMention | null {
+export function activeFormulaMention(text: string, cursor: number): ActiveFormulaMention | null {
   const prefix = text.slice(0, cursor);
   const match = MENTION_PATTERN.exec(prefix);
   if (!match) {

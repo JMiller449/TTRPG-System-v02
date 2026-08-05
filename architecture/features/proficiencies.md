@@ -72,10 +72,13 @@ the authoritative registry and visibly rejects stale IDs rather than retaining
 free-text references.
 
 Players see their assigned character's current capped percentage, use count,
-and growth rate. Definition and
-manual bridge management remains DM-owned; progression changes occur through
-allowed backend action steps, while the first qualifying action use may create
-the missing zero-use bridge automatically.
+and growth rate in a compact responsive card grid. A GM clicks a card to open a
+focused assignment/progression editor. Add Existing opens the reusable
+Proficiency catalog, while Create Proficiency opens the shared definition
+editor and links the new definition only after its authoritative creation
+response succeeds. Definition and manual bridge management remains DM-owned;
+progression changes occur through allowed backend action steps, while the first
+qualifying action use may create the missing zero-use bridge automatically.
 
 ## Principal tests
 

@@ -111,6 +111,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
     >
       <CatalogEditorLayout
         catalogLabel="Proficiency Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="proficiencies"

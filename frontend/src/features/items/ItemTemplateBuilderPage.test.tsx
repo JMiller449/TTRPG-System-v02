@@ -23,6 +23,7 @@ describe("item template navigation", () => {
     const markup = renderPage(<ItemMakerPage client={client} />);
 
     expect(markup).toContain("Item / Equipment Maker");
+    expect(markup).toContain("authoring-workspace__editor--vertical");
     expect(markup).toContain("Use a Template");
     expect(markup).not.toContain("Manage Item Templates");
     expect(markup).not.toContain("New Item Template");

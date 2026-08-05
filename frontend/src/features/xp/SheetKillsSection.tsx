@@ -3,9 +3,12 @@ import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
   buildGetXpTrackerRequest,
+  buildRecordKillRequest,
   buildRecordPlayerKillRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { Field } from "@/shared/ui/Field";
+import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
@@ -30,6 +33,11 @@ export function SheetKillsSection({
   const submittingRequestRef = useRef<string | null>(null);
   const [selectedMobId, setSelectedMobId] = useState("");
   const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [gmKillDialogOpen, setGmKillDialogOpen] = useState(false);
+  const [gmMonsterChoice, setGmMonsterChoice] = useState("");
+  const [gmCustomMonsterName, setGmCustomMonsterName] = useState("");
+  const [gmCustomXp, setGmCustomXp] = useState("0");
+  const [gmKillNotes, setGmKillNotes] = useState("");
 
   useEffect(() => {
     if (requestedInstanceRef.current === instanceId) return;
@@ -51,15 +59,55 @@ export function SheetKillsSection({
           submittingRequestRef.current = null;
           setPendingRequestId(null);
           setSelectedMobId("");
+          setGmKillDialogOpen(false);
+          setGmMonsterChoice("");
+          setGmCustomMonsterName("");
+          setGmCustomXp("0");
+          setGmKillNotes("");
         }
       }),
     [client]
   );
 
   const trackerSheet = xpTracker?.sheets.find((entry) => entry.instance_id === instanceId);
+  const selectedParty = xpTracker?.parties.find((party) =>
+    party.members.some((member) => member.instance_id === instanceId)
+  );
+  const resolvedParticipants =
+    selectedParty?.members ??
+    (trackerSheet ? [{ instance_id: trackerSheet.instance_id, name: trackerSheet.name }] : []);
+  const gmUsesCustomMonster = gmMonsterChoice === "custom";
+  const parsedCustomXp = Number(gmCustomXp);
+  const canSubmitGmKill =
+    Boolean(gmMonsterChoice) &&
+    (!gmUsesCustomMonster ||
+      (Boolean(gmCustomMonsterName.trim()) &&
+        Number.isFinite(parsedCustomXp) &&
+        parsedCustomXp >= 0));
+
+  const closeGmKillDialog = (): void => {
+    if (pendingRequestId) return;
+    setGmKillDialogOpen(false);
+    setGmMonsterChoice("");
+    setGmCustomMonsterName("");
+    setGmCustomXp("0");
+    setGmKillNotes("");
+  };
 
   return (
     <section className="sheet-kills-section">
+      {xpTracker?.can_manage ? (
+        <div className="sheet-kills-section__toolbar">
+          <button
+            className="button"
+            type="button"
+            disabled={!trackerSheet}
+            onClick={() => setGmKillDialogOpen(true)}
+          >
+            Add Kill
+          </button>
+        </div>
+      ) : null}
       {xpTracker && !xpTracker.can_manage ? (
         <form
           className="xp-player-kill-form"
@@ -152,6 +200,119 @@ export function SheetKillsSection({
             </div>
           ))}
         </div>
+      ) : null}
+      {xpTracker?.can_manage && gmKillDialogOpen ? (
+        <ModalDialog
+          title="Add Kill"
+          description={`Record a kill credited to “${trackerSheet?.name ?? "this character"}”. Current party membership determines the participants.`}
+          pending={pendingRequestId !== null}
+          onClose={closeGmKillDialog}
+        >
+          <form
+            className="stack sheet-kill-create-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!canSubmitGmKill || submittingRequestRef.current) return;
+              const requestId = makeId("request");
+              submittingRequestRef.current = requestId;
+              setPendingRequestId(requestId);
+              client.sendProtocolRequest(
+                buildRecordKillRequest({
+                  killId: makeId("kill"),
+                  creditedInstanceId: instanceId,
+                  monsterSheetId: gmUsesCustomMonster ? null : gmMonsterChoice,
+                  monsterName: gmUsesCustomMonster ? gmCustomMonsterName.trim() : null,
+                  baseXp: gmUsesCustomMonster ? parsedCustomXp : null,
+                  notes: gmKillNotes,
+                  requestId
+                }),
+                `Record kill: ${
+                  gmUsesCustomMonster
+                    ? gmCustomMonsterName.trim()
+                    : (xpTracker.mobs.find((mob) => mob.sheet_id === gmMonsterChoice)?.name ??
+                      "monster")
+                }`
+              );
+            }}
+          >
+            <CatalogEntityPicker
+              catalog="sheet_templates"
+              label="Defeated enemy"
+              placeholder="Search enemy templates"
+              selectedId={gmMonsterChoice}
+              disabled={pendingRequestId !== null}
+              options={[
+                ...xpTracker.mobs.map((mob) => ({
+                  id: mob.sheet_id,
+                  label: mob.name,
+                  secondary: `${formatXp(mob.xp_value)} XP`,
+                  value: mob.sheet_id
+                })),
+                {
+                  id: "custom",
+                  label: "Arbitrary kill",
+                  keywords: ["custom"],
+                  value: "custom"
+                }
+              ]}
+              emptyMessage="No enemy templates available."
+              onSelect={setGmMonsterChoice}
+            />
+            {gmUsesCustomMonster ? (
+              <div className="xp-custom-kill-fields">
+                <Field label="Enemy name">
+                  <input
+                    value={gmCustomMonsterName}
+                    disabled={pendingRequestId !== null}
+                    onChange={(event) => setGmCustomMonsterName(event.target.value)}
+                  />
+                </Field>
+                <Field label="Base XP">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={gmCustomXp}
+                    disabled={pendingRequestId !== null}
+                    onChange={(event) => setGmCustomXp(event.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : null}
+            <Field label="Notes">
+              <input
+                value={gmKillNotes}
+                disabled={pendingRequestId !== null}
+                onChange={(event) => setGmKillNotes(event.target.value)}
+              />
+            </Field>
+            <div className="xp-resolved-party">
+              <span>Participants</span>
+              <strong>{resolvedParticipants.length}</strong>
+              <small>
+                {resolvedParticipants.map((participant) => participant.name).join(", ") ||
+                  "No participants available"}
+              </small>
+            </div>
+            <div className="inline-actions sheet-kill-create-dialog__actions">
+              <button
+                className="button"
+                type="submit"
+                disabled={!canSubmitGmKill || pendingRequestId !== null}
+              >
+                {pendingRequestId ? "Recording…" : "Record Kill"}
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={pendingRequestId !== null}
+                onClick={closeGmKillDialog}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </ModalDialog>
       ) : null}
     </section>
   );

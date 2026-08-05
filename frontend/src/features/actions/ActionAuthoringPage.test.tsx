@@ -22,6 +22,45 @@ function renderPage(
 }
 
 describe("ActionAuthoringPage", () => {
+  it("keeps dedicated Action editing inline and focuses steps without opening a dialog", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const client = {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      endSession: vi.fn(),
+      sendProtocolRequest: vi.fn(),
+      authenticate: vi.fn(),
+      authenticateWithCode: vi.fn(),
+      onEvent: vi.fn(() => () => undefined)
+    } as unknown as GameClient;
+
+    await act(async () => {
+      renderPage(root, structuredClone(initialState), client);
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(
+      container.querySelector('.authoring-workspace__editor input[placeholder="e.g. Mana burst"]')
+    ).not.toBeNull();
+
+    const addStepButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Step"
+    );
+    await act(async () => {
+      addStepButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector(".action-editor--step-focused")).not.toBeNull();
+    expect(container.textContent).toContain("Back to Action");
+
+    await act(async () => root.unmount());
+  });
+
   it("retains failed drafts and reconciles to the authoritative action after success", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");

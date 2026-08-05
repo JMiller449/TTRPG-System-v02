@@ -32,7 +32,6 @@ export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 export type IntentFeedbackStatus = "pending" | "success" | "error";
 export type Roll20BridgeConnectionStatus = "unknown" | "connected" | "disconnected";
 export type GMView =
-  | "console"
   | "sheet_viewer"
   | "action_history"
   | "template_library"

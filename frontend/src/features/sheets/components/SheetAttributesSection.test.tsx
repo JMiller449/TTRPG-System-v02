@@ -1,5 +1,9 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SheetAttributesSection } from "@/features/sheets/components/SheetAttributesSection";
 
 const definitions = {
@@ -68,7 +72,7 @@ describe("SheetAttributesSection", () => {
     expect(markup).toContain("Reset to Default");
   });
 
-  it("uses standalone cards without a repeated title in page layout", () => {
+  it("uses compact summary cards with formula help in page layout", () => {
     const markup = renderToStaticMarkup(
       <SheetAttributesSection
         definitions={definitions}
@@ -81,12 +85,16 @@ describe("SheetAttributesSection", () => {
     );
 
     expect(markup).toContain("sheet-attributes--page");
+    expect(markup).toContain("sheet-attribute-summary");
     expect(markup).toContain('aria-label="Attribute values"');
     expect(markup).toContain("Informational reaction amount.");
+    expect(markup).toContain("Formula:");
+    expect(markup).toContain("@registration + 2");
+    expect(markup).toContain("@registration → stats.registration");
     expect(markup).not.toContain("sheet-attributes-title");
   });
 
-  it("keeps page-layout attach controls outside the attribute card grid", () => {
+  it("moves page-layout attachment and creation into focused actions", () => {
     const markup = renderToStaticMarkup(
       <SheetAttributesSection
         definitions={{
@@ -107,11 +115,92 @@ describe("SheetAttributesSection", () => {
         onSaveFormula={() => undefined}
         onReset={() => undefined}
         onAttach={() => undefined}
+        onCreateNew={() => undefined}
       />
     );
 
-    expect(markup).toContain("sheet-attributes__attach");
-    expect(markup).toContain(">Attach Attribute</button>");
+    expect(markup).toContain("sheet-attributes__toolbar");
+    expect(markup).toContain(">Add Existing</button>");
+    expect(markup).toContain(">Create Attribute</button>");
+    expect(markup).not.toContain("Search Attribute catalog");
+    expect(markup).not.toContain("Save Formula");
+  });
+
+  it("opens focused add and edit dialogs from compact page cards", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onAttach = vi.fn();
+    const onCreateNew = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SheetAttributesSection
+          definitions={{
+            ...definitions,
+            optional_note: {
+              id: "optional_note",
+              name: "Optional Note",
+              description: "Optional text.",
+              subject_types: ["sheet"],
+              value_type: "text",
+              default_value: { type: "text", value: "" },
+              required: false
+            }
+          }}
+          bridges={bridges}
+          canEdit
+          pageLayout
+          onSaveFormula={() => undefined}
+          onReset={() => undefined}
+          onAttach={onAttach}
+          onCreateNew={onCreateNew}
+        />
+      );
+    });
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Edit Amount of Reactions"]'
+    );
+    await act(async () => editButton?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(
+      "Edit Amount of Reactions"
+    );
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Save Formula");
+
+    const closeEditButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close Edit Amount of Reactions"]'
+    );
+    await act(async () => closeEditButton?.click());
+
+    const addExistingButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Existing"
+    );
+    await act(async () => addExistingButton?.click());
+    const picker = container.querySelector<HTMLInputElement>(
+      '[role="dialog"] input[role="combobox"]'
+    );
+    await act(async () => picker?.focus());
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((entry) =>
+      entry.textContent?.includes("Optional Note")
+    );
+    await act(async () => option?.click());
+    const addButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Attribute"
+    );
+    await act(async () => addButton?.click());
+    expect(onAttach).toHaveBeenCalledWith("optional_note");
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+
+    const createButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Create Attribute"
+    );
+    await act(async () => createButton?.click());
+    expect(onCreateNew).toHaveBeenCalledOnce();
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   it("renders validated physical damage types as a multi-value dropdown", () => {

@@ -51,8 +51,8 @@ export function StateBackupPage({ client }: { client: GameClient }): JSX.Element
     <Panel title="State Backup">
       <div className="stack">
         <p className="muted">
-          Export and import the backend persisted-state envelope. Backups include private GM-only state, including
-          sheet access codes, so keep exported files somewhere safe.
+          Export and import the backend persisted-state envelope. Backups include private GM-only
+          state, including sheet access codes, so keep exported files somewhere safe.
         </p>
 
         <section className="stack" aria-labelledby="state-backup-export-title">
@@ -90,8 +90,8 @@ export function StateBackupPage({ client }: { client: GameClient }): JSX.Element
         <section className="stack" aria-labelledby="state-backup-import-title">
           <h3 id="state-backup-import-title">Import</h3>
           <p className="muted">
-            Import replaces the entire backend state, clears patch replay history, and forces connected clients to
-            resync from full snapshots.
+            Import replaces the entire backend state, clears patch replay history, and forces
+            connected clients to resync from full snapshots.
           </p>
           <input
             ref={fileInputRef}
@@ -116,10 +116,17 @@ export function StateBackupPage({ client }: { client: GameClient }): JSX.Element
             />
           </label>
           <div className="inline-group">
-            <button className="button button--secondary" onClick={() => fileInputRef.current?.click()}>
+            <button
+              className="button button--secondary"
+              onClick={() => fileInputRef.current?.click()}
+            >
               Choose JSON File
             </button>
-            <button className="button button--secondary" disabled={!importJson.trim()} onClick={requestImport}>
+            <button
+              className="button button--secondary"
+              disabled={!importJson.trim()}
+              onClick={requestImport}
+            >
               Import And Replace State
             </button>
           </div>

@@ -83,8 +83,11 @@ Per-session snapshot and patch filtering is described in
 [`frontend/src/features/auth/SessionLanding.tsx`](../../frontend/src/features/auth/SessionLanding.tsx)
 collects login codes. A player without a completed character selection is sent
 to [`PlayerEntry.tsx`](../../frontend/src/features/auth/PlayerEntry.tsx).
-DM code management is surfaced through
-[`SheetAccessCodesPanel.tsx`](../../frontend/src/features/auth/SheetAccessCodesPanel.tsx).
+DM code management is scoped to the selected character in the GM-only
+Management tab implemented by
+[`SheetManagementSection.tsx`](../../frontend/src/features/sheets/components/SheetManagementSection.tsx).
+It shows, copies, generates, or rotates that instance's active code; enemy
+instances do not expose player-code controls.
 Authentication truth and assigned state remain server-owned; the frontend only
 retains local connection/session presentation state and the selected active
 sheet ID.

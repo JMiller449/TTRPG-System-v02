@@ -307,12 +307,9 @@ export function toAugmentationEditorValues(
     selectorSameSourceItem: augmentation.effect.selector?.same_source_item ?? false,
     lifecycleMode: augmentation.lifecycle?.mode ?? "manual",
     lifecycleRemaining:
-      augmentation.lifecycle?.remaining != null
-        ? String(augmentation.lifecycle.remaining)
-        : "",
+      augmentation.lifecycle?.remaining != null ? String(augmentation.lifecycle.remaining) : "",
     expiresAt: augmentation.lifecycle?.expires_at ?? "",
-    removeWhenSourceInactive:
-      augmentation.lifecycle?.remove_when_source_inactive ?? false,
+    removeWhenSourceInactive: augmentation.lifecycle?.remove_when_source_inactive ?? false,
     lifecycleNotes: augmentation.lifecycle?.notes ?? "",
     stackingMode: augmentation.stacking?.mode ?? "unique",
     stackingMaxStacks:

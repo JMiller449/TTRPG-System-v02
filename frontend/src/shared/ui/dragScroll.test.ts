@@ -91,7 +91,9 @@ describe("dragScroll", () => {
     scroller.dispatchEvent(
       pointerEvent("pointerdown", { button: 0, clientX: 100, clientY: 10, pointerType: "touch" })
     );
-    scroller.dispatchEvent(pointerEvent("pointermove", { clientX: 10, clientY: 10, pointerType: "touch" }));
+    scroller.dispatchEvent(
+      pointerEvent("pointermove", { clientX: 10, clientY: 10, pointerType: "touch" })
+    );
 
     expect(scroller.scrollLeft).toBe(50);
   });

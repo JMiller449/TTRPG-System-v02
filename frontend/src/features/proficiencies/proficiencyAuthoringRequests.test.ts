@@ -8,9 +8,7 @@ import {
 } from "@/features/proficiencies/proficiencyAuthoringRequests";
 import { createEmptyProficiencyEditorValues } from "@/features/proficiencies/proficiencyEditorValues";
 
-function testProficiency(
-  overrides: Partial<ProficiencyDefinition> = {}
-): ProficiencyDefinition {
+function testProficiency(overrides: Partial<ProficiencyDefinition> = {}): ProficiencyDefinition {
   return {
     id: "longsword",
     name: "Longsword",

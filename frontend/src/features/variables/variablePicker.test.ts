@@ -77,9 +77,7 @@ describe("variablePicker", () => {
   it("builds formula entries with tokens and alias paths", () => {
     const entries = buildVariablePickerEntries(metadata, "formula");
     const arcane = entries.find((entry) => entry.key === "sheet.stats.arcane");
-    const templateArcane = entries.find(
-      (entry) => entry.key === "template.stats.arcane"
-    );
+    const templateArcane = entries.find((entry) => entry.key === "template.stats.arcane");
 
     expect(entries).toHaveLength(4);
     expect(arcane).toMatchObject({
@@ -152,9 +150,7 @@ describe("variablePicker", () => {
 
     const entries = buildVariablePickerEntries(attributeMetadata, "formula");
 
-    expect(
-      entries.find((entry) => entry.key === "sheet.attributes.level")
-    ).toMatchObject({
+    expect(entries.find((entry) => entry.key === "sheet.attributes.level")).toMatchObject({
       token: "@sheet_attribute_level",
       alias: {
         name: "sheet_attribute_level",
@@ -163,15 +159,13 @@ describe("variablePicker", () => {
       actionMutationAllowed: false
     });
     expect(
-      entries.find((entry) => entry.key === "action.attributes.action_base_spell_damage")
-        ?.alias
+      entries.find((entry) => entry.key === "action.attributes.action_base_spell_damage")?.alias
     ).toEqual({
       name: "base_spell_damage",
       path: ["action", "attributes", "action_base_spell_damage"]
     });
     expect(
-      entries.find((entry) => entry.key === "source_item.resolved.governing_stat")
-        ?.alias
+      entries.find((entry) => entry.key === "source_item.resolved.governing_stat")?.alias
     ).toEqual({
       name: "weapon_stat",
       path: ["source_item", "resolved", "governing_stat"]

@@ -27,7 +27,6 @@ import {
   updateResolveDamageActionStepFormula,
   updateSendMessageActionStepText,
   updateSendMessageActionStepFormula,
-  updateSendRollActionStep,
   type ActionEditorValues,
   type ProficiencyTrainingReference,
   type ResolveDamageEditorStep
@@ -42,6 +41,7 @@ import {
 } from "@/features/actions/actionStepMenu";
 import { ActionBoundedMutationStepEditor } from "@/features/actions/components/ActionBoundedMutationStepEditor";
 import { ActionRecordStepEditor } from "@/features/actions/components/ActionRecordStepEditor";
+import { ActionSendRollStepEditor } from "@/features/actions/components/ActionSendRollStepEditor";
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
   buildVariablePickerEntries,
@@ -74,7 +74,8 @@ export function ActionEditorForm({
   attributesEditor,
   validationError,
   validationAttempted = false,
-  pending = false
+  pending = false,
+  onFocusedStepChange
 }: {
   editingActionId: string | null;
   values: ActionEditorValues;
@@ -90,6 +91,7 @@ export function ActionEditorForm({
   validationError: string | null;
   validationAttempted?: boolean;
   pending?: boolean;
+  onFocusedStepChange?: (stepId: string | null) => void;
 }): JSX.Element {
   const defaultProficiencyId = proficiencies[0]?.id ?? "";
   const mutationTargets = buildVariablePickerEntries(metadata, "mutation").filter(
@@ -138,13 +140,20 @@ export function ActionEditorForm({
     undefined,
     formulaSearchContexts
   );
+  const selectedStepIndex = values.steps.findIndex((step) => step.step_id === selectedStepId);
+  const selectedStep = selectedStepIndex >= 0 ? values.steps[selectedStepIndex] : null;
+  const focusStep = (stepId: string | null): void => {
+    setSelectedStepId(stepId);
+    onFocusedStepChange?.(stepId);
+  };
 
   useEffect(() => {
-    if (selectedStepId && values.steps.some((step) => step.step_id === selectedStepId)) {
+    if (!selectedStepId || values.steps.some((step) => step.step_id === selectedStepId)) {
       return;
     }
-    setSelectedStepId(values.steps[0]?.step_id ?? null);
-  }, [selectedStepId, values.steps]);
+    setSelectedStepId(null);
+    onFocusedStepChange?.(null);
+  }, [selectedStepId, values.steps, onFocusedStepChange]);
 
   const addSelectedStep = (): void => {
     if (selectedMenuOption?.unavailableReason) {
@@ -161,7 +170,7 @@ export function ActionEditorForm({
       return;
     }
     onChange(nextValues);
-    setSelectedStepId(stepId);
+    focusStep(stepId);
   };
 
   const formulaMentionOptions = (stepId: string) => [
@@ -187,6 +196,49 @@ export function ActionEditorForm({
           : "Uses a shared formula that has since been deleted."}
       </p>
     );
+  };
+
+  const formulaSummary = (source: ResolveDamageEditorStep["amount"]): string => {
+    if (isCalculatedValueReference(source)) {
+      return `Calculated: ${source.variable_id}`;
+    }
+    if (isFormulaReference(source)) {
+      return formulas.find((formula) => formula.id === source.formula_id)?.id ?? "Shared formula";
+    }
+    return source.text.trim() || "Empty inline formula";
+  };
+
+  const stepSummary = (step: ActionEditorValues["steps"][number]): string => {
+    switch (step.type) {
+      case "calculate_value":
+        return `${step.variable_id} · ${formulaSummary(step.value)}`;
+      case "send_message":
+        return formulaSummary(step.message);
+      case "send_roll": {
+        const presentation =
+          step.presentation === "simple"
+            ? "Check / simple"
+            : step.presentation === "damage"
+              ? "Damage"
+              : "Portable default";
+        return `${step.title.trim() || "Untitled roll"} · ${presentation} · ${step.rolls.length} ${step.rolls.length === 1 ? "result" : "results"}`;
+      }
+      case "set_value":
+        return `${step.path.at(-1) ?? "Sheet value"} · ${formulaSummary(step.value)}`;
+      case "increment_value":
+      case "decrement_value":
+        return `${step.path.at(-1) ?? "Sheet value"} · ${formulaSummary(step.amount)}`;
+      case "resolve_damage":
+        return `${step.damage_type} · ${formulaSummary(step.amount)}`;
+      case "gain_proficiency_use":
+        return (step.proficiency_reference ?? "explicit") === "source_item_weapon"
+          ? `Source weapon · ${formulaSummary(step.amount)}`
+          : `${proficiencies.find((entry) => entry.id === step.proficiency_id)?.name ?? "Missing proficiency"} · ${formulaSummary(step.amount)}`;
+      case "apply_augmentation":
+        return `${step.operation === "remove" ? "Remove" : "Apply"} ${standaloneEffects.find((entry) => entry.id === step.augmentation_id)?.name ?? "missing effect"}`;
+      case "apply_condition_preset":
+        return `${step.operation === "remove" ? "Remove" : "Apply"} ${conditions.find((entry) => entry.id === step.condition_id)?.name ?? "missing condition"}`;
+    }
   };
 
   const formulaSourcePicker = (
@@ -277,11 +329,32 @@ export function ActionEditorForm({
   };
 
   return (
-    <div className="template-editor action-editor">
-      <h3 className="template-editor__title">
-        {editingActionId ? "Edit Action" : "Create Action"}
-      </h3>
+    <div
+      className={`template-editor action-editor${selectedStep ? " action-editor--step-focused" : ""}`}
+    >
+      {!selectedStep ? (
+        <h3 className="template-editor__title">
+          {editingActionId ? "Edit Action" : "Create Action"}
+        </h3>
+      ) : null}
       <div className="stack">
+        {selectedStep ? (
+          <div className="action-step-focus__navigation">
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => focusStep(null)}
+            >
+              Back to Action
+            </button>
+            <span>
+              <strong>
+                Step {selectedStepIndex + 1}: {actionStepLabel(selectedStep.type)}
+              </strong>
+              <small className="muted">Changes are kept in this Action draft.</small>
+            </span>
+          </div>
+        ) : null}
         <div className="action-editor__identity">
           <Field label="Name" required invalid={validationAttempted && !values.name.trim()}>
             <input
@@ -310,14 +383,16 @@ export function ActionEditorForm({
           </Field>
         </div>
 
-        <Field label="Notes">
-          <textarea
-            rows={2}
-            value={values.notes}
-            onChange={(event) => onChange({ ...values, notes: event.target.value })}
-            placeholder="GM-facing action notes"
-          />
-        </Field>
+        <div className="action-editor__notes">
+          <Field label="Notes">
+            <textarea
+              rows={2}
+              value={values.notes}
+              onChange={(event) => onChange({ ...values, notes: event.target.value })}
+              placeholder="GM-facing action notes"
+            />
+          </Field>
+        </div>
 
         <section className="action-step-builder stack">
           <div className="action-step-builder__header">
@@ -369,19 +444,21 @@ export function ActionEditorForm({
                 key={step.step_id}
               >
                 <div className="action-step-entry__header">
-                  <button
-                    className="action-step-entry__select"
-                    type="button"
-                    aria-expanded={selectedStepId === step.step_id}
-                    onClick={() => setSelectedStepId(step.step_id)}
-                  >
+                  <div className="action-step-entry__summary">
                     <span className="action-step-entry__order">{stepIndex + 1}</span>
                     <span>
                       <strong>{actionStepLabel(step.type)}</strong>
-                      <span className="muted">{step.step_id}</span>
+                      <span className="muted">{stepSummary(step)}</span>
                     </span>
-                  </button>
+                  </div>
                   <div className="action-step-entry__commands">
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={() => focusStep(step.step_id)}
+                    >
+                      Edit
+                    </button>
                     <button
                       className="button button--secondary"
                       type="button"
@@ -406,7 +483,7 @@ export function ActionEditorForm({
                       onClick={() => {
                         const duplicateStepId = makeId(actionStepIdPrefix(step.type));
                         onChange(duplicateActionStep(values, step.step_id, duplicateStepId));
-                        setSelectedStepId(duplicateStepId);
+                        focusStep(duplicateStepId);
                       }}
                     >
                       Duplicate
@@ -425,7 +502,7 @@ export function ActionEditorForm({
                     {step.type === "calculate_value" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
-                          <Field label={`Calculated Variable: ${step.step_id}`}>
+                          <Field label="Calculated Variable">
                             <input
                               value={step.variable_id}
                               pattern="[A-Za-z_][A-Za-z0-9_]*"
@@ -488,221 +565,20 @@ export function ActionEditorForm({
                         )}
                       </div>
                     ) : step.type === "send_roll" ? (
-                      <div className="list-item list-item--block" key={step.step_id}>
-                        <Field
-                          label="Roll Title"
-                          required
-                          invalid={validationAttempted && !step.title.trim()}
-                        >
-                          <input
-                            value={step.title}
-                            required
-                            aria-invalid={validationAttempted && !step.title.trim()}
-                            onChange={(event) =>
-                              onChange(
-                                updateSendRollActionStep(values, step.step_id, {
-                                  title: event.target.value
-                                })
-                              )
-                            }
-                          />
-                        </Field>
-                        <Field label="Roll20 Card">
-                          <select
-                            value={step.presentation ?? "default"}
-                            onChange={(event) => {
-                              const presentation = event.target.value as typeof step.presentation;
-                              onChange(
-                                updateSendRollActionStep(values, step.step_id, {
-                                  presentation,
-                                  rolls:
-                                    presentation === "simple" ? step.rolls.slice(0, 1) : step.rolls
-                                })
-                              );
-                            }}
-                          >
-                            <option value="simple">Check / simple</option>
-                            <option value="damage">Damage</option>
-                            <option value="default">Portable default</option>
-                          </select>
-                        </Field>
-                        {step.rolls.map((roll, rollIndex) => (
-                          <div
-                            className="list-item list-item--block"
-                            key={`${step.step_id}-${rollIndex}`}
-                          >
-                            <Field
-                              label={`Result ${rollIndex + 1} Label`}
-                              required
-                              invalid={validationAttempted && !roll.label.trim()}
-                            >
-                              <input
-                                value={roll.label}
-                                required
-                                aria-invalid={validationAttempted && !roll.label.trim()}
-                                onChange={(event) => {
-                                  const rolls = structuredClone(step.rolls);
-                                  rolls[rollIndex] = {
-                                    ...rolls[rollIndex],
-                                    label: event.target.value
-                                  };
-                                  onChange(
-                                    updateSendRollActionStep(values, step.step_id, { rolls })
-                                  );
-                                }}
-                              />
-                            </Field>
-                            <CatalogEntityPicker
-                              catalog="formulas"
-                              label={`Result ${rollIndex + 1} Source`}
-                              placeholder="Search formula catalog"
-                              selectedId={
-                                isFormulaReference(roll.value)
-                                  ? `global:${roll.value.formula_id}`
-                                  : "inline"
-                              }
-                              options={[
-                                {
-                                  id: "inline",
-                                  label: "Inline formula",
-                                  value: "inline"
-                                },
-                                ...(isFormulaReference(roll.value) &&
-                                !formulas
-                                  .map((formula) => formula.id)
-                                  .includes(roll.value.formula_id)
-                                  ? [
-                                      {
-                                        id: `global:${roll.value.formula_id}`,
-                                        label: `Missing global formula: ${roll.value.formula_id}`,
-                                        organizationEntryId: roll.value.formula_id,
-                                        disabledReason: "Missing definition",
-                                        value: `global:${roll.value.formula_id}`
-                                      }
-                                    ]
-                                  : []),
-                                ...formulas.map((formula) => ({
-                                  id: `global:${formula.id}`,
-                                  label: formula.id,
-                                  secondary: formula.formula.text,
-                                  keywords: [formula.id, "global"],
-                                  organizationEntryId: formula.id,
-                                  value: `global:${formula.id}`
-                                }))
-                              ]}
-                              emptyMessage="No formula sources available."
-                              onSelect={(sourceId) => {
-                                const rolls = structuredClone(step.rolls);
-                                const formulaId = sourceId.startsWith("global:")
-                                  ? sourceId.slice("global:".length)
-                                  : null;
-                                rolls[rollIndex] = {
-                                  ...rolls[rollIndex],
-                                  value: formulaId
-                                    ? { type: "formula_reference", formula_id: formulaId }
-                                    : { aliases: null, text: "" }
-                                };
-                                onChange(updateSendRollActionStep(values, step.step_id, { rolls }));
-                              }}
-                            />
-                            {isInlineFormula(roll.value) ? (
-                              <>
-                                <FormulaVariableInput
-                                  label={`Result ${rollIndex + 1} Formula`}
-                                  rows={2}
-                                  value={roll.value.text}
-                                  options={formulaMentionOptions(step.step_id)}
-                                  loading={!metadata}
-                                  onChange={(text) => {
-                                    const rolls = structuredClone(step.rolls);
-                                    rolls[rollIndex] = {
-                                      ...rolls[rollIndex],
-                                      value: { ...roll.value, text }
-                                    };
-                                    onChange(
-                                      updateSendRollActionStep(values, step.step_id, { rolls })
-                                    );
-                                  }}
-                                  onVariableSelect={(entry, text) => {
-                                    if (!isInlineFormula(roll.value)) {
-                                      return;
-                                    }
-                                    const rolls = structuredClone(step.rolls);
-                                    rolls[rollIndex] = {
-                                      ...rolls[rollIndex],
-                                      value: {
-                                        ...roll.value,
-                                        text,
-                                        aliases: upsertFormulaAlias(
-                                          roll.value.aliases ?? null,
-                                          entry.alias
-                                        )
-                                      }
-                                    };
-                                    onChange(
-                                      updateSendRollActionStep(values, step.step_id, { rolls })
-                                    );
-                                  }}
-                                  placeholder="Type @ to insert a variable"
-                                />
-                                <FormulaTagEditor
-                                  label={`Result ${rollIndex + 1} Formula Tags`}
-                                  tags={roll.value.tags ?? []}
-                                  onChange={(tags) => {
-                                    const rolls = structuredClone(step.rolls);
-                                    rolls[rollIndex] = {
-                                      ...roll,
-                                      value: { ...roll.value, tags }
-                                    };
-                                    onChange(
-                                      updateSendRollActionStep(values, step.step_id, { rolls })
-                                    );
-                                  }}
-                                />
-                              </>
-                            ) : (
-                              sharedFormulaHint(roll.value.formula_id)
-                            )}
-                            {rollIndex > 0 ? (
-                              <button
-                                className="button button--secondary"
-                                type="button"
-                                onClick={() =>
-                                  onChange(
-                                    updateSendRollActionStep(values, step.step_id, {
-                                      rolls: step.rolls.filter((_, index) => index !== rollIndex)
-                                    })
-                                  )
-                                }
-                              >
-                                Remove second result
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-                        {step.presentation !== "simple" && step.rolls.length < 2 ? (
-                          <button
-                            className="button button--secondary"
-                            type="button"
-                            onClick={() =>
-                              onChange(
-                                updateSendRollActionStep(values, step.step_id, {
-                                  rolls: [
-                                    ...step.rolls,
-                                    { label: "Secondary", value: { aliases: null, text: "0" } }
-                                  ]
-                                })
-                              )
-                            }
-                          >
-                            Add second result
-                          </button>
-                        ) : null}
-                      </div>
+                      <ActionSendRollStepEditor
+                        key={step.step_id}
+                        step={step}
+                        values={values}
+                        onChange={onChange}
+                        formulas={formulas}
+                        formulaOptions={formulaMentionOptions(step.step_id)}
+                        loading={!metadata}
+                        validationAttempted={validationAttempted}
+                      />
                     ) : step.type === "send_message" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         {formulaSourcePicker(step.step_id, step.message, {
-                          label: `Message Source: ${step.step_id}`
+                          label: "Message Source"
                         })}
                         {isInlineFormula(step.message) ? (
                           <>
@@ -763,7 +639,7 @@ export function ActionEditorForm({
                     ) : step.type === "resolve_damage" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
-                          <Field label={`Damage Type: ${step.step_id}`}>
+                          <Field label="Damage Type">
                             <select
                               value={step.damage_type}
                               onChange={(event) =>
@@ -841,7 +717,7 @@ export function ActionEditorForm({
                     ) : step.type === "gain_proficiency_use" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
-                          <Field label={`Training Target: ${step.step_id}`}>
+                          <Field label="Training Target">
                             <select
                               value={step.proficiency_reference ?? "explicit"}
                               onChange={(event) => {
@@ -871,7 +747,7 @@ export function ActionEditorForm({
                           {(step.proficiency_reference ?? "explicit") === "explicit" ? (
                             <CatalogEntityPicker
                               catalog="proficiencies"
-                              label={`Proficiency: ${step.step_id}`}
+                              label="Proficiency"
                               required
                               invalid={
                                 validationAttempted &&
@@ -1021,11 +897,9 @@ export function ActionEditorForm({
                 ? "Save Action"
                 : "Create Action"}
           </button>
-          {editingActionId ? (
-            <button className="button button--secondary" onClick={onCancel}>
-              Cancel
-            </button>
-          ) : null}
+          <button className="button button--secondary" onClick={onCancel} disabled={pending}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>

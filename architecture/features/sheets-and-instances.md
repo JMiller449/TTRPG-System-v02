@@ -97,6 +97,15 @@ The shared character display is implemented by
 and focused sections under `components/`. GM and player views share
 authoritative rendering while controls differ by role.
 
+The GM Characters workspace is the default post-authentication destination.
+Its selected-instance Management tab consolidates infrequent lifecycle
+operations: player access-code generation/rotation, snapshotting the evolved
+instance into a new template, and confirmed despawning. These controls reuse
+the existing feature-owned requests and do not place private access codes in
+ordinary snapshot state. Snapshot authors enter only a display name; the
+frontend derives a unique internal template ID from that name and the current
+template registry. Enemy instances omit the player-access controls.
+
 Sheet templates and spawned instances each participate in an independent
 display-only [catalog organization](catalog-organization.md) scope. The template
 library uses the shared nested browser, while the active spawned-sheet selector

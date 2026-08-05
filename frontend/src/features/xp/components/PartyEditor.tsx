@@ -24,7 +24,7 @@ export function PartyEditor({
   const savedMemberIdSet = new Set(party.members.map((member) => member.instance_id));
   const selectableCharacters = characters.filter(
     (character) =>
-      (!unavailableIds.has(character.instance_id) || savedMemberIdSet.has(character.instance_id))
+      !unavailableIds.has(character.instance_id) || savedMemberIdSet.has(character.instance_id)
   );
   const savedMemberIds = party.members.map((member) => member.instance_id).sort();
   const currentMemberIds = [...members].sort();

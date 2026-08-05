@@ -76,6 +76,13 @@ describe("SheetActionsSection", () => {
       );
     });
 
+    expect(container.textContent).toContain("Available Actions");
+    expect(container.textContent).toContain("1 action");
+    expect(container.textContent).toContain("Type");
+    expect(container.textContent).toContain("Roll");
+    expect(container.textContent).toContain("Audience");
+    expect(container.querySelector('[aria-label="Search assigned actions"]')).not.toBeNull();
+
     const gmButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "GM Only"
     );
@@ -96,7 +103,9 @@ describe("SheetActionsSection", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
+    const onCreate = vi.fn();
     const onDelete = vi.fn();
+    const onOpenCreateAction = vi.fn();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     const assignedAction: AssignedSheetAction = {
       relationshipId: "assigned_arcane_check",
@@ -109,17 +118,47 @@ describe("SheetActionsSection", () => {
       root.render(
         <SheetActionsSection
           assignedActions={[assignedAction]}
-          actionDefinitions={{ arcane_check: assignedAction.action }}
+          actionDefinitions={{
+            arcane_check: assignedAction.action,
+            announce: { id: "announce", name: "Announce", steps: [] }
+          }}
           attributeDefinitions={{}}
-          actionOrder={["arcane_check"]}
+          actionOrder={["arcane_check", "announce"]}
           canEdit
-          onCreate={() => undefined}
+          commandLayout
+          onCreate={onCreate}
+          onOpenCreateAction={onOpenCreateAction}
           onUpdate={() => undefined}
           onDelete={onDelete}
           onPerformAction={() => undefined}
         />
       );
     });
+
+    expect(container.textContent).toContain("Assignments");
+    expect(container.textContent).toContain("Add Existing");
+    expect(container.textContent).toContain("Create Action");
+    expect(container.textContent).not.toContain("Replace");
+
+    const createButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Create Action"
+    );
+    await act(async () => createButton?.click());
+    expect(onOpenCreateAction).toHaveBeenCalledOnce();
+
+    const addExistingButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Existing"
+    );
+    await act(async () => addExistingButton?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(
+      "Add existing Action"
+    );
+    const addActionButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Action"
+    );
+    await act(async () => addActionButton?.click());
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ action_id: "announce" }));
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
 
     const removeButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Remove"

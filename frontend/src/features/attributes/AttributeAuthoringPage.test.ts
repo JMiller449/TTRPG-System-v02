@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { emptyAttributeDraft, attributePayloadFromDraft } from "@/features/attributes/attributeEditorValues";
+import {
+  emptyAttributeDraft,
+  attributePayloadFromDraft
+} from "@/features/attributes/attributeEditorValues";
 
 describe("AttributeAuthoringPage values", () => {
   it("preserves formula aliases in an authored numeric Attribute", () => {

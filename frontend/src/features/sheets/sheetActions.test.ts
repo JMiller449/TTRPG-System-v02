@@ -53,7 +53,12 @@ describe("sheetActions", () => {
   });
 
   it("reuses ordered actions and explicit assignment ids for replacement options", () => {
-    const orderedActions = selectOrderedSheetActions(actions, ["attack", "missing", "dodge", "potion"]);
+    const orderedActions = selectOrderedSheetActions(actions, [
+      "attack",
+      "missing",
+      "dodge",
+      "potion"
+    ]);
     const assignedActionIds = selectExplicitAssignedSheetActionIds(assignedActions);
 
     expect(orderedActions.map((action) => action.id)).toEqual(["attack", "dodge", "potion"]);

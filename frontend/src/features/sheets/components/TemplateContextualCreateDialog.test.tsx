@@ -11,7 +11,11 @@ import { TemplateAttributesSection } from "@/features/sheets/components/Template
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 import { createEmptyTemplateEditorValues } from "@/features/sheets/templateEditorValues";
 
-function renderDialog(kind: TemplateContextualEntityKind, pending = false): string {
+function renderDialog(
+  kind: TemplateContextualEntityKind,
+  pending = false,
+  attachmentTarget?: string
+): string {
   return renderToStaticMarkup(
     <TemplateContextualCreateDialog
       kind={kind}
@@ -19,6 +23,7 @@ function renderDialog(kind: TemplateContextualEntityKind, pending = false): stri
       serverState={initialServerState}
       formulaMetadata={null}
       augmentationTargetMetadata={null}
+      attachmentTarget={attachmentTarget}
       onSubmit={() => undefined}
       onClose={() => undefined}
     />
@@ -41,9 +46,10 @@ describe("TemplateContextualCreateDialog", () => {
   it("reuses the complete Item and Action editors without nested-authoring navigation", () => {
     const item = renderDialog("item");
     expect(item).toContain("Create and attach Item");
-    expect(item).toContain("Quick start");
+    expect(item).not.toContain("Quick start");
     expect(item).toContain("Create Item");
-    expect(item).toContain("Equipment Effects");
+    expect(item).toContain("Equipment effects");
+    expect(item).toContain("Add Effect");
     expect(item).toContain("Reference and GM notes");
     expect(item).toContain("Granted actions");
     expect(item).not.toContain("Open Action Authoring");
@@ -59,6 +65,42 @@ describe("TemplateContextualCreateDialog", () => {
     const pending = renderDialog("attribute", true);
     expect(pending).toContain('aria-label="Close Create and attach Attribute" disabled=""');
     expect(pending).toContain("Creating…");
+  });
+
+  it("uses a wide character-specific workspace when creating from a spawned sheet", () => {
+    const action = renderDialog("action", false, "Test Mage");
+
+    expect(action).toContain("template-contextual-modal__dialog--character-action");
+    expect(action).toContain("Create a reusable Action and assign it to “Test Mage”.");
+    expect(action).toContain("template-contextual-action-workspace__setup");
+    expect(action).toContain("template-contextual-action-workspace__editor");
+    expect(action).not.toContain("add it to this template");
+  });
+
+  it("uses character-specific copy when creating an Item from inventory", () => {
+    const item = renderDialog("item", false, "Test Mage");
+
+    expect(item).toContain("Create Item");
+    expect(item).toContain("Create a reusable Item and add one copy to “Test Mage”.");
+    expect(item).not.toContain("starting inventory");
+  });
+
+  it("uses character-specific copy when creating an Attribute from the Attributes page", () => {
+    const attribute = renderDialog("attribute", false, "Test Mage");
+
+    expect(attribute).toContain("Create Attribute");
+    expect(attribute).toContain("Create a reusable Attribute and attach it to “Test Mage”.");
+    expect(attribute).toContain("template-contextual-modal__dialog--character-attribute");
+    expect(attribute).toContain("attribute-editor-form__actions");
+    expect(attribute).not.toContain("add it to this template");
+  });
+
+  it("uses character-specific copy when creating a Proficiency from the Proficiencies page", () => {
+    const proficiency = renderDialog("proficiency", false, "Test Mage");
+
+    expect(proficiency).toContain("Create Proficiency");
+    expect(proficiency).toContain("Create a reusable Proficiency and assign it to “Test Mage”.");
+    expect(proficiency).not.toContain("add it to this template");
   });
 });
 

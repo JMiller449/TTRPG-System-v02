@@ -243,7 +243,7 @@ export function ActionBoundedMutationStepEditor({
 
   return (
     <div className="list-item list-item--block">
-      <Field label={`${label} Target: ${step.step_id}`}>
+      <Field label={`${label} Target`}>
         <select
           value={step.path.join(".")}
           onChange={(event) => {

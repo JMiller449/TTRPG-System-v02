@@ -123,9 +123,19 @@ describe("template contextual authoring", () => {
     const first = attachContextualRecord(values, "action", "action_1", {}, () => "bridge_1");
     expect(attachContextualRecord(first, "action", "action_1", {}, () => "bridge_2")).toBe(first);
 
-    const itemAttribute = { ...createdAttribute, id: "item_attribute", subject_types: ["item" as const] };
-    expect(attachContextualRecord(values, "attribute", itemAttribute.id, itemAttribute, () => "attribute_bridge")).toBe(
-      values
-    );
+    const itemAttribute = {
+      ...createdAttribute,
+      id: "item_attribute",
+      subject_types: ["item" as const]
+    };
+    expect(
+      attachContextualRecord(
+        values,
+        "attribute",
+        itemAttribute.id,
+        itemAttribute,
+        () => "attribute_bridge"
+      )
+    ).toBe(values);
   });
 });

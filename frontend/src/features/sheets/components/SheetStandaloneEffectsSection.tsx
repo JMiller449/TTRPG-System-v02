@@ -56,7 +56,9 @@ export function SheetStandaloneEffectsSection({
                   ? ` on ${definition.target.root}.${definition.target.path.join(".")}`
                   : ""}
               </div>
-              <div className="muted">Duration: {formatAugmentationLifecycle(definition.lifecycle)}</div>
+              <div className="muted">
+                Duration: {formatAugmentationLifecycle(definition.lifecycle)}
+              </div>
               {stackingSummary ? <div className="muted">{stackingSummary}</div> : null}
               <div className="muted">Source: {sourceLabel(effect)}</div>
             </article>

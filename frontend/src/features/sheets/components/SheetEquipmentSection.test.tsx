@@ -43,6 +43,7 @@ describe("SheetEquipmentSection", () => {
         canEditInventory={false}
         canMoveInventory
         canToggleEquipped
+        onOpenCreateItem={() => undefined}
         onSelectedItemIdChange={() => undefined}
         onAddSelectedItem={() => undefined}
         onQuantityChange={() => undefined}
@@ -53,7 +54,8 @@ describe("SheetEquipmentSection", () => {
     );
 
     expect(markup).toContain('aria-label="Equip: Sword"');
-    expect(markup).toContain(">Add</button>");
+    expect(markup).toContain("Add Existing");
+    expect(markup).toContain("Create Item");
     expect(markup).toContain("Carried Weight: 10 / 10 lb");
     expect(markup).toContain('aria-label="Owned inventory items"');
     expect(markup).toContain('tabindex="0"');
@@ -61,6 +63,64 @@ describe("SheetEquipmentSection", () => {
     expect(markup).not.toContain("quantity value");
     expect(markup).toContain('aria-label="Remove Sword from inventory"');
     expect(markup).not.toContain("Storage location for Sword");
+  });
+
+  it("moves add and create flows into focused dialogs", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onAddSelectedItem = vi.fn();
+    const onOpenCreateItem = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SheetEquipmentSection
+          items={{ sword }}
+          actionDefinitions={{}}
+          attributeDefinitions={{}}
+          proficiencyDefinitions={{}}
+          augmentations={{}}
+          itemOrder={["sword"]}
+          selectedItemId="sword"
+          selectedItem={sword}
+          equipment={[]}
+          currentCarriedWeight={0}
+          carryWeightLimit={10}
+          canManageInventory
+          canEditInventory
+          canMoveInventory
+          canToggleEquipped
+          onOpenCreateItem={onOpenCreateItem}
+          onSelectedItemIdChange={() => undefined}
+          onAddSelectedItem={onAddSelectedItem}
+          onQuantityChange={() => undefined}
+          onToggleEquipped={() => undefined}
+          onMoveInventoryItem={() => undefined}
+          onRemoveInventoryItem={() => undefined}
+        />
+      );
+    });
+
+    const addExistingButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Existing"
+    );
+    await act(async () => addExistingButton?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Add existing Item");
+
+    const addItemButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Item"
+    );
+    await act(async () => addItemButton?.click());
+    expect(onAddSelectedItem).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+
+    const createItemButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Create Item"
+    );
+    await act(async () => createItemButton?.click());
+    expect(onOpenCreateItem).toHaveBeenCalledOnce();
+
+    await act(async () => root.unmount());
   });
 
   it("shows over-capacity weight and contained items in read-only view", () => {

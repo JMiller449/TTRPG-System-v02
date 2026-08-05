@@ -64,7 +64,10 @@ function valueFromDraft(draft: AttributeDraft): AttributeValue | null {
   return { type: draft.valueType, value: draft.defaultText.trim() };
 }
 
-export function attributePayloadFromDraft(draft: AttributeDraft, id: string): AttributeDefinitionPayload | null {
+export function attributePayloadFromDraft(
+  draft: AttributeDraft,
+  id: string
+): AttributeDefinitionPayload | null {
   const value = valueFromDraft(draft);
   const validationOptions = draft.validationOptions
     .split(",")

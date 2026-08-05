@@ -3,9 +3,7 @@
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
-import {
-  FormulaVariableInput
-} from "@/features/variables/components/FormulaVariableInput";
+import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
   activeFormulaMention,
   replaceFormulaMention
@@ -73,10 +71,7 @@ describe("FormulaVariableInput", () => {
     const textarea = container.querySelector("textarea");
     expect(textarea).not.toBeNull();
     await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value"
-      )?.set;
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
       setter?.call(textarea, "@ma");
       textarea?.dispatchEvent(new Event("input", { bubbles: true }));
       await new Promise((resolve) => requestAnimationFrame(resolve));

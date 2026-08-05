@@ -8,6 +8,7 @@ import {
   addGainProficiencyUseActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
+  addSendRollActionStep,
   createEmptyActionEditorValues
 } from "@/features/actions/actionEditorValues";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
@@ -80,11 +81,12 @@ describe("ActionEditorForm", () => {
     const markup = renderEditor(true);
 
     expect(markup).toContain("Send Roll20 message");
-    expect(markup).toContain("message_1");
     expect(markup).toContain("Resolve damage");
-    expect(markup).toContain("damage_1");
+    expect(markup).toContain("Edit");
     expect(markup).toContain("Duplicate");
     expect(markup).toContain("Remove");
+    expect(markup).not.toContain("message_1");
+    expect(markup).not.toContain("damage_1");
     expect(markup).not.toContain("Message Formula");
     expect(markup).not.toContain("Amount Formula");
   });
@@ -112,10 +114,9 @@ describe("ActionEditorForm", () => {
       />
     );
 
-    expect(markup).toContain("long_step_23");
     expect(markup).toContain('class="template-editor__actions action-editor__footer"');
     expect(markup).toContain("Save Action");
-    expect(markup.indexOf("Save Action")).toBeGreaterThan(markup.indexOf("long_step_23"));
+    expect(markup.match(/>Edit<\/button>/g)).toHaveLength(24);
   });
 
   it("keeps execution visibility out of authored Roll20 message steps", async () => {
@@ -141,6 +142,14 @@ describe("ActionEditorForm", () => {
           validationError={null}
         />
       );
+      await Promise.resolve();
+    });
+
+    const editButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Edit"
+    );
+    await act(async () => {
+      editButton?.click();
       await Promise.resolve();
     });
 
@@ -189,8 +198,16 @@ describe("ActionEditorForm", () => {
       await Promise.resolve();
     });
 
+    const editButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Edit"
+    );
+    await act(async () => {
+      editButton?.click();
+      await Promise.resolve();
+    });
+
     const trainingField = Array.from(container.querySelectorAll("label.field")).find((field) =>
-      field.textContent?.includes("Training Target: training_1")
+      field.textContent?.includes("Training Target")
     );
     const trainingSelect = trainingField?.querySelector("select");
     expect(
@@ -213,6 +230,152 @@ describe("ActionEditorForm", () => {
       proficiency_id: "__dynamic_proficiency__",
       proficiency_reference: "source_item_weapon"
     });
+
+    await act(async () => root.unmount());
+  });
+
+  it("uses one focused step view and returns to the Action overview", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const values = addResolveDamageActionStep(
+      addSendMessageActionStep(createEmptyActionEditorValues(), "message_1"),
+      "damage_1"
+    );
+
+    await act(async () => {
+      root.render(
+        <ActionEditorForm
+          editingActionId={null}
+          values={values}
+          onChange={() => undefined}
+          onSubmit={() => undefined}
+          onCancel={() => undefined}
+          metadata={null}
+          proficiencies={[]}
+          formulas={[]}
+          standaloneEffects={[]}
+          conditions={[]}
+          attributesEditor={null}
+          validationError={null}
+        />
+      );
+      await Promise.resolve();
+    });
+
+    const editButtons = [...container.querySelectorAll("button")].filter(
+      (button) => button.textContent === "Edit"
+    );
+    await act(async () => {
+      editButtons[1]?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Step 2: Resolve damage");
+    expect(container.textContent).toContain("Back to Action");
+    expect(container.querySelector(".action-editor--step-focused")).not.toBeNull();
+    expect(container.textContent).toContain("Amount Formula");
+
+    const backButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Back to Action"
+    );
+    await act(async () => {
+      backButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector(".action-editor--step-focused")).toBeNull();
+    expect(container.textContent).not.toContain("Amount Formula");
+
+    await act(async () => root.unmount());
+  });
+
+  it("edits styled-roll results as primary and optional secondary layers", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let values = addSendRollActionStep(createEmptyActionEditorValues(), "roll_1");
+
+    const render = (): void => {
+      root.render(
+        <ActionEditorForm
+          editingActionId={null}
+          values={values}
+          onChange={(nextValues) => {
+            values = nextValues;
+            render();
+          }}
+          onSubmit={() => undefined}
+          onCancel={() => undefined}
+          metadata={null}
+          proficiencies={[]}
+          formulas={[]}
+          standaloneEffects={[]}
+          conditions={[]}
+          attributesEditor={null}
+          validationError={null}
+        />
+      );
+    };
+
+    await act(async () => {
+      render();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      const editStep = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Edit"
+      );
+      editStep?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Card Results");
+    expect(container.textContent).toContain("Primary Result");
+    expect(container.textContent).toContain("Simple cards show exactly one primary result.");
+    expect(container.textContent).not.toContain("Result 1");
+    expect(container.textContent).not.toContain("Formula Tags");
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".action-roll-result-card button")?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Back to Styled Roll");
+    expect(container.textContent).toContain("Primary Result Label");
+    expect(container.textContent).toContain("Formula Tags");
+
+    await act(async () => {
+      const backButton = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Back to Styled Roll"
+      );
+      backButton?.click();
+      await Promise.resolve();
+    });
+
+    const cardTypeSelect = Array.from(container.querySelectorAll("label.field"))
+      .find((field) => field.textContent?.includes("Roll20 Card"))
+      ?.querySelector("select");
+    await act(async () => {
+      if (!cardTypeSelect) {
+        throw new Error("Expected the Roll20 card type selector.");
+      }
+      cardTypeSelect.value = "damage";
+      cardTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Add Secondary Result");
+    await act(async () => {
+      const addSecondary = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Add Secondary Result"
+      );
+      addSecondary?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Secondary Result Label");
+    expect(values.steps[0]).toMatchObject({ type: "send_roll", rolls: [{}, {}] });
 
     await act(async () => root.unmount());
   });

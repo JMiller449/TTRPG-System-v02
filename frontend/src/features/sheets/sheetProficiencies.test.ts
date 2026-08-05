@@ -38,9 +38,9 @@ describe("sheetProficiencies", () => {
     expect(formatSheetProficiencyPercentage(testBridge({ use_count: 3, growth_rate: 0.125 }))).toBe(
       "37.50"
     );
-    expect(formatSheetProficiencyPercentage(testBridge({ use_count: 20, growth_rate: 0.125 }))).toBe(
-      "100"
-    );
+    expect(
+      formatSheetProficiencyPercentage(testBridge({ use_count: 20, growth_rate: 0.125 }))
+    ).toBe("100");
   });
 
   it("resolves sheet bridges against global proficiency definitions", () => {

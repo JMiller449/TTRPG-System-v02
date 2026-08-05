@@ -14,7 +14,7 @@ export function uiReducer(state: AppState, action: AppAction): AppState | undefi
         uiState: {
           ...state.uiState,
           playerSheetSelectionComplete: false,
-          gmView: action.role === "gm" ? state.uiState.gmView : "console",
+          gmView: action.role === "gm" ? state.uiState.gmView : initialUiState.gmView,
           activeSheetId: null
         }
       };

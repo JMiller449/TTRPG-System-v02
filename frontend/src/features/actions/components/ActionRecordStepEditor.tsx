@@ -33,7 +33,7 @@ export function ActionRecordStepEditor({
       <div className="inline-group">
         <CatalogEntityPicker
           catalog={isAugmentation ? "effects" : "conditions"}
-          label={`${isAugmentation ? "Standalone Effect" : "Condition"}: ${step.step_id}`}
+          label={isAugmentation ? "Standalone Effect" : "Condition"}
           placeholder={`Search ${isAugmentation ? "effect" : "condition"} catalog`}
           selectedId={currentId}
           options={[

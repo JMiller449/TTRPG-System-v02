@@ -31,6 +31,7 @@ Vite mode selects the deployment base and socket configuration:
   `wss://bossadapt.org/ttrpg/ws`.
 
 ## Auth Configuration
+
 - `VITE_PLAYER_AUTH_TOKEN`: optional player token used by role-based helper auth.
 - `VITE_DM_AUTH_TOKEN`: optional GM token used by role-based helper auth.
 - Normal login uses the code entered by the player or GM; these env values are only for helper paths.

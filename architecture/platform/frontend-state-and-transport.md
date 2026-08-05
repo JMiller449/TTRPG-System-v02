@@ -53,8 +53,8 @@ visible authoritative value reconciles to a later snapshot or patch.
 ## Application shell
 
 [`frontend/src/app/App.tsx`](../../frontend/src/app/App.tsx) gates unauthenticated,
-player-claim, player-console, and GM-console experiences. GM navigation selects
-dedicated workspaces for characters, templates, actions, items, formulas,
+player-claim, player-console, and GM-console experiences. Characters is the
+default GM workspace, and GM navigation selects dedicated workspaces for templates, actions, items, formulas,
 attributes, proficiencies, conditions, effects, encounters, XP, action history,
 state safety, and the extension. Player navigation exposes only assigned-sheet
 capabilities and the extension workflow.
@@ -66,8 +66,11 @@ toasts that never reserve or shift workspace layout: pending toasts remain until
 resolution, while success and error toasts expire independently or may be
 dismissed. The status bar exposes an adjacent session-history panel containing
 the longer-lived request status, timestamp, message, and request ID where
-available. Dismissing a toast does not remove its history record. Role checks in
-the UI improve usability but do not replace backend authorization or redaction.
+available. That panel is portaled to the document overlay layer and positioned
+from its status trigger so the shell's filtered stacking contexts cannot paint
+ordinary workspace content above it. Dismissing a toast does not remove its
+history record. Role checks in the UI improve usability but do not replace
+backend authorization or redaction.
 
 ## Reconnection and reconciliation
 

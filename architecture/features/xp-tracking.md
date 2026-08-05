@@ -66,6 +66,11 @@ is the DM management workspace. GM/player character progress and player history
 use `SheetXpProgressBar` and `SheetKillsSection`. After its initial tracker
 request, the UI relies on pushed WebSocket updates instead of a manual refresh
 control.
+The GM character-history view exposes an Add Kill dialog scoped to the selected
+character. It reuses the standard kill-record request, resolves participants
+from current backend-owned party membership, and supports both registered enemy
+templates and arbitrary enemy/XP entries. Players retain the restricted visible
+enemy final-blow form.
 The shared GM and player character views place the independently stored
 canonical Level Attribute beside this XP projection; XP readiness never mutates
 Level automatically.

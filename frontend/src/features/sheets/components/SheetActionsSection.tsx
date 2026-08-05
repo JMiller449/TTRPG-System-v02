@@ -18,6 +18,7 @@ import type {
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
@@ -33,6 +34,7 @@ export function SheetActionsSection({
   pinnedActionIds = [],
   onPinnedActionIdsChange,
   onCreate,
+  onOpenCreateAction,
   onUpdate,
   onDelete,
   onPerformAction
@@ -47,6 +49,7 @@ export function SheetActionsSection({
   pinnedActionIds?: string[];
   onPinnedActionIdsChange?: (actionRelationshipIds: string[]) => void;
   onCreate: (bridge: SheetActionBridgePayload) => void;
+  onOpenCreateAction?: () => void;
   onUpdate: (relationshipId: string, bridge: SheetActionBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
   onPerformAction: (
@@ -61,6 +64,7 @@ export function SheetActionsSection({
   const [commandVisibility, setCommandVisibility] = useState<ActionExecutionVisibility>("public");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | "check" | "damage" | "item">("all");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedActionId, setSelectedActionId] = useState("");
   const [draftActionIds, setDraftActionIds] = useState<Record<string, string>>({});
   const orderedActions = useMemo(
@@ -90,6 +94,7 @@ export function SheetActionsSection({
       return;
     }
     onCreate(toSheetActionBridgePayload(makeId("action_bridge"), selectedActionId));
+    setAddDialogOpen(false);
   };
 
   if (!canEdit || compact || commandLayout) {
@@ -111,148 +116,30 @@ export function SheetActionsSection({
     });
     const controlModeKind =
       category === "damage" ? "damage" : category === "check" ? "check" : "check";
-
-    const manager = canEdit ? (
-      <details className="sheet-actions-section__manager" aria-label="Manage action assignments">
-        <summary className="sheet-actions-section__manager-summary">
-          Manage Assignments
-          <span className="muted">{assignedActions.length} assigned</span>
-        </summary>
-        <div className="sheet-actions-section__manager-body">
-          <div className="inline-group">
-            <CatalogEntityPicker
-              catalog="actions"
-              label="Global Action"
-              placeholder="Search action catalog"
-              selectedId={selectedActionId}
-              options={availableActions.map((action) => ({
-                id: action.id,
-                label: action.name,
-                secondary: action.notes,
-                keywords: [action.id],
-                value: action.id
-              }))}
-              emptyMessage="No unassigned actions."
-              onSelect={setSelectedActionId}
-            />
-            <button
-              type="button"
-              className="button"
-              onClick={createAssignment}
-              disabled={!selectedActionId}
-            >
-              Assign Action
-            </button>
-          </div>
-          <div className="list">
-            {assignedActions.length === 0 ? (
-              <EmptyState message="No actions assigned to this sheet." />
-            ) : null}
-            {assignedActions.map((entry) => {
-              const draftActionId = draftActionIds[entry.relationshipId] ?? entry.actionId;
-              const replacementOptions = entry.bridge
-                ? selectAvailableOrderedSheetActions(
-                    orderedActions,
-                    assignedExplicitActionIds,
-                    entry.actionId
-                  )
-                : [];
-              const canSaveReplacement =
-                Boolean(entry.bridge) &&
-                draftActionId !== entry.actionId &&
-                Boolean(actionDefinitions[draftActionId]);
-
-              return (
-                <article className="list-item list-item--block" key={entry.relationshipId}>
-                  <div className="list-item__top">
-                    <strong>{entry.action.name}</strong>
-                  </div>
-                  {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
-                  {entry.sourceItemName ? (
-                    <div className="muted">
-                      Granted by {entry.sourceItemName} ({entry.sourceItemAvailability})
-                      {entry.consumeQuantity ? ` · consumes ${entry.consumeQuantity}` : ""}
-                    </div>
-                  ) : null}
-                  {entry.bridge ? (
-                    <div className="inline-group">
-                      <CatalogEntityPicker
-                        catalog="actions"
-                        label="Assigned Action"
-                        placeholder="Search action catalog"
-                        selectedId={draftActionId}
-                        options={replacementOptions.map((action) => ({
-                          id: action.id,
-                          label: action.name,
-                          secondary: action.notes,
-                          keywords: [action.id],
-                          value: action.id
-                        }))}
-                        emptyMessage="No replacement actions."
-                        onSelect={(actionId) =>
-                          setDraftActionIds((current) => ({
-                            ...current,
-                            [entry.relationshipId]: actionId
-                          }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="button button--secondary"
-                        disabled={!canSaveReplacement}
-                        onClick={() => {
-                          onUpdate(
-                            entry.relationshipId,
-                            toSheetActionBridgePayload(entry.relationshipId, draftActionId)
-                          );
-                          setDraftActionIds((current) => {
-                            const next = { ...current };
-                            delete next[entry.relationshipId];
-                            return next;
-                          });
-                        }}
-                      >
-                        Replace
-                      </button>
-                      <button
-                        type="button"
-                        className="button button--secondary"
-                        onClick={() => {
-                          if (
-                            !confirmDestructiveAction({
-                              action: "Remove",
-                              subject: entry.action.name,
-                              consequence:
-                                "This removes the action assignment from the selected character."
-                            })
-                          ) {
-                            return;
-                          }
-                          onDelete(entry.relationshipId);
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </details>
-    ) : null;
+    const actionCountLabel =
+      visibleActions.length === assignedActions.length
+        ? `${visibleActions.length} ${visibleActions.length === 1 ? "action" : "actions"}`
+        : `${visibleActions.length} of ${assignedActions.length} actions`;
 
     return (
       <section
         className={`sheet-actions-section sheet-actions-section--command ${compact ? "sheet-actions-section--compact" : ""}`}
       >
         <div className="action-command-toolbar">
-          <div className="action-command-toolbar__primary">
-            <div className="action-command-toolbar__heading">
-              <h4>{compact ? "Pinned Actions" : "Available Actions"}</h4>
-              <span className="muted">{visibleActions.length} shown</span>
-            </div>
+          <div className="action-command-toolbar__heading">
+            <h4>{compact ? "Pinned Actions" : "Available Actions"}</h4>
+            <span className="muted">{actionCountLabel}</span>
+          </div>
+          <Field label="Search">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Find action"
+              aria-label="Search assigned actions"
+            />
+          </Field>
+          <div className="action-command-toolbar__control">
+            <span className="action-command-toolbar__label">Type</span>
             <div className="segment-row action-command-categories" aria-label="Action categories">
               <button
                 type="button"
@@ -284,7 +171,8 @@ export function SheetActionsSection({
               </button>
             </div>
           </div>
-          <div className="action-command-toolbar__mode">
+          <div className="action-command-toolbar__control action-command-toolbar__mode">
+            <span className="action-command-toolbar__label">Roll</span>
             <RollModeControl
               value={
                 actionRollModes(controlModeKind).includes(commandRollMode)
@@ -295,18 +183,41 @@ export function SheetActionsSection({
               onChange={setCommandRollMode}
             />
           </div>
-          <div className="action-command-toolbar__visibility">
+          <div className="action-command-toolbar__control action-command-toolbar__visibility">
+            <span className="action-command-toolbar__label">Audience</span>
             <ActionVisibilityControl value={commandVisibility} onChange={setCommandVisibility} />
           </div>
-          <Field label="Search">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Find action"
-              aria-label="Search assigned actions"
-            />
-          </Field>
         </div>
+
+        {canEdit ? (
+          <div className="sheet-actions-section__assignment-toolbar">
+            <div>
+              <strong>Assignments</strong>
+              <span className="muted">{assignedActions.length} assigned</span>
+            </div>
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                aria-haspopup="dialog"
+                aria-expanded={addDialogOpen}
+                onClick={() => setAddDialogOpen(true)}
+              >
+                Add Existing
+              </button>
+              {onOpenCreateAction ? (
+                <button
+                  type="button"
+                  className="button"
+                  aria-haspopup="dialog"
+                  onClick={onOpenCreateAction}
+                >
+                  Create Action
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {visibleActions.length === 0 ? (
           <EmptyState
@@ -345,32 +256,104 @@ export function SheetActionsSection({
                       {commandVisibility === "gm" ? " · GM only" : " · Public"}
                     </small>
                   </button>
-                  {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
-                    <span className="action-command-card__attribute-count">
-                      {Object.keys(entry.action.attributes ?? {}).length} attributes
-                    </span>
-                  ) : null}
-                  {onPinnedActionIdsChange ? (
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      onClick={() =>
-                        onPinnedActionIdsChange(
-                          isPinned
-                            ? pinnedActionIds.filter((id) => id !== entry.relationshipId)
-                            : [...pinnedActionIds, entry.relationshipId]
-                        )
-                      }
-                    >
-                      {isPinned ? "Unpin" : "Pin"}
-                    </button>
+                  {Object.keys(entry.action.attributes ?? {}).length > 0 ||
+                  onPinnedActionIdsChange ||
+                  (canEdit && entry.bridge) ? (
+                    <footer className="action-command-card__footer">
+                      {Object.keys(entry.action.attributes ?? {}).length > 0 ? (
+                        <span className="action-command-card__attribute-count">
+                          {Object.keys(entry.action.attributes ?? {}).length} attributes
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <div className="action-command-card__controls">
+                        {onPinnedActionIdsChange ? (
+                          <button
+                            type="button"
+                            className="action-command-card__control"
+                            onClick={() =>
+                              onPinnedActionIdsChange(
+                                isPinned
+                                  ? pinnedActionIds.filter((id) => id !== entry.relationshipId)
+                                  : [...pinnedActionIds, entry.relationshipId]
+                              )
+                            }
+                          >
+                            {isPinned ? "Unpin" : "Pin"}
+                          </button>
+                        ) : null}
+                        {canEdit && entry.bridge ? (
+                          <button
+                            type="button"
+                            className="action-command-card__control action-command-card__control--remove"
+                            onClick={() => {
+                              if (
+                                !confirmDestructiveAction({
+                                  action: "Remove",
+                                  subject: entry.action.name,
+                                  consequence:
+                                    "This removes the action assignment from the selected character."
+                                })
+                              ) {
+                                return;
+                              }
+                              onDelete(entry.relationshipId);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    </footer>
                   ) : null}
                 </article>
               );
             })}
           </div>
         )}
-        {manager}
+        {canEdit && addDialogOpen ? (
+          <ModalDialog
+            title="Add existing Action"
+            description="Choose a reusable Action from the catalog and assign it to this character."
+            onClose={() => setAddDialogOpen(false)}
+          >
+            <div className="stack">
+              <CatalogEntityPicker
+                catalog="actions"
+                label="Action"
+                placeholder="Search Action catalog"
+                selectedId={selectedActionId}
+                options={availableActions.map((action) => ({
+                  id: action.id,
+                  label: action.name,
+                  secondary: action.notes,
+                  keywords: [action.id],
+                  value: action.id
+                }))}
+                emptyMessage="Every available Action is already assigned."
+                onSelect={setSelectedActionId}
+              />
+              <div className="inline-actions">
+                <button
+                  type="button"
+                  className="button"
+                  onClick={createAssignment}
+                  disabled={!selectedActionId}
+                >
+                  Add Action
+                </button>
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={() => setAddDialogOpen(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </ModalDialog>
+        ) : null}
       </section>
     );
   }

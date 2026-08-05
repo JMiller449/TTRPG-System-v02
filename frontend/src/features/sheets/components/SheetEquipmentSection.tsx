@@ -9,6 +9,7 @@ import type {
 } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
+import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import {
   countItemEffectTypes,
@@ -96,6 +97,8 @@ export function SheetEquipmentSection({
   canEditInventory,
   canMoveInventory,
   canToggleEquipped,
+  createItemLabel = "Create Item",
+  onOpenCreateItem,
   onSelectedItemIdChange,
   onAddSelectedItem,
   onQuantityChange,
@@ -118,6 +121,8 @@ export function SheetEquipmentSection({
   canEditInventory: boolean;
   canMoveInventory: boolean;
   canToggleEquipped: boolean;
+  createItemLabel?: string;
+  onOpenCreateItem?: () => void;
   onSelectedItemIdChange: (itemId: string) => void;
   onAddSelectedItem: () => void;
   onQuantityChange: (inventoryItemId: string, count: number) => void;
@@ -126,19 +131,16 @@ export function SheetEquipmentSection({
   onRemoveInventoryItem: (inventoryItemId: string) => void;
 }): JSX.Element {
   const overBy = Math.max(0, currentCarriedWeight - carryWeightLimit);
-  const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(
-    null
-  );
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
   const eligibleDropTargetIds = useMemo(
     () =>
       new Set(
         draggedInventoryItemId
-          ? eligibleContainerDestinations(
-              draggedInventoryItemId,
-              equipment,
-              items
-            ).map((entry) => entry.relationship_id)
+          ? eligibleContainerDestinations(draggedInventoryItemId, equipment, items).map(
+              (entry) => entry.relationship_id
+            )
           : []
       ),
     [draggedInventoryItemId, equipment, items]
@@ -164,8 +166,7 @@ export function SheetEquipmentSection({
     event.preventDefault();
     event.stopPropagation();
     const relationshipId =
-      draggedInventoryItemId ||
-      event.dataTransfer.getData("application/x-ttrpg-inventory-item");
+      draggedInventoryItemId || event.dataTransfer.getData("application/x-ttrpg-inventory-item");
     if (!relationshipId) {
       finishDrag();
       return;
@@ -174,97 +175,59 @@ export function SheetEquipmentSection({
     finishDrag();
   };
 
+  const addSelectedItem = (): void => {
+    if (!selectedItem) {
+      return;
+    }
+    onAddSelectedItem();
+    setAddDialogOpen(false);
+  };
+
   return (
     <section className="character-sheet__section sheet-equipment-section">
       <div className="equipment-section__heading">
-        <h4>Inventory &amp; Equipment</h4>
-        <div
-          className={`carried-weight-summary ${overBy > 0 ? "carried-weight-summary--over" : ""}`}
-          role="status"
-        >
-          <strong>
-            Carried Weight: {formatWeight(currentCarriedWeight)} / {formatWeight(carryWeightLimit)}{" "}
-            lb
-          </strong>
-          {overBy > 0 ? <span>{formatWeight(overBy)} lb over capacity</span> : null}
+        <div className="equipment-section__heading-copy">
+          <h4>Inventory &amp; Equipment</h4>
+          <span className="muted">
+            {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
+          </span>
+        </div>
+        <div className="equipment-section__heading-actions">
+          <div
+            className={`carried-weight-summary ${overBy > 0 ? "carried-weight-summary--over" : ""}`}
+            role="status"
+          >
+            <strong>
+              Carried Weight: {formatWeight(currentCarriedWeight)} /{" "}
+              {formatWeight(carryWeightLimit)} lb
+            </strong>
+            {overBy > 0 ? <span>{formatWeight(overBy)} lb over capacity</span> : null}
+          </div>
+          {canManageInventory ? (
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                aria-haspopup="dialog"
+                aria-expanded={addDialogOpen}
+                onClick={() => setAddDialogOpen(true)}
+              >
+                Add Existing
+              </button>
+              {onOpenCreateItem ? (
+                <button
+                  type="button"
+                  className="button"
+                  aria-haspopup="dialog"
+                  onClick={onOpenCreateItem}
+                >
+                  {createItemLabel}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
-      {canManageInventory ? (
-        <div className="equipment-add-row">
-          <CatalogEntityPicker
-            catalog="items"
-            label="Item"
-            placeholder="Search inventory catalog"
-            selectedId={selectedItemId}
-            options={itemOrder.flatMap((itemId) => {
-              const item = items[itemId];
-              return item
-                ? [
-                    {
-                      id: item.id,
-                      label: item.name,
-                      secondary: item.description,
-                      keywords: [item.id, item.rank ?? ""],
-                      value: item.id
-                    }
-                  ]
-                : [];
-            })}
-            emptyMessage="No items loaded yet."
-            onSelect={onSelectedItemIdChange}
-          />
-          <button
-            type="button"
-            className="button"
-            onClick={onAddSelectedItem}
-            disabled={!selectedItem}
-          >
-            Add
-          </button>
-        </div>
-      ) : null}
-      {canManageInventory && selectedItem
-        ? (() => {
-            const selectedEffectCounts = countItemEffectTypes(selectedItem);
-            const selectedAttributeSummaries = summarizeItemAttributeDetails(
-              selectedItem,
-              attributeDefinitions,
-              proficiencyDefinitions
-            );
-            const selectedActionNames = (selectedItem.action_grants ?? []).map(
-              (grant) => actionDefinitions[grant.action_id]?.name ?? grant.action_id
-            );
-            const selectedEffectTotal =
-              selectedEffectCounts.wearer + selectedEffectCounts.rollOrFormula;
-            const selectedAttributeCount = Object.keys(selectedItem.attributes ?? {}).length;
-
-            return (
-              <div className="equipment-selection-preview equipment-card" tabIndex={0}>
-                <div className="equipment-card__heading">
-                  <strong>{selectedItem.name}</strong>
-                  <span className="pill">
-                    {ITEM_INTERACTION_LABELS[selectedItem.interaction_type]}
-                  </span>
-                </div>
-                <div className="muted">
-                  Weight {formatWeight(selectedItem.weight)} lb · Price {selectedItem.price}
-                </div>
-                <div className="equipment-card__compact-stats muted">
-                  <span>Actions {selectedActionNames.length}</span>
-                  <span>Effects {selectedEffectTotal}</span>
-                  <span>Attributes {selectedAttributeCount}</span>
-                </div>
-                <ItemDetailHoverLabel
-                  description={selectedItem.description}
-                  attributeSummaries={selectedAttributeSummaries}
-                  effectCounts={selectedEffectCounts}
-                  activeEffects={[]}
-                  actionNames={selectedActionNames}
-                />
-              </div>
-            );
-          })()
-        : null}
       {canMoveInventory && hasStorageInteraction ? (
         <div
           className={`inventory-root-drop-zone ${
@@ -293,19 +256,19 @@ export function SheetEquipmentSection({
         >
           <strong>Root inventory</strong>
           <span>
-            Drag an item here to remove it from storage. Drop items onto storage cards
-            to put them inside.
+            Drag an item here to remove it from storage. Drop items onto storage cards to put them
+            inside.
           </span>
         </div>
       ) : null}
       <div
-        className="list sheet-equipment-section__items"
+        className="equipment-grid sheet-equipment-section__items"
         role="region"
         aria-label="Owned inventory items"
         tabIndex={0}
       >
         {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
-        {buildInventoryTree(equipment).map(({ bridge: entry, depth }) => {
+        {buildInventoryTree(equipment).map(({ bridge: entry }) => {
           const item = items[entry.item_id];
           if (!item) {
             return null;
@@ -347,12 +310,8 @@ export function SheetEquipmentSection({
                 "list-item--block",
                 "equipment-card",
                 entry.count <= 0 ? "equipment-card--depleted" : "",
-                draggedInventoryItemId === entry.relationship_id
-                  ? "equipment-card--dragging"
-                  : "",
-                activeDropTarget === entry.relationship_id
-                  ? "inventory-drop-target--active"
-                  : ""
+                draggedInventoryItemId === entry.relationship_id ? "equipment-card--dragging" : "",
+                activeDropTarget === entry.relationship_id ? "inventory-drop-target--active" : ""
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -395,7 +354,6 @@ export function SheetEquipmentSection({
                   moveDraggedItem(event, entry.relationship_id);
                 }
               }}
-              style={{ paddingInlineStart: `${0.75 + Math.min(depth, 6) * 1.1}rem` }}
             >
               <div className="equipment-card__body">
                 <div className="equipment-card__heading">
@@ -407,10 +365,7 @@ export function SheetEquipmentSection({
                     {item.can_contain_items ? (
                       <span className="pill">
                         Storage · {formatWeight(storedWeight)} /{" "}
-                        {storageCapacity == null
-                          ? "unlimited"
-                          : formatWeight(storageCapacity)}{" "}
-                        lb
+                        {storageCapacity == null ? "unlimited" : formatWeight(storageCapacity)} lb
                       </span>
                     ) : null}
                   </div>
@@ -468,10 +423,7 @@ export function SheetEquipmentSection({
                   actionSummaries={actionSummaries}
                 />
               </div>
-              {canManageInventory ||
-              canEditInventory ||
-              canMoveInventory ||
-              canToggleEquipped ? (
+              {canManageInventory || canEditInventory || canMoveInventory || canToggleEquipped ? (
                 <div className="inline-actions">
                   {canMoveInventory &&
                   (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
@@ -570,6 +522,97 @@ export function SheetEquipmentSection({
           );
         })}
       </div>
+      {canManageInventory && addDialogOpen ? (
+        <ModalDialog
+          title="Add existing Item"
+          description="Choose a reusable Item from the catalog and add one copy to this character."
+          onClose={() => setAddDialogOpen(false)}
+        >
+          <div className="stack equipment-add-dialog">
+            <CatalogEntityPicker
+              catalog="items"
+              label="Item"
+              placeholder="Search Item catalog"
+              selectedId={selectedItemId}
+              options={itemOrder.flatMap((itemId) => {
+                const item = items[itemId];
+                return item
+                  ? [
+                      {
+                        id: item.id,
+                        label: item.name,
+                        secondary: item.description,
+                        keywords: [item.id, item.rank ?? ""],
+                        value: item.id
+                      }
+                    ]
+                  : [];
+              })}
+              emptyMessage="No Items are available to add."
+              onSelect={onSelectedItemIdChange}
+            />
+            {selectedItem
+              ? (() => {
+                  const selectedEffectCounts = countItemEffectTypes(selectedItem);
+                  const selectedAttributeSummaries = summarizeItemAttributeDetails(
+                    selectedItem,
+                    attributeDefinitions,
+                    proficiencyDefinitions
+                  );
+                  const selectedActionNames = (selectedItem.action_grants ?? []).map(
+                    (grant) => actionDefinitions[grant.action_id]?.name ?? grant.action_id
+                  );
+                  const selectedEffectTotal =
+                    selectedEffectCounts.wearer + selectedEffectCounts.rollOrFormula;
+                  const selectedAttributeCount = Object.keys(selectedItem.attributes ?? {}).length;
+
+                  return (
+                    <div className="equipment-selection-preview equipment-card" tabIndex={0}>
+                      <div className="equipment-card__heading">
+                        <strong>{selectedItem.name}</strong>
+                        <span className="pill">
+                          {ITEM_INTERACTION_LABELS[selectedItem.interaction_type]}
+                        </span>
+                      </div>
+                      <div className="muted">
+                        Weight {formatWeight(selectedItem.weight)} lb · Price {selectedItem.price}
+                      </div>
+                      <div className="equipment-card__compact-stats muted">
+                        <span>Actions {selectedActionNames.length}</span>
+                        <span>Effects {selectedEffectTotal}</span>
+                        <span>Attributes {selectedAttributeCount}</span>
+                      </div>
+                      <ItemDetailHoverLabel
+                        description={selectedItem.description}
+                        attributeSummaries={selectedAttributeSummaries}
+                        effectCounts={selectedEffectCounts}
+                        activeEffects={[]}
+                        actionNames={selectedActionNames}
+                      />
+                    </div>
+                  );
+                })()
+              : null}
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="button"
+                onClick={addSelectedItem}
+                disabled={!selectedItem}
+              >
+                Add Item
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setAddDialogOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </ModalDialog>
+      ) : null}
     </section>
   );
 }

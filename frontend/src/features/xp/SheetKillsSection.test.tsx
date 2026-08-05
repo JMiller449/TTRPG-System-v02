@@ -220,6 +220,70 @@ describe("SheetKillsSection player recording", () => {
   });
 });
 
+describe("SheetKillsSection GM recording", () => {
+  it("opens Add Kill and records a registered enemy for the selected character", async () => {
+    const gmTracker: XpTrackerView = {
+      ...tracker,
+      can_manage: true,
+      mobs: [
+        {
+          sheet_id: "goblin",
+          name: "Goblin",
+          xp_value: 100,
+          visible_to_players: false
+        }
+      ],
+      recordable_mobs: []
+    };
+    await renderSection({
+      ...state,
+      serverState: { ...state.serverState, role: "gm", gmAuthenticated: true },
+      uiState: { ...state.uiState, xpTracker: gmTracker }
+    });
+    sendProtocolRequest.mockClear();
+
+    const addKillButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Kill"
+    );
+    expect(addKillButton).not.toBeUndefined();
+    await act(async () => addKillButton?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Add Kill");
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Hero");
+
+    const picker = container.querySelector<HTMLInputElement>(
+      '[role="dialog"] input[role="combobox"]'
+    );
+    await act(async () => {
+      picker?.focus();
+      picker?.click();
+      await Promise.resolve();
+    });
+    const goblinOption = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent?.includes("Goblin")
+    );
+    await act(async () => goblinOption?.click());
+
+    const form = container.querySelector<HTMLFormElement>('[role="dialog"] form');
+    await act(async () => {
+      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    expect(sendProtocolRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "record_kill",
+        credited_instance_id: "hero_1",
+        monster_sheet_id: "goblin",
+        monster_name: null,
+        base_xp: null
+      }),
+      "Record kill: Goblin"
+    );
+    expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(
+      true
+    );
+  });
+});
+
 describe("XpTrackerPage player visibility", () => {
   it("lets the DM expose a monster independently from its XP value", async () => {
     const gmTracker: XpTrackerView = {

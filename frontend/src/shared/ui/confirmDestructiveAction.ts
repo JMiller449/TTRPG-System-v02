@@ -1,4 +1,11 @@
-export type DestructiveActionVerb = "Delete" | "Deny" | "Despawn" | "Detach" | "Remove" | "Undo";
+export type DestructiveActionVerb =
+  | "Delete"
+  | "Deny"
+  | "Despawn"
+  | "Detach"
+  | "Remove"
+  | "Rotate"
+  | "Undo";
 
 export interface DestructiveActionConfirmation {
   action: DestructiveActionVerb;

@@ -150,9 +150,7 @@ describe("XP registry editors", () => {
       );
     });
 
-    const heroOne = container.querySelector<HTMLInputElement>(
-      'input[aria-label="Allow Hero One"]'
-    );
+    const heroOne = container.querySelector<HTMLInputElement>('input[aria-label="Allow Hero One"]');
     await act(async () => heroOne?.click());
     expect(container.textContent).toContain("Hero One");
     expect(confirm).toHaveBeenCalledWith(
@@ -161,9 +159,7 @@ describe("XP registry editors", () => {
     confirm.mockReturnValue(true);
     await act(async () => heroOne?.click());
 
-    const heroTwo = container.querySelector<HTMLInputElement>(
-      'input[aria-label="Allow Hero Two"]'
-    );
+    const heroTwo = container.querySelector<HTMLInputElement>('input[aria-label="Allow Hero Two"]');
     const heroThree = container.querySelector<HTMLInputElement>(
       'input[aria-label="Allow Hero Three"]'
     );

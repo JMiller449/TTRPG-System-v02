@@ -82,6 +82,7 @@ export function ItemMakerPage({
   const [submittedCreateId, setSubmittedCreateId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
   const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
+  const [effectEditorFocused, setEffectEditorFocused] = useState(false);
   const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
     createEmptyAugmentationEditorValues
   );
@@ -155,6 +156,7 @@ export function ItemMakerPage({
   }, [actionFormulaAuthoringMetadata, client]);
 
   const resetAugmentationEditor = (): void => {
+    setEffectEditorFocused(false);
     setEditingAugmentationId(null);
     setAugmentationValues(createEmptyAugmentationEditorValues());
   };
@@ -438,6 +440,7 @@ export function ItemMakerPage({
         ) : null}
         <CatalogEditorLayout
           catalogLabel={templateManagement ? "Item Templates" : "Item Catalog"}
+          editorClassName="authoring-workspace__editor--vertical"
           catalog={
             templateManagement ? (
               <CatalogBrowser
@@ -611,7 +614,9 @@ export function ItemMakerPage({
                   selectorOptions={selectorOptions}
                   formulaMetadata={actionFormulaAuthoringMetadata}
                   values={augmentationValues}
+                  focused={effectEditorFocused}
                   onChange={setAugmentationValues}
+                  onFocusedChange={setEffectEditorFocused}
                   onSubmit={submitAugmentation}
                   onCancel={resetAugmentationEditor}
                   onEdit={(augmentation) => {
@@ -621,6 +626,7 @@ export function ItemMakerPage({
                   onRemove={removeAugmentation}
                 />
               }
+              effectEditorFocused={effectEditorFocused}
               onSubmit={onSubmit}
               onCancel={showStart}
               onOpenActionAuthoring={() =>

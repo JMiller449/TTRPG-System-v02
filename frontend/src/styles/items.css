@@ -66,14 +66,119 @@
   min-height: 37px;
 }
 
-.item-effect-lists {
+.item-effect-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.item-effect-list {
-  align-content: start;
+.item-editor--effect-focused > :not(.item-editor__effects-disclosure) {
+  display: none;
+}
+
+.item-editor--effect-focused .item-editor__effects-disclosure {
+  border-top: 0;
+}
+
+.item-editor--effect-focused .item-editor__effects-disclosure > summary {
+  display: none;
+}
+
+.item-editor--effect-focused .item-editor__effects-disclosure > .authoring-disclosure__body {
+  padding: 0;
+}
+
+.item-effect-focus__navigation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.item-effect-focus__navigation > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.item-effect-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.item-effect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.item-effect-grid__empty {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.item-effect-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.item-effect-card__edit {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.item-effect-card__edit:hover,
+.item-effect-card__edit:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: none;
+}
+
+.item-effect-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.item-effect-card__summary,
+.item-effect-card__target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-effect-card__remove {
+  align-self: stretch;
+  border-width: 0 0 0 1px;
+}
+
+.item-effect-editor {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.item-effect-editor__actions {
+  position: sticky;
+  bottom: -0.4rem;
+  z-index: 2;
+  margin-inline: -0.2rem;
+  padding: 0.7rem 0.2rem 0.4rem;
+  background: var(--card);
+  box-shadow: 0 -10px 18px color-mix(in srgb, var(--card) 88%, transparent);
 }
 
 .item-definition-card__description {
@@ -159,7 +264,7 @@
   }
 
   .item-action-row,
-  .item-effect-lists {
+  .item-effect-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

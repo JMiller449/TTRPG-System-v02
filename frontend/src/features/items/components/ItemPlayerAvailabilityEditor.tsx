@@ -36,25 +36,20 @@ export function ItemPlayerAvailabilityEditor({
   const appState = useContext(AppStateContext);
   const legacyStore = useContext(StoreContext);
   const state = appState ?? legacyStore?.state;
-  const playerOptions = useMemo(
-    () => {
-      if (!state) {
-        return [];
-      }
-      return state.serverState.persistentSheetOrder
-        .map((instanceId) => selectSheetInstanceView(state, instanceId))
-        .filter(
-          (sheet): sheet is SheetInstanceView => sheet !== null && sheet.kind === "player"
-        )
-        .map((sheet) => ({
-          id: sheet.id,
-          label: sheet.name,
-          secondary: sheet.id,
-          keywords: [sheet.parentSheet?.id ?? ""]
-        }));
-    },
-    [state]
-  );
+  const playerOptions = useMemo(() => {
+    if (!state) {
+      return [];
+    }
+    return state.serverState.persistentSheetOrder
+      .map((instanceId) => selectSheetInstanceView(state, instanceId))
+      .filter((sheet): sheet is SheetInstanceView => sheet !== null && sheet.kind === "player")
+      .map((sheet) => ({
+        id: sheet.id,
+        label: sheet.name,
+        secondary: sheet.id,
+        keywords: [sheet.parentSheet?.id ?? ""]
+      }));
+  }, [state]);
   const summary =
     value.mode === "none"
       ? "No players"
@@ -72,8 +67,8 @@ export function ItemPlayerAvailabilityEditor({
       </summary>
       <div className="authoring-disclosure__body stack">
         <p className="muted">
-          Choose which claimed character sheets may find and add this item. Folders provide
-          bulk selection only; moving a sheet later does not change access.
+          Choose which claimed character sheets may find and add this item. Folders provide bulk
+          selection only; moving a sheet later does not change access.
         </p>
         <fieldset className="item-player-availability__modes">
           <legend>Availability</legend>

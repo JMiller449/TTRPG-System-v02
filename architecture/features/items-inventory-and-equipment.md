@@ -119,8 +119,8 @@ The GM item catalog uses the shared top-level
 entry placements reference item IDs without adding classification fields to an
 item. Search covers item name, stable ID, and rank. Organization does not
 directly affect access, redaction, inventory relationships, or mechanics.
-Inventory-add consumers use the shared collapsible catalog picker. Players see
-folder placement only for item definitions already visible to them.
+Inventory-add consumers open the shared catalog picker in a focused dialog.
+Players see folder placement only for item definitions already visible to them.
 
 Items and item templates have independent catalog trees. Creating either from
 a folder's `+` menu queues the normal entity creation followed by a separate
@@ -149,6 +149,22 @@ definition authoring and the proposal form are under
 [`frontend/src/features/items/`](../../frontend/src/features/items/). Local
 helpers calculate display groupings and labels only; quantities, containment,
 weight, equipment eligibility, and action availability remain backend-owned.
+The owned inventory is a responsive card grid. Add Existing opens the visible
+item catalog in a focused dialog. A GM can open the shared validated Item editor
+from the same toolbar; after authoritative creation succeeds, the frontend sends
+the normal instance-item attachment request. A player instead opens the existing
+non-mechanical proposal form in a dialog, preserving the approval boundary.
+Large Item editors keep their heading and save controls reachable while the
+editor body scrolls within the viewport.
+Item draft Attributes render as compact summary cards inside the editor's
+Attributes disclosure. Add Existing opens a nested catalog dialog, and clicking
+a card opens its focused draft value or formula editor instead of leaving
+attachment and editing controls expanded in the main Item form.
+Item-owned equipment effects follow the same compact authoring pattern without
+changing their equipment lifecycle: the Item form shows attached effect cards
+with inline removal, while Add Effect and card editing navigate to a focused
+effect editor within the current Item workspace. This avoids nested dialogs when
+the Item builder was itself opened from a character sheet.
 DMs and players can drag an unequipped item onto a valid storage card or the
 root inventory drop zone. The location selector remains the keyboard and touch
 fallback. The shared move route is available to authenticated players only for

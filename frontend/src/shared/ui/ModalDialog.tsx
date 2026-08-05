@@ -5,6 +5,7 @@ export function ModalDialog({
   description,
   pending = false,
   size = "compact",
+  dialogClassName,
   children,
   onClose
 }: {
@@ -12,6 +13,7 @@ export function ModalDialog({
   description: string;
   pending?: boolean;
   size?: "compact" | "large";
+  dialogClassName?: string;
   children: ReactNode;
   onClose: () => void;
 }): JSX.Element {
@@ -19,6 +21,10 @@ export function ModalDialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  const pendingRef = useRef(pending);
+  onCloseRef.current = onClose;
+  pendingRef.current = pending;
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -48,18 +54,18 @@ export function ModalDialog({
         }
         return;
       }
-      if (event.key !== "Escape" || pending) {
+      if (event.key !== "Escape" || pendingRef.current) {
         return;
       }
       event.preventDefault();
-      onClose();
+      onCloseRef.current();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       previouslyFocused?.focus();
     };
-  }, [onClose, pending]);
+  }, []);
 
   const closeFromBackdrop = (event: MouseEvent<HTMLDivElement>): void => {
     if (event.target === event.currentTarget && !pending) {
@@ -71,7 +77,7 @@ export function ModalDialog({
     <div className="r6-modal-backdrop template-contextual-modal" onMouseDown={closeFromBackdrop}>
       <section
         ref={dialogRef}
-        className={`r6-modal template-contextual-modal__dialog template-contextual-modal__dialog--${size}`}
+        className={`r6-modal template-contextual-modal__dialog template-contextual-modal__dialog--${size}${dialogClassName ? ` ${dialogClassName}` : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

@@ -330,7 +330,7 @@ export function AttributeEditorForm({
               : "Review the indicated fields."
         }
       />
-      <div className="inline-actions">
+      <div className="inline-actions attribute-editor-form__actions">
         <button className="button" type="button" onClick={onSubmit} disabled={pending}>
           {pending ? "Creating…" : editingId ? "Save Attribute" : "Create Attribute"}
         </button>

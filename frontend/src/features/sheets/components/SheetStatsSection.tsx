@@ -1,18 +1,20 @@
 import type { KeyboardEvent } from "react";
+import type { Formula } from "@/domain/models";
 import { Field } from "@/shared/ui/Field";
 import {
   CORE_SUBSTAT_GROUPS,
   DISPLAY_NAMES,
   formatModifier,
-  isCoreStatKey,
   isResourceKey,
   type SheetStatKey
 } from "@/features/sheets/sheetDisplay";
+import type { SheetFormulaStatName } from "@/features/sheets/sheetDefinitionEditing";
 
 export function SheetStatsSection({
   canEditStats,
   compact = false,
   stats,
+  formulaStats,
   editingKey,
   draftModifier,
   editorError,
@@ -23,11 +25,13 @@ export function SheetStatsSection({
   onResetModifier,
   onDraftModifierChange,
   onCancelEditing,
-  onEditorKeyDown
+  onEditorKeyDown,
+  onEditFormulaStat
 }: {
   canEditStats: boolean;
   compact?: boolean;
   stats: Partial<Record<SheetStatKey, number>>;
+  formulaStats?: Partial<Record<SheetFormulaStatName, Formula>>;
   editingKey: SheetStatKey | null;
   draftModifier: string;
   editorError: string | null;
@@ -39,6 +43,7 @@ export function SheetStatsSection({
   onDraftModifierChange: (value: string) => void;
   onCancelEditing: () => void;
   onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>, key: SheetStatKey) => void;
+  onEditFormulaStat?: (statName: SheetFormulaStatName) => void;
 }): JSX.Element {
   return (
     <section
@@ -48,7 +53,7 @@ export function SheetStatsSection({
       {!compact ? (
         <p className="muted character-sheet__hint">
           {canEditStats
-            ? "Click a stat to edit it — changes save to the server instantly. Formula and resistance tools are further down."
+            ? "Click a core stat to change its value. Hover over a derived stat to inspect its formula, or click it to edit."
             : "These values come straight from the server and update live."}
         </p>
       ) : null}
@@ -156,130 +161,55 @@ export function SheetStatsSection({
                 {group.subs.map((subKey) => {
                   const subBase = stats[subKey];
                   const displaySubBase = subBase ?? "—";
-                  if (isResourceKey(subKey)) {
-                    return (
-                      <div key={subKey} className="core-sub-row core-sub-row--base-only">
-                        <div className="core-sub-row__top">
-                          <div className="core-sub-row__main core-sub-row__main--static">
-                            <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
-                            <span className="core-sub-row__value">{displaySubBase}</span>
-                          </div>
-                          <div className="core-sub-row__actions core-sub-row__actions--placeholder" />
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  const canEditSubStat = canEditStats && isCoreStatKey(subKey);
-                  const subModifier = getModifier(subKey);
-                  const subCurrent =
-                    subBase === undefined ? null : getCurrentValue(subKey, subBase);
-                  const subEditorId = `stat-editor-${subKey}`;
-                  const subErrorId = `${subEditorId}-error`;
-                  const subHintId = `${subEditorId}-hint`;
+                  const formula = formulaStats?.[subKey];
+                  const tooltipId = `formula-tooltip-${subKey}`;
+                  const aliases = formula?.aliases ?? [];
+                  const aliasSummary =
+                    aliases.length > 0
+                      ? aliases
+                          .map((alias) => `@${alias.name} → ${alias.path.join(".")}`)
+                          .join(", ")
+                      : "No aliases configured";
+                  const formulaContent = formula ? (
+                    <span className="formula-stat-tooltip" id={tooltipId} role="tooltip">
+                      <span>
+                        Formula: <code>{formula.text}</code>
+                      </span>
+                      <span>{aliasSummary}</span>
+                    </span>
+                  ) : null;
+                  const canEditFormula = canEditStats && Boolean(formula) && onEditFormulaStat;
                   return (
-                    <div key={subKey} className="core-sub-row">
+                    <div
+                      key={subKey}
+                      className={`core-sub-row ${isResourceKey(subKey) ? "core-sub-row--base-only" : ""}`}
+                    >
                       <div className="core-sub-row__top">
-                        {canEditSubStat ? (
+                        {canEditFormula ? (
                           <button
                             type="button"
-                            className="core-sub-row__main"
-                            onClick={() => onBeginEditing(subKey)}
-                            aria-label={`Edit ${DISPLAY_NAMES[subKey]}. Current value ${subCurrent}.`}
-                            aria-expanded={editingKey === subKey}
-                            aria-controls={subEditorId}
+                            className="core-sub-row__main core-sub-row__main--formula"
+                            onClick={() => onEditFormulaStat(subKey)}
+                            aria-label={`Edit ${DISPLAY_NAMES[subKey]} formula. Current value ${displaySubBase}.`}
+                            aria-describedby={tooltipId}
                           >
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
-                            <span
-                              className={`core-sub-row__value ${
-                                subModifier > 0
-                                  ? "stat-value--up"
-                                  : subModifier < 0
-                                    ? "stat-value--down"
-                                    : ""
-                              }`}
-                            >
-                              {subCurrent}
-                            </span>
+                            <span className="core-sub-row__value">{displaySubBase}</span>
+                            {formulaContent}
                           </button>
                         ) : (
-                          <div className="core-sub-row__main core-sub-row__main--static">
+                          <div
+                            className={`core-sub-row__main core-sub-row__main--static ${formula ? "core-sub-row__main--formula" : ""}`}
+                            tabIndex={formula ? 0 : undefined}
+                            aria-describedby={formula ? tooltipId : undefined}
+                          >
                             <span className="core-sub-row__label">{DISPLAY_NAMES[subKey]}</span>
                             <span className="core-sub-row__value">{displaySubBase}</span>
+                            {formulaContent}
                           </div>
                         )}
-                        <div className="core-sub-row__actions">
-                          {canEditSubStat && subModifier !== 0 ? (
-                            <>
-                              <span
-                                className={`stat-modifier ${
-                                  subModifier > 0 ? "stat-modifier--up" : "stat-modifier--down"
-                                }`}
-                              >
-                                {formatModifier(subModifier)}
-                              </span>
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => onResetModifier(subKey)}
-                                aria-label={`Reset ${DISPLAY_NAMES[subKey]} modifier`}
-                              >
-                                Reset
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
+                        <div className="core-sub-row__actions core-sub-row__actions--placeholder" />
                       </div>
-
-                      {canEditSubStat && editingKey === subKey ? (
-                        <div
-                          className="stat-editor stat-editor--sub"
-                          id={subEditorId}
-                          role="group"
-                          aria-label={`Edit ${DISPLAY_NAMES[subKey]}`}
-                        >
-                          <Field label={`${DISPLAY_NAMES[subKey]} Modifier`}>
-                            <input
-                              value={draftModifier}
-                              onChange={(event) => onDraftModifierChange(event.target.value)}
-                              onKeyDown={(event) => onEditorKeyDown(event, subKey)}
-                              inputMode="numeric"
-                              placeholder="+10 or -10"
-                              aria-label={`${DISPLAY_NAMES[subKey]} modifier`}
-                              aria-describedby={editorError ? subErrorId : subHintId}
-                              aria-invalid={Boolean(editorError)}
-                              autoFocus
-                            />
-                          </Field>
-                          <button
-                            type="button"
-                            className="button"
-                            onClick={() => onApplyModifier(subKey)}
-                          >
-                            Apply
-                          </button>
-                          <button
-                            type="button"
-                            className="button button--secondary"
-                            onClick={onCancelEditing}
-                          >
-                            Cancel
-                          </button>
-                          {editorError ? (
-                            <p
-                              className="error-text stat-editor__error"
-                              id={subErrorId}
-                              role="alert"
-                            >
-                              {editorError}
-                            </p>
-                          ) : (
-                            <p className="muted stat-editor__hint" id={subHintId}>
-                              Updates template base stat.
-                            </p>
-                          )}
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}

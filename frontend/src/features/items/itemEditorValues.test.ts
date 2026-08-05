@@ -327,9 +327,9 @@ describe("itemEditorValues", () => {
       evaluated_value: null,
       evaluation_error: null
     };
-    expect(
-      getItemEditorValidationError(values, { definitions: weaponAttributes })
-    ).toContain("missing proficiency ID");
+    expect(getItemEditorValidationError(values, { definitions: weaponAttributes })).toContain(
+      "missing proficiency ID"
+    );
 
     values.attributes.weapon_proficiency.value = { type: "reference", value: "long_swords" };
     expect(
@@ -372,8 +372,6 @@ describe("itemEditorValues", () => {
     });
 
     values.storageCapacityWeight = "-1";
-    expect(getItemEditorValidationError(values)).toContain(
-      "finite nonnegative number"
-    );
+    expect(getItemEditorValidationError(values)).toContain("finite nonnegative number");
   });
 });

@@ -121,7 +121,8 @@ Frontend:
 - Character notes use a full-width responsive writing workspace with an explicit
   saved/pending state instead of inheriting the generic horizontal column layout.
 - The frontend visual system now follows the dense R6 console reference layout: an edge-to-edge status header, grouped GM rail, non-blocking toast feedback, compact authoritative character workspace, vertical template section rail, and reusable catalog/editor authoring pages. This was a presentation-only pivot and did not add or remove application capabilities.
-- Quick action controls resolve assigned default authored actions such as Dodge, Block, weapon actions, and spell actions when present.
+- Character Actions surfaces resolve backend-authoritative direct assignments and eligible
+  item-granted actions, including their exact item source, roll mode, and invocation visibility.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
 - Roll20 bridge disconnected state fails fast with visible client feedback.
 - The DM and player **Extension** workspace stages Violentmonkey installation, installs
@@ -146,11 +147,71 @@ Frontend:
 - GM console navigation, persistent toolbar, state backup UI, mobile layout refinement, and request feedback are implemented.
 - Frontend build, lint, and test suites were recorded as passing after the completed implementation tracks.
 - GM/player console panels keep a fixed remaining-height workspace across navigation tabs, and HP/mana editing opens as an anchored overlay instead of resizing the sheet.
-- GM dashboard hosts session-level active sheet selection, player access codes, and quick actions without embedding the character sheet; GM Action History owns the global actor-labelled audit stream, while GM Characters owns sheet detail plus filtered per-sheet history, formula-stat, and resistance tabs.
+- GM Characters is the default session workspace and owns active character selection, sheet
+  detail, action execution, filtered per-sheet history, formula-stat editing, resistances, and
+  instance management. The former dashboard and its duplicate fixed quick-action runner were
+  removed. GM Action History remains the global actor-labelled audit stream.
 - GM sheet Actions uses the player-style searchable command grid for execution while retaining GM assignment management below it.
+- Sheet action command bars now align the result count, search, joined type filters, roll mode,
+  and audience as one labeled responsive toolbar. This presentation-only cleanup preserves the
+  existing action filtering and backend-authoritative execution behavior.
+- GM Action assignment management is inline with the command catalog: direct assignments expose
+  compact Pin/Remove controls, Add Existing opens a catalog dialog, and Create Action opens the
+  shared validated Action editor before automatically assigning the newly created definition.
+  The former horizontally scrolling replacement manager is removed.
+- Spawned-sheet Action creation uses character-specific copy and a wide, bounded dialog with a
+  compact preset sidebar, scrollable editor workspace, and sticky save footer. Contextual dialogs
+  now override the generic modal width correctly instead of compressing full editors to 620px.
+- Action Authoring keeps its catalog and editor together in the dedicated workspace, with presets
+  collapsed until requested. Steps render as compact summaries with explicit Edit controls; a
+  selected step temporarily replaces the overview instead of expanding the page vertically.
+  Character-context creation reuses that focused view inside its existing modal and hides the
+  preset sidebar while editing, so it never stacks a second dialog.
+- Styled Roll steps separate card settings from result formulas: the step overview summarizes a
+  required Primary Result and the optional Secondary Result supported by damage/default cards,
+  while each result opens as a focused in-editor layer for its label, source, formula, and tags.
+- The status-bar Toast History panel renders through the document overlay layer while remaining
+  anchored to its History control, preventing filtered workspace stacking contexts from covering
+  the panel.
+- Character inventory is now a full-width responsive card grid. Its permanent catalog picker,
+  selected-item preview, and player proposal column moved into Add Existing and Create/Propose
+  dialogs. GM-created Items reuse validated authoring and automatically attach after authoritative
+  creation; player proposals retain backend approval requirements. Large Item editors are bounded
+  to the viewport with an explicit scroll region and a sticky create/save footer.
+- Character Attributes now use compact value cards instead of embedding every value/formula editor.
+  Formula expressions and aliases are available on hover or keyboard focus; clicking a GM card
+  opens its focused editor. Add Existing and Create Attribute use dialogs, and a newly created
+  definition attaches only after its authoritative create response succeeds. The creation dialog
+  is viewport-bounded with a dedicated scroll region and sticky create controls.
+- Character Proficiencies now use compact progression cards instead of permanent add/edit forms.
+  Clicking a GM card opens its assignment, use-count, and growth editor; Add Existing and Create
+  Proficiency use focused dialogs. Newly created definitions are linked after their authoritative
+  create response using the definition's default growth rate.
+- GM Tracked Kills exposes an Add Kill dialog scoped to the selected character, reusing the
+  authoritative kill registry and current party resolution for registered or arbitrary enemies.
+  Player final-blow recording remains limited to GM-exposed enemy templates. Shared modal focus
+  setup now runs only on mount, so controlled-field rerenders do not return keyboard focus to the
+  close button while the GM types.
+- Template snapshots no longer expose their internal template ID as an editable GM field. The
+  Management workflow derives a readable unique ID from the snapshot name and existing registry,
+  while the backend contract continues receiving the required stable identifier.
+- Action draft Attributes now use compact cards inside their disclosure. Add Existing opens a
+  nested catalog dialog, clicking a card opens its focused draft value/formula editor, and the
+  redundant nested headings and permanent attachment controls are removed.
+- Item draft Attributes now use the same compact disclosure treatment: attached values render as
+  summary cards, Add Existing opens a nested catalog dialog, and card editing happens in a focused
+  draft value/formula dialog instead of expanding permanent controls in the Item builder.
+- Item-owned Equipment Effects now render as compact attached-effect cards with inline removal.
+  Add Effect and card editing use Action-step-style focused navigation within the current Item
+  builder, avoiding nested dialogs when authoring from a character sheet. Automatic equip/unequip
+  ownership and backend effect behavior are unchanged.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
-- GM spawned-sheet density pass (2026-07-31): the desktop Characters workspace now consistently compacts its sheet selector, panel chrome, identity/resources, advancement, tabs, action toolbar, and action cards instead of waiting for the constrained-height breakpoint. The infrequent template-snapshot form moved from permanent sheet chrome into a dedicated GM-only Snapshot tab beside Formula Stats. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. Mobile flow and the taller-display player sheet remain unchanged. Presentation-only; no protocol or gameplay changes.
+- GM spawned-sheet density pass (2026-07-31): the desktop Characters workspace now consistently compacts its sheet selector, panel chrome, identity/resources, advancement, tabs, action toolbar, and action cards instead of waiting for the constrained-height breakpoint. Infrequent character administration lives in a dedicated GM-only Management tab: player-code generation/rotation, template snapshots, and despawning all operate on the selected instance. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. Mobile flow and the taller-display player sheet remain unchanged. The management consolidation reuses existing backend contracts and does not change gameplay behavior.
+- Derived formula stats are integrated with their evaluated values on the character Overview.
+  Hover or keyboard focus explains the stored expression and aliases; a GM click opens a focused
+  modal for that substat only. The duplicate Formula Stats tab and multi-stat editor list were
+  removed, while players retain read-only formula explanations.
 - Spawned-sheet overviews show the handbook-defined Dexterity-based Dodge chance inline with Action / Reaction Points in the shared GM and Player sheet viewer. The displayed value comes from the backend-evaluated sheet stats; no client-side roll calculation or protocol change was added.
 - GM Attributes layout cleanup (2026-07-31): optional-Attribute attachment now owns a compact full-width toolbar above the card collection instead of consuming the first grid cell, attached Attribute cards use the available width in a responsive grid, and value/formula actions use the shared control styling with aligned fields and buttons. Presentation-only; authoritative Attribute behavior is unchanged.
 - Formula-tag selector cleanup (2026-07-31): the shared managed-tag picker presents tags as compact wrapping toggle chips, with selected treatment, hidden checkbox chrome, hover/focus feedback, description tooltips, and a permanently visible scrollbar gutter for its bounded list. Its catalog remains visible and searchable inside narrow formula editors, while folder controls keep full-width hierarchy rows. Catalog organization and saved tag semantics are unchanged.

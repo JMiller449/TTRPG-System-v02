@@ -242,6 +242,7 @@ export function ConditionAuthoringPage({ client }: { client: GameClient }): JSX.
     >
       <CatalogEditorLayout
         catalogLabel="Condition Catalog"
+        editorClassName="authoring-workspace__editor--vertical"
         catalog={
           <CatalogBrowser
             catalog="conditions"

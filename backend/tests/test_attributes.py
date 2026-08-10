@@ -337,6 +337,7 @@ def test_attribute_recomputes_when_dependency_changes(monkeypatch) -> None:
                 "/sheets/mage/stats/dexterity",
                 "/sheets/mage/attributes/amount_of_reactions",
                 "/sheets/mage/evaluated_stats",
+                "/sheets/mage/evaluated_movement_speed",
                 "/sheets/mage/evaluated_max_health",
                 "/sheets/mage/evaluated_max_mana",
             ]
@@ -915,6 +916,7 @@ def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch)
                 ("remove", "/items/sword/attributes/rank_label"),
                 ("remove", "/actions/parry/attributes/rank_label"),
                 ("set", "/sheets/mage/evaluated_stats"),
+                ("set", "/sheets/mage/evaluated_movement_speed"),
                 ("set", "/sheets/mage/evaluated_max_health"),
                 ("set", "/sheets/mage/evaluated_max_mana"),
             }
@@ -939,6 +941,7 @@ def test_attribute_visibility_changes_reconcile_all_subject_bridges(monkeypatch)
                 ("set", "/items/sword/attributes/rank_label"),
                 ("set", "/actions/parry/attributes/rank_label"),
                 ("set", "/sheets/mage/evaluated_stats"),
+                ("set", "/sheets/mage/evaluated_movement_speed"),
                 ("set", "/sheets/mage/evaluated_max_health"),
                 ("set", "/sheets/mage/evaluated_max_mana"),
             }

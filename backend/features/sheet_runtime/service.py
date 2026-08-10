@@ -34,6 +34,7 @@ from backend.features.sheet_runtime.schema import (
     ApplyInstancedSheetDamage,
     AdjustInstancedSheetReactions,
     PerformAction,
+    ResetInstancedSheetDamageTracker,
     ResetInstancedSheetReactions,
     SetInstancedSheetItemEquipped,
 )
@@ -1257,6 +1258,26 @@ async def reset_instanced_sheet_reactions(
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
+async def reset_instanced_sheet_damage_tracker(
+    request: ResetInstancedSheetDamageTracker,
+) -> None:
+    def mutation(state: State) -> tuple[None, list[PatchOp]]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        if instance.damage_taken_by_type[request.damage_type] == 0:
+            return None, []
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "damage_taken_by_type",
+            request.damage_type,
+        )
+        return None, [state_sync_service.set_mutation(state, path, 0)]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
 def calculate_damage_taken(
     *,
     actor: RuntimeActor,
@@ -1268,6 +1289,24 @@ def calculate_damage_taken(
     resistance = effective_damage_resistance(actor, damage_type)
     damage_taken = raw_damage - (raw_damage * resistance)
     return floor(max(0, damage_taken))
+
+
+def _increment_damage_tracker_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    damage_type: DamageType,
+    damage_taken: int,
+) -> PatchOp | None:
+    if damage_taken <= 0:
+        return None
+    path = state_sync_service.join_path(
+        "instanced_sheets",
+        instance_id,
+        "damage_taken_by_type",
+        damage_type,
+    )
+    return state_sync_service.increment_mutation(state, path, damage_taken)
 
 
 def _resolve_damage_amount(
@@ -1347,8 +1386,16 @@ async def apply_instanced_sheet_damage(
         )
         current_health = _numeric_path_value(actor.instance, ["health"], path)
         next_health = normalize_numeric_result(max(0, current_health - damage_taken))
-        op = state_sync_service.set_mutation(state, path, next_health)
-        return None, [op]
+        ops = [state_sync_service.set_mutation(state, path, next_health)]
+        tracker_op = _increment_damage_tracker_mutation(
+            state,
+            instance_id=request.instance_id,
+            damage_type=request.damage_type,
+            damage_taken=damage_taken,
+        )
+        if tracker_op is not None:
+            ops.append(tracker_op)
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -1812,6 +1859,14 @@ async def perform_action(
                 )
                 op = state_sync_service.set_mutation(state, path, result)
                 ops.append(op)
+                tracker_op = _increment_damage_tracker_mutation(
+                    state,
+                    instance_id=current_actor.actor_id,
+                    damage_type=step.damage_type,
+                    damage_taken=damage_taken,
+                )
+                if tracker_op is not None:
+                    ops.append(tracker_op)
                 resistance = effective_damage_resistance(
                     current_actor,
                     step.damage_type,

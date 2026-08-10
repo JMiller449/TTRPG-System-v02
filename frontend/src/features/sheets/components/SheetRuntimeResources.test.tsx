@@ -12,6 +12,7 @@ describe("SheetRuntimeResources", () => {
         current={1}
         maximum={2}
         dodgeChance={26}
+        movementSpeed={30}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -23,6 +24,9 @@ describe("SheetRuntimeResources", () => {
     expect(markup).toContain("Dodge Chance");
     expect(markup).toContain("Dodge = FLOOR(Dexterity × (d100 / 100))");
     expect(markup).toContain("<strong>26</strong>");
+    expect(markup).toContain("Movement");
+    expect(markup).toContain("greatest Dexterity threshold met");
+    expect(markup).toContain("<strong>30 ft</strong>");
     expect(markup).toContain(">Spend</button>");
     expect(markup).toContain(">Restore</button>");
     expect(markup).toContain(">Reset</button>");
@@ -35,6 +39,7 @@ describe("SheetRuntimeResources", () => {
         current={0}
         maximum={2}
         dodgeChance={26}
+        movementSpeed={30}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -46,6 +51,7 @@ describe("SheetRuntimeResources", () => {
         current={2}
         maximum={2}
         dodgeChance={26}
+        movementSpeed={30}
         canManage
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -65,6 +71,7 @@ describe("SheetRuntimeResources", () => {
         current={3}
         maximum={3}
         dodgeChance={26}
+        movementSpeed={30}
         canManage={false}
         onSpend={() => undefined}
         onRestore={() => undefined}
@@ -75,6 +82,23 @@ describe("SheetRuntimeResources", () => {
     expect(markup).not.toContain(">Spend</button>");
     expect(markup).not.toContain(">Restore</button>");
     expect(markup).not.toContain(">Reset</button>");
+  });
+
+  it("shows GM discretion when Dexterity exceeds the movement table", () => {
+    const markup = renderToStaticMarkup(
+      <SheetReactionResource
+        current={3}
+        maximum={3}
+        dodgeChance={401}
+        movementSpeed={null}
+        canManage={false}
+        onSpend={() => undefined}
+        onRestore={() => undefined}
+        onReset={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("GM discretion");
   });
 
   it("keeps contribution-point controls GM-only while always showing balance", () => {

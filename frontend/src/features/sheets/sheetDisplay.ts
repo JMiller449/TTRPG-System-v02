@@ -32,7 +32,7 @@ export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({
 export type HealthDamageType = DamageType | "";
 
 export function canManageActionReactionPoints(mode: "player" | "gm", kind: SheetKind): boolean {
-  return (mode === "player" && kind === "player") || (mode === "gm" && kind === "enemy");
+  return mode === "gm" || kind === "player";
 }
 
 export function parseModifierInput(raw: string): number | null {

@@ -2,8 +2,8 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Resistances } from "@/domain/models";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DAMAGE_TYPES, type DamageType, type Resistances } from "@/domain/models";
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 
 const resistances: Resistances = {
@@ -26,6 +26,10 @@ const resistances: Resistances = {
   gravity: 0,
   psychic: 0
 };
+
+const damageTakenByType = Object.fromEntries(
+  DAMAGE_TYPES.map((damageType) => [damageType, damageType === "Fire" ? 12 : 0])
+) as Record<DamageType, number>;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -66,5 +70,40 @@ describe("SheetResistancesEditor", () => {
     expect(container.querySelectorAll('input[type="number"]')).toHaveLength(18);
     expect(container.querySelectorAll(".sheet-resistance-card")).toHaveLength(0);
     expect(container.textContent).toContain("Save Resistances");
+  });
+
+  it("shows GM damage trackers beside damage-type resistances and resets one type", async () => {
+    let resetType: DamageType | null = null;
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await act(async () => {
+      root.render(
+        createElement(SheetResistancesEditor, {
+          resistances,
+          damageTakenByType,
+          onSave: () => undefined,
+          onResetDamageTracker: (damageType) => {
+            resetType = damageType;
+          }
+        })
+      );
+    });
+
+    expect(container.querySelectorAll(".sheet-resistance-card--editable")).toHaveLength(15);
+    const fireInput = container.querySelector('input[aria-label="Fire resistance (%)"]');
+    const fireCard = fireInput?.closest(".sheet-resistance-card--editable");
+    expect(fireCard?.textContent).toContain("Damage taken12Reset");
+
+    await act(async () => {
+      (fireCard?.querySelector("button") as HTMLButtonElement).click();
+    });
+    expect(resetType).toBe("Fire");
+
+    resetType = null;
+    confirm.mockReturnValue(false);
+    await act(async () => {
+      (fireCard?.querySelector("button") as HTMLButtonElement).click();
+    });
+    expect(resetType).toBeNull();
+    confirm.mockRestore();
   });
 });

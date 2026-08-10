@@ -16,8 +16,9 @@ from backend.state.default_actions import (
     normalize_weapon_action_grant_payloads,
     seeded_global_action_payloads,
 )
+from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 45
+CURRENT_STATE_SCHEMA_VERSION = 46
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2354,6 +2355,19 @@ def _migrate_v44_to_v45(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 45, "state": state}
 
 
+def _migrate_v45_to_v46(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    instances = state.get("instanced_sheets", {})
+    if isinstance(instances, dict):
+        for instance in instances.values():
+            if isinstance(instance, dict):
+                instance.setdefault(
+                    "damage_taken_by_type",
+                    {damage_type: 0 for damage_type in DAMAGE_TYPES},
+                )
+    return {"schema_version": 46, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2400,6 +2414,7 @@ MIGRATIONS: dict[int, Migration] = {
     42: _migrate_v42_to_v43,
     43: _migrate_v43_to_v44,
     44: _migrate_v44_to_v45,
+    45: _migrate_v45_to_v46,
 }
 
 

@@ -555,6 +555,7 @@ export interface Sheet {
   items: Record<string, ItemBridge>;
   stats: Stats;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  evaluated_movement_speed?: number | null;
   current_carried_weight?: number;
   racial_hp_multiplier?: number;
   max_health?: Formula;
@@ -576,10 +577,12 @@ export interface PersistentSheet {
   reactions?: number;
   evaluated_max_reactions?: number;
   contribution_points?: number;
+  damage_taken_by_type?: Partial<Record<DamageType, number>> | null;
   pinned_action_ids?: string[];
   unassigned_stat_points?: number;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
+  evaluated_movement_speed?: number | null;
   current_carried_weight?: number;
   racial_hp_multiplier?: number;
   max_health?: Formula;

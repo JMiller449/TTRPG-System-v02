@@ -317,6 +317,7 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
                     "augments": {},
                 }
             )
+            state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] = 12
 
             assigned_snapshot = await state_sync_service.snapshot(
                 role="player",
@@ -329,6 +330,9 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
             assert assigned_snapshot.state["instanced_sheets"]["mage_instance"][
                 "notes"
             ] == "Shared instance notes."
+            assert assigned_snapshot.state["instanced_sheets"]["mage_instance"].get(
+                "damage_taken_by_type"
+            ) is None
             # Instance notes belong to the claimed character only. A session that
             # has not claimed this instance must not receive it at all.
             assert unassigned_snapshot.state["instanced_sheets"] == {}
@@ -336,6 +340,15 @@ def test_player_snapshot_redacts_template_notes_but_keeps_instance_notes(
                 dm_snapshot.state["sheets"]["mage_template"]["notes"]
                 == "GM-only template notes."
             )
+            assert dm_snapshot.state["instanced_sheets"]["mage_instance"][
+                "damage_taken_by_type"
+            ]["Fire"] == 12
+            assert dm_snapshot.state["sheets"]["mage_template"][
+                "evaluated_movement_speed"
+            ] == 10
+            assert dm_snapshot.state["instanced_sheets"]["mage_instance"][
+                "evaluated_movement_speed"
+            ] == 10
         finally:
             StateSingleton._state = original_state
 
@@ -436,6 +449,11 @@ def test_player_patches_drop_other_instances_and_dm_only_sheets() -> None:
             [
                 PatchOp(op="set", path="/instanced_sheets/other_instance/health", value=3),
                 PatchOp(op="set", path="/instanced_sheets/mine/health", value=7),
+                PatchOp(
+                    op="inc",
+                    path="/instanced_sheets/mine/damage_taken_by_type/Fire",
+                    value=4,
+                ),
                 PatchOp(op="set", path="/encounter_presets/ambush", value={"id": "ambush"}),
             ],
             state_version=1,
@@ -447,6 +465,29 @@ def test_player_patches_drop_other_instances_and_dm_only_sheets() -> None:
     assert [op.path for op in patch.ops] == ["/instanced_sheets/mine/health"]
 
 
+def test_player_whole_instance_patch_redacts_damage_trackers() -> None:
+    instance = InstancedSheet.from_dict(
+        {
+            "parent_id": "mage_template",
+            "health": 10,
+            "mana": 5,
+            "augments": {},
+            "damage_taken_by_type": {"Fire": 12},
+        }
+    )
+    patch = state_sync_service._redact_patch_for_role(
+        build_state_patch(
+            [PatchOp(op="set", path="/instanced_sheets/mine", value=instance)],
+            state_version=1,
+        ),
+        role="player",
+        assigned_instance_id="mine",
+    )
+
+    assert len(patch.ops) == 1
+    assert "damage_taken_by_type" not in patch.ops[0].value
+
+
 def test_dm_patches_retain_instance_runtime_fields() -> None:
     patch = state_sync_service._redact_patch_for_role(
         build_state_patch(
@@ -454,6 +495,11 @@ def test_dm_patches_retain_instance_runtime_fields() -> None:
                 PatchOp(op="set", path="/instanced_sheets/any/reactions", value=1),
                 PatchOp(op="set", path="/instanced_sheets/any/contribution_points", value=5),
                 PatchOp(op="set", path="/instanced_sheets/any/pinned_action_ids", value=[]),
+                PatchOp(
+                    op="inc",
+                    path="/instanced_sheets/any/damage_taken_by_type/Fire",
+                    value=4,
+                ),
             ],
             state_version=1,
         ),
@@ -466,6 +512,7 @@ def test_dm_patches_retain_instance_runtime_fields() -> None:
         "/instanced_sheets/any/reactions",
         "/instanced_sheets/any/contribution_points",
         "/instanced_sheets/any/pinned_action_ids",
+        "/instanced_sheets/any/damage_taken_by_type/Fire",
     ]
 
 
@@ -846,24 +893,62 @@ def test_state_sync_increment_and_decrement_are_broadcast(monkeypatch) -> None:
                     1,
                     "req-1",
                     None,
-                    (
-                        "/sheets/mage_template/stats/strength",
-                        "/sheets/mage_template/evaluated_stats",
-                        "/sheets/mage_template/evaluated_max_health",
-                        "/sheets/mage_template/evaluated_max_mana",
-                    ),
+                        (
+                            "/sheets/mage_template/stats/strength",
+                            "/sheets/mage_template/evaluated_stats",
+                            "/sheets/mage_template/evaluated_movement_speed",
+                            "/sheets/mage_template/evaluated_max_health",
+                            "/sheets/mage_template/evaluated_max_mana",
+                        ),
                 ),
                 (
                     2,
                     "req-2",
                     None,
-                    (
-                        "/sheets/mage_template/stats/strength",
-                        "/sheets/mage_template/evaluated_stats",
-                        "/sheets/mage_template/evaluated_max_health",
-                        "/sheets/mage_template/evaluated_max_mana",
-                    ),
+                        (
+                            "/sheets/mage_template/stats/strength",
+                            "/sheets/mage_template/evaluated_stats",
+                            "/sheets/mage_template/evaluated_movement_speed",
+                            "/sheets/mage_template/evaluated_max_health",
+                            "/sheets/mage_template/evaluated_max_mana",
+                        ),
                 ),
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_state_sync_projects_movement_speed_after_dexterity_change(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            StateSingleton.getState().sheets["mage_template"] = _build_sheet_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await state_sync_service.increment(
+                "/sheets/mage_template/stats/dexterity",
+                29,
+                request_id="movement-threshold",
+            )
+
+            movement_ops = [
+                op
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"]
+                == "/sheets/mage_template/evaluated_movement_speed"
+            ]
+            assert movement_ops == [
+                {
+                    "op": "set",
+                    "path": "/sheets/mage_template/evaluated_movement_speed",
+                    "value": 30,
+                }
             ]
         finally:
             StateSingleton._state = original_state
@@ -1030,6 +1115,9 @@ def test_resync_state_falls_back_to_snapshot_on_invalid_version(monkeypatch) -> 
                 "arcane": 14,
                 "will": 15,
             }
+            expected_state["sheets"]["mage_template"][
+                "evaluated_movement_speed"
+            ] = 10
             expected_state["sheets"]["mage_template"]["evaluated_max_health"] = 120
             expected_state["sheets"]["mage_template"]["evaluated_max_mana"] = 112
             expected_state["sheets"]["mage_template"]["current_carried_weight"] = 0

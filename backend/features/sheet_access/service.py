@@ -131,6 +131,7 @@ def ensure_session_can_manage_instance_action_points(
     instance = state.instanced_sheets.get(instance_id)
     if instance is None:
         raise ValueError(f"Instance '{instance_id}' does not exist.")
+
     parent = state.sheets.get(instance.parent_id)
     if parent is None:
         raise ValueError(
@@ -138,10 +139,6 @@ def ensure_session_can_manage_instance_action_points(
         )
 
     if session.is_dm:
-        if not parent.dm_only:
-            raise PermissionError(
-                "Only the assigned player can use action/reaction points on a player character."
-            )
         return
 
     ensure_session_can_access_instance(session, instance_id)

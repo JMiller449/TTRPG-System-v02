@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Resistances } from "@/domain/models";
+import type { DamageType, Resistances } from "@/domain/models";
 import {
   parseResistancePercentDraft,
   RESISTANCE_FIELDS,
@@ -7,6 +7,7 @@ import {
   type ResistancePercentDraft
 } from "@/features/sheets/sheetDefinitionEditing";
 import type { SheetResistancesPayload } from "@/infrastructure/ws/requestBuilders";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { Field } from "@/shared/ui/Field";
 
 const CORE_RESISTANCE_FIELDS = RESISTANCE_FIELDS.slice(0, 3);
@@ -33,12 +34,16 @@ function ResistanceReadout({ label, value }: { label: string; value: string }): 
 
 export function SheetResistancesEditor({
   resistances,
+  damageTakenByType,
   onSave,
+  onResetDamageTracker,
   readOnly = false,
   title = readOnly ? "Resistances" : "Template Resistances"
 }: {
   resistances: Resistances | undefined;
+  damageTakenByType?: Partial<Record<DamageType, number>> | null;
   onSave?: (resistances: SheetResistancesPayload) => void;
+  onResetDamageTracker?: (damageType: DamageType) => void;
   readOnly?: boolean;
   title?: string;
 }): JSX.Element {
@@ -68,6 +73,76 @@ export function SheetResistancesEditor({
         />
       </Field>
     );
+
+  const damageTypeControl = ([
+    key,
+    label
+  ]: (typeof DAMAGE_TYPE_RESISTANCE_FIELDS)[number]): JSX.Element => {
+    if (readOnly) {
+      return <ResistanceReadout key={key} label={label} value={draft[key]} />;
+    }
+    if (damageTakenByType === undefined) {
+      return (
+        <Field label={`${label} (%)`} key={key}>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={draft[key]}
+            aria-invalid={payload === null}
+            onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
+          />
+        </Field>
+      );
+    }
+
+    const damageType = label as DamageType;
+    const trackedDamage = damageTakenByType?.[damageType] ?? 0;
+    return (
+      <article className="sheet-resistance-card sheet-resistance-card--editable" key={key}>
+        <h5>{label}</h5>
+        <div className="sheet-resistance-card__edit-row">
+          <Field label="Resistance (%)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={draft[key]}
+              aria-label={`${label} resistance (%)`}
+              aria-invalid={payload === null}
+              onChange={(event) => setDraft({ ...draft, [key]: event.target.value })}
+            />
+          </Field>
+          <div className="sheet-damage-tracker">
+            <span>Damage taken</span>
+            <strong>{trackedDamage}</strong>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={trackedDamage === 0 || !onResetDamageTracker}
+              onClick={() => {
+                if (
+                  !confirmDestructiveAction({
+                    action: "Reset",
+                    subject: `${label} damage tracker`,
+                    consequence:
+                      "This clears the cumulative damage total for this character. The GM state-undo or backup tools are required to recover it."
+                  })
+                ) {
+                  return;
+                }
+                onResetDamageTracker?.(damageType);
+              }}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <section
@@ -101,7 +176,7 @@ export function SheetResistancesEditor({
           <p className="muted">Specific reductions applied by damage type.</p>
         </div>
         <div className="sheet-resistance-grid sheet-resistance-grid--types">
-          {DAMAGE_TYPE_RESISTANCE_FIELDS.map(resistanceControl)}
+          {DAMAGE_TYPE_RESISTANCE_FIELDS.map(damageTypeControl)}
         </div>
       </section>
       {!readOnly ? (

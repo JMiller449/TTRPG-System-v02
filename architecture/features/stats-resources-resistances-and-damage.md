@@ -22,6 +22,13 @@ the assigned player can stage and atomically allocate points across core stats
 or supported substats. The backend rejects overspending and persists only the
 validated final allocation.
 
+Snapshots and derived-state patches also project movement speed from evaluated
+Dexterity using the active rules' threshold table. The greatest threshold met
+determines the displayed feet of movement. Dexterity above 400 projects no
+numeric speed, and the UI displays `GM discretion` as required by the rules.
+Both GM and Player sheet overviews render this backend-owned value beside Dodge
+Chance.
+
 ## Health and mana
 
 Current health and mana are independent instance fields. Templates and
@@ -46,12 +53,12 @@ or consume exactly one point. Both labeled consumption controls mutate the same
 authoritative balance; reset remains explicit rather than turn-driven.
 
 An assigned player can consume, restore, or reset the pool on their player
-character. The GM sees that balance read-only. For a monster instance, the GM
-owns those controls and players cannot use them. Backend route authorization
-enforces this distinction from the parent template's `dm_only` classification;
-frontend role checks are presentation only. Values below zero or above the
-evaluated maximum are rejected, and a current value is reclamped when its
-authored maximum changes.
+character. The GM can use the same controls for any spawned character from the
+Characters workspace, including player characters and monsters. Players cannot
+use the controls for monsters. Backend route authorization enforces instance
+access and role ownership; frontend role checks are presentation only. Values
+below zero or above the evaluated maximum are rejected, and a current value is
+reclamped when its authored maximum changes.
 
 `contribution_points` is a separate nonnegative whole-number character
 balance, not an inventory item. DM-only set/add/subtract routes execute under
@@ -78,6 +85,13 @@ Damage enters through either an authored action `resolve_damage` step or the
 typed `apply_instanced_sheet_damage` intent. Both use backend semantic damage
 logic instead of exposing arbitrary health-path arithmetic to the frontend.
 
+Each spawned instance also keeps a cumulative post-resistance damage total for
+every canonical damage type. Both semantic damage paths increment the matching
+counter in the same authoritative mutation that updates health, so failed or
+rolled-back damage does not leave tracker drift. The counters are GM-private;
+players can submit authorized typed damage but do not receive tracker values or
+patches. A DM can reset one type at a time without changing health or resistance.
+
 ## Routes and UI
 
 DM stat, formula-stat, resistance, point-grant, and allocation routes are in
@@ -93,15 +107,17 @@ Frontend stat, resource, resistance, and allocation sections live under
 evaluated substat: hover or keyboard focus exposes the stored expression and
 alias paths, while a GM click opens a modal editor for that substat alone.
 Players receive the same read-only explanation without formula-edit controls.
+In the GM instance-resistance view, each damage-type resistance control displays
+its cumulative damage counter and a per-type reset action.
 
 ## Permissions
 
 - DMs may edit template and instance stats/resistances and grant unassigned
-  points.
+  points, and may inspect or reset instance damage trackers.
 - Assigned players may edit allowed current resources, allocate their granted
   points, and apply typed damage to their own instance.
 - Players receive read-only evaluated stats, maxima, carried weight, and
-  resistances for their assigned character.
+  resistances for their assigned character. Damage trackers remain GM-only.
 - Requests against another player's instance are rejected server-side.
 
 ## Principal tests

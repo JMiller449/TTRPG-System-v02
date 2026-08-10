@@ -357,6 +357,7 @@ def test_player_can_apply_typed_damage_with_resistance_and_final_floor(
             )
 
             assert state.instanced_sheets["mage_instance"].health == 79
+            assert state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] == 11
             assert _request_messages(websocket) == [
                 {
                     "response_id": None,
@@ -404,10 +405,63 @@ def test_dm_can_apply_typed_damage_to_any_instance(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].health == 0
+            assert (
+                state.instanced_sheets["mage_instance"].damage_taken_by_type[
+                    "Slashing"
+                ]
+                == 200
+            )
             assert _request_messages(websocket)[0]["ops"] == [
                 {
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/health",
+                    "value": 0,
+                },
+                {
+                    "op": "inc",
+                    "path": "/instanced_sheets/mage_instance/damage_taken_by_type/Slashing",
+                    "value": 200,
+                },
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_only_dm_can_reset_an_instance_damage_tracker(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = _build_sheet_state()
+            state.instanced_sheets["mage_instance"] = _build_instance_state(
+                state.sheets["mage_template"]
+            )
+            state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] = 12
+            await websocket_sessions.reset()
+            player_socket = FakeWebSocket()
+            dm_socket = FakeWebSocket()
+            await _connect_assigned_player(player_socket)
+            await websocket_sessions.connect(dm_socket, role="dm")
+
+            request = {
+                "type": "reset_instanced_sheet_damage_tracker",
+                "instance_id": "mage_instance",
+                "damage_type": "Fire",
+            }
+            await handle_client_payload(player_socket, request)
+            assert state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] == 12
+            assert _request_messages(player_socket)[0]["type"] == "error"
+
+            await handle_client_payload(dm_socket, request)
+            assert state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] == 0
+            assert _request_messages(dm_socket)[0]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/damage_taken_by_type/Fire",
                     "value": 0,
                 }
             ]
@@ -4484,6 +4538,7 @@ def test_perform_action_applies_resisted_damage_to_instance_health(
             )
 
             assert state.instanced_sheets["mage_instance"].health == 20
+            assert state.instanced_sheets["mage_instance"].damage_taken_by_type["Fire"] == 70
             assert _request_messages(websocket, message_type="state_patch") == [
                 {
                     "response_id": None,
@@ -4553,6 +4608,12 @@ def test_perform_action_caps_damage_resistance_at_100_percent(monkeypatch) -> No
             )
 
             assert state.instanced_sheets["mage_instance"].health == 65
+            assert (
+                state.instanced_sheets["mage_instance"].damage_taken_by_type[
+                    "Arcane"
+                ]
+                == 25
+            )
             assert _request_messages(websocket, message_type="state_patch")[0]["ops"] == [
                 {
                     "op": "set",
@@ -4613,6 +4674,12 @@ def test_resolve_damage_step_clamps_health_at_zero(monkeypatch) -> None:
             )
 
             assert state.instanced_sheets["mage_instance"].health == 0
+            assert (
+                state.instanced_sheets["mage_instance"].damage_taken_by_type[
+                    "Bludgeoning"
+                ]
+                == 200
+            )
             assert _request_messages(websocket, message_type="state_patch")[0]["ops"] == [
                 {
                     "op": "set",

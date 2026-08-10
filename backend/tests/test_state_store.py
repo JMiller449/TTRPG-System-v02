@@ -898,6 +898,32 @@ def test_v45_migration_adds_unlimited_storage_capacity_defaults() -> None:
     )
 
 
+def test_v46_migration_adds_zeroed_damage_trackers_to_instances() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 45,
+            "state": {
+                "instanced_sheets": {
+                    "hero_1": {"parent_id": "hero"},
+                    "existing": {
+                        "parent_id": "hero",
+                        "damage_taken_by_type": {"Fire": 12},
+                    },
+                }
+            },
+        }
+    )
+
+    tracker = migrated.state["instanced_sheets"]["hero_1"][
+        "damage_taken_by_type"
+    ]
+    assert len(tracker) == 15
+    assert set(tracker.values()) == {0}
+    assert migrated.state["instanced_sheets"]["existing"][
+        "damage_taken_by_type"
+    ] == {"Fire": 12}
+
+
 def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     legacy = migrate_persisted_state({"sheets": {}, "items": {}})
     current = migrate_persisted_state(build_persisted_state({"actions": {}}))

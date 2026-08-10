@@ -9,6 +9,7 @@ export function SheetReactionResource({
   current,
   maximum,
   dodgeChance,
+  movementSpeed,
   canManage,
   onSpend,
   onRestore,
@@ -17,6 +18,7 @@ export function SheetReactionResource({
   current: number;
   maximum: number;
   dodgeChance: number;
+  movementSpeed: number | null;
   canManage: boolean;
   onSpend: () => void;
   onRestore: () => void;
@@ -30,13 +32,24 @@ export function SheetReactionResource({
     <section className="character-sheet__section character-sheet__section--compact">
       <div className="sheet-runtime-resource__heading">
         <h4>Action / Reaction Points</h4>
-        <p
-          className="sheet-runtime-resource__dodge-chance"
-          title="Dodge = FLOOR(Dexterity × (d100 / 100))"
-        >
-          <span>Dodge Chance</span>
-          <strong>{formatFraction(dodgeChance)}</strong>
-        </p>
+        <div className="sheet-runtime-resource__readouts">
+          <p
+            className="sheet-runtime-resource__metric"
+            title="Dodge = FLOOR(Dexterity × (d100 / 100))"
+          >
+            <span>Dodge Chance</span>
+            <strong>{formatFraction(dodgeChance)}</strong>
+          </p>
+          <p
+            className="sheet-runtime-resource__metric"
+            title="Movement uses the greatest Dexterity threshold met. Values above 400 are handled by GM discretion."
+          >
+            <span>Movement</span>
+            <strong>
+              {movementSpeed === null ? "GM discretion" : `${formatFraction(movementSpeed)} ft`}
+            </strong>
+          </p>
+        </div>
       </div>
       <div className="inline-actions">
         <p className="muted">

@@ -18,6 +18,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "adjust_instanced_sheet_resource": "player",
     "adjust_instanced_sheet_reactions": "player",
     "reset_instanced_sheet_reactions": "player",
+    "reset_instanced_sheet_damage_tracker": "dm",
     "set_pinned_instance_actions": "player",
     "set_contribution_points": "dm",
     "adjust_contribution_points": "dm",

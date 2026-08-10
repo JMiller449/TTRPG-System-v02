@@ -82,6 +82,10 @@ Schema version 45 adds optional storage weight limits to item and item-template
 definitions. Existing containers migrate as unlimited so no valid inventory is
 silently rejected.
 
+Schema version 46 adds a zeroed cumulative damage tracker for every canonical
+damage type to each spawned instance. Existing health and resistance values are
+preserved unchanged.
+
 Schema version 35 adds structured, non-mechanical character profiles to sheet
 templates and spawned instances. Existing records migrate with empty profile
 fields, preserving Notes as a separate session-journal field.

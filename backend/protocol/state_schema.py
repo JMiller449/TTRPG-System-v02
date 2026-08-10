@@ -12,6 +12,7 @@ from pydantic import (
 )
 
 from backend.state.models.formula import normalize_formula_tags
+from backend.state.models.damage import DamageType
 from backend.features.attributes.value_schema import (
     AttributeBridgePayload,
     AttributeDefinitionPayload,
@@ -159,6 +160,7 @@ class SheetPayload(ProtocolModel):
     items: dict[str, InventoryItemBridgePayload]
     stats: StatsPayload
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    evaluated_movement_speed: int | None = 10
     current_carried_weight: float = 0
     racial_hp_multiplier: float = 1.0
     max_health: FormulaPayload
@@ -180,10 +182,12 @@ class InstancedSheetPayload(ProtocolModel):
     reactions: float = 0
     evaluated_max_reactions: float = 0
     contribution_points: int = 0
+    damage_taken_by_type: dict[DamageType, int] | None = None
     pinned_action_ids: list[str] = Field(default_factory=list)
     unassigned_stat_points: int = 0
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
+    evaluated_movement_speed: int | None = 10
     current_carried_weight: float = 0
     racial_hp_multiplier: float = 1.0
     max_health: FormulaPayload

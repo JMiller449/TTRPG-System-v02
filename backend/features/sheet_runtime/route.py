@@ -15,6 +15,7 @@ from backend.features.sheet_runtime.schema import (
     ApplyInstancedSheetDamage,
     AdjustInstancedSheetReactions,
     PerformAction,
+    ResetInstancedSheetDamageTracker,
     ResetInstancedSheetReactions,
     SetInstancedSheetItemEquipped,
 )
@@ -122,9 +123,29 @@ class ResetInstancedSheetReactionsRoute(RequestRoute[ResetInstancedSheetReaction
         await service.reset_instanced_sheet_reactions(request)
 
 
+class ResetInstancedSheetDamageTrackerRoute(
+    RequestRoute[ResetInstancedSheetDamageTracker]
+):
+    type_name = "reset_instanced_sheet_damage_tracker"
+    request_model = ResetInstancedSheetDamageTracker
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceDamage", method_name="resetTracker"
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: ResetInstancedSheetDamageTracker,
+    ) -> None:
+        await service.reset_instanced_sheet_damage_tracker(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(PerformActionRoute())
     registry.register(ApplyInstancedSheetDamageRoute())
     registry.register(SetInstancedSheetItemEquippedRoute())
     registry.register(AdjustInstancedSheetReactionsRoute())
     registry.register(ResetInstancedSheetReactionsRoute())
+    registry.register(ResetInstancedSheetDamageTrackerRoute())

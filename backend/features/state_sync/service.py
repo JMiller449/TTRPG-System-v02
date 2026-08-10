@@ -17,6 +17,7 @@ from backend.features.action_history.service import (
 from backend.features.formula_runtime.service import (
     evaluate_resource_maxima,
     evaluate_sheet_stats,
+    movement_speed_for_dexterity,
 )
 from backend.features.inventory.service import (
     calculate_carried_weight,
@@ -40,6 +41,7 @@ PRIVATE_ITEM_FIELDS = {
 }
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
+PRIVATE_INSTANCE_FIELDS = {"damage_taken_by_type"}
 PRIVATE_STATE_ROOTS = {"direct_effect_projections"}
 DM_ONLY_STATE_ROOTS = {
     "parties",
@@ -169,6 +171,18 @@ class StateSyncService:
         for field_name in PRIVATE_ITEM_FIELDS:
             value.pop(field_name, None)
         self._redact_subject_attributes(value)
+        return value
+
+    def _redact_instance_payload(self, value: Any) -> Any:
+        if is_dataclass(value):
+            value = asdict(value)
+        elif isinstance(value, dict):
+            value = deepcopy(value)
+        else:
+            return value
+
+        for field_name in PRIVATE_INSTANCE_FIELDS:
+            value.pop(field_name, None)
         return value
 
     def _player_can_see_item(
@@ -397,6 +411,8 @@ class StateSyncService:
         for instance in state.get("instanced_sheets", {}).values():
             if not isinstance(instance, dict):
                 continue
+            for field_name in PRIVATE_INSTANCE_FIELDS:
+                instance.pop(field_name, None)
             augments = instance.get("augments")
             if not isinstance(augments, dict):
                 augments = None
@@ -539,6 +555,10 @@ class StateSyncService:
             if segments and segments[0] == "instanced_sheets":
                 if len(segments) < 2 or segments[1] != assigned_instance_id:
                     continue
+                if len(segments) >= 3 and segments[2] in PRIVATE_INSTANCE_FIELDS:
+                    continue
+                if len(segments) == 2:
+                    op.value = self._redact_instance_payload(op.value)
 
             # Enemy templates stay GM-only. A template that becomes `dm_only`
             # after the client already holds it is turned into a removal so the
@@ -848,7 +868,11 @@ class StateSyncService:
         for sheet_id, sheet in state_model.sheets.items():
             sheet_payload = state_payload.get("sheets", {}).get(sheet_id)
             if isinstance(sheet_payload, dict):
-                sheet_payload["evaluated_stats"] = evaluate_sheet_stats(sheet)
+                evaluated_stats = evaluate_sheet_stats(sheet)
+                sheet_payload["evaluated_stats"] = evaluated_stats
+                sheet_payload["evaluated_movement_speed"] = movement_speed_for_dexterity(
+                    evaluated_stats.get("dexterity", 0)
+                )
                 sheet_payload["current_carried_weight"] = calculate_carried_weight(
                     sheet.items,
                     state_model.items,
@@ -875,8 +899,12 @@ class StateSyncService:
                     from backend.features.sheet_runtime.service import evaluate_reaction_limit
 
                     instance_payload["stats"] = asdict(runtime_stat_owner.stats)
-                    instance_payload["evaluated_stats"] = evaluate_sheet_stats(
-                        runtime_stat_owner
+                    evaluated_stats = evaluate_sheet_stats(runtime_stat_owner)
+                    instance_payload["evaluated_stats"] = evaluated_stats
+                    instance_payload["evaluated_movement_speed"] = (
+                        movement_speed_for_dexterity(
+                            evaluated_stats.get("dexterity", 0)
+                        )
                     )
                     instance_payload["current_carried_weight"] = calculate_carried_weight(
                         instance.items,
@@ -1383,12 +1411,22 @@ class StateSyncService:
             if sheet is None:
                 continue
             maxima = evaluate_resource_maxima(sheet)
+            evaluated_stats = evaluate_sheet_stats(sheet)
             sheet_operations.extend(
                 [
                     PatchOp(
                         op="set",
                         path=self.join_path("sheets", sheet_id, "evaluated_stats"),
-                        value=evaluate_sheet_stats(sheet),
+                        value=evaluated_stats,
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "sheets", sheet_id, "evaluated_movement_speed"
+                        ),
+                        value=movement_speed_for_dexterity(
+                            evaluated_stats.get("dexterity", 0)
+                        ),
                     ),
                     PatchOp(
                         op="set",
@@ -1408,6 +1446,7 @@ class StateSyncService:
             if instance is None or instance.stats is None:
                 continue
             maxima = evaluate_resource_maxima(instance)
+            evaluated_stats = evaluate_sheet_stats(instance)
             from backend.features.sheet_runtime.service import evaluate_reaction_limit
 
             instance_operations.extend(
@@ -1417,7 +1456,18 @@ class StateSyncService:
                         path=self.join_path(
                             "instanced_sheets", instance_id, "evaluated_stats"
                         ),
-                        value=evaluate_sheet_stats(instance),
+                        value=evaluated_stats,
+                    ),
+                    PatchOp(
+                        op="set",
+                        path=self.join_path(
+                            "instanced_sheets",
+                            instance_id,
+                            "evaluated_movement_speed",
+                        ),
+                        value=movement_speed_for_dexterity(
+                            evaluated_stats.get("dexterity", 0)
+                        ),
                     ),
                     PatchOp(
                         op="set",

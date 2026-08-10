@@ -588,6 +588,22 @@ export function buildResetInstancedSheetReactionsRequest({
   };
 }
 
+export function buildResetInstancedSheetDamageTrackerRequest({
+  instanceId,
+  damageType,
+  requestId
+}: {
+  instanceId: string;
+  damageType: InstancedSheetDamageType;
+} & OptionalRequestId): ProtocolRequest<"reset_instanced_sheet_damage_tracker"> {
+  return {
+    ...requestIdField(requestId),
+    type: "reset_instanced_sheet_damage_tracker",
+    instance_id: instanceId,
+    damage_type: damageType
+  };
+}
+
 export function buildSetContributionPointsRequest({
   instanceId,
   value,

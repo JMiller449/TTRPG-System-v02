@@ -7,6 +7,7 @@ from backend.features.formula_runtime.service import (
     compose_roll20_message,
     evaluate_numeric_expression,
     evaluate_numeric_formula,
+    movement_speed_for_dexterity,
     resolve_roll_mode,
 )
 from backend.state.models.augmentation import (
@@ -235,6 +236,26 @@ def test_formula_runtime_evaluates_mvp_helper_functions() -> None:
     assert evaluate_numeric_expression("floor(4.9) + ceil(4.1)") == 9
     assert evaluate_numeric_expression("round(2.6)") == 3
     assert evaluate_numeric_expression("round(2.25, 1)") == 2.2
+
+
+@pytest.mark.parametrize(
+    ("dexterity", "expected_speed"),
+    [
+        (0, 10),
+        (19, 10),
+        (20, 20),
+        (99, 50),
+        (100, 100),
+        (399, 260),
+        (400, 300),
+        (500, None),
+    ],
+)
+def test_movement_speed_uses_greatest_dexterity_threshold_met(
+    dexterity: int,
+    expected_speed: int | None,
+) -> None:
+    assert movement_speed_for_dexterity(dexterity) == expected_speed
 
 
 def test_formula_runtime_evaluates_dice_expressions(monkeypatch) -> None:

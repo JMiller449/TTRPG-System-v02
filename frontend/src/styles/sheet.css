@@ -685,9 +685,15 @@ button.sheet-proficiency-summary:focus-visible {
   flex: 1 1 auto;
 }
 
-.sheet-runtime-resource__dodge-chance {
+.sheet-runtime-resource__readouts {
   display: flex;
   flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.85rem;
+}
+
+.sheet-runtime-resource__metric {
+  display: flex;
   align-items: baseline;
   gap: 0.35rem;
   margin: 0;
@@ -695,14 +701,14 @@ button.sheet-proficiency-summary:focus-visible {
   font-size: 0.9rem;
 }
 
-.sheet-runtime-resource__dodge-chance span {
+.sheet-runtime-resource__metric span {
   color: var(--text);
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
-.sheet-runtime-resource__dodge-chance strong {
+.sheet-runtime-resource__metric strong {
   color: var(--accent-strong);
   font-variant-numeric: tabular-nums;
 }
@@ -2063,6 +2069,49 @@ button.core-sub-row__main--formula:focus-visible {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--r6-cyan), var(--r6-success));
   box-shadow: 0 0 8px rgba(94, 238, 255, 0.3);
+}
+
+.sheet-resistance-card--editable {
+  gap: 0.5rem;
+}
+
+.sheet-resistance-card--editable h5 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.sheet-resistance-card__edit-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(120px, 1fr);
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.sheet-damage-tracker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.45rem;
+  align-items: center;
+}
+
+.sheet-damage-tracker > span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.sheet-damage-tracker > strong {
+  color: var(--accent-strong);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-damage-tracker .button {
+  grid-column: 1 / -1;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.68rem;
 }
 
 .sheet-resistances--editable .sheet-resistance-grid--types {

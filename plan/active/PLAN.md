@@ -81,7 +81,7 @@ Backend:
   adds the matching sheet proficiency bridge when missing, using the definition's
   default growth rate. Weapon family/type and damage classifications are managed
   tags rather than item profiles.
-- Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake.
+- Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake. Spawned instances cumulatively track authoritative post-resistance damage by type for GM display and per-type reset.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
 Frontend:
@@ -212,7 +212,8 @@ Frontend:
   Hover or keyboard focus explains the stored expression and aliases; a GM click opens a focused
   modal for that substat only. The duplicate Formula Stats tab and multi-stat editor list were
   removed, while players retain read-only formula explanations.
-- Spawned-sheet overviews show the handbook-defined Dexterity-based Dodge chance inline with Action / Reaction Points in the shared GM and Player sheet viewer. The displayed value comes from the backend-evaluated sheet stats; no client-side roll calculation or protocol change was added.
+- Spawned-sheet overviews show the handbook-defined Dexterity-based Dodge chance and movement speed inline with Action / Reaction Points in the shared GM and Player sheet viewer. Dodge comes from backend-evaluated sheet stats, while movement is a backend-projected value based on the greatest Dexterity threshold met; values beyond the documented table display `GM discretion`. Neither rule is recalculated by the frontend.
+- GM Action / Reaction Point parity (2026-08-09): the Characters workspace now exposes the existing Spend, Restore, and Reset controls for both player-character and monster instances. The same authoritative runtime routes enforce bounds; assigned players remain limited to their own player character.
 - GM Attributes layout cleanup (2026-07-31): optional-Attribute attachment now owns a compact full-width toolbar above the card collection instead of consuming the first grid cell, attached Attribute cards use the available width in a responsive grid, and value/formula actions use the shared control styling with aligned fields and buttons. Presentation-only; authoritative Attribute behavior is unchanged.
 - Formula-tag selector cleanup (2026-07-31): the shared managed-tag picker presents tags as compact wrapping toggle chips, with selected treatment, hidden checkbox chrome, hover/focus feedback, description tooltips, and a permanently visible scrollbar gutter for its bounded list. Its catalog remains visible and searchable inside narrow formula editors, while folder controls keep full-width hierarchy rows. Catalog organization and saved tag semantics are unchanged.
 - Authoring-form validation consistency (2026-07-31): required fields are visibly marked before interaction across entity creation pages and contextual editors; pristine drafts remain neutral; failed create/save attempts highlight the relevant controls and show one concise form-level explanation. Ordinary incomplete drafts no longer produce silent no-ops or disabled submit controls, while pending requests and unavailable backend-provided metadata still disable actions when necessary. Feature-owned validation and backend-authoritative requests remain unchanged.
@@ -239,7 +240,7 @@ For the MVP to be considered usable at the table:
   both dice rolls and non-roll messages.
 - Authored actions can mutate current sheet state for common table needs, including resource changes, healing, damage, condition/effect application, and proficiency gains.
 - Equipment effects and consumable quantity changes are enforced by the backend.
-- Manual damage intake can apply typed resistance and update current health.
+- Manual damage intake can apply typed resistance, update current health, and increment the GM-private per-type damage tracker.
 - Roll20 bridge failure is visible immediately instead of silently queueing or losing actions.
 - State survives restart and can be exported/imported by the DM.
 - Permission failures and validation errors are surfaced to the acting user.
@@ -546,9 +547,15 @@ No large architecture feature is currently missing for the stated character-shee
   - [x] Spawned characters and monsters have one backend-authoritative Action / Reaction
         Point pool with a Reaction Time threshold maximum and manual consume, restore, and
         reset controls. Action and reaction consumption share the same persisted balance.
-        Assigned players control their player character while the GM has read-only visibility;
-        the GM controls monster pools. Schema 39 upgrades unchanged legacy reaction formulas
+        Assigned players control their player character, while the GM controls all spawned
+        player-character and monster pools. Schema 39 upgrades unchanged legacy reaction formulas
         without rewriting customized formulas or fractional legacy balances.
+  - [x] Spawned characters and monsters persist cumulative post-resistance damage totals for
+        every canonical damage type. Manual typed damage and authored semantic damage increment
+        the matching total atomically with health; the GM Characters resistance view displays
+        and resets each total beside its resistance control. Player snapshots and patches redact
+        the tracker values. Schema 46 backfills zeroed counters without changing existing health
+        or resistance state.
   - [x] Character templates and spawned instances now own a persisted structured profile
         for species, background, alignment, pronouns, age, height, weight, eyes, skin, hair,
         appearance, personality traits, ideals, bonds, flaws, allies/organizations, and

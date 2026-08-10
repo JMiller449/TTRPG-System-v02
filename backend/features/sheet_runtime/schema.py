@@ -43,6 +43,12 @@ class ResetInstancedSheetReactions(RequestModel):
     type: Literal["reset_instanced_sheet_reactions"]
 
 
+class ResetInstancedSheetDamageTracker(RequestModel):
+    instance_id: str = Field(min_length=1)
+    damage_type: DamageType
+    type: Literal["reset_instanced_sheet_damage_tracker"]
+
+
 @dataclass
 class ActionExecuted:
     response_id: str | None

@@ -8,10 +8,10 @@ import {
 } from "@/features/sheets/sheetDisplay";
 
 describe("sheetDisplay modifier helpers", () => {
-  it("allows players to manage player pools and GMs to manage monster pools", () => {
+  it("allows GMs to manage every pool and players to manage player pools", () => {
     expect(canManageActionReactionPoints("player", "player")).toBe(true);
     expect(canManageActionReactionPoints("player", "enemy")).toBe(false);
-    expect(canManageActionReactionPoints("gm", "player")).toBe(false);
+    expect(canManageActionReactionPoints("gm", "player")).toBe(true);
     expect(canManageActionReactionPoints("gm", "enemy")).toBe(true);
   });
 

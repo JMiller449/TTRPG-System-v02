@@ -133,6 +133,35 @@ def test_action_reaction_points_consume_restore_reset_and_boundaries() -> None:
     asyncio.run(scenario())
 
 
+def test_instance_damage_trackers_fill_canonical_types_and_reject_invalid_values() -> None:
+    template = _sheet()
+    instance = InstancedSheet.from_dict(
+        {
+            "parent_id": "hero",
+            "health": 1,
+            "mana": 1,
+            "augments": {},
+            "damage_taken_by_type": {"Fire": 3},
+        },
+        template=template,
+    )
+
+    assert len(instance.damage_taken_by_type) == 15
+    assert instance.damage_taken_by_type["Fire"] == 3
+    assert instance.damage_taken_by_type["Slashing"] == 0
+    with pytest.raises(ValueError, match="nonnegative whole number"):
+        InstancedSheet.from_dict(
+            {
+                "parent_id": "hero",
+                "health": 1,
+                "mana": 1,
+                "augments": {},
+                "damage_taken_by_type": {"Fire": -1},
+            },
+            template=template,
+        )
+
+
 def test_action_reaction_adjustment_rejects_fractional_or_multi_point_deltas() -> None:
     for delta in (-2, -0.5, 0, 0.5, 2):
         with pytest.raises(ValidationError):
@@ -143,7 +172,7 @@ def test_action_reaction_adjustment_rejects_fractional_or_multi_point_deltas() -
             )
 
 
-def test_action_reaction_routes_enforce_player_and_monster_ownership() -> None:
+def test_action_reaction_routes_allow_gm_management_and_enforce_player_ownership() -> None:
     async def scenario() -> None:
         state = StateSingleton.getState()
         monster_sheet = _sheet(sheet_id="monster", dm_only=True)
@@ -187,23 +216,23 @@ def test_action_reaction_routes_enforce_player_and_monster_ownership() -> None:
         )
         assert state.instanced_sheets["hero_1"].reactions == 0
 
-        with pytest.raises(PermissionError, match="assigned player"):
-            await adjust_route.handle(
-                gm,
-                AdjustInstancedSheetReactions(
-                    type="adjust_instanced_sheet_reactions",
-                    instance_id="hero_1",
-                    delta=-1,
-                ),
-            )
-        with pytest.raises(PermissionError, match="assigned player"):
-            await reset_route.handle(
-                gm,
-                ResetInstancedSheetReactions(
-                    type="reset_instanced_sheet_reactions",
-                    instance_id="hero_1",
-                ),
-            )
+        await reset_route.handle(
+            gm,
+            ResetInstancedSheetReactions(
+                type="reset_instanced_sheet_reactions",
+                instance_id="hero_1",
+            ),
+        )
+        assert state.instanced_sheets["hero_1"].reactions == 2
+        await adjust_route.handle(
+            gm,
+            AdjustInstancedSheetReactions(
+                type="adjust_instanced_sheet_reactions",
+                instance_id="hero_1",
+                delta=-1,
+            ),
+        )
+        assert state.instanced_sheets["hero_1"].reactions == 1
         with pytest.raises(PermissionError, match="Only a GM"):
             await reset_route.handle(
                 monster_player,

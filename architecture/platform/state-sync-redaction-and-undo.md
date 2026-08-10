@@ -82,6 +82,9 @@ Filtering includes:
   placement is still filtered through the normal visible-entry rules.
 - The assigned instance's character profile is player-visible and editable;
   profiles on other instances remain absent with the rest of those records.
+- Per-type cumulative damage trackers are GM-private instance fields. Player
+  snapshots omit them and player patch streams suppress their mutations even
+  when an authorized player damage request caused the authoritative increment.
 - Template notes and GM-only attribute/item/condition details are removed from
   player views.
 - Item definitions remain visible to a player when required to render an item

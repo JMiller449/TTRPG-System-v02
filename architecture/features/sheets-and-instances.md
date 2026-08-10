@@ -14,7 +14,8 @@ XP metadata, stats, resource-maximum formulas, resistances, attributes, action b
 proficiency bridges, and starting item bridges. An instance owns the copied
 runtime versions of stats, formulas, resistances, attributes, actions,
 proficiencies, and inventory plus current health, mana, notes, character profile, unassigned stat
-points, permanent stat bonuses, and active augmentation bridges.
+points, permanent stat bonuses, cumulative per-type damage trackers, and active
+augmentation bridges.
 
 The current persisted model distinguishes player-facing versus GM-only
 templates with `dm_only` rather than storing separate template classes.

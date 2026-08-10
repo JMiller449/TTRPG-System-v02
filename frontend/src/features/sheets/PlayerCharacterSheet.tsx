@@ -49,6 +49,7 @@ import {
   buildAdjustContributionPointsRequest,
   buildAdjustInstancedSheetReactionsRequest,
   buildResetInstancedSheetAttributeValueRequest,
+  buildResetInstancedSheetDamageTrackerRequest,
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildRemovePlayerInventoryItemRequest,
@@ -570,6 +571,11 @@ export function PlayerCharacterSheet({
                   current={detail.reactions.current}
                   maximum={detail.reactions.maximum}
                   dodgeChance={detail.stats.dexterity ?? 0}
+                  movementSpeed={
+                    detail.persistentSheet.evaluated_movement_speed !== undefined
+                      ? detail.persistentSheet.evaluated_movement_speed
+                      : (detail.sheet?.evaluated_movement_speed ?? 10)
+                  }
                   canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
                   onSpend={() =>
                     client.sendProtocolRequest(
@@ -1142,8 +1148,20 @@ export function PlayerCharacterSheet({
             {visibleResistances ? (
               <SheetResistancesEditor
                 resistances={visibleResistances}
+                damageTakenByType={
+                  mode === "gm" ? detail.persistentSheet.damage_taken_by_type : undefined
+                }
                 readOnly={!canEditResistances}
                 title={canEditResistances ? "Instance Resistances" : "Current Resistances"}
+                onResetDamageTracker={(damageType) =>
+                  client.sendProtocolRequest(
+                    buildResetInstancedSheetDamageTrackerRequest({
+                      instanceId: detail.instance.id,
+                      damageType
+                    }),
+                    `Reset ${damageType} damage tracker`
+                  )
+                }
                 onSave={(resistances) =>
                   client.sendProtocolRequest(
                     buildSetInstancedSheetResistancesRequest({

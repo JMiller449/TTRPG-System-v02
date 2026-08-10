@@ -29,6 +29,24 @@ _ROLL20_COMMAND_PATTERN = re.compile(
 _MAX_DICE_COUNT = 100
 _MAX_DICE_SIDES = 100_000
 
+MOVEMENT_SPEED_THRESHOLDS: tuple[tuple[int, int], ...] = (
+    (0, 10),
+    (20, 20),
+    (40, 30),
+    (60, 40),
+    (80, 50),
+    (100, 100),
+    (130, 120),
+    (160, 140),
+    (190, 160),
+    (220, 180),
+    (250, 200),
+    (280, 220),
+    (310, 240),
+    (340, 260),
+    (400, 300),
+)
+
 _ALLOWED_BINARY_OPERATORS = {
     ast.Add: lambda left, right: left + right,
     ast.Sub: lambda left, right: left - right,
@@ -269,6 +287,18 @@ def evaluate_sheet_stats(
             # but must not be projected to clients as a misleading numeric zero.
             continue
     return evaluated
+
+
+def movement_speed_for_dexterity(dexterity: float | int) -> int | None:
+    """Return the greatest rules-defined movement threshold met by Dexterity."""
+    if dexterity > MOVEMENT_SPEED_THRESHOLDS[-1][0]:
+        return None
+    movement_speed = MOVEMENT_SPEED_THRESHOLDS[0][1]
+    for threshold, speed in MOVEMENT_SPEED_THRESHOLDS:
+        if dexterity < threshold:
+            break
+        movement_speed = speed
+    return movement_speed
 
 
 def evaluate_resource_maximum(

@@ -80,6 +80,7 @@ import {
   buildGenerateSheetAccessCodeRequest,
   buildResyncStateRequest,
   buildResetInstancedSheetAttributeValueRequest,
+  buildResetInstancedSheetDamageTrackerRequest,
   buildResetSheetAttributeValueRequest,
   buildResetSubjectAttributeValueRequest,
   buildResetInstancedSheetReactionsRequest,
@@ -367,6 +368,7 @@ const requestBuilderByType = {
   review_player_item: buildReviewPlayerItemRequest,
   rename_catalog_folder: buildRenameCatalogFolderRequest,
   reset_instanced_sheet_attribute_value: buildResetInstancedSheetAttributeValueRequest,
+  reset_instanced_sheet_damage_tracker: buildResetInstancedSheetDamageTrackerRequest,
   reset_instanced_sheet_reactions: buildResetInstancedSheetReactionsRequest,
   reset_sheet_attribute_value: buildResetSheetAttributeValueRequest,
   reset_subject_attribute_value: buildResetSubjectAttributeValueRequest,
@@ -622,6 +624,16 @@ describe("requestBuilders", () => {
       type: "apply_instanced_sheet_damage",
       instance_id: "instance_1",
       amount: 12,
+      damage_type: "Fire"
+    });
+    expect(
+      buildResetInstancedSheetDamageTrackerRequest({
+        instanceId: "instance_1",
+        damageType: "Fire"
+      })
+    ).toEqual({
+      type: "reset_instanced_sheet_damage_tracker",
+      instance_id: "instance_1",
       damage_type: "Fire"
     });
   });

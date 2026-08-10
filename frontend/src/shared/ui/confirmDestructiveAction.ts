@@ -4,6 +4,7 @@ export type DestructiveActionVerb =
   | "Despawn"
   | "Detach"
   | "Remove"
+  | "Reset"
   | "Rotate"
   | "Undo";
 

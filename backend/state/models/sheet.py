@@ -6,6 +6,11 @@ from typing import Dict
 
 from backend.state.models.attribute import AttributeBridge
 from backend.state.models.character_profile import CharacterProfile
+from backend.state.models.damage import (
+    DamageType,
+    empty_damage_taken_by_type,
+    normalize_damage_taken_by_type,
+)
 from backend.state.models.item import ItemBridge
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
@@ -119,6 +124,9 @@ class InstancedSheet:
     # compatible. Public controls adjust the shared action/reaction pool by one.
     reactions: float = 0.0
     contribution_points: int = 0
+    damage_taken_by_type: dict[DamageType, int] = field(
+        default_factory=empty_damage_taken_by_type
+    )
     pinned_action_ids: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -134,6 +142,9 @@ class InstancedSheet:
             self.contribution_points, int
         ) or self.contribution_points < 0:
             raise ValueError("Contribution points must be a nonnegative whole number.")
+        self.damage_taken_by_type = normalize_damage_taken_by_type(
+            self.damage_taken_by_type
+        )
         if (
             any(not isinstance(action_id, str) or not action_id for action_id in self.pinned_action_ids)
             or len(self.pinned_action_ids) != len(set(self.pinned_action_ids))
@@ -235,5 +246,8 @@ class InstancedSheet:
             },
             reactions=float(raw.get("reactions", 0)),
             contribution_points=int(raw.get("contribution_points", 0)),
+            damage_taken_by_type=normalize_damage_taken_by_type(
+                raw.get("damage_taken_by_type")
+            ),
             pinned_action_ids=list(raw.get("pinned_action_ids", [])),
         )

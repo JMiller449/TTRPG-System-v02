@@ -87,7 +87,7 @@ function unavailableReason(
     return "no editable instance values available";
   }
   if (type === "apply_augmentation" && !dependencies.augmentationId) {
-    return "no standalone effects authored";
+    return "no effects authored";
   }
   if (type === "apply_condition_preset" && !dependencies.conditionId) {
     return "no conditions authored";

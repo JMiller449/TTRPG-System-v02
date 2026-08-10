@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from backend.state.models.formula import Formula, normalize_formula_tags
+from backend.state.models.formula import (
+    FormulaSource,
+    formula_source_from_dict,
+    normalize_formula_tags,
+)
 
 AugmentationSourceType = Literal[
     "item",
@@ -132,7 +136,7 @@ class FormulaModifierSelector:
 @dataclass
 class FormulaModifierEffect:
     operation: AugmentationOperation
-    value: Formula
+    value: FormulaSource
     selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
     type: Literal["formula_modifier"] = "formula_modifier"
 
@@ -140,7 +144,7 @@ class FormulaModifierEffect:
     def from_dict(cls, raw: dict) -> "FormulaModifierEffect":
         return cls(
             operation=raw["operation"],
-            value=Formula.from_dict(raw["value"]),
+            value=formula_source_from_dict(raw["value"]),
             selector=FormulaModifierSelector.from_dict(raw.get("selector")),
         )
 
@@ -148,7 +152,7 @@ class FormulaModifierEffect:
 @dataclass
 class EvaluationFormulaModifierEffect:
     operation: AugmentationOperation
-    value: Formula
+    value: FormulaSource
     selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
     type: Literal["evaluation_formula_modifier"] = "evaluation_formula_modifier"
 
@@ -156,7 +160,7 @@ class EvaluationFormulaModifierEffect:
     def from_dict(cls, raw: dict) -> "EvaluationFormulaModifierEffect":
         return cls(
             operation=raw["operation"],
-            value=Formula.from_dict(raw["value"]),
+            value=formula_source_from_dict(raw["value"]),
             selector=FormulaModifierSelector.from_dict(raw.get("selector")),
         )
 

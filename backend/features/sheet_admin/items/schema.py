@@ -59,7 +59,7 @@ class ItemDefinitionPayload(BaseModel):
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     tags: list[str] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
-    augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
+    effect_ids: list[str] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -69,8 +69,8 @@ class ItemDefinitionPayload(BaseModel):
             raise ValueError("Item action grants must use unique action IDs.")
 
         if self.interaction_type == "inventory_only":
-            if self.augmentation_templates:
-                raise ValueError("Inventory-only items cannot have augmentations.")
+            if self.effect_ids:
+                raise ValueError("Inventory-only items cannot have effects.")
             if self.action_grants:
                 raise ValueError("Inventory-only items cannot grant actions.")
 
@@ -84,10 +84,10 @@ class ItemDefinitionPayload(BaseModel):
             )
 
         if self.interaction_type == "consumable":
-            if self.augmentation_templates:
+            if self.effect_ids:
                 raise ValueError(
                     "Consumable items must apply effects through their carried actions, "
-                    "not item augmentation templates."
+                    "not item effect references."
                 )
             if any(grant.availability != "carried" for grant in self.action_grants):
                 raise ValueError("Consumable item actions must use carried availability.")

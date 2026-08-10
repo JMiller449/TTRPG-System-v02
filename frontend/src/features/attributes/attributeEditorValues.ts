@@ -9,6 +9,7 @@ export interface AttributeDraft {
   subjectTypes: Array<"sheet" | "item" | "action">;
   valueType: AttributeValueType;
   numberMode: "literal" | "formula";
+  formulaId: string;
   formulaAliases: FormulaAlias[];
   defaultText: string;
   unit: string;
@@ -24,6 +25,7 @@ export function emptyAttributeDraft(): AttributeDraft {
     subjectTypes: ["sheet"],
     valueType: "number",
     numberMode: "literal",
+    formulaId: "",
     formulaAliases: [],
     defaultText: "0",
     unit: "",
@@ -36,12 +38,12 @@ export function emptyAttributeDraft(): AttributeDraft {
 function valueFromDraft(draft: AttributeDraft): AttributeValue | null {
   if (draft.valueType === "number") {
     if (draft.numberMode === "formula") {
-      return draft.defaultText.trim()
+      return draft.formulaId.trim()
         ? {
             type: "formula",
             formula: {
-              aliases: draft.formulaAliases.length > 0 ? draft.formulaAliases : null,
-              text: draft.defaultText.trim()
+              type: "formula_reference",
+              formula_id: draft.formulaId.trim()
             }
           }
         : null;

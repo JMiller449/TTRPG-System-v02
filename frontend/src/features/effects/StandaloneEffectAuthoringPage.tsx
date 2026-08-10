@@ -152,7 +152,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
         action: "Delete",
         subject: effect?.name ?? effectId,
         consequence:
-          "This permanently deletes the effect definition. Existing action and active-effect dependency checks still apply."
+          "This permanently deletes the effect definition. Effects referenced by actions, items, conditions, or active applications cannot be deleted."
       })
     ) {
       return;
@@ -163,7 +163,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
   return (
     <Panel
       title="Effect Authoring"
-      subtitle="Buffs and debuffs that actions can apply — a burning blade, a shield spell, a lingering curse."
+      subtitle="Reusable buffs and debuffs shared by actions, items, and conditions — a burning blade, a shield spell, a lingering curse."
       actions={
         editingEffectId || pendingCreatedEffectId ? (
           <div className="inline-actions">

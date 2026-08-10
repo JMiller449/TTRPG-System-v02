@@ -68,11 +68,17 @@ from backend.features.attributes.service import (
 from backend.state.default_actions import (
     BASELINE_SHEET_CHECKS,
     WEAPON_ACTION_IDS,
+    canonical_action_formula_definitions,
     required_sheet_action_ids,
     seeded_global_actions,
 )
 from backend.state.models.action import Action, RollResult, SendRollStep
-from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.formula import (
+    Formula,
+    FormulaAliases,
+    FormulaDefinition,
+    FormulaReference,
+)
 from backend.state.models.attribute import (
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
     AttributeBridge,
@@ -319,7 +325,7 @@ def _sheet_payload_from_instance(
 
 def _validate_sheet_attributes(sheet: Sheet, state: State) -> None:
     authored_attribute_ids = set(sheet.attributes)
-    synchronize_required_sheet_attributes(sheet)
+    synchronize_required_sheet_attributes(sheet, state.formulas)
     attached_attribute_ids = set(sheet.attributes)
     relationship_ids: set[str] = set()
     for attribute_id, bridge in sheet.attributes.items():
@@ -352,11 +358,19 @@ def _validate_sheet_attributes(sheet: Sheet, state: State) -> None:
                 subject_types=["sheet"],
                 attached_attribute_ids=attached_attribute_ids,
             )
-    validate_and_evaluate_sheet_attributes(sheet, authored_attribute_ids)
+    validate_and_evaluate_sheet_attributes(
+        sheet,
+        state,
+        authored_attribute_ids,
+    )
 
 
 def _baseline_check_action_id(stat_name: str) -> str:
     return f"baseline_check_{stat_name}"
+
+
+def _baseline_check_formula_id(stat_name: str) -> str:
+    return f"default_action_baseline_check_{stat_name}_formula"
 
 
 def _default_action_relationship_id(action_id: str) -> str:
@@ -381,14 +395,8 @@ def _build_baseline_check_action(stat_name: str, label: str) -> Action:
                 rolls=[
                     RollResult(
                         label="Result",
-                        value=Formula(
-                            aliases=[
-                                FormulaAliases(
-                                    name=stat_name,
-                                    path=["stats", stat_name],
-                                )
-                            ],
-                            text=f"(1d100 / 100) * @{stat_name}",
+                        value=FormulaReference(
+                            formula_id=_baseline_check_formula_id(stat_name),
                         ),
                     )
                 ],
@@ -404,6 +412,24 @@ def _baseline_check_actions() -> dict[str, Action]:
             label,
         )
         for stat_name, label in BASELINE_SHEET_CHECKS
+    }
+
+
+def _baseline_check_formula_definitions() -> dict[str, FormulaDefinition]:
+    return {
+        _baseline_check_formula_id(stat_name): FormulaDefinition(
+            id=_baseline_check_formula_id(stat_name),
+            formula=Formula(
+                aliases=[
+                    FormulaAliases(
+                        name=stat_name,
+                        path=["stats", stat_name],
+                    )
+                ],
+                text=f"(1d100 / 100) * @{stat_name}",
+            ),
+        )
+        for stat_name, _label in BASELINE_SHEET_CHECKS
     }
 
 
@@ -436,9 +462,24 @@ def _with_default_action_bridges(
 
 def _add_missing_default_action_mutations(state: State) -> list:
     ops = []
+    default_formulas = {
+        **_baseline_check_formula_definitions(),
+        **canonical_action_formula_definitions(),
+    }
     for action_id, action in _default_action_definitions().items():
         if action_id in state.actions:
             continue
+        for formula_id in sorted(action.referenced_formula_ids()):
+            if formula_id in state.formulas:
+                continue
+            path = state_sync_service.join_path("formulas", formula_id)
+            ops.append(
+                state_sync_service.add_mutation(
+                    state,
+                    path,
+                    default_formulas[formula_id],
+                )
+            )
         path = state_sync_service.join_path("actions", action_id)
         ops.append(state_sync_service.add_mutation(state, path, action))
     return ops

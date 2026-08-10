@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 
@@ -61,6 +62,7 @@ from backend.state.models.action import (
 )
 from backend.state.models.state import State
 from backend.state.models.attribute import AttributeBridge
+from backend.state.models.formula import FormulaDefinition
 from backend.state.models.tag import collect_tag_references, validate_tag_ids
 
 
@@ -504,6 +506,66 @@ def _build_action(payload: ActionDefinitionPayload, state: State | None = None) 
     )
 
 
+def _centralize_action_formula_payloads(
+    payload: ActionDefinitionPayload,
+    state: State,
+) -> tuple[ActionDefinitionPayload, list]:
+    """Promote legacy inline action/Attribute formulas to stable definitions."""
+    raw = payload.model_dump(mode="json")
+    ops: list = []
+
+    def centralize(value: object, identity: str) -> object:
+        if not isinstance(value, dict) or value.get("type") == "formula_reference":
+            return value
+        if not isinstance(value.get("text"), str):
+            return value
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:16]
+        formula_id = f"formula_action_{digest}"
+        definition = FormulaDefinition.from_dict(
+            {"id": formula_id, "formula": value}
+        )
+        validate_tag_ids(definition.formula.tags, state.tags)
+        path = state_sync_service.join_path("formulas", formula_id)
+        if formula_id in state.formulas:
+            ops.append(state_sync_service.set_mutation(state, path, definition))
+        else:
+            ops.append(state_sync_service.add_mutation(state, path, definition))
+        return {"type": "formula_reference", "formula_id": formula_id}
+
+    for attribute_id, bridge in raw.get("attributes", {}).items():
+        value = bridge.get("value") if isinstance(bridge, dict) else None
+        if isinstance(value, dict) and value.get("type") == "formula":
+            value["formula"] = centralize(
+                value.get("formula"),
+                (
+                    f"action\0{payload.id}\0attribute\0{attribute_id}\0"
+                    f"{bridge.get('relationship_id', '')}"
+                ),
+            )
+
+    formula_fields = {"amount", "max_value", "message", "min_value", "value"}
+    for step_index, step in enumerate(raw.get("steps", [])):
+        if not isinstance(step, dict):
+            continue
+        step_identity = str(step.get("step_id") or step_index)
+        for field_name in formula_fields:
+            if field_name in step:
+                step[field_name] = centralize(
+                    step[field_name],
+                    f"action\0{payload.id}\0{step_identity}\0{field_name}",
+                )
+        for roll_index, roll in enumerate(step.get("rolls", [])):
+            if isinstance(roll, dict) and "value" in roll:
+                roll["value"] = centralize(
+                    roll["value"],
+                    (
+                        f"action\0{payload.id}\0{step_identity}\0roll\0"
+                        f"{roll_index}"
+                    ),
+                )
+    return ActionDefinitionPayload.model_validate(raw), ops
+
+
 def _validate_action_attributes(action: Action, state: State) -> None:
     relationship_ids: set[str] = set()
     for attribute_id, bridge in action.attributes.items():
@@ -520,7 +582,7 @@ def _validate_action_attributes(action: Action, state: State) -> None:
         if definition is None or "action" not in definition.subject_types:
             raise ValueError(f"Action Attribute '{attribute_id}' does not exist.")
         validate_subject_attribute_value(state, "action", action, definition, bridge.value)
-    validate_and_evaluate_subject_attributes(action)
+    validate_and_evaluate_subject_attributes(action, state)
 
 
 def _actions_state(state: State) -> dict[str, dict]:
@@ -556,12 +618,17 @@ async def _create_action(
         actions = _actions_state(state)
         if payload.id in actions:
             raise ValueError(f"Action '{payload.id}' already exists.")
-        action = _build_action(payload, state)
+        _validate_action_payload(payload, state)
+        centralized_payload, formula_ops = _centralize_action_formula_payloads(
+            payload,
+            state,
+        )
+        action = _build_action(centralized_payload, state)
         _validate_action_attributes(action, state)
         validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
         path = state_sync_service.join_path("actions", payload.id)
         op = state_sync_service.add_mutation(state, path, action)
-        return None, [op]
+        return None, [*formula_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -580,12 +647,17 @@ async def _update_action(
         if action_id not in actions:
             raise ValueError(f"Action '{action_id}' does not exist.")
 
-        action = _build_action(payload, state)
+        _validate_action_payload(payload, state)
+        centralized_payload, formula_ops = _centralize_action_formula_payloads(
+            payload,
+            state,
+        )
+        action = _build_action(centralized_payload, state)
         _validate_action_attributes(action, state)
         validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
         path = state_sync_service.join_path("actions", action_id)
         op = state_sync_service.set_mutation(state, path, action)
-        return None, [op]
+        return None, [*formula_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 

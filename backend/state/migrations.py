@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from math import isfinite
 import hashlib
@@ -13,12 +13,13 @@ from backend.state.default_actions import (
     BASELINE_SHEET_CHECKS,
     CANONICAL_ACTION_PRESETS,
     WEAPON_ACTION_IDS,
+    canonical_action_formula_definitions,
     normalize_weapon_action_grant_payloads,
     seeded_global_action_payloads,
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 46
+CURRENT_STATE_SCHEMA_VERSION = 48
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2368,6 +2369,298 @@ def _migrate_v45_to_v46(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 46, "state": state}
 
 
+def _migrate_v46_to_v47(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    """Move item/condition inline effects into the canonical effect registry."""
+    state = deepcopy(envelope["state"])
+    effects = state.setdefault("standalone_effects", {})
+    entries = state.setdefault("catalog_entries", {})
+    if not isinstance(effects, dict):
+        effects = {}
+        state["standalone_effects"] = effects
+    if not isinstance(entries, dict):
+        entries = {}
+        state["catalog_entries"] = entries
+
+    effect_position = 1 + max(
+        (
+            int(entry.get("position", 0))
+            for entry in entries.values()
+            if isinstance(entry, dict) and entry.get("catalog") == "effects"
+        ),
+        default=-1,
+    )
+
+    def centralize(
+        *,
+        owner_registry: str,
+        owner_id: str,
+        templates: Any,
+    ) -> list[str]:
+        nonlocal effect_position
+        if not isinstance(templates, list):
+            return []
+        effect_ids: list[str] = []
+        for index, template in enumerate(templates):
+            if not isinstance(template, dict):
+                continue
+            legacy_id = str(template.get("id") or index)
+            identity = (
+                f"{owner_registry}\0{owner_id}\0{legacy_id}\0{index}"
+            ).encode("utf-8")
+            effect_id = f"effect_migrated_{hashlib.sha1(identity).hexdigest()[:16]}"
+            suffix = 2
+            base_effect_id = effect_id
+            while effect_id in effects:
+                effect_id = f"{base_effect_id}_{suffix}"
+                suffix += 1
+
+            target = deepcopy(template.get("target", {}))
+            if isinstance(target, dict) and target.get("root") == "sheet":
+                target["root"] = "instance"
+            effects[effect_id] = {
+                "id": effect_id,
+                "name": str(template.get("name") or "Migrated Effect"),
+                "description": str(template.get("description") or ""),
+                "scope": "instance",
+                "target": target,
+                "effect": deepcopy(template.get("effect", {})),
+                "active": bool(template.get("active", True)),
+                "lifecycle": deepcopy(
+                    template.get(
+                        "lifecycle",
+                        {
+                            "mode": "manual",
+                            "remaining": None,
+                            "expires_at": None,
+                            "remove_when_source_inactive": False,
+                            "notes": None,
+                        },
+                    )
+                ),
+                "stacking": {"mode": "unique", "max_stacks": None},
+            }
+            placement_id = f"effects:{effect_id}"
+            entries.setdefault(
+                placement_id,
+                {
+                    "id": placement_id,
+                    "catalog": "effects",
+                    "entry_id": effect_id,
+                    "folder_id": None,
+                    "position": effect_position,
+                },
+            )
+            effect_position += 1
+            effect_ids.append(effect_id)
+        return effect_ids
+
+    for registry_name in ("items", "item_templates"):
+        registry = state.get(registry_name, {})
+        if not isinstance(registry, dict):
+            continue
+        for owner_id, item in registry.items():
+            if not isinstance(item, dict):
+                continue
+            templates = item.pop("augmentation_templates", [])
+            existing_ids = item.get("effect_ids", [])
+            if not isinstance(existing_ids, list):
+                existing_ids = []
+            item["effect_ids"] = list(
+                dict.fromkeys(
+                    [
+                        *(str(effect_id) for effect_id in existing_ids),
+                        *centralize(
+                            owner_registry=registry_name,
+                            owner_id=str(owner_id),
+                            templates=templates,
+                        ),
+                    ]
+                )
+            )
+
+    conditions = state.get("condition_presets", {})
+    if isinstance(conditions, dict):
+        for owner_id, condition in conditions.items():
+            if not isinstance(condition, dict):
+                continue
+            templates = condition.pop("augmentation_templates", [])
+            existing_ids = condition.get("effect_ids", [])
+            if not isinstance(existing_ids, list):
+                existing_ids = []
+            condition["effect_ids"] = list(
+                dict.fromkeys(
+                    [
+                        *(str(effect_id) for effect_id in existing_ids),
+                        *centralize(
+                            owner_registry="condition_presets",
+                            owner_id=str(owner_id),
+                            templates=templates,
+                        ),
+                    ]
+                )
+            )
+
+    return {"schema_version": 47, "state": state}
+
+
+def _migrate_v47_to_v48(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    """Move authored consumer formulas into the canonical formula registry."""
+    state = deepcopy(envelope["state"])
+    formulas = state.setdefault("formulas", {})
+    entries = state.setdefault("catalog_entries", {})
+    if not isinstance(formulas, dict):
+        formulas = {}
+        state["formulas"] = formulas
+    if not isinstance(entries, dict):
+        entries = {}
+        state["catalog_entries"] = entries
+
+    formula_position = 1 + max(
+        (
+            int(entry.get("position", 0))
+            for entry in entries.values()
+            if isinstance(entry, dict) and entry.get("catalog") == "formulas"
+        ),
+        default=-1,
+    )
+
+    for formula_id, definition in canonical_action_formula_definitions().items():
+        formulas.setdefault(formula_id, asdict(definition))
+        placement_id = f"formulas:{formula_id}"
+        if placement_id in entries:
+            continue
+        entries[placement_id] = {
+            "id": placement_id,
+            "catalog": "formulas",
+            "entry_id": formula_id,
+            "folder_id": None,
+            "position": formula_position,
+        }
+        formula_position += 1
+
+    def centralize(raw: object, *, identity: str) -> object:
+        nonlocal formula_position
+        if not isinstance(raw, dict) or raw.get("type") == "formula_reference":
+            return raw
+        if not isinstance(raw.get("text"), str):
+            return raw
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:16]
+        base_formula_id = f"formula_migrated_{digest}"
+        formula_id = base_formula_id
+        suffix = 2
+        while formula_id in formulas:
+            formula_id = f"{base_formula_id}_{suffix}"
+            suffix += 1
+        formulas[formula_id] = {
+            "id": formula_id,
+            "formula": deepcopy(raw),
+        }
+        placement_id = f"formulas:{formula_id}"
+        entries[placement_id] = {
+            "id": placement_id,
+            "catalog": "formulas",
+            "entry_id": formula_id,
+            "folder_id": None,
+            "position": formula_position,
+        }
+        formula_position += 1
+        return {"type": "formula_reference", "formula_id": formula_id}
+
+    def centralize_attribute_values(registry_name: str, registry: object) -> None:
+        if not isinstance(registry, dict):
+            return
+        for owner_id, owner in registry.items():
+            if not isinstance(owner, dict):
+                continue
+            attributes = owner.get("attributes", owner.get("facts", {}))
+            if not isinstance(attributes, dict):
+                continue
+            for attribute_id, bridge in attributes.items():
+                if not isinstance(bridge, dict):
+                    continue
+                value = bridge.get("value")
+                if isinstance(value, dict) and value.get("type") == "formula":
+                    value["formula"] = centralize(
+                        value.get("formula"),
+                        identity=(
+                            f"{registry_name}\0{owner_id}\0attributes\0"
+                            f"{attribute_id}\0{bridge.get('relationship_id', '')}"
+                        ),
+                    )
+
+    attributes = state.get("attributes", {})
+    if isinstance(attributes, dict):
+        for attribute_id, definition in attributes.items():
+            if not isinstance(definition, dict):
+                continue
+            default_value = definition.get("default_value")
+            if (
+                isinstance(default_value, dict)
+                and default_value.get("type") == "formula"
+            ):
+                default_value["formula"] = centralize(
+                    default_value.get("formula"),
+                    identity=f"attributes\0{attribute_id}\0default_value",
+                )
+
+    for registry_name in (
+        "sheets",
+        "instanced_sheets",
+        "items",
+        "item_templates",
+        "actions",
+    ):
+        centralize_attribute_values(registry_name, state.get(registry_name, {}))
+
+    actions = state.get("actions", {})
+    if isinstance(actions, dict):
+        formula_fields = {
+            "amount",
+            "max_value",
+            "message",
+            "min_value",
+            "value",
+        }
+        for action_id, action in actions.items():
+            if not isinstance(action, dict):
+                continue
+            for step_index, step in enumerate(action.get("steps", []) or []):
+                if not isinstance(step, dict):
+                    continue
+                step_identity = str(step.get("step_id") or step_index)
+                for field_name in formula_fields:
+                    if field_name in step:
+                        step[field_name] = centralize(
+                            step[field_name],
+                            identity=(
+                                f"actions\0{action_id}\0{step_identity}\0{field_name}"
+                            ),
+                        )
+                for roll_index, roll in enumerate(step.get("rolls", []) or []):
+                    if isinstance(roll, dict) and "value" in roll:
+                        roll["value"] = centralize(
+                            roll["value"],
+                            identity=(
+                                f"actions\0{action_id}\0{step_identity}\0rolls\0"
+                                f"{roll_index}"
+                            ),
+                        )
+
+    effects = state.get("standalone_effects", {})
+    if isinstance(effects, dict):
+        for effect_id, definition in effects.items():
+            if not isinstance(definition, dict):
+                continue
+            effect = definition.get("effect")
+            if isinstance(effect, dict) and "value" in effect:
+                effect["value"] = centralize(
+                    effect["value"],
+                    identity=f"standalone_effects\0{effect_id}\0value",
+                )
+
+    return {"schema_version": 48, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2415,6 +2708,8 @@ MIGRATIONS: dict[int, Migration] = {
     43: _migrate_v43_to_v44,
     44: _migrate_v44_to_v45,
     45: _migrate_v45_to_v46,
+    46: _migrate_v46_to_v47,
+    47: _migrate_v47_to_v48,
 }
 
 

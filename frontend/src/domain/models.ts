@@ -74,7 +74,7 @@ export interface FormulaDefinition {
 
 export type AttributeValue =
   | { type: "number"; value: number; formula?: null }
-  | { type: "formula"; formula: Formula; value?: null }
+  | { type: "formula"; formula: FormulaValueSource; value?: null }
   | { type: "boolean"; value: boolean; formula?: null }
   | { type: "text" | "enum" | "reference"; value: string; formula?: null }
   | { type: "list"; value: string[]; formula?: null };
@@ -310,14 +310,14 @@ export interface FormulaModifierSelector {
 
 export interface FormulaModifierEffect {
   operation: AugmentationOperation;
-  value: Formula;
+  value: FormulaValueSource;
   selector?: FormulaModifierSelector;
   type: "formula_modifier";
 }
 
 export interface EvaluationFormulaModifierEffect {
   operation: AugmentationOperation;
-  value: Formula;
+  value: FormulaValueSource;
   selector?: FormulaModifierSelector;
   type: "evaluation_formula_modifier";
 }
@@ -399,7 +399,7 @@ export interface ConditionPreset {
   name: string;
   description?: string;
   visibility?: ConditionVisibility;
-  augmentation_templates?: Augmentation[];
+  effect_ids?: string[];
 }
 
 export type ConditionSourceType = "action" | "manual" | "item" | "condition" | "other";
@@ -443,7 +443,7 @@ export interface ItemDefinition {
   storage_capacity_weight?: number | null;
   contents_weight_behavior?: "normal" | "ignored";
   tags?: string[];
-  augmentation_templates?: Augmentation[];
+  effect_ids?: string[];
   action_grants?: ItemActionGrant[];
   attributes?: Record<string, AttributeBridge>;
 }

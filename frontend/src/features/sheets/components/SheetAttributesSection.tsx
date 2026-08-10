@@ -4,17 +4,14 @@ import type {
   AttributeBridge,
   AttributeDefinition,
   AttributeValue,
-  Formula
+  FormulaReference
 } from "@/domain/models";
-import {
-  buildAttributeFormulaVariableEntries,
-  toAttributeFormulaVariableOptions
-} from "@/features/attributes/attributeFormulaVariables";
-import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
-import { upsertFormulaAlias } from "@/features/variables/variablePicker";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
+import { isFormulaReference } from "@/features/actions/actionEditorValues";
+import { FormulaReferenceEditor } from "@/features/formulas/components/FormulaReferenceEditor";
+import { useOptionalAppState } from "@/app/state/useAppStore";
 
 function displayAttributeValue(value: AttributeBridge["evaluated_value"]): string {
   if (value === null || value === undefined) {
@@ -64,7 +61,7 @@ export function SheetAttributesSection({
   compactCards?: boolean;
   pageLayout?: boolean;
   draftMode?: boolean;
-  onSaveFormula: (attributeId: string, formula: Formula) => void;
+  onSaveFormula: (attributeId: string, formula: FormulaReference) => void;
   onSaveValue?: (attributeId: string, value: AttributeValue) => void;
   onReset: (attributeId: string) => void;
   onAttach?: (attributeId: string) => void;
@@ -301,9 +298,15 @@ function SheetAttributeSummaryCard({
   onEdit: () => void;
 }): JSX.Element {
   const name = definition?.name ?? bridge.attribute_id;
+  const formulaDefinitions = useOptionalAppState()?.serverState.formulas ?? {};
   const displayedValue = displayedBridgeValue(bridge);
   const unit = definition?.unit ? ` ${definition.unit}` : "";
-  const formula = bridge.value.type === "formula" ? bridge.value.formula : null;
+  const formulaSource = bridge.value.type === "formula" ? bridge.value.formula : null;
+  const formula = formulaSource
+    ? isFormulaReference(formulaSource)
+      ? formulaDefinitions[formulaSource.formula_id]?.formula
+      : formulaSource
+    : null;
   const displayedSummaryValue =
     draftMode && formula && (displayedValue === null || displayedValue === undefined)
       ? "Formula"
@@ -384,7 +387,7 @@ function SheetAttributeCard({
   canEdit: boolean;
   compact: boolean;
   draftMode: boolean;
-  onSaveFormula: (attributeId: string, formula: Formula) => void;
+  onSaveFormula: (attributeId: string, formula: FormulaReference) => void;
   onSaveValue?: (attributeId: string, value: AttributeValue) => void;
   onReset: (attributeId: string) => void;
   onDetach?: (attributeId: string) => void;
@@ -393,19 +396,13 @@ function SheetAttributeCard({
   subjectType: "sheet" | "item" | "action";
   dialogMode?: boolean;
 }): JSX.Element {
-  const formula = bridge.value.type === "formula" ? bridge.value.formula : null;
-  const [formulaText, setFormulaText] = useState(formula?.text ?? "");
-  const [formulaAliases, setFormulaAliases] = useState(formula?.aliases ?? null);
+  void formulaMetadata;
+  void subjectType;
+  const formulaSource = bridge.value.type === "formula" ? bridge.value.formula : null;
+  const formulaId = formulaSource && isFormulaReference(formulaSource) ? formulaSource.formula_id : null;
   const [literalText, setLiteralText] = useState(
     bridge.value.type === "formula" ? "" : attributeValueText(bridge.value)
   );
-
-  useEffect(() => {
-    setFormulaText(formula?.text ?? "");
-    setFormulaAliases(
-      formula?.aliases?.map((alias) => ({ ...alias, path: [...alias.path] })) ?? null
-    );
-  }, [formula]);
 
   useEffect(() => {
     if (bridge.value.type !== "formula") {
@@ -487,59 +484,19 @@ function SheetAttributeCard({
           {bridge.evaluation_error}
         </p>
       ) : null}
-      {canEdit && formula ? (
+      {canEdit && formulaSource ? (
         <div className="stack sheet-attribute-card__editor">
-          <FormulaVariableInput
+          <FormulaReferenceEditor
             label="Formula"
-            value={formulaText}
-            multiline={false}
-            options={toAttributeFormulaVariableOptions(
-              buildAttributeFormulaVariableEntries(formulaMetadata ?? null, [subjectType]).filter(
-                (entry) => entry.path.join(".") !== `attributes.${bridge.attribute_id}`
-              )
-            )}
-            loading={!formulaMetadata}
-            onChange={(text) => {
-              setFormulaText(text);
-              if (draftMode) {
-                onSaveFormula(bridge.attribute_id, {
-                  ...formula,
-                  aliases: formulaAliases,
-                  text
-                });
-              }
-            }}
-            onVariableSelect={(entry, nextText) => {
-              const nextAliases = upsertFormulaAlias(formulaAliases, entry.alias);
-              setFormulaText(nextText);
-              setFormulaAliases(nextAliases);
-              if (draftMode) {
-                onSaveFormula(bridge.attribute_id, {
-                  ...formula,
-                  aliases: nextAliases,
-                  text: nextText
-                });
-              }
-            }}
-            placeholder="Type @ to insert a variable"
+            formulaId={formulaId}
+            onChange={(nextFormulaId) =>
+              onSaveFormula(bridge.attribute_id, {
+                type: "formula_reference",
+                formula_id: nextFormulaId
+              })
+            }
           />
           <div className="inline-actions sheet-attribute-card__actions">
-            {!draftMode ? (
-              <button
-                type="button"
-                className="button"
-                disabled={!formulaText.trim() || formulaText === formula.text}
-                onClick={() =>
-                  onSaveFormula(bridge.attribute_id, {
-                    ...formula,
-                    aliases: formulaAliases,
-                    text: formulaText.trim()
-                  })
-                }
-              >
-                Save Formula
-              </button>
-            ) : null}
             <button
               type="button"
               className="button button--secondary"

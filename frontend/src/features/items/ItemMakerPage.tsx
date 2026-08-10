@@ -2,17 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 import type { GameClient } from "@/hooks/useGameClient";
-import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
-import {
-  createEmptyAugmentationEditorValues,
-  hasValidAugmentationEditorValues,
-  isKnownAugmentationEditorTarget,
-  toAugmentationEditorValues,
-  toItemAugmentationTemplatePayload,
-  type AugmentationEditorValues
-} from "@/features/augmentations/augmentationEditorValues";
-import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
-import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { ItemEditorForm } from "@/features/items/components/ItemEditorForm";
 import { ItemAttributesEditor } from "@/features/items/components/ItemAttributesEditor";
 import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
@@ -43,6 +32,7 @@ import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
+import { EffectReferenceEditor } from "@/features/effects/components/EffectReferenceEditor";
 
 type ItemWorkspaceMode = "start" | "item" | "choose_template" | "template_idle" | "templates";
 
@@ -62,13 +52,12 @@ export function ItemMakerPage({
         itemTemplateOrder,
         actions: actionRecords,
         actionOrder,
-        formulas: formulaRecords,
-        formulaOrder,
         attributes: attributeDefinitions,
         proficiencies: proficiencyRecords,
-        tags: tagDefinitions
+        tags: tagDefinitions,
+        standaloneEffects
       },
-      uiState: { augmentationTargetMetadata, actionFormulaAuthoringMetadata }
+      uiState: { actionFormulaAuthoringMetadata }
     },
     dispatch
   } = useAppStore();
@@ -81,11 +70,6 @@ export function ItemMakerPage({
   const [draftItemId, setDraftItemId] = useState(() => makeId("item"));
   const [submittedCreateId, setSubmittedCreateId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
-  const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
-  const [effectEditorFocused, setEffectEditorFocused] = useState(false);
-  const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
-    createEmptyAugmentationEditorValues
-  );
   const requestedFormulaMetadataRef = useRef(false);
   const validation = useFormValidationAttempt();
 
@@ -111,20 +95,6 @@ export function ItemMakerPage({
     () => actionOrder.map((id) => actionRecords[id]).filter(Boolean),
     [actionOrder, actionRecords]
   );
-  const selectorOptions = useMemo(
-    () =>
-      buildAugmentationSelectorOptions({
-        actionRecords,
-        actionOrder,
-        formulaRecords,
-        formulaOrder
-      }),
-    [actionOrder, actionRecords, formulaOrder, formulaRecords]
-  );
-  const targetOptions =
-    augmentationTargetMetadata?.context === "item_template"
-      ? augmentationTargetMetadata.targets
-      : [];
   const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
     catalog: "items",
     client,
@@ -138,15 +108,6 @@ export function ItemMakerPage({
     });
 
   useEffect(() => {
-    if (augmentationTargetMetadata?.context === "item_template") {
-      return;
-    }
-
-    const submission = buildLoadItemAugmentationTargetMetadataSubmission();
-    client.sendProtocolRequest(submission.request, submission.label);
-  }, [augmentationTargetMetadata?.context, client]);
-
-  useEffect(() => {
     if (actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
       return;
     }
@@ -154,12 +115,6 @@ export function ItemMakerPage({
     const submission = buildLoadActionFormulaAuthoringMetadataSubmission();
     client.sendProtocolRequest(submission.request, submission.label);
   }, [actionFormulaAuthoringMetadata, client]);
-
-  const resetAugmentationEditor = (): void => {
-    setEffectEditorFocused(false);
-    setEditingAugmentationId(null);
-    setAugmentationValues(createEmptyAugmentationEditorValues());
-  };
 
   const startNewItem = (folderId: string | null = null): void => {
     validation.reset();
@@ -170,7 +125,6 @@ export function ItemMakerPage({
     setDraftItemId(makeId("item"));
     setSubmittedCreateId(null);
     setValues(createEmptyItemValues());
-    resetAugmentationEditor();
   };
 
   const showStart = (): void => {
@@ -185,7 +139,6 @@ export function ItemMakerPage({
     setWorkspaceMode(templateManagement ? "template_idle" : "start");
     setSelectedTemplateId("");
     setValues(createEmptyItemValues());
-    resetAugmentationEditor();
   };
 
   const startNewTemplate = (folderId: string | null = null): void => {
@@ -196,7 +149,6 @@ export function ItemMakerPage({
     setWorkspaceMode("templates");
     setDraftItemId(makeId("item_template"));
     setValues(createEmptyItemValues());
-    resetAugmentationEditor();
   };
 
   useEffect(() => {
@@ -206,8 +158,6 @@ export function ItemMakerPage({
       setSubmittedCreateId(null);
       setWorkspaceMode("start");
       setValues(createEmptyItemValues());
-      setEditingAugmentationId(null);
-      setAugmentationValues(createEmptyAugmentationEditorValues());
     }
   }, [itemRecords, submittedCreateId]);
 
@@ -289,55 +239,6 @@ export function ItemMakerPage({
     client.sendProtocolRequest(submission.request, submission.label);
     if (editingItemId === itemId) {
       showStart();
-    }
-  };
-
-  const submitAugmentation = (): void => {
-    if (
-      !hasValidAugmentationEditorValues(augmentationValues) ||
-      !isKnownAugmentationEditorTarget(augmentationValues, targetOptions)
-    ) {
-      return;
-    }
-
-    const augmentation = toItemAugmentationTemplatePayload({
-      values: augmentationValues,
-      augmentationId: editingAugmentationId ?? makeId("augmentation"),
-      itemId: editingItemId ?? "draft-item",
-      itemName: values.name
-    });
-    setValues((current) => ({
-      ...current,
-      augmentationTemplates: editingAugmentationId
-        ? current.augmentationTemplates.map((template) =>
-            template.id === editingAugmentationId ? augmentation : template
-          )
-        : [...current.augmentationTemplates, augmentation]
-    }));
-    resetAugmentationEditor();
-  };
-
-  const removeAugmentation = (augmentationId: string): void => {
-    const augmentation = values.augmentationTemplates.find(
-      (candidate) => candidate.id === augmentationId
-    );
-    if (
-      !confirmDestructiveAction({
-        action: "Remove",
-        subject: augmentation?.name ?? augmentationId,
-        consequence: "This removes the effect from the item draft when you save it."
-      })
-    ) {
-      return;
-    }
-    setValues((current) => ({
-      ...current,
-      augmentationTemplates: current.augmentationTemplates.filter(
-        (template) => template.id !== augmentationId
-      )
-    }));
-    if (editingAugmentationId === augmentationId) {
-      resetAugmentationEditor();
     }
   };
 
@@ -464,7 +365,6 @@ export function ItemMakerPage({
                   setWorkspaceMode("templates");
                   beginTemplateCreation(null);
                   setValues(toItemEditorValues(template));
-                  resetAugmentationEditor();
                   validation.reset();
                 }}
               />
@@ -490,7 +390,6 @@ export function ItemMakerPage({
                   setWorkspaceMode("item");
                   beginCreation(null);
                   setValues(toItemEditorValues(item));
-                  resetAugmentationEditor();
                   validation.reset();
                 }}
               />
@@ -570,7 +469,6 @@ export function ItemMakerPage({
                     setDraftItemId(makeId("item"));
                     setWorkspaceMode("item");
                     setEditingItemId(null);
-                    resetAugmentationEditor();
                     validation.reset();
                   }}
                 >
@@ -606,27 +504,14 @@ export function ItemMakerPage({
                 />
               }
               effectEditor={
-                <ItemAugmentationTemplatePanel
-                  itemName={values.name.trim() || "New equippable item"}
-                  editingAugmentationId={editingAugmentationId}
-                  templates={values.augmentationTemplates}
-                  targetOptions={targetOptions}
-                  selectorOptions={selectorOptions}
-                  formulaMetadata={actionFormulaAuthoringMetadata}
-                  values={augmentationValues}
-                  focused={effectEditorFocused}
-                  onChange={setAugmentationValues}
-                  onFocusedChange={setEffectEditorFocused}
-                  onSubmit={submitAugmentation}
-                  onCancel={resetAugmentationEditor}
-                  onEdit={(augmentation) => {
-                    setEditingAugmentationId(augmentation.id);
-                    setAugmentationValues(toAugmentationEditorValues(augmentation));
-                  }}
-                  onRemove={removeAugmentation}
+                <EffectReferenceEditor
+                  effects={standaloneEffects}
+                  selectedIds={values.effectIds}
+                  onChange={(effectIds) => setValues((current) => ({ ...current, effectIds }))}
+                  label="Equipment effects"
                 />
               }
-              effectEditorFocused={effectEditorFocused}
+              effectEditorFocused={false}
               onSubmit={onSubmit}
               onCancel={showStart}
               onOpenActionAuthoring={() =>

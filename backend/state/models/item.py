@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import List, Literal
 
-from backend.state.models.augmentation import Augmentation
 from backend.state.models.attribute import AttributeBridge
 from backend.state.models.tag import normalize_tag_ids
 
@@ -91,7 +90,7 @@ class Item:
     gm_special_properties: str
     price: str
     weight: float  # pounds
-    augmentation_templates: List[Augmentation]
+    effect_ids: List[str]
     player_catalog_access: ItemPlayerCatalogAccess = field(
         default_factory=ItemPlayerCatalogAccess
     )
@@ -181,10 +180,7 @@ class Item:
             storage_capacity_weight=raw.get("storage_capacity_weight"),
             contents_weight_behavior=raw.get("contents_weight_behavior", "normal"),
             tags=tags,
-            augmentation_templates=[
-                Augmentation.from_dict(augmentation)
-                for augmentation in raw.get("augmentation_templates", [])
-            ],
+            effect_ids=list(raw.get("effect_ids", [])),
             action_grants=[
                 ItemActionGrant.from_dict(grant)
                 for grant in raw.get("action_grants", [])

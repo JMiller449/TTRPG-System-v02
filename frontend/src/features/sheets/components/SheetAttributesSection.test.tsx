@@ -67,8 +67,7 @@ describe("SheetAttributesSection", () => {
       />
     );
 
-    expect(markup).toContain("@registration + 2");
-    expect(markup).toContain("Save Formula");
+    expect(markup).toContain("Select a formula");
     expect(markup).toContain("Reset to Default");
   });
 
@@ -167,7 +166,7 @@ describe("SheetAttributesSection", () => {
     expect(container.querySelector('[role="dialog"]')?.textContent).toContain(
       "Edit Amount of Reactions"
     );
-    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Save Formula");
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Formula");
 
     const closeEditButton = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Close Edit Amount of Reactions"]'

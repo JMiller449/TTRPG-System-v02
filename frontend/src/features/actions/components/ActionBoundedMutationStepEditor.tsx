@@ -99,7 +99,7 @@ export function ActionBoundedMutationStepEditor({
             formulaId ? `global:${formulaId}` : variableId ? `calculated:${variableId}` : "inline"
           }
           options={[
-            { id: "inline", label: "Inline formula", value: "inline" },
+            { id: "inline", label: "New catalog formula", value: "inline" },
             ...(formulaId && !formulas.some((formula) => formula.id === formulaId)
               ? [
                   {

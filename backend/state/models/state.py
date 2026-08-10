@@ -7,11 +7,13 @@ from backend.state.models.action_history import (
     ActionHistoryEntry,
     prune_action_history,
 )
-from backend.state.models.action import Action
+from backend.state.models.action import Action, ApplyAugmentationStep
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.augmentation import (
     Augmentation,
     DirectEffectProjection,
+    EvaluationFormulaModifierEffect,
+    FormulaModifierEffect,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
@@ -22,7 +24,7 @@ from backend.state.models.catalog import (
     validate_catalog_organization,
 )
 from backend.state.models.encounter import EncounterPreset
-from backend.state.models.formula import FormulaDefinition
+from backend.state.models.formula import FormulaDefinition, FormulaReference
 from backend.state.models.attribute import (
     AttributeDefinition,
     evaluate_all_subject_attributes,
@@ -76,16 +78,107 @@ class State:
 
     def __post_init__(self) -> None:
         self.attributes.update(backend_attribute_definitions())
+        for formula_id, definition in self.formulas.items():
+            if definition.id != formula_id:
+                raise ValueError(
+                    f"Formula registry key '{formula_id}' does not match "
+                    f"definition ID '{definition.id}'."
+                )
+
+        def require_formula_reference(
+            value: object,
+            *,
+            consumer: str,
+        ) -> None:
+            if (
+                isinstance(value, FormulaReference)
+                and value.formula_id not in self.formulas
+            ):
+                raise ValueError(
+                    f"{consumer} references missing formula '{value.formula_id}'."
+                )
+
+        for attribute_id, definition in self.attributes.items():
+            require_formula_reference(
+                definition.default_value.formula,
+                consumer=f"Attribute '{attribute_id}'",
+            )
+        for registry_name, registry in (
+            ("Sheet", self.sheets),
+            ("Sheet instance", self.instanced_sheets),
+            ("Item", self.items),
+            ("Item template", self.item_templates),
+            ("Action", self.actions),
+        ):
+            for owner_id, owner in registry.items():
+                for bridge in owner.attributes.values():
+                    require_formula_reference(
+                        bridge.value.formula,
+                        consumer=(
+                            f"{registry_name} '{owner_id}' Attribute "
+                            f"'{bridge.attribute_id}'"
+                        ),
+                    )
+        for effect_id, definition in self.standalone_effects.items():
+            if isinstance(
+                definition.effect,
+                FormulaModifierEffect | EvaluationFormulaModifierEffect,
+            ):
+                require_formula_reference(
+                    definition.effect.value,
+                    consumer=f"Effect '{effect_id}'",
+                )
+        for action_id, action in self.actions.items():
+            for formula_id in action.referenced_formula_ids():
+                if formula_id not in self.formulas:
+                    raise ValueError(
+                        f"Action '{action_id}' references missing formula "
+                        f"'{formula_id}'."
+                    )
         for sheet in self.sheets.values():
-            synchronize_all_sheet_attributes(sheet)
+            synchronize_all_sheet_attributes(sheet, self.formulas)
         for instance in self.instanced_sheets.values():
-            synchronize_all_sheet_attributes(instance)
+            synchronize_all_sheet_attributes(instance, self.formulas)
         for item in self.items.values():
-            synchronize_required_item_attributes(item, self.attributes)
+            synchronize_required_item_attributes(item, self.attributes, self.formulas)
         for template in self.item_templates.values():
-            synchronize_required_item_attributes(template, self.attributes)
+            synchronize_required_item_attributes(template, self.attributes, self.formulas)
+        for item in (*self.items.values(), *self.item_templates.values()):
+            if len(item.effect_ids) != len(set(item.effect_ids)):
+                raise ValueError(f"Item '{item.id}' contains duplicate effect references.")
+            for effect_id in item.effect_ids:
+                if effect_id not in self.standalone_effects:
+                    raise ValueError(
+                        f"Item '{item.id}' references missing effect '{effect_id}'."
+                    )
+        for condition in self.condition_presets.values():
+            if len(condition.effect_ids) != len(set(condition.effect_ids)):
+                raise ValueError(
+                    f"Condition '{condition.id}' contains duplicate effect references."
+                )
+            for effect_id in condition.effect_ids:
+                if effect_id not in self.standalone_effects:
+                    raise ValueError(
+                        f"Condition '{condition.id}' references missing effect "
+                        f"'{effect_id}'."
+                    )
         for action in self.actions.values():
-            evaluate_all_subject_attributes(action)
+            for step in action.steps:
+                if (
+                    isinstance(step, ApplyAugmentationStep)
+                    and step.augmentation_id not in self.standalone_effects
+                ):
+                    raise ValueError(
+                        f"Action '{action.id}' references missing effect "
+                        f"'{step.augmentation_id}'."
+                    )
+            evaluate_all_subject_attributes(action, self.formulas)
+        for application in self.standalone_effect_applications.values():
+            if application.definition_id not in self.standalone_effects:
+                raise ValueError(
+                    f"Effect application '{application.application_id}' references "
+                    f"missing effect '{application.definition_id}'."
+                )
         assigned_party_members: set[str] = set()
         for party in self.parties.values():
             if len(party.member_instance_ids) != len(set(party.member_instance_ids)):

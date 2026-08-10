@@ -18,6 +18,11 @@ from backend.features.sheet_admin.shared.schema import (
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.formula import Formula, FormulaAliases, FormulaDefinition
+from backend.state.models.formula import FormulaReference
+from backend.state.models.augmentation import (
+    EvaluationFormulaModifierEffect,
+    FormulaModifierEffect,
+)
 from backend.state.models.state import State
 from backend.state.models.tag import validate_tag_ids
 
@@ -50,6 +55,12 @@ def _validate_alias_paths(
     valid_paths = _valid_formula_paths(state) | (additional_paths or set())
     for alias_name, path in aliases:
         alias_path = tuple(path)
+        if (
+            len(path) == 2
+            and path[0] == "action_values"
+            and path[1]
+        ):
+            continue
         if alias_path not in valid_paths:
             raise ValueError(
                 "Formula alias "
@@ -108,6 +119,110 @@ def _formulas_state(state: State) -> dict[str, dict]:
     return state.formulas
 
 
+def _attribute_formula_references(state: State, formula_id: str) -> list[str]:
+    references: list[str] = []
+    for attribute_id, definition in state.attributes.items():
+        if (
+            definition.default_value.type == "formula"
+            and isinstance(definition.default_value.formula, FormulaReference)
+            and definition.default_value.formula.formula_id == formula_id
+        ):
+            references.append(f"attribute definition {attribute_id}")
+    for registry_name, registry in (
+        ("sheet", state.sheets),
+        ("instance", state.instanced_sheets),
+        ("item", state.items),
+        ("item template", state.item_templates),
+        ("action", state.actions),
+    ):
+        for owner_id, owner in registry.items():
+            if any(
+                bridge.value.type == "formula"
+                and isinstance(bridge.value.formula, FormulaReference)
+                and bridge.value.formula.formula_id == formula_id
+                for bridge in owner.attributes.values()
+            ):
+                references.append(f"{registry_name} {owner_id}")
+    return references
+
+
+def _effect_formula_references(state: State, formula_id: str) -> list[str]:
+    return sorted(
+        effect_id
+        for effect_id, definition in state.standalone_effects.items()
+        if isinstance(
+            definition.effect,
+            FormulaModifierEffect | EvaluationFormulaModifierEffect,
+        )
+        and isinstance(definition.effect.value, FormulaReference)
+        and definition.effect.value.formula_id == formula_id
+    )
+
+
+def validate_formula_definition_references(
+    definition: FormulaDefinition,
+    state: State,
+) -> None:
+    """Revalidate every consumer before a shared definition is changed."""
+    candidate = deepcopy(state)
+    candidate.formulas[definition.id] = definition
+
+    from backend.features.attributes.service import (
+        validate_attribute_value,
+    )
+    from backend.features.sheet_admin.actions.schema import ActionDefinitionPayload
+    from backend.features.sheet_admin.actions.service import _validate_action_payload
+    from backend.features.standalone_effects.service import (
+        validate_effect_definition_references,
+    )
+
+    for attribute_id, attribute in candidate.attributes.items():
+        if (
+            attribute.default_value.type == "formula"
+            and isinstance(attribute.default_value.formula, FormulaReference)
+            and attribute.default_value.formula.formula_id == definition.id
+        ):
+            validate_attribute_value(
+                attribute,
+                attribute.default_value,
+                state=candidate,
+                subject_types=attribute.subject_types,
+            )
+
+    for subject_type, registry in (
+        ("sheet", candidate.sheets),
+        ("sheet", candidate.instanced_sheets),
+        ("item", candidate.items),
+        ("item", candidate.item_templates),
+        ("action", candidate.actions),
+    ):
+        for subject in registry.values():
+            for attribute_id, bridge in subject.attributes.items():
+                if not (
+                    bridge.value.type == "formula"
+                    and isinstance(bridge.value.formula, FormulaReference)
+                    and bridge.value.formula.formula_id == definition.id
+                ):
+                    continue
+                validate_attribute_value(
+                    candidate.attributes[attribute_id],
+                    bridge.value,
+                    state=candidate,
+                    subject_types=[subject_type],
+                    attached_attribute_ids=set(subject.attributes),
+                )
+
+    for action in candidate.actions.values():
+        if definition.id not in action.referenced_formula_ids():
+            continue
+        payload = ActionDefinitionPayload.model_validate(asdict(action))
+        _validate_action_payload(payload, candidate)
+
+    for effect in candidate.standalone_effects.values():
+        if effect.id in _effect_formula_references(candidate, definition.id):
+            validate_effect_definition_references(effect, candidate)
+
+
 def _merge_entity(current: dict, partial: dict) -> dict:
     merged = deepcopy(current)
     for key, value in partial.items():
@@ -163,9 +278,15 @@ async def _update_formula(
         if formula_id not in formulas:
             raise ValueError(f"Formula '{formula_id}' does not exist.")
         validate_tag_ids(formula.formula.tags, state.tags)
+        validate_formula_definition_references(formula, state)
         path = state_sync_service.join_path("formulas", formula_id)
         op = state_sync_service.set_mutation(state, path, formula)
-        return None, [op]
+        from backend.features.attributes.service import (
+            reevaluate_all_attribute_consumers_mutations,
+        )
+
+        attribute_ops = reevaluate_all_attribute_consumers_mutations(state)
+        return None, [op, *attribute_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -188,6 +309,20 @@ async def _delete_formula(
             action_ids = ", ".join(referencing_actions)
             raise ValueError(
                 f"Formula '{formula_id}' is referenced by actions: {action_ids}."
+            )
+        attribute_references = sorted(_attribute_formula_references(state, formula_id))
+        if attribute_references:
+            raise ValueError(
+                f"Formula '{formula_id}' is referenced by Attributes: "
+                + ", ".join(attribute_references)
+                + "."
+            )
+        effect_references = _effect_formula_references(state, formula_id)
+        if effect_references:
+            raise ValueError(
+                f"Formula '{formula_id}' is referenced by effects: "
+                + ", ".join(effect_references)
+                + "."
             )
 
         path = state_sync_service.join_path("formulas", formula_id)

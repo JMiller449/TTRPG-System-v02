@@ -16,6 +16,7 @@ from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
     FormulaModifierEffect,
+    StandaloneEffectDefinition,
 )
 from backend.state.models.action import ApplyConditionPresetStep
 from backend.state.models.condition import ConditionPreset
@@ -55,26 +56,37 @@ def _validate_condition_augmentation_template(augmentation: Augmentation) -> Non
         )
 
 
-def _validate_condition_augmentation_templates(
-    payload: ConditionPresetPayload,
+def validate_condition_effect_definition(
+    definition: StandaloneEffectDefinition,
+    state: State,
 ) -> None:
-    for template in payload.augmentation_templates:
-        augmentation = Augmentation.from_dict(template.model_dump(mode="json"))
-        _validate_condition_augmentation_template(augmentation)
+    from backend.features.augmentations.service import effect_definition_as_augmentation
 
-
-def _build_condition_preset(payload: ConditionPresetPayload) -> ConditionPreset:
-    _validate_condition_augmentation_templates(payload)
-    condition = ConditionPreset.from_dict(payload.model_dump(mode="json"))
-    for augmentation in condition.augmentation_templates:
-        augmentation.source = AugmentationSource(
+    augmentation = effect_definition_as_augmentation(
+        definition,
+        state=state,
+        source=AugmentationSource(
             type="condition",
-            id=condition.id,
-            label=condition.name,
-        )
-        augmentation.lifecycle_owner = "condition"
-        augmentation.applied = False
-        augmentation.applied_target_id = None
+            id=definition.id,
+            label=definition.name,
+        ),
+        lifecycle_owner="condition",
+    )
+    _validate_condition_augmentation_template(augmentation)
+
+
+def _build_condition_preset(
+    payload: ConditionPresetPayload,
+    state: State,
+) -> ConditionPreset:
+    if len(payload.effect_ids) != len(set(payload.effect_ids)):
+        raise ValueError("Condition effect IDs must be unique.")
+    for effect_id in payload.effect_ids:
+        definition = state.standalone_effects.get(effect_id)
+        if definition is None:
+            raise ValueError(f"Effect '{effect_id}' does not exist.")
+        validate_condition_effect_definition(definition, state)
+    condition = ConditionPreset.from_dict(payload.model_dump(mode="json"))
     return condition
 
 
@@ -89,9 +101,8 @@ def _merge_condition(current: dict, partial: dict) -> dict:
 
 
 async def create_condition_preset(request: CreateConditionPreset) -> None:
-    condition = _build_condition_preset(request.condition)
-
     def mutation(state: State) -> tuple[None, list]:
+        condition = _build_condition_preset(request.condition, state)
         if condition.id in state.condition_presets:
             raise ValueError(f"Condition preset '{condition.id}' already exists.")
 
@@ -118,7 +129,7 @@ async def update_condition_preset(request: UpdateConditionPreset) -> None:
         if payload.id != request.condition_id:
             raise ValueError("Condition preset ID cannot be changed.")
 
-        condition = _build_condition_preset(payload)
+        condition = _build_condition_preset(payload, state)
         path = state_sync_service.join_path("condition_presets", request.condition_id)
         op = state_sync_service.set_mutation(state, path, condition)
         ops = [op]

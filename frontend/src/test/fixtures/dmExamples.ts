@@ -213,7 +213,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Light armor that protects its wearer and aids stealth.",
     price: "10,000 CP",
     weight: 15,
-    augmentation_templates: lightStepsEffects,
+    effect_ids: lightStepsEffects.map((effect) => effect.id),
     action_grants: [],
     attributes: {}
   },
@@ -226,7 +226,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     price: "500 CP",
     weight: 3,
     tags: ["weapon"],
-    augmentation_templates: neverDullsEffects,
+    effect_ids: neverDullsEffects.map((effect) => effect.id),
     action_grants: [
       { action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 },
       { action_id: "weapon_parry", availability: "equipped", consume_quantity: 0 }
@@ -243,7 +243,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Grants the Fire attribute while equipped.",
     price: "1,000,000 CP",
     weight: 0.1,
-    augmentation_templates: fireShardEffects,
+    effect_ids: fireShardEffects.map((effect) => effect.id),
     action_grants: [],
     attributes: { item_attribute: attribute("item_attribute", "text", "Fire") }
   },
@@ -255,7 +255,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Improves the wearer's perception.",
     price: "5,000 CP",
     weight: 2,
-    augmentation_templates: helmEffects,
+    effect_ids: helmEffects.map((effect) => effect.id),
     action_grants: [],
     attributes: {}
   },
@@ -267,7 +267,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     description: "Armor specialized against fire and magical damage.",
     price: "100,000 CP",
     weight: 1,
-    augmentation_templates: robeEffects,
+    effect_ids: robeEffects.map((effect) => effect.id),
     action_grants: [],
     attributes: {}
   },
@@ -280,7 +280,7 @@ export const dmExampleItems: Record<string, ItemDefinition> = {
     price: "N/A",
     weight: 3,
     tags: ["weapon"],
-    augmentation_templates: swordOfManaEffects,
+    effect_ids: swordOfManaEffects.map((effect) => effect.id),
     action_grants: [{ action_id: "weapon_damage", availability: "equipped", consume_quantity: 0 }],
     attributes: {
       item_mana_efficiency: attribute("item_mana_efficiency", "number", 100),
@@ -297,19 +297,37 @@ export const dmExampleEquipment: ItemBridge[] = Object.keys(dmExampleItems).map(
   equipped: true
 }));
 
+const dmExampleEffectTemplates = Object.fromEntries(
+  [
+    ...lightStepsEffects,
+    ...neverDullsEffects,
+    ...fireShardEffects,
+    ...helmEffects,
+    ...robeEffects,
+    ...swordOfManaEffects
+  ].map((effect) => [effect.id, effect])
+);
+
 export const dmExampleConcreteAugmentations: Record<string, Augmentation> = Object.fromEntries(
   dmExampleEquipment.flatMap((bridge) =>
-    (dmExampleItems[bridge.item_id].augmentation_templates ?? []).map((template) => [
-      `concrete_${bridge.relationship_id}_${template.id}`,
-      {
-        ...template,
-        id: `concrete_${bridge.relationship_id}_${template.id}`,
-        source: { type: "item", relationship_id: bridge.relationship_id },
-        lifecycle_owner: "equipment",
-        active: true,
-        applied: true
-      }
-    ])
+    (dmExampleItems[bridge.item_id].effect_ids ?? []).flatMap((effectId) => {
+      const template = dmExampleEffectTemplates[effectId];
+      return template
+        ? [
+            [
+              `concrete_${bridge.relationship_id}_${template.id}`,
+              {
+                ...template,
+                id: `concrete_${bridge.relationship_id}_${template.id}`,
+                source: { type: "item", relationship_id: bridge.relationship_id },
+                lifecycle_owner: "equipment",
+                active: true,
+                applied: true
+              }
+            ]
+          ]
+        : [];
+    })
   )
 );
 

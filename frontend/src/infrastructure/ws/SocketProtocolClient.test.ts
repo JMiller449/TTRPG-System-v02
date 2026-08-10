@@ -279,7 +279,7 @@ describe("SocketProtocolClient", () => {
               description: "",
               price: "10",
               weight: 1,
-              augmentation_templates: []
+              effect_ids: []
             }
           }
         ],

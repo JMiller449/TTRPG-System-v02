@@ -20,7 +20,7 @@ describe("actionStepMenu", () => {
       options.find((option) => option.type === "gain_proficiency_use")?.unavailableReason
     ).toBeNull();
     expect(options.find((option) => option.type === "apply_augmentation")?.unavailableReason).toBe(
-      "no standalone effects authored"
+      "no effects authored"
     );
     expect(
       options.find((option) => option.type === "apply_condition_preset")?.unavailableReason

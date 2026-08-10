@@ -19,6 +19,7 @@ from backend.state.models.augmentation import (
     AugmentationSource,
     AugmentationTarget,
     FormulaModifierEffect,
+    StandaloneEffectDefinition,
 )
 from backend.state.models.formula import Formula
 from backend.state.models.attribute import synchronize_required_sheet_attributes
@@ -484,7 +485,12 @@ def test_player_whole_instance_patch_redacts_damage_trackers() -> None:
         assigned_instance_id="mine",
     )
 
-    assert len(patch.ops) == 1
+    assert [op.path for op in patch.ops] == [
+        "/instanced_sheets/mine",
+        "/standalone_effects",
+        "/catalog_folders",
+        "/catalog_entries",
+    ]
     assert "damage_taken_by_type" not in patch.ops[0].value
 
 
@@ -575,6 +581,71 @@ def test_active_condition_snapshots_respect_visibility_and_assignment(monkeypatc
             StateSingleton._state = original_state
 
     asyncio.run(scenario())
+
+
+def test_condition_visibility_refreshes_player_effect_projection() -> None:
+    original_state = deepcopy(StateSingleton.getState())
+    try:
+        _reset_state()
+        state = StateSingleton.getState()
+        state.standalone_effects = {
+            effect_id: StandaloneEffectDefinition.from_dict(
+                {
+                    "id": effect_id,
+                    "name": effect_id.title(),
+                    "scope": "instance",
+                    "target": {"root": "instance", "path": ["health"]},
+                    "effect": {
+                        "type": "formula_modifier",
+                        "operation": "subtract",
+                        "value": {"text": "1", "tags": []},
+                        "selector": {},
+                    },
+                }
+            )
+            for effect_id in ("public-effect", "secret-effect")
+        }
+        state.condition_presets = {
+            "public": ConditionPreset(
+                id="public",
+                name="Public",
+                effect_ids=["public-effect"],
+            ),
+            "hidden": ConditionPreset(
+                id="hidden",
+                name="Hidden",
+                visibility="gm_only",
+                effect_ids=["secret-effect"],
+            ),
+        }
+
+        initial = state_sync_service._redact_state_for_role(
+            state.to_dict(),
+            role="player",
+        )
+        assert set(initial["standalone_effects"]) == {"public-effect"}
+
+        state.condition_presets["hidden"].visibility = "public"
+        patch = state_sync_service._redact_patch_for_role(
+            build_state_patch(
+                [
+                    PatchOp(
+                        op="set",
+                        path="/condition_presets/hidden/visibility",
+                        value="public",
+                    )
+                ],
+                state_version=1,
+            ),
+            role="player",
+        )
+
+        effect_projection = next(
+            op.value for op in patch.ops if op.path == "/standalone_effects"
+        )
+        assert set(effect_projection) == {"public-effect", "secret-effect"}
+    finally:
+        StateSingleton._state = original_state
 
 
 def test_active_condition_patches_are_filtered_per_player_assignment(monkeypatch) -> None:

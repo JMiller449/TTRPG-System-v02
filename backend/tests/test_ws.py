@@ -1831,31 +1831,26 @@ def test_dm_can_import_state_backup_and_broadcasts_full_snapshots(
                             "gm_special_properties": "",
                             "price": "",
                             "weight": 0,
-                            "augmentation_templates": [
-                                {
-                                    "id": "health-effect",
-                                    "name": "Burning Vitality",
-                                    "source": {
-                                        "type": "item",
-                                        "id": "helm",
-                                        "label": "Flame Helm",
-                                    },
-                                    "scope": "instance",
-                                    "target": {
-                                        "root": "instance",
-                                        "path": ["health"],
-                                    },
-                                    "effect": {
-                                        "type": "formula_modifier",
-                                        "operation": "add",
-                                        "value": {"aliases": None, "text": "5"},
-                                    },
-                                    "lifecycle_owner": "equipment",
-                                }
-                            ],
-                            "action_grants": [],
-                        }
-                    },
+                                "effect_ids": ["health-effect"],
+                                "action_grants": [],
+                            }
+                        },
+                        "standalone_effects": {
+                            "health-effect": {
+                                "id": "health-effect",
+                                "name": "Burning Vitality",
+                                "scope": "instance",
+                                "target": {
+                                    "root": "instance",
+                                    "path": ["health"],
+                                },
+                                "effect": {
+                                    "type": "formula_modifier",
+                                    "operation": "add",
+                                    "value": {"aliases": None, "text": "5"},
+                                },
+                            }
+                        },
                 }
             )
         )

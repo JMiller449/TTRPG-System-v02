@@ -47,7 +47,7 @@ export const GM_TOOLBAR_NAV_GROUPS: readonly GMToolbarNavGroup[] = [
     label: "Status Effects",
     items: [
       { view: "condition_authoring", label: "Conditions", glyph: "CD" },
-      { view: "effect_authoring", label: "Standalone Effects", glyph: "EF" }
+      { view: "effect_authoring", label: "Effects", glyph: "EF" }
     ]
   },
   {

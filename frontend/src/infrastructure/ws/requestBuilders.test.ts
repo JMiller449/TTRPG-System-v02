@@ -153,7 +153,7 @@ const testItem: ItemDefinitionPayload = {
   gm_special_properties: "Conducts mana at 100% efficiency.",
   price: "NA",
   weight: 3,
-  augmentation_templates: []
+  effect_ids: []
 };
 
 const testProficiency: ProficiencyDefinitionPayload = {

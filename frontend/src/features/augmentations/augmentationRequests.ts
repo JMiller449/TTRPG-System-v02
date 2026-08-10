@@ -1,4 +1,4 @@
-import type { Augmentation, ItemDefinition } from "@/domain/models";
+import type { ItemDefinition } from "@/domain/models";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import {
   buildGetAugmentationTargetMetadataRequest,
@@ -16,8 +16,8 @@ export interface AugmentationTemplateSubmission {
   label: string;
 }
 
-export function selectItemAugmentationTemplates(item: ItemDefinition | undefined): Augmentation[] {
-  return item?.augmentation_templates ?? [];
+export function selectItemEffectIds(item: ItemDefinition | undefined): string[] {
+  return item?.effect_ids ?? [];
 }
 
 export function buildLoadItemAugmentationTargetMetadataSubmission(): AugmentationTemplateSubmission {
@@ -67,15 +67,11 @@ export function buildRemoveItemAugmentationTemplateSubmission({
     return null;
   }
 
-  const augmentation = selectItemAugmentationTemplates(item).find(
-    (template) => template.id === augmentationId
-  );
-
   return {
     request: buildRemoveItemAugmentationTemplateRequest({
       itemId: item.id,
       augmentationId
     }),
-    label: `Remove augmentation: ${augmentation?.name ?? "augmentation"}`
+    label: `Detach effect: ${augmentationId}`
   };
 }

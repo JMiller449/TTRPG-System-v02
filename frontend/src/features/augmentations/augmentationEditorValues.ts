@@ -11,6 +11,7 @@ import type {
   StandaloneEffectDefinition
 } from "@/domain/models";
 import { normalizeFormulaTags } from "@/features/formulas/formulaTags";
+import { isFormulaReference } from "@/features/actions/actionEditorValues";
 import type { AugmentationTargetMetadata } from "@/domain/ipc";
 import type { AugmentationPayload } from "@/infrastructure/ws/requestBuilders";
 
@@ -40,6 +41,7 @@ export interface AugmentationEditorValues {
   effectType: AugmentationEffectType;
   operation: AugmentationOperation;
   rollMode: RollModeModifier;
+  formulaId: string;
   formulaText: string;
   formulaAliases: FormulaAlias[] | null;
   selectorRequiredTags: string[];
@@ -67,6 +69,7 @@ export function createEmptyAugmentationEditorValues(): AugmentationEditorValues 
     effectType: "formula_modifier",
     operation: "add",
     rollMode: "advantage",
+    formulaId: "",
     formulaText: "",
     formulaAliases: null,
     selectorRequiredTags: [],
@@ -173,7 +176,9 @@ export function formatAugmentationEffect(
     const rollMode = augmentation.effect.roll_mode === "advantage" ? "Advantage" : "Disadvantage";
     return `${rollMode} on matching rolls`;
   }
-  const value = augmentation.effect.value.text || "(blank)";
+  const value = isFormulaReference(augmentation.effect.value)
+    ? augmentation.effect.value.formula_id
+    : augmentation.effect.value.text || "(blank)";
   const operation = operationLabel(augmentation.effect.operation, value);
   return augmentation.effect.type === "evaluation_formula_modifier"
     ? `${operation} to matching formula results`
@@ -297,8 +302,18 @@ export function toAugmentationEditorValues(
       augmentation.effect.type === "roll_mode_modifier"
         ? augmentation.effect.roll_mode
         : "advantage",
-    formulaText: numericEffect?.value.text ?? "",
-    formulaAliases: cloneAliases(numericEffect?.value.aliases),
+    formulaId:
+      numericEffect && isFormulaReference(numericEffect.value)
+        ? numericEffect.value.formula_id
+        : "",
+    formulaText:
+      numericEffect && !isFormulaReference(numericEffect.value)
+        ? numericEffect.value.text
+        : "",
+    formulaAliases:
+      numericEffect && !isFormulaReference(numericEffect.value)
+        ? cloneAliases(numericEffect.value.aliases)
+        : null,
     selectorRequiredTags: normalizeFormulaTags(augmentation.effect.selector?.required_tags ?? []),
     selectorExcludedTags: normalizeFormulaTags(augmentation.effect.selector?.excluded_tags ?? []),
     selectorActionId: augmentation.effect.selector?.action_id ?? "",
@@ -324,7 +339,7 @@ export function hasValidAugmentationEditorValues(values: AugmentationEditorValue
   );
   return (
     values.name.trim().length > 0 &&
-    (values.effectType === "roll_mode_modifier" || values.formulaText.trim().length > 0) &&
+    (values.effectType === "roll_mode_modifier" || values.formulaId.trim().length > 0) &&
     cleanPath(values.targetPath).length > 0 &&
     !hasSelectorConflict
   );
@@ -352,10 +367,15 @@ export function toAugmentationEffectPayload(
 
   return {
     operation: values.operation,
-    value: {
-      aliases: cloneAliases(values.formulaAliases),
-      text: values.formulaText.trim()
-    },
+    value: values.formulaId.trim()
+      ? {
+          type: "formula_reference",
+          formula_id: values.formulaId.trim()
+        }
+      : {
+          aliases: cloneAliases(values.formulaAliases),
+          text: values.formulaText.trim()
+        },
     selector,
     type: values.effectType
   };

@@ -24,28 +24,20 @@ const item: ItemDefinition = {
     { action_id: "flare", availability: "equipped", consume_quantity: 0 },
     { action_id: "throw", availability: "carried", consume_quantity: 2 }
   ],
-  augmentation_templates: [
-    {
-      id: "direct",
-      name: "Fire Sight",
-      source: { type: "item" },
-      scope: "instance",
-      target: { root: "instance", path: ["stats", "perception"] },
-      effect: {
-        type: "formula_modifier",
-        operation: "add",
-        value: { aliases: null, text: "2" }
-      }
-    },
-    {
-      id: "roll",
-      name: "Fire Focus",
-      source: { type: "item" },
-      scope: "instance",
-      target: { root: "instance", path: ["stats", "perception"] },
-      effect: { type: "roll_mode_modifier", roll_mode: "advantage" }
-    }
-  ]
+  effect_ids: ["direct", "roll"]
+};
+
+const directTemplate: Augmentation = {
+  id: "direct",
+  name: "Fire Sight",
+  source: { type: "item" },
+  scope: "instance",
+  target: { root: "instance", path: ["stats", "perception"] },
+  effect: {
+    type: "formula_modifier",
+    operation: "add",
+    value: { aliases: null, text: "2" }
+  }
 };
 
 const bridge: ItemBridge = {
@@ -108,7 +100,7 @@ describe("equipmentDisplay", () => {
 
   it("selects only concrete active effects owned by one equipment relationship", () => {
     const active = {
-      ...item.augmentation_templates?.[0],
+      ...directTemplate,
       id: "concrete",
       source: { type: "item" as const, relationship_id: "bridge_1" },
       lifecycle_owner: "equipment" as const,
@@ -127,7 +119,24 @@ describe("equipmentDisplay", () => {
         (augmentation) => augmentation.id
       )
     ).toEqual(["concrete"]);
-    expect(countItemEffectTypes(item)).toEqual({ wearer: 1, rollOrFormula: 1 });
+    expect(
+      countItemEffectTypes(item, {
+        direct: {
+          id: "direct",
+          name: "Fire Sight",
+          scope: "instance",
+          target: directTemplate.target,
+          effect: directTemplate.effect
+        },
+        roll: {
+          id: "roll",
+          name: "Fire Focus",
+          scope: "instance",
+          target: directTemplate.target,
+          effect: { type: "roll_mode_modifier", roll_mode: "advantage" }
+        }
+      })
+    ).toEqual({ wearer: 1, rollOrFormula: 1 });
   });
 
   it("summarizes the key item attributes for inventory hover details", () => {

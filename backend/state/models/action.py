@@ -3,7 +3,11 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from backend.state.models.damage import DamageType, ensure_damage_type
-from backend.state.models.formula import Formula
+from backend.state.models.formula import (
+    Formula,
+    FormulaReference,
+    formula_source_from_dict,
+)
 from backend.state.models.attribute import AttributeBridge
 
 ActionStepTarget = Literal["caster", "target"]
@@ -35,28 +39,12 @@ class CalculatedValueReference:
         return cls(variable_id=raw["variable_id"])
 
 
-@dataclass(frozen=True)
-class FormulaReference:
-    formula_id: str
-    type: Literal["formula_reference"] = "formula_reference"
-
-    def __post_init__(self) -> None:
-        if not self.formula_id:
-            raise ValueError("Formula reference IDs must not be empty.")
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "FormulaReference":
-        return cls(formula_id=raw["formula_id"])
-
-
 FormulaValueSource = Formula | FormulaReference
 NumericValueSource = FormulaValueSource | CalculatedValueReference
 
 
 def _formula_value_source(raw: dict) -> FormulaValueSource:
-    if raw.get("type") == "formula_reference":
-        return FormulaReference.from_dict(raw)
-    return Formula.from_dict(raw)
+    return formula_source_from_dict(raw)
 
 
 def _numeric_value_source(raw: dict) -> NumericValueSource:

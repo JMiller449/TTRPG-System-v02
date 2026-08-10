@@ -56,7 +56,7 @@ export function ActionSendRollStepEditor({
     if (isFormulaReference(roll.value)) {
       return `Shared formula: ${roll.value.formula_id}`;
     }
-    return roll.value.text.trim() || "Empty inline formula";
+    return roll.value.text.trim() || "Empty new formula";
   };
 
   if (selectedResult && selectedResultIndex !== null) {
@@ -109,7 +109,7 @@ export function ActionSendRollStepEditor({
             placeholder="Search formula catalog"
             selectedId={selectedFormulaId ? `global:${selectedFormulaId}` : "inline"}
             options={[
-              { id: "inline", label: "Inline formula", value: "inline" },
+              { id: "inline", label: "New catalog formula", value: "inline" },
               ...(selectedFormulaId && !selectedFormula
                 ? [
                     {

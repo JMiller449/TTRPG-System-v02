@@ -25,7 +25,6 @@ import { RollLog } from "@/features/rolls/RollLog";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
 import { SheetXpProgressBar } from "@/features/xp/SheetXpProgressBar";
 import { PlayerItemProposalForm } from "@/features/items/PlayerItemProposalForm";
-import { buildLoadItemAugmentationTargetMetadataSubmission } from "@/features/augmentations/augmentationRequests";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
 import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
@@ -102,7 +101,7 @@ export function PlayerCharacterSheet({
   const {
     state: {
       serverState,
-      uiState: { augmentationTargetMetadata, intentFeedback }
+      uiState: { intentFeedback }
     }
   } = useAppStore();
   const {
@@ -153,7 +152,6 @@ export function PlayerCharacterSheet({
     requestId: string;
   } | null>(null);
   const requestedFormulaMetadataRef = useRef(false);
-  const requestedItemMetadataRef = useRef(false);
   const attachedCreatedAttributeRequestRef = useRef<string | null>(null);
   const attachedCreatedProficiencyRequestRef = useRef<string | null>(null);
   const attachedCreatedActionRequestRef = useRef<string | null>(null);
@@ -196,7 +194,6 @@ export function PlayerCharacterSheet({
     attachedCreatedProficiencyRequestRef.current = null;
     attachedCreatedActionRequestRef.current = null;
     attachedCreatedItemRequestRef.current = null;
-    requestedItemMetadataRef.current = false;
   }, [controlledActiveTab, detail?.instance.id]);
 
   useEffect(() => {
@@ -312,20 +309,6 @@ export function PlayerCharacterSheet({
     setPendingActionCreate(null);
     setActionCreatorOpen(false);
   }, [client, detail, intentFeedback, pendingActionCreate, serverState.actions]);
-
-  useEffect(() => {
-    if (
-      mode !== "gm" ||
-      !itemCreatorOpen ||
-      augmentationTargetMetadata?.context === "item_template" ||
-      requestedItemMetadataRef.current
-    ) {
-      return;
-    }
-    requestedItemMetadataRef.current = true;
-    const submission = buildLoadItemAugmentationTargetMetadataSubmission();
-    client.sendProtocolRequest(submission.request, submission.label);
-  }, [augmentationTargetMetadata?.context, client, itemCreatorOpen, mode]);
 
   useEffect(() => {
     if (!pendingItemCreate || !detail) {
@@ -1008,6 +991,7 @@ export function PlayerCharacterSheet({
               attributeDefinitions={attributeDefinitions}
               proficiencyDefinitions={proficiencyDefinitions}
               augmentations={augmentations}
+              effectDefinitions={serverState.standaloneEffects}
               itemOrder={inventoryCatalogOrder}
               selectedItemId={inventorySelectedItemId}
               selectedItem={inventorySelectedItem}
@@ -1022,9 +1006,6 @@ export function PlayerCharacterSheet({
               onOpenCreateItem={() => {
                 if (mode === "gm") {
                   attachedCreatedItemRequestRef.current = null;
-                  if (augmentationTargetMetadata?.context !== "item_template") {
-                    requestedItemMetadataRef.current = false;
-                  }
                   setItemCreatorOpen(true);
                   return;
                 }
@@ -1263,7 +1244,7 @@ export function PlayerCharacterSheet({
           pending={Boolean(pendingItemCreate)}
           serverState={serverState}
           formulaMetadata={actionFormulaAuthoringMetadata}
-          augmentationTargetMetadata={augmentationTargetMetadata}
+          augmentationTargetMetadata={null}
           attachmentTarget={detail.instance.name}
           onSubmit={(submission) => {
             attachedCreatedItemRequestRef.current = null;

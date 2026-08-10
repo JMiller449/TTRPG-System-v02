@@ -17,7 +17,10 @@ from backend.state.migrations import (
 from backend.state.models.state import State
 from backend.state.models.proficiency import seeded_weapon_family_proficiencies
 from backend.state.models.tag import seeded_tag_definitions
-from backend.state.default_actions import seeded_global_actions
+from backend.state.default_actions import (
+    canonical_action_formula_definitions,
+    seeded_global_actions,
+)
 
 logger = logging.getLogger(__name__)
 STATE_PATH = Path(__file__).resolve().parents[2] / "state_dumpy.json"
@@ -27,6 +30,7 @@ DEFAULT_STATE = State()
 def _fresh_state() -> State:
     return State(
         actions=seeded_global_actions(),
+        formulas=canonical_action_formula_definitions(),
         proficiencies=seeded_weapon_family_proficiencies(),
         tags=seeded_tag_definitions(),
     )

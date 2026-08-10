@@ -1513,7 +1513,7 @@ describe("authoritative server-state sync", () => {
             name: "Poisoned",
             description: "Poison status.",
             visibility: "public",
-            augmentation_templates: [augmentationTemplate()]
+            effect_ids: ["aug_1"]
           }
         }
       ],
@@ -1523,9 +1523,7 @@ describe("authoritative server-state sync", () => {
     });
 
     expect(created.state.serverState.conditionPresetOrder).toEqual(["poisoned"]);
-    expect(
-      created.state.serverState.conditionPresets.poisoned?.augmentation_templates?.[0]?.id
-    ).toBe("aug_1");
+    expect(created.state.serverState.conditionPresets.poisoned?.effect_ids?.[0]).toBe("aug_1");
 
     const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
       response_id: null,
@@ -1625,7 +1623,7 @@ describe("authoritative server-state sync", () => {
     expect(removed.state.serverState.activeConditionOrder).toEqual([]);
   });
 
-  it("reconciles item augmentation template upsert and remove patches from authoritative backend state", () => {
+  it("reconciles item effect-reference add and remove patches from authoritative backend state", () => {
     const initial = applyAuthoritativeEvent(initialState, initialSocketProtocolState, {
       response_id: null,
       state: {
@@ -1638,7 +1636,7 @@ describe("authoritative server-state sync", () => {
             description: "Improves health.",
             price: "120g",
             weight: 1,
-            augmentation_templates: []
+            effect_ids: []
           }
         },
         actions: {},
@@ -1655,8 +1653,8 @@ describe("authoritative server-state sync", () => {
       ops: [
         {
           op: "add",
-          path: "/items/item_1/augmentation_templates/-",
-          value: augmentationTemplate()
+          path: "/items/item_1/effect_ids/-",
+          value: "aug_1"
         }
       ],
       state_version: 1,
@@ -1664,20 +1662,15 @@ describe("authoritative server-state sync", () => {
       request_id: "req-upsert-augmentation"
     });
 
-    expect(created.state.serverState.items.item_1?.augmentation_templates).toHaveLength(1);
-    expect(
-      created.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect
-    ).toMatchObject({
-      value: { text: "2" }
-    });
+    expect(created.state.serverState.items.item_1?.effect_ids).toEqual(["aug_1"]);
 
     const edited = applyAuthoritativeEvent(created.state, created.protocolState, {
       response_id: null,
       ops: [
         {
           op: "set",
-          path: "/items/item_1/augmentation_templates/0",
-          value: augmentationTemplate({ value: "4" })
+          path: "/items/item_1/effect_ids/0",
+          value: "aug_2"
         }
       ],
       state_version: 2,
@@ -1685,18 +1678,14 @@ describe("authoritative server-state sync", () => {
       request_id: "req-update-augmentation"
     });
 
-    expect(
-      edited.state.serverState.items.item_1?.augmentation_templates?.[0]?.effect
-    ).toMatchObject({
-      value: { text: "4" }
-    });
+    expect(edited.state.serverState.items.item_1?.effect_ids).toEqual(["aug_2"]);
 
     const deleted = applyAuthoritativeEvent(edited.state, edited.protocolState, {
       response_id: null,
       ops: [
         {
           op: "remove",
-          path: "/items/item_1/augmentation_templates/0"
+          path: "/items/item_1/effect_ids/0"
         }
       ],
       state_version: 3,
@@ -1704,7 +1693,7 @@ describe("authoritative server-state sync", () => {
       request_id: "req-remove-augmentation"
     });
 
-    expect(deleted.state.serverState.items.item_1?.augmentation_templates).toEqual([]);
+    expect(deleted.state.serverState.items.item_1?.effect_ids).toEqual([]);
   });
 
   it("reconciles action-history append and prune patches from authoritative backend state", () => {

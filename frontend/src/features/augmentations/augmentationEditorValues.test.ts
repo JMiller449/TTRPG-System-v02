@@ -73,6 +73,7 @@ describe("augmentationEditorValues", () => {
       effectType: "formula_modifier",
       operation: "add",
       rollMode: "advantage",
+      formulaId: "",
       formulaText: "@arcane + 2",
       formulaAliases: [
         {
@@ -102,7 +103,7 @@ describe("augmentationEditorValues", () => {
     values.targetPath = ["health"];
     values.effectType = "evaluation_formula_modifier";
     values.operation = "add";
-    values.formulaText = "2";
+    values.formulaId = "formula_bonus";
     values.selectorRequiredTags = ["damage"];
 
     expect(
@@ -114,7 +115,7 @@ describe("augmentationEditorValues", () => {
       }).effect
     ).toEqual({
       operation: "add",
-      value: { aliases: null, text: "2" },
+      value: { type: "formula_reference", formula_id: "formula_bonus" },
       selector: {
         required_tags: ["damage"],
         excluded_tags: [],
@@ -159,13 +160,7 @@ describe("augmentationEditorValues", () => {
     values.targetRoot = "instance";
     values.targetPath = [" resistances ", "arcane", "", " resistance "];
     values.operation = "add";
-    values.formulaText = " @arcane + 2 ";
-    values.formulaAliases = [
-      {
-        name: "arcane",
-        path: ["sheet", "stats", "arcane"]
-      }
-    ];
+    values.formulaId = "arcane_guard_formula";
     values.selectorRequiredTags = [" Damage ", "ARCANE", "damage"];
     values.selectorExcludedTags = [" Healing "];
     values.selectorActionId = " action_1 ";
@@ -200,13 +195,8 @@ describe("augmentationEditorValues", () => {
       effect: {
         operation: "add",
         value: {
-          aliases: [
-            {
-              name: "arcane",
-              path: ["sheet", "stats", "arcane"]
-            }
-          ],
-          text: "@arcane + 2"
+          type: "formula_reference",
+          formula_id: "arcane_guard_formula"
         },
         selector: {
           required_tags: ["damage", "arcane"],
@@ -256,7 +246,7 @@ describe("augmentationEditorValues", () => {
     values.name = "Sheet Bonus";
     values.targetRoot = "sheet";
     values.targetPath = ["stats", "arcane"];
-    values.formulaText = "1";
+    values.formulaId = "formula_bonus";
 
     expect(
       toItemAugmentationTemplatePayload({
@@ -284,7 +274,7 @@ describe("augmentationEditorValues", () => {
     expect(hasValidAugmentationEditorValues(values)).toBe(false);
 
     values.name = "Arcane Guard";
-    values.formulaText = "1";
+    values.formulaId = "formula_bonus";
     expect(hasValidAugmentationEditorValues(values)).toBe(false);
 
     values.targetPath = ["stats", "arcane"];

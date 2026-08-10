@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConditionPreset } from "@/domain/models";
-import { createEmptyAugmentationEditorValues } from "@/features/augmentations/augmentationEditorValues";
-import {
-  createEmptyConditionPresetEditorValues,
-  toConditionAugmentationTemplatePayload
-} from "@/features/conditions/conditionEditorValues";
+import { createEmptyConditionPresetEditorValues } from "@/features/conditions/conditionEditorValues";
 import {
   buildCreateConditionPresetSubmission,
   buildDeleteConditionPresetSubmission,
@@ -19,7 +15,7 @@ function condition(): ConditionPreset {
     name: "Poisoned",
     description: "",
     visibility: "public",
-    augmentation_templates: []
+    effect_ids: []
   };
 }
 
@@ -38,7 +34,7 @@ describe("conditionAuthoringRequests", () => {
           name: "Poisoned",
           description: "Poison status.",
           visibility: "gm_only",
-          augmentation_templates: []
+          effect_ids: []
         }
       },
       label: "Create condition: Poisoned"
@@ -65,7 +61,7 @@ describe("conditionAuthoringRequests", () => {
           name: "Venomed",
           description: "",
           visibility: "public",
-          augmentation_templates: []
+          effect_ids: []
         }
       },
       label: "Update condition: Venomed"
@@ -91,43 +87,16 @@ describe("conditionAuthoringRequests", () => {
     });
   });
 
-  it("includes draft effects in the initial condition create submission", () => {
-    const effectValues = createEmptyAugmentationEditorValues();
-    effectValues.name = "Poison Drain";
-    effectValues.operation = "subtract";
-    effectValues.targetPath = ["stats", "stamina"];
-    effectValues.formulaText = "2";
-    const effect = toConditionAugmentationTemplatePayload({
-      values: effectValues,
-      augmentationId: "poison-drain",
-      conditionId: "draft-condition",
-      conditionName: "Poisoned"
-    });
-    if (!effect) {
-      throw new Error("Expected a valid condition effect.");
-    }
+  it("includes canonical effect references in the initial condition create submission", () => {
     const values = createEmptyConditionPresetEditorValues();
     values.name = "Poisoned";
-    values.augmentationTemplates = [effect];
+    values.effectIds = ["poison-drain"];
 
     expect(buildCreateConditionPresetSubmission(values, "poisoned")?.request).toMatchObject({
       type: "create_condition_preset",
       condition: {
         id: "poisoned",
-        augmentation_templates: [
-          {
-            id: "poison-drain",
-            source: {
-              type: "condition",
-              id: "poisoned",
-              label: "Poisoned"
-            },
-            target: {
-              root: "instance",
-              path: ["stats", "stamina"]
-            }
-          }
-        ]
+        effect_ids: ["poison-drain"]
       }
     });
   });

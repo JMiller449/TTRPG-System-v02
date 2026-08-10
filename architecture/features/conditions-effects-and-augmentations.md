@@ -2,8 +2,8 @@
 
 ## Purpose and terminology
 
-This subsystem represents reusable conditions, standalone effects, item
-effects, and the concrete modifiers active on spawned characters. User-facing
+This subsystem represents reusable conditions, canonical effect definitions,
+and the concrete modifiers active on spawned characters. User-facing
 copy generally says “Effect”; `Augmentation` remains the internal modifier
 model because it is shared across state, schemas, actions, items, conditions,
 and formula evaluation.
@@ -14,12 +14,11 @@ The system has three layers.
 
 ### Authored definitions
 
-- `ConditionPreset` is a named public or GM-only condition whose inline
-  `augmentation_templates` describe its mechanics.
-- `StandaloneEffectDefinition` is an independently authored modifier that can
-  be applied or removed by an action.
-- Each `Item` may own inline `augmentation_templates` activated through
-  equipment.
+- `StandaloneEffectDefinition` is the canonical reusable effect-definition
+  registry. The legacy internal name remains for protocol compatibility.
+- Actions reference definitions from `ApplyAugmentationStep.augmentation_id`.
+- `Item` and `ConditionPreset` records reference the same definitions through
+  `effect_ids`; they do not embed authoritative effect payloads.
 - A manual `Augmentation` may exist as an authored concrete modifier.
 
 ### Runtime applications
@@ -44,7 +43,7 @@ Runtime behavior is centralized in
 [`backend/features/augmentations/service.py`](../../backend/features/augmentations/service.py).
 Condition definition/application services live in
 [`backend/features/sheet_admin/conditions/`](../../backend/features/sheet_admin/conditions/),
-and standalone definition CRUD lives in
+and canonical effect-definition CRUD lives in
 [`backend/features/standalone_effects/`](../../backend/features/standalone_effects/).
 
 ## The augmentation model
@@ -69,6 +68,14 @@ The effect types are:
 - `roll_mode_modifier`: an advantage/disadvantage modifier applied only during
   matching check evaluation.
 
+Numeric canonical Effects store a stable Formula-catalog reference. The
+backend resolves that reference when it materializes an equipment-, condition-,
+or action-owned runtime augmentation; the concrete augmentation keeps a formula
+snapshot for its application lifecycle. Formula edits therefore revalidate all
+referencing Effect contexts, while deletion is blocked until those references
+are removed. Effect authoring selects formulas from the shared catalog, and
+legacy inline submissions are promoted on create/update.
+
 Targets are selected from backend-provided augmentation target metadata.
 Arbitrary state roots and paths are rejected; state-root targets are modeled
 but not currently supported by runtime application.
@@ -76,9 +83,9 @@ but not currently supported by runtime application.
 ## Equipment flow
 
 The state-sync mutation hook scans every instance's equipped, in-stock
-equippable items and derives the desired equipment-owned augmentations. It
-rewrites sheet-scoped item templates to the owning instance, adds/removes
-instance augmentation bridges, and reconciles the concrete collection.
+equippable items, resolves their `effect_ids` through the canonical registry,
+and derives the desired equipment-owned augmentations. It adds/removes instance
+augmentation bridges and reconciles the concrete collection.
 
 Direct equipment effects participate in the projection system. Projection
 recalculation starts from a stable base, combines every desired direct effect,
@@ -89,17 +96,17 @@ formula execution.
 
 ## Condition flow
 
-Applying a condition creates `ActiveCondition` and materializes each inline
-template as a condition-owned augmentation with an instance bridge. Direct
-condition effects mutate the stored value immediately; evaluation-time and
-roll-mode effects become active selectors.
+Applying a condition creates `ActiveCondition` and materializes each referenced
+effect definition as a condition-owned augmentation with an instance bridge.
+Direct condition effects mutate the stored value immediately; evaluation-time
+and roll-mode effects become active selectors.
 
 Removing the application reverses reversible direct operations and removes the
 bridges, augmentations, and active condition. A direct `set` effect cannot
 derive the value that existed before application and therefore cannot be
 generically reversed. Condition authoring now rejects that combination: a
-condition-preset template using `set` on a direct sheet value is refused at
-create and update time, and the condition editor does not offer the operation.
+condition effect using `set` on a direct sheet value is refused when the
+definition is attached or updated.
 Removing a `set` effect saved before that validation existed deactivates the
 augmentation and retains the current value rather than failing, so an older
 condition can still be taken off a sheet. Evaluation-time and roll-mode effects
@@ -108,7 +115,9 @@ are deactivated rather than inverted, so `set` remains valid for them.
 The production apply path is an action step and records the action source,
 actor role, timestamp, and state version. DMs also have a dedicated active
 condition removal route. Condition definitions themselves remain pure and do
-not own runtime augmentation IDs.
+not own runtime augmentation IDs. Existing active conditions retain their
+materialized snapshot when a definition is edited; later applications use the
+updated definition.
 
 ## Standalone effect flow and stacking
 
@@ -146,10 +155,12 @@ instances' applications are omitted, and direct projections are always
 private. Definition/item redaction follows the same server-side visibility
 rules as the rest of state sync.
 
-Deleting an instance removes its conditions, standalone applications,
-application-owned augmentations, and bridges. State import reconstructs the
-model and re-runs equipment/direct-effect synchronization. Stable projection
-bases make a valid round trip a no-op instead of double-applying modifiers.
+Deleting an effect definition is rejected while an action, item, item template,
+condition, or active standalone application references it. Deleting an instance
+removes its conditions, standalone applications, application-owned
+augmentations, and bridges. State import reconstructs the model and re-runs
+equipment/direct-effect synchronization. Stable projection bases make a valid
+round trip a no-op instead of double-applying modifiers.
 
 ## Authoring UI
 
@@ -159,8 +170,8 @@ bases make a valid round trip a no-op instead of double-applying modifiers.
   [`frontend/src/features/effects/`](../../frontend/src/features/effects/)
 - Shared effect editors/selectors:
   [`frontend/src/features/augmentations/`](../../frontend/src/features/augmentations/)
-- Item effect templates:
-  [`frontend/src/features/items/`](../../frontend/src/features/items/)
+- Item and condition effect-reference picker:
+  [`frontend/src/features/effects/components/EffectReferenceEditor.tsx`](../../frontend/src/features/effects/components/EffectReferenceEditor.tsx)
 - Active character inspectors: condition/effect sections under the sheet
   feature.
 

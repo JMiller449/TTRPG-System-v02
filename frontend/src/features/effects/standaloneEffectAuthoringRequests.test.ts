@@ -14,7 +14,7 @@ function validValues() {
   const values = createEmptyAugmentationEditorValues();
   values.name = "Focused";
   values.targetPath = ["resources", "health"];
-  values.formulaText = "2";
+  values.formulaId = "focused_formula";
   return values;
 }
 

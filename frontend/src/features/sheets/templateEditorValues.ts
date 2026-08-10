@@ -484,6 +484,9 @@ export function toUpdatedSheetDefinitionPayload(
 
 function isValidAttributeValue(value: AttributeValue): boolean {
   if (value.type === "formula") {
+    if ("formula_id" in value.formula) {
+      return Boolean(value.formula.formula_id.trim());
+    }
     return (
       Boolean(value.formula.text.trim()) &&
       (value.formula.aliases ?? []).every(

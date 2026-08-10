@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { AttributeDefinition, AttributeValue } from "@/domain/models";
+import { isFormulaReference } from "@/features/actions/actionEditorValues";
 import { buildLoadActionFormulaAuthoringMetadataSubmission } from "@/features/actions/actionAuthoringRequests";
 import { AttributeEditorForm } from "@/features/attributes/components/AttributeEditorForm";
 import {
@@ -24,7 +25,7 @@ import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
 function attributeValueText(value: AttributeValue): string {
   if (value.type === "formula") {
-    return value.formula.text;
+    return isFormulaReference(value.formula) ? value.formula.formula_id : value.formula.text;
   }
   if (Array.isArray(value.value)) {
     return value.value.join(", ");
@@ -39,8 +40,14 @@ function draftFromAttribute(attribute: AttributeDefinition): AttributeDraft {
     subjectTypes: attribute.subject_types,
     valueType: attribute.value_type,
     numberMode: attribute.default_value.type === "formula" ? "formula" : "literal",
+    formulaId:
+      attribute.default_value.type === "formula" &&
+      isFormulaReference(attribute.default_value.formula)
+        ? attribute.default_value.formula.formula_id
+        : "",
     formulaAliases:
-      attribute.default_value.type === "formula"
+      attribute.default_value.type === "formula" &&
+      !isFormulaReference(attribute.default_value.formula)
         ? (attribute.default_value.formula.aliases ?? []).map((alias) => ({
             ...alias,
             path: [...alias.path]

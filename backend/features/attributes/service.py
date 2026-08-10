@@ -24,6 +24,7 @@ from backend.features.variable_registry import service as variable_registry_serv
 from backend.features.state_sync.service import state_sync_service
 from backend.features.attributes.value_schema import (
     AttributeDefinitionPayload,
+    AttributeFormulaReferencePayload,
     AttributeValuePayload,
     FormulaAttributeValuePayload,
 )
@@ -44,7 +45,12 @@ from backend.state.models.attribute import (
     synchronize_required_sheet_attributes,
     validate_sheet_formula_dependencies,
 )
-from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.formula import (
+    Formula,
+    FormulaAliases,
+    FormulaReference,
+    resolve_formula_source,
+)
 from backend.state.models.sheet import Sheet
 from backend.state.models.state import State
 
@@ -53,6 +59,11 @@ def _build_attribute_value(
     payload: AttributeValuePayload,
 ) -> AttributeValue:
     if isinstance(payload, FormulaAttributeValuePayload):
+        if isinstance(payload.formula, AttributeFormulaReferencePayload):
+            return AttributeValue(
+                type="formula",
+                formula=FormulaReference(formula_id=payload.formula.formula_id),
+            )
         return AttributeValue(
             type="formula",
             formula=Formula(
@@ -189,9 +200,10 @@ def validate_attribute_value(
     if value.type == "formula" and value.formula is not None:
         if state is None or subject_types is None:
             raise ValueError("Formula Attribute validation requires an authoritative subject scope.")
+        formula, _ = resolve_formula_source(value.formula, state.formulas)
         validate_attribute_formula_paths(
             state,
-            value.formula,
+            formula,
             subject_types=subject_types,
             attached_attribute_ids=attached_attribute_ids,
         )
@@ -295,7 +307,7 @@ def _required_sheet_and_definition(
     if definition is None or "sheet" not in definition.subject_types:
         raise ValueError(f"Sheet Attribute '{attribute_id}' does not exist.")
     if attribute_id not in sheet.attributes and definition.required:
-        synchronize_required_sheet_attributes(sheet)
+        synchronize_required_sheet_attributes(sheet, state.formulas)
     bridge = sheet.attributes.get(attribute_id)
     if bridge is None:
         raise ValueError(f"Attribute '{attribute_id}' is not attached to sheet '{sheet_id}'.")
@@ -314,7 +326,7 @@ def _required_instance_and_definition(
     if definition is None or "sheet" not in definition.subject_types:
         raise ValueError(f"Sheet Attribute '{attribute_id}' does not exist.")
     if attribute_id not in instance.attributes and definition.required:
-        synchronize_required_sheet_attributes(instance)
+        synchronize_required_sheet_attributes(instance, state.formulas)
     bridge = instance.attributes.get(attribute_id)
     if bridge is None:
         raise ValueError(f"Attribute '{attribute_id}' is not attached to instance '{instance_id}'.")
@@ -475,7 +487,7 @@ def reevaluate_sheet_attributes_mutations(
     if sheet is None:
         raise ValueError(f"Sheet '{sheet_id}' does not exist.")
     candidate = deepcopy(sheet)
-    synchronize_all_sheet_attributes(candidate)
+    synchronize_all_sheet_attributes(candidate, state.formulas)
     return _apply_candidate_sheet_attributes(state, sheet_id, candidate)
 
 
@@ -487,16 +499,51 @@ def reevaluate_instance_attributes_mutations(
     if instance is None:
         raise ValueError(f"Instance '{instance_id}' does not exist.")
     candidate = deepcopy(instance)
-    synchronize_all_sheet_attributes(candidate)
+    synchronize_all_sheet_attributes(candidate, state.formulas)
     return _apply_candidate_instance_attributes(state, instance_id, candidate)
+
+
+def reevaluate_all_attribute_consumers_mutations(state: State) -> list[PatchOp]:
+    """Refresh stored Attribute projections after a shared formula changes."""
+    operations: list[PatchOp] = []
+    for root, registry in (
+        ("sheets", state.sheets),
+        ("instanced_sheets", state.instanced_sheets),
+        ("items", state.items),
+        ("item_templates", state.item_templates),
+        ("actions", state.actions),
+    ):
+        for subject_id, subject in sorted(registry.items()):
+            candidate = deepcopy(subject)
+            evaluate_all_subject_attributes(candidate, state.formulas)
+            require_valid_subject_attribute_evaluation(candidate)
+            for attribute_id in sorted(candidate.attributes):
+                current = subject.attributes.get(attribute_id)
+                updated = candidate.attributes[attribute_id]
+                if current == updated:
+                    continue
+                operations.append(
+                    state_sync_service.set_mutation(
+                        state,
+                        state_sync_service.join_path(
+                            root,
+                            subject_id,
+                            "attributes",
+                            attribute_id,
+                        ),
+                        updated,
+                    )
+                )
+    return operations
 
 
 def validate_and_evaluate_sheet_attributes(
     sheet: Sheet,
+    state: State,
     attribute_ids: set[str] | None = None,
 ) -> None:
-    validate_sheet_formula_dependencies(sheet)
-    synchronize_all_sheet_attributes(sheet)
+    validate_sheet_formula_dependencies(sheet, state.formulas)
+    synchronize_all_sheet_attributes(sheet, state.formulas)
     require_valid_subject_attribute_evaluation(sheet, attribute_ids)
     level = sheet.attributes[LEVEL_ATTRIBUTE_ID].evaluated_value
     if (
@@ -508,8 +555,8 @@ def validate_and_evaluate_sheet_attributes(
         raise ValueError("Level must resolve to a positive whole number.")
 
 
-def validate_and_evaluate_subject_attributes(subject: object) -> None:
-    evaluate_all_subject_attributes(subject)
+def validate_and_evaluate_subject_attributes(subject: object, state: State) -> None:
+    evaluate_all_subject_attributes(subject, state.formulas)
     require_valid_subject_attribute_evaluation(subject)
 
 
@@ -704,7 +751,7 @@ async def attach_sheet_attribute(request: AttachSheetAttribute) -> None:
             attribute_id=request.attribute_id,
             value=value,
         )
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -719,7 +766,7 @@ async def detach_sheet_attribute(request: DetachSheetAttribute) -> None:
             raise ValueError("Required Attributes cannot be detached.")
         candidate = deepcopy(sheet)
         candidate.attributes.pop(request.attribute_id)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -764,7 +811,7 @@ async def attach_instanced_sheet_attribute(request: AttachInstancedSheetAttribut
             attribute_id=request.attribute_id,
             value=value,
         )
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_instance_attributes(
             state, request.instance_id, candidate
         )
@@ -781,7 +828,7 @@ async def detach_instanced_sheet_attribute(request: DetachInstancedSheetAttribut
             raise ValueError("Required Attributes cannot be detached.")
         candidate = deepcopy(instance)
         candidate.attributes.pop(request.attribute_id)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_instance_attributes(
             state, request.instance_id, candidate
         )
@@ -828,7 +875,7 @@ async def attach_subject_attribute(request: AttachSubjectAttribute) -> None:
             attribute_id=request.attribute_id,
             value=value,
         )
-        validate_and_evaluate_subject_attributes(candidate)
+        validate_and_evaluate_subject_attributes(candidate, state)
         return None, _apply_candidate_subject_attributes(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -856,7 +903,7 @@ async def set_subject_attribute_value(request: SetSubjectAttributeValue) -> None
         )
         candidate = deepcopy(subject)
         candidate.attributes[request.attribute_id].value = value
-        validate_and_evaluate_subject_attributes(candidate)
+        validate_and_evaluate_subject_attributes(candidate, state)
         return None, _apply_candidate_subject_attributes(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -883,7 +930,7 @@ async def reset_subject_attribute_value(request: ResetSubjectAttributeValue) -> 
         )
         candidate = deepcopy(subject)
         candidate.attributes[request.attribute_id].value = deepcopy(definition.default_value)
-        validate_and_evaluate_subject_attributes(candidate)
+        validate_and_evaluate_subject_attributes(candidate, state)
         return None, _apply_candidate_subject_attributes(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -905,7 +952,7 @@ async def detach_subject_attribute(request: DetachSubjectAttribute) -> None:
             raise ValueError("Required Attributes cannot be detached.")
         candidate = deepcopy(subject)
         candidate.attributes.pop(request.attribute_id)
-        validate_and_evaluate_subject_attributes(candidate)
+        validate_and_evaluate_subject_attributes(candidate, state)
         return None, _apply_candidate_subject_attributes(
             state, request.subject_type, request.subject_id, candidate
         )
@@ -930,7 +977,7 @@ async def set_sheet_attribute_value(request: SetSheetAttributeValue) -> None:
         )
         candidate = deepcopy(sheet)
         candidate.attributes[request.attribute_id].value = deepcopy(value)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -945,7 +992,7 @@ async def reset_sheet_attribute_value(request: ResetSheetAttributeValue) -> None
         )
         candidate = deepcopy(sheet)
         candidate.attributes[request.attribute_id].value = deepcopy(definition.default_value)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_sheet_attributes(state, request.sheet_id, candidate)
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -970,7 +1017,7 @@ async def set_instanced_sheet_attribute_value(
         )
         candidate = deepcopy(instance)
         candidate.attributes[request.attribute_id].value = deepcopy(value)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_instance_attributes(
             state, request.instance_id, candidate
         )
@@ -989,7 +1036,7 @@ async def reset_instanced_sheet_attribute_value(
         )
         candidate = deepcopy(instance)
         candidate.attributes[request.attribute_id].value = deepcopy(definition.default_value)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
         return None, _apply_candidate_instance_attributes(
             state, request.instance_id, candidate
         )

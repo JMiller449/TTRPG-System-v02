@@ -52,7 +52,8 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
     effect_types = {
         template.effect.type
         for condition in first_state.condition_presets.values()
-        for template in condition.augmentation_templates
+        for effect_id in condition.effect_ids
+        if (template := first_state.standalone_effects.get(effect_id)) is not None
     }
     assert effect_types == {
         "formula_modifier",

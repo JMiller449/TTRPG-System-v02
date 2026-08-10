@@ -203,9 +203,16 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
                 StateSingleton.getState().actions["weapon_attack"].roll_mode_kind
                 == "check"
             )
-            assert StateSingleton.getState().actions["block"].steps[0].rolls[0].value.aliases[
+            block_reference = StateSingleton.getState().actions["block"].steps[
                 0
-            ].path == ["sheet", "stats", "strength"]
+            ].rolls[0].value
+            assert (
+                StateSingleton.getState()
+                .formulas[block_reference.formula_id]
+                .formula.aliases[0]
+                .path
+                == ["sheet", "stats", "strength"]
+            )
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
                 "baseline_check_strength"
             )

@@ -5,7 +5,8 @@ import type {
   AttributeDefinition,
   ItemBridge,
   ItemDefinition,
-  ProficiencyDefinition
+  ProficiencyDefinition,
+  StandaloneEffectDefinition
 } from "@/domain/models";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
@@ -87,6 +88,7 @@ export function SheetEquipmentSection({
   attributeDefinitions,
   proficiencyDefinitions,
   augmentations,
+  effectDefinitions = {},
   itemOrder,
   selectedItemId,
   selectedItem,
@@ -111,6 +113,7 @@ export function SheetEquipmentSection({
   attributeDefinitions: Record<string, AttributeDefinition>;
   proficiencyDefinitions: Record<string, ProficiencyDefinition>;
   augmentations: Record<string, Augmentation>;
+  effectDefinitions?: Record<string, StandaloneEffectDefinition>;
   itemOrder: string[];
   selectedItemId: string;
   selectedItem: ItemDefinition | null;
@@ -275,7 +278,7 @@ export function SheetEquipmentSection({
           }
           const actionSummaries = summarizeItemActionGrants(item, entry, actionDefinitions);
           const activeEffects = selectActiveEquipmentEffects(augmentations, entry.relationship_id);
-          const effectCounts = countItemEffectTypes(item);
+          const effectCounts = countItemEffectTypes(item, effectDefinitions);
           const attributeSummaries = summarizeItemAttributeDetails(
             item,
             attributeDefinitions,
@@ -553,7 +556,10 @@ export function SheetEquipmentSection({
             />
             {selectedItem
               ? (() => {
-                  const selectedEffectCounts = countItemEffectTypes(selectedItem);
+                  const selectedEffectCounts = countItemEffectTypes(
+                    selectedItem,
+                    effectDefinitions
+                  );
                   const selectedAttributeSummaries = summarizeItemAttributeDetails(
                     selectedItem,
                     attributeDefinitions,

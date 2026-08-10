@@ -59,7 +59,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     weight: 3,
     tags: [],
     attributes: {},
-    augmentation_templates: [],
+    effect_ids: [],
     ...overrides
   };
 }
@@ -96,7 +96,7 @@ describe("itemEditorValues", () => {
       contents_weight_behavior: "normal",
       tags: [],
       attributes: {},
-      augmentation_templates: [],
+      effect_ids: [],
       action_grants: []
     });
   });
@@ -135,7 +135,7 @@ describe("itemEditorValues", () => {
       description: "A blade that conducts mana.",
       tags: [],
       attributes: {},
-      augmentationTemplates: [],
+      effectIds: [],
       actionGrants: []
     });
   });
@@ -151,20 +151,7 @@ describe("itemEditorValues", () => {
           value: { type: "number", value: 12 }
         }
       },
-      augmentation_templates: [
-        {
-          id: "template_effect",
-          name: "Template Effect",
-          source: { type: "item", id: "template" },
-          scope: "instance",
-          target: { root: "instance", path: ["mana"] },
-          effect: {
-            type: "formula_modifier",
-            operation: "add",
-            value: { aliases: null, text: "1" }
-          }
-        }
-      ]
+      effect_ids: ["template_effect"]
     });
 
     const draft = createItemValuesFromTemplate(template);
@@ -172,7 +159,7 @@ describe("itemEditorValues", () => {
     expect(draft.playerCatalogAccess).toEqual({ mode: "none", instanceIds: [] });
     expect(draft.tags).toEqual(["weapon"]);
     expect(draft.attributes.weapon_base_damage.relationship_id).not.toBe("template_damage");
-    expect(draft.augmentationTemplates[0]?.id).not.toBe("template_effect");
+    expect(draft.effectIds).toEqual(["template_effect"]);
     draft.attributes.weapon_base_damage.value = { type: "number", value: 20 };
     expect(template.attributes?.weapon_base_damage.value).toEqual({
       type: "number",
@@ -261,39 +248,18 @@ describe("itemEditorValues", () => {
     values.interactionType = "inventory_only";
     values.gmSpecialProperties = "Hidden mechanics";
     expect(toItemDefinitionPayload(values, "potion")).toMatchObject({
-      augmentation_templates: [],
+      effect_ids: [],
       action_grants: [],
       gm_special_properties: ""
     });
   });
 
-  it("embeds create-time equipment effects with the final item source", () => {
+  it("stores create-time equipment effects as canonical references", () => {
     const values = createEmptyItemValues();
     values.name = "Flame Helm";
-    values.augmentationTemplates = [
-      {
-        id: "augmentation_1",
-        name: "Fire Focus",
-        source: { type: "item", id: "draft-item" },
-        scope: "instance",
-        target: { root: "instance", path: ["stats", "arcane"] },
-        effect: {
-          type: "formula_modifier",
-          operation: "add",
-          value: { aliases: null, text: "2" }
-        }
-      }
-    ];
+    values.effectIds = ["fire_focus"];
 
-    expect(toItemDefinitionPayload(values, "item_final").augmentation_templates).toEqual([
-      expect.objectContaining({
-        id: "augmentation_1",
-        source: { type: "item", id: "item_final", label: "Flame Helm" },
-        lifecycle_owner: "equipment",
-        applied: false,
-        applied_target_id: null
-      })
-    ]);
+    expect(toItemDefinitionPayload(values, "item_final").effect_ids).toEqual(["fire_focus"]);
   });
 
   it("validates consumable use actions and duplicate grants", () => {

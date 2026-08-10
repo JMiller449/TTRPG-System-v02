@@ -1,15 +1,10 @@
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type { AttributeDefinition } from "@/domain/models";
 import {
-  buildAttributeFormulaVariableEntries,
-  toAttributeFormulaVariableOptions
-} from "@/features/attributes/attributeFormulaVariables";
-import {
   attributePayloadFromDraft,
   type AttributeDraft
 } from "@/features/attributes/attributeEditorValues";
-import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
-import { upsertFormulaAlias } from "@/features/variables/variablePicker";
+import { FormulaReferenceEditor } from "@/features/formulas/components/FormulaReferenceEditor";
 import { Field } from "@/shared/ui/Field";
 import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
@@ -37,13 +32,14 @@ export function AttributeEditorForm({
   onSubmit: () => void;
   onCancel?: () => void;
 }): JSX.Element {
+  void metadata;
   const canSubmit = Boolean(attributePayloadFromDraft(draft, editingId ?? "draft-attribute"));
   const nameMissing = !draft.name.trim();
   const subjectsMissing = draft.subjectTypes.length === 0;
   const defaultInvalid =
     draft.valueType === "number" &&
     (draft.numberMode === "formula"
-      ? !draft.defaultText.trim()
+      ? !draft.formulaId.trim()
       : !Number.isFinite(Number(draft.defaultText)));
   const optionsMissing =
     ["enum", "list"].includes(draft.valueType) && !draft.validationOptions.trim();
@@ -148,73 +144,6 @@ export function AttributeEditorForm({
           </select>
         </label>
       ) : null}
-      {draft.valueType === "number" && draft.numberMode === "formula" ? (
-        <fieldset className="stack">
-          <legend>Formula aliases</legend>
-          <p className="muted">
-            Type @ in the formula to search variables valid for every selected subject, or enter a
-            relative path and reference its alias as @name.
-          </p>
-          {draft.formulaAliases.map((alias, index) => (
-            <div className="inline-actions" key={`${index}-${alias.name}`}>
-              <label>
-                Alias
-                <input
-                  value={alias.name}
-                  onChange={(event) => {
-                    const formulaAliases = [...draft.formulaAliases];
-                    formulaAliases[index] = { ...alias, name: event.target.value };
-                    onChange({ ...draft, formulaAliases });
-                  }}
-                />
-              </label>
-              <label>
-                Relative path
-                <input
-                  value={alias.path.join(".")}
-                  onChange={(event) => {
-                    const formulaAliases = [...draft.formulaAliases];
-                    formulaAliases[index] = {
-                      ...alias,
-                      path: event.target.value
-                        .split(".")
-                        .map((entry) => entry.trim())
-                        .filter(Boolean)
-                    };
-                    onChange({ ...draft, formulaAliases });
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                className="button button--danger"
-                onClick={() =>
-                  onChange({
-                    ...draft,
-                    formulaAliases: draft.formulaAliases.filter(
-                      (_, aliasIndex) => aliasIndex !== index
-                    )
-                  })
-                }
-              >
-                Remove Alias
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="button button--secondary"
-            onClick={() =>
-              onChange({
-                ...draft,
-                formulaAliases: [...draft.formulaAliases, { name: "", path: [] }]
-              })
-            }
-          >
-            Add Alias
-          </button>
-        </fieldset>
-      ) : null}
       {draft.valueType === "boolean" ? (
         <label>
           Default
@@ -227,26 +156,12 @@ export function AttributeEditorForm({
           </select>
         </label>
       ) : draft.valueType === "number" && draft.numberMode === "formula" ? (
-        <FormulaVariableInput
+        <FormulaReferenceEditor
           label="Default formula"
-          value={draft.defaultText}
-          options={toAttributeFormulaVariableOptions(
-            buildAttributeFormulaVariableEntries(metadata, draft.subjectTypes).filter(
-              (entry) => entry.path.join(".") !== `attributes.${editingId ?? ""}`
-            )
-          )}
-          loading={!metadata}
+          formulaId={draft.formulaId || null}
           required
-          ariaInvalid={validationAttempted && defaultInvalid}
-          onChange={(defaultText) => onChange({ ...draft, defaultText })}
-          onVariableSelect={(entry, defaultText) =>
-            onChange({
-              ...draft,
-              defaultText,
-              formulaAliases: upsertFormulaAlias(draft.formulaAliases, entry.alias)
-            })
-          }
-          placeholder="Type @ to insert a variable"
+          invalid={validationAttempted && defaultInvalid}
+          onChange={(formulaId) => onChange({ ...draft, formulaId })}
         />
       ) : (
         <label className={validationAttempted && defaultInvalid ? "field--invalid" : undefined}>

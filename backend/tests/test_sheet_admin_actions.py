@@ -8,7 +8,7 @@ from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
 from backend.state.models.augmentation import Augmentation, StandaloneEffectDefinition
 from backend.state.models.condition import ConditionPreset
-from backend.state.models.formula import FormulaDefinition
+from backend.state.models.formula import FormulaDefinition, FormulaReference
 from backend.state.models.proficiency import Proficiency
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -37,6 +37,11 @@ def _formula_payload(text: str, aliases: list[dict] | None = None) -> dict:
         "aliases": aliases,
         "text": text,
     }
+
+
+def _resolved_formula(state, source: FormulaReference):
+    assert isinstance(source, FormulaReference)
+    return state.formulas[source.formula_id].formula
 
 
 def _action_payload(action_id: str = "battle_cry", name: str = "Battle Cry") -> dict:
@@ -154,11 +159,13 @@ def test_dm_can_create_action(monkeypatch) -> None:
                 StateSingleton.getState().actions["battle_cry"].roll_mode_kind
                 == "check"
             )
-            assert websocket.sent_messages[0]["ops"][0]["op"] == "add"
-            assert websocket.sent_messages[0]["ops"][0]["path"] == (
-                "/actions/battle_cry"
+            action_op = websocket.sent_messages[0]["ops"][-1]
+            assert action_op["op"] == "add"
+            assert action_op["path"] == "/actions/battle_cry"
+            assert action_op["value"]["id"] == "battle_cry"
+            assert websocket.sent_messages[0]["ops"][0]["path"].startswith(
+                "/formulas/formula_action_"
             )
-            assert websocket.sent_messages[0]["ops"][0]["value"]["id"] == "battle_cry"
         finally:
             StateSingleton._state = original_state
 
@@ -447,7 +454,7 @@ def test_dm_can_create_action_with_gain_proficiency_step(monkeypatch) -> None:
             step = state.actions["battle_cry"].steps[0]
             assert step.type == "gain_proficiency_use"
             assert step.proficiency_id == "magic_prof"
-            assert step.amount.text == "1"
+            assert _resolved_formula(state, step.amount).text == "1"
         finally:
             StateSingleton._state = original_state
 
@@ -687,7 +694,9 @@ def test_dm_can_create_action_with_resolve_damage_step(monkeypatch) -> None:
             step = StateSingleton.getState().actions["battle_cry"].steps[0]
             assert step.type == "resolve_damage"
             assert step.damage_type == "Fire"
-            assert step.amount.text == "12"
+            assert _resolved_formula(
+                StateSingleton.getState(), step.amount
+            ).text == "12"
         finally:
             StateSingleton._state = original_state
 
@@ -746,7 +755,10 @@ def test_dm_can_create_action_with_calculated_value_reuse(monkeypatch) -> None:
             assert steps[0].variable_id == "healing_amount"
             assert steps[1].amount.type == "calculated_value"
             assert steps[1].amount.variable_id == "healing_amount"
-            assert steps[2].message.aliases[0].path == [
+            formula = _resolved_formula(
+                StateSingleton.getState(), steps[2].message
+            )
+            assert formula.aliases[0].path == [
                 "action_values",
                 "healing_amount",
             ]
@@ -824,11 +836,10 @@ def test_dm_can_update_action(monkeypatch) -> None:
             )
 
             assert state.actions["battle_cry"].name == "Renamed Cry"
-            assert websocket.sent_messages[0]["ops"][0]["op"] == "set"
-            assert websocket.sent_messages[0]["ops"][0]["path"] == (
-                "/actions/battle_cry"
-            )
-            assert websocket.sent_messages[0]["ops"][0]["value"]["name"] == (
+            action_op = websocket.sent_messages[0]["ops"][-1]
+            assert action_op["op"] == "set"
+            assert action_op["path"] == "/actions/battle_cry"
+            assert action_op["value"]["name"] == (
                 "Renamed Cry"
             )
         finally:

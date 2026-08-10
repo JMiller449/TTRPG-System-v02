@@ -3,7 +3,14 @@ from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
+from backend.state.models.attribute import (
+    AttributeBridge,
+    AttributeDefinition,
+    AttributeValue,
+)
+from backend.state.models.augmentation import StandaloneEffectDefinition
 from backend.state.models.formula import FormulaDefinition
+from backend.state.models.item import Item
 from backend.state.models.tag import TagDefinition
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -174,6 +181,81 @@ def test_dm_can_update_formula(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_formula_update_refreshes_referencing_attribute_projections(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.formulas["item_bonus"] = FormulaDefinition.from_dict(
+                {
+                    "id": "item_bonus",
+                    "formula": {"aliases": None, "text": "2"},
+                }
+            )
+            state.attributes["bonus"] = AttributeDefinition.from_dict(
+                {
+                    "id": "bonus",
+                    "name": "Bonus",
+                    "subject_types": ["item"],
+                    "value_type": "number",
+                    "default_value": {"type": "number", "value": 0},
+                }
+            )
+            state.items["charm"] = Item.from_dict(
+                {
+                    "id": "charm",
+                    "name": "Charm",
+                    "description": "",
+                    "price": "",
+                }
+            )
+            state.items["charm"].attributes["bonus"] = AttributeBridge(
+                relationship_id="charm_bonus",
+                attribute_id="bonus",
+                value=AttributeValue.from_dict(
+                    {
+                        "type": "formula",
+                        "formula": {
+                            "type": "formula_reference",
+                            "formula_id": "item_bonus",
+                        },
+                    }
+                ),
+                evaluated_value=2,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_formula",
+                    "formula_id": "item_bonus",
+                    "formula": {
+                        "id": "item_bonus",
+                        "formula": {"aliases": None, "text": "3"},
+                    },
+                },
+            )
+
+            assert (
+                state.items["charm"].attributes["bonus"].evaluated_value == 3
+            )
+            assert any(
+                operation["path"] == "/items/charm/attributes/bonus"
+                for operation in websocket.sent_messages[0]["ops"]
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_delete_formula(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
@@ -257,6 +339,80 @@ def test_delete_formula_rejects_action_references(monkeypatch) -> None:
             assert "max_health" in state.formulas
             assert websocket.sent_messages[0]["reason"] == (
                 "Formula 'max_health' is referenced by actions: healing."
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_formula_rejects_attribute_and_effect_references(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.formulas["max_health"] = FormulaDefinition.from_dict(
+                _formula_definition_payload()
+            )
+            state.attributes["health_limit"] = AttributeDefinition.from_dict(
+                {
+                    "id": "health_limit",
+                    "name": "Health Limit",
+                    "subject_types": ["sheet"],
+                    "value_type": "number",
+                    "default_value": {
+                        "type": "formula",
+                        "formula": {
+                            "type": "formula_reference",
+                            "formula_id": "max_health",
+                        },
+                    },
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_formula", "formula_id": "max_health"},
+            )
+
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Formula 'max_health' is referenced by Attributes: "
+                "attribute definition health_limit."
+            )
+
+            state.attributes.pop("health_limit")
+            state.standalone_effects["health_boost"] = (
+                StandaloneEffectDefinition.from_dict(
+                    {
+                        "id": "health_boost",
+                        "name": "Health Boost",
+                        "scope": "instance",
+                        "target": {"root": "instance", "path": ["health"]},
+                        "effect": {
+                            "type": "formula_modifier",
+                            "operation": "add",
+                            "value": {
+                                "type": "formula_reference",
+                                "formula_id": "max_health",
+                            },
+                            "selector": {},
+                        },
+                    }
+                )
+            )
+            websocket.sent_messages.clear()
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_formula", "formula_id": "max_health"},
+            )
+
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Formula 'max_health' is referenced by effects: health_boost."
             )
         finally:
             StateSingleton._state = original_state

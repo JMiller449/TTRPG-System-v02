@@ -25,9 +25,14 @@ class AttributeFormulaPayload(AttributeProtocolModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class AttributeFormulaReferencePayload(AttributeProtocolModel):
+    type: Literal["formula_reference"]
+    formula_id: str = Field(min_length=1)
+
+
 class FormulaAttributeValuePayload(AttributeProtocolModel):
     type: Literal["formula"]
-    formula: AttributeFormulaPayload
+    formula: AttributeFormulaPayload | AttributeFormulaReferencePayload
     value: None = None
 
 

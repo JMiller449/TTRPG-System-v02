@@ -29,7 +29,7 @@ async def set_base_stat(request: SetSheetBaseStat) -> None:
 
         candidate = deepcopy(state.sheets[request.sheet_id])
         setattr(candidate.stats, request.stat_name, request.value)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -174,7 +174,7 @@ async def set_formula_stat(request: SetSheetFormulaStat) -> None:
         )
         candidate = deepcopy(sheet)
         setattr(candidate.stats, request.stat_name, formula)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
 
         path = state_sync_service.join_path(
             "sheets",
@@ -223,7 +223,7 @@ async def set_instanced_formula_stat(request: SetInstancedSheetFormulaStat) -> N
         )
         candidate = deepcopy(instance)
         setattr(candidate.stats, request.stat_name, formula)
-        validate_and_evaluate_sheet_attributes(candidate)
+        validate_and_evaluate_sheet_attributes(candidate, state)
 
         path = state_sync_service.join_path(
             "instanced_sheets",

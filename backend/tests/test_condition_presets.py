@@ -5,6 +5,8 @@ from backend.features.augmentations import service as augmentation_service
 from backend.protocol.socket import normalize_server_event
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
+from backend.state.models.augmentation import StandaloneEffectDefinition
+from backend.state.models.condition import ConditionPreset
 from backend.state.models.state import State
 from backend.state.models.sheet import InstancedSheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
@@ -31,12 +33,13 @@ def _reset_state() -> None:
 
 def _augmentation_template(
     *,
+    effect_id: str = "poisoned-health-drain",
     root: str = "instance",
     scope: str = "instance",
     path: list[str] | None = None,
 ) -> dict:
     return {
-        "id": "poisoned-health-drain",
+        "id": effect_id,
         "name": "Poisoned Health Drain",
         "description": "Manual health penalty while poisoned.",
         "source": {
@@ -83,20 +86,49 @@ def _augmentation_template(
 
 
 def _condition_payload(*, augmentation_template: dict | None = None) -> dict:
+    template = augmentation_template or _augmentation_template()
+    effect = _effect_definition_payload(template)
+    StateSingleton.getState().standalone_effects[effect["id"]] = (
+        StandaloneEffectDefinition.from_dict(effect)
+    )
     return {
         "id": "poisoned",
         "name": "Poisoned",
         "description": "Ongoing poison effect.",
         "visibility": "public",
-        "augmentation_templates": [augmentation_template or _augmentation_template()],
+        "effect_ids": [effect["id"]],
+    }
+
+
+def _effect_definition_payload(template: dict) -> dict:
+    return {
+        "id": template["id"],
+        "name": template["name"],
+        "description": template.get("description", ""),
+        "scope": template["scope"],
+        "target": template["target"],
+        "effect": template["effect"],
+        "active": template.get("active", True),
+        "lifecycle": template.get("lifecycle", {}),
+        "stacking": {"mode": "unique", "max_stacks": None},
     }
 
 
 def test_state_round_trips_condition_presets() -> None:
+    template = _augmentation_template()
+    effect = _effect_definition_payload(template)
+    condition_payload = {
+        "id": "poisoned",
+        "name": "Poisoned",
+        "description": "Ongoing poison effect.",
+        "visibility": "public",
+        "effect_ids": [effect["id"]],
+    }
     state = State.from_dict(
         {
+            "standalone_effects": {effect["id"]: effect},
             "condition_presets": {
-                "poisoned": _condition_payload(),
+                "poisoned": condition_payload,
             }
         }
     )
@@ -104,12 +136,14 @@ def test_state_round_trips_condition_presets() -> None:
     condition = state.condition_presets["poisoned"]
     assert condition.name == "Poisoned"
     assert condition.visibility == "public"
-    assert condition.augmentation_templates[0].source.type == "condition"
+    assert condition.effect_ids == ["poisoned-health-drain"]
 
-    assert state.to_dict()["condition_presets"]["poisoned"] == _condition_payload()
+    assert state.to_dict()["condition_presets"]["poisoned"] == condition_payload
 
 
 def test_state_snapshot_protocol_accepts_condition_presets() -> None:
+    template = _augmentation_template()
+    effect = _effect_definition_payload(template)
     normalized = normalize_server_event(
         {
             "response_id": None,
@@ -121,8 +155,15 @@ def test_state_snapshot_protocol_accepts_condition_presets() -> None:
                 "items": {},
                 "proficiencies": {},
                 "augmentations": {},
+                "standalone_effects": {effect["id"]: effect},
                 "condition_presets": {
-                    "poisoned": _condition_payload(),
+                    "poisoned": {
+                        "id": "poisoned",
+                        "name": "Poisoned",
+                        "description": "Ongoing poison effect.",
+                        "visibility": "public",
+                        "effect_ids": [effect["id"]],
+                    },
                 },
             },
             "state_version": 4,
@@ -135,8 +176,8 @@ def test_state_snapshot_protocol_accepts_condition_presets() -> None:
         "public"
     )
     assert normalized["state"]["condition_presets"]["poisoned"][
-        "augmentation_templates"
-    ][0]["source"]["type"] == "condition"
+        "effect_ids"
+    ] == ["poisoned-health-drain"]
 
 
 def test_dm_can_create_update_and_delete_condition_preset(monkeypatch) -> None:
@@ -203,9 +244,9 @@ def test_delete_condition_preset_rejects_action_references(monkeypatch) -> None:
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.condition_presets["poisoned"] = State.from_dict(
-                {"condition_presets": {"poisoned": _condition_payload()}}
-            ).condition_presets["poisoned"]
+            state.condition_presets["poisoned"] = ConditionPreset.from_dict(
+                _condition_payload()
+            )
             state.actions["poison_strike"] = Action.from_dict(
                 {
                     "id": "poison_strike",
@@ -265,7 +306,10 @@ def test_condition_preset_accepts_instance_resistance_catalog_target(
             )
 
             condition = StateSingleton.getState().condition_presets["poisoned"]
-            assert condition.augmentation_templates[0].target.path == [
+            definition = StateSingleton.getState().standalone_effects[
+                condition.effect_ids[0]
+            ]
+            assert definition.target.path == [
                 "resistances",
                 "fire",
             ]
@@ -479,9 +523,7 @@ def test_condition_preset_update_rejects_uncataloged_instance_target(
         try:
             _reset_state()
             StateSingleton.getState().condition_presets["poisoned"] = (
-                State.from_dict(
-                    {"condition_presets": {"poisoned": _condition_payload()}}
-                ).condition_presets["poisoned"]
+                ConditionPreset.from_dict(_condition_payload())
             )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
@@ -493,15 +535,23 @@ def test_condition_preset_update_rejects_uncataloged_instance_target(
                     "type": "update_condition_preset",
                     "condition_id": "poisoned",
                     "condition_partial": {
-                        "augmentation_templates": [
-                            _augmentation_template(path=["actions"])
+                        "effect_ids": [
+                            _condition_payload(
+                                augmentation_template=_augmentation_template(
+                                    effect_id="invalid-actions-effect",
+                                    path=["actions"]
+                                )
+                            )["effect_ids"][0]
                         ],
                     },
                 },
             )
 
             condition = StateSingleton.getState().condition_presets["poisoned"]
-            assert condition.augmentation_templates[0].target.path == ["health"]
+            current_effect = StateSingleton.getState().standalone_effects[
+                condition.effect_ids[0]
+            ]
+            assert current_effect.target.path == ["health"]
             assert websocket.sent_messages == [
                 {
                     "response_id": None,
@@ -592,9 +642,9 @@ def test_active_condition_removal_is_dm_only_and_preserves_preset(monkeypatch) -
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.condition_presets["poisoned"] = State.from_dict(
-                {"condition_presets": {"poisoned": _condition_payload()}}
-            ).condition_presets["poisoned"]
+            state.condition_presets["poisoned"] = ConditionPreset.from_dict(
+                _condition_payload()
+            )
             state.instanced_sheets["instance-1"] = InstancedSheet.from_dict(
                 {
                     "parent_id": "sheet-1",
@@ -655,9 +705,9 @@ def test_delete_condition_preset_rejects_active_applications(monkeypatch) -> Non
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.condition_presets["poisoned"] = State.from_dict(
-                {"condition_presets": {"poisoned": _condition_payload()}}
-            ).condition_presets["poisoned"]
+            state.condition_presets["poisoned"] = ConditionPreset.from_dict(
+                _condition_payload()
+            )
             state.instanced_sheets["instance-1"] = InstancedSheet.from_dict(
                 {
                     "parent_id": "sheet-1",

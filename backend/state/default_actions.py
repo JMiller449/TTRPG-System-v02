@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from backend.state.models.action import Action
+from backend.state.models.formula import FormulaDefinition
 
 ActionPresetCategory = Literal[
     "healing",
@@ -56,6 +57,10 @@ class CanonicalActionPreset:
     seed_global: bool = False
     attach_to_new_sheet: bool = False
 
+    @property
+    def formula_id(self) -> str:
+        return f"default_action_{self.id}_formula"
+
     def steps(self) -> list[dict]:
         expression = self.message_text.removeprefix(f"{self.label}: /r ")
         presentation = "damage" if self.roll_mode_kind == "damage" else "simple"
@@ -69,12 +74,8 @@ class CanonicalActionPreset:
                     {
                         "label": "Damage" if presentation == "damage" else "Result",
                         "value": {
-                            "aliases": [
-                                {"name": name, "path": list(path)}
-                                for name, path in self.aliases
-                            ],
-                            "text": expression,
-                            "tags": list(self.tags),
+                            "type": "formula_reference",
+                            "formula_id": self.formula_id,
                         },
                     }
                 ],
@@ -89,8 +90,8 @@ class CanonicalActionPreset:
                     "proficiency_id": "__dynamic_proficiency__",
                     "proficiency_reference": self.proficiency_reference,
                     "amount": {
-                        "aliases": None,
-                        "text": "1",
+                        "type": "formula_reference",
+                        "formula_id": "default_action_gain_use_formula",
                     },
                 }
             )
@@ -108,6 +109,22 @@ class CanonicalActionPreset:
 
     def action(self) -> Action:
         return Action.from_dict(self.action_payload())
+
+    def formula_definition(self) -> FormulaDefinition:
+        expression = self.message_text.removeprefix(f"{self.label}: /r ")
+        return FormulaDefinition.from_dict(
+            {
+                "id": self.formula_id,
+                "formula": {
+                    "aliases": [
+                        {"name": name, "path": list(path)}
+                        for name, path in self.aliases
+                    ],
+                    "text": expression,
+                    "tags": list(self.tags),
+                },
+            }
+        )
 
     def authoring_attribute_values(self) -> dict[str, dict]:
         return {
@@ -306,6 +323,20 @@ def seeded_global_actions() -> dict[str, Action]:
         for preset in CANONICAL_ACTION_PRESETS
         if preset.seed_global
     }
+
+
+def canonical_action_formula_definitions() -> dict[str, FormulaDefinition]:
+    definitions = {
+        preset.formula_id: preset.formula_definition()
+        for preset in CANONICAL_ACTION_PRESETS
+    }
+    definitions["default_action_gain_use_formula"] = FormulaDefinition.from_dict(
+        {
+            "id": "default_action_gain_use_formula",
+            "formula": {"aliases": None, "text": "1", "tags": []},
+        }
+    )
+    return definitions
 
 
 def seeded_global_action_payloads() -> dict[str, dict]:

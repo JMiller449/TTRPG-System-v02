@@ -17,8 +17,7 @@ describe("standaloneEffectEditorValues", () => {
     values.targetPath = [" resources ", "", "health"];
     values.effectType = "evaluation_formula_modifier";
     values.operation = "add";
-    values.formulaText = " 2 ";
-    values.formulaAliases = [{ name: "arcane", path: ["sheet", "stats", "arcane"] }];
+    values.formulaId = "burning_weapon_formula";
     values.selectorRequiredTags = [" Fire ", "attack", "fire"];
     values.selectorExcludedTags = ["healing"];
     values.lifecycleMode = "manual";
@@ -34,8 +33,8 @@ describe("standaloneEffectEditorValues", () => {
       effect: {
         operation: "add",
         value: {
-          aliases: [{ name: "arcane", path: ["sheet", "stats", "arcane"] }],
-          text: "2"
+          type: "formula_reference",
+          formula_id: "burning_weapon_formula"
         },
         selector: {
           required_tags: ["fire", "attack"],
@@ -65,7 +64,7 @@ describe("standaloneEffectEditorValues", () => {
   it("builds a stacking config with max_stacks when stacking mode is stack", () => {
     const values = createEmptyAugmentationEditorValues();
     values.name = "Bleeding";
-    values.formulaText = "1";
+    values.formulaId = "bleeding_formula";
     values.targetPath = ["resources", "health"];
     values.stackingMode = "stack";
     values.stackingMaxStacks = "3";
@@ -79,7 +78,7 @@ describe("standaloneEffectEditorValues", () => {
   it("rejects sheet targets and hydrates standalone definitions through the shared editor", () => {
     const values = createEmptyAugmentationEditorValues();
     values.name = "Blocked";
-    values.formulaText = "2";
+    values.formulaId = "blocked_formula";
     values.targetRoot = "sheet";
     values.targetPath = ["stats", "arcane"];
     expect(hasValidStandaloneEffectValues(values)).toBe(false);

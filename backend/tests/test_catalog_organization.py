@@ -355,8 +355,9 @@ def test_item_visibility_patch_refreshes_player_catalog_projection() -> None:
 
     assert [op.path for op in patch.ops] == [
         "/items/sword",
+        "/standalone_effects",
         "/catalog_folders",
         "/catalog_entries",
     ]
-    assert patch.ops[1].value["weapons"]["name"] == "Weapons"
-    assert patch.ops[2].value["items:sword"]["folder_id"] == "weapons"
+    assert patch.ops[2].value["weapons"]["name"] == "Weapons"
+    assert patch.ops[3].value["items:sword"]["folder_id"] == "weapons"

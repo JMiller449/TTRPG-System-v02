@@ -142,6 +142,7 @@ def _build_augmentation(
 
 
 def _build_equipment_item(
+    state: State,
     item_id: str,
     *,
     value: str,
@@ -158,6 +159,18 @@ def _build_equipment_item(
         path=target_path,
     )
     template.source = AugmentationSource(type="item", id=item_id, label=item_id)
+    definition = StandaloneEffectDefinition(
+        id=template.id,
+        name=template.name,
+        description=template.description,
+        scope="instance",
+        target=deepcopy(template.target),
+        effect=deepcopy(template.effect),
+        active=template.active,
+        lifecycle=deepcopy(template.lifecycle),
+    )
+    definition.target.root = "instance"
+    state.standalone_effects[definition.id] = definition
     return Item.from_dict(
         {
             "id": item_id,
@@ -168,7 +181,7 @@ def _build_equipment_item(
             "description": "",
             "price": "",
             "weight": 0,
-            "augmentation_templates": [asdict(template)],
+            "effect_ids": [definition.id],
         }
     )
 
@@ -215,23 +228,35 @@ def _condition_template_payload(
 
 
 def _build_condition_preset(
+    state: State,
     *,
     condition_id: str = "poisoned",
     template_root: str = "instance",
     with_template: bool = True,
     visibility: str = "public",
 ) -> ConditionPreset:
+    effect_ids: list[str] = []
+    if with_template:
+        template = Augmentation.from_dict(_condition_template_payload(root=template_root))
+        definition = StandaloneEffectDefinition(
+            id=template.id,
+            name=template.name,
+            description=template.description,
+            scope=template.scope,
+            target=deepcopy(template.target),
+            effect=deepcopy(template.effect),
+            active=template.active,
+            lifecycle=deepcopy(template.lifecycle),
+        )
+        state.standalone_effects[definition.id] = definition
+        effect_ids.append(definition.id)
     return ConditionPreset.from_dict(
         {
             "id": condition_id,
             "name": "Poisoned",
             "description": "Ongoing poison effect.",
             "visibility": visibility,
-            "augmentation_templates": (
-                [_condition_template_payload(root=template_root)]
-                if with_template
-                else []
-            ),
+            "effect_ids": effect_ids,
         }
     )
 
@@ -248,7 +273,7 @@ def test_apply_condition_preset_creates_links_and_applies_current_instance_only(
             state.instanced_sheets["inst-1"] = _build_instance()
             state.instanced_sheets["inst-2"] = _build_instance()
             state.instanced_sheets["inst-2"].health = 20
-            state.condition_presets["poisoned"] = _build_condition_preset()
+            state.condition_presets["poisoned"] = _build_condition_preset(state)
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -306,7 +331,7 @@ def test_remove_condition_preset_reverses_unlinks_and_removes_concrete_augmentat
             _reset_state()
             state = StateSingleton.getState()
             state.instanced_sheets["inst-1"] = _build_instance()
-            state.condition_presets["poisoned"] = _build_condition_preset()
+            state.condition_presets["poisoned"] = _build_condition_preset(state)
             await augmentation_service.apply_condition_preset(
                 instance_id="inst-1",
                 condition_id="poisoned",
@@ -375,7 +400,7 @@ def test_condition_preset_hook_rejects_missing_preset_or_instance(monkeypatch) -
                     request_id="req-1",
                 )
 
-            state.condition_presets["poisoned"] = _build_condition_preset()
+            state.condition_presets["poisoned"] = _build_condition_preset(state)
             with pytest.raises(
                 ValueError,
                 match="Instanced sheet 'missing' does not exist.",
@@ -402,6 +427,7 @@ def test_condition_application_is_idempotent_and_supports_zero_effect_statuses(
             state = StateSingleton.getState()
             state.instanced_sheets["inst-1"] = _build_instance()
             state.condition_presets["marked"] = _build_condition_preset(
+                state,
                 condition_id="marked",
                 with_template=False,
             )
@@ -445,9 +471,11 @@ def test_condition_application_patches_respect_visibility_and_player_assignment(
             state.instanced_sheets["inst-1"] = _build_instance()
             state.instanced_sheets["inst-2"] = _build_instance()
             state.condition_presets["public"] = _build_condition_preset(
+                state,
                 condition_id="public"
             )
             state.condition_presets["secret"] = _build_condition_preset(
+                state,
                 condition_id="secret",
                 visibility="gm_only",
             )
@@ -508,6 +536,7 @@ def test_condition_preset_hook_rejects_non_instance_templates(monkeypatch) -> No
             state = StateSingleton.getState()
             state.instanced_sheets["inst-1"] = _build_instance()
             state.condition_presets["poisoned"] = _build_condition_preset(
+                state,
                 template_root="sheet"
             )
 
@@ -560,10 +589,12 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
             state.sheets[sheet.id] = sheet
             state.instanced_sheets["inst-1"] = _build_instance(sheet)
             state.items["flame-helm"] = _build_equipment_item(
+                state,
                 "flame-helm",
                 value="5",
             )
             state.items["health-ring"] = _build_equipment_item(
+                state,
                 "health-ring",
                 value="2",
             )
@@ -622,10 +653,8 @@ def test_equipment_effect_lifecycle_recomputes_from_stable_base(monkeypatch) -> 
 
             def edit_template_mutation(current_state):
                 path = state_sync_service.join_path(
-                    "items",
-                    "flame-helm",
-                    "augmentation_templates",
-                    "0",
+                    "standalone_effects",
+                    "flame-helm-health",
                     "effect",
                     "value",
                     "text",
@@ -674,6 +703,7 @@ def test_equipment_effect_applies_when_instance_is_created(monkeypatch) -> None:
             )
             state.sheets[sheet.id] = sheet
             state.items["flame-helm"] = _build_equipment_item(
+                state,
                 "flame-helm",
                 value="5",
             )
@@ -719,6 +749,7 @@ def test_equipment_stat_effect_is_isolated_to_equipped_instance(monkeypatch) -> 
             state.instanced_sheets["inst-1"] = first
             state.instanced_sheets["inst-2"] = second
             state.items["focus"] = _build_equipment_item(
+                state,
                 "focus",
                 value="5",
                 target_root="sheet",
@@ -766,6 +797,7 @@ def test_failed_equipment_effect_rolls_back_equip_mutation(monkeypatch) -> None:
             state.sheets[sheet.id] = sheet
             state.instanced_sheets["inst-1"] = _build_instance(sheet)
             state.items["broken-ring"] = _build_equipment_item(
+                state,
                 "broken-ring",
                 value="0",
                 operation="divide",
@@ -844,7 +876,7 @@ def test_equipment_and_standalone_direct_effects_share_path_and_unwind() -> None
         ),
     }
     state.sheets[sheet.id] = sheet
-    state.items["flame-helm"] = _build_equipment_item("flame-helm", value="5")
+    state.items["flame-helm"] = _build_equipment_item(state, "flame-helm", value="5")
     state.instanced_sheets["inst-1"] = _build_instance(sheet)
     state.standalone_effects["surge"] = _standalone_health_definition(
         "surge", value="3"
@@ -879,7 +911,7 @@ def test_equipment_and_standalone_direct_effects_share_path_and_unwind() -> None
 def test_apply_condition_preset_records_source_and_timing() -> None:
     state = deepcopy(DEFAULT_STATE)
     state.instanced_sheets["inst-1"] = _build_instance()
-    state.condition_presets["poisoned"] = _build_condition_preset()
+    state.condition_presets["poisoned"] = _build_condition_preset(state)
 
     result, _ = augmentation_service.apply_condition_preset_mutation(
         state,
@@ -910,7 +942,7 @@ def test_apply_condition_preset_records_source_and_timing() -> None:
 def test_apply_condition_preset_defaults_source_when_unspecified() -> None:
     state = deepcopy(DEFAULT_STATE)
     state.instanced_sheets["inst-1"] = _build_instance()
-    state.condition_presets["poisoned"] = _build_condition_preset()
+    state.condition_presets["poisoned"] = _build_condition_preset(state)
 
     augmentation_service.apply_condition_preset_mutation(
         state, instance_id="inst-1", condition_id="poisoned"
@@ -942,12 +974,12 @@ def test_private_state_round_trip_leaves_no_orphaned_effects() -> None:
         ),
     }
     state.sheets[sheet.id] = sheet
-    state.items["flame-helm"] = _build_equipment_item("flame-helm", value="5")
+    state.items["flame-helm"] = _build_equipment_item(state, "flame-helm", value="5")
     state.instanced_sheets["inst-1"] = _build_instance(sheet)
     state.standalone_effects["surge"] = _standalone_health_definition(
         "surge", value="3"
     )
-    state.condition_presets["poisoned"] = _build_condition_preset()
+    state.condition_presets["poisoned"] = _build_condition_preset(state)
 
     # Build a mixed runtime: equipment (+5), standalone (+3), condition (-2).
     augmentation_service.synchronize_equipment_augmentations_mutation(state)

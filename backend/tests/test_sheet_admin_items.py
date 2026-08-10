@@ -11,6 +11,7 @@ from backend.features.sheet_admin.items.schema import (
     SubmitPlayerItem,
 )
 from backend.state.models.action import Action
+from backend.state.models.augmentation import StandaloneEffectDefinition
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -49,8 +50,29 @@ def _item_payload(item_id: str = "sword", name: str = "Sword") -> dict:
         "gm_special_properties": "Cursed under moonlight.",
         "price": "10g",
         "weight": 3,
-        "augmentation_templates": [],
+        "effect_ids": [],
     }
+
+
+def _register_effect(payload: dict) -> str:
+    definition_payload = {
+        "id": payload["id"],
+        "name": payload["name"],
+        "description": payload.get("description", ""),
+        "scope": "instance",
+        "target": {
+            **payload["target"],
+            "root": "instance",
+        },
+        "effect": payload["effect"],
+        "active": payload.get("active", True),
+        "lifecycle": payload.get("lifecycle", {}),
+        "stacking": {"mode": "unique", "max_stacks": None},
+    }
+    StateSingleton.getState().standalone_effects[payload["id"]] = (
+        StandaloneEffectDefinition.from_dict(definition_payload)
+    )
+    return payload["id"]
 
 
 def _player_sheet(sheet_id: str, name: str) -> Sheet:
@@ -255,28 +277,29 @@ def test_item_augmentation_formula_can_reference_owning_item_attribute(monkeypat
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             payload = _item_payload()
+            effect_id = _register_effect(
+                _item_augmentation_payload(
+                    value={
+                        "text": "@base_damage",
+                        "aliases": [
+                            {
+                                "name": "base_damage",
+                                "path": [
+                                    "source_item",
+                                    "attributes",
+                                    "weapon_base_damage",
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
             payload.update(
                 {
                     "interaction_type": "equippable",
                     "attribute_profile": "weapon",
                     "attributes": _weapon_attribute_bridges(),
-                    "augmentation_templates": [
-                        _item_augmentation_payload(
-                            value={
-                                "text": "@base_damage",
-                                "aliases": [
-                                    {
-                                        "name": "base_damage",
-                                        "path": [
-                                            "source_item",
-                                            "attributes",
-                                            "weapon_base_damage",
-                                        ],
-                                    }
-                                ],
-                            }
-                        )
-                    ],
+                    "effect_ids": [effect_id],
                 }
             )
 
@@ -285,7 +308,7 @@ def test_item_augmentation_formula_can_reference_owning_item_attribute(monkeypat
                 {"type": "create_item", "item": payload},
             )
 
-            assert state.items["sword"].augmentation_templates[0].effect.value.text == (
+            assert state.standalone_effects[effect_id].effect.value.text == (
                 "@base_damage"
             )
             assert websocket.sent_messages[0]["type"] == "state_patch"
@@ -307,26 +330,27 @@ def test_item_augmentation_formula_rejects_missing_owning_item_attribute(
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             payload = _item_payload()
+            effect_id = _register_effect(
+                _item_augmentation_payload(
+                    value={
+                        "text": "@base_damage",
+                        "aliases": [
+                            {
+                                "name": "base_damage",
+                                "path": [
+                                    "source_item",
+                                    "attributes",
+                                    "weapon_base_damage",
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "augmentation_templates": [
-                        _item_augmentation_payload(
-                            value={
-                                "text": "@base_damage",
-                                "aliases": [
-                                    {
-                                        "name": "base_damage",
-                                        "path": [
-                                            "source_item",
-                                            "attributes",
-                                            "weapon_base_damage",
-                                        ],
-                                    }
-                                ],
-                            }
-                        )
-                    ],
+                    "effect_ids": [effect_id],
                 }
             )
 
@@ -358,26 +382,27 @@ def test_direct_item_augmentation_formula_rejects_action_context(
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
             payload = _item_payload()
+            effect_id = _register_effect(
+                _item_augmentation_payload(
+                    value={
+                        "text": "@mana_cost",
+                        "aliases": [
+                            {
+                                "name": "mana_cost",
+                                "path": [
+                                    "action",
+                                    "attributes",
+                                    "action_mana_cost",
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
             payload.update(
                 {
                     "interaction_type": "equippable",
-                    "augmentation_templates": [
-                        _item_augmentation_payload(
-                            value={
-                                "text": "@mana_cost",
-                                "aliases": [
-                                    {
-                                        "name": "mana_cost",
-                                        "path": [
-                                            "action",
-                                            "attributes",
-                                            "action_mana_cost",
-                                        ],
-                                    }
-                                ],
-                            }
-                        )
-                    ],
+                    "effect_ids": [effect_id],
                 }
             )
 

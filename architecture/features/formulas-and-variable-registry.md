@@ -11,17 +11,29 @@ traversal.
 ## Formula model and definitions
 
 [`backend/state/models/formula.py`](../../backend/state/models/formula.py)
-defines formula text, explicit aliases, managed semantic tag IDs, and reusable
-global `FormulaDefinition` records. Aliases map `@name` placeholders to paths
-resolved against the current sheet/instance execution root. Global definitions
-are referenced by ID so an action uses the current authored definition at
-execution time.
+defines formula text, explicit aliases, managed semantic tag IDs, reusable
+global `FormulaDefinition` records, and stable `FormulaReference` consumers.
+Aliases map `@name` placeholders to paths resolved against the current
+sheet/instance execution root. Action steps, formula-backed Attribute values,
+and numeric Effect definitions store only the formula ID, so every consumer
+uses the current authored definition at evaluation time. Items and conditions
+gain the same behavior through their references to canonical Effects.
 
 DM-only CRUD for global definitions lives in
 [`backend/features/sheet_admin/formulas/`](../../backend/features/sheet_admin/formulas/).
-Create/update validates aliases against canonical paths and rejects missing,
-unsupported, self-referential, or cyclic dependencies. Deletion is rejected
-while live actions or other definitions depend on a formula.
+Create/update validates aliases against canonical paths and revalidates every
+referencing action, Attribute, and Effect in its own context. Deletion is
+rejected while any of those consumers still references the formula. Formula
+updates also refresh stored evaluated Attribute projections in the same
+authoritative mutation.
+
+Persisted schema v48 extracts legacy inline consumer formulas into the formula
+registry and replaces them with deterministic references. Legacy inline action
+and Effect submissions remain accepted for transport compatibility and are
+promoted during their authoritative mutation. Core sheet stat and maximum
+formula blocks remain sheet-owned rules configuration, and concrete runtime
+augmentations retain materialized formula snapshots so active applications are
+not coupled to later catalog edits.
 
 ## Runtime evaluation
 
@@ -72,18 +84,17 @@ handwritten client option lists from becoming a second contract.
 Frontend authoring is under
 [`frontend/src/features/formulas/`](../../frontend/src/features/formulas/) and
 [`frontend/src/features/variables/`](../../frontend/src/features/variables/).
-Formula-bearing fields use the shared `FormulaVariableInput` control. Typing
-`@` at the cursor opens a filtered search of the variables allowed by the
-backend-provided metadata; keyboard or pointer selection replaces that mention
-in place and upserts its canonical alias. Sheet and attribute editors translate
-the selected path into their relative execution roots, while action editors
-also expose values produced by earlier calculation steps. This keeps variable
-discovery in the formula itself instead of maintaining a separate insertion
-field beside every editor.
+The Formula catalog owns expression and alias editing through the shared
+`FormulaVariableInput` control. Typing `@` at the cursor opens a filtered search
+of variables allowed by backend metadata; selection replaces that mention and
+upserts its canonical alias. Attribute and Effect consumers use the shared
+formula catalog picker and save a stable reference. Action editors can select a
+catalog formula directly; legacy inline action drafts are promoted to a catalog
+definition when saved.
 
-Editors submit formulas and aliases; they do not calculate final gameplay
-results locally. The autocomplete is an authoring aid only, and backend formula
-validation remains authoritative.
+Editors do not calculate final gameplay results locally. Autocomplete and
+catalog selection are authoring aids only, and backend formula validation and
+reference resolution remain authoritative.
 
 Formula tags use the shared nested tag-catalog multi-select across reusable
 formula editors, formulas embedded in action steps, and augmentation

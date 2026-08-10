@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 import re
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import Any, List, Literal, Mapping, Optional, TYPE_CHECKING
 
 from backend.state.models.proficiency import ProficiencyBridge
 
@@ -188,6 +188,23 @@ class Formula:
         )
 
 
+@dataclass(frozen=True)
+class FormulaReference:
+    formula_id: str
+    type: Literal["formula_reference"] = "formula_reference"
+
+    def __post_init__(self) -> None:
+        if not self.formula_id:
+            raise ValueError("Formula reference IDs must not be empty.")
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "FormulaReference":
+        return cls(formula_id=raw["formula_id"])
+
+
+FormulaSource = Formula | FormulaReference
+
+
 @dataclass
 class FormulaDefinition:
     id: str
@@ -199,3 +216,21 @@ class FormulaDefinition:
             id=raw["id"],
             formula=Formula.from_dict(raw["formula"]),
         )
+
+
+def formula_source_from_dict(raw: dict) -> FormulaSource:
+    if raw.get("type") == "formula_reference":
+        return FormulaReference.from_dict(raw)
+    return Formula.from_dict(raw)
+
+
+def resolve_formula_source(
+    source: FormulaSource,
+    definitions: Mapping[str, FormulaDefinition],
+) -> tuple[Formula, str | None]:
+    if isinstance(source, Formula):
+        return source, None
+    definition = definitions.get(source.formula_id)
+    if definition is None:
+        raise ValueError(f"Formula '{source.formula_id}' does not exist.")
+    return definition.formula, source.formula_id

@@ -12,16 +12,6 @@ import {
   getActionEditorValidationError,
   type ActionEditorValues
 } from "@/features/actions/actionEditorValues";
-import {
-  createEmptyAugmentationEditorValues,
-  hasValidAugmentationEditorValues,
-  isKnownAugmentationEditorTarget,
-  toAugmentationEditorValues,
-  toItemAugmentationTemplatePayload,
-  type AugmentationEditorValues
-} from "@/features/augmentations/augmentationEditorValues";
-import { buildAugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
-import { ItemAugmentationTemplatePanel } from "@/features/augmentations/components/ItemAugmentationTemplatePanel";
 import { AttributeEditorForm } from "@/features/attributes/components/AttributeEditorForm";
 import {
   emptyAttributeDraft,
@@ -46,10 +36,10 @@ import {
 import type { TemplateContextualEntityKind } from "@/features/sheets/templateContextualAuthoring";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
 import { buildCreateAttributeRequest } from "@/infrastructure/ws/requestBuilders";
-import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
 import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
+import { EffectReferenceEditor } from "@/features/effects/components/EffectReferenceEditor";
 
 export interface TemplateContextualCreateSubmission {
   kind: TemplateContextualEntityKind;
@@ -113,11 +103,6 @@ export function TemplateContextualCreateDialog({
     createEmptyActionEditorValues
   );
   const [actionStepFocused, setActionStepFocused] = useState(false);
-  const [editingAugmentationId, setEditingAugmentationId] = useState<string | null>(null);
-  const [itemEffectFocused, setItemEffectFocused] = useState(false);
-  const [augmentationValues, setAugmentationValues] = useState<AugmentationEditorValues>(
-    createEmptyAugmentationEditorValues
-  );
   const validation = useFormValidationAttempt();
   const isCharacterAttribute = kind === "attribute" && Boolean(attachmentTarget);
   const isCharacterProficiency = kind === "proficiency" && Boolean(attachmentTarget);
@@ -174,20 +159,7 @@ export function TemplateContextualCreateDialog({
         .filter((condition): condition is ConditionPreset => Boolean(condition)),
     [serverState.conditionPresetOrder, serverState.conditionPresets]
   );
-  const selectorOptions = useMemo(
-    () =>
-      buildAugmentationSelectorOptions({
-        actionRecords: serverState.actions,
-        actionOrder: serverState.actionOrder,
-        formulaRecords: serverState.formulas,
-        formulaOrder: serverState.formulaOrder
-      }),
-    [serverState.actionOrder, serverState.actions, serverState.formulaOrder, serverState.formulas]
-  );
-  const targetOptions =
-    augmentationTargetMetadata?.context === "item_template"
-      ? augmentationTargetMetadata.targets
-      : [];
+  void augmentationTargetMetadata;
   const actionValidationError = getActionEditorValidationError(actionValues, {
     definitions: serverState.attributes,
     proficiencies: serverState.proficiencies
@@ -275,36 +247,6 @@ export function TemplateContextualCreateDialog({
     submit("action", actionId, submission.request, submission.label);
   };
 
-  const resetAugmentation = (): void => {
-    setItemEffectFocused(false);
-    setEditingAugmentationId(null);
-    setAugmentationValues(createEmptyAugmentationEditorValues());
-  };
-
-  const submitAugmentation = (): void => {
-    if (
-      !hasValidAugmentationEditorValues(augmentationValues) ||
-      !isKnownAugmentationEditorTarget(augmentationValues, targetOptions)
-    ) {
-      return;
-    }
-    const augmentation = toItemAugmentationTemplatePayload({
-      values: augmentationValues,
-      augmentationId: editingAugmentationId ?? makeId("augmentation"),
-      itemId: "draft-item",
-      itemName: itemValues.name
-    });
-    setItemValues((current) => ({
-      ...current,
-      augmentationTemplates: editingAugmentationId
-        ? current.augmentationTemplates.map((template) =>
-            template.id === editingAugmentationId ? augmentation : template
-          )
-        : [...current.augmentationTemplates, augmentation]
-    }));
-    resetAugmentation();
-  };
-
   return (
     <ModalDialog
       title={copy.title}
@@ -365,49 +307,14 @@ export function TemplateContextualCreateDialog({
             />
           }
           effectEditor={
-            <ItemAugmentationTemplatePanel
-              itemName={itemValues.name.trim() || "New equippable item"}
-              editingAugmentationId={editingAugmentationId}
-              templates={itemValues.augmentationTemplates}
-              targetOptions={targetOptions}
-              selectorOptions={selectorOptions}
-              formulaMetadata={formulaMetadata}
-              values={augmentationValues}
-              focused={itemEffectFocused}
-              onChange={setAugmentationValues}
-              onFocusedChange={setItemEffectFocused}
-              onSubmit={submitAugmentation}
-              onCancel={resetAugmentation}
-              onEdit={(augmentation) => {
-                setEditingAugmentationId(augmentation.id);
-                setAugmentationValues(toAugmentationEditorValues(augmentation));
-              }}
-              onRemove={(augmentationId) => {
-                const augmentation = itemValues.augmentationTemplates.find(
-                  (candidate) => candidate.id === augmentationId
-                );
-                if (
-                  !confirmDestructiveAction({
-                    action: "Remove",
-                    subject: augmentation?.name ?? augmentationId,
-                    consequence: "This removes the effect from the new item draft before creation."
-                  })
-                ) {
-                  return;
-                }
-                setItemValues((current) => ({
-                  ...current,
-                  augmentationTemplates: current.augmentationTemplates.filter(
-                    (template) => template.id !== augmentationId
-                  )
-                }));
-                if (editingAugmentationId === augmentationId) {
-                  resetAugmentation();
-                }
-              }}
+            <EffectReferenceEditor
+              effects={serverState.standaloneEffects}
+              selectedIds={itemValues.effectIds}
+              onChange={(effectIds) => setItemValues((current) => ({ ...current, effectIds }))}
+              label="Equipment effects"
             />
           }
-          effectEditorFocused={itemEffectFocused}
+          effectEditorFocused={false}
           onSubmit={submitItem}
           onCancel={onClose}
         />

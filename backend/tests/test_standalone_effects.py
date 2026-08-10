@@ -8,7 +8,10 @@ from backend.protocol.socket import normalize_server_event
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.action import Action
 from backend.state.models.augmentation import StandaloneEffectDefinition
+from backend.state.models.condition import ConditionPreset
+from backend.state.models.item import Item
 from backend.state.models.sheet import InstancedSheet
+from backend.state.models.formula import FormulaReference
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -383,6 +386,16 @@ def test_dm_crud_and_player_permission(monkeypatch) -> None:
                     "request_id": "create-effect",
                 },
             )
+            created_definition = StateSingleton.getState().standalone_effects[
+                "blessing"
+            ]
+            assert isinstance(created_definition.effect.value, FormulaReference)
+            assert (
+                StateSingleton.getState()
+                .formulas[created_definition.effect.value.formula_id]
+                .formula.text
+                == "5"
+            )
             updated = _effect_payload()
             updated["description"] = "Updated."
             await handle_client_payload(
@@ -415,7 +428,7 @@ def test_dm_crud_and_player_permission(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_delete_rejects_action_references_and_active_applications(monkeypatch) -> None:
+def test_delete_rejects_definition_references_and_active_applications(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -423,6 +436,43 @@ def test_delete_rejects_action_references_and_active_applications(monkeypatch) -
             StateSingleton._state = deepcopy(DEFAULT_STATE)
             state = StateSingleton.getState()
             state.standalone_effects["blessing"] = _definition()
+            await websocket_sessions.reset()
+            dm = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+
+            state.items["amulet"] = Item.from_dict(
+                {
+                    "id": "amulet",
+                    "name": "Amulet",
+                    "description": "A blessed amulet.",
+                    "price": "10 gp",
+                    "effect_ids": ["blessing"],
+                }
+            )
+            await handle_client_payload(
+                dm,
+                {"type": "delete_standalone_effect", "effect_id": "blessing"},
+            )
+            assert dm.sent_messages[0]["reason"] == (
+                "Effect 'blessing' is referenced by items or item templates: amulet."
+            )
+
+            state.items = {}
+            state.condition_presets["blessed"] = ConditionPreset(
+                id="blessed",
+                name="Blessed",
+                effect_ids=["blessing"],
+            )
+            dm.sent_messages.clear()
+            await handle_client_payload(
+                dm,
+                {"type": "delete_standalone_effect", "effect_id": "blessing"},
+            )
+            assert dm.sent_messages[0]["reason"] == (
+                "Effect 'blessing' is referenced by conditions: blessed."
+            )
+
+            state.condition_presets = {}
             state.actions["ward"] = Action.from_dict(
                 {
                     "id": "ward",
@@ -436,10 +486,7 @@ def test_delete_rejects_action_references_and_active_applications(monkeypatch) -
                     ],
                 }
             )
-            await websocket_sessions.reset()
-            dm = FakeWebSocket()
-            await websocket_sessions.connect(dm, role="dm")
-
+            dm.sent_messages.clear()
             await handle_client_payload(
                 dm,
                 {"type": "delete_standalone_effect", "effect_id": "blessing"},

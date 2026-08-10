@@ -21,10 +21,12 @@ Supported steps include:
 - application/removal of an augmentation;
 - application/removal of a condition preset.
 
-Step formulas may be inline, reference a global formula, or consume a value
-calculated earlier in the same execution. Message and roll steps do not persist
-a destination: Roll20 visibility is selected by the acting user for each
-`perform_action` invocation.
+Persisted step formulas reference a global formula or consume a value calculated
+earlier in the same execution. Legacy inline action formula submissions are
+accepted and atomically promoted to deterministic catalog definitions before
+the action is stored. Message and roll steps do not persist a destination:
+Roll20 visibility is selected by the acting user for each `perform_action`
+invocation.
 
 Structured `send_roll` steps separate a card title and one or two labeled
 formula results from Roll20 command syntax. They select `simple`, `damage`, or

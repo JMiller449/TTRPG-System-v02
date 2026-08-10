@@ -1,5 +1,4 @@
 import type {
-  Augmentation,
   AttributeBridge,
   AttributeDefinition,
   ItemDefinition,
@@ -26,7 +25,7 @@ export type ItemEditorValues = {
   description: string;
   tags: string[];
   attributes: Record<string, AttributeBridge>;
-  augmentationTemplates: Augmentation[];
+  effectIds: string[];
   actionGrants: ItemActionGrantEditorValues[];
 };
 
@@ -73,7 +72,7 @@ export function createEmptyItemValues(): ItemEditorValues {
     description: "",
     tags: [],
     attributes: {},
-    augmentationTemplates: [],
+    effectIds: [],
     actionGrants: []
   };
 }
@@ -104,7 +103,7 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
         structuredClone(bridge)
       ])
     ),
-    augmentationTemplates: [...(item.augmentation_templates ?? [])],
+    effectIds: [...(item.effect_ids ?? [])],
     actionGrants: (item.action_grants ?? []).map((grant) => ({
       draftId: `item_grant_${grant.action_id}`,
       actionId: grant.action_id,
@@ -128,10 +127,7 @@ export function createItemValuesFromTemplate(template: ItemDefinition): ItemEdit
         }
       ])
     ),
-    augmentationTemplates: values.augmentationTemplates.map((augmentation) => ({
-      ...structuredClone(augmentation),
-      id: makeId("augmentation")
-    })),
+    effectIds: [...values.effectIds],
     actionGrants: values.actionGrants.map((grant) => ({
       ...grant,
       draftId: makeId("item_action")
@@ -151,27 +147,6 @@ function toActionGrantPayloads(values: ItemEditorValues): ItemDefinitionPayload[
       availability: values.interactionType === "consumable" ? "carried" : "equipped",
       consume_quantity: grant.consumeQuantity.trim() ? Number(grant.consumeQuantity) : 0
     }));
-}
-
-function toAugmentationTemplatePayloads(
-  values: ItemEditorValues,
-  itemId: string
-): ItemDefinitionPayload["augmentation_templates"] {
-  if (values.interactionType !== "equippable") {
-    return [];
-  }
-
-  return values.augmentationTemplates.map((augmentation) => ({
-    ...augmentation,
-    source: {
-      type: "item",
-      id: itemId,
-      label: values.name.trim()
-    },
-    lifecycle_owner: "equipment",
-    applied: false,
-    applied_target_id: null
-  }));
 }
 
 function parseQuantity(value: string): number | null {
@@ -276,7 +251,7 @@ export function toItemDefinitionPayload(
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     tags: [...values.tags],
     attributes: values.attributes,
-    augmentation_templates: toAugmentationTemplatePayloads(values, itemId),
+    effect_ids: values.interactionType === "equippable" ? [...values.effectIds] : [],
     action_grants: toActionGrantPayloads(values)
   };
 }
@@ -312,7 +287,7 @@ export function toUpdatedItemDefinitionPayload(
     contents_weight_behavior: values.canContainItems ? values.contentsWeightBehavior : "normal",
     tags: [...values.tags],
     attributes: values.attributes,
-    augmentation_templates: toAugmentationTemplatePayloads(values, item.id),
+    effect_ids: values.interactionType === "equippable" ? [...values.effectIds] : [],
     action_grants: toActionGrantPayloads(values)
   };
 }

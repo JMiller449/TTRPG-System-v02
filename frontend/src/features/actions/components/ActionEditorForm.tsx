@@ -205,7 +205,7 @@ export function ActionEditorForm({
     if (isFormulaReference(source)) {
       return formulas.find((formula) => formula.id === source.formula_id)?.id ?? "Shared formula";
     }
-    return source.text.trim() || "Empty inline formula";
+    return source.text.trim() || "Empty new formula";
   };
 
   const stepSummary = (step: ActionEditorValues["steps"][number]): string => {
@@ -263,7 +263,7 @@ export function ActionEditorForm({
         options={[
           {
             id: "inline",
-            label: "Inline formula",
+            label: "New catalog formula",
             keywords: ["local"],
             value: "inline"
           },

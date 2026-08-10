@@ -70,7 +70,7 @@ describe("ActionEditorForm", () => {
     expect(markup).toContain("Rules &amp; Effects");
     expect(markup).toContain("Add Step");
     expect(markup).not.toContain("no proficiencies authored");
-    expect(markup).toContain("no standalone effects authored");
+    expect(markup).toContain("no effects authored");
     expect(markup).toContain("no conditions authored");
     expect(markup).not.toContain("Action Step Metadata");
     expect(markup).not.toContain("Add Calculation");

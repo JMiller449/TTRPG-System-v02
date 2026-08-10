@@ -14,7 +14,7 @@ const sword = {
   description: "",
   price: "",
   weight: 0,
-  augmentation_templates: []
+  effect_ids: []
 } as ItemDefinition;
 
 describe("SheetEquipmentSection", () => {

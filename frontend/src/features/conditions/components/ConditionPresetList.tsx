@@ -14,7 +14,7 @@ export function ConditionPresetList({
     <div className="list">
       {conditions.length === 0 ? <EmptyState message="No conditions created yet." /> : null}
       {conditions.map((condition) => {
-        const effects = condition.augmentation_templates ?? [];
+        const effectIds = condition.effect_ids ?? [];
         return (
           <article className="list-item list-item--block" key={condition.id}>
             <div className="list-item__top">
@@ -24,10 +24,7 @@ export function ConditionPresetList({
               </span>
             </div>
             <div className="muted">{condition.description || "(no description)"}</div>
-            <div className="muted">Effects: {effects.length}</div>
-            {effects.length > 0 ? (
-              <div className="muted">{effects.map((effect) => effect.name).join(", ")}</div>
-            ) : null}
+            <div className="muted">Effects: {effectIds.length}</div>
             <div className="inline-actions">
               <button
                 type="button"

@@ -30,6 +30,7 @@ from backend.features.state_sync.schema import (
     StateSnapshot,
 )
 from backend.state.models.state import State
+from backend.state.models.action import ApplyAugmentationStep
 from backend.state.store import StateSingleton
 
 MutationResultT = TypeVar("MutationResultT")
@@ -320,6 +321,40 @@ class StateSyncService:
             if folder_id in visible_folder_ids
         }
 
+    def _player_can_see_effect(
+        self,
+        effect_id: str,
+        *,
+        assigned_instance_id: str | None,
+    ) -> bool:
+        state = StateSingleton.getState()
+        if any(
+            isinstance(step, ApplyAugmentationStep)
+            and step.augmentation_id == effect_id
+            for action in state.actions.values()
+            for step in action.steps
+        ):
+            return True
+        if any(
+            condition.visibility != "gm_only" and effect_id in condition.effect_ids
+            for condition in state.condition_presets.values()
+        ):
+            return True
+        if any(
+            effect_id in item.effect_ids
+            and self._player_can_see_item(
+                item.id,
+                assigned_instance_id=assigned_instance_id,
+            )
+            for item in state.items.values()
+        ):
+            return True
+        return any(
+            application.definition_id == effect_id
+            and application.instance_id == assigned_instance_id
+            for application in state.standalone_effect_applications.values()
+        )
+
     def _redact_state_for_role(
         self,
         state: dict[str, Any],
@@ -373,6 +408,15 @@ class StateSyncService:
         }
         for condition_id in hidden_condition_ids:
             state.get("condition_presets", {}).pop(condition_id, None)
+
+        state["standalone_effects"] = {
+            effect_id: effect
+            for effect_id, effect in state.get("standalone_effects", {}).items()
+            if self._player_can_see_effect(
+                effect_id,
+                assigned_instance_id=assigned_instance_id,
+            )
+        }
 
         visible_applications = {
             application_id
@@ -474,6 +518,7 @@ class StateSyncService:
 
         redacted_ops: list[PatchOp] = []
         refresh_catalog_projection = False
+        refresh_effect_projection = False
         for op in redacted_patch.ops:
             segments = self._parse_path(op.path)
             if segments and segments[0] in PRIVATE_STATE_ROOTS:
@@ -528,8 +573,77 @@ class StateSyncService:
                 redacted_ops.append(op)
                 continue
 
+            effect_visibility_dependency_changed = bool(
+                segments
+                and (
+                    (
+                        segments[0] == "actions"
+                        and (len(segments) <= 2 or segments[2] == "steps")
+                    )
+                    or (
+                        segments[0] == "condition_presets"
+                        and (
+                            len(segments) <= 2
+                            or segments[2] in {"effect_ids", "visibility"}
+                        )
+                    )
+                    or (
+                        segments[0] == "items"
+                        and (
+                            len(segments) <= 2
+                            or segments[2]
+                            in {
+                                "approval_status",
+                                "effect_ids",
+                                "player_catalog_access",
+                                "submitted_by_instance_id",
+                            }
+                        )
+                    )
+                    or segments[0]
+                    in {"standalone_effect_applications", "standalone_effects"}
+                    or (
+                        segments[0] == "instanced_sheets"
+                        and (
+                            len(segments) <= 2
+                            or (
+                                len(segments) in {3, 4}
+                                and segments[2] == "items"
+                            )
+                            or (
+                                len(segments) >= 5
+                                and segments[2] == "items"
+                                and segments[4] == "item_id"
+                            )
+                        )
+                    )
+                )
+            )
+            if effect_visibility_dependency_changed:
+                refresh_effect_projection = True
+
             if len(segments) == 2 and segments[0] == "items":
                 refresh_catalog_projection = True
+
+            if len(segments) >= 2 and segments[0] == "standalone_effects":
+                refresh_catalog_projection = True
+                effect_id = segments[1]
+                if op.op == "remove":
+                    redacted_ops.append(op)
+                    continue
+                if self._player_can_see_effect(
+                    effect_id,
+                    assigned_instance_id=assigned_instance_id,
+                ):
+                    redacted_ops.append(op)
+                elif op.op == "set":
+                    redacted_ops.append(
+                        PatchOp(
+                            op="remove",
+                            path=self.join_path("standalone_effects", effect_id),
+                        )
+                    )
+                continue
 
             if segments and segments[0] in {"catalog_entries", "catalog_folders"}:
                 projected_state = self._redact_state_for_role(
@@ -830,12 +944,33 @@ class StateSyncService:
                     self._redact_subject_attributes(op.value)
             redacted_ops.append(op)
 
-        if refresh_catalog_projection:
+        projected_state: dict[str, Any] | None = None
+        if refresh_effect_projection or refresh_catalog_projection:
             projected_state = self._redact_state_for_role(
                 StateSingleton.getState().to_dict(),
                 role=role,
                 assigned_instance_id=assigned_instance_id,
             )
+
+        if refresh_effect_projection and projected_state is not None:
+            redacted_ops = [
+                op
+                for op in redacted_ops
+                if not (
+                    self._parse_path(op.path)
+                    and self._parse_path(op.path)[0] == "standalone_effects"
+                )
+            ]
+            redacted_ops.append(
+                PatchOp(
+                    op="set",
+                    path=self.join_path("standalone_effects"),
+                    value=projected_state["standalone_effects"],
+                )
+            )
+            refresh_catalog_projection = True
+
+        if refresh_catalog_projection and projected_state is not None:
             redacted_ops = [
                 op
                 for op in redacted_ops

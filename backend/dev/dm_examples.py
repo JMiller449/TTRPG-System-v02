@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict
 from typing import Any
 
@@ -1619,6 +1620,32 @@ def authoring_requests(
     *,
     mana_manipulation_effect_bonus: int,
 ) -> list[dict[str, Any]]:
+    conditions = condition_payloads()
+    items = item_payloads()
+    source_effects: list[dict[str, Any]] = []
+    for records in (conditions, items):
+        for record in records:
+            effect_ids: list[str] = []
+            for template in record.pop("augmentation_templates", []):
+                target = deepcopy(template["target"])
+                if target.get("root") == "sheet":
+                    target["root"] = "instance"
+                effect_id = template["id"]
+                source_effects.append(
+                    {
+                        "id": effect_id,
+                        "name": template["name"],
+                        "description": template.get("description", ""),
+                        "scope": "instance",
+                        "target": target,
+                        "effect": template["effect"],
+                        "active": template.get("active", True),
+                        "lifecycle": template.get("lifecycle", {}),
+                    }
+                )
+                effect_ids.append(effect_id)
+            record["effect_ids"] = effect_ids
+
     requests: list[dict[str, Any]] = []
     requests.extend(
         {"type": "create_attribute", "attribute": attribute}
@@ -1630,13 +1657,16 @@ def authoring_requests(
     )
     requests.extend(
         {"type": "create_standalone_effect", "effect": effect}
-        for effect in standalone_effect_payloads(
-            mana_manipulation_effect_bonus=mana_manipulation_effect_bonus,
-        )
+        for effect in [
+            *standalone_effect_payloads(
+                mana_manipulation_effect_bonus=mana_manipulation_effect_bonus,
+            ),
+            *source_effects,
+        ]
     )
     requests.extend(
         {"type": "create_condition_preset", "condition": condition}
-        for condition in condition_payloads()
+        for condition in conditions
     )
     requests.extend(
         {"type": "create_formula", "formula": formula_definition}
@@ -1648,7 +1678,7 @@ def authoring_requests(
     )
     requests.extend(
         {"type": "create_item", "item": item}
-        for item in item_payloads()
+        for item in items
     )
     requests.extend(
         {"type": "create_sheet", "sheet": sheet}

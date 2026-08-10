@@ -28,14 +28,7 @@ export function ItemDefinitionCard({
   onDelete: () => void;
 }): JSX.Element {
   const preview = toItemEditorValues(item);
-  const wearerEffectCount =
-    item.augmentation_templates?.filter(
-      (augmentation) => augmentation.effect.type === "formula_modifier"
-    ).length ?? 0;
-  const rollFormulaEffectCount =
-    item.augmentation_templates?.filter(
-      (augmentation) => augmentation.effect.type !== "formula_modifier"
-    ).length ?? 0;
+  const effectCount = item.effect_ids?.length ?? 0;
   const actionGrantCount = item.action_grants?.length ?? 0;
   const conditionIds = new Set(
     (item.action_grants ?? []).flatMap((grant) =>
@@ -64,8 +57,7 @@ export function ItemDefinitionCard({
       ) : null}
       {item.interaction_type === "equippable" ? (
         <>
-          <div className="muted">Wearer Effects: {wearerEffectCount}</div>
-          <div className="muted">Roll / Formula Effects: {rollFormulaEffectCount}</div>
+          <div className="muted">Effects: {effectCount}</div>
           <div className="muted">Equipped Actions: {actionGrantCount}</div>
           <div className="muted">Named Conditions Through Actions: {conditionIds.size}</div>
         </>

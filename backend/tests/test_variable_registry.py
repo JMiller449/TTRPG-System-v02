@@ -270,18 +270,19 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "steps.0.rolls.0.value"
     ]
     assert action_steps["send_roll"].formula_fields == ["rolls[].value"]
-    assert action_presets["weapon_attack"].steps[0]["rolls"][0]["value"]["text"] == (
-        "floor((1 + @weapon_proficiency) * "
-        "(1d100 / 100) * @weapon_stat)"
-    )
+    assert action_presets["weapon_attack"].steps[0]["rolls"][0]["value"] == {
+        "type": "formula_reference",
+        "formula_id": "default_action_weapon_attack_formula",
+    }
     assert action_presets["weapon_damage"].roll_mode_kind == "damage"
-    assert action_presets["weapon_parry"].steps[0]["rolls"][0]["value"]["text"] == (
-        "floor((1 + @weapon_proficiency) * "
-        "(1d100 / 100) * @dexterity)"
-    )
-    assert action_presets["block"].steps[0]["rolls"][0]["value"]["aliases"] == [
-        {"name": "strength", "path": ["sheet", "stats", "strength"]}
-    ]
+    assert action_presets["weapon_parry"].steps[0]["rolls"][0]["value"] == {
+        "type": "formula_reference",
+        "formula_id": "default_action_weapon_parry_formula",
+    }
+    assert action_presets["block"].steps[0]["rolls"][0]["value"] == {
+        "type": "formula_reference",
+        "formula_id": "default_action_block_formula",
+    }
     assert action_presets["spell_to_hit"].attribute_values[
         "action_proficiency"
     ] == {"type": "reference", "value": ""}

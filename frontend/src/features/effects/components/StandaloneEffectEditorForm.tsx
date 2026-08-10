@@ -15,11 +15,7 @@ import {
 import type { AugmentationSelectorOptions } from "@/features/augmentations/augmentationSelectorOptions";
 import { FormulaModifierSelectorEditor } from "@/features/augmentations/components/FormulaModifierSelectorEditor";
 import { hasValidStandaloneEffectValues } from "@/features/effects/standaloneEffectEditorValues";
-import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
-import {
-  formulaVariableSearchOptions,
-  upsertFormulaAlias
-} from "@/features/variables/variablePicker";
+import { FormulaReferenceEditor } from "@/features/formulas/components/FormulaReferenceEditor";
 import { Field } from "@/shared/ui/Field";
 import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
 
@@ -57,6 +53,7 @@ export function StandaloneEffectEditorForm({
   onSubmit: () => void;
   onCancel: () => void;
 }): JSX.Element {
+  void formulaMetadata;
   const targetKey = augmentationEditorTargetKey(values);
   const targetIsKnown = isKnownAugmentationEditorTarget(values, targetOptions);
   const targetPathExists = values.targetPath.length > 0;
@@ -175,23 +172,12 @@ export function StandaloneEffectEditorForm({
       </Field>
 
       {values.effectType !== "roll_mode_modifier" ? (
-        <FormulaVariableInput
+        <FormulaReferenceEditor
           label="Formula"
-          rows={2}
-          value={values.formulaText}
-          options={formulaVariableSearchOptions(formulaMetadata)}
-          loading={!formulaMetadata}
+          formulaId={values.formulaId || null}
           required
-          ariaInvalid={validationAttempted && !values.formulaText.trim()}
-          onChange={(formulaText) => onChange({ ...values, formulaText })}
-          onVariableSelect={(entry, formulaText) =>
-            onChange({
-              ...values,
-              formulaText,
-              formulaAliases: upsertFormulaAlias(values.formulaAliases, entry.alias)
-            })
-          }
-          placeholder="Type @ to insert a variable"
+          invalid={validationAttempted && !values.formulaId.trim()}
+          onChange={(formulaId) => onChange({ ...values, formulaId })}
         />
       ) : null}
 

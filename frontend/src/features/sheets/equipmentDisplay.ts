@@ -6,7 +6,8 @@ import type {
   ItemBridge,
   ItemDefinition,
   ItemInteractionType,
-  ProficiencyDefinition
+  ProficiencyDefinition,
+  StandaloneEffectDefinition
 } from "@/domain/models";
 
 export const ITEM_INTERACTION_LABELS: Record<ItemInteractionType, string> = {
@@ -36,7 +37,9 @@ function displayAttributeBridgeValue(
     bridge.evaluated_value !== null && bridge.evaluated_value !== undefined
       ? bridge.evaluated_value
       : bridge.value.type === "formula"
-        ? bridge.value.formula.text
+        ? "formula_id" in bridge.value.formula
+          ? bridge.value.formula.formula_id
+          : bridge.value.formula.text
         : bridge.value.value;
 
   if (Array.isArray(rawValue)) {
@@ -165,16 +168,21 @@ export function selectActiveEquipmentEffects(
   );
 }
 
-export function countItemEffectTypes(item: ItemDefinition): {
+export function countItemEffectTypes(
+  item: ItemDefinition,
+  effects: Record<string, StandaloneEffectDefinition> = {}
+): {
   wearer: number;
   rollOrFormula: number;
 } {
-  const templates = item.augmentation_templates ?? [];
+  const definitions = (item.effect_ids ?? []).map((effectId) => effects[effectId]).filter(Boolean);
+  if (definitions.length === 0) {
+    return { wearer: item.effect_ids?.length ?? 0, rollOrFormula: 0 };
+  }
   return {
-    wearer: templates.filter((augmentation) => augmentation.effect.type === "formula_modifier")
+    wearer: definitions.filter((definition) => definition.effect.type === "formula_modifier")
       .length,
-    rollOrFormula: templates.filter(
-      (augmentation) => augmentation.effect.type !== "formula_modifier"
-    ).length
+    rollOrFormula: definitions.filter((definition) => definition.effect.type !== "formula_modifier")
+      .length
   };
 }

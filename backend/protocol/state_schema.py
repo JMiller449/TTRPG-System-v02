@@ -423,7 +423,7 @@ class FormulaModifierSelectorPayload(ProtocolModel):
 
 class FormulaModifierEffectPayload(ProtocolModel):
     operation: Literal["add", "subtract", "multiply", "divide", "set"]
-    value: FormulaPayload
+    value: FormulaValuePayload
     selector: FormulaModifierSelectorPayload = Field(
         default_factory=FormulaModifierSelectorPayload
     )
@@ -432,7 +432,7 @@ class FormulaModifierEffectPayload(ProtocolModel):
 
 class EvaluationFormulaModifierEffectPayload(ProtocolModel):
     operation: Literal["add", "subtract", "multiply", "divide", "set"]
-    value: FormulaPayload
+    value: FormulaValuePayload
     selector: FormulaModifierSelectorPayload = Field(
         default_factory=FormulaModifierSelectorPayload
     )
@@ -545,7 +545,7 @@ class ItemPayload(ProtocolModel):
     storage_capacity_weight: float | None = None
     contents_weight_behavior: Literal["normal", "ignored"] = "normal"
     tags: list[str] = Field(default_factory=list)
-    augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
+    effect_ids: list[str] = Field(default_factory=list)
     action_grants: list[ItemActionGrantPayload] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
 
@@ -561,7 +561,7 @@ class ConditionPresetPayload(ProtocolModel):
     name: str
     description: str = ""
     visibility: Literal["public", "gm_only"] = "public"
-    augmentation_templates: list[AugmentationPayload] = Field(default_factory=list)
+    effect_ids: list[str] = Field(default_factory=list)
 
 
 class ConditionSourcePayload(ProtocolModel):

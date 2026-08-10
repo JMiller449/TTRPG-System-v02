@@ -6,7 +6,15 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from backend.features.formula_runtime.service import evaluate_numeric_formula
 from backend.state.models.damage import PHYSICAL_DAMAGE_TYPES
-from backend.state.models.formula import Formula, FormulaAliases
+from backend.state.models.formula import (
+    Formula,
+    FormulaAliases,
+    FormulaDefinition,
+    FormulaReference,
+    FormulaSource,
+    formula_source_from_dict,
+    resolve_formula_source,
+)
 
 if TYPE_CHECKING:
     from backend.state.models.sheet import Sheet
@@ -92,7 +100,7 @@ ITEM_ATTRIBUTE_IDS = (
 class AttributeValue:
     type: AttributeStoredValueType
     value: float | int | bool | str | list[str] | None = None
-    formula: Formula | None = None
+    formula: FormulaSource | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "AttributeValue":
@@ -102,7 +110,7 @@ class AttributeValue:
             type=value_type,
             value=raw.get("value"),
             formula=(
-                Formula.from_dict(formula_raw)
+                formula_source_from_dict(formula_raw)
                 if isinstance(formula_raw, dict)
                 else None
             ),
@@ -480,7 +488,10 @@ class _LazyAttributeValues(dict[str, EvaluatedAttributeValue]):
         return self._resolver(attribute_id)
 
 
-def evaluate_all_subject_attributes(subject: Any) -> None:
+def evaluate_all_subject_attributes(
+    subject: Any,
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
     evaluated: dict[str, EvaluatedAttributeValue] = {}
     visiting: list[str] = []
 
@@ -499,7 +510,11 @@ def evaluate_all_subject_attributes(subject: Any) -> None:
             if bridge.value.type == "formula":
                 if bridge.value.formula is None:
                     raise ValueError("Formula Attribute value is missing its formula payload.")
-                for alias in bridge.value.formula.aliases or []:
+                formula, _ = resolve_formula_source(
+                    bridge.value.formula,
+                    formula_definitions or {},
+                )
+                for alias in formula.aliases or []:
                     if alias.path and alias.path[0] == "attributes":
                         if len(alias.path) != 2:
                             raise ValueError(
@@ -511,7 +526,7 @@ def evaluate_all_subject_attributes(subject: Any) -> None:
                         subject,
                         _LazyAttributeValues(subject, evaluate_bridge),
                     ),
-                    bridge.value.formula,
+                    formula,
                 )
             else:
                 result = bridge.value.value
@@ -548,14 +563,21 @@ def require_valid_subject_attribute_evaluation(
         raise ValueError(f"Attribute '{attribute_id}' could not be evaluated: {error}")
 
 
-def validate_sheet_formula_dependencies(sheet: "Sheet") -> None:
+def validate_sheet_formula_dependencies(
+    sheet: "Sheet",
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
     formulas: dict[str, Formula] = {}
     for stat_name, value in vars(sheet.stats).items():
         if isinstance(value, Formula):
             formulas[f"stats.{stat_name}"] = value
     for attribute_id, bridge in sheet.attributes.items():
         if bridge.value.type == "formula" and bridge.value.formula is not None:
-            formulas[f"attributes.{attribute_id}"] = bridge.value.formula
+            formula, _ = resolve_formula_source(
+                bridge.value.formula,
+                formula_definitions or {},
+            )
+            formulas[f"attributes.{attribute_id}"] = formula
 
     graph: dict[str, set[str]] = {node: set() for node in formulas}
     for node, formula in formulas.items():
@@ -590,15 +612,22 @@ def validate_sheet_formula_dependencies(sheet: "Sheet") -> None:
         visit(node)
 
 
-def evaluate_all_sheet_attributes(sheet: "Sheet") -> None:
-    evaluate_all_subject_attributes(sheet)
+def evaluate_all_sheet_attributes(
+    sheet: "Sheet",
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
+    evaluate_all_subject_attributes(sheet, formula_definitions)
 
 
-def evaluate_sheet_attribute_bridge(sheet: "Sheet", bridge: AttributeBridge) -> None:
+def evaluate_sheet_attribute_bridge(
+    sheet: "Sheet",
+    bridge: AttributeBridge,
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
     current = sheet.attributes.get(bridge.attribute_id)
     sheet.attributes[bridge.attribute_id] = bridge
     try:
-        evaluate_all_sheet_attributes(sheet)
+        evaluate_all_sheet_attributes(sheet, formula_definitions)
     finally:
         if current is None:
             sheet.attributes.pop(bridge.attribute_id, None)
@@ -606,7 +635,10 @@ def evaluate_sheet_attribute_bridge(sheet: "Sheet", bridge: AttributeBridge) -> 
             sheet.attributes[bridge.attribute_id] = current
 
 
-def synchronize_required_sheet_attributes(sheet: "Sheet") -> None:
+def synchronize_required_sheet_attributes(
+    sheet: "Sheet",
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
     definitions = {
         **required_attribute_definitions(),
         **sheet_attribute_definitions(),
@@ -624,16 +656,20 @@ def synchronize_required_sheet_attributes(sheet: "Sheet") -> None:
             sheet.attributes[attribute_id] = bridge
         bridge.attribute_id = attribute_id
         bridge.relationship_id = f"required_attribute_{attribute_id}"
-    evaluate_all_sheet_attributes(sheet)
+    evaluate_all_sheet_attributes(sheet, formula_definitions)
 
 
-def synchronize_all_sheet_attributes(sheet: "Sheet") -> None:
-    synchronize_required_sheet_attributes(sheet)
-    evaluate_all_sheet_attributes(sheet)
+def synchronize_all_sheet_attributes(
+    sheet: "Sheet",
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
+) -> None:
+    synchronize_required_sheet_attributes(sheet, formula_definitions)
+    evaluate_all_sheet_attributes(sheet, formula_definitions)
 
 
 def synchronize_required_item_attributes(
     item: Any,
     definitions: dict[str, AttributeDefinition],
+    formula_definitions: dict[str, FormulaDefinition] | None = None,
 ) -> None:
-    evaluate_all_subject_attributes(item)
+    evaluate_all_subject_attributes(item, formula_definitions)

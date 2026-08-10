@@ -20,7 +20,7 @@ function renderEditor(valid: boolean, validationAttempted = false): string {
     values.name = "Focused";
     values.targetPath = [...target.path];
     values.effectType = "evaluation_formula_modifier";
-    values.formulaText = "2";
+    values.formulaId = "focused_formula";
   }
   return renderToStaticMarkup(
     <StandaloneEffectEditorForm
@@ -45,7 +45,7 @@ describe("StandaloneEffectEditorForm", () => {
     expect(markup).toContain("Matching formula value");
     expect(markup).toContain("Matching roll mode");
     expect(markup).toContain("Same source item only");
-    expect(markup).toContain("Type @ to insert a variable");
+    expect(markup).toContain("Select a formula");
     expect(markup).not.toContain("Insert Formula Variable");
     expect(markup).toContain("Lifecycle (GM-tracked)");
     expect(markup).toContain("Expiration note");

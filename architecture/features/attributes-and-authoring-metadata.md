@@ -14,7 +14,7 @@ defines:
 - `AttributeBridge`: relationship ID, definition ID, authored value, evaluated
   value, and evaluation error.
 - `AttributeValue`: literal number, boolean, text, enum, reference, or list
-  values, plus formula-backed storage for numeric definitions.
+  values, plus a stable Formula-catalog reference for numeric definitions.
 
 Definitions live in the top-level `attributes` registry. Bridges live on their
 owning sheet, instance, item, or action.
@@ -47,10 +47,12 @@ template, instance, or authored subject.
 
 ## Evaluation
 
-Formula-backed numeric attribute values are evaluated by the backend against
-the owning subject context. The evaluated result and any safe evaluation error
-are projected in state. Attribute formulas can reference only the scoped paths
-allowed for their subject; cross-subject and cyclic dependencies are rejected.
+Formula-backed numeric Attribute values resolve their shared definition and are
+evaluated by the backend against the owning subject context. The evaluated
+result and any safe evaluation error are projected in state. Updating a shared
+definition revalidates each referring Attribute context. Attribute formulas can
+reference only the scoped paths allowed for their subject; cross-subject and
+cyclic dependencies are rejected.
 
 Actions and item effects may read evaluated attributes during formula
 execution. Source-item attribute access requires an explicit source inventory
@@ -88,9 +90,10 @@ literal through the existing DM-only instanced-sheet Attribute route, so the
 header does not introduce a second Level field or client-owned state.
 
 The character Attributes page renders attached values as a compact responsive
-grid. Formula-backed cards expose their complete expression and aliases on
-hover or keyboard focus. A GM opens a focused dialog from a card to edit that
-instance value, while Add Existing and Create Attribute use separate dialogs;
+grid. Formula-backed cards resolve and expose their catalog expression and
+aliases on hover or keyboard focus. A GM opens a focused dialog from a card to
+select a Formula definition for that instance value, while Add Existing and
+Create Attribute use separate dialogs;
 a newly authored definition is attached only after its authoritative creation
 response succeeds. Character Attribute creation uses a viewport-bounded,
 scrollable editor with persistent create controls. Template, item, and action drafts retain their inline
@@ -98,10 +101,9 @@ Attribute editors because those values are part of a larger atomic authoring
 submission.
 
 Authoring variable metadata comes from backend routes in the variable registry
-feature. Formula fields present that metadata through cursor-aware `@`
-autocomplete rather than a separate variable-picker field. Selecting a result
-inserts its token at the active mention and records the correct scoped alias;
-IDs and canonical paths remain stable transport values.
+feature. Formula definitions use cursor-aware `@` autocomplete; Attribute
+consumers select those definitions through the Formula catalog. IDs and
+canonical paths remain stable transport values.
 
 ## Principal tests
 

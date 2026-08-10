@@ -14,7 +14,11 @@ from backend.state.migrations import (
 )
 from backend.state.models.access_code import SheetAccessCode
 from backend.state.models.state import State
-from backend.state.default_actions import CANONICAL_ACTION_PRESETS, seeded_global_action_payloads
+from backend.state.default_actions import (
+    CANONICAL_ACTION_PRESETS,
+    canonical_action_formula_definitions,
+    seeded_global_action_payloads,
+)
 from backend.state.store import CURRENT_STATE_SCHEMA_VERSION, StateSingleton
 
 
@@ -54,6 +58,81 @@ def _checkpoint(payload: dict, *, schema_version: int = 1) -> dict:
         "saved_at": "2026-06-27T12:00:00+00:00",
         "state": payload,
     }
+
+
+def _resolve_formula_payload(state: dict, reference: dict) -> dict:
+    assert reference["type"] == "formula_reference"
+    return state["formulas"][reference["formula_id"]]["formula"]
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "name": "Sword",
+                        "description": "",
+                        "price": "",
+                        "effect_ids": ["missing"],
+                    }
+                }
+            },
+            "Item 'sword' references missing effect 'missing'.",
+        ),
+        (
+            {
+                "condition_presets": {
+                    "poisoned": {
+                        "id": "poisoned",
+                        "name": "Poisoned",
+                        "effect_ids": ["missing"],
+                    }
+                }
+            },
+            "Condition 'poisoned' references missing effect 'missing'.",
+        ),
+        (
+            {
+                "actions": {
+                    "ward": {
+                        "id": "ward",
+                        "name": "Ward",
+                        "steps": [
+                            {
+                                "step_id": "apply",
+                                "type": "apply_augmentation",
+                                "augmentation_id": "missing",
+                            }
+                        ],
+                    }
+                }
+            },
+            "Action 'ward' references missing effect 'missing'.",
+        ),
+        (
+            {
+                "standalone_effect_applications": {
+                    "application": {
+                        "application_id": "application",
+                        "definition_id": "missing",
+                        "instance_id": "instance",
+                        "source": {"type": "action"},
+                    }
+                }
+            },
+            "Effect application 'application' references missing effect 'missing'.",
+        ),
+    ],
+)
+def test_state_rejects_missing_canonical_effect_references(
+    payload: dict,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message.replace(".", r"\.")):
+        State.from_dict(payload)
 
 
 def test_dump_writes_versioned_checkpoint_and_round_trips_state(isolate_state) -> None:
@@ -242,6 +321,7 @@ def test_v23_migration_normalizes_weight_and_storage_defaults() -> None:
         "submitted_by_instance_id": None,
         "submitted_by_name": None,
         "tags": [],
+        "effect_ids": [],
     }
     assert migrated.state["items"]["weightless"]["weight"] == 0
     assert (
@@ -304,7 +384,7 @@ def test_v3_item_migration_normalizes_descriptions_and_template_ownership() -> N
     )
 
     helm = migrated.state["items"]["helm"]
-    template = helm["augmentation_templates"][0]
+    template = migrated.state["standalone_effects"][helm["effect_ids"][0]]
     helm_folder_id = migrated.state["catalog_entries"]["items:helm"]["folder_id"]
     assert migrated.state["catalog_folders"][helm_folder_id]["name"] == "Helmet"
     assert helm["rank"] == "A"
@@ -312,16 +392,8 @@ def test_v3_item_migration_normalizes_descriptions_and_template_ownership() -> N
         "Immediate effect (legacy reference): +2 perception\n"
         "Non-immediate effect (legacy reference): advantage on fire attacks"
     )
-    assert template["source"] == {
-        "type": "item",
-        "id": "helm",
-        "label": "Flame Helm",
-        "relationship_id": None,
-        "application_id": None,
-    }
-    assert template["lifecycle_owner"] == "equipment"
-    assert template["applied"] is False
-    assert template["applied_target_id"] is None
+    assert template["name"] == "Fire Sight"
+    assert template["scope"] == "instance"
 
 
 def test_v4_migration_groups_existing_condition_augmentations() -> None:
@@ -406,7 +478,11 @@ def test_v6_migration_backfills_required_sheet_attribute() -> None:
     definition = migrated.state["attributes"]["amount_of_reactions"]
     bridge = migrated.state["sheets"]["mage"]["attributes"]["amount_of_reactions"]
     assert definition["required"] is True
-    assert definition["default_value"]["formula"]["text"].startswith("1 + min")
+    formula = _resolve_formula_payload(
+        migrated.state,
+        definition["default_value"]["formula"],
+    )
+    assert formula["text"].startswith("1 + min")
     assert definition["name"] == "Action / Reaction Points"
     assert definition["unit"] == "points"
     assert bridge["relationship_id"] == "required_attribute_amount_of_reactions"
@@ -568,9 +644,15 @@ def test_v15_migration_normalizes_weapon_actions_and_equipped_proficiencies() ->
             "entry_id": "dodge",
         }
     }
-    assert migrated.state["actions"]["weapon_damage"]["steps"][0]["message"]["aliases"][0][
-        "path"
-    ] == ["source_item", "attributes", "weapon_base_damage"]
+    formula = _resolve_formula_payload(
+        migrated.state,
+        migrated.state["actions"]["weapon_damage"]["steps"][0]["message"],
+    )
+    assert formula["aliases"][0]["path"] == [
+        "source_item",
+        "attributes",
+        "weapon_base_damage",
+    ]
     assert migrated.state["sheets"]["hero"]["proficiencies"][
         "weapon_proficiency_axes"
     ] == {
@@ -935,11 +1017,18 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     seeded_proficiencies = legacy.state.pop("proficiencies")
     seeded_tags = legacy.state.pop("tags")
     item_templates = legacy.state.pop("item_templates")
+    formulas = legacy.state.pop("formulas")
+    formula_entries = legacy.state["catalog_entries"]
     assert required_attribute["amount_of_reactions"]["required"] is True
     assert seeded_actions == seeded_global_action_payloads()
     assert seeded_proficiencies["long_swords"]["category"] == "weapon_family"
     assert seeded_tags["weapon"]["name"] == "Weapon"
     assert item_templates == {}
+    assert set(canonical_action_formula_definitions()).issubset(formulas)
+    assert {
+        entry["entry_id"] for entry in formula_entries.values()
+    } == set(formulas)
+    legacy.state["catalog_entries"] = {}
     assert legacy.state == {
         "sheets": {},
         "items": {},
@@ -1223,7 +1312,7 @@ def test_v19_migration_drops_condition_preset_augmentation_ids() -> None:
 
     preset = migrated.state["condition_presets"]["poisoned"]
     assert "augmentation_ids" not in preset
-    assert preset["augmentation_templates"] == []
+    assert preset["effect_ids"] == []
 
 
 def test_v20_migration_backfills_active_condition_metadata() -> None:
@@ -1302,12 +1391,14 @@ def test_v21_migration_structures_augmentation_lifecycle() -> None:
     assert standalone["mode"] == "manual"
     assert standalone["notes"] is None
 
-    preset_template = migrated.state["condition_presets"]["poisoned"][
-        "augmentation_templates"
-    ][0]["lifecycle"]
+    preset = migrated.state["condition_presets"]["poisoned"]
+    preset_template = migrated.state["standalone_effects"][preset["effect_ids"][0]][
+        "lifecycle"
+    ]
     assert preset_template["notes"] == "Until treated"
 
-    item_template = migrated.state["items"]["helm"]["augmentation_templates"][0][
+    item = migrated.state["items"]["helm"]
+    item_template = migrated.state["standalone_effects"][item["effect_ids"][0]][
         "lifecycle"
     ]
     assert item_template["notes"] == "Unequipped"
@@ -1398,9 +1489,13 @@ def test_v10_migration_replaces_only_old_generic_action_defaults() -> None:
 
     assert "attack" not in result.state["actions"]
     assert "parry" not in result.state["actions"]
-    assert result.state["actions"]["block"]["steps"][0]["rolls"][0]["value"][
-        "aliases"
-    ] == [{"name": "strength", "path": ["sheet", "stats", "strength"]}]
+    block_formula = _resolve_formula_payload(
+        result.state,
+        result.state["actions"]["block"]["steps"][0]["rolls"][0]["value"],
+    )
+    assert block_formula["aliases"] == [
+        {"name": "strength", "path": ["sheet", "stats", "strength"]}
+    ]
     assert result.state["actions"]["custom"]["name"] == "Custom"
     assert set(result.state["sheets"]["fighter"]["actions"]) == {"custom"}
 
@@ -1457,6 +1552,14 @@ def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
     assert result.state["actions"]["weapon_parry"] == actions["weapon_parry"]
     migrated_customized_contest = deepcopy(customized_contest)
     migrated_customized_contest["steps"][0].pop("visibility")
+    custom_formula = migrated_customized_contest["steps"][0]["message"]
+    migrated_customized_contest["steps"][0]["message"] = result.state["actions"][
+        "weapon_contest"
+    ]["steps"][0]["message"]
+    assert _resolve_formula_payload(
+        result.state,
+        migrated_customized_contest["steps"][0]["message"],
+    ) == custom_formula
     assert result.state["actions"]["weapon_contest"] == migrated_customized_contest
 
 
@@ -1594,6 +1697,168 @@ def test_v31_migration_removes_authored_action_message_visibility() -> None:
     assert "visibility" not in steps[2]
 
 
+def test_v47_migration_centralizes_item_template_and_condition_effects() -> None:
+    def legacy_effect(effect_id: str, *, target_root: str = "sheet") -> dict:
+        return {
+            "id": effect_id,
+            "name": effect_id.replace("_", " ").title(),
+            "description": "Legacy inline effect.",
+            "scope": target_root,
+            "target": {"root": target_root, "path": ["health"]},
+            "effect": {
+                "type": "formula_modifier",
+                "operation": "add",
+                "value": {"aliases": None, "text": "1", "tags": []},
+                "selector": {},
+            },
+            "active": True,
+        }
+
+    result = migrate_persisted_state(
+        {
+            "schema_version": 46,
+            "state": {
+                "standalone_effects": {
+                    "existing": {
+                        "id": "existing",
+                        "name": "Existing",
+                    }
+                },
+                "catalog_entries": {
+                    "effects:existing": {
+                        "id": "effects:existing",
+                        "catalog": "effects",
+                        "entry_id": "existing",
+                        "folder_id": None,
+                        "position": 4,
+                    }
+                },
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "augmentation_templates": [legacy_effect("sharp")],
+                    }
+                },
+                "item_templates": {
+                    "weapon": {
+                        "id": "weapon",
+                        "augmentation_templates": [legacy_effect("balanced")],
+                    }
+                },
+                "condition_presets": {
+                    "poisoned": {
+                        "id": "poisoned",
+                        "augmentation_templates": [
+                            legacy_effect("drain", target_root="instance")
+                        ],
+                    }
+                },
+            },
+        }
+    )
+
+    assert result.source_version == 46
+    owners = [
+        result.state["items"]["sword"],
+        result.state["item_templates"]["weapon"],
+        result.state["condition_presets"]["poisoned"],
+    ]
+    migrated_ids = [owner["effect_ids"][0] for owner in owners]
+    assert len(set(migrated_ids)) == 3
+    assert all("augmentation_templates" not in owner for owner in owners)
+    assert set(result.state["standalone_effects"]) == {
+        "existing",
+        *migrated_ids,
+    }
+    assert all(
+        result.state["standalone_effects"][effect_id]["scope"] == "instance"
+        and result.state["standalone_effects"][effect_id]["target"]["root"]
+        == "instance"
+        for effect_id in migrated_ids
+    )
+    assert {
+        result.state["catalog_entries"][f"effects:{effect_id}"]["position"]
+        for effect_id in migrated_ids
+    } == {5, 6, 7}
+
+
+def test_v48_migration_centralizes_authored_consumer_formulas() -> None:
+    inline = {
+        "aliases": [{"name": "strength", "path": ["stats", "strength"]}],
+        "text": "@strength + 2",
+        "tags": ["damage"],
+    }
+    result = migrate_persisted_state(
+        {
+            "schema_version": 47,
+            "state": {
+                "attributes": {
+                    "power": {
+                        "id": "power",
+                        "name": "Power",
+                        "subject_types": ["sheet"],
+                        "value_type": "number",
+                        "default_value": {
+                            "type": "formula",
+                            "formula": deepcopy(inline),
+                        },
+                    }
+                },
+                "actions": {
+                    "strike": {
+                        "id": "strike",
+                        "name": "Strike",
+                        "steps": [
+                            {
+                                "step_id": "damage",
+                                "type": "resolve_damage",
+                                "target": "target",
+                                "damage_type": "Physical",
+                                "amount": deepcopy(inline),
+                            }
+                        ],
+                    }
+                },
+                "standalone_effects": {
+                    "boost": {
+                        "id": "boost",
+                        "name": "Boost",
+                        "scope": "instance",
+                        "target": {"root": "instance", "path": ["health"]},
+                        "effect": {
+                            "type": "formula_modifier",
+                            "operation": "add",
+                            "value": deepcopy(inline),
+                            "selector": {},
+                        },
+                    }
+                },
+                "sheets": {
+                    "hero": {
+                        "id": "hero",
+                        "stats": {
+                            "strength": deepcopy(inline),
+                        },
+                    }
+                },
+            },
+        }
+    )
+
+    references = [
+        result.state["attributes"]["power"]["default_value"]["formula"],
+        result.state["actions"]["strike"]["steps"][0]["amount"],
+        result.state["standalone_effects"]["boost"]["effect"]["value"],
+    ]
+    assert all(reference["type"] == "formula_reference" for reference in references)
+    assert len({reference["formula_id"] for reference in references}) == 3
+    assert all(
+        reference["formula_id"] in result.state["formulas"]
+        for reference in references
+    )
+    assert result.state["sheets"]["hero"]["stats"]["strength"] == inline
+
+
 def test_backup_migration_rejects_invalid_and_future_envelopes() -> None:
     with pytest.raises(PersistedStateError, match="must be a JSON object"):
         migrate_persisted_state([])
@@ -1681,12 +1946,24 @@ def test_v39_migration_updates_only_canonical_action_reaction_formulas() -> None
     assert result.state["instanced_sheets"]["hero_1"]["reactions"] == 0.5
     assert definition["name"] == "Action / Reaction Points"
     assert definition["unit"] == "points"
-    assert definition["default_value"]["formula"]["text"].startswith("1 + min")
-    assert migrated_bridge["value"]["formula"]["aliases"] == [
+    default_formula = _resolve_formula_payload(
+        result.state,
+        definition["default_value"]["formula"],
+    )
+    bridge_formula = _resolve_formula_payload(
+        result.state,
+        migrated_bridge["value"]["formula"],
+    )
+    assert default_formula["text"].startswith("1 + min")
+    assert bridge_formula["aliases"] == [
         {"name": "reaction_time", "path": ["stats", "reaction_time"]}
     ]
     assert migrated_bridge["evaluated_value"] is None
-    assert custom_bridge["value"] == custom_value
+    custom_formula = _resolve_formula_payload(
+        result.state,
+        custom_bridge["value"]["formula"],
+    )
+    assert custom_formula == custom_value["formula"]
 
 
 def test_export_and_replace_state_preserve_private_data(isolate_state: Path) -> None:

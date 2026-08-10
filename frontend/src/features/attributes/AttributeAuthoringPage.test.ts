@@ -5,21 +5,17 @@ import {
 } from "@/features/attributes/attributeEditorValues";
 
 describe("AttributeAuthoringPage values", () => {
-  it("preserves formula aliases in an authored numeric Attribute", () => {
+  it("stores a canonical formula reference in an authored numeric Attribute", () => {
     const draft = emptyAttributeDraft();
     draft.name = "Reaction Limit";
     draft.numberMode = "formula";
-    draft.defaultText = "@registration + @reaction_time";
-    draft.formulaAliases = [
-      { name: "registration", path: ["stats", "registration"] },
-      { name: "reaction_time", path: ["stats", "reaction_time"] }
-    ];
+    draft.formulaId = "reaction_limit_formula";
 
     expect(attributePayloadFromDraft(draft, "reaction_limit")?.default_value).toEqual({
       type: "formula",
       formula: {
-        aliases: draft.formulaAliases,
-        text: "@registration + @reaction_time"
+        type: "formula_reference",
+        formula_id: "reaction_limit_formula"
       }
     });
   });

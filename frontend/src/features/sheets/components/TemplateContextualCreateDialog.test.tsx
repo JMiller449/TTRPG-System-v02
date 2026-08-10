@@ -49,7 +49,7 @@ describe("TemplateContextualCreateDialog", () => {
     expect(item).not.toContain("Quick start");
     expect(item).toContain("Create Item");
     expect(item).toContain("Equipment effects");
-    expect(item).toContain("Add Effect");
+    expect(item).toContain("Effects are reusable definitions");
     expect(item).toContain("Reference and GM notes");
     expect(item).toContain("Granted actions");
     expect(item).not.toContain("Open Action Authoring");

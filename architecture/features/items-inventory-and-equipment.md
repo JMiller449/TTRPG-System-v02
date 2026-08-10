@@ -63,9 +63,10 @@ them.
 
 `set_instanced_sheet_item_equipped` checks assignment, quantity, interaction
 type, and current instance ownership. The state-sync reconciliation hook derives
-equipment-owned augmentations from every equipped, in-stock item and removes
-them on unequip or depletion. Direct effects are projected from a stable base
-so repeated synchronization does not double-apply them.
+equipment-owned augmentations by resolving every equipped, in-stock item's
+canonical `effect_ids`, and removes them on unequip or depletion. Direct effects
+are projected from a stable base so repeated synchronization does not
+double-apply them.
 
 Action grants are resolved through the exact source `ItemBridge`. Carried or
 equipped availability is enforced at execution time. Quantity consumption is
@@ -98,9 +99,10 @@ mechanics.
 Item Templates navigation tab and builder page. The Item Maker remains focused
 on creating items: its explicit start screen offers start from scratch or
 choose a template. Choosing a template deep-copies its descriptive fields,
-tags, Attributes, effects, and action grants into an independent item draft
-with new relationship/effect IDs and no player availability. Later template
-changes or deletion do not alter items already created from it.
+tags, Attributes, effect references, and action grants into an independent item
+draft with new Attribute relationship IDs and no player availability. Later
+item-template changes or deletion do not alter items already created from it;
+editing a referenced effect definition intentionally affects every consumer.
 
 ## Catalog visibility and player proposals
 
@@ -160,11 +162,10 @@ Item draft Attributes render as compact summary cards inside the editor's
 Attributes disclosure. Add Existing opens a nested catalog dialog, and clicking
 a card opens its focused draft value or formula editor instead of leaving
 attachment and editing controls expanded in the main Item form.
-Item-owned equipment effects follow the same compact authoring pattern without
-changing their equipment lifecycle: the Item form shows attached effect cards
-with inline removal, while Add Effect and card editing navigate to a focused
-effect editor within the current Item workspace. This avoids nested dialogs when
-the Item builder was itself opened from a character sheet.
+Equipment effects are selected from the shared Effect catalog. Item and item
+template payloads store only stable `effect_ids`; effect payloads are authored
+once in Effect Authoring. The backend validates source-item aliases against each
+referring item and revalidates all consumers when a definition changes.
 DMs and players can drag an unequipped item onto a valid storage card or the
 root inventory drop zone. The location selector remains the keyboard and touch
 fallback. The shared move route is available to authenticated players only for

@@ -29,19 +29,14 @@ describe("DM example acceptance fixtures", () => {
       expect(payload.attributes).toEqual(item.attributes ?? {});
       expect(payload.tags).toEqual(item.tags ?? []);
       expect(payload.action_grants).toEqual(item.action_grants ?? []);
-      expect((payload.augmentation_templates ?? []).map((effect) => effect.id)).toEqual(
-        (item.augmentation_templates ?? []).map((effect) => effect.id)
-      );
+      expect(payload.effect_ids).toEqual(item.effect_ids ?? []);
     }
 
-    const manaSwordTemplates = toItemDefinitionPayload(
+    const manaSwordEffectIds = toItemDefinitionPayload(
       toItemEditorValues(dmExampleItems.sword_of_mana),
       "sword_of_mana"
-    ).augmentation_templates;
-    expect(manaSwordTemplates).toHaveLength(1);
-    const manaSwordModifier = manaSwordTemplates?.[0];
-    expect(manaSwordModifier?.effect.type).toBe("evaluation_formula_modifier");
-    expect(manaSwordModifier?.effect.selector?.same_source_item).toBe(true);
+    ).effect_ids;
+    expect(manaSwordEffectIds).toEqual(["sword_of_mana_effect_bonus"]);
   });
 
   it("round-trips the three supplied actions without changing ordered steps or Attributes", () => {

@@ -30,10 +30,18 @@ from backend.features.attributes.service import (
 )
 from backend.features.sheet_admin.formulas.service import validate_formula_alias_paths
 from backend.features.inventory.service import validate_inventory
+from backend.features.augmentations import service as augmentation_service
 from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry.service import is_augmentation_target_allowed
-from backend.state.default_actions import seeded_global_actions
-from backend.state.models.augmentation import Augmentation, AugmentationSource
+from backend.state.default_actions import (
+    canonical_action_formula_definitions,
+    seeded_global_actions,
+)
+from backend.state.models.augmentation import (
+    Augmentation,
+    AugmentationSource,
+    StandaloneEffectDefinition,
+)
 from backend.state.models.attribute import (
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     WEAPON_PROFICIENCY_ATTRIBUTE_ID,
@@ -185,33 +193,38 @@ def _validate_item_augmentation_formula_aliases(
             )
 
 
-def _validate_item_augmentation_formulas(item: Item, state: State) -> None:
-    for augmentation in item.augmentation_templates:
-        _validate_item_augmentation_formula_aliases(
-            state=state,
-            item=item,
-            augmentation=augmentation,
-        )
-
-
-def _build_item_augmentation_templates(
-    payload: ItemDefinitionPayload,
-) -> list[Augmentation]:
-    augmentations = [
-        Augmentation.from_dict(augmentation.model_dump(mode="json"))
-        for augmentation in payload.augmentation_templates
-    ]
-    for augmentation in augmentations:
-        augmentation.source = AugmentationSource(
+def validate_item_effect_definition(
+    definition: StandaloneEffectDefinition,
+    *,
+    item: Item,
+    state: State,
+) -> None:
+    augmentation = augmentation_service.effect_definition_as_augmentation(
+        definition,
+        state=state,
+        source=AugmentationSource(
             type="item",
-            id=payload.id,
-            label=payload.name,
-        )
-        augmentation.lifecycle_owner = "equipment"
-        augmentation.applied = False
-        augmentation.applied_target_id = None
-        _validate_item_augmentation_template(augmentation)
-    return augmentations
+            id=item.id,
+            label=item.name,
+        ),
+        lifecycle_owner="equipment",
+    )
+    _validate_item_augmentation_template(augmentation)
+    _validate_item_augmentation_formula_aliases(
+        state=state,
+        item=item,
+        augmentation=augmentation,
+    )
+
+
+def _validate_item_effects(item: Item, state: State) -> None:
+    if len(item.effect_ids) != len(set(item.effect_ids)):
+        raise ValueError("Item effect IDs must be unique.")
+    for effect_id in item.effect_ids:
+        definition = state.standalone_effects.get(effect_id)
+        if definition is None:
+            raise ValueError(f"Effect '{effect_id}' does not exist.")
+        validate_item_effect_definition(definition, item=item, state=state)
 
 
 def _build_item(payload: ItemDefinitionPayload) -> Item:
@@ -237,7 +250,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
         storage_capacity_weight=payload.storage_capacity_weight,
         contents_weight_behavior=payload.contents_weight_behavior,
         tags=list(payload.tags),
-        augmentation_templates=_build_item_augmentation_templates(payload),
+        effect_ids=list(payload.effect_ids),
         action_grants=[
             ItemActionGrant(
                 action_id=grant["action_id"],
@@ -254,7 +267,7 @@ def _build_item(payload: ItemDefinitionPayload) -> Item:
 
 
 def _validate_item_attributes(item: Item, state: State) -> None:
-    synchronize_required_item_attributes(item, state.attributes)
+    synchronize_required_item_attributes(item, state.attributes, state.formulas)
     relationship_ids: set[str] = set()
     for attribute_id, bridge in item.attributes.items():
         if bridge.attribute_id != attribute_id:
@@ -280,7 +293,7 @@ def _validate_item_attributes(item: Item, state: State) -> None:
                     f"Item Attribute '{attribute_id}' references nonexistent proficiency "
                     f"'{missing_id}'."
                 )
-    validate_and_evaluate_subject_attributes(item)
+    validate_and_evaluate_subject_attributes(item, state)
 
 
 def _validate_item_tags(item: Item, state: State) -> None:
@@ -397,11 +410,23 @@ def _add_missing_default_action_mutations(
     required_action_ids: set[str],
 ) -> list:
     ops = []
+    default_formulas = canonical_action_formula_definitions()
     for action_id, action in seeded_global_actions().items():
         if action_id not in required_action_ids:
             continue
         if action_id in state.actions:
             continue
+        for formula_id in sorted(action.referenced_formula_ids()):
+            if formula_id in state.formulas:
+                continue
+            formula_path = state_sync_service.join_path("formulas", formula_id)
+            ops.append(
+                state_sync_service.add_mutation(
+                    state,
+                    formula_path,
+                    default_formulas[formula_id],
+                )
+            )
         path = state_sync_service.join_path("actions", action_id)
         ops.append(state_sync_service.add_mutation(state, path, action))
     return ops
@@ -478,7 +503,7 @@ async def _create_item(
             raise ValueError(f"Item '{payload.id}' already exists.")
         _validate_item_attributes(item, state)
         _validate_item_tags(item, state)
-        _validate_item_augmentation_formulas(item, state)
+        _validate_item_effects(item, state)
         _validate_item_action_grants(item, state)
         _validate_item_player_catalog_access(item, state)
         _validate_existing_item_bridges(item, state)
@@ -514,7 +539,7 @@ async def _update_item(
 
         _validate_item_attributes(item, state)
         _validate_item_tags(item, state)
-        _validate_item_augmentation_formulas(item, state)
+        _validate_item_effects(item, state)
         _validate_item_action_grants(item, state)
         _validate_item_player_catalog_access(item, state)
         _validate_existing_item_bridges(item, state)
@@ -631,7 +656,7 @@ def _validate_item_template(template: Item, state: State) -> None:
         instance_ids=[],
     )
     _validate_item_attributes(template, state)
-    _validate_item_augmentation_formulas(template, state)
+    _validate_item_effects(template, state)
     _validate_item_action_grants(template, state)
     _validate_item_tags(template, state)
 
@@ -842,7 +867,7 @@ async def submit_player_item(
             gm_special_properties="",
             price=payload.price.strip(),
             weight=payload.weight,
-            augmentation_templates=[],
+            effect_ids=[],
             player_catalog_access=ItemPlayerCatalogAccess(mode="none"),
             approval_status="pending",
             submitted_by_instance_id=instance_id,
@@ -901,49 +926,59 @@ async def upsert_item_augmentation_template(
     request: UpsertItemAugmentationTemplate,
 ) -> None:
     augmentation = Augmentation.from_dict(request.augmentation.model_dump(mode="json"))
-    augmentation.source = AugmentationSource(type="item", id=request.item_id)
-    augmentation.lifecycle_owner = "equipment"
-    augmentation.applied = False
-    augmentation.applied_target_id = None
-    _validate_item_augmentation_template(augmentation)
+    if augmentation.target.root == "sheet":
+        augmentation.target.root = "instance"
+        augmentation.scope = "instance"
+    definition = StandaloneEffectDefinition(
+        id=augmentation.id,
+        name=augmentation.name,
+        description=augmentation.description,
+        scope=augmentation.scope,
+        target=deepcopy(augmentation.target),
+        effect=deepcopy(augmentation.effect),
+        active=augmentation.active,
+        lifecycle=deepcopy(augmentation.lifecycle),
+    )
 
     def mutation(state: State) -> tuple[None, list]:
+        from backend.features.standalone_effects.service import (
+            validate_effect_definition_references,
+        )
+
         item = state.items.get(request.item_id)
         if item is None:
             raise ValueError(f"Item '{request.item_id}' does not exist.")
         if item.interaction_type != "equippable":
-            raise ValueError("Only equippable items can have augmentation templates.")
-        augmentation.source.label = item.name
+            raise ValueError("Only equippable items can have effects.")
         candidate = deepcopy(item)
-        replaced = False
-        for index, current in enumerate(candidate.augmentation_templates):
-            if current.id == augmentation.id:
-                candidate.augmentation_templates[index] = augmentation
-                replaced = True
-                break
-        if not replaced:
-            candidate.augmentation_templates.append(augmentation)
-        _validate_item_augmentation_formulas(candidate, state)
+        if definition.id not in candidate.effect_ids:
+            candidate.effect_ids.append(definition.id)
+        candidate_state = deepcopy(state)
+        candidate_state.standalone_effects[definition.id] = definition
+        validate_item_effect_definition(definition, item=candidate, state=candidate_state)
+        validate_effect_definition_references(definition, candidate_state)
 
-        for index, current in enumerate(item.augmentation_templates):
-            if current.id == augmentation.id:
-                path = state_sync_service.join_path(
-                    "items",
-                    request.item_id,
-                    "augmentation_templates",
-                    str(index),
-                )
-                op = state_sync_service.set_mutation(state, path, augmentation)
-                return None, [op]
-
-        path = state_sync_service.join_path(
-            "items",
-            request.item_id,
-            "augmentation_templates",
-            "-",
+        effect_path = state_sync_service.join_path(
+            "standalone_effects", definition.id
         )
-        op = state_sync_service.add_mutation(state, path, augmentation)
-        return None, [op]
+        effect_op = (
+            state_sync_service.set_mutation(state, effect_path, definition)
+            if definition.id in state.standalone_effects
+            else state_sync_service.add_mutation(state, effect_path, definition)
+        )
+        ops = [effect_op]
+        if definition.id not in item.effect_ids:
+            ops.append(
+                state_sync_service.add_mutation(
+                    state,
+                    state_sync_service.join_path(
+                        "items", request.item_id, "effect_ids", "-"
+                    ),
+                    definition.id,
+                )
+            )
+        ops.extend(augmentation_service.synchronize_projected_direct_effects_mutation(state))
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -956,19 +991,19 @@ async def remove_item_augmentation_template(
         if item is None:
             raise ValueError(f"Item '{request.item_id}' does not exist.")
 
-        for index, current in enumerate(item.augmentation_templates):
-            if current.id == request.augmentation_id:
+        for index, effect_id in enumerate(item.effect_ids):
+            if effect_id == request.augmentation_id:
                 path = state_sync_service.join_path(
                     "items",
                     request.item_id,
-                    "augmentation_templates",
+                    "effect_ids",
                     str(index),
                 )
                 _, op = state_sync_service.remove_mutation(state, path)
                 return None, [op]
 
         raise ValueError(
-            f"Item augmentation template '{request.augmentation_id}' does not exist."
+            f"Item effect reference '{request.augmentation_id}' does not exist."
         )
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

@@ -63,7 +63,7 @@ function item(id: string, name: string): ItemDefinition {
     description: "",
     price: "",
     weight: 0,
-    augmentation_templates: []
+    effect_ids: []
   };
 }
 

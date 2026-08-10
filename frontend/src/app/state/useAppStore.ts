@@ -1,15 +1,15 @@
 import { useContext } from "react";
 import { AppDispatchContext, AppStateContext, StoreContext } from "@/app/state/storeContext";
 
-export function useAppState() {
+export function useOptionalAppState() {
   const state = useContext(AppStateContext);
   const legacyContext = useContext(StoreContext);
-  if (state) {
-    return state;
-  }
-  if (legacyContext) {
-    return legacyContext.state;
-  }
+  return state ?? legacyContext?.state ?? null;
+}
+
+export function useAppState() {
+  const state = useOptionalAppState();
+  if (state) return state;
   throw new Error("useAppState must be used inside AppStoreProvider");
 }
 

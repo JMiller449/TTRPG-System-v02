@@ -22,7 +22,7 @@ function testItem(overrides: Partial<ItemDefinition> = {}): ItemDefinition {
     weight: 3,
     tags: [],
     attributes: {},
-    augmentation_templates: [],
+    effect_ids: [],
     ...overrides
   };
 }
@@ -77,7 +77,7 @@ describe("itemMakerRequests", () => {
           contents_weight_behavior: "normal",
           tags: [],
           attributes: {},
-          augmentation_templates: [],
+          effect_ids: [],
           action_grants: []
         }
       },

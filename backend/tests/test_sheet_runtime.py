@@ -31,6 +31,7 @@ from backend.state.models.attribute import (
 from backend.state.models.item import Item, ItemBridge
 from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.state import State
 from backend.state.models.shared import Bridge
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -649,22 +650,59 @@ def _build_standalone_effect_state(
     )
 
 
-def _build_condition_preset_state(condition_id: str = "poisoned") -> ConditionPreset:
+def _build_condition_preset_state(
+    state: State,
+    condition_id: str = "poisoned",
+) -> ConditionPreset:
     payload = _build_augmentation_state(
         augmentation_id="poison-drain",
         operation="subtract",
         value="5",
     )
     payload.source.type = "condition"
+    definition = StandaloneEffectDefinition(
+        id=payload.id,
+        name=payload.name,
+        description=payload.description,
+        scope=payload.scope,
+        target=deepcopy(payload.target),
+        effect=deepcopy(payload.effect),
+        active=payload.active,
+        lifecycle=deepcopy(payload.lifecycle),
+    )
+    state.standalone_effects[definition.id] = definition
     return ConditionPreset.from_dict(
         {
             "id": condition_id,
             "name": "Poisoned",
             "description": "Poison drains current health.",
             "visibility": "public",
-            "augmentation_templates": [asdict(payload)],
+            "effect_ids": [definition.id],
         }
     )
+
+
+def _centralized_item(state: State, raw: dict) -> Item:
+    payload = deepcopy(raw)
+    effect_ids: list[str] = []
+    for template_payload in payload.pop("augmentation_templates", []):
+        template = Augmentation.from_dict(template_payload)
+        target = deepcopy(template.target)
+        target.root = "instance"
+        definition = StandaloneEffectDefinition(
+            id=template.id,
+            name=template.name,
+            description=template.description,
+            scope="instance",
+            target=target,
+            effect=deepcopy(template.effect),
+            active=template.active,
+            lifecycle=deepcopy(template.lifecycle),
+        )
+        state.standalone_effects[definition.id] = definition
+        effect_ids.append(definition.id)
+    payload["effect_ids"] = effect_ids
+    return Item.from_dict(payload)
 
 
 def _evaluation_augmentation_payload(
@@ -1853,7 +1891,8 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                 },
                 source_id="inactive-focus",
             )
-            state.items["focus"] = Item.from_dict(
+            state.items["focus"] = _centralized_item(
+                state,
                 {
                     "id": "focus",
                     "name": "Flame Focus",
@@ -1867,7 +1906,8 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
                     ],
                 }
             )
-            state.items["inactive-focus"] = Item.from_dict(
+            state.items["inactive-focus"] = _centralized_item(
+                state,
                 {
                     "id": "inactive-focus",
                     "name": "Inactive Focus",
@@ -1910,7 +1950,9 @@ def test_perform_action_applies_matching_equipped_item_numeric_modifier(
 
             assert state.instanced_sheets["mage_instance"].health == 75
             assert state.actions["fire_damage"].steps[0].amount.text == "10"
-            assert state.items["focus"].augmentation_templates[0].applied is False
+            assert state.standalone_effects[
+                state.items["focus"].effect_ids[0]
+            ].active is True
             assert len(state.augmentations) == 2
             assert all(
                 augmentation.lifecycle_owner == "equipment"
@@ -1955,7 +1997,8 @@ def test_perform_action_modifier_can_read_matched_action_attribute(monkeypatch) 
                     ],
                 }
             )
-            state.items["focus"] = Item.from_dict(
+            state.items["focus"] = _centralized_item(
+                state,
                 {
                     "id": "focus",
                     "name": "Flame Focus",
@@ -2042,7 +2085,8 @@ def test_equipment_direct_effect_can_read_owning_item_attribute(monkeypatch) -> 
             state.actions["sync_probe"] = Action.from_dict(
                 {"id": "sync_probe", "name": "Sync Probe", "steps": []}
             )
-            state.items["focus"] = Item.from_dict(
+            state.items["focus"] = _centralized_item(
+                state,
                 {
                     "id": "focus",
                     "name": "Strength Focus",
@@ -2161,7 +2205,8 @@ def test_item_modifier_source_item_attribute_requires_explicit_source(monkeypatc
                     ],
                 }
             )
-            state.items["test-sword"] = Item.from_dict(
+            state.items["test-sword"] = _centralized_item(
+                state,
                 {
                     "id": "test-sword",
                     "name": "Test Sword",
@@ -2290,7 +2335,8 @@ def test_same_source_item_modifier_only_matches_executing_item(
                 },
                 source_id="mana-sword",
             )
-            state.items["mana-sword"] = Item.from_dict(
+            state.items["mana-sword"] = _centralized_item(
+                state,
                 {
                     "id": "mana-sword",
                     "name": "Sword of Mana",
@@ -2408,7 +2454,8 @@ def test_same_source_item_modifier_treats_same_definition_bridges_as_distinct(
                     ],
                 }
             )
-            state.items["mana-sword"] = Item.from_dict(
+            state.items["mana-sword"] = _centralized_item(
+                state,
                 {
                     "id": "mana-sword",
                     "name": "Sword of Mana",
@@ -2581,7 +2628,8 @@ def test_equipped_roll_mode_modifier_applies_and_cancels_requested_mode(
                 },
                 source_id="shield",
             )
-            state.items["shield"] = Item.from_dict(
+            state.items["shield"] = _centralized_item(
+                state,
                 {
                         "id": "shield",
                         "name": "Shield",
@@ -4130,6 +4178,9 @@ def test_perform_action_applies_instance_augmentation_step(monkeypatch) -> None:
             assert [op["path"] for op in websocket.sent_messages[0]["ops"]] == [
                 f"/standalone_effect_applications/{application_id}",
                 "/instanced_sheets/mage_instance/health",
+                "/standalone_effects",
+                "/catalog_folders",
+                "/catalog_entries",
             ]
             assert len(_request_messages(websocket, message_type="state_patch")) == 1
         finally:
@@ -4155,7 +4206,7 @@ def test_perform_action_applies_condition_preset_step(monkeypatch) -> None:
             state.instanced_sheets["mage_instance"] = _build_instance_state(
                 state.sheets["mage_template"]
             )
-            state.condition_presets["poisoned"] = _build_condition_preset_state()
+            state.condition_presets["poisoned"] = _build_condition_preset_state(state)
             state.actions["poison"] = Action.from_dict(
                 {
                     "id": "poison",
@@ -4222,7 +4273,7 @@ def test_apply_condition_step_requires_instance(monkeypatch) -> None:
             _reset_state()
             state = StateSingleton.getState()
             state.sheets["mage_template"] = _build_sheet_state()
-            state.condition_presets["poisoned"] = _build_condition_preset_state()
+            state.condition_presets["poisoned"] = _build_condition_preset_state(state)
             state.actions["poison"] = Action.from_dict(
                 {
                     "id": "poison",

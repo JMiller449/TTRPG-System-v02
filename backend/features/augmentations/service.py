@@ -22,9 +22,12 @@ from backend.state.models.augmentation import (
     Augmentation,
     AugmentationSource,
     DirectEffectProjection,
+    EvaluationFormulaModifierEffect,
+    FormulaModifierEffect,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
+from backend.state.models.formula import resolve_formula_source
 from backend.state.models.condition import ActiveCondition, ConditionSource
 from backend.state.models.shared import Bridge
 from backend.state.models.state import State
@@ -125,6 +128,31 @@ def _effect_matches_context(
     )
 
 
+def effect_definition_as_augmentation(
+    definition: StandaloneEffectDefinition,
+    *,
+    state: State,
+    source: AugmentationSource,
+    lifecycle_owner: Literal["manual", "equipment", "condition", "action"],
+) -> Augmentation:
+    """Materialize a canonical effect definition for a source-specific lifecycle."""
+    effect = deepcopy(definition.effect)
+    if isinstance(effect, FormulaModifierEffect | EvaluationFormulaModifierEffect):
+        effect.value = deepcopy(resolve_formula_source(effect.value, state.formulas)[0])
+    return Augmentation(
+        id=definition.id,
+        name=definition.name,
+        description=definition.description,
+        source=source,
+        scope=definition.scope,
+        target=deepcopy(definition.target),
+        effect=effect,
+        active=definition.active,
+        lifecycle_owner=lifecycle_owner,
+        lifecycle=deepcopy(definition.lifecycle),
+    )
+
+
 def matching_evaluation_effects(
     state: State,
     *,
@@ -146,8 +174,14 @@ def matching_evaluation_effects(
                 not in {"evaluation_formula_modifier", "roll_mode_modifier"}
             ):
                 continue
-            if _effect_matches_context(definition.effect, context):
-                effects.append(definition.effect)
+            materialized_effect = effect_definition_as_augmentation(
+                definition,
+                state=state,
+                source=deepcopy(application.source),
+                lifecycle_owner="action",
+            ).effect
+            if _effect_matches_context(materialized_effect, context):
+                effects.append(materialized_effect)
 
     for augmentation in state.augmentations.values():
         if (
@@ -177,17 +211,34 @@ def matching_evaluation_effects(
         item = state.items.get(bridge.item_id)
         if item is None or item.interaction_type != "equippable":
             continue
-        for template in item.augmentation_templates:
-            if not template.active or not _is_evaluation_time_effect(template):
+        for effect_id in item.effect_ids:
+            definition = state.standalone_effects.get(effect_id)
+            if (
+                definition is None
+                or not definition.active
+                or definition.effect.type
+                not in {"evaluation_formula_modifier", "roll_mode_modifier"}
+            ):
                 continue
-            if template.scope == "instance" and instance_id is None:
+            if definition.scope == "instance" and instance_id is None:
                 continue
+            materialized_effect = effect_definition_as_augmentation(
+                definition,
+                state=state,
+                source=AugmentationSource(
+                    type="item",
+                    id=item.id,
+                    label=item.name,
+                    relationship_id=bridge.relationship_id,
+                ),
+                lifecycle_owner="equipment",
+            ).effect
             if _effect_matches_context(
-                template.effect,
+                materialized_effect,
                 context,
                 effect_source_item_relationship_id=bridge.relationship_id,
             ):
-                effects.append(template.effect)
+                effects.append(materialized_effect)
 
     return tuple(effects)
 
@@ -221,9 +272,16 @@ def _desired_equipment_augmentations(state: State) -> dict[str, Augmentation]:
                 continue
 
             application_id = f"equipment:{instance_id}:{bridge.relationship_id}"
-            for template in item.augmentation_templates:
-                if not template.active:
+            for effect_id in item.effect_ids:
+                definition = state.standalone_effects.get(effect_id)
+                if definition is None or not definition.active:
                     continue
+                template = effect_definition_as_augmentation(
+                    definition,
+                    state=state,
+                    source=AugmentationSource(type="item", id=item.id, label=item.name),
+                    lifecycle_owner="equipment",
+                )
                 _validate_runtime_augmentation_target(template)
                 augmentation = deepcopy(template)
                 if augmentation.target.root == "sheet":
@@ -257,23 +315,21 @@ def standalone_effect_application_id(definition_id: str, instance_id: str) -> st
 
 
 def _standalone_application_augmentation(
+    state: State,
     definition: StandaloneEffectDefinition,
     application: StandaloneEffectApplication,
 ) -> Augmentation:
-    return Augmentation(
-        id=application.application_id,
-        name=definition.name,
-        description=definition.description,
+    augmentation = effect_definition_as_augmentation(
+        definition,
+        state=state,
         source=deepcopy(application.source),
-        scope=definition.scope,
-        target=deepcopy(definition.target),
-        effect=deepcopy(definition.effect),
-        active=definition.active and application.active,
-        applied=True,
-        applied_target_id=application.instance_id,
         lifecycle_owner="action",
-        lifecycle=deepcopy(definition.lifecycle),
     )
+    augmentation.id = application.application_id
+    augmentation.active = definition.active and application.active
+    augmentation.applied = True
+    augmentation.applied_target_id = application.instance_id
+    return augmentation
 
 
 def _desired_standalone_augmentations(state: State) -> dict[str, Augmentation]:
@@ -286,7 +342,11 @@ def _desired_standalone_augmentations(state: State) -> dict[str, Augmentation]:
         definition = state.standalone_effects.get(application.definition_id)
         if definition is None or not definition.active:
             continue
-        augmentation = _standalone_application_augmentation(definition, application)
+        augmentation = _standalone_application_augmentation(
+            state,
+            definition,
+            application,
+        )
         _validate_runtime_augmentation_target(augmentation)
         desired[application_id] = augmentation
     return desired
@@ -634,7 +694,11 @@ def apply_standalone_effect_mutation(
         )
     ]
     ops.extend(synchronize_projected_direct_effects_mutation(state))
-    augmentation = _standalone_application_augmentation(definition, application)
+    augmentation = _standalone_application_augmentation(
+        state,
+        definition,
+        application,
+    )
     if _is_evaluation_time_effect(augmentation):
         return (
             AugmentationMutationResult(
@@ -706,7 +770,11 @@ def remove_standalone_effect_mutation(
             ),
             ops,
         )
-    augmentation = _standalone_application_augmentation(definition, application)
+    augmentation = _standalone_application_augmentation(
+        state,
+        definition,
+        application,
+    )
     target = _resolve_target(state, augmentation, instance_id=instance_id)
     return (
         AugmentationMutationResult(
@@ -1119,8 +1187,8 @@ def _apply_condition_preset_mutation(
 
     results: list[AugmentationMutationResult] = []
     augmentation_ids = [
-        _condition_augmentation_id(condition.id, instance_id, template.id)
-        for template in condition.augmentation_templates
+        _condition_augmentation_id(condition.id, instance_id, effect_id)
+        for effect_id in condition.effect_ids
     ]
     active_condition = ActiveCondition(
         application_id=application_id,
@@ -1143,7 +1211,23 @@ def _apply_condition_preset_mutation(
         )
     ]
 
-    for template in condition.augmentation_templates:
+    for effect_id in condition.effect_ids:
+        definition = state.standalone_effects.get(effect_id)
+        if definition is None:
+            raise ValueError(
+                f"Condition preset '{condition.id}' references missing effect "
+                f"'{effect_id}'."
+            )
+        template = effect_definition_as_augmentation(
+            definition,
+            state=state,
+            source=AugmentationSource(
+                type="condition",
+                id=condition.id,
+                label=condition.name,
+            ),
+            lifecycle_owner="condition",
+        )
         augmentation = _build_condition_augmentation(
             template,
             condition_id=condition.id,

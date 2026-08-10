@@ -644,10 +644,20 @@ Future work should be prioritized only after the table-readiness pass proves the
       (schema v21) — GM-tracked, not an auto-tick engine (turn/round automation stays a non-goal).
       Standalone effect stacking (schema v22): `StandaloneEffectDefinition.stacking` (`unique`
       default / `stack` with `max_stacks`); stacked applications accumulate through the existing
-      projection path and removal clears the whole stack. Remaining: `refresh`/`replace` modes and
-      condition stacking (need per-application lifecycle state / condition multi-application), GM
-      refresh/expire controls, and the authoring UI refresh incl. the Active Effects inspector
-      (Phase 5 — paused pending a UI-capable environment).
+      projection path and removal clears the whole stack. Canonical effect ownership (schema v47):
+      items, item templates, conditions, and actions now reference the shared Effect catalog by
+      stable ID; legacy embedded item/condition effects migrate into definitions with catalog
+      placements, and deletion/update validation covers every referring source. Remaining:
+      `refresh`/`replace` modes, condition stacking (need per-application lifecycle state / condition
+      multi-application), GM refresh/expire controls, and the stacking/lifecycle authoring UI refresh
+      incl. the Active Effects inspector (Phase 5 — paused pending a UI-capable environment).
+  - [x] Canonical formula ownership (schema v48): action-step formulas,
+    formula-backed sheet/item/action Attributes, and numeric Effect definitions now reference the
+    shared Formula catalog by stable ID. Legacy inline consumers migrate into deterministic
+    definitions with catalog placements; compatible inline action/Effect submissions are promoted
+    on mutation; formula edit/delete validation covers actions, Attributes, and Effects. Core sheet
+    stat/maximum formulas remain sheet-owned rules configuration, and materialized runtime
+    augmentations retain snapshots.
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode and alternative handling.
 - [ ] Mastery unlock enforcement and visibility for disabled/hidden content.

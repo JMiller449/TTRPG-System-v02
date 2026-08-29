@@ -674,43 +674,164 @@ button.sheet-proficiency-summary:focus-visible {
   margin-bottom: 0.35rem;
 }
 
-.sheet-runtime-resource__heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+.sheet-runtime-resource {
+  border: 1px solid color-mix(in srgb, var(--line), transparent 18%);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.65rem 0.75rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%),
+    color-mix(in srgb, var(--card) 62%, transparent);
 }
 
-.sheet-runtime-resource__heading h4 {
-  flex: 1 1 auto;
+.sheet-runtime-resource__summary {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sheet-runtime-resource__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.sheet-runtime-resource__identity h4 {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  line-height: 1.25;
+}
+
+.sheet-runtime-resource__balance {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 0.18rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sheet-runtime-resource__balance strong {
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.sheet-runtime-resource__availability {
+  margin-left: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sheet-runtime-resource__actions {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  background: var(--r6-control-bg-soft, var(--card));
+}
+
+.r6-theme .sheet-runtime-resource__actions .button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 0;
+  padding: 0.35rem 0.7rem;
+  box-shadow: none;
+}
+
+.r6-theme .sheet-runtime-resource__actions .button + .button {
+  border-left: 1px solid var(--line);
+}
+
+.r6-theme .sheet-runtime-resource__actions .sheet-runtime-resource__reset {
+  color: var(--muted);
+  background: transparent;
+}
+
+.r6-theme .sheet-runtime-resource__actions .sheet-runtime-resource__reset:hover {
+  color: var(--text);
+  background: var(--r6-control-bg-hover, var(--card));
 }
 
 .sheet-runtime-resource__readouts {
   display: flex;
-  flex: 0 0 auto;
-  align-items: baseline;
-  gap: 0.85rem;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
 }
 
 .sheet-runtime-resource__metric {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
+  display: grid;
+  gap: 0.08rem;
+  min-width: 88px;
   margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+  border-left: 1px solid color-mix(in srgb, var(--line), transparent 20%);
+  padding-left: 0.75rem;
 }
 
-.sheet-runtime-resource__metric span {
-  color: var(--text);
+.sheet-runtime-resource__metric + .sheet-runtime-resource__metric {
+  margin-left: 0.75rem;
+}
+
+.sheet-runtime-resource__metric dt {
+  color: var(--muted);
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.sheet-runtime-resource__metric strong {
+.sheet-runtime-resource__metric dd {
+  margin: 0;
   color: var(--accent-strong);
+  font-size: 0.96rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .sheet-runtime-resource__summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem 0.85rem;
+  }
+
+  .sheet-runtime-resource__actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 520px) {
+  .sheet-runtime-resource__summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-runtime-resource__identity {
+    justify-content: space-between;
+  }
+
+  .sheet-runtime-resource__readouts {
+    grid-row: 2;
+  }
+
+  .sheet-runtime-resource__actions {
+    grid-row: 3;
+    justify-self: stretch;
+  }
+
+  .sheet-runtime-resource__actions .button {
+    flex: 1 1 0;
+  }
 }
 
 .character-sheet__utility {

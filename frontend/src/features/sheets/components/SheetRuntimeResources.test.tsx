@@ -20,13 +20,13 @@ describe("SheetRuntimeResources", () => {
       />
     );
     expect(markup).toContain("Action / Reaction Points");
-    expect(markup).toContain("1 / 2 available");
-    expect(markup).toContain("Dodge Chance");
+    expect(markup).toContain('aria-label="1 of 2 available"');
+    expect(markup).toContain("Dodge");
     expect(markup).toContain("Dodge = FLOOR(Dexterity × (d100 / 100))");
-    expect(markup).toContain("<strong>26</strong>");
+    expect(markup).toContain("<dd>26</dd>");
     expect(markup).toContain("Movement");
     expect(markup).toContain("greatest Dexterity threshold met");
-    expect(markup).toContain("<strong>30 ft</strong>");
+    expect(markup).toContain("<dd>30 ft</dd>");
     expect(markup).toContain(">Spend</button>");
     expect(markup).toContain(">Restore</button>");
     expect(markup).toContain(">Reset</button>");
@@ -78,7 +78,7 @@ describe("SheetRuntimeResources", () => {
         onReset={() => undefined}
       />
     );
-    expect(markup).toContain("3 / 3 available");
+    expect(markup).toContain('aria-label="3 of 3 available"');
     expect(markup).not.toContain(">Spend</button>");
     expect(markup).not.toContain(">Restore</button>");
     expect(markup).not.toContain(">Reset</button>");

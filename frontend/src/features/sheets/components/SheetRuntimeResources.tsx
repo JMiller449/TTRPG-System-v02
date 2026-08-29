@@ -29,40 +29,24 @@ export function SheetReactionResource({
   const canReset = current !== maximum;
 
   return (
-    <section className="character-sheet__section character-sheet__section--compact">
-      <div className="sheet-runtime-resource__heading">
-        <h4>Action / Reaction Points</h4>
-        <div className="sheet-runtime-resource__readouts">
+    <section className="character-sheet__section character-sheet__section--compact sheet-runtime-resource">
+      <div className="sheet-runtime-resource__summary">
+        <div className="sheet-runtime-resource__identity">
+          <h4>Action / Reaction Points</h4>
           <p
-            className="sheet-runtime-resource__metric"
-            title="Dodge = FLOOR(Dexterity × (d100 / 100))"
+            className="sheet-runtime-resource__balance"
+            aria-label={`${formatFraction(current)} of ${formatFraction(maximum)} available`}
           >
-            <span>Dodge Chance</span>
-            <strong>{formatFraction(dodgeChance)}</strong>
-          </p>
-          <p
-            className="sheet-runtime-resource__metric"
-            title="Movement uses the greatest Dexterity threshold met. Values above 400 are handled by GM discretion."
-          >
-            <span>Movement</span>
-            <strong>
-              {movementSpeed === null ? "GM discretion" : `${formatFraction(movementSpeed)} ft`}
-            </strong>
+            <strong>{formatFraction(current)}</strong>
+            <span aria-hidden="true">/ {formatFraction(maximum)}</span>
+            <span className="sheet-runtime-resource__availability" aria-hidden="true">
+              Available
+            </span>
           </p>
         </div>
-      </div>
-      <div className="inline-actions">
-        <p className="muted">
-          {formatFraction(current)} / {formatFraction(maximum)} available
-        </p>
         {canManage ? (
-          <>
-            <button
-              className="button button--secondary"
-              type="button"
-              disabled={!canConsume}
-              onClick={onSpend}
-            >
+          <div className="sheet-runtime-resource__actions" aria-label="Action and reaction points">
+            <button className="button" type="button" disabled={!canConsume} onClick={onSpend}>
               Spend
             </button>
             <button
@@ -73,11 +57,34 @@ export function SheetReactionResource({
             >
               Restore
             </button>
-            <button className="button" type="button" disabled={!canReset} onClick={onReset}>
+            <button
+              className="button button--secondary sheet-runtime-resource__reset"
+              type="button"
+              disabled={!canReset}
+              onClick={onReset}
+            >
               Reset
             </button>
-          </>
+          </div>
         ) : null}
+        <dl className="sheet-runtime-resource__readouts">
+          <div
+            className="sheet-runtime-resource__metric"
+            title="Dodge = FLOOR(Dexterity × (d100 / 100))"
+          >
+            <dt>Dodge</dt>
+            <dd>{formatFraction(dodgeChance)}</dd>
+          </div>
+          <div
+            className="sheet-runtime-resource__metric"
+            title="Movement uses the greatest Dexterity threshold met. Values above 400 are handled by GM discretion."
+          >
+            <dt>Movement</dt>
+            <dd>
+              {movementSpeed === null ? "GM discretion" : `${formatFraction(movementSpeed)} ft`}
+            </dd>
+          </div>
+        </dl>
       </div>
     </section>
   );

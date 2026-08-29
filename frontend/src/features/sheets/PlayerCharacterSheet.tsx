@@ -86,6 +86,7 @@ function sheetInitials(name: string): string {
 export function PlayerCharacterSheet({
   mode = "player",
   panelTitle,
+  panelVariant = "default",
   activeTab: controlledActiveTab,
   onActiveTabChange,
   showTabs = true,
@@ -93,6 +94,7 @@ export function PlayerCharacterSheet({
 }: {
   mode?: "player" | "gm";
   panelTitle?: string;
+  panelVariant?: "default" | "frameless";
   activeTab?: PlayerSheetTab;
   onActiveTabChange?: (tab: PlayerSheetTab) => void;
   showTabs?: boolean;
@@ -429,6 +431,7 @@ export function PlayerCharacterSheet({
     <Panel
       title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}
       className="sheet-panel"
+      variant={panelVariant}
     >
       <article className="character-sheet">
         <header className="character-sheet__header">

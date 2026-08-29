@@ -165,6 +165,13 @@
   backdrop-filter: blur(16px) saturate(125%);
 }
 
+.r6-theme .panel.panel--frameless {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .r6-theme .panel__header {
   position: relative;
   z-index: 1;

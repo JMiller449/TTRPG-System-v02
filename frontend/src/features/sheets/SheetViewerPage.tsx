@@ -6,7 +6,12 @@ export function SheetViewerPage({ client }: { client: GameClient }): JSX.Element
   return (
     <div className="main-panel-stack main-panel-stack--sheet-viewer">
       <ActiveSheetSelector client={client} />
-      <PlayerCharacterSheet mode="gm" panelTitle="Spawned Sheet" client={client} />
+      <PlayerCharacterSheet
+        mode="gm"
+        panelTitle="Spawned Sheet"
+        panelVariant="frameless"
+        client={client}
+      />
     </div>
   );
 }

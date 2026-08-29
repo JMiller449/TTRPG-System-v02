@@ -70,6 +70,16 @@ textarea:disabled {
   padding: 0.85rem;
 }
 
+.panel.panel--frameless {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.panel.panel--frameless > .panel__body {
+  margin-top: 0;
+}
+
 .panel__header {
   display: flex;
   justify-content: space-between;

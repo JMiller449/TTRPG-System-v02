@@ -207,7 +207,8 @@ Frontend:
   ownership and backend effect behavior are unchanged.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
-- GM spawned-sheet density pass (2026-07-31): the desktop Characters workspace now consistently compacts its sheet selector, panel chrome, identity/resources, advancement, tabs, action toolbar, and action cards instead of waiting for the constrained-height breakpoint. Infrequent character administration lives in a dedicated GM-only Management tab: player-code generation/rotation, template snapshots, and despawning all operate on the selected instance. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. Mobile flow and the taller-display player sheet remain unchanged. The management consolidation reuses existing backend contracts and does not change gameplay behavior.
+- GM spawned-sheet management consolidation (2026-07-31): infrequent character administration lives in a dedicated GM-only Management tab. Player-code generation/rotation, template snapshots, and despawning operate on the selected instance. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. The consolidation reuses existing backend contracts and does not change gameplay behavior.
+- Shared Player/GM sheet presentation (2026-08-29): both consoles now render the same frameless character-sheet surface, internal tab navigation, compact Stats section, and desktop density. Player navigation switches only between the character sheet and extension setup; GM-only history, management, editing, and private projections remain capability-controlled inside the shared sheet. The prior GM-only density treatment and taller-display Player divergence were removed so shared component and style cleanup applies to both roles directly. No backend authority, protocol, or gameplay behavior changed.
 - Derived formula stats are integrated with their evaluated values on the character Overview.
   Hover or keyboard focus explains the stored expression and aliases; a GM click opens a focused
   modal for that substat only. The duplicate Formula Stats tab and multi-stat editor list were
@@ -652,12 +653,12 @@ Future work should be prioritized only after the table-readiness pass proves the
       multi-application), GM refresh/expire controls, and the stacking/lifecycle authoring UI refresh
       incl. the Active Effects inspector (Phase 5 — paused pending a UI-capable environment).
   - [x] Canonical formula ownership (schema v48): action-step formulas,
-    formula-backed sheet/item/action Attributes, and numeric Effect definitions now reference the
-    shared Formula catalog by stable ID. Legacy inline consumers migrate into deterministic
-    definitions with catalog placements; compatible inline action/Effect submissions are promoted
-    on mutation; formula edit/delete validation covers actions, Attributes, and Effects. Core sheet
-    stat/maximum formulas remain sheet-owned rules configuration, and materialized runtime
-    augmentations retain snapshots.
+        formula-backed sheet/item/action Attributes, and numeric Effect definitions now reference the
+        shared Formula catalog by stable ID. Legacy inline consumers migrate into deterministic
+        definitions with catalog placements; compatible inline action/Effect submissions are promoted
+        on mutation; formula edit/delete validation covers actions, Attributes, and Effects. Core sheet
+        stat/maximum formulas remain sheet-owned rules configuration, and materialized runtime
+        augmentations retain snapshots.
 - [ ] Combat/turn tracking.
 - [ ] Overload selected mode and alternative handling.
 - [ ] Mastery unlock enforcement and visibility for disabled/hidden content.

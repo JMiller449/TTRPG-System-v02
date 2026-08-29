@@ -532,7 +532,7 @@ button.sheet-proficiency-summary:focus-visible {
   overflow: hidden;
 }
 
-.r6-theme .main-panel-stack--sheet-viewer .sheet-panel.panel--frameless .character-sheet {
+.r6-theme .sheet-panel.panel--frameless .character-sheet {
   border: 0;
   background: transparent;
 }
@@ -2550,165 +2550,85 @@ button.sheet-attribute-summary:focus-visible {
   justify-self: start;
 }
 
-/* On constrained-height desktop displays, preserve the tab panel as the
-   character workspace's owned scroll region by compacting fixed chrome. */
+/* Player and GM consoles share one desktop sheet density. The surrounding
+   workspace may differ, but shared sheet chrome must not drift by role. */
 @media (min-width: 961px) {
-  .main-panel-stack--sheet-viewer .sheet-panel.panel {
-    padding: 0.5rem;
-  }
-
-  .main-panel-stack--sheet-viewer .sheet-panel > .panel__header {
-    padding: 0 0.05rem 0.3rem;
-  }
-
-  .main-panel-stack--sheet-viewer .sheet-panel > .panel__body {
-    margin-top: 0.3rem;
-  }
-
-  .main-panel-stack--sheet-viewer .sheet-panel .character-sheet {
+  .sheet-panel .character-sheet {
     padding: 0.45rem;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__header {
+  .sheet-panel .character-sheet__header {
     grid-template-columns: auto minmax(120px, max-content) minmax(360px, 1fr);
     gap: 0.55rem;
     padding: 0.35rem 0.55rem;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__identity-mark {
+  .sheet-panel .character-sheet__identity-mark {
     width: 42px;
     height: 42px;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__header-main p {
+  .sheet-panel .character-sheet__header-main p {
     margin-top: 0.12rem;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__advancement {
+  .sheet-panel .character-sheet__advancement {
     gap: 0.45rem;
     margin: 0.3rem 0.55rem 0;
   }
 
-  .main-panel-stack--sheet-viewer .sheet-level,
-  .main-panel-stack--sheet-viewer .character-sheet__advancement .sheet-xp-progress {
+  .sheet-panel .sheet-level,
+  .sheet-panel .character-sheet__advancement .sheet-xp-progress {
     gap: 0.3rem;
     padding: 0.35rem 0.5rem;
   }
 
-  .main-panel-stack--sheet-viewer .resource-grid--header {
+  .sheet-panel .resource-grid--header {
     gap: 0.35rem;
   }
 
-  .main-panel-stack--sheet-viewer .resource-card__trigger {
+  .sheet-panel .resource-card__trigger {
     padding: 0.25rem 0.4rem;
   }
 
-  .main-panel-stack--sheet-viewer .resource-card__value {
+  .sheet-panel .resource-card__value {
     font-size: 1.25rem;
   }
 
-  .main-panel-stack--sheet-viewer .resource-card__meter {
+  .sheet-panel .resource-card__meter {
     height: 6px;
     margin-top: 0.25rem;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__tabs {
+  .sheet-panel .character-sheet__tabs {
     margin-top: 0.3rem;
     padding-inline: 0.55rem;
   }
 
-  .r6-theme .main-panel-stack--sheet-viewer .character-sheet__tab {
+  .r6-theme .sheet-panel .character-sheet__tab {
     min-height: 34px;
     padding: 0.2rem 0.5rem;
   }
 
-  .main-panel-stack--sheet-viewer .character-sheet__tab-panel {
+  .sheet-panel .character-sheet__tab-panel {
     padding: 0.4rem 0.55rem 0.1rem;
   }
 
-  .main-panel-stack--sheet-viewer #sheet-panel-actions .sheet-actions-section--command {
+  .sheet-panel #sheet-panel-actions .sheet-actions-section--command {
     gap: 0.45rem;
   }
 
-  .main-panel-stack--sheet-viewer #sheet-panel-actions .action-command-toolbar {
+  .sheet-panel #sheet-panel-actions .action-command-toolbar {
     gap: 0.45rem;
   }
 
-  .main-panel-stack--sheet-viewer .action-command-toolbar__heading {
+  .sheet-panel .action-command-toolbar__heading {
     margin-bottom: 0.25rem;
   }
 
-  .main-panel-stack--sheet-viewer #sheet-panel-actions .action-command-card {
+  .sheet-panel #sheet-panel-actions .action-command-card {
     min-height: 72px;
     padding: 0.45rem 0.55rem;
-  }
-}
-
-@media (min-width: 961px) and (max-height: 900px) {
-  .sheet-panel.panel {
-    padding: 0.6rem;
-  }
-
-  .sheet-panel > .panel__header {
-    padding: 0 0.05rem 0.35rem;
-  }
-
-  .sheet-panel > .panel__body {
-    margin-top: 0.35rem;
-  }
-
-  .sheet-panel .character-sheet {
-    padding: 0.55rem;
-  }
-
-  .character-sheet__header {
-    grid-template-columns: auto minmax(120px, max-content) minmax(360px, 1fr);
-    gap: 0.65rem;
-    padding: 0.45rem 0.65rem;
-  }
-
-  .character-sheet__identity-mark {
-    width: 46px;
-    height: 46px;
-  }
-
-  .character-sheet__advancement {
-    gap: 0.55rem;
-    margin: 0.4rem 0.65rem 0;
-  }
-
-  .sheet-level,
-  .character-sheet__advancement .sheet-xp-progress {
-    padding: 0.45rem 0.6rem;
-  }
-
-  .resource-grid--header {
-    gap: 0.4rem;
-  }
-
-  .resource-card__trigger {
-    padding: 0.28rem 0.45rem;
-  }
-
-  .resource-card__value {
-    font-size: 1.35rem;
-  }
-
-  .resource-card__meter {
-    margin-top: 0.3rem;
-  }
-
-  .character-sheet__tabs {
-    margin-top: 0.4rem;
-    padding-inline: 0.65rem;
-  }
-
-  .character-sheet__tab {
-    padding: 0.25rem 0.55rem;
-  }
-
-  .character-sheet__tab-panel {
-    padding: 0.55rem 0.65rem 0.15rem;
   }
 }
 

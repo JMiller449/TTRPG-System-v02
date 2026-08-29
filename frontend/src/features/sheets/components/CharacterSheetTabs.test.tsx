@@ -26,4 +26,28 @@ describe("CharacterSheetTabs", () => {
     expect(markup).toContain('id="sheet-tab-management"');
     expect(markup).toContain(">Management</button>");
   });
+
+  it("keeps every shared destination identical across player and GM modes", () => {
+    const playerMarkup = renderToStaticMarkup(
+      <CharacterSheetTabs activeTab="overview" onChange={() => undefined} />
+    );
+    const gmMarkup = renderToStaticMarkup(
+      <CharacterSheetTabs activeTab="overview" onChange={() => undefined} mode="gm" />
+    );
+
+    for (const tabId of [
+      "overview",
+      "actions",
+      "inventory",
+      "resistances",
+      "attributes",
+      "proficiencies",
+      "kills",
+      "backstory",
+      "notes"
+    ]) {
+      expect(playerMarkup).toContain(`id="sheet-tab-${tabId}"`);
+      expect(gmMarkup).toContain(`id="sheet-tab-${tabId}"`);
+    }
+  });
 });

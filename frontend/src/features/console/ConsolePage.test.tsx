@@ -43,7 +43,7 @@ afterEach(async () => {
 });
 
 describe("ConsolePage player navigation", () => {
-  it("exposes the Extension setup from the player workspace", async () => {
+  it("keeps sheet sections inside the shared sheet while exposing player workspaces", async () => {
     await act(async () => {
       root.render(
         createElement(
@@ -57,9 +57,13 @@ describe("ConsolePage player navigation", () => {
     const extensionButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Install / Sync Bridge"
     );
-    const overviewButton = container.querySelector<HTMLButtonElement>("#sheet-tab-overview");
+    const sheetButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Character Sheet"
+    );
     expect(extensionButton).toBeDefined();
-    expect(overviewButton?.getAttribute("aria-selected")).toBe("true");
+    expect(sheetButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).not.toContain("Sheet Sections");
+    expect(container.querySelector('[data-testid="player-sheet"]')).not.toBeNull();
 
     await act(async () => {
       extensionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -68,7 +72,14 @@ describe("ConsolePage player navigation", () => {
     expect(container.querySelector('[data-testid="player-extension"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="player-sheet"]')).toBeNull();
     expect(extensionButton?.getAttribute("aria-pressed")).toBe("true");
-    expect(overviewButton?.getAttribute("aria-selected")).toBe("false");
-    expect(overviewButton?.classList.contains("character-sheet__tab--active")).toBe(false);
+    expect(sheetButton?.getAttribute("aria-pressed")).toBe("false");
+
+    await act(async () => {
+      sheetButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelector('[data-testid="player-sheet"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="player-extension"]')).toBeNull();
+    expect(sheetButton?.getAttribute("aria-pressed")).toBe("true");
   });
 });

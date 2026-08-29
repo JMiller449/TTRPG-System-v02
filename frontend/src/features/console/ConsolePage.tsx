@@ -3,18 +3,14 @@ import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
-import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { ExtensionPage } from "@/features/extension/ExtensionPage";
-import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
 export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const activeDetail = selectActiveSheetDetail(state);
-  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("overview");
   const [showExtension, setShowExtension] = useState(false);
 
   useEffect(() => {
-    setActiveTab("overview");
     setShowExtension(false);
   }, [activeDetail?.instance.id]);
 
@@ -35,22 +31,22 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
         </div>
 
         <div className="nav-panel__section nav-panel__section--tabs">
-          <p className="nav-panel__eyebrow">Sheet Sections</p>
-          <CharacterSheetTabs
-            activeTab={activeTab}
-            isActive={!showExtension}
-            onChange={(tab) => {
-              setActiveTab(tab);
-              setShowExtension(false);
-            }}
-          />
-        </div>
-
-        <div className="nav-panel__section nav-panel__section--tabs">
-          <p className="nav-panel__eyebrow">Tools</p>
+          <p className="nav-panel__eyebrow">Workspace</p>
           <button
             type="button"
-            className={`character-sheet__tab ${showExtension ? "character-sheet__tab--active" : ""}`}
+            className={`player-nav-panel__destination ${
+              !showExtension ? "player-nav-panel__destination--active" : ""
+            }`}
+            aria-pressed={!showExtension}
+            onClick={() => setShowExtension(false)}
+          >
+            Character Sheet
+          </button>
+          <button
+            type="button"
+            className={`player-nav-panel__destination ${
+              showExtension ? "player-nav-panel__destination--active" : ""
+            }`}
             aria-pressed={showExtension}
             onClick={() => setShowExtension(true)}
           >
@@ -66,15 +62,8 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
               <ExtensionPage client={client} />
             </section>
           ) : (
-            <section className={`player-workspace__sheet player-workspace__sheet--${activeTab}`}>
-              <PlayerCharacterSheet
-                mode="player"
-                panelTitle="Character Sheet"
-                activeTab={activeTab}
-                onActiveTabChange={setActiveTab}
-                showTabs={false}
-                client={client}
-              />
+            <section className="player-workspace__sheet">
+              <PlayerCharacterSheet mode="player" client={client} />
             </section>
           )}
         </div>

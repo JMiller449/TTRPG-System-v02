@@ -85,19 +85,9 @@ function sheetInitials(name: string): string {
 
 export function PlayerCharacterSheet({
   mode = "player",
-  panelTitle,
-  panelVariant = "default",
-  activeTab: controlledActiveTab,
-  onActiveTabChange,
-  showTabs = true,
   client
 }: {
   mode?: "player" | "gm";
-  panelTitle?: string;
-  panelVariant?: "default" | "frameless";
-  activeTab?: PlayerSheetTab;
-  onActiveTabChange?: (tab: PlayerSheetTab) => void;
-  showTabs?: boolean;
   client: GameClient;
 }): JSX.Element {
   const {
@@ -127,7 +117,7 @@ export function PlayerCharacterSheet({
     setSelectedItemId
   } = useSheetDetailState();
 
-  const [localActiveTab, setLocalActiveTab] = useState<PlayerSheetTab>("overview");
+  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("overview");
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
@@ -158,8 +148,6 @@ export function PlayerCharacterSheet({
   const attachedCreatedProficiencyRequestRef = useRef<string | null>(null);
   const attachedCreatedActionRequestRef = useRef<string | null>(null);
   const attachedCreatedItemRequestRef = useRef<string | null>(null);
-  const activeTab = controlledActiveTab ?? localActiveTab;
-  const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
   const closeFormulaStatEditor = useCallback(() => setEditingFormulaStatName(null), []);
 
   const statEditor = useStatModifierEditor({
@@ -179,9 +167,7 @@ export function PlayerCharacterSheet({
   const visibleResistances = detail?.persistentSheet.resistances ?? detail?.sheet?.resistances;
 
   useEffect(() => {
-    if (!controlledActiveTab) {
-      setLocalActiveTab("overview");
-    }
+    setActiveTab("overview");
     setEditingFormulaStatName(null);
     setAttributeCreatorOpen(false);
     setProficiencyCreatorOpen(false);
@@ -196,7 +182,7 @@ export function PlayerCharacterSheet({
     attachedCreatedProficiencyRequestRef.current = null;
     attachedCreatedActionRequestRef.current = null;
     attachedCreatedItemRequestRef.current = null;
-  }, [controlledActiveTab, detail?.instance.id]);
+  }, [detail?.instance.id]);
 
   useEffect(() => {
     if (mode !== "gm" || actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
@@ -348,7 +334,7 @@ export function PlayerCharacterSheet({
 
   if (!detail) {
     return (
-      <Panel title="Character Sheet">
+      <Panel title="Character Sheet" className="sheet-panel" variant="frameless">
         <EmptyState message="No active sheet selected." />
       </Panel>
     );
@@ -429,9 +415,9 @@ export function PlayerCharacterSheet({
 
   return (
     <Panel
-      title={panelTitle ?? (mode === "gm" ? "Sheet Detail" : "Character Sheet")}
+      title={mode === "gm" ? "Spawned Sheet" : "Character Sheet"}
       className="sheet-panel"
-      variant={panelVariant}
+      variant="frameless"
     >
       <article className="character-sheet">
         <header className="character-sheet__header">
@@ -440,7 +426,7 @@ export function PlayerCharacterSheet({
           </div>
           <div className="character-sheet__header-main">
             <h3>{detail.instance.name}</h3>
-            <p>{mode === "gm" ? "Instanced sheet workspace" : "Active character sheet"}</p>
+            <p>Character sheet</p>
           </div>
           <div className="character-sheet__header-resources">
             <SheetResourceHeader
@@ -480,9 +466,7 @@ export function PlayerCharacterSheet({
           ) : null}
         </div>
 
-        {showTabs ? (
-          <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
-        ) : null}
+        <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
 
         {showOverviewSection ? (
           <div
@@ -614,7 +598,7 @@ export function PlayerCharacterSheet({
                 />
                 <SheetStatsSection
                   canEditStats={canEditStats}
-                  compact={mode === "player"}
+                  compact
                   stats={detail.stats}
                   formulaStats={instanceFormulaStats ?? undefined}
                   editingKey={statEditor.editingKey}
@@ -652,7 +636,7 @@ export function PlayerCharacterSheet({
                 <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
               </aside>
             </div>
-            {mode === "player" && pinnedActions.length > 0 ? (
+            {pinnedActions.length > 0 ? (
               <section className="character-sheet__section" aria-label="Pinned Actions">
                 <SheetActionsSection
                   assignedActions={pinnedActions}

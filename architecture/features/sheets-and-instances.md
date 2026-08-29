@@ -138,6 +138,17 @@ that submits through the DM-only instanced-sheet Attribute mutation. XP remains
 independently derived, and neither XP readiness nor a Level edit performs
 automatic advancement or stat distribution.
 
+Health and Mana values and meters interpolate from their distinct resource
+colors toward the danger color as the authoritative current-to-maximum ratio
+falls. The interpolation is eased and text is blended toward the normal sheet
+color so ordinary depletion remains restrained while near-empty resources are
+still legible. This is a continuous presentation of depletion rather than a
+frontend-invented critical threshold. The header does not repeat the numeric
+difference from maximum because the fraction and meter already communicate that
+relationship. The identity/resource, advancement, and tab regions share one
+continuous header surface instead of being separated by full-width rules and
+contrasting background bands.
+
 ## Deletion and dependencies
 
 A template cannot be deleted while spawned instances or encounter presets

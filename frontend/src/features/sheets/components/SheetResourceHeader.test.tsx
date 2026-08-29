@@ -44,12 +44,25 @@ describe("SheetResourceHeader", () => {
     });
 
     const healthCard = container.querySelector(".resource-card--health");
+    const manaCard = container.querySelector<HTMLElement>(".resource-card--mana");
     const healthTrigger = healthCard?.querySelector<HTMLButtonElement>(".resource-card__trigger");
 
     expect(healthTrigger?.textContent).toContain("Health");
-    expect(healthTrigger?.textContent).toContain("90/120");
+    expect(healthTrigger?.textContent).toContain("90 / 120");
     expect(healthTrigger?.querySelector(".resource-card__meter")).not.toBeNull();
     expect(container.querySelectorAll(".resource-card__trigger")).toHaveLength(2);
+    expect(container.textContent).not.toContain("-30");
+    expect(container.textContent).not.toContain("-1538");
+    expect(container.querySelectorAll(".resource-card__value.stat-value--down")).toHaveLength(0);
+    expect((healthCard as HTMLElement | null)?.style.getPropertyValue("--resource-fill")).toBe(
+      "75%"
+    );
+    expect(
+      (healthCard as HTMLElement | null)?.style.getPropertyValue("--resource-identity-weight")
+    ).toBe("93.75%");
+    expect(
+      Number.parseFloat(manaCard?.style.getPropertyValue("--resource-fill") ?? "0")
+    ).toBeCloseTo((30 / 1568) * 100);
 
     await act(async () => healthCard?.querySelector<HTMLElement>(".resource-card__label")?.click());
 

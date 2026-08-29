@@ -2,7 +2,6 @@ import { useEffect, useRef, type CSSProperties, type KeyboardEvent } from "react
 import { Field } from "@/shared/ui/Field";
 import {
   DISPLAY_NAMES,
-  formatModifier,
   PLAYER_HEALTH_DAMAGE_TYPES,
   type HealthDamageType,
   type ResourceKey,
@@ -62,14 +61,24 @@ export function SheetResourceHeader({
       {RESOURCE_KEYS.map((key) => {
         const baseValue = maximums[key];
         const currentValue = resources[key];
-        const delta = currentValue - baseValue;
         const editorId = `resource-editor-${key}`;
         const errorId = `${editorId}-error`;
         const hintId = `${editorId}-hint`;
         const fillPercent =
           baseValue > 0 ? Math.max(0, Math.min(100, (currentValue / baseValue) * 100)) : 0;
+        const remainingRatio = fillPercent / 100;
+        const identityPercent = baseValue > 0 ? (1 - (1 - remainingRatio) ** 2) * 100 : 100;
         return (
-          <article key={key} className={`resource-card resource-card--${key}`}>
+          <article
+            key={key}
+            className={`resource-card resource-card--${key}`}
+            style={
+              {
+                "--resource-fill": `${fillPercent}%`,
+                "--resource-identity-weight": `${identityPercent}%`
+              } as CSSProperties
+            }
+          >
             <button
               type="button"
               className="resource-card__trigger"
@@ -80,27 +89,13 @@ export function SheetResourceHeader({
             >
               <span className="resource-card__top">
                 <span className="resource-card__label">{DISPLAY_NAMES[key]}</span>
-                <strong
-                  className={`resource-card__value ${delta > 0 ? "stat-value--up" : delta < 0 ? "stat-value--down" : ""}`}
-                >
-                  {currentValue}/{baseValue}
+                <strong className="resource-card__value">
+                  {currentValue} / {baseValue}
                 </strong>
               </span>
               <span className="resource-card__meter" aria-hidden="true">
-                <span
-                  className="resource-card__meter-fill"
-                  style={{ "--resource-fill": `${fillPercent}%` } as CSSProperties}
-                />
+                <span className="resource-card__meter-fill" />
               </span>
-              {delta !== 0 ? (
-                <span className="resource-card__delta-row">
-                  <span
-                    className={`stat-modifier ${delta > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
-                  >
-                    {formatModifier(delta)}
-                  </span>
-                </span>
-              ) : null}
             </button>
 
             {editingResource === key ? (

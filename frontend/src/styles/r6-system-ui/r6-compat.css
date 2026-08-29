@@ -288,8 +288,8 @@
 
 .r6-theme .character-sheet__resources .resource-card,
 .r6-theme .character-sheet__header-resources .resource-card {
-  border-color: rgba(159, 225, 255, 0.3);
-  background: rgba(3, 18, 33, 0.78);
+  border-color: color-mix(in srgb, var(--r6-line), transparent 28%);
+  background: color-mix(in srgb, var(--r6-bg-card-soft) 58%, transparent);
 }
 
 .r6-theme .stat-editor--resource-popover {
@@ -302,7 +302,7 @@
 }
 .r6-theme .character-sheet__header,
 .r6-theme .character-sheet__tabs {
-  border-color: var(--r6-line);
+  border-color: transparent;
 }
 .r6-theme .character-sheet__section h4 {
   color: var(--r6-cyan-soft);
@@ -350,9 +350,18 @@
   text-transform: uppercase;
 }
 .r6-theme .resource-card__value {
-  color: var(--r6-text);
+  color: color-mix(
+    in oklch,
+    color-mix(
+        in oklch,
+        var(--resource-identity-end) var(--resource-identity-weight),
+        var(--r6-danger)
+      )
+      68%,
+    var(--r6-text)
+  );
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 14px rgba(94, 238, 255, 0.18);
+  text-shadow: none;
 }
 
 .r6-theme .core-block {

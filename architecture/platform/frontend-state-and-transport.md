@@ -108,17 +108,23 @@ the local draft intact and sends no intent; accepting still relies on the
 backend's normal dependency, authorization, and state validation.
 
 The desktop console owns the viewport and gives navigation, panels, editors,
-and character destinations explicit internal scroll regions. Player and GM
-character views render the same frameless sheet surface, in-sheet tab
-navigation, compact overview sections, and desktop density; role differences
-inside that surface are limited to authorized controls, private projections,
-and GM-only destinations such as Action History and Management. Their outer
-workspaces remain role-specific: the GM owns spawned-sheet selection and
-organization, while the Player rail switches between the claimed character
-sheet and extension setup. The active tab panel owns sheet scrolling so fixed
-chrome does not introduce whole-page horizontal scrolling. Viewports at or
-below 960 CSS pixels continue to use the document-flow mobile layout instead
-of the fixed desktop shell.
+and character destinations explicit internal scroll regions. Workspace stacks
+fill the available main-panel width; any narrower reading or editing measure is
+owned explicitly by the feature that needs it rather than by the shared stack.
+Authenticated destination panels use an explicit workspace variant that fills
+the workspace and omits redundant outer frame chrome, including stacked Backup
+& Undo panels and the Extension destination. Nested cards, dialogs, and
+feature-owned form measures keep their semantic boundaries. Player and GM
+character views render the same full-width frameless sheet surface, in-sheet
+tab navigation, compact overview sections, and desktop density; role
+differences inside that surface are limited to authorized controls, private
+projections, and GM-only destinations such as Action History and Management.
+Their outer workspaces remain role-specific: the GM owns spawned-sheet
+selection and organization, while the Player rail switches between the claimed
+character sheet and extension setup. The active tab panel owns sheet scrolling
+so fixed chrome does not introduce whole-page horizontal scrolling. Viewports
+at or below 960 CSS pixels continue to use the document-flow mobile layout
+instead of the fixed desktop shell.
 
 ## Principal tests
 

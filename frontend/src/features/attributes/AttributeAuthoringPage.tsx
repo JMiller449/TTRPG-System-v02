@@ -119,6 +119,7 @@ export function AttributeAuthoringPage({ client }: { client: GameClient }): JSX.
 
   return (
     <Panel
+      variant="workspace"
       title="Attribute Builder"
       subtitle="Attributes are typed facts — like Range or Mana Cost — that sheets, items, and actions can carry."
       actions={

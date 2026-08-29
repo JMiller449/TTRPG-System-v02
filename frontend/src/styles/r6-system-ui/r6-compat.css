@@ -172,6 +172,17 @@
   backdrop-filter: none;
 }
 
+.r6-theme .panel.panel--workspace {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.r6-theme .panel.panel--workspace > .panel__header {
+  border-bottom-color: color-mix(in srgb, var(--r6-line), transparent 42%);
+}
+
 .r6-theme .panel__header {
   position: relative;
   z-index: 1;

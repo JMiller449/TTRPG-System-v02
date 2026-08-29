@@ -40,7 +40,7 @@ export function PartyFolderWorkspace({
 
   return (
     <div className="xp-party-folders">
-      <nav className="xp-party-folder-nav" aria-label="Parties">
+      <nav className="xp-party-folder-nav xp-workspace-card" aria-label="Parties">
         <div className="xp-party-folder-nav__heading">
           <h3>Parties</h3>
           <small>{characters.length} spawned characters</small>
@@ -70,7 +70,7 @@ export function PartyFolderWorkspace({
         </div>
       </nav>
 
-      <section className="xp-party-folder-detail" aria-live="polite">
+      <section className="xp-party-folder-detail xp-workspace-card" aria-live="polite">
         {selectedParty ? (
           <PartyEditor
             party={selectedParty}

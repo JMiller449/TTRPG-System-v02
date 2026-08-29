@@ -244,6 +244,7 @@ export function ItemMakerPage({
 
   return (
     <Panel
+      variant="workspace"
       title={templateManagement ? "Item Template Builder" : "Item / Equipment Maker"}
       subtitle={
         templateManagement

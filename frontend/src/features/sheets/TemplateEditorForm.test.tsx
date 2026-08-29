@@ -12,7 +12,6 @@ function renderEditor(name = ""): string {
   values.name = name;
   return renderToStaticMarkup(
     <TemplateEditorForm
-      title="New Template"
       submitLabel="Create Template"
       values={values}
       actions={{}}
@@ -52,10 +51,11 @@ describe("TemplateEditorForm", () => {
     expect(markup).not.toContain(">Enemy<");
   });
 
-  it("does not confront a new draft with validation before review", () => {
+  it("does not add a redundant draft header or confront a new draft with validation", () => {
     const markup = renderEditor();
 
-    expect(markup).toContain("Draft in progress");
+    expect(markup).not.toContain("Draft in progress");
+    expect(markup).not.toContain("New Template");
     expect(markup).not.toContain("Template name is required.");
     expect(markup).not.toContain("issue to resolve");
     expect(markup).toContain("Only Details is required");

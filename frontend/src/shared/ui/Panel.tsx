@@ -12,12 +12,12 @@ export function Panel({
   subtitle?: string;
   actions?: ReactNode;
   className?: string;
-  variant?: "default" | "frameless";
+  variant?: "default" | "frameless" | "workspace";
   children: ReactNode;
 }): JSX.Element {
   const panelClassName = [
     "panel",
-    variant === "frameless" ? "panel--frameless" : "",
+    variant === "default" ? "" : `panel--${variant}`,
     className ?? ""
   ]
     .filter(Boolean)
@@ -25,7 +25,7 @@ export function Panel({
 
   return (
     <section className={panelClassName} aria-label={variant === "frameless" ? title : undefined}>
-      {variant === "default" ? (
+      {variant !== "frameless" ? (
         <header className="panel__header">
           <div className="panel__heading">
             <h2>{title}</h2>

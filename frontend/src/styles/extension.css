@@ -3,7 +3,7 @@
 }
 
 .extension-stage {
-  width: min(100%, 72rem);
+  width: 100%;
 }
 
 .extension-stage--install {
@@ -128,15 +128,14 @@
 }
 
 .extension-stage--sync {
-  align-self: center;
+  align-self: stretch;
   gap: 1rem;
-  max-width: 54rem;
-  margin-block: auto;
-  border: 1px solid var(--r6-line);
-  border-radius: var(--r6-radius-md, 3px);
-  padding: clamp(1rem, 3vw, 2rem);
-  background: linear-gradient(145deg, rgba(8, 31, 52, 0.86), rgba(3, 18, 33, 0.78));
-  box-shadow: inset 0 0 0 1px rgba(191, 249, 255, 0.04);
+  max-width: none;
+  margin-block: 0;
+  border: 0;
+  padding: clamp(0.75rem, 2vw, 1.5rem) 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .extension-sync__header {

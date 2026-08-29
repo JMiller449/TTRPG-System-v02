@@ -421,12 +421,14 @@ export function PlayerCharacterSheet({
     >
       <article className="character-sheet">
         <header className="character-sheet__header">
-          <div className="character-sheet__identity-mark" aria-hidden="true">
-            {sheetInitials(detail.instance.name)}
-          </div>
-          <div className="character-sheet__header-main">
-            <h3>{detail.instance.name}</h3>
-            <p>Character sheet</p>
+          <div className="character-sheet__identity">
+            <div className="character-sheet__identity-mark" aria-hidden="true">
+              {sheetInitials(detail.instance.name)}
+            </div>
+            <div className="character-sheet__header-main">
+              <h3>{detail.instance.name}</h3>
+              <p>Character sheet</p>
+            </div>
           </div>
           <div className="character-sheet__header-resources">
             <SheetResourceHeader
@@ -444,27 +446,30 @@ export function PlayerCharacterSheet({
               onResourceEditorKeyDown={resourceEditor.onResourceEditorKeyDown}
             />
           </div>
+          <div className="character-sheet__advancement">
+            <SheetLevelControl
+              level={level}
+              canEdit={mode === "gm"}
+              onSave={(nextLevel) => {
+                client.sendProtocolRequest(
+                  buildSetInstancedSheetAttributeValueRequest({
+                    instanceId: detail.instance.id,
+                    attributeId: "level",
+                    value: { type: "number", value: nextLevel }
+                  }),
+                  "Update character level"
+                );
+              }}
+            />
+            {sheetId ? (
+              <SheetXpProgressBar
+                client={client}
+                instanceId={detail.instance.id}
+                sheetId={sheetId}
+              />
+            ) : null}
+          </div>
         </header>
-
-        <div className="character-sheet__advancement">
-          <SheetLevelControl
-            level={level}
-            canEdit={mode === "gm"}
-            onSave={(nextLevel) => {
-              client.sendProtocolRequest(
-                buildSetInstancedSheetAttributeValueRequest({
-                  instanceId: detail.instance.id,
-                  attributeId: "level",
-                  value: { type: "number", value: nextLevel }
-                }),
-                "Update character level"
-              );
-            }}
-          />
-          {sheetId ? (
-            <SheetXpProgressBar client={client} instanceId={detail.instance.id} sheetId={sheetId} />
-          ) : null}
-        </div>
 
         <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
 

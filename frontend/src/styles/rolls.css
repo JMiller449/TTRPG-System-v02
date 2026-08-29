@@ -35,7 +35,7 @@
 }
 
 .action-history-entry {
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--line), transparent 28%);
   border-radius: var(--r6-radius-sm, 2px);
   background: var(--card);
   padding: 0.7rem;

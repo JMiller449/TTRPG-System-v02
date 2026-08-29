@@ -77,6 +77,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
 
   return (
     <Panel
+      variant="workspace"
       title="XP Registry"
       subtitle="Temporary proximity groups, permanent kill attribution, and derived character XP."
       actions={
@@ -151,7 +152,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
       {xpTracker && view === "registry" ? (
         <div className="xp-workspace xp-registry-layout">
           <form
-            className="xp-kill-create"
+            className="xp-kill-create xp-workspace-card"
             onSubmit={(event) => {
               event.preventDefault();
               const custom = monsterChoice === "custom";
@@ -260,7 +261,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             </div>
             {filteredKills.length === 0 ? <EmptyState message="No matching kills." /> : null}
             {filteredKills.map((kill) => (
-              <article className="xp-registry-entry" key={kill.id}>
+              <article className="xp-registry-entry xp-workspace-card" key={kill.id}>
                 <div className="xp-registry-entry__summary">
                   <div>
                     <strong>{kill.monster_name}</strong>
@@ -321,7 +322,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
 
       {xpTracker && view === "progress" ? (
         <div className="xp-workspace xp-progress-layout">
-          <section className="xp-tracker-section">
+          <section className="xp-tracker-section xp-workspace-card">
             <h3>Character Progress</h3>
             {characters.map((sheet) => (
               <article className="xp-progress-row" key={sheet.instance_id}>
@@ -347,7 +348,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             ))}
           </section>
 
-          <section className="xp-tracker-section">
+          <section className="xp-tracker-section xp-workspace-card">
             <h3>Manual Adjustment</h3>
             <form
               className="xp-adjustment-form"
@@ -431,7 +432,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             ))}
           </section>
 
-          <section className="xp-tracker-section">
+          <section className="xp-tracker-section xp-workspace-card">
             <h3>Player Thresholds</h3>
             <div className="xp-config-list">
               {playerSheets.map((sheet) => (
@@ -452,7 +453,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             </div>
           </section>
 
-          <section className="xp-tracker-section">
+          <section className="xp-tracker-section xp-workspace-card">
             <h3>Monster XP Defaults</h3>
             <div className="xp-config-list">
               {xpTracker.mobs.map((mob) => (

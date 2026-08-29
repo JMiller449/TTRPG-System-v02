@@ -218,6 +218,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
 
   return (
     <Panel
+      variant="workspace"
       className="action-authoring-panel"
       title="Action Authoring"
       subtitle="Build the rollable moves used at the table. An action is a list of steps that run in order when it is performed."

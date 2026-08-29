@@ -124,6 +124,7 @@ export function EncounterPanel({ client }: { client: GameClient }): JSX.Element 
 
   return (
     <Panel
+      variant="workspace"
       title="Encounter Presets"
       subtitle="Save enemy groups ahead of time so you can spawn a whole encounter in one click."
     >

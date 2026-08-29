@@ -224,7 +224,8 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
 
   return (
     <Panel
-      title="Template Builder"
+      variant="workspace"
+      title={sourceSheet ? `Edit ${sourceSheet.name}` : "Template Builder"}
       subtitle="Design a complete character or enemy sheet, section by section."
       className="template-builder-panel"
       actions={
@@ -241,7 +242,6 @@ export function TemplateCreatePage({ client }: { client: GameClient }): JSX.Elem
         </p>
       ) : (
         <TemplateEditorForm
-          title={sourceSheet ? `Edit ${sourceSheet.name}` : "New Template"}
           submitLabel={sourceSheet ? "Save Template" : "Create Template"}
           values={values}
           actions={actions}

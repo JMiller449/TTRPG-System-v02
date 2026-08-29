@@ -76,6 +76,11 @@ textarea:disabled {
   background: transparent;
 }
 
+.panel.panel--workspace {
+  border: 0;
+  background: transparent;
+}
+
 .panel.panel--frameless > .panel__body {
   margin-top: 0;
 }

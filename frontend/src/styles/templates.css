@@ -7,14 +7,12 @@
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   grid-template-areas:
-    "heading heading"
     "tabs content"
     "tabs footer";
   gap: 0.85rem;
   min-width: 0;
 }
 
-.template-builder__heading,
 .template-builder__footer,
 .template-builder__assignment-row {
   display: flex;
@@ -23,11 +21,6 @@
   gap: 0.75rem;
 }
 
-.template-builder__heading {
-  grid-area: heading;
-}
-
-.template-builder__heading h2,
 .template-builder__section h3,
 .template-builder__formula-editor h4 {
   margin: 0;
@@ -375,6 +368,31 @@
   background: var(--card);
 }
 
+@media (min-width: 961px) {
+  .main-panel-stack > .template-builder-panel > .panel__body {
+    display: grid;
+    overflow: hidden;
+  }
+
+  .template-builder {
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .template-builder__tabs,
+  .template-builder__content {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .template-builder__content {
+    padding-right: 0.35rem;
+  }
+}
+
 .template-builder__footer p {
   margin: 0 auto 0 0;
 }
@@ -574,7 +592,6 @@
   .template-builder {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "heading"
       "tabs"
       "content"
       "footer";
@@ -662,7 +679,6 @@
 }
 
 @media (max-width: 640px) {
-  .template-builder__heading,
   .template-builder__section-heading,
   .template-builder__assignment-row {
     align-items: stretch;

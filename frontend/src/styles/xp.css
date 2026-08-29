@@ -55,13 +55,18 @@
   gap: 0.75rem;
 }
 
+.xp-workspace-card,
+.xp-party-editor {
+  border: 1px solid color-mix(in srgb, var(--line), transparent 28%);
+  border-radius: var(--r6-radius-sm, 2px);
+  background: var(--card);
+}
+
 .xp-party-editor,
 .xp-kill-create,
-.xp-registry-entry {
-  border: 1px solid var(--line);
-  border-radius: 4px;
+.xp-registry-entry,
+.xp-tracker-section {
   padding: 0.85rem;
-  background: var(--card);
 }
 
 .xp-player-kill-form {
@@ -109,9 +114,6 @@
 .xp-party-folder-nav,
 .xp-party-folder-detail {
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--card);
 }
 
 .xp-party-folder-nav {
@@ -353,7 +355,15 @@
 
 .xp-tracker-section h3 {
   margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 38%);
+  padding-bottom: 0.6rem;
   font-size: 1rem;
+}
+
+.xp-tracker-section > .xp-progress-row:first-of-type,
+.xp-tracker-section .xp-config-list > .xp-config-row:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .xp-progress-row,

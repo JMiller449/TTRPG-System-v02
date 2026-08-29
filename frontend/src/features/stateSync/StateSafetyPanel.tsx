@@ -19,7 +19,7 @@ export function StateSafetyPanel({ client }: { client: GameClient }): JSX.Elemen
   };
 
   return (
-    <Panel title="State Safety">
+    <Panel title="State Safety" variant="workspace">
       <button type="button" className="button button--danger" onClick={undoLastChange}>
         Undo Last Change
       </button>

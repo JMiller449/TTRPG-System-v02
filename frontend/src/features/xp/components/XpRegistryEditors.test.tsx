@@ -104,6 +104,7 @@ describe("XP registry editors", () => {
     expect(container.textContent).toContain("Hero One");
     expect(container.textContent).not.toContain("Hero Two");
     expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
+    expect(container.querySelectorAll(".xp-workspace-card")).toHaveLength(2);
 
     const unassignedButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Unassigned")

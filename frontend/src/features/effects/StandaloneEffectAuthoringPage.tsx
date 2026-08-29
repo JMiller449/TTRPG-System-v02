@@ -162,6 +162,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
 
   return (
     <Panel
+      variant="workspace"
       title="Effect Authoring"
       subtitle="Reusable buffs and debuffs shared by actions, items, and conditions — a burning blade, a shield spell, a lingering curse."
       actions={

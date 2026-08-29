@@ -163,4 +163,43 @@ describe("Template Builder contextual controls", () => {
     expect(markup).toContain("Create reusable Proficiency…");
     expect(markup).toContain("Create reusable Item…");
   });
+
+  it("uses compact Attribute summaries instead of permanent inline editors", () => {
+    const values = createEmptyTemplateEditorValues();
+    const markup = renderToStaticMarkup(
+      <TemplateAttributesSection
+        values={values}
+        definitions={{
+          level: {
+            id: "level",
+            name: "Level",
+            description: "Current character or creature level.",
+            subject_types: ["sheet"],
+            value_type: "number",
+            default_value: { type: "number", value: 1 },
+            required: true
+          },
+          ancestry: {
+            id: "ancestry",
+            name: "Ancestry",
+            description: "Optional ancestry label.",
+            subject_types: ["sheet"],
+            value_type: "text",
+            default_value: { type: "text", value: "" },
+            required: false
+          }
+        }}
+        metadata={null}
+        onCreateNew={() => undefined}
+        onChange={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("sheet-attributes--page");
+    expect(markup).toContain("sheet-attribute-summary");
+    expect(markup).toContain("1 attached");
+    expect(markup).toContain("Add Existing");
+    expect(markup).not.toContain("Search Attribute catalog");
+    expect(markup).not.toContain("Save Value");
+  });
 });

@@ -92,8 +92,8 @@ export function IntentFeedbackHistory(): JSX.Element {
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span aria-hidden="true" />
-        History {intentFeedback.length}
+        <span className="system-status__indicator" aria-hidden="true" />
+        <span className="system-status__label">History {intentFeedback.length}</span>
       </button>
       {open && panelPosition
         ? createPortal(

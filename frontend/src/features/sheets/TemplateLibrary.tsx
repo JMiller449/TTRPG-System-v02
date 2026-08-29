@@ -78,6 +78,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
 
   return (
     <Panel
+      variant="workspace"
       title="Template Library"
       subtitle="Every sheet template in your world. Spawn playable copies or edit the original."
       actions={

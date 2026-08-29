@@ -27,7 +27,6 @@ async function renderEditor(onSubmit = vi.fn()): Promise<void> {
   await act(async () => {
     root.render(
       <TemplateEditorForm
-        title="New Template"
         submitLabel="Create Template"
         values={values}
         actions={{}}
@@ -61,8 +60,12 @@ describe("TemplateEditorForm navigation", () => {
     await renderEditor(onSubmit);
 
     expect(button("Continue to Profile")).toBeTruthy();
+    const content = container.querySelector<HTMLElement>(".template-builder__content");
+    expect(content).not.toBeNull();
+    if (content) content.scrollTop = 120;
     await act(async () => button("Continue to Profile").click());
 
+    expect(content?.scrollTop).toBe(0);
     expect(container.textContent).toContain("Optional flavor text");
     expect(button("Continue to Stats")).toBeTruthy();
     await act(async () => button("Continue to Stats").click());

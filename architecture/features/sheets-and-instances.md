@@ -113,6 +113,17 @@ library uses the shared nested browser, while the active spawned-sheet selector
 opens its organizer in a centered modal. Folder placement does not change template
 inheritance, instance ownership, access codes, parties, or runtime behavior.
 
+On desktop, the template builder fills the remaining console workspace while
+its step rail and active section own independent vertical scrolling. The builder
+uses the workspace Panel as its single page heading; its navigation footer
+remains anchored, and changing sections resets the active section to its top.
+The document-flow mobile layout retains ordinary page scrolling.
+
+The builder's Attributes step uses the shared compact Attribute collection:
+attached and required Attributes render as summary cards, optional attachment
+opens the catalog picker, and selecting a card opens its focused draft editor.
+Required defaults and template-draft mutation semantics are unchanged.
+
 The shared character display exposes the profile through a dedicated
 Backstory tab. Both a DM and the assigned player submit the complete profile
 through `set_instanced_sheet_profile`; backend instance-access validation is
@@ -120,11 +131,12 @@ the authorization boundary. Template profiles are authored through the DM-only
 template builder. Snapshotting an evolved instance into a template copies its
 current profile along with its other durable character structure.
 
-Both character views display Level beside the XP projection. Player display is
-read-only; the GM view provides the explicit editor and submits through the
-DM-only instanced-sheet Attribute mutation. XP remains independently derived,
-and neither XP readiness nor a Level edit performs automatic advancement or
-stat distribution.
+Both character views use one consolidated identity header containing the
+character name, Health and Mana, Level, and the XP projection. Level is
+read-only for Players; in the GM view its display opens a focused inline editor
+that submits through the DM-only instanced-sheet Attribute mutation. XP remains
+independently derived, and neither XP readiness nor a Level edit performs
+automatic advancement or stat distribution.
 
 ## Deletion and dependencies
 

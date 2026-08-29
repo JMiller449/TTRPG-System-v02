@@ -87,6 +87,7 @@ export function TagAuthoringPage({ client }: { client: GameClient }): JSX.Elemen
 
   return (
     <Panel
+      variant="workspace"
       title="Tag Management"
       subtitle="Reusable classification and formula-context tags. Folders organize tags without adding mechanics."
       actions={

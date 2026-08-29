@@ -140,6 +140,7 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
 
   return (
     <Panel
+      variant="workspace"
       title="Extension"
       subtitle="Install, synchronize, and verify the Firefox Roll20 chat bridge."
       className="extension-panel"

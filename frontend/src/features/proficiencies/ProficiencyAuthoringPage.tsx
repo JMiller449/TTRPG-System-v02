@@ -91,6 +91,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
 
   return (
     <Panel
+      variant="workspace"
       title="Proficiency Authoring"
       subtitle="Trainable skills — weapon families, magic schools, and anything else that improves with use."
       actions={

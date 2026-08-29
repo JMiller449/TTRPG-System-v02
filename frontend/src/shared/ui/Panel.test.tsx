@@ -22,4 +22,16 @@ describe("Panel", () => {
     expect(markup).not.toContain("<h2");
     expect(markup).toContain('<div class="panel__body">Content</div>');
   });
+
+  it("keeps the visible heading while flattening workspace chrome", () => {
+    const markup = renderToStaticMarkup(
+      <Panel title="State Backup" variant="workspace">
+        Content
+      </Panel>
+    );
+
+    expect(markup).toContain('class="panel panel--workspace"');
+    expect(markup).toContain("<h2>State Backup</h2>");
+    expect(markup).not.toContain('aria-label="State Backup"');
+  });
 });

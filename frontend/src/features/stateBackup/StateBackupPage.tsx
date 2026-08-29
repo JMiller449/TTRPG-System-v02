@@ -48,7 +48,7 @@ export function StateBackupPage({ client }: { client: GameClient }): JSX.Element
   };
 
   return (
-    <Panel title="State Backup">
+    <Panel title="State Backup" variant="workspace">
       <div className="stack">
         <p className="muted">
           Export and import the backend persisted-state envelope. Backups include private GM-only

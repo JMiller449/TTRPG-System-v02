@@ -102,6 +102,7 @@ export function FormulaAuthoringPage({ client }: { client: GameClient }): JSX.El
 
   return (
     <Panel
+      variant="workspace"
       title="Formula Authoring"
       subtitle="Reusable dice formulas that actions can share. Tags control which modifiers are allowed to change them."
       actions={

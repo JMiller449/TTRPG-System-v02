@@ -84,6 +84,11 @@ Party` is the only commit action.
 Membership changes retain the existing `save_party` validation and patch flow;
 the frontend does not reinterpret party membership locally.
 
+The Parties, Kill Registry, and XP Progress views share the same lightweight
+workspace-surface treatment for their primary navigation, entry, and management
+regions. This keeps the three views visually related without reintroducing a
+second outer frame around the full-width XP workspace.
+
 ## Principal tests
 
 - [`backend/tests/test_xp_tracker.py`](../../backend/tests/test_xp_tracker.py)

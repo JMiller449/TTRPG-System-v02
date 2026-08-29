@@ -51,7 +51,7 @@ export function RollLog({ sheetId, instanceId }: RollLogProps = {}): JSX.Element
   const hiddenEntryCount = Math.max(0, allEntries.length - entries.length);
 
   return (
-    <Panel title="Action History">
+    <Panel title="Action History" variant="workspace">
       {entries.length === 0 ? (
         <EmptyState
           message={

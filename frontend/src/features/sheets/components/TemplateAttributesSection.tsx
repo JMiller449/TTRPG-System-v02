@@ -87,6 +87,8 @@ export function TemplateAttributesSection({
         definitions={definitions}
         bridges={displayBridges}
         canEdit
+        pageLayout
+        draftMode
         subjectType="sheet"
         formulaMetadata={metadata}
         onSaveFormula={(attributeId, formula) =>

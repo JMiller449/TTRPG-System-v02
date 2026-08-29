@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import type {
   ActionDefinition,
@@ -52,7 +52,6 @@ const SECTIONS: ReadonlyArray<{
 ];
 
 export function TemplateEditorForm({
-  title,
   submitLabel,
   values,
   actions,
@@ -69,7 +68,6 @@ export function TemplateEditorForm({
   onSubmit,
   onCancel
 }: {
-  title: string;
   submitLabel: string;
   values: TemplateEditorValues;
   actions: Record<string, ActionDefinition>;
@@ -88,6 +86,7 @@ export function TemplateEditorForm({
 }): JSX.Element {
   const [activeSection, setActiveSection] = useState<BuilderSection>("details");
   const [reviewRequested, setReviewRequested] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const catalogs: TemplateReferenceCatalogs = useMemo(
     () => ({ actions, proficiencies, items, attributes }),
     [actions, attributes, items, proficiencies]
@@ -103,6 +102,9 @@ export function TemplateEditorForm({
   const navigateTo = (section: BuilderSection): void => {
     if (section === "review") {
       setReviewRequested(true);
+    }
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
     }
     setActiveSection(section);
   };
@@ -122,18 +124,6 @@ export function TemplateEditorForm({
         }
       }}
     >
-      <header className="template-builder__heading">
-        <div>
-          <h2>{title}</h2>
-          <span className="muted">
-            {values.kind === "player" ? "Player-controlled" : "GM-controlled"}
-          </span>
-        </div>
-        <span className={`pill ${validation.isValid ? "pill--resolved" : "pill--draft"}`}>
-          {validation.isValid ? "Ready for review" : "Draft in progress"}
-        </span>
-      </header>
-
       <div className="template-builder__tabs" role="tablist" aria-label="Template sections">
         {SECTIONS.map((section, index) => {
           const previousSection = SECTIONS[index - 1];
@@ -170,7 +160,7 @@ export function TemplateEditorForm({
         })}
       </div>
 
-      <div className="template-builder__content" role="tabpanel">
+      <div ref={contentRef} className="template-builder__content" role="tabpanel">
         {activeSection === "details" ? (
           <TemplateDetailsSection
             values={values}
@@ -230,11 +220,7 @@ export function TemplateEditorForm({
           />
         ) : null}
         {activeSection === "review" ? (
-          <TemplateReviewSection
-            values={values}
-            validation={validation}
-            onNavigate={setActiveSection}
-          />
+          <TemplateReviewSection values={values} validation={validation} onNavigate={navigateTo} />
         ) : null}
       </div>
 

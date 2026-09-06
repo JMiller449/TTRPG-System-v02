@@ -4,26 +4,25 @@ from copy import deepcopy
 import pytest
 
 from backend.features.chat import service as chat_service
-from backend.features.sheet_admin.sheets.schema import ResistancesPayload
 from backend.features.sheet_access import service as sheet_access_service
+from backend.features.sheet_admin.sheets.schema import ResistancesPayload
 from backend.routes.ws import handle_client_payload, websocket_sessions
+from backend.state.default_actions import required_sheet_action_ids
 from backend.state.models.access_code import SheetAccessCode
-from backend.state.models.augmentation import Augmentation, StandaloneEffectApplication
+from backend.state.models.action import Action
 from backend.state.models.attribute import (
     AttributeBridge,
     AttributeDefinition,
     AttributeValue,
     synchronize_required_sheet_attributes,
 )
-from backend.state.models.action import Action
+from backend.state.models.augmentation import Augmentation, StandaloneEffectApplication
 from backend.state.models.condition import ActiveCondition
-from backend.state.models.proficiency import Proficiency
-from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.encounter import EncounterPreset
 from backend.state.models.item import Item
+from backend.state.models.proficiency import Proficiency, ProficiencyBridge
 from backend.state.models.shared import Bridge
 from backend.state.models.sheet import InstancedSheet, Sheet
-from backend.state.default_actions import required_sheet_action_ids
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -196,23 +195,21 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             assert "weapon_attack" in StateSingleton.getState().actions
             assert "weapon_damage" in StateSingleton.getState().actions
             assert (
-                StateSingleton.getState().actions["baseline_check_strength"].roll_mode_kind
+                StateSingleton.getState()
+                .actions["baseline_check_strength"]
+                .roll_mode_kind
                 == "check"
             )
             assert (
                 StateSingleton.getState().actions["weapon_attack"].roll_mode_kind
                 == "check"
             )
-            block_reference = StateSingleton.getState().actions["block"].steps[
-                0
-            ].rolls[0].value
-            assert (
-                StateSingleton.getState()
-                .formulas[block_reference.formula_id]
-                .formula.aliases[0]
-                .path
-                == ["sheet", "stats", "strength"]
+            block_reference = (
+                StateSingleton.getState().actions["block"].steps[0].rolls[0].value
             )
+            assert StateSingleton.getState().formulas[
+                block_reference.formula_id
+            ].formula.aliases[0].path == ["sheet", "stats", "strength"]
             assert sheet.actions["default_baseline_check_strength"].entry_id == (
                 "baseline_check_strength"
             )
@@ -230,7 +227,8 @@ def test_dm_can_create_sheet(monkeypatch) -> None:
             assert sheet_op["value"]["id"] == "mage_template"
             assert sheet_op["value"]["profile"]["species"] == "High Elf"
             projection_op = next(
-                op for op in websocket.sent_messages[0]["ops"]
+                op
+                for op in websocket.sent_messages[0]["ops"]
                 if op["path"] == "/sheets/mage_template/evaluated_stats"
             )
             assert projection_op["path"] == "/sheets/mage_template/evaluated_stats"
@@ -367,7 +365,9 @@ def test_sheet_create_and_update_save_authored_attributes_atomically(
     asyncio.run(scenario())
 
 
-def test_sheet_create_rejects_cross_stat_attribute_dependency_cycle(monkeypatch) -> None:
+def test_sheet_create_rejects_cross_stat_attribute_dependency_cycle(
+    monkeypatch,
+) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -670,7 +670,7 @@ def test_default_dodge_and_block_presets_execute_as_sheet_actions(monkeypatch) -
                     ),
                     "type": "chat_message",
                     "request_id": "req-3",
-                }
+                },
             ]
         finally:
             StateSingleton._state = original_state
@@ -711,7 +711,8 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
                 "value": sheet_op["value"],
             }
             assert {
-                bridge.entry_id for bridge in state.sheets["mage_template"].actions.values()
+                bridge.entry_id
+                for bridge in state.sheets["mage_template"].actions.values()
             }.issuperset(required_sheet_action_ids())
             assert any(
                 op["path"] == "/sheets/mage_template/evaluated_stats"
@@ -724,7 +725,9 @@ def test_dm_can_update_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_update_sheet_replaces_attribute_bridges_from_complete_payload(monkeypatch) -> None:
+def test_update_sheet_replaces_attribute_bridges_from_complete_payload(
+    monkeypatch,
+) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -836,7 +839,7 @@ def test_dm_can_delete_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_delete_sheet_rejects_instance_and_encounter_dependencies(monkeypatch) -> None:
+def test_delete_sheet_rejects_instance_dependency(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -870,10 +873,73 @@ def test_delete_sheet_rejects_instance_and_encounter_dependencies(monkeypatch) -
             )
 
             assert "mage_template" in state.sheets
+            assert state.encounter_presets["mage_encounter"].entries[0].template_id == (
+                "mage_template"
+            )
             assert websocket.sent_messages[0]["reason"] == (
                 "Sheet 'mage_template' cannot be deleted while referenced by "
-                "instances: mage_instance; encounter presets: mage_encounter."
+                "spawned instances: mage_instance. Despawn those instances first."
             )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_delete_sheet_removes_encounter_preset_references(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.sheets["other_template"] = Sheet.from_dict(
+                _sheet_payload("other_template")
+            )
+            state.encounter_presets["mixed_encounter"] = EncounterPreset.from_dict(
+                {
+                    "id": "mixed_encounter",
+                    "name": "Mixed Encounter",
+                    "entries": [
+                        {"template_id": "mage_template", "count": 2},
+                        {"template_id": "other_template", "count": 1},
+                    ],
+                    "updated_at": "2026-06-28T00:00:00Z",
+                }
+            )
+            state.encounter_presets["mage_encounter"] = EncounterPreset.from_dict(
+                {
+                    "id": "mage_encounter",
+                    "name": "Mage Encounter",
+                    "entries": [{"template_id": "mage_template", "count": 1}],
+                    "updated_at": "2026-06-28T00:00:00Z",
+                }
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {"type": "delete_sheet", "sheet_id": "mage_template"},
+            )
+
+            assert "mage_template" not in state.sheets
+            assert "mage_encounter" not in state.encounter_presets
+            mixed_encounter = state.encounter_presets["mixed_encounter"]
+            assert [
+                (entry.template_id, entry.count) for entry in mixed_encounter.entries
+            ] == [("other_template", 1)]
+            assert mixed_encounter.updated_at != "2026-06-28T00:00:00Z"
+            assert [
+                (operation["op"], operation["path"])
+                for operation in websocket.sent_messages[0]["ops"]
+            ] == [
+                ("remove", "/encounter_presets/mage_encounter"),
+                ("set", "/encounter_presets/mixed_encounter"),
+                ("remove", "/sheets/mage_template"),
+            ]
         finally:
             StateSingleton._state = original_state
 
@@ -935,7 +1001,9 @@ def test_dm_can_create_instanced_sheet(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_instanced_sheet_defaults_are_evaluated_and_copied_by_backend(monkeypatch) -> None:
+def test_instanced_sheet_defaults_are_evaluated_and_copied_by_backend(
+    monkeypatch,
+) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -1185,26 +1253,28 @@ def test_dm_can_delete_instanced_sheet_and_runtime_dependencies(monkeypatch) -> 
                     "lifecycle_owner": "condition",
                 }
             )
-            state.augmentations["standalone:mage_instance:bless"] = Augmentation.from_dict(
-                {
-                    "id": "standalone:mage_instance:bless",
-                    "name": "Bless",
-                    "source": {
-                        "type": "action",
-                        "id": "bless_action",
-                        "application_id": "standalone:mage_instance:bless",
-                    },
-                    "scope": "instance",
-                    "target": {"root": "instance", "path": ["mana"]},
-                    "effect": {
-                        "type": "formula_modifier",
-                        "operation": "add",
-                        "value": {"text": "1"},
-                    },
-                    "applied": True,
-                    "applied_target_id": "mage_instance",
-                    "lifecycle_owner": "action",
-                }
+            state.augmentations["standalone:mage_instance:bless"] = (
+                Augmentation.from_dict(
+                    {
+                        "id": "standalone:mage_instance:bless",
+                        "name": "Bless",
+                        "source": {
+                            "type": "action",
+                            "id": "bless_action",
+                            "application_id": "standalone:mage_instance:bless",
+                        },
+                        "scope": "instance",
+                        "target": {"root": "instance", "path": ["mana"]},
+                        "effect": {
+                            "type": "formula_modifier",
+                            "operation": "add",
+                            "value": {"text": "1"},
+                        },
+                        "applied": True,
+                        "applied_target_id": "mage_instance",
+                        "lifecycle_owner": "action",
+                    }
+                )
             )
             state.sheet_access_codes["PLAYER1"] = SheetAccessCode(
                 code="PLAYER1",
@@ -1995,7 +2065,12 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
                     "notes": "Evolved character notes.",
                     "health": 1,
                     "mana": 2,
-                    "augments": {"temporary": {"relationship_id": "temporary", "entry_id": "buff"}},
+                    "augments": {
+                        "temporary": {
+                            "relationship_id": "temporary",
+                            "entry_id": "buff",
+                        }
+                    },
                 },
                 template=template,
             )
@@ -2339,9 +2414,7 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
             assert bridge.prof_id == "axes"
             assert bridge.use_count == 0
             assert bridge.growth_rate == 0.25
-            assert {
-                op["path"] for op in websocket.sent_messages[0]["ops"]
-            } == {
+            assert {op["path"] for op in websocket.sent_messages[0]["ops"]} == {
                 "/sheets/mage_template/items/equipped-axe",
                 "/sheets/mage_template/proficiencies/weapon_proficiency_axes",
                 "/sheets/mage_template/current_carried_weight",

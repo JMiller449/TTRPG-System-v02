@@ -151,12 +151,13 @@ contrasting background bands.
 
 ## Deletion and dependencies
 
-A template cannot be deleted while spawned instances or encounter presets
-depend on it. Deleting an instance removes its active conditions, standalone
-effect applications, associated augmentations, player access codes, current XP
-party membership, and the instance itself. Historical kill participant
-snapshots remain intact because they record the participant identity at kill
-time rather than depend on current party membership.
+A template cannot be deleted while spawned instances depend on it. Template
+deletion automatically removes its entries from encounter presets and deletes
+any preset left empty. Deleting an instance removes its active conditions,
+standalone effect applications, associated augmentations, player access codes,
+current XP party membership, and the instance itself. Historical kill
+participant snapshots remain intact because they record the participant
+identity at kill time rather than depend on current party membership.
 
 ## Principal tests
 

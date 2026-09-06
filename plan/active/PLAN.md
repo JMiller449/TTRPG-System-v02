@@ -615,6 +615,10 @@ No large architecture feature is currently missing for the stated character-shee
       delivery, mutation commit, and history recording, even when state patches were
       emitted. Frontend pending intents therefore resolve from a terminal lifecycle
       signal rather than inferring completion from state synchronization.
+- [x] Template deletion cleanup follow-up (2026-09-06): deleting a character
+      template now removes its entries from encounter presets and deletes presets
+      left empty. Spawned instances still require explicit despawning because their
+      runtime behavior and access controls depend on the parent template.
 
 ## 6. Explicit Non-Blockers
 

@@ -10,7 +10,7 @@ describe("templateLibraryRequests", () => {
       },
       label: "Delete template: Mage",
       confirmation:
-        'Delete template "Mage" (mage_template)? This cannot be undone. Templates referenced by instances or encounter presets must be unlinked first.'
+        'Delete template "Mage" (mage_template)? This cannot be undone. Spawned instances must be despawned first. Encounter entries using this template will be removed, and presets left empty will be deleted.'
     });
   });
 });

@@ -2,17 +2,24 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
+from datetime import datetime, timezone
 from typing import Literal
 
+from backend.features.attributes.service import (
+    validate_and_evaluate_sheet_attributes,
+    validate_attribute_formula_paths,
+    validate_subject_attribute_value,
+)
+from backend.features.formula_runtime.service import (
+    evaluate_resource_maximum,
+)
+from backend.features.inventory.service import validate_inventory
+from backend.features.sheet_access import service as sheet_access_service
+from backend.features.sheet_access.schema import SheetAccessCodes
 from backend.features.sheet_admin.formulas.service import (
     build_formula,
     validate_formula_payload_paths,
 )
-from backend.features.formula_runtime.service import (
-    evaluate_numeric_formula,
-    evaluate_resource_maximum,
-)
-from backend.features.inventory.service import validate_inventory
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -25,19 +32,19 @@ from backend.features.sheet_admin.sheets.schema import (
     CreateInstancedSheetActionBridge,
     CreateInstancedSheetItemBridge,
     CreateInstancedSheetProficiencyBridge,
-    CreateSheetFromInstance,
+    CreateSheet,
     CreateSheetActionBridge,
+    CreateSheetFromInstance,
     CreateSheetItemBridge,
     CreateSheetProficiencyBridge,
-    CreateSheet,
     DeleteInstancedSheet,
-    DeleteSheetActionBridge,
-    DeleteSheetItemBridge,
-    DeleteSheetProficiencyBridge,
-    DeleteSheet,
     DeleteInstancedSheetActionBridge,
     DeleteInstancedSheetItemBridge,
     DeleteInstancedSheetProficiencyBridge,
+    DeleteSheet,
+    DeleteSheetActionBridge,
+    DeleteSheetItemBridge,
+    DeleteSheetProficiencyBridge,
     ItemBridgePayload,
     MoveInstancedSheetItem,
     ProficiencyBridgePayload,
@@ -46,25 +53,18 @@ from backend.features.sheet_admin.sheets.schema import (
     SetInstancedSheetProfile,
     SetInstancedSheetResource,
     SetSheetNotes,
-    SheetDefinitionPayload,
     SheetActionBridgePayload,
+    SheetDefinitionPayload,
     StatsPayload,
-    UpdateSheetActionBridge,
-    UpdateSheetItemBridge,
-    UpdateSheetProficiencyBridge,
-    UpdateSheet,
     UpdateInstancedSheetActionBridge,
     UpdateInstancedSheetItemBridge,
     UpdateInstancedSheetProficiencyBridge,
+    UpdateSheet,
+    UpdateSheetActionBridge,
+    UpdateSheetItemBridge,
+    UpdateSheetProficiencyBridge,
 )
-from backend.features.sheet_access import service as sheet_access_service
-from backend.features.sheet_access.schema import SheetAccessCodes
 from backend.features.state_sync.service import state_sync_service
-from backend.features.attributes.service import (
-    validate_and_evaluate_sheet_attributes,
-    validate_attribute_formula_paths,
-    validate_subject_attribute_value,
-)
 from backend.state.default_actions import (
     BASELINE_SHEET_CHECKS,
     WEAPON_ACTION_IDS,
@@ -73,19 +73,19 @@ from backend.state.default_actions import (
     seeded_global_actions,
 )
 from backend.state.models.action import Action, RollResult, SendRollStep
+from backend.state.models.attribute import (
+    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
+    AttributeBridge,
+    synchronize_required_sheet_attributes,
+)
+from backend.state.models.character_profile import CharacterProfile
 from backend.state.models.formula import (
     Formula,
     FormulaAliases,
     FormulaDefinition,
     FormulaReference,
 )
-from backend.state.models.attribute import (
-    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-    AttributeBridge,
-    synchronize_required_sheet_attributes,
-)
 from backend.state.models.item import ItemBridge
-from backend.state.models.character_profile import CharacterProfile
 from backend.state.models.proficiency import ProficiencyBridge
 from backend.state.models.resistance import Resistances
 from backend.state.models.shared import Bridge
@@ -93,13 +93,15 @@ from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.stat import Stats
 from backend.state.models.state import State
 
+
 def _build_stats(
     payload: StatsPayload,
     *,
     attached_attribute_ids: set[str] | None = None,
 ) -> Stats:
     additional_paths = {
-        ("attributes", attribute_id) for attribute_id in (attached_attribute_ids or set())
+        ("attributes", attribute_id)
+        for attribute_id in (attached_attribute_ids or set())
     }
     _validate_stats_formula_paths(payload, additional_paths=additional_paths)
     return Stats(
@@ -110,21 +112,35 @@ def _build_stats(
         arcane=payload.arcane,
         will=payload.will,
         lifting=build_formula(payload.lifting, additional_paths=additional_paths),
-        carry_weight=build_formula(payload.carry_weight, additional_paths=additional_paths),
+        carry_weight=build_formula(
+            payload.carry_weight, additional_paths=additional_paths
+        ),
         acrobatics=build_formula(payload.acrobatics, additional_paths=additional_paths),
         stamina=build_formula(payload.stamina, additional_paths=additional_paths),
-        reaction_time=build_formula(payload.reaction_time, additional_paths=additional_paths),
+        reaction_time=build_formula(
+            payload.reaction_time, additional_paths=additional_paths
+        ),
         health=build_formula(payload.health, additional_paths=additional_paths),
         endurance=build_formula(payload.endurance, additional_paths=additional_paths),
-        pain_tolerance=build_formula(payload.pain_tolerance, additional_paths=additional_paths),
-        sight_distance=build_formula(payload.sight_distance, additional_paths=additional_paths),
+        pain_tolerance=build_formula(
+            payload.pain_tolerance, additional_paths=additional_paths
+        ),
+        sight_distance=build_formula(
+            payload.sight_distance, additional_paths=additional_paths
+        ),
         intuition=build_formula(payload.intuition, additional_paths=additional_paths),
-        registration=build_formula(payload.registration, additional_paths=additional_paths),
+        registration=build_formula(
+            payload.registration, additional_paths=additional_paths
+        ),
         mana=build_formula(payload.mana, additional_paths=additional_paths),
         control=build_formula(payload.control, additional_paths=additional_paths),
-        sensitivity=build_formula(payload.sensitivity, additional_paths=additional_paths),
+        sensitivity=build_formula(
+            payload.sensitivity, additional_paths=additional_paths
+        ),
         charisma=build_formula(payload.charisma, additional_paths=additional_paths),
-        mental_fortitude=build_formula(payload.mental_fortitude, additional_paths=additional_paths),
+        mental_fortitude=build_formula(
+            payload.mental_fortitude, additional_paths=additional_paths
+        ),
         courage=build_formula(payload.courage, additional_paths=additional_paths),
     )
 
@@ -164,14 +180,10 @@ def build_instanced_sheet_from_template(
     """Build an independent runtime copy without persistence or access-code effects."""
 
     resolved_health = (
-        health
-        if health is not None
-        else evaluate_resource_maximum(template, "health")
+        health if health is not None else evaluate_resource_maximum(template, "health")
     )
     resolved_mana = (
-        mana
-        if mana is not None
-        else evaluate_resource_maximum(template, "mana")
+        mana if mana is not None else evaluate_resource_maximum(template, "mana")
     )
     if not float(resolved_mana).is_integer():
         raise ValueError(
@@ -298,13 +310,9 @@ def _sheet_payload_from_instance(
             "xp_given_when_slayed": 0,
             "xp_cap": 0,
             "proficiencies": {
-                key: asdict(bridge)
-                for key, bridge in instance.proficiencies.items()
+                key: asdict(bridge) for key, bridge in instance.proficiencies.items()
             },
-            "items": {
-                key: asdict(bridge)
-                for key, bridge in instance.items.items()
-            },
+            "items": {key: asdict(bridge) for key, bridge in instance.items.items()},
             "stats": asdict(instance.stats),
             "racial_hp_multiplier": instance.racial_hp_multiplier,
             "max_health": asdict(instance.max_health),
@@ -312,12 +320,10 @@ def _sheet_payload_from_instance(
             "stat_bonuses": dict(instance.stat_bonuses),
             "resistances": asdict(instance.resistances),
             "actions": {
-                key: asdict(bridge)
-                for key, bridge in instance.actions.items()
+                key: asdict(bridge) for key, bridge in instance.actions.items()
             },
             "attributes": {
-                key: asdict(bridge)
-                for key, bridge in instance.attributes.items()
+                key: asdict(bridge) for key, bridge in instance.attributes.items()
             },
         }
     )
@@ -585,6 +591,7 @@ def _validate_sheet_references(
         )
         _validate_proficiency_reference(bridge.prof_id, state)
 
+
 def _build_sheet_action_bridge(payload: SheetActionBridgePayload) -> Bridge:
     return Bridge(
         relationship_id=payload.relationship_id,
@@ -706,7 +713,9 @@ def _sync_equipped_weapon_proficiencies_for_sheet(
         if values is None:
             continue
         proficiency_id, growth_rate = values
-        if any(bridge.prof_id == proficiency_id for bridge in sheet.proficiencies.values()):
+        if any(
+            bridge.prof_id == proficiency_id for bridge in sheet.proficiencies.values()
+        ):
             continue
         relationship_id = _weapon_proficiency_relationship_id(sheet, proficiency_id)
         sheet.proficiencies[relationship_id] = ProficiencyBridge(
@@ -831,32 +840,48 @@ async def _delete_sheet(
             for instance_id, instance in state.instanced_sheets.items()
             if instance.parent_id == sheet_id
         )
-        encounter_ids = sorted(
-            encounter_id
-            for encounter_id, encounter in state.encounter_presets.items()
-            if any(entry.template_id == sheet_id for entry in encounter.entries)
-        )
-        dependencies: list[str] = []
         if instance_ids:
-            dependencies.append(f"instances: {', '.join(instance_ids)}")
-        if encounter_ids:
-            dependencies.append(f"encounter presets: {', '.join(encounter_ids)}")
-        if dependencies:
             raise ValueError(
                 f"Sheet '{sheet_id}' cannot be deleted while referenced by "
-                + "; ".join(dependencies)
-                + "."
+                f"spawned instances: {', '.join(instance_ids)}. Despawn those "
+                "instances first."
             )
+
+        ops = []
+        updated_at = datetime.now(timezone.utc).isoformat()
+        for encounter_id, encounter in sorted(state.encounter_presets.items()):
+            remaining_entries = [
+                entry for entry in encounter.entries if entry.template_id != sheet_id
+            ]
+            if len(remaining_entries) == len(encounter.entries):
+                continue
+
+            encounter_path = state_sync_service.join_path(
+                "encounter_presets", encounter_id
+            )
+            if not remaining_entries:
+                _, encounter_op = state_sync_service.remove_mutation(
+                    state,
+                    encounter_path,
+                )
+            else:
+                updated_encounter = deepcopy(encounter)
+                updated_encounter.entries = remaining_entries
+                updated_encounter.updated_at = updated_at
+                encounter_op = state_sync_service.set_mutation(
+                    state,
+                    encounter_path,
+                    updated_encounter,
+                )
+            ops.append(encounter_op)
 
         path = state_sync_service.join_path("sheets", sheet_id)
         _, op = state_sync_service.remove_mutation(state, path)
-        ops = [op]
+        ops.append(op)
         if sheet_id in state.player_kill_visibility:
             _, visibility_op = state_sync_service.remove_mutation(
                 state,
-                state_sync_service.join_path(
-                    "player_kill_visibility", sheet_id
-                ),
+                state_sync_service.join_path("player_kill_visibility", sheet_id),
             )
             ops.append(visibility_op)
         return None, ops
@@ -1401,7 +1426,9 @@ async def update_attached_sheet_item(request: UpdateSheetItemBridge) -> None:
             raise ValueError(
                 f"Sheet item bridge '{request.relationship_id}' does not exist."
             )
-        validate_inventory({**sheet.items, request.relationship_id: bridge}, state.items)
+        validate_inventory(
+            {**sheet.items, request.relationship_id: bridge}, state.items
+        )
 
         path = state_sync_service.join_path(
             "sheets",
@@ -1463,7 +1490,9 @@ async def attach_instanced_sheet_item(
             raise ValueError(
                 f"Instance item bridge '{request.bridge.relationship_id}' already exists."
             )
-        validate_inventory({**instance.items, bridge.relationship_id: bridge}, state.items)
+        validate_inventory(
+            {**instance.items, bridge.relationship_id: bridge}, state.items
+        )
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -1499,7 +1528,9 @@ async def update_instanced_sheet_item(
             raise ValueError(
                 f"Instance item bridge '{request.relationship_id}' does not exist."
             )
-        validate_inventory({**instance.items, request.relationship_id: bridge}, state.items)
+        validate_inventory(
+            {**instance.items, request.relationship_id: bridge}, state.items
+        )
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,

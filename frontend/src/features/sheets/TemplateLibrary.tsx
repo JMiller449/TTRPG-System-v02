@@ -68,7 +68,7 @@ export function TemplateLibrary({ client }: { client: GameClient }): JSX.Element
         action: "Delete",
         subject: template.name,
         consequence:
-          "This permanently deletes the template. Spawned-instance and encounter dependency checks still apply."
+          "Spawned instances must be despawned first. Encounter entries using this template will be removed, and presets left empty will also be deleted."
       })
     ) {
       return;

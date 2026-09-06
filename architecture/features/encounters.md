@@ -17,8 +17,9 @@ DM-only routes in
 [`backend/features/encounters/`](../../backend/features/encounters/) save,
 delete, and spawn presets. Save validates IDs, counts, and referenced templates.
 The backend currently requires referenced templates to exist but does not
-enforce that they are GM-only enemy definitions. Template deletion is prevented
-while a preset still references it.
+enforce that they are GM-only enemy definitions. Deleting a template removes
+its entries from every preset; a preset is deleted when that cleanup would
+otherwise leave it empty.
 
 Saving is an upsert of the complete preset. Deleting removes only the preset;
 it does not despawn instances created by prior uses.

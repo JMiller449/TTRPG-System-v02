@@ -12,7 +12,7 @@ from backend.features.xp_tracker.schema import (
     SaveXpAdjustment,
     SetMobXpValue,
     SetMobKillVisibility,
-    SetSheetXpRequired,
+    SetXpProgression,
     UpdateKill,
 )
 
@@ -35,27 +35,29 @@ async def _broadcast_trackers(
     requesting_session: WebSocketSession | None = None,
     request_id: str | None = None,
 ) -> None:
-    await websocket_sessions.broadcast_per_session(
-        lambda session: service.build_xp_tracker(
-            role=session.role,
-            assigned_instance_id=session.assigned_instance_id,
-            request_id=(
-                request_id if session is requesting_session else None
+    for session in await websocket_sessions.authenticated_sessions():
+        if not session.is_dm and session.assigned_instance_id is None:
+            continue
+        await websocket_sessions.send(
+            session,
+            service.build_xp_tracker(
+                role=session.role,
+                assigned_instance_id=session.assigned_instance_id,
+                request_id=request_id if session is requesting_session else None,
             ),
         )
-    )
 
 
 async def get_xp_tracker(session: WebSocketSession, request: GetXpTracker) -> None:
+    session.tracks_xp = True
     await _send_tracker(session, request_id=request.request_id)
 
 
-async def set_sheet_xp_required(
-    session: WebSocketSession, request: SetSheetXpRequired
+async def set_xp_progression(
+    session: WebSocketSession, request: SetXpProgression
 ) -> None:
-    await service.set_sheet_xp_required(
-        sheet_id=request.sheet_id,
-        xp_required=request.xp_required,
+    await service.set_xp_progression(
+        progression=request.progression,
         request_id=request.request_id,
     )
     await _broadcast_trackers()

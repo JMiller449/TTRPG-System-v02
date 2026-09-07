@@ -404,7 +404,8 @@ export function adaptProtocolServerEvent(
               kills: event.kills,
               adjustments: event.adjustments,
               mobs: event.mobs,
-              recordable_mobs: event.recordable_mobs
+              recordable_mobs: event.recordable_mobs,
+              progression: event.progression
             },
             requestId: event.request_id ?? undefined
           }

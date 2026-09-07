@@ -45,10 +45,10 @@ export function SheetXpProgressBar({
   const statusText = !trackerSheet
     ? "Loading XP"
     : !hasThreshold
-      ? "Threshold not set"
+      ? (trackerSheet.goal_error ?? "Goal unavailable")
       : readyToLevel
         ? `${currentXp} / ${xpRequired} XP`
-        : `${Math.max(0, xpRequired - currentXp)} XP to level`;
+        : `${trackerSheet.xp_remaining ?? 0} XP to level`;
 
   return (
     <section
@@ -71,7 +71,7 @@ export function SheetXpProgressBar({
         role={hasThreshold ? "progressbar" : undefined}
         aria-valuemin={hasThreshold ? 0 : undefined}
         aria-valuemax={hasThreshold ? xpRequired : undefined}
-        aria-valuenow={hasThreshold ? Math.min(currentXp, xpRequired) : undefined}
+        aria-valuenow={hasThreshold ? Math.max(0, Math.min(currentXp, xpRequired)) : undefined}
         aria-valuetext={hasThreshold ? `${currentXp} of ${xpRequired} XP` : undefined}
         style={{ "--xp-progress-fill": `${fillPercent}%` } as CSSProperties}
       >

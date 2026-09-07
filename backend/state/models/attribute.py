@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import TYPE_CHECKING, Any, Literal
 
 from backend.features.formula_runtime.service import evaluate_numeric_formula
@@ -51,6 +52,7 @@ WEAPON_GOVERNING_STAT_ATTRIBUTE_ID = "weapon_governing_stat"
 WEAPON_REACH_ATTRIBUTE_ID = "weapon_reach"
 WEAPON_PROFICIENCY_ATTRIBUTE_ID = "weapon_proficiency"
 LEVEL_ATTRIBUTE_ID = "level"
+XP_GROWTH_RATE_ATTRIBUTE_ID = "xp_growth_rate"
 MOVEMENT_ATTRIBUTE_ID = "movement"
 MANA_REGENERATION_ATTRIBUTE_ID = "mana_regeneration"
 ITEM_ATTRIBUTE_ATTRIBUTE_ID = "item_attribute"
@@ -84,6 +86,7 @@ ACTION_ATTRIBUTE_IDS = (
 
 SHEET_ATTRIBUTE_IDS = (
     LEVEL_ATTRIBUTE_ID,
+    XP_GROWTH_RATE_ATTRIBUTE_ID,
     MOVEMENT_ATTRIBUTE_ID,
     MANA_REGENERATION_ATTRIBUTE_ID,
 )
@@ -267,6 +270,15 @@ def sheet_attribute_definitions() -> dict[str, AttributeDefinition]:
         "backend_owned": True,
     }
     definitions = (
+        AttributeDefinition(
+            id=XP_GROWTH_RATE_ATTRIBUTE_ID,
+            name="XP Growth Rate",
+            description="XP requirement multiplier: 1 is normal, below 1 is easier, above 1 is harder.",
+            value_type="number",
+            default_value=AttributeValue(type="number", value=1),
+            required=True,
+            **shared,
+        ),
         AttributeDefinition(
             id=LEVEL_ATTRIBUTE_ID,
             name="Level",
@@ -530,6 +542,14 @@ def evaluate_all_subject_attributes(
                 )
             else:
                 result = bridge.value.value
+            if attribute_id == XP_GROWTH_RATE_ATTRIBUTE_ID:
+                if (
+                    isinstance(result, bool)
+                    or not isinstance(result, (int, float))
+                    or not isfinite(result)
+                    or result <= 0
+                ):
+                    raise ValueError("XP Growth Rate must be a finite positive number.")
             evaluated[attribute_id] = result
             bridge.evaluated_value = result
             bridge.evaluation_error = None

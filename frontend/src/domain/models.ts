@@ -550,7 +550,6 @@ export interface Sheet {
   profile?: CharacterProfile;
   dm_only: boolean;
   xp_given_when_slayed: number;
-  xp_cap: number;
   proficiencies: Record<string, ProficiencyBridge>;
   items: Record<string, ItemBridge>;
   stats: Stats;

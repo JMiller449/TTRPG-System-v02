@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
+from backend.features.xp_tracker.progression import xp_goal
+from backend.state.models.xp_progression import ATTRIBUTE_TOKEN, XpProgression
 from backend.features.session.models import SessionRole
 from backend.features.state_sync.service import state_sync_service
 from backend.features.xp_tracker.schema import (
@@ -119,7 +121,12 @@ def _sheet_view(state: State, instance_id: str) -> XpTrackerSheet:
         sum(record.xp_per_participant for record in kills)
         + sum(adjustment.amount for adjustment in adjustments)
     )
-    required = normalize_xp(sheet.xp_cap)
+    goal_error = None
+    try:
+        required = xp_goal(state, instance_id)
+    except (ValueError, TypeError, ArithmeticError):
+        required = 0
+        goal_error = "XP goal unavailable. Ask the DM to check the equation and sheet Attributes."
     return XpTrackerSheet(
         instance_id=instance_id,
         sheet_id=sheet.id,
@@ -128,6 +135,8 @@ def _sheet_view(state: State, instance_id: str) -> XpTrackerSheet:
         adjustments=[_adjustment_view(adjustment) for adjustment in adjustments],
         current_xp=current_xp,
         xp_required=required,
+        xp_remaining=max(0, normalize_xp(required - current_xp)) if goal_error is None else 0,
+        goal_error=goal_error,
         ready_to_level=required > 0 and current_xp >= required,
     )
 
@@ -233,6 +242,7 @@ def build_xp_tracker(
     return XpTracker(
         response_id=None,
         can_manage=role == "dm",
+        progression=current_state.xp_progression if role == "dm" else None,
         sheets=[_sheet_view(current_state, instance_id) for instance_id in instance_ids],
         parties=parties,
         kills=kills,
@@ -243,17 +253,25 @@ def build_xp_tracker(
     )
 
 
-async def set_sheet_xp_required(
-    *, sheet_id: str, xp_required: float, request_id: str | None
+async def set_xp_progression(
+    *, progression: XpProgression, request_id: str | None
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
-        sheet = state.sheets.get(sheet_id)
-        if sheet is None or sheet.dm_only:
-            raise ValueError("XP thresholds can only be set on player sheets.")
-        path = state_sync_service.join_path("sheets", sheet_id, "xp_cap")
-        return None, [
-            state_sync_service.set_mutation(state, path, normalize_xp(xp_required))
-        ]
+        progression.__post_init__()
+        if progression.mode == "formula":
+            for match in ATTRIBUTE_TOKEN.finditer(progression.expression):
+                attribute_id = match.group(1) or match.group(2)
+                definition = state.attributes.get(attribute_id)
+                if (
+                    definition is None
+                    or definition.value_type != "number"
+                    or "sheet" not in definition.subject_types
+                ):
+                    raise ValueError(f"Unknown numeric sheet Attribute '{attribute_id}'.")
+        for instance_id, instance in state.instanced_sheets.items():
+            if not state.sheets[instance.parent_id].dm_only:
+                xp_goal(state, instance_id, progression)
+        return None, [state_sync_service.set_mutation(state, "/xp_progression", progression)]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 

@@ -212,8 +212,8 @@ def test_v17_xp_migration_purges_legacy_kills_and_adds_registries() -> None:
     assert migrated.state["kill_registry"] == {}
     assert migrated.state["xp_adjustments"] == {}
     assert "slayed_record" not in migrated.state["sheets"]["hero"]
-    assert migrated.state["sheets"]["hero"]["xp_cap"] == 100.56
-    assert migrated.state["sheets"]["goblin"]["xp_cap"] == 0
+    assert "xp_cap" not in migrated.state["sheets"]["hero"]
+    assert "xp_cap" not in migrated.state["sheets"]["goblin"]
     assert migrated.state["sheets"]["goblin"]["xp_given_when_slayed"] == 25.56
 
 
@@ -1012,6 +1012,7 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
 
     assert legacy.source_version == 0
     assert legacy.migrated is True
+    assert legacy.state.pop("xp_progression")["base_xp"] == 100
     required_attribute = legacy.state.pop("attributes")
     seeded_actions = legacy.state.pop("actions")
     seeded_proficiencies = legacy.state.pop("proficiencies")

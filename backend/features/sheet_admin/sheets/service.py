@@ -234,7 +234,6 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
         profile=CharacterProfile.from_dict(payload.profile.model_dump(mode="json")),
         dm_only=payload.dm_only,
         xp_given_when_slayed=payload.xp_given_when_slayed,
-        xp_cap=payload.xp_cap,
         proficiencies={
             key: ProficiencyBridge(
                 relationship_id=bridge.relationship_id,
@@ -308,7 +307,6 @@ def _sheet_payload_from_instance(
             "profile": asdict(instance.profile),
             "dm_only": dm_only,
             "xp_given_when_slayed": 0,
-            "xp_cap": 0,
             "proficiencies": {
                 key: asdict(bridge) for key, bridge in instance.proficiencies.items()
             },

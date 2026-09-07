@@ -83,15 +83,7 @@ export function TemplateDetailsSection({
               onChange={(event) => onChange({ ...values, xpGivenWhenSlayed: event.target.value })}
             />
           </Field>
-        ) : (
-          <Field label="XP Needed For Next Level (Optional)">
-            <input
-              value={values.xpCap}
-              onChange={(event) => onChange({ ...values, xpCap: event.target.value })}
-              placeholder="e.g. 100"
-            />
-          </Field>
-        )}
+        ) : null}
       </div>
       <Field label="GM Reference Notes (Optional)">
         <textarea

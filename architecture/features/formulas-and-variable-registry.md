@@ -129,3 +129,9 @@ expressions or documented damage expressions, not every number in a message.
 The expression language is deliberately restricted and is not general Python.
 Frontend formula previews, if added later, must be clearly non-authoritative
 and overwritten by backend results.
+
+XP progression owns a campaign equation alongside its tuning configuration. It
+uses the shared numeric runtime with a bounded deterministic arithmetic validator
+and resolves only numeric Attributes from the current instance (`@level` or
+`@{attribute_id}`). It is not a Formula-catalog consumer and does not reference
+shared Formula IDs; Attribute inputs may themselves use those shared definitions.

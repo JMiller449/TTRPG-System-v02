@@ -36,14 +36,14 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
     example_1 = first_state.sheets["dm_examples_sheet"]
     example_2 = first_state.sheets["starter_shadowblade_template"]
     assert example_1.name == "Example Player 1"
-    assert example_1.xp_cap == 100
+    assert example_1.attributes["xp_growth_rate"].evaluated_value == 1
     assert sum(
         record.xp_per_participant
         for record in first_state.kill_registry.values()
         if any(participant.instance_id == "dm_examples_instance" for participant in record.participants)
     ) == 75
     assert example_2.name == "Example Player 2"
-    assert example_2.xp_cap == 60
+    assert example_2.attributes["xp_growth_rate"].evaluated_value == 0.6
     assert sum(
         record.xp_per_participant
         for record in first_state.kill_registry.values()

@@ -33,6 +33,10 @@ definitions cannot be changed in a way that breaks their mechanical contract.
 Level is attached to every template and spawned instance with a default of 1;
 existing authored Level values are preserved during synchronization and
 migration. A Level write must resolve to a positive whole number.
+The required `xp_growth_rate` Attribute defaults to 1 on templates and instances
+and must resolve to a finite positive number. It multiplies the derived lifetime
+XP goal in either progression mode; its editing and copy behavior reuse the same
+Attribute routes and instance ownership as Level.
 
 DMs can create campaign definitions for supported subjects and attach, detach,
 set, or reset values through typed routes in

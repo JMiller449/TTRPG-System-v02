@@ -175,20 +175,10 @@ export function buildGetXpTrackerRequest({
   };
 }
 
-export function buildSetSheetXpRequiredRequest({
-  sheetId,
-  xpRequired,
-  requestId
-}: {
-  sheetId: string;
-  xpRequired: number;
-} & OptionalRequestId): ProtocolRequest<"set_sheet_xp_required"> {
-  return {
-    ...requestIdField(requestId),
-    type: "set_sheet_xp_required",
-    sheet_id: sheetId,
-    xp_required: xpRequired
-  };
+export function buildSetXpProgressionRequest(
+  progression: ProtocolRequest<"set_xp_progression">["progression"]
+): ProtocolRequest<"set_xp_progression"> {
+  return { type: "set_xp_progression", progression };
 }
 
 export function buildSetMobXpValueRequest({

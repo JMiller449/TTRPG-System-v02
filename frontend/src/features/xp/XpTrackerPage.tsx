@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { XpProgressionEditor } from "./XpProgressionEditor";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { KillEditor } from "@/features/xp/components/KillEditor";
 import { PartyFolderWorkspace } from "@/features/xp/components/PartyFolderWorkspace";
@@ -12,8 +13,7 @@ import {
   buildSavePartyRequest,
   buildSaveXpAdjustmentRequest,
   buildSetMobKillVisibilityRequest,
-  buildSetMobXpValueRequest,
-  buildSetSheetXpRequiredRequest
+  buildSetMobXpValueRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { Field } from "@/shared/ui/Field";
@@ -33,7 +33,6 @@ function formatXp(value: number): string {
 
 export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
-  const { sheets, sheetOrder } = state.serverState;
   const { xpTracker } = state.uiState;
   const requestedTrackerRef = useRef(false);
   const [view, setView] = useState<XpView>("parties");
@@ -56,10 +55,6 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   }, [client]);
 
   const characters = xpTracker?.sheets ?? [];
-  const playerSheets = useMemo(
-    () => sheetOrder.map((id) => sheets[id]).filter((sheet) => sheet && !sheet.dm_only),
-    [sheetOrder, sheets]
-  );
   const selectedParty = xpTracker?.parties.find((party) =>
     party.members.some((member) => member.instance_id === creditedInstanceId)
   );
@@ -333,9 +328,10 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                       sheet.ready_to_level ? "status-badge status-badge--ready" : "status-badge"
                     }
                   >
-                    {sheet.xp_required === 0
-                      ? "Threshold not set"
-                      : `${formatXp(sheet.current_xp)} / ${formatXp(sheet.xp_required)} XP`}
+                    {sheet.goal_error ??
+                      (sheet.xp_required === 0
+                        ? "Goal unavailable"
+                        : `${formatXp(sheet.current_xp)} / ${formatXp(sheet.xp_required)} XP`)}
                   </span>
                 </div>
                 {sheet.xp_required > 0 ? (
@@ -432,26 +428,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
             ))}
           </section>
 
-          <section className="xp-tracker-section xp-workspace-card">
-            <h3>Player Thresholds</h3>
-            <div className="xp-config-list">
-              {playerSheets.map((sheet) => (
-                <div className="xp-config-row" key={sheet.id}>
-                  <strong>{sheet.name}</strong>
-                  <XpNumberEditor
-                    label="XP required"
-                    value={sheet.xp_cap}
-                    onSave={(xpRequired) =>
-                      client.sendProtocolRequest(
-                        buildSetSheetXpRequiredRequest({ sheetId: sheet.id, xpRequired }),
-                        `Update XP threshold: ${sheet.name}`
-                      )
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
+          <XpProgressionEditor client={client} progression={xpTracker.progression} />
 
           <section className="xp-tracker-section xp-workspace-card">
             <h3>Monster XP Defaults</h3>

@@ -12,6 +12,7 @@ SessionRole = Literal["unauthenticated", "player", "dm"]
 class WebSocketSession:
     websocket: WebSocket
     role: SessionRole = "unauthenticated"
+    tracks_xp: bool = False
     assigned_sheet_id: str | None = None
     assigned_instance_id: str | None = None
 

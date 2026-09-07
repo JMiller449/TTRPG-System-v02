@@ -112,7 +112,6 @@ function completeSheet(): Sheet {
     },
     dm_only: false,
     xp_given_when_slayed: 25,
-    xp_cap: 100,
     proficiencies: {
       prof_bridge_1: {
         relationship_id: "prof_bridge_1",
@@ -193,7 +192,6 @@ describe("templateEditorValues", () => {
     values.profile.weight = "  190 lb  ";
     values.profile.backstory = "  Raised near the caldera.  ";
     values.xpGivenWhenSlayed = "25";
-    values.xpCap = " 100 ";
     values.coreStats.strength = "12";
     values.coreStats.arcane = "8";
     values.formulaStats.health = {
@@ -237,7 +235,6 @@ describe("templateEditorValues", () => {
       },
       dm_only: true,
       xp_given_when_slayed: 25,
-      xp_cap: 100,
       racial_hp_multiplier: 50,
       max_health: { text: "floor(@health * @racial_hp_multiplier)" },
       max_mana: { text: "floor(@arcane * @mana)" },
@@ -333,7 +330,6 @@ describe("templateEditorValues", () => {
         backstory: "A traveling researcher."
       },
       xpGivenWhenSlayed: "25",
-      xpCap: "100",
       coreStats: { strength: "4", arcane: "6" },
       resistances: { resistance: "10", fire: "25" },
       actions: [{ relationshipId: "action_bridge_1", actionId: "action_1" }],

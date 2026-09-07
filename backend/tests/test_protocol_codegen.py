@@ -271,7 +271,7 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert '"clientNamespace": "sheetAccess"' in output
     assert '"clientMethodName": "getSheetAccessCodes"' in output
     assert '"type": "get_xp_tracker";' in output
-    assert '"type": "set_sheet_xp_required";' in output
+    assert '"type": "set_xp_progression";' in output
     assert '"type": "set_mob_xp_value";' in output
     assert '"type": "save_party";' in output
     assert '"type": "record_kill";' in output

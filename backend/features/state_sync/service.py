@@ -41,9 +41,9 @@ PRIVATE_ITEM_FIELDS = {
     "player_catalog_access",
 }
 PRIVATE_SHEET_FIELDS = {"notes"}
-PRIVATE_SHEET_XP_FIELDS = {"xp_cap", "xp_given_when_slayed"}
+PRIVATE_SHEET_XP_FIELDS = {"xp_given_when_slayed"}
 PRIVATE_INSTANCE_FIELDS = {"damage_taken_by_type"}
-PRIVATE_STATE_ROOTS = {"direct_effect_projections"}
+PRIVATE_STATE_ROOTS = {"direct_effect_projections", "xp_progression"}
 DM_ONLY_STATE_ROOTS = {
     "parties",
     "kill_registry",
@@ -257,7 +257,6 @@ class StateSyncService:
 
         for field_name in PRIVATE_SHEET_FIELDS:
             value.pop(field_name, None)
-        value["xp_cap"] = 0
         value["xp_given_when_slayed"] = 0
         sheet_attributes = value.get("attributes")
         if isinstance(sheet_attributes, dict):
@@ -473,7 +472,6 @@ class StateSyncService:
                 continue
             for field_name in PRIVATE_SHEET_FIELDS:
                 sheet.pop(field_name, None)
-            sheet["xp_cap"] = 0
             sheet["xp_given_when_slayed"] = 0
             sheet_attributes = sheet.get("attributes")
             if isinstance(sheet_attributes, dict):
@@ -1135,6 +1133,22 @@ class StateSyncService:
 
         for session, snapshot in snapshots:
             await websocket_sessions.send(session, snapshot)
+        await self._refresh_xp_subscribers()
+
+    async def _refresh_xp_subscribers(self) -> None:
+        from backend.features.xp_tracker.service import build_xp_tracker
+
+        for session in await websocket_sessions.authenticated_sessions():
+            if session.tracks_xp and (
+                session.is_dm or session.assigned_instance_id is not None
+            ):
+                await websocket_sessions.send(
+                    session,
+                    build_xp_tracker(
+                        role=session.role,
+                        assigned_instance_id=session.assigned_instance_id,
+                    ),
+                )
 
     async def recent_mutations(self) -> tuple[MutationAuditEntry, ...]:
         async with self._lock:
@@ -1804,6 +1818,7 @@ class StateSyncService:
                         assigned_instance_id=session.assigned_instance_id,
                     )
                 )
+                await self._refresh_xp_subscribers()
             elif request_id is not None:
                 self._remember_processed_request(request_id)
                 # No patch will be broadcast for this request, so the transport
@@ -1894,6 +1909,7 @@ class StateSyncService:
                     assigned_instance_id=session.assigned_instance_id,
                 )
             )
+            await self._refresh_xp_subscribers()
             return True
 
     async def apply_private_mutation(

@@ -39,7 +39,6 @@ class Sheet:
     notes: str
     dm_only: bool  # toogle to hide from other users
     xp_given_when_slayed: float
-    xp_cap: float
     proficiencies: Dict[str, ProficiencyBridge]
     items: Dict[str, ItemBridge]
     stats: Stats
@@ -61,7 +60,6 @@ class Sheet:
             notes=raw.get("notes", ""),
             dm_only=raw["dm_only"],
             xp_given_when_slayed=_numeric_xp(raw.get("xp_given_when_slayed", 0)),
-            xp_cap=_numeric_xp(raw.get("xp_cap", 0)),
             proficiencies={
                 key: ProficiencyBridge.from_dict(bridge)
                 for key, bridge in raw.get("proficiencies", {}).items()

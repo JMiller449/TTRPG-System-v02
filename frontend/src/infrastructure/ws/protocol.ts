@@ -344,6 +344,7 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
           adjustments: payload.adjustments as ProtocolXpTrackerEvent["adjustments"],
           mobs: payload.mobs as ProtocolXpTrackerEvent["mobs"],
           recordable_mobs: payload.recordable_mobs as ProtocolXpTrackerEvent["recordable_mobs"],
+          progression: payload.progression as ProtocolXpTrackerEvent["progression"],
           type: "xp_tracker",
           request_id:
             typeof payload.request_id === "string" || payload.request_id === null

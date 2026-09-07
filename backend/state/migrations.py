@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 48
+CURRENT_STATE_SCHEMA_VERSION = 50
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2661,6 +2661,46 @@ def _migrate_v47_to_v48(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 48, "state": state}
 
 
+def _migrate_v48_to_v49(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    from backend.state.models.xp_progression import XpProgression
+    from backend.state.models.attribute import AttributeBridge, sheet_attribute_definitions
+
+    state = deepcopy(envelope["state"])
+    state.setdefault("xp_progression", asdict(XpProgression()))
+    definition = sheet_attribute_definitions()["xp_growth_rate"]
+    state.setdefault("attributes", {})[definition.id] = asdict(definition)
+    for registry in ("sheets", "instanced_sheets"):
+        for sheet in state.get(registry, {}).values():
+            sheet.pop("xp_cap", None)
+            sheet.setdefault("attributes", {}).setdefault(
+                definition.id,
+                asdict(AttributeBridge(
+                    relationship_id="required_attribute_xp_growth_rate",
+                    attribute_id=definition.id,
+                    value=deepcopy(definition.default_value),
+                    evaluated_value=1,
+                )),
+            )
+    return {"schema_version": 49, "state": state}
+
+
+def _migrate_v49_to_v50(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    from backend.state.models.xp_progression import XpProgression
+
+    state = deepcopy(envelope["state"])
+    config = state.setdefault("xp_progression", asdict(XpProgression()))
+    old_defaults = {
+        "mode": "tuning", "base_xp": 100, "growth_exponent": 2,
+        "milestone_interval": 25, "milestone_multiplier": 1,
+        "rounding": 10, "expression": "100 * @level ** 2",
+    }
+    if config == old_defaults:
+        state["xp_progression"] = asdict(XpProgression())
+    else:
+        config.setdefault("growth_increase_per_milestone", 0.02)
+    return {"schema_version": 50, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2710,6 +2750,8 @@ MIGRATIONS: dict[int, Migration] = {
     45: _migrate_v45_to_v46,
     46: _migrate_v46_to_v47,
     47: _migrate_v47_to_v48,
+    48: _migrate_v48_to_v49,
+    49: _migrate_v49_to_v50,
 }
 
 

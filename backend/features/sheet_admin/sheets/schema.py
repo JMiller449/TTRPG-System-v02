@@ -98,7 +98,6 @@ class SheetDefinitionPayload(BaseModel):
     profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
     dm_only: bool = False
     xp_given_when_slayed: float = Field(default=0, ge=0)
-    xp_cap: float = Field(default=0, ge=0)
     proficiencies: dict[str, ProficiencyBridgePayload] = Field(default_factory=dict)
     items: dict[str, ItemBridgePayload] = Field(default_factory=dict)
     stats: StatsPayload
@@ -110,7 +109,7 @@ class SheetDefinitionPayload(BaseModel):
     actions: dict[str, ActionBridgePayload] = Field(default_factory=dict)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
 
-    @field_validator("xp_given_when_slayed", "xp_cap", mode="before")
+    @field_validator("xp_given_when_slayed", mode="before")
     @classmethod
     def normalize_legacy_xp_fields(cls, value: object) -> float:
         try:

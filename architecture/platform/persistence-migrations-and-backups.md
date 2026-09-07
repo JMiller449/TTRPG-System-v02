@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 45. Future-version checkpoints are rejected rather than guessed at.
+version 50. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -164,3 +164,11 @@ The frontend never edits the exported document into its local state directly.
 There is no transactional database, multi-campaign storage, query index, or
 cross-process state coordination. Running multiple backend processes against
 the same checkpoint would violate the singleton authority model.
+
+Schema version 49 retires manual `xp_cap` fields and adds private campaign XP
+progression settings plus missing required XP Growth Rate bridges (default 1).
+Existing Levels, kill records, XP adjustments, and authored growth values survive.
+
+Schema version 50 adds XP growth increase per milestone (0.02) and upgrades exact
+old tuning defaults to 100 / 1.35 / 25 / 1.08 / 0.02 / 10. Customized settings and
+XP history are preserved; tuning targets use the corrected sum of individual costs.

@@ -89,7 +89,7 @@ Frontend:
 - React/Vite app uses the authoritative websocket backend only; runtime mock authority has been removed.
 - Player and GM views share authoritative sheet rendering with role-specific visibility and controls.
 - GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
-- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and character thresholds. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, award, and submission attribution are retained.
+- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and derived character XP goals. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, award, and submission attribution are retained.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
@@ -694,3 +694,29 @@ Answered rulings currently reflected in the implementation plan:
 - Overload has defined tiers, mana costs, check formula, and failure outline; only the DC remains GM-assigned rather than formula-derived.
 
 If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant reference/rule-decision document with the exact source section/page when available.
+
+## Derived XP Goals Extension (2026-09-06)
+
+- [x] Requirements and investigation: replace manual template XP caps and the manual threshold route with campaign-wide tuning/equation modes; retain lifetime registry-derived XP and manual Level changes. Rule decisions are recorded under “Derived XP Goals” in `reference-docs/rule-decisions-needed-answered.md`, applying active rules §8 (Leveling and Stat Points).
+- [x] Implementation plan and review: reuse sheet Attribute bridges for required per-template/instance XP Growth Rate, existing numeric formula runtime for deterministic equations, state-sync transactions for DM settings, and the XP tracker projection for private settings/read-only player goals. Keep equation text in the campaign's progression configuration, analogous to owned rules formulas. Bound expressions and results; report unavailable goals safely; avoid historical XP resets or invented automatic advancement.
+- [x] Implement two curve modes with defaults 100 / 2 / 25 / 1 / 10. Apply growth before rounding. Retire the manual route, field, template control, and XP workspace control together; generate the matching protocol.
+- [x] Schema v49 introduces progression settings and required growth bridges while preserving XP registries and Levels. Seed examples exercise normal and easier growth.
+- [x] XP subscribers receive fresh projections after authoritative mutations, undo, and import. Players receive only their authorized progress and no campaign equation/settings.
+- [x] Verification: 606 backend tests and 497 frontend tests pass, along with frontend lint and production build. Progression coverage includes arithmetic, milestone boundaries, instance independence, migration, authorization, retirement of the old route, live manual-Level updates, undo, invalid equations, UI mode submission, and reconciliation to authoritative settings.
+
+- [x] XP curve preview and editor cleanup (2026-09-06): compact responsive controls,
+  collapsed scaling guidance, and an interactive client-side graph for unsaved
+  tuning/equation settings. Preview XP per level or lifetime targets through level
+  250, adjust sample growth and formula Attributes, and inspect individual levels
+  by pointer or keyboard. Preview inputs/results remain local; saved character
+  goals remain backend-authoritative. Focused tests cover milestone/rounding math,
+  safe equation parsing, missing inputs, and live draft updates without requests.
+
+- [x] Corrected XP tuning (2026-09-06): defaults 100 / 1.35 / 25 / 1.08 / 0.02 / 10.
+  Costs are per level; milestone multipliers affect only the step into a milestone,
+  and the exponent increases after each milestone reached. The server sums rounded
+  costs into lifetime targets, while the client preview shows those same costs.
+  Added Growth Increase / Milestone and Rounding Increment labels, validation,
+  protocol generation, schema v50 migration, and milestone boundary regression tests.
+  Formula-mode semantics and manual Level changes are preserved.
+  Verified: 610 backend tests, 502 frontend tests, frontend lint, and production build pass.

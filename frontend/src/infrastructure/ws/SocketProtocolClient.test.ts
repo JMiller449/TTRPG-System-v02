@@ -168,7 +168,6 @@ describe("SocketProtocolClient", () => {
               name: "Goblin",
               dm_only: true,
               xp_given_when_slayed: 10,
-              xp_cap: 0,
               proficiencies: {},
               items: {},
               stats: {

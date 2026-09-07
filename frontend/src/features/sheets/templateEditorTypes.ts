@@ -36,7 +36,6 @@ export interface TemplateEditorValues {
   notes: string;
   profile: CharacterProfile;
   xpGivenWhenSlayed: string;
-  xpCap: string;
   racialHpMultiplier: string;
   maxHealth: Formula;
   maxMana: Formula;

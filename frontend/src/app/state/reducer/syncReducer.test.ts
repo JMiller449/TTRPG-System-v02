@@ -53,7 +53,6 @@ function sheet(items = {}) {
     notes: "",
     dm_only: false,
     xp_given_when_slayed: 0,
-    xp_cap: 0,
     proficiencies: {},
     items,
     stats: stats(),

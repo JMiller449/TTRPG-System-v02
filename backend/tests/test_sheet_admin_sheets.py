@@ -2106,7 +2106,7 @@ def test_dm_can_snapshot_instanced_sheet_as_new_template(monkeypatch) -> None:
             assert snapshot.attributes["level"].evaluated_value == 5
             assert snapshot.actions == instance.actions
             assert snapshot.proficiencies["magic_prof_bridge"].use_count == 7
-            assert snapshot.xp_cap == 0
+            assert not hasattr(snapshot, "xp_cap")
             assert snapshot.xp_given_when_slayed == 0
             assert "augments" not in websocket.sent_messages[0]["ops"][0]["value"]
         finally:

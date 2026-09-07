@@ -16,7 +16,7 @@ include:
   attribution;
 - `XpAdjustment`: an explicit signed amount and reason for one instance.
 
-Templates provide enemy XP value and player XP threshold fields. State also
+Templates provide enemy XP values. State owns campaign-wide derived XP progression settings and also
 stores which enemy template names the DM currently exposes for player final
 blow submission.
 
@@ -35,7 +35,7 @@ participant snapshots continue contributing to the historical record.
 ## DM and player recording
 
 DMs can record arbitrary kills, correct or delete records, set enemy XP values,
-control player-recordable enemy visibility, set character thresholds, and add
+control player-recordable enemy visibility, configure derived progression, and add
 or delete explicit XP adjustments.
 
 An assigned player can submit a final blow only for a currently exposed enemy
@@ -55,14 +55,41 @@ Players receive only their assigned character's progress/history and the safe
 enemy names they may currently submit; hidden XP values and other characters'
 records are withheld.
 
-Total XP is rederived from kill participant awards plus adjustments. Progress
-to the template's current threshold is a projection, so reload and import do
-not depend on a separately stored total remaining synchronized.
+Total XP is rederived from kill participant awards plus adjustments. The next-level
+lifetime target is evaluated from current instance Attributes by
+[`progression.py`](../../backend/features/xp_tracker/progression.py). The remaining
+XP and readiness are backend projections; reaching the target never changes Level.
+
+`set_xp_progression` replaces `set_sheet_xp_required`. The DM configures one campaign
+curve using tuning controls (100 / 1.35 / 25 / 1.08 / 0.02 / 10 by default) or a deterministic
+Attribute equation. The required `xp_growth_rate` bridge multiplies either result;
+1 is normal, below 1 easier, above 1 harder. Each spawned instance owns its copy.
+Tuning computes and rounds each level cost, then sums the costs to a lifetime target.
+For current level L, the exponent is `growth_exponent + floor(L/interval) ×
+growth_increase_per_milestone`. The multiplier applies only when `L+1` is a
+milestone, so 24→25 receives the bump and 25→26 uses the increased exponent.
+Tuning calculations support current levels up to 100000 and total goals up to 1e15.
+Equation mode defines the
+same lifetime target and rounds down to whole XP after growth. See the
+[answered XP rules](../../reference-docs/rule-decisions-needed-answered.md#derived-xp-goals-2026-09-06)
+for exact boundaries and semantics.
+
+Settings are persisted privately as `State.xp_progression` and included only in DM
+tracker responses. Equations cannot execute dice, arbitrary traversal, or code.
+Missing/invalid Attributes and arithmetic overflow produce a safe unavailable-goal
+message without interrupting the XP ledger. Numeric targets are limited to 1e15.
+Schema v49 removes `xp_cap`, adds default settings and missing growth bridges,
+and preserves earned-XP records and manually assigned Levels.
+
+`get_xp_tracker` subscribes the authenticated session to fresh tracker projections
+after state-sync mutations, undo, and state import. This includes changes to Level,
+growth, or other equation inputs. The existing XP mutation routes also send tracker
+responses. Unclaimed sessions do not subscribe to character progress.
 
 ## Frontend
 
 [`frontend/src/features/xp/XpTrackerPage.tsx`](../../frontend/src/features/xp/XpTrackerPage.tsx)
-is the DM management workspace. GM/player character progress and player history
+is the DM management workspace, including the two-mode `XpProgressionEditor`. GM/player character progress and player history
 use `SheetXpProgressBar` and `SheetKillsSection`. After its initial tracker
 request, the UI relies on pushed WebSocket updates instead of a manual refresh
 control.
@@ -104,3 +131,18 @@ second outer frame around the full-width XP workspace.
 XP does not automatically level a character, grant points, or unlock mastery
 content. Parties are intentionally temporary coordination state rather than a
 historical identity stored on every kill.
+
+The progression editor uses a responsive two-column layout with compact tuning
+controls and a local `XpCurvePreview`. The user-requested client-side preview
+supports both tuning and equation modes, sample growth/Attribute inputs, ranges
+through 25/50/100/250, and pointer or keyboard inspection. Its default series is
+incremental XP (the nonnegative difference between adjacent lifetime targets);
+DMs may switch to lifetime targets. Non-Level sample Attributes stay fixed across
+the curve. This is an unsaved illustration only: no preview result crosses the
+request boundary or replaces authoritative character progress. A bounded arithmetic
+parser evaluates preview equations without JavaScript eval. Preview controls live
+outside the save form so incomplete samples cannot prevent saving campaign settings.
+
+Schema v50 adds `growth_increase_per_milestone` (default 0.02), upgrades exact old
+default configurations to the corrected defaults, and preserves customized knobs.
+Tuning now represents individual costs; formula mode keeps its lifetime-target semantics.

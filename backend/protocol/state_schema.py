@@ -155,7 +155,6 @@ class SheetPayload(ProtocolModel):
     profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
     dm_only: bool
     xp_given_when_slayed: float
-    xp_cap: float
     proficiencies: dict[str, ProficiencyBridgePayload]
     items: dict[str, InventoryItemBridgePayload]
     stats: StatsPayload

@@ -679,7 +679,6 @@ describe("adaptProtocolServerEvent", () => {
             name: "Mage",
             dm_only: false,
             xp_given_when_slayed: 0,
-            xp_cap: 0,
             proficiencies: {},
             items: {},
             stats: {
@@ -842,7 +841,6 @@ describe("adaptProtocolServerEvent", () => {
             name: "Goblin",
             dm_only: true,
             xp_given_when_slayed: 10,
-            xp_cap: 0,
             proficiencies: {},
             items: {},
             stats: {

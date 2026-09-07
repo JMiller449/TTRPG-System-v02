@@ -16,7 +16,7 @@ from backend.features.xp_tracker.schema import (
     SaveXpAdjustment,
     SetMobXpValue,
     SetMobKillVisibility,
-    SetSheetXpRequired,
+    SetXpProgression,
     UpdateKill,
 )
 from backend.protocol.socket import StatePatchEvent, XpTrackerEvent
@@ -40,15 +40,15 @@ class _DmMutationRoute:
     minimum_role = "dm"
 
 
-class SetSheetXpRequiredRoute(_DmMutationRoute, RequestRoute[SetSheetXpRequired]):
-    type_name = "set_sheet_xp_required"
-    request_model = SetSheetXpRequired
+class SetXpProgressionRoute(_DmMutationRoute, RequestRoute[SetXpProgression]):
+    type_name = "set_xp_progression"
+    request_model = SetXpProgression
     client_generation = ClientGenerationMetadata(
-        namespace="xpTracker", method_name="setSheetXpRequired"
+        namespace="xpTracker", method_name="setXpProgression"
     )
 
-    async def handle(self, session: WebSocketSession, request: SetSheetXpRequired) -> None:
-        await handler.set_sheet_xp_required(session, request)
+    async def handle(self, session: WebSocketSession, request: SetXpProgression) -> None:
+        await handler.set_xp_progression(session, request)
 
 
 class SetMobXpValueRoute(_DmMutationRoute, RequestRoute[SetMobXpValue]):
@@ -176,7 +176,7 @@ class DeleteXpAdjustmentRoute(
 
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(GetXpTrackerRoute())
-    registry.register(SetSheetXpRequiredRoute())
+    registry.register(SetXpProgressionRoute())
     registry.register(SetMobXpValueRoute())
     registry.register(SetMobKillVisibilityRoute())
     registry.register(SavePartyRoute())

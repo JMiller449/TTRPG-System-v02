@@ -113,7 +113,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "set_subject_attribute_value": "dm",
     "set_sheet_resistances": "dm",
     "set_sheet_notes": "dm",
-    "set_sheet_xp_required": "dm",
+    "set_xp_progression": "dm",
     "set_mob_xp_value": "dm",
     "set_mob_kill_visibility": "dm",
     "spawn_encounter_preset": "dm",

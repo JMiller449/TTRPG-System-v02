@@ -154,7 +154,6 @@ export function createEmptyTemplateEditorValues(
     notes: "",
     profile: createEmptyCharacterProfile(),
     xpGivenWhenSlayed: "0",
-    xpCap: "",
     racialHpMultiplier: "",
     maxHealth: cloneFormula(resourceDefaults?.max_health ?? FALLBACK_MAX_HEALTH),
     maxMana: cloneFormula(resourceDefaults?.max_mana ?? FALLBACK_MAX_MANA),
@@ -368,7 +367,6 @@ export function toTemplateEditorValues(sheet: Sheet): TemplateEditorValues {
     notes: sheet.notes ?? "",
     profile: resolveCharacterProfile(sheet.profile),
     xpGivenWhenSlayed: String(sheet.xp_given_when_slayed),
-    xpCap: String(sheet.xp_cap ?? 0),
     racialHpMultiplier: String(sheet.racial_hp_multiplier ?? 1),
     maxHealth: cloneFormula(sheet.max_health ?? FALLBACK_MAX_HEALTH),
     maxMana: cloneFormula(sheet.max_mana ?? FALLBACK_MAX_MANA),
@@ -402,8 +400,7 @@ export function toSheetDefinitionPayload(
   const coreStats = parseCoreStats(values.coreStats);
   const resistances = parseResistancePercentDraft(values.resistances);
   const xpGivenWhenSlayed = parseNonnegativeNumber(values.xpGivenWhenSlayed);
-  const xpCap = parseNonnegativeNumber(values.xpCap || "0");
-  if (!coreStats || !resistances || xpGivenWhenSlayed === null || xpCap === null) {
+  if (!coreStats || !resistances || xpGivenWhenSlayed === null) {
     throw new Error("Cannot build a sheet payload from an invalid template draft.");
   }
 
@@ -425,7 +422,6 @@ export function toSheetDefinitionPayload(
     profile: normalizeCharacterProfile(values.profile),
     dm_only: values.kind === "enemy",
     xp_given_when_slayed: xpGivenWhenSlayed,
-    xp_cap: xpCap,
     racial_hp_multiplier: Number(values.racialHpMultiplier),
     max_health: cloneFormula(values.maxHealth),
     max_mana: cloneFormula(values.maxMana),

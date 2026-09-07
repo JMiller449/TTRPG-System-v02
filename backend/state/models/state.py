@@ -36,12 +36,14 @@ from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.tag import TagDefinition, seeded_tag_definitions
+from backend.state.models.xp_progression import XpProgression
 from backend.state.models.xp import KillRecord, Party, XpAdjustment
 from backend.state.models.contribution_points import ContributionPointTransaction
 
 
 @dataclass
 class State:
+    xp_progression: XpProgression = field(default_factory=XpProgression)
     action_history: dict[str, ActionHistoryEntry] = field(default_factory=dict)
     parties: dict[str, Party] = field(default_factory=dict)
     kill_registry: dict[str, KillRecord] = field(default_factory=dict)
@@ -252,6 +254,7 @@ class State:
                 key: KillRecord.from_dict(record)
                 for key, record in raw.get("kill_registry", {}).items()
             },
+            xp_progression=XpProgression.from_dict(raw.get("xp_progression", {})),
             xp_adjustments={
                 key: XpAdjustment.from_dict(adjustment)
                 for key, adjustment in raw.get("xp_adjustments", {}).items()
@@ -347,4 +350,5 @@ class State:
         if not include_private:
             state.pop("sheet_access_codes", None)
             state.pop("direct_effect_projections", None)
+            state.pop("xp_progression", None)
         return state

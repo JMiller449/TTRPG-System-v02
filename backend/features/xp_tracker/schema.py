@@ -6,16 +6,17 @@ from typing import Literal
 from pydantic import ConfigDict, Field
 
 from backend.core.transport import RequestModel, ResponseModel
+from backend.state.models.xp_progression import XpProgression
 
 
 class GetXpTracker(RequestModel):
     type: Literal["get_xp_tracker"]
 
 
-class SetSheetXpRequired(RequestModel):
-    sheet_id: str = Field(min_length=1)
-    xp_required: float = Field(ge=0)
-    type: Literal["set_sheet_xp_required"]
+class SetXpProgression(RequestModel):
+    model_config = ConfigDict(extra="forbid")
+    progression: XpProgression
+    type: Literal["set_xp_progression"]
 
 
 class SetMobXpValue(RequestModel):
@@ -147,6 +148,8 @@ class XpTrackerSheet:
     current_xp: float
     xp_required: float
     ready_to_level: bool
+    xp_remaining: float = 0
+    goal_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -172,5 +175,6 @@ class XpTracker(ResponseModel):
     adjustments: list[XpTrackerAdjustment]
     mobs: list[XpTrackerMob]
     recordable_mobs: list[XpTrackerRecordableMob]
+    progression: XpProgression | None = None
     type: Literal["xp_tracker"] = "xp_tracker"
     request_id: str | None = None

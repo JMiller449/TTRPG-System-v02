@@ -104,7 +104,7 @@ import {
   buildSetSheetNotesRequest,
   buildSetMobXpValueRequest,
   buildSetMobKillVisibilityRequest,
-  buildSetSheetXpRequiredRequest,
+  buildSetXpProgressionRequest,
   buildRecordKillRequest,
   buildRecordPlayerKillRequest,
   buildSpawnEncounterPresetRequest,
@@ -259,7 +259,6 @@ const testSheet: SheetDefinitionPayload = {
   notes: "GM-only template notes",
   dm_only: false,
   xp_given_when_slayed: 0,
-  xp_cap: 0,
   racial_hp_multiplier: 50,
   proficiencies: {},
   items: {},
@@ -396,7 +395,7 @@ const requestBuilderByType = {
   set_sheet_formula_stat: buildSetSheetFormulaStatRequest,
   set_sheet_resistances: buildSetSheetResistancesRequest,
   set_sheet_notes: buildSetSheetNotesRequest,
-  set_sheet_xp_required: buildSetSheetXpRequiredRequest,
+  set_xp_progression: buildSetXpProgressionRequest,
   spawn_encounter_preset: buildSpawnEncounterPresetRequest,
   submit_player_item: buildSubmitPlayerItemRequest,
   undo_last_state_change: buildUndoLastStateChangeRequest,
@@ -451,10 +450,9 @@ describe("requestBuilders", () => {
 
   it("builds XP tracker requests", () => {
     expect(buildGetXpTrackerRequest()).toEqual({ type: "get_xp_tracker" });
-    expect(buildSetSheetXpRequiredRequest({ sheetId: "hero", xpRequired: 100 })).toEqual({
-      type: "set_sheet_xp_required",
-      sheet_id: "hero",
-      xp_required: 100
+    expect(buildSetXpProgressionRequest({ mode: "tuning", base_xp: 100 })).toEqual({
+      type: "set_xp_progression",
+      progression: { mode: "tuning", base_xp: 100 }
     });
     expect(buildSetMobXpValueRequest({ mobSheetId: "goblin", xpValue: 25 })).toEqual({
       type: "set_mob_xp_value",

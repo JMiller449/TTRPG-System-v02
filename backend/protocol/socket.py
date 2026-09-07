@@ -113,6 +113,7 @@ from backend.features.variable_registry.schema import (
     GetAugmentationTargetMetadata,
     GetVariableRegistry,
 )
+from backend.state.models.xp_progression import XpProgression
 from backend.features.xp_tracker.schema import (
     DeleteKill,
     DeleteParty,
@@ -124,7 +125,7 @@ from backend.features.xp_tracker.schema import (
     SaveXpAdjustment,
     SetMobKillVisibility,
     SetMobXpValue,
-    SetSheetXpRequired,
+    SetXpProgression,
     UpdateKill,
 )
 from backend.protocol.state_schema import (
@@ -474,6 +475,8 @@ class XpTrackerSheetEvent(ProtocolModel):
     current_xp: float
     xp_required: float
     ready_to_level: bool
+    xp_remaining: float = 0
+    goal_error: str | None = None
 
 
 class XpTrackerMobEvent(ProtocolModel):
@@ -497,6 +500,7 @@ class XpTrackerEvent(ProtocolModel):
     adjustments: list[XpTrackerAdjustmentEvent]
     mobs: list[XpTrackerMobEvent]
     recordable_mobs: list[XpTrackerRecordableMobEvent]
+    progression: XpProgression | None = None
     type: Literal["xp_tracker"] = "xp_tracker"
     request_id: str | None = None
 
@@ -588,7 +592,7 @@ ApplicationRequest = Annotated[
     | GetVariableRegistry
     | PerformAction
     | GetXpTracker
-    | SetSheetXpRequired
+    | SetXpProgression
     | SetMobXpValue
     | SetMobKillVisibility
     | SaveParty

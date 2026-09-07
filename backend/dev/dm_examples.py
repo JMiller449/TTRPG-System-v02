@@ -1309,8 +1309,10 @@ def sheet_attributes(
     campaign_role: str,
     gate_affinity: str,
     guild_rank: str,
+    xp_growth_rate: float = 1,
 ) -> dict[str, dict[str, Any]]:
     return {
+        "xp_growth_rate": attribute_bridge("xp_growth_rate", "number", xp_growth_rate),
         "campaign_role": attribute_bridge("campaign_role", "text", campaign_role),
         "gate_affinity": attribute_bridge("gate_affinity", "enum", gate_affinity),
         "guild_rank": attribute_bridge("guild_rank", "enum", guild_rank),
@@ -1427,7 +1429,6 @@ def sheet_payload() -> dict[str, Any]:
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": 100,
         "proficiencies": {
             "fixture_long_swords": proficiency_bridge("long_swords", use_count=0),
             "fixture_pyromancy": proficiency_bridge("pyromancy", use_count=30),
@@ -1466,7 +1467,6 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
         ),
         "dm_only": False,
         "xp_given_when_slayed": 0,
-        "xp_cap": 60,
         "proficiencies": {
             "fixture_knives": proficiency_bridge("knives", use_count=42),
             "fixture_shadow_steps": proficiency_bridge(
@@ -1507,6 +1507,7 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
         },
         "attributes": sheet_attributes(
             campaign_role="Player scout",
+            xp_growth_rate=0.6,
             gate_affinity="Shadow",
             guild_rank="D",
         ),
@@ -1520,7 +1521,6 @@ def goblin_sheet_payload() -> dict[str, Any]:
         "notes": "Starter enemy template: fast minion from an unstable red gate.",
         "dm_only": True,
         "xp_given_when_slayed": 15,
-        "xp_cap": 0,
         "proficiencies": {},
         "items": {},
         "stats": stats_payload(
@@ -1555,7 +1555,6 @@ def wraith_sheet_payload() -> dict[str, Any]:
         "notes": "Starter enemy template: elite ash caster guarding a gate core.",
         "dm_only": True,
         "xp_given_when_slayed": 45,
-        "xp_cap": 0,
         "proficiencies": {
             "fixture_pyromancy": proficiency_bridge("pyromancy", use_count=20),
         },

@@ -34,6 +34,7 @@ from backend.state.models.attribute import (
     ACTION_RANGE_ATTRIBUTE_ID,
     ACTION_TARGET_COUNT_ATTRIBUTE_ID,
     LEVEL_ATTRIBUTE_ID,
+    XP_GROWTH_RATE_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
     AttributeBridge,
@@ -545,6 +546,7 @@ def validate_and_evaluate_sheet_attributes(
     validate_sheet_formula_dependencies(sheet, state.formulas)
     synchronize_all_sheet_attributes(sheet, state.formulas)
     require_valid_subject_attribute_evaluation(sheet, attribute_ids)
+    require_valid_subject_attribute_evaluation(sheet, {XP_GROWTH_RATE_ATTRIBUTE_ID})
     level = sheet.attributes[LEVEL_ATTRIBUTE_ID].evaluated_value
     if (
         not isinstance(level, (int, float))

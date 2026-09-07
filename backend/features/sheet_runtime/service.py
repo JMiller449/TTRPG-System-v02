@@ -41,6 +41,7 @@ from backend.features.sheet_runtime.schema import (
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.action import (
     Action,
+    AdjustActionPointsStep,
     ApplyAugmentationStep,
     ApplyConditionPresetStep,
     CalculateValueStep,
@@ -1220,27 +1221,32 @@ def evaluate_reaction_limit(instance: InstancedSheet) -> float:
     return _normalize_reactions(max(0, raw))
 
 
+def _adjust_action_points_mutation(
+    state: State, instance_id: str, delta: int
+) -> PatchOp:
+    instance = state.instanced_sheets.get(instance_id)
+    if instance is None:
+        raise ValueError(f"Instance '{instance_id}' does not exist.")
+    current = _normalize_reactions(instance.reactions)
+    raw_next_value = current + delta
+    if raw_next_value < 0:
+        raise ValueError(
+            "Cannot consume more action/reaction points than are currently available."
+        )
+    next_value = _normalize_reactions(raw_next_value)
+    if next_value > evaluate_reaction_limit(instance):
+        raise ValueError(
+            "Cannot restore action/reaction points above the current maximum."
+        )
+    path = state_sync_service.join_path("instanced_sheets", instance_id, "reactions")
+    return state_sync_service.set_mutation(state, path, next_value)
+
+
 async def adjust_instanced_sheet_reactions(
     request: AdjustInstancedSheetReactions,
 ) -> None:
     def mutation(state: State) -> tuple[None, list[PatchOp]]:
-        instance = state.instanced_sheets.get(request.instance_id)
-        if instance is None:
-            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
-        current = _normalize_reactions(instance.reactions)
-        raw_next_value = current + request.delta
-        if raw_next_value < 0:
-            raise ValueError(
-                "Cannot consume more action/reaction points than are currently available."
-            )
-        next_value = _normalize_reactions(raw_next_value)
-        limit = evaluate_reaction_limit(instance)
-        if next_value > limit:
-            raise ValueError(
-                "Cannot restore action/reaction points above the current maximum."
-            )
-        path = state_sync_service.join_path("instanced_sheets", request.instance_id, "reactions")
-        return None, [state_sync_service.set_mutation(state, path, next_value)]
+        return None, [_adjust_action_points_mutation(state, request.instance_id, request.delta)]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -1546,6 +1552,12 @@ async def perform_action(
         unresolved_roll_mode = request.roll_mode
 
         for step in current_steps:
+            if isinstance(step, AdjustActionPointsStep):
+                instance_id = _required_instance_id(current_actor, "Action point")
+                delta = -step.amount if step.operation == "consume" else step.amount
+                ops.append(_adjust_action_points_mutation(state, instance_id, delta))
+                applied_mutations.append(f"reactions{'+=' if delta > 0 else '-='}{step.amount}")
+                continue
             if isinstance(step, SendRollStep):
                 expressions: list[str] = []
                 step_mode_applied = False

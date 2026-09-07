@@ -556,6 +556,15 @@ No large architecture feature is currently missing for the stated character-shee
         Assigned players control their player character, while the GM controls all spawned
         player-character and monster pools. Schema 39 upgrades unchanged legacy reaction formulas
         without rewriting customized formulas or fractional legacy balances.
+  - [x] Action authoring now supports an **Action points** step with Consume / Restore
+        and a positive whole-number amount (default 1). It changes the acting spawned
+        character's shared point pool, reuses manual resource bounds checks, and rejects
+        insufficient points or restoration above the evaluated maximum. Point changes
+        commit with the action and roll back on later-step or Roll20 delivery failure;
+        advantage/disadvantage does not repeat the adjustment. Existing actions retain
+        their current behavior until a GM explicitly adds a step. Authoring/state schemas,
+        generated frontend contracts, editor controls, and checkpoint round-tripping ship
+        together without a state migration.
   - [x] Spawned characters and monsters persist cumulative post-resistance damage totals for
         every canonical damage type. Manual typed damage and authored semantic damage increment
         the matching total atomically with health; the GM Characters resistance view displays

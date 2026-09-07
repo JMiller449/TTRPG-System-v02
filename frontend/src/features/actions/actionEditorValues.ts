@@ -14,6 +14,10 @@ export type ActionEditorStep = ActionEditorSteps[number];
 export type SendMessageEditorStep = Extract<ActionEditorStep, { type: "send_message" }>;
 export type SendRollEditorStep = Extract<ActionEditorStep, { type: "send_roll" }>;
 export type CalculateValueEditorStep = Extract<ActionEditorStep, { type: "calculate_value" }>;
+export type AdjustActionPointsEditorStep = Extract<
+  ActionEditorStep,
+  { type: "adjust_action_points" }
+>;
 export type ResolveDamageEditorStep = Extract<ActionEditorStep, { type: "resolve_damage" }>;
 export type IncrementValueEditorStep = Extract<ActionEditorStep, { type: "increment_value" }>;
 export type SetValueEditorStep = Extract<ActionEditorStep, { type: "set_value" }>;
@@ -122,6 +126,12 @@ export function getActionEditorValidationError(
     return "Name is required.";
   }
   for (const step of values.steps) {
+    if (step.type === "adjust_action_points") {
+      const amount = step.amount ?? 1;
+      if (!Number.isSafeInteger(amount) || amount <= 0) {
+        return "Action point amount must be a positive whole number.";
+      }
+    }
     if (step.type !== "send_roll") {
       continue;
     }
@@ -281,6 +291,40 @@ export function createCalculateValueActionStep(
     variable_id: variableId,
     value: emptyFormulaValue(formulaText),
     type: "calculate_value"
+  };
+}
+
+export function addAdjustActionPointsActionStep(
+  values: ActionEditorValues,
+  stepId: string
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: [
+      ...cloneActionSteps(values.steps),
+      {
+        step_id: stepId,
+        type: "adjust_action_points",
+        target: "caster",
+        operation: "consume",
+        amount: 1
+      }
+    ]
+  };
+}
+
+export function updateAdjustActionPointsActionStep(
+  values: ActionEditorValues,
+  stepId: string,
+  update: Partial<Pick<AdjustActionPointsEditorStep, "operation" | "amount">>
+): ActionEditorValues {
+  return {
+    ...values,
+    steps: values.steps.map((step) =>
+      step.step_id === stepId && step.type === "adjust_action_points"
+        ? { ...step, ...update }
+        : step
+    )
   };
 }
 

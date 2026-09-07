@@ -87,6 +87,14 @@ class DecrementValueActionStepPayload(NumericBoundsPayload):
     amount: NumericValuePayload
 
 
+class AdjustActionPointsActionStepPayload(BaseModel):
+    step_id: str = Field(min_length=1)
+    type: Literal["adjust_action_points"]
+    target: Literal["caster"] = "caster"
+    operation: Literal["consume", "restore"] = "consume"
+    amount: int = Field(default=1, gt=0, strict=True)
+
+
 class ResolveDamageActionStepPayload(BaseModel):
     step_id: str = Field(min_length=1)
     type: Literal["resolve_damage"]
@@ -127,6 +135,7 @@ ActionStepPayload = Annotated[
     | SetValueActionStepPayload
     | IncrementValueActionStepPayload
     | DecrementValueActionStepPayload
+    | AdjustActionPointsActionStepPayload
     | ResolveDamageActionStepPayload
     | GainProficiencyUseActionStepPayload
     | ApplyAugmentationActionStepPayload

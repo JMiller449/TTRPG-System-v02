@@ -15,6 +15,7 @@ Supported steps include:
 - compose and send a Roll20 message;
 - compose and send a structured Roll20 roll card;
 - bounded set, increment, or decrement of an allowed numeric path;
+- consume or restore the acting instance's shared action/reaction points;
 - semantic typed damage;
 - proficiency-use gain, targeting either an explicit definition, the action's
   Proficiency Attribute, or the selected weapon's Proficiency Attribute;
@@ -101,6 +102,26 @@ The draft is retained if the server rejects the request. On success, the editor
 reconciles to and selects the authoritative action returned through state sync,
 then shows an inline confirmation; it does not clear to a new invalid draft.
 
+## Action point steps
+
+The **Action points** step in the editor authors `adjust_action_points` with a
+`consume` or `restore` operation and a positive whole-number amount (default 1).
+It targets only the acting spawned character's existing `reactions` balance.
+The runtime shares the manual point controls' bounds checks: consumption below
+zero and restoration above the evaluated maximum reject the entire action.
+Amounts are fixed authored values, not roll formulas. Advantage and disadvantage
+do not multiply the cost or restoration.
+
+Steps execute in their authored order against the same isolated state as other
+action effects. Required chat delivery must succeed before the point change is
+committed; a later step or delivery failure rolls it back. Existing actions do
+not gain an implicit cost. GMs add costs or restoration explicitly, while manual
+Spend, Restore, and Reset controls remain available.
+
+This extends the action-step union in authoring requests and public state. Ship
+backend and regenerated frontend contracts together. Existing saved actions need
+no migration; new point steps round-trip through checkpoints and state sync.
+
 ## Execution transaction
 
 [`backend/features/sheet_runtime/service.py`](../../backend/features/sheet_runtime/service.py)
@@ -185,6 +206,10 @@ content. History insertion is intentionally non-undoable so DM undo does not
 erase the record of the action that produced the reverted mutation.
 
 ## Principal tests
+
+- [`backend/tests/test_action_points_steps.py`](../../backend/tests/test_action_points_steps.py)
+  covers point-step authoring, persistence, patches, limits, actor access, roll
+  modes, ordering, and rollback.
 
 - [`backend/tests/test_sheet_admin_actions.py`](../../backend/tests/test_sheet_admin_actions.py)
   covers authoring validation and dependencies.

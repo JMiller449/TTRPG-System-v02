@@ -6,6 +6,7 @@ from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.actions.schema import (
     ActionDefinitionPayload,
+    AdjustActionPointsActionStepPayload,
     ActionStepPayload,
     ApplyAugmentationActionStepPayload,
     ApplyConditionPresetActionStepPayload,
@@ -44,6 +45,7 @@ from backend.features.variable_registry import service as variable_registry_serv
 from backend.state.models.action import (
     Action,
     ActionStep,
+    AdjustActionPointsStep,
     ApplyAugmentationStep,
     ApplyConditionPresetStep,
     CalculateValueStep,
@@ -370,6 +372,7 @@ def _build_step(
         | SetValueActionStepPayload
         | IncrementValueActionStepPayload
         | DecrementValueActionStepPayload
+        | AdjustActionPointsActionStepPayload
         | ResolveDamageActionStepPayload
         | GainProficiencyUseActionStepPayload
         | ApplyAugmentationActionStepPayload
@@ -443,6 +446,13 @@ def _build_step(
                 available_variables=available_variables,
             ),
             **_bounds_kwargs(step, available_variables=available_variables),
+        )
+    if isinstance(step, AdjustActionPointsActionStepPayload):
+        return AdjustActionPointsStep(
+            step_id=step.step_id,
+            target=step.target,
+            operation=step.operation,
+            amount=step.amount,
         )
     if isinstance(step, ResolveDamageActionStepPayload):
         return ResolveDamageStep(

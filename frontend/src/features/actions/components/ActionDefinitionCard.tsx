@@ -15,6 +15,8 @@ function stepSummary(step: ActionStep): string {
       return `${step.step_id}: increment ${step.path.join(".")}`;
     case "decrement_value":
       return `${step.step_id}: decrement ${step.path.join(".")}`;
+    case "adjust_action_points":
+      return `${step.step_id}: ${step.operation ?? "consume"} ${step.amount ?? 1} action point${(step.amount ?? 1) === 1 ? "" : "s"}`;
     case "resolve_damage":
       return `${step.step_id}: resolve ${step.damage_type} damage`;
     case "gain_proficiency_use":

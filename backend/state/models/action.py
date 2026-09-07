@@ -216,6 +216,32 @@ class DecrementValueStep:
 
 
 @dataclass
+class AdjustActionPointsStep:
+    step_id: str
+    operation: Literal["consume", "restore"] = "consume"
+    amount: int = 1
+    target: Literal["caster"] = "caster"
+    type: Literal["adjust_action_points"] = "adjust_action_points"
+
+    def __post_init__(self) -> None:
+        if self.operation not in ("consume", "restore"):
+            raise ValueError("Action points operation must be consume or restore.")
+        if type(self.amount) is not int or self.amount <= 0:
+            raise ValueError("Action point amount must be a positive whole number.")
+        if self.target != "caster":
+            raise ValueError("Action point steps can only target the acting character.")
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "AdjustActionPointsStep":
+        return cls(
+            step_id=raw["step_id"],
+            operation=raw.get("operation", "consume"),
+            amount=raw.get("amount", 1),
+            target=raw.get("target", "caster"),
+        )
+
+
+@dataclass
 class ResolveDamageStep:
     step_id: str
     damage_type: DamageType
@@ -296,6 +322,7 @@ ActionStep = (
     | SetValueStep
     | IncrementValueStep
     | DecrementValueStep
+    | AdjustActionPointsStep
     | ResolveDamageStep
     | GainProficiencyUseStep
     | ApplyAugmentationStep
@@ -431,6 +458,9 @@ class Action:
                 continue
             if step_type == "decrement_value":
                 steps.append(DecrementValueStep.from_dict(raw_step))
+                continue
+            if step_type == "adjust_action_points":
+                steps.append(AdjustActionPointsStep.from_dict(raw_step))
                 continue
             if step_type == "resolve_damage":
                 steps.append(ResolveDamageStep.from_dict(raw_step))

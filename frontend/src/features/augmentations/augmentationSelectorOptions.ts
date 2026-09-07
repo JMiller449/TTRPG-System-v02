@@ -59,6 +59,7 @@ function stepFormulas(step: ActionStep): Array<Formula | null | undefined> {
     case "resolve_damage":
     case "gain_proficiency_use":
       return [numericSourceFormula(step.amount)];
+    case "adjust_action_points":
     case "apply_augmentation":
     case "apply_condition_preset":
       return [];

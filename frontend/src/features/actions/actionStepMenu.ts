@@ -1,4 +1,5 @@
 import {
+  addAdjustActionPointsActionStep,
   addApplyAugmentationActionStep,
   addApplyConditionPresetActionStep,
   addCalculateValueActionStep,
@@ -37,6 +38,7 @@ const STEP_DEFINITIONS: ReadonlyArray<Omit<ActionStepMenuOption, "unavailableRea
   { type: "set_value", label: "Set sheet value", group: "State Changes" },
   { type: "increment_value", label: "Increase sheet value", group: "State Changes" },
   { type: "decrement_value", label: "Decrease sheet value", group: "State Changes" },
+  { type: "adjust_action_points", label: "Action points", group: "State Changes" },
   { type: "resolve_damage", label: "Resolve damage", group: "Rules & Effects" },
   { type: "gain_proficiency_use", label: "Gain proficiency use", group: "Rules & Effects" },
   { type: "apply_augmentation", label: "Apply or remove effect", group: "Rules & Effects" },
@@ -65,6 +67,8 @@ export function actionStepIdPrefix(type: ActionStepMenuType): string {
       return "increase";
     case "decrement_value":
       return "decrease";
+    case "adjust_action_points":
+      return "points";
     case "resolve_damage":
       return "damage";
     case "gain_proficiency_use":
@@ -142,6 +146,8 @@ export function addActionStepFromMenu({
       return addIncrementValueActionStep(values, stepId, dependencies.mutationTargetPath ?? []);
     case "decrement_value":
       return addDecrementValueActionStep(values, stepId, dependencies.mutationTargetPath ?? []);
+    case "adjust_action_points":
+      return addAdjustActionPointsActionStep(values, stepId);
     case "resolve_damage":
       return addResolveDamageActionStep(values, stepId);
     case "gain_proficiency_use":

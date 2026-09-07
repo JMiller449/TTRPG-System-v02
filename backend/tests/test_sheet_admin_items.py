@@ -1194,6 +1194,80 @@ def test_player_can_add_and_remove_only_available_inventory_items(monkeypatch) -
     asyncio.run(scenario())
 
 
+def test_player_can_set_owned_inventory_quantity(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            _add_player_instance("hero-instance", "hero-sheet", "Hero")
+            _add_player_instance("rival-instance", "rival-sheet", "Rival")
+            state.items["knife"] = Item.from_dict(_item_payload("knife", "Knife"))
+            state.instanced_sheets["hero-instance"].items["hero-knives"] = ItemBridge(
+                relationship_id="hero-knives",
+                item_id="knife",
+                count=2,
+                equipped=False,
+            )
+            state.instanced_sheets["rival-instance"].items["rival-knives"] = ItemBridge(
+                relationship_id="rival-knives",
+                item_id="knife",
+                count=4,
+                equipped=False,
+            )
+
+            await websocket_sessions.reset()
+            socket = FakeWebSocket()
+            session = await websocket_sessions.connect(socket, role="player")
+            session.assigned_instance_id = "hero-instance"
+
+            await handle_client_payload(
+                socket,
+                {
+                    "type": "set_player_inventory_item_quantity",
+                    "relationship_id": "hero-knives",
+                    "count": 1,
+                },
+            )
+            assert state.instanced_sheets["hero-instance"].items[
+                "hero-knives"
+            ].count == 1
+            assert any(
+                op["path"] == "/instanced_sheets/hero-instance/items/hero-knives"
+                for op in socket.sent_messages[-1]["ops"]
+            )
+
+            await handle_client_payload(
+                socket,
+                {
+                    "type": "set_player_inventory_item_quantity",
+                    "relationship_id": "rival-knives",
+                    "count": 1,
+                },
+            )
+            assert state.instanced_sheets["rival-instance"].items[
+                "rival-knives"
+            ].count == 4
+            assert socket.sent_messages[-1]["reason"] == (
+                "That inventory item does not exist."
+            )
+
+            await handle_client_payload(
+                socket,
+                {
+                    "type": "set_player_inventory_item_quantity",
+                    "relationship_id": "hero-knives",
+                    "count": 0,
+                },
+            )
+            assert "hero-knives" not in state.instanced_sheets["hero-instance"].items
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_despawning_player_reconciles_selected_item_access(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

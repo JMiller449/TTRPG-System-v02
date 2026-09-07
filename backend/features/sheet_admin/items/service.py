@@ -12,6 +12,7 @@ from backend.features.sheet_admin.items.schema import (
     AddPlayerInventoryItem,
     ItemDefinitionPayload,
     RemovePlayerInventoryItem,
+    SetPlayerInventoryItemQuantity,
     RemoveItemAugmentationTemplate,
     ReviewPlayerItem,
     SubmitPlayerItem,
@@ -843,6 +844,44 @@ async def remove_player_inventory_item(
         )
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def set_player_inventory_item_quantity(
+    session: WebSocketSession,
+    request: SetPlayerInventoryItemQuantity,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance_id, instance = _assigned_player_instance(session, state)
+        current = instance.items.get(request.relationship_id)
+        if current is None:
+            raise ValueError("That inventory item does not exist.")
+
+        path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "items", request.relationship_id
+        )
+        if request.count == 0:
+            if any(
+                bridge.parent_container_id == request.relationship_id
+                for bridge in instance.items.values()
+            ):
+                raise ValueError("Empty a storage container before removing it.")
+            _, op = state_sync_service.remove_mutation(state, path)
+            return None, [op]
+
+        updated = ItemBridge(
+            relationship_id=current.relationship_id,
+            count=request.count,
+            equipped=current.equipped,
+            item_id=current.item_id,
+            parent_container_id=current.parent_container_id,
+        )
+        validate_inventory(
+            {**instance.items, request.relationship_id: updated},
+            state.items,
+        )
+        return None, [state_sync_service.set_mutation(state, path, updated)]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 

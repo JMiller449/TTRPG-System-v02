@@ -18,7 +18,7 @@ const sword = {
 } as ItemDefinition;
 
 describe("SheetEquipmentSection", () => {
-  it("lets players add, remove, equip, and organize items without GM quantity controls", () => {
+  it("lets players add, remove, edit quantities, equip, and organize items", () => {
     const markup = renderToStaticMarkup(
       <SheetEquipmentSection
         items={{ sword }}
@@ -40,7 +40,7 @@ describe("SheetEquipmentSection", () => {
         currentCarriedWeight={10}
         carryWeightLimit={10}
         canManageInventory
-        canEditInventory={false}
+        canEditInventory
         canMoveInventory
         canToggleEquipped
         onOpenCreateItem={() => undefined}
@@ -60,7 +60,9 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain('aria-label="Owned inventory items"');
     expect(markup).toContain('tabindex="0"');
     expect(markup).not.toContain("over capacity");
-    expect(markup).not.toContain("quantity value");
+    expect(markup).toContain('aria-label="Sword quantity value"');
+    expect(markup).toContain('aria-label="Decrease Sword quantity"');
+    expect(markup).toContain('aria-label="Increase Sword quantity"');
     expect(markup).toContain('aria-label="Remove Sword from inventory"');
     expect(markup).not.toContain("Storage location for Sword");
   });

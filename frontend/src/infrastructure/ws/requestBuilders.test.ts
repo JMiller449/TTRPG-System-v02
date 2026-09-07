@@ -54,6 +54,7 @@ import {
   buildRemoveActiveConditionRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildRemovePlayerInventoryItemRequest,
+  buildSetPlayerInventoryItemQuantityRequest,
   buildGetActionFormulaAuthoringMetadataRequest,
   buildGetAugmentationTargetMetadataRequest,
   buildGetRoll20BridgeStatusRequest,
@@ -364,6 +365,7 @@ const requestBuilderByType = {
   remove_active_condition: buildRemoveActiveConditionRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   remove_player_inventory_item: buildRemovePlayerInventoryItemRequest,
+  set_player_inventory_item_quantity: buildSetPlayerInventoryItemQuantityRequest,
   review_player_item: buildReviewPlayerItemRequest,
   rename_catalog_folder: buildRenameCatalogFolderRequest,
   reset_instanced_sheet_attribute_value: buildResetInstancedSheetAttributeValueRequest,
@@ -1115,6 +1117,18 @@ describe("requestBuilders", () => {
       type: "remove_player_inventory_item",
       relationship_id: "rope-entry",
       request_id: "req-remove"
+    });
+    expect(
+      buildSetPlayerInventoryItemQuantityRequest({
+        relationshipId: "rope-entry",
+        count: 2,
+        requestId: "req-quantity"
+      })
+    ).toEqual({
+      type: "set_player_inventory_item_quantity",
+      relationship_id: "rope-entry",
+      count: 2,
+      request_id: "req-quantity"
     });
     const proposal = {
       name: "Handmade Rope",

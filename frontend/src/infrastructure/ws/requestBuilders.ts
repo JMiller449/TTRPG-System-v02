@@ -1690,6 +1690,22 @@ export function buildRemovePlayerInventoryItemRequest({
   };
 }
 
+export function buildSetPlayerInventoryItemQuantityRequest({
+  relationshipId,
+  count,
+  requestId
+}: {
+  relationshipId: string;
+  count: number;
+} & OptionalRequestId): ProtocolRequest<"set_player_inventory_item_quantity"> {
+  return {
+    ...requestIdField(requestId),
+    type: "set_player_inventory_item_quantity",
+    relationship_id: relationshipId,
+    count
+  };
+}
+
 export function buildSubmitPlayerItemRequest({
   item,
   requestId

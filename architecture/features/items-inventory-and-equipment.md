@@ -129,9 +129,13 @@ a folder's `+` menu queues the normal entity creation followed by a separate
 placement request; no folder ID enters the item/template payload.
 
 An assigned player may add one copy of an item allowed for their claimed
-instance or remove an eligible item from their own inventory. The backend
-checks that stable instance ID for both snapshot visibility and inventory-add
-requests. Item allow-lists are private and never sent to players. An
+instance, edit the quantity of an item already in their own inventory, or
+remove an eligible item. Quantity zero removes the entry, subject to the same
+nonempty-container protection as explicit removal. The player quantity request
+contains only the relationship ID and desired count; the backend resolves the
+claimed instance, preserves the remaining bridge fields, and validates the
+resulting inventory. The backend checks that stable instance ID for both
+snapshot visibility and inventory-add requests. Item allow-lists are private and never sent to players. An
 unavailable definition remains visible when needed to render an item the
 assigned character already owns. Despawning a selected character or changing
 its template to GM-only removes its stale allow-list reference.
@@ -166,7 +170,7 @@ Equipment effects are selected from the shared Effect catalog. Item and item
 template payloads store only stable `effect_ids`; effect payloads are authored
 once in Effect Authoring. The backend validates source-item aliases against each
 referring item and revalidates all consumers when a definition changes.
-DMs and players can drag an unequipped item onto a valid storage card or the
+DMs and players can edit owned quantities and drag an unequipped item onto a valid storage card or the
 root inventory drop zone. The location selector remains the keyboard and touch
 fallback. The shared move route is available to authenticated players only for
 their claimed player-sheet instance; DMs retain access to every instance.

@@ -16,6 +16,7 @@ from backend.features.sheet_admin.items.schema import (
     DeleteItem,
     DeleteItemTemplate,
     RemovePlayerInventoryItem,
+    SetPlayerInventoryItemQuantity,
     RemoveItemAugmentationTemplate,
     ReviewPlayerItem,
     SubmitPlayerItem,
@@ -157,6 +158,26 @@ class RemovePlayerInventoryItemRoute(RequestRoute[RemovePlayerInventoryItem]):
         await service.remove_player_inventory_item(session, request)
 
 
+class SetPlayerInventoryItemQuantityRoute(
+    RequestRoute[SetPlayerInventoryItemQuantity]
+):
+    type_name = "set_player_inventory_item_quantity"
+    request_model = SetPlayerInventoryItemQuantity
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "player"
+    client_generation = ClientGenerationMetadata(
+        namespace="playerInventory",
+        method_name="setItemQuantity",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: SetPlayerInventoryItemQuantity,
+    ) -> None:
+        await service.set_player_inventory_item_quantity(session, request)
+
+
 class SubmitPlayerItemRoute(RequestRoute[SubmitPlayerItem]):
     type_name = "submit_player_item"
     request_model = SubmitPlayerItem
@@ -240,6 +261,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(DeleteItemTemplateRoute())
     registry.register(AddPlayerInventoryItemRoute())
     registry.register(RemovePlayerInventoryItemRoute())
+    registry.register(SetPlayerInventoryItemQuantityRoute())
     registry.register(SubmitPlayerItemRoute())
     registry.register(ReviewPlayerItemRoute())
     registry.register(UpsertItemAugmentationTemplateRoute())

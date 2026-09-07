@@ -752,3 +752,10 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
   per-enemy XP and participant snapshots. Schema v52 backfills legacy records.
   Request/schema generation, history labels, edit/undo behavior, permission and
   validation tests, and frontend quantity submission are updated together.
+
+- [x] Player inventory quantity editing: assigned players can set quantities on
+  entries in their claimed character inventory through a narrow authoritative
+  request. The backend preserves item, equipment, and containment identity,
+  validates the resulting inventory, rejects other characters' relationship
+  IDs, and treats zero as removal with nonempty-container protection. Player
+  sheets now expose the same quantity stepper used by the GM.

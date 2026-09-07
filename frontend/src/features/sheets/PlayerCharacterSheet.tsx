@@ -52,6 +52,7 @@ import {
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
   buildRemovePlayerInventoryItemRequest,
+  buildSetPlayerInventoryItemQuantityRequest,
   buildSetInstancedSheetNotesRequest,
   buildSetInstancedSheetProfileRequest,
   buildSetInstancedSheetItemEquippedRequest,
@@ -354,7 +355,7 @@ export function PlayerCharacterSheet({
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
   const canManageEquipment = true;
-  const canEditEquipment = mode === "gm";
+  const canEditEquipment = true;
   const canEditProficiencies = mode === "gm";
   const canEditResistances = mode === "gm";
   const sheetId = detail.sheet?.id;
@@ -1031,6 +1032,16 @@ export function PlayerCharacterSheet({
                 const bridge = equipment.find((entry) => entry.relationship_id === relationshipId);
                 const item = bridge ? items[bridge.item_id] : undefined;
                 if (!bridge || !item) {
+                  return;
+                }
+                if (mode === "player") {
+                  if (!Number.isSafeInteger(count) || count < 0) {
+                    return;
+                  }
+                  client.sendProtocolRequest(
+                    buildSetPlayerInventoryItemQuantityRequest({ relationshipId, count }),
+                    `Update quantity: ${item.name}`
+                  );
                   return;
                 }
                 const submission = buildEquipmentQuantitySubmission({

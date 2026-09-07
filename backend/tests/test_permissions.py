@@ -90,6 +90,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "remove_active_condition": "dm",
     "remove_item_augmentation_template": "dm",
     "remove_player_inventory_item": "player",
+    "set_player_inventory_item_quantity": "player",
     "resync_state": "player",
     "reset_instanced_sheet_attribute_value": "dm",
     "reset_sheet_attribute_value": "dm",

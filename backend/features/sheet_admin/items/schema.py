@@ -141,6 +141,12 @@ class RemovePlayerInventoryItem(RequestModel):
     type: Literal["remove_player_inventory_item"]
 
 
+class SetPlayerInventoryItemQuantity(RequestModel):
+    relationship_id: str = Field(min_length=1)
+    count: int = Field(ge=0, le=9_007_199_254_740_991)
+    type: Literal["set_player_inventory_item_quantity"]
+
+
 class PlayerItemSubmissionPayload(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 

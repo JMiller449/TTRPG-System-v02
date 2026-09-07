@@ -26,6 +26,7 @@ from backend.state.models.xp import (
     Party,
     XpAdjustment,
     normalize_xp,
+    validate_kill_quantity,
 )
 from backend.state.store import StateSingleton
 
@@ -67,6 +68,7 @@ def _kill_view(record: KillRecord) -> XpTrackerKill:
         id=record.id,
         monster_name=record.monster_name,
         base_xp=record.base_xp,
+        quantity=record.quantity,
         monster_sheet_id=record.monster_sheet_id,
         participants=[
             XpTrackerKillParticipant(
@@ -403,6 +405,7 @@ def _build_kill(
     submitted_by_instance_id: str | None = None,
     submitted_by_name: str | None = None,
     existing_participants: list[KillParticipant] | None = None,
+    quantity: int = 1,
 ) -> KillRecord:
     participants = _participants(
         state,
@@ -410,15 +413,19 @@ def _build_kill(
         existing_participants=existing_participants,
     )
     participant_count = len(participants)
+    quantity = validate_kill_quantity(quantity)
     normalized_base_xp = normalize_xp(base_xp)
     return KillRecord(
         id=kill_id,
         monster_name=monster_name.strip(),
         base_xp=normalized_base_xp,
+        quantity=quantity,
         participants=participants,
         participant_count=participant_count,
         xp_percentage=normalize_xp(100 / participant_count),
-        xp_per_participant=normalize_xp(normalized_base_xp / participant_count),
+        xp_per_participant=normalize_xp(
+            normalize_xp(normalized_base_xp / participant_count) * quantity
+        ),
         occurred_at=occurred_at,
         monster_sheet_id=monster_sheet_id,
         notes=notes,
@@ -441,6 +448,7 @@ def _record_kill_in_state(
     submitted_by_role: Literal["player", "dm"],
     submitted_by_instance_id: str | None = None,
     submitted_by_name: str | None = None,
+    quantity: int = 1,
 ) -> tuple[None, list]:
     if kill_id in state.kill_registry:
         raise ValueError(f"Kill '{kill_id}' already exists.")
@@ -473,6 +481,7 @@ def _record_kill_in_state(
         kill_id=kill_id,
         monster_name=resolved_monster_name,
         base_xp=resolved_base_xp,
+        quantity=quantity,
         participant_instance_ids=participant_ids,
         occurred_at=occurred_at or _now(),
         monster_sheet_id=monster_sheet_id,
@@ -495,11 +504,13 @@ async def record_kill(
     occurred_at: str | None,
     notes: str,
     request_id: str | None,
+    quantity: int = 1,
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
         return _record_kill_in_state(
             state=state,
             kill_id=kill_id,
+            quantity=quantity,
             credited_instance_id=credited_instance_id,
             monster_sheet_id=monster_sheet_id,
             monster_name=monster_name,
@@ -518,6 +529,7 @@ async def record_player_kill(
     credited_instance_id: str,
     monster_sheet_id: str,
     request_id: str | None,
+    quantity: int = 1,
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
         if state.player_kill_visibility.get(monster_sheet_id) is not True:
@@ -526,6 +538,7 @@ async def record_player_kill(
         return _record_kill_in_state(
             state=state,
             kill_id=kill_id,
+            quantity=quantity,
             credited_instance_id=credited_instance_id,
             monster_sheet_id=monster_sheet_id,
             monster_name=None,
@@ -550,6 +563,7 @@ async def update_kill(
     occurred_at: str,
     notes: str,
     request_id: str | None,
+    quantity: int | None = None,
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
         if kill_id not in state.kill_registry:
@@ -557,6 +571,7 @@ async def update_kill(
         record = _build_kill(
             state=state,
             kill_id=kill_id,
+            quantity=state.kill_registry[kill_id].quantity if quantity is None else quantity,
             monster_name=monster_name,
             base_xp=base_xp,
             participant_instance_ids=participant_instance_ids,

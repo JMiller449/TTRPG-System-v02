@@ -71,7 +71,7 @@
 
 .xp-player-kill-form {
   display: grid;
-  grid-template-columns: minmax(12rem, 1fr) auto;
+  grid-template-columns: minmax(12rem, 1fr) minmax(5rem, 7rem) auto;
   align-items: end;
   gap: 0.65rem;
   margin: 0;

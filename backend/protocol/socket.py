@@ -442,6 +442,7 @@ class XpTrackerKillParticipantEvent(ProtocolModel):
 
 
 class XpTrackerKillEvent(ProtocolModel):
+    quantity: int = 1
     id: str
     monster_name: str
     base_xp: float

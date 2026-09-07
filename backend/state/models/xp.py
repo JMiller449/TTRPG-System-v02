@@ -43,6 +43,16 @@ class KillParticipant:
         return cls(instance_id=raw["instance_id"], name=raw["name"])
 
 
+def validate_kill_quantity(quantity: int) -> int:
+    if (
+        isinstance(quantity, bool)
+        or not isinstance(quantity, int)
+        or not 1 <= quantity <= 10000
+    ):
+        raise ValueError("Kill quantity must be a whole number from 1 to 10000.")
+    return quantity
+
+
 @dataclass
 class KillRecord:
     id: str
@@ -53,6 +63,7 @@ class KillRecord:
     xp_percentage: float
     xp_per_participant: float
     occurred_at: str
+    quantity: int = 1
     monster_sheet_id: str | None = None
     notes: str = ""
     submitted_by_role: Literal["player", "dm"] = "dm"
@@ -67,6 +78,7 @@ class KillRecord:
         ]
         if not participants:
             raise ValueError("A persisted kill must have at least one participant.")
+        quantity = validate_kill_quantity(raw.get("quantity", 1))
         base_xp = normalize_xp(raw["base_xp"])
         participant_count = len(participants)
         submitted_by_role = raw.get("submitted_by_role", "dm")
@@ -76,10 +88,13 @@ class KillRecord:
             id=raw["id"],
             monster_name=raw["monster_name"],
             base_xp=base_xp,
+            quantity=quantity,
             participants=participants,
             participant_count=participant_count,
             xp_percentage=normalize_xp(100 / participant_count),
-            xp_per_participant=normalize_xp(base_xp / participant_count),
+            xp_per_participant=normalize_xp(
+                normalize_xp(base_xp / participant_count) * quantity
+            ),
             occurred_at=raw["occurred_at"],
             monster_sheet_id=raw.get("monster_sheet_id"),
             notes=raw.get("notes", ""),

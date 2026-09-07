@@ -1,3 +1,4 @@
+import { KillQuantityField } from "@/features/xp/KillQuantityField";
 import { useState } from "react";
 import type { XpTrackerKillEvent } from "@/generated/backendProtocol";
 import type { GameClient } from "@/hooks/useGameClient";
@@ -22,6 +23,9 @@ export function KillEditor({
   client: GameClient;
   onClose: () => void;
 }): JSX.Element {
+  const [quantity, setQuantity] = useState(String(kill.quantity ?? 1));
+  const validQuantity =
+    Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [name, setName] = useState(kill.monster_name);
   const [baseXp, setBaseXp] = useState(String(kill.base_xp));
   const [occurredAt, setOccurredAt] = useState(toLocalDateTime(kill.occurred_at));
@@ -36,7 +40,8 @@ export function KillEditor({
       <Field label="Monster">
         <input value={name} onChange={(event) => setName(event.target.value)} />
       </Field>
-      <Field label="Base XP">
+      <KillQuantityField value={quantity} onChange={setQuantity} />
+      <Field label="XP per kill">
         <input
           type="number"
           min={0}
@@ -78,7 +83,11 @@ export function KillEditor({
           className="button button--primary"
           type="button"
           disabled={
-            !name.trim() || !Number.isFinite(parsedXp) || parsedXp < 0 || participants.length === 0
+            !validQuantity ||
+            !name.trim() ||
+            !Number.isFinite(parsedXp) ||
+            parsedXp < 0 ||
+            participants.length === 0
           }
           onClick={() => {
             const removedParticipants = kill.participants.filter(
@@ -101,6 +110,7 @@ export function KillEditor({
                 monsterSheetId: kill.monster_sheet_id,
                 monsterName: name.trim(),
                 baseXp: parsedXp,
+                quantity: Number(quantity),
                 participantInstanceIds: participants,
                 occurredAt: new Date(occurredAt).toISOString(),
                 notes

@@ -159,3 +159,15 @@ restricts its axis and inspection slider to those points, with an explanatory me
 The Growth Multiplier / Milestone defaults to 1 (neutral) for new settings or
 missing editor/preview values. The explicit recommended preset uses 1.02; existing
 authored multipliers remain intact.
+
+Kill records include a positive integer `quantity` (1–10000, default 1). DM
+registry creation, DM character dialogs, player final-blow submission, and DM
+historical editing all support batches such as “5× Zombie”. `base_xp` remains
+per enemy; each participant's single-kill share is rounded as before, then
+multiplied by quantity. A batch therefore awards exactly the same XP as separate
+identical kills with the same participants. Each batch snapshots one roster and
+occurrence time; later party changes do not rewrite it. Editing a batch recalculates
+its award, while omitted quantity in legacy edit requests preserves the stored
+quantity. Player batches retain server-selected XP, character, and participants.
+Schema v52 backfills quantity 1 on historical records. Quantity is projected in
+both registry/history views; the row count remains the count of records.

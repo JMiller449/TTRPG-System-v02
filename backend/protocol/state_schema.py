@@ -616,6 +616,7 @@ class KillParticipantPayload(ProtocolModel):
 
 
 class KillRecordPayload(ProtocolModel):
+    quantity: int = 1
     id: str
     monster_name: str
     base_xp: float

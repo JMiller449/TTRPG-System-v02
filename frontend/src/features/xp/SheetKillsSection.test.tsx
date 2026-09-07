@@ -98,11 +98,12 @@ describe("SheetKillsSection player recording", () => {
     const kill = {
       id: "kill_1",
       monster_name: "Goblin",
+      quantity: 5,
       base_xp: 20,
       participants: [{ instance_id: "hero_1", name: "Hero" }],
       participant_count: 1,
       xp_percentage: 100,
-      xp_per_participant: 20,
+      xp_per_participant: 100,
       occurred_at: "2026-07-14T18:00:00+00:00",
       monster_sheet_id: "goblin",
       notes: "",
@@ -125,11 +126,12 @@ describe("SheetKillsSection player recording", () => {
     expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(1);
     expect(container.textContent).toContain("Kill history");
     expect(container.textContent).toContain("1 record");
-    expect(container.textContent).toContain("20 XP");
+    expect(container.textContent).toContain("5× Goblin");
+    expect(container.textContent).toContain("100 XP");
     expect(container.textContent).toContain("100% credit");
   });
 
-  it("submits only the selected visible enemy and retains it after an error", async () => {
+  it("submits the selected enemy and quantity without client-authored XP", async () => {
     await renderSection();
     sendProtocolRequest.mockClear();
 
@@ -149,6 +151,15 @@ describe("SheetKillsSection player recording", () => {
       (option) => option.textContent?.includes("Goblin")
     );
     await act(async () => goblinOption?.click());
+    const quantityInput = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+        quantityInput,
+        "5"
+      );
+      quantityInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
     await act(async () => {
       form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
@@ -157,6 +168,7 @@ describe("SheetKillsSection player recording", () => {
       type: string;
       kill_id: string;
       monster_sheet_id: string;
+      quantity: number;
       request_id: string;
       credited_instance_id?: string;
       base_xp?: number;
@@ -164,6 +176,7 @@ describe("SheetKillsSection player recording", () => {
     expect(request.type).toBe("record_player_kill");
     expect(request.kill_id).toMatch(/^kill_/);
     expect(request.monster_sheet_id).toBe("goblin");
+    expect(request.quantity).toBe(5);
     expect(request.credited_instance_id).toBeUndefined();
     expect(request.base_xp).toBeUndefined();
     expect(select?.disabled).toBe(true);

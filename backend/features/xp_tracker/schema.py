@@ -44,6 +44,7 @@ class DeleteParty(RequestModel):
 
 
 class RecordKill(RequestModel):
+    quantity: int = Field(default=1, ge=1, le=10000, strict=True)
     kill_id: str = Field(min_length=1)
     credited_instance_id: str = Field(min_length=1)
     monster_sheet_id: str | None = None
@@ -55,6 +56,7 @@ class RecordKill(RequestModel):
 
 
 class RecordPlayerKill(RequestModel):
+    quantity: int = Field(default=1, ge=1, le=10000, strict=True)
     model_config = ConfigDict(extra="forbid")
 
     kill_id: str = Field(min_length=1)
@@ -63,6 +65,7 @@ class RecordPlayerKill(RequestModel):
 
 
 class UpdateKill(RequestModel):
+    quantity: int | None = Field(default=None, ge=1, le=10000, strict=True)
     kill_id: str = Field(min_length=1)
     monster_sheet_id: str | None = None
     monster_name: str = Field(min_length=1)
@@ -121,6 +124,7 @@ class XpTrackerKill:
     xp_percentage: float
     xp_per_participant: float
     occurred_at: str
+    quantity: int = 1
     monster_sheet_id: str | None = None
     notes: str = ""
     submitted_by_role: Literal["player", "dm"] = "dm"

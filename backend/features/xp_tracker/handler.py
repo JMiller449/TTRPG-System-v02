@@ -107,6 +107,7 @@ async def delete_party(session: WebSocketSession, request: DeleteParty) -> None:
 
 async def record_kill(session: WebSocketSession, request: RecordKill) -> None:
     await service.record_kill(
+        quantity=request.quantity,
         kill_id=request.kill_id,
         credited_instance_id=request.credited_instance_id,
         monster_sheet_id=request.monster_sheet_id,
@@ -127,6 +128,7 @@ async def record_player_kill(
     if session.assigned_instance_id is None:
         raise PermissionError("Claim a sheet access code before recording kills.")
     await service.record_player_kill(
+        quantity=request.quantity,
         kill_id=request.kill_id,
         credited_instance_id=session.assigned_instance_id,
         monster_sheet_id=request.monster_sheet_id,
@@ -140,6 +142,7 @@ async def record_player_kill(
 
 async def update_kill(session: WebSocketSession, request: UpdateKill) -> None:
     await service.update_kill(
+        quantity=request.quantity,
         kill_id=request.kill_id,
         monster_sheet_id=request.monster_sheet_id,
         monster_name=request.monster_name,

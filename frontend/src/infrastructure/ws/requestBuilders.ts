@@ -241,6 +241,7 @@ export function buildDeletePartyRequest({
 
 export function buildRecordKillRequest({
   killId,
+  quantity,
   creditedInstanceId,
   monsterSheetId,
   monsterName,
@@ -250,6 +251,7 @@ export function buildRecordKillRequest({
   requestId
 }: {
   killId: string;
+  quantity?: number;
   creditedInstanceId: string;
   monsterSheetId?: string | null;
   monsterName?: string | null;
@@ -261,6 +263,7 @@ export function buildRecordKillRequest({
     ...requestIdField(requestId),
     type: "record_kill",
     kill_id: killId,
+    ...(quantity === undefined ? {} : { quantity }),
     credited_instance_id: creditedInstanceId,
     monster_sheet_id: monsterSheetId ?? null,
     monster_name: monsterName ?? null,
@@ -272,22 +275,26 @@ export function buildRecordKillRequest({
 
 export function buildRecordPlayerKillRequest({
   killId,
+  quantity,
   monsterSheetId,
   requestId
 }: {
   killId: string;
+  quantity?: number;
   monsterSheetId: string;
 } & OptionalRequestId): ProtocolRequest<"record_player_kill"> {
   return {
     ...requestIdField(requestId),
     type: "record_player_kill",
     kill_id: killId,
+    ...(quantity === undefined ? {} : { quantity }),
     monster_sheet_id: monsterSheetId
   };
 }
 
 export function buildUpdateKillRequest({
   killId,
+  quantity,
   monsterSheetId,
   monsterName,
   baseXp,
@@ -297,6 +304,7 @@ export function buildUpdateKillRequest({
   requestId
 }: {
   killId: string;
+  quantity?: number;
   monsterSheetId?: string | null;
   monsterName: string;
   baseXp: number;
@@ -308,6 +316,7 @@ export function buildUpdateKillRequest({
     ...requestIdField(requestId),
     type: "update_kill",
     kill_id: killId,
+    ...(quantity === undefined ? {} : { quantity }),
     monster_sheet_id: monsterSheetId ?? null,
     monster_name: monsterName,
     base_xp: baseXp,

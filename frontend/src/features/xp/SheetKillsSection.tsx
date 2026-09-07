@@ -1,3 +1,4 @@
+import { KillQuantityField } from "@/features/xp/KillQuantityField";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
@@ -37,6 +38,9 @@ export function SheetKillsSection({
   const [gmMonsterChoice, setGmMonsterChoice] = useState("");
   const [gmCustomMonsterName, setGmCustomMonsterName] = useState("");
   const [gmCustomXp, setGmCustomXp] = useState("0");
+  const [quantity, setQuantity] = useState("1");
+  const validQuantity =
+    Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [gmKillNotes, setGmKillNotes] = useState("");
 
   useEffect(() => {
@@ -64,6 +68,7 @@ export function SheetKillsSection({
           setGmCustomMonsterName("");
           setGmCustomXp("0");
           setGmKillNotes("");
+          setQuantity("1");
         }
       }),
     [client]
@@ -79,6 +84,7 @@ export function SheetKillsSection({
   const gmUsesCustomMonster = gmMonsterChoice === "custom";
   const parsedCustomXp = Number(gmCustomXp);
   const canSubmitGmKill =
+    validQuantity &&
     Boolean(gmMonsterChoice) &&
     (!gmUsesCustomMonster ||
       (Boolean(gmCustomMonsterName.trim()) &&
@@ -92,6 +98,7 @@ export function SheetKillsSection({
     setGmCustomMonsterName("");
     setGmCustomXp("0");
     setGmKillNotes("");
+    setQuantity("1");
   };
 
   return (
@@ -113,7 +120,7 @@ export function SheetKillsSection({
           className="xp-player-kill-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!selectedMobId || submittingRequestRef.current) return;
+            if (!validQuantity || !selectedMobId || submittingRequestRef.current) return;
             const requestId = makeId("request");
             submittingRequestRef.current = requestId;
             setPendingRequestId(requestId);
@@ -121,6 +128,7 @@ export function SheetKillsSection({
               buildRecordPlayerKillRequest({
                 killId: makeId("kill"),
                 monsterSheetId: selectedMobId,
+                quantity: Number(quantity),
                 requestId
               }),
               "Record kill"
@@ -141,10 +149,15 @@ export function SheetKillsSection({
             emptyMessage="No enemies are currently available."
             onSelect={setSelectedMobId}
           />
+          <KillQuantityField
+            value={quantity}
+            onChange={setQuantity}
+            disabled={pendingRequestId !== null}
+          />
           <button
             className="button button--primary"
             type="submit"
-            disabled={!selectedMobId || pendingRequestId !== null}
+            disabled={!validQuantity || !selectedMobId || pendingRequestId !== null}
           >
             {pendingRequestId ? "Recording…" : "Record Kill"}
           </button>
@@ -167,7 +180,10 @@ export function SheetKillsSection({
             {trackerSheet.kills.map((kill) => (
               <article className="sheet-kill-card" key={kill.id}>
                 <div className="sheet-kill-card__header">
-                  <strong>{kill.monster_name}</strong>
+                  <strong>
+                    {(kill.quantity ?? 1) > 1 ? `${kill.quantity}× ` : ""}
+                    {kill.monster_name}
+                  </strong>
                   <strong>{formatXp(kill.xp_per_participant)} XP</strong>
                 </div>
                 <time dateTime={kill.occurred_at}>
@@ -223,6 +239,7 @@ export function SheetKillsSection({
                   monsterSheetId: gmUsesCustomMonster ? null : gmMonsterChoice,
                   monsterName: gmUsesCustomMonster ? gmCustomMonsterName.trim() : null,
                   baseXp: gmUsesCustomMonster ? parsedCustomXp : null,
+                  quantity: Number(quantity),
                   notes: gmKillNotes,
                   requestId
                 }),
@@ -267,7 +284,7 @@ export function SheetKillsSection({
                     onChange={(event) => setGmCustomMonsterName(event.target.value)}
                   />
                 </Field>
-                <Field label="Base XP">
+                <Field label="XP per kill">
                   <input
                     type="number"
                     min="0"
@@ -279,6 +296,11 @@ export function SheetKillsSection({
                 </Field>
               </div>
             ) : null}
+            <KillQuantityField
+              value={quantity}
+              onChange={setQuantity}
+              disabled={pendingRequestId !== null}
+            />
             <Field label="Notes">
               <input
                 value={gmKillNotes}

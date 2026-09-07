@@ -459,6 +459,32 @@ describe("requestBuilders", () => {
       mob_sheet_id: "goblin",
       xp_value: 25
     });
+    expect(
+      buildRecordKillRequest({
+        killId: "kill-batch",
+        creditedInstanceId: "hero",
+        monsterSheetId: "zombie",
+        quantity: 5
+      })
+    ).toMatchObject({
+      type: "record_kill",
+      kill_id: "kill-batch",
+      credited_instance_id: "hero",
+      monster_sheet_id: "zombie",
+      quantity: 5
+    });
+    expect(
+      buildRecordPlayerKillRequest({
+        killId: "player-kill-batch",
+        monsterSheetId: "zombie",
+        quantity: 5
+      })
+    ).toEqual({
+      type: "record_player_kill",
+      kill_id: "player-kill-batch",
+      monster_sheet_id: "zombie",
+      quantity: 5
+    });
     expect(buildSetMobKillVisibilityRequest({ mobSheetId: "goblin", visible: true })).toEqual({
       type: "set_mob_kill_visibility",
       mob_sheet_id: "goblin",

@@ -652,3 +652,12 @@ A: The DM selects one campaign-wide progression mode: tuning controls or a deter
 - Tuning rounds each individual cost after growth to the nearest configured positive whole-number multiple, with halfway values rounded up and a minimum of one multiple. This matches the supplied XP spreadsheet. Equation mode rounds down to whole XP, minimum 1. Equation mode follows §2.2's general round-down rule; tuning uses the explicit spreadsheet rounding exception.
 - Changing Level, Attributes, or the campaign curve immediately recomputes the goal against the unchanged lifetime XP ledger. This is a current-state projection, not a historical cost ledger; prior targets are not frozen.
 - Manual threshold entry is retired. Existing checkpoints adopt the default curve and missing growth Attributes receive 1; existing awards, adjustments, and Levels are preserved. Invalid per-character equations produce an unavailable-goal message without losing XP tracking or automatically leveling anyone.
+
+Q: Can several identical kills be recorded together for XP (§8)?
+
+A: Yes. A kill entry may specify a positive whole-number quantity, default 1.
+All kills in that entry share the enemy, per-enemy XP value, occurrence time,
+and snapshotted participants. The backend rounds the per-participant award for
+one kill to two decimals, then multiplies it by quantity, matching separate
+single-kill entries. Historical quantity may be corrected by the DM. Player
+entries still use only visible enemies and server-derived XP and party membership.

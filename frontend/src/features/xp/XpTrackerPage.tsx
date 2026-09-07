@@ -1,3 +1,4 @@
+import { KillQuantityField } from "@/features/xp/KillQuantityField";
 import { XpProgressionEditor } from "./XpProgressionEditor";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
@@ -41,6 +42,9 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const [monsterChoice, setMonsterChoice] = useState("");
   const [customMonsterName, setCustomMonsterName] = useState("");
   const [customXp, setCustomXp] = useState("0");
+  const [quantity, setQuantity] = useState("1");
+  const validQuantity =
+    Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [killNotes, setKillNotes] = useState("");
   const [registryFilter, setRegistryFilter] = useState("");
   const [editingKillId, setEditingKillId] = useState<string | null>(null);
@@ -153,6 +157,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               const custom = monsterChoice === "custom";
               const xp = Number(customXp);
               if (
+                !validQuantity ||
                 !creditedInstanceId ||
                 (!monsterChoice && !custom) ||
                 (custom && (!customMonsterName.trim() || !Number.isFinite(xp)))
@@ -165,11 +170,13 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                   monsterSheetId: custom ? null : monsterChoice,
                   monsterName: custom ? customMonsterName.trim() : null,
                   baseXp: custom ? xp : null,
+                  quantity: Number(quantity),
                   notes: killNotes
                 }),
                 `Record kill: ${custom ? customMonsterName : "monster"}`
               );
               setKillNotes("");
+              setQuantity("1");
             }}
           >
             <h3>Record Kill</h3>
@@ -216,7 +223,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                     onChange={(event) => setCustomMonsterName(event.target.value)}
                   />
                 </Field>
-                <Field label="Base XP">
+                <Field label="XP per kill">
                   <input
                     type="number"
                     min={0}
@@ -227,6 +234,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                 </Field>
               </div>
             ) : null}
+            <KillQuantityField value={quantity} onChange={setQuantity} />
             <Field label="Notes">
               <input value={killNotes} onChange={(event) => setKillNotes(event.target.value)} />
             </Field>
@@ -259,11 +267,14 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               <article className="xp-registry-entry xp-workspace-card" key={kill.id}>
                 <div className="xp-registry-entry__summary">
                   <div>
-                    <strong>{kill.monster_name}</strong>
+                    <strong>
+                      {(kill.quantity ?? 1) > 1 ? `${kill.quantity}× ` : ""}
+                      {kill.monster_name}
+                    </strong>
                     <span>{new Date(kill.occurred_at).toLocaleString()}</span>
                   </div>
                   <div>
-                    <strong>{formatXp(kill.xp_per_participant)} XP each</strong>
+                    <strong>{formatXp(kill.xp_per_participant)} XP per participant</strong>
                     <span>
                       {formatXp(kill.xp_percentage)}% · {kill.participant_count} participants
                     </span>

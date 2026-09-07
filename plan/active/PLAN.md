@@ -745,3 +745,10 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
 
 - [x] Default missing Growth Multiplier / Milestone to 1 in backend settings, the
   editor, and local previews. Preserve authored values and the optional recommended preset.
+
+- [x] Kill quantities: DM/player record forms and the historical editor support
+  batches (e.g. 5× Zombie), defaulting to 1. Backend validates integer bounds and
+  multiplies the existing rounded single-kill party award; records preserve
+  per-enemy XP and participant snapshots. Schema v52 backfills legacy records.
+  Request/schema generation, history labels, edit/undo behavior, permission and
+  validation tests, and frontend quantity submission are updated together.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ActionPointsStepEditor } from "./ActionPointsStepEditor";
 import type { ReactNode } from "react";
 import { Field } from "@/shared/ui/Field";
 import {
@@ -228,6 +229,8 @@ export function ActionEditorForm({
       case "increment_value":
       case "decrement_value":
         return `${step.path.at(-1) ?? "Sheet value"} · ${formulaSummary(step.amount)}`;
+      case "adjust_action_points":
+        return `${step.operation === "restore" ? "Restore" : "Consume"} ${step.amount ?? 1} action point${(step.amount ?? 1) === 1 ? "" : "s"}`;
       case "resolve_damage":
         return `${step.damage_type} · ${formulaSummary(step.amount)}`;
       case "gain_proficiency_use":
@@ -851,6 +854,13 @@ export function ActionEditorForm({
                           </p>
                         )}
                       </div>
+                    ) : step.type === "adjust_action_points" ? (
+                      <ActionPointsStepEditor
+                        step={step}
+                        values={values}
+                        onChange={onChange}
+                        validationAttempted={validationAttempted}
+                      />
                     ) : step.type === "apply_augmentation" ||
                       step.type === "apply_condition_preset" ? (
                       <ActionRecordStepEditor

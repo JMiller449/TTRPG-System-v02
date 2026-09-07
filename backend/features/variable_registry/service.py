@@ -170,6 +170,14 @@ _ACTION_STEPS: tuple[ActionStepAuthoringMetadata, ...] = (
         path_catalog="variable_mutation_paths",
     ),
     ActionStepAuthoringMetadata(
+        type="adjust_action_points",
+        label="Consume or restore action points",
+        category="semantic_mutation",
+        allowed_targets=["caster"],
+        formula_fields=[],
+        path_catalog="none",
+    ),
+    ActionStepAuthoringMetadata(
         type="resolve_damage",
         label="Resolve damage",
         category="semantic_mutation",

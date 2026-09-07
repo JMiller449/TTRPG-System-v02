@@ -1,3 +1,5 @@
+import type { AdjustActionPointsStepPayload } from "@/generated/backendProtocol";
+
 export type Role = "player" | "gm";
 
 export type CatalogKey =
@@ -241,6 +243,8 @@ export interface ApplyConditionPresetActionStep {
   type: "apply_condition_preset";
 }
 
+export type AdjustActionPointsActionStep = AdjustActionPointsStepPayload;
+
 export type ActionStep =
   | SendMessageActionStep
   | SendRollActionStep
@@ -248,6 +252,7 @@ export type ActionStep =
   | SetValueActionStep
   | IncrementValueActionStep
   | DecrementValueActionStep
+  | AdjustActionPointsActionStep
   | ResolveDamageActionStep
   | GainProficiencyUseActionStep
   | ApplyAugmentationActionStep

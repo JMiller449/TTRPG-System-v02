@@ -60,6 +60,13 @@ access and role ownership; frontend role checks are presentation only. Values
 below zero or above the evaluated maximum are rejected, and a current value is
 reclamped when its authored maximum changes.
 
+Authored actions can include an explicit `adjust_action_points` step to consume
+or restore a positive whole-number amount (default 1) from this same pool.
+It uses the manual controls' bounds checks and participates in the complete
+action transaction, including rollback when a later step or chat delivery fails.
+Only spawned actors have a point pool; template-only execution is rejected.
+See [Actions, execution, and history](actions-execution-and-history.md#action-point-steps).
+
 `contribution_points` is a separate nonnegative whole-number character
 balance, not an inventory item. DM-only set/add/subtract routes execute under
 the state mutation lock and append `contribution_point_transactions` audit
@@ -135,5 +142,5 @@ its cumulative damage counter and a per-type reset action.
 ## Non-goals
 
 The current system does not resolve attacks against another sheet, automate
-defense contests, automatically consume action/reaction points from authored
-actions, or run turns. Point consumption and reset are explicit sheet controls.
+defense contests, or run turns. Point costs and restoration are explicit authored
+action steps or manual sheet controls; reset remains a manual sheet control.

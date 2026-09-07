@@ -9,7 +9,7 @@ describe("actionStepMenu", () => {
   it("groups every supported step and explains unavailable dependencies", () => {
     const options = buildActionStepMenuOptions({});
 
-    expect(options).toHaveLength(10);
+    expect(options).toHaveLength(11);
     expect(options.find((option) => option.type === "send_roll")?.group).toBe(
       "Calculation & Output"
     );

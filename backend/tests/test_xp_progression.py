@@ -43,13 +43,13 @@ def test_curve_uses_instance_level_growth_and_milestone_boundaries(campaign):
     assert xp_goal(campaign, "hero_1") == 280
     assert xp_goal(campaign, "hero_2") == 100
     config = XpProgression(growth_exponent=1, milestone_interval=3,
-                           milestone_multiplier=2, growth_increase_per_milestone=0.5)
-    assert [tuning_level_cost(config, step, 1) for step in range(1, 7)] == [100, 400, 510, 800, 2230, 3600]
+                           milestone_multiplier=2, growth_multiplier_per_milestone=1.5)
+    assert [tuning_level_cost(config, step, 1) for step in range(1, 7)] == [100, 400, 520, 800, 2240, 5630]
     set_attribute(campaign, "level", 3)
     set_attribute(campaign, "xp_growth_rate", 1)
-    assert xp_goal(campaign, "hero_1", config) == 1010
+    assert xp_goal(campaign, "hero_1", config) == 1020
     no_growth = XpProgression(growth_exponent=1, milestone_interval=3,
-                              milestone_multiplier=2, growth_increase_per_milestone=0)
+                              milestone_multiplier=2, growth_multiplier_per_milestone=1)
     assert tuning_level_cost(no_growth, 3, 1) == 300
 
 
@@ -58,13 +58,13 @@ def test_formula_and_rounding_apply_growth_after_calculation(campaign):
     set_attribute(campaign, "xp_growth_rate", 1.2)
     config = XpProgression(mode="formula", expression="max(100, @{level} ** 2 * 100 + 9)")
     assert xp_goal(campaign, "hero_1", config) == 1090
-    assert xp_goal(campaign, "hero_1", XpProgression(base_xp=101)) == 950
+    assert xp_goal(campaign, "hero_1", XpProgression(base_xp=101)) == 960
     set_attribute(campaign, "xp_growth_rate", 0.001)
     assert xp_goal(campaign, "hero_1") == 30
 
 
 @pytest.mark.parametrize("kwargs", [
-    {"growth_increase_per_milestone": -0.01}, {"growth_increase_per_milestone": float("inf")},
+    {"growth_multiplier_per_milestone": -0.01}, {"growth_multiplier_per_milestone": float("inf")},
     {"base_xp": 0}, {"base_xp": float("nan")}, {"growth_exponent": -1},
     {"milestone_multiplier": 0.5}, {"milestone_interval": 0}, {"rounding": 1.5},
     {"expression": "1d100"}, {"expression": "__import__('os')"},
@@ -158,8 +158,8 @@ def test_awards_never_change_level_and_remaining_is_authoritative(campaign):
 
 
 def test_corrected_default_costs_around_milestones():
-    config = XpProgression()
-    assert [tuning_level_cost(config, level, 1) for level in (23, 24, 25, 26, 49, 50)] == [6890, 7880, 8220, 8670, 22330, 22990]
+    config = XpProgression(growth_multiplier_per_milestone=1.02)
+    assert [tuning_level_cost(config, level, 1) for level in (23, 24, 25, 26, 49, 50)] == [6890, 7880, 8410, 8880, 22950, 24340]
 
 
 def test_v50_migration_updates_old_defaults_and_preserves_custom_settings():
@@ -169,9 +169,39 @@ def test_v50_migration_updates_old_defaults_and_preserves_custom_settings():
     migrated = migrate_persisted_state({"schema_version": 49, "state": {"xp_progression": old}}).state
     assert migrated["xp_progression"]["growth_exponent"] == 1.35
     assert migrated["xp_progression"]["milestone_multiplier"] == 1.08
-    assert migrated["xp_progression"]["growth_increase_per_milestone"] == 0.02
+    assert migrated["xp_progression"]["growth_multiplier_per_milestone"] == 1
     old["base_xp"] = 200
     migrated = migrate_persisted_state({"schema_version": 49, "state": {"xp_progression": old}}).state
     assert migrated["xp_progression"]["base_xp"] == 200
     assert migrated["xp_progression"]["growth_exponent"] == 2
-    assert migrated["xp_progression"]["growth_increase_per_milestone"] == 0.02
+    assert migrated["xp_progression"]["growth_multiplier_per_milestone"] == 1.02
+
+
+def test_tuning_uses_compounding_exponent_multipliers_and_lifetime_totals():
+    config = XpProgression(growth_multiplier_per_milestone=1.02)
+    costs = [tuning_level_cost(config, level, 1) for level in range(1, 34)]
+    assert costs == [100, 250, 440, 650, 880, 1120, 1380, 1660, 1940,
+                     2240, 2550, 2860, 3190, 3530, 3870, 4220, 4580,
+                     4950, 5320, 5710, 6100, 6490, 6890, 7880, 8410,
+                     8880, 9350, 9830, 10320, 10810, 11310, 11820, 12330]
+    assert sum(costs[:24]) == 78800  # Lifetime XP to reach level 25.
+    assert sum(costs[:25]) == 87210  # Lifetime XP to reach level 26.
+    assert tuning_level_cost(XpProgression(base_xp=105), 1, 1) == 110
+
+
+def test_neutral_multipliers_keep_exponent_fixed_across_milestones():
+    config = XpProgression(growth_exponent=2, milestone_interval=50,
+                           milestone_multiplier=1, growth_multiplier_per_milestone=1)
+    assert tuning_level_cost(config, 250, 1) == 6250000
+
+
+def test_v51_migrates_neutral_legacy_growth_and_preserves_new_values():
+    migrated = migrate_persisted_state({"schema_version": 50, "state": {
+        "xp_progression": {"growth_increase_per_milestone": 0}
+    }}).state["xp_progression"]
+    assert migrated["growth_multiplier_per_milestone"] == 1
+    assert "growth_increase_per_milestone" not in migrated
+    migrated = migrate_persisted_state({"schema_version": 50, "state": {
+        "xp_progression": {"growth_multiplier_per_milestone": 1.1}
+    }}).state["xp_progression"]
+    assert migrated["growth_multiplier_per_milestone"] == 1.1

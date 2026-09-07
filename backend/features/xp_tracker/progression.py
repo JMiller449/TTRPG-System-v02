@@ -11,13 +11,13 @@ def tuning_level_cost(config: XpProgression, level: int, growth: float) -> float
     """Cost of level → level + 1; only the destination can trigger a bump."""
     exponent = (
         config.growth_exponent
-        + (level // config.milestone_interval) * config.growth_increase_per_milestone
+        * config.growth_multiplier_per_milestone ** (level // config.milestone_interval)
     )
     bump = config.milestone_multiplier if (level + 1) % config.milestone_interval == 0 else 1
     raw = config.base_xp * float(level) ** exponent * bump * growth
     if not isfinite(raw) or raw <= 0 or raw > 1e15:
         raise ValueError("XP cost must be positive and at most 1e15.")
-    return float(max(config.rounding, floor(raw / config.rounding) * config.rounding))
+    return float(max(config.rounding, floor(raw / config.rounding + 0.5) * config.rounding))
 
 
 def xp_goal(

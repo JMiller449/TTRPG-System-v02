@@ -1,6 +1,11 @@
 import { useId, useState } from "react";
 import { Field } from "@/shared/ui/Field";
-import { buildXpPreview, previewAttributeIds, type ProgressionDraft } from "./xpCurvePreview";
+import {
+  buildXpPreview,
+  XpPreviewLimitError,
+  previewAttributeIds,
+  type ProgressionDraft
+} from "./xpCurvePreview";
 
 const shortNumber = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Element {
@@ -21,11 +26,13 @@ export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Elem
   try {
     points = buildXpPreview(draft, levels, growth, samples);
   } catch (reason) {
+    if (reason instanceof XpPreviewLimitError) points = reason.points;
     error = reason instanceof Error ? reason.message : "Check the preview values.";
   }
-  const active = points[Math.min(selected, levels) - 1];
+  const displayedLevels = points.length;
+  const active = points[Math.min(selected, displayedLevels) - 1];
   const maximum = Math.max(1, ...points.map((point) => point[metric]));
-  const x = (level: number): number => 64 + ((level - 1) / (levels - 1)) * 512;
+  const x = (level: number): number => 64 + ((level - 1) / Math.max(1, displayedLevels - 1)) * 512;
   const y = (value: number): number => 236 - (value / maximum) * 208;
   const line = points.map((point) => `${x(point.level)},${y(point[metric])}`).join(" ");
   return (
@@ -88,7 +95,12 @@ export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Elem
           </div>
         </details>
       ) : null}
-      {error ? (
+      {error && points.length > 0 ? (
+        <p className="xp-curve__caption" role="status">
+          {error}
+        </p>
+      ) : null}
+      {points.length === 0 ? (
         <div className="xp-curve__empty" role="status">
           {error}
         </div>
@@ -97,14 +109,15 @@ export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Elem
           <svg
             viewBox="0 0 600 272"
             role="img"
-            aria-label={`${metric === "needed" ? "XP needed per level" : "Lifetime XP targets"}, levels 1 to ${levels}`}
+            aria-label={`${metric === "needed" ? "XP needed per level" : "Lifetime XP targets"}, levels 1 to ${displayedLevels}`}
             onPointerMove={(event) => {
               const bounds = event.currentTarget.getBoundingClientRect();
               const level =
                 Math.round(
-                  ((((event.clientX - bounds.left) / bounds.width) * 600 - 64) / 512) * (levels - 1)
+                  ((((event.clientX - bounds.left) / bounds.width) * 600 - 64) / 512) *
+                    Math.max(1, displayedLevels - 1)
                 ) + 1;
-              setSelected(Math.max(1, Math.min(levels, level)));
+              setSelected(Math.max(1, Math.min(displayedLevels, level)));
             }}
           >
             {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
@@ -115,11 +128,19 @@ export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Elem
                 </text>
               </g>
             ))}
-            {[1, Math.round(levels / 2), levels].map((level) => (
-              <text className="xp-curve__axis" key={level} x={x(level)} y="260" textAnchor="middle">
-                {level}
-              </text>
-            ))}
+            {[...new Set([1, Math.max(1, Math.round(displayedLevels / 2)), displayedLevels])].map(
+              (level) => (
+                <text
+                  className="xp-curve__axis"
+                  key={level}
+                  x={x(level)}
+                  y="260"
+                  textAnchor="middle"
+                >
+                  {level}
+                </text>
+              )
+            )}
             <polygon className="xp-curve__area" points={`64,236 ${line} 576,236`} />
             <polyline className="xp-curve__line" points={line} />
             {active ? (
@@ -151,8 +172,8 @@ export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Elem
             aria-label="Inspect level"
             type="range"
             min="1"
-            max={levels}
-            value={Math.min(selected, levels)}
+            max={displayedLevels}
+            value={Math.min(selected, displayedLevels)}
             onChange={(event) => setSelected(Number(event.target.value))}
           />
         </>

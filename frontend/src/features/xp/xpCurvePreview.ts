@@ -99,6 +99,18 @@ export function previewEquation(text: string, attributes: Record<string, number>
   return finite(value);
 }
 
+export type XpPreviewPoint = { level: number; total: number; needed: number };
+export class XpPreviewLimitError extends Error {
+  constructor(
+    public readonly points: XpPreviewPoint[],
+    level: number
+  ) {
+    super(
+      `Showing levels 1–${points.length}. Level ${level} exceeds the supported XP range. Reduce the growth multiplier to preview further.`
+    );
+  }
+}
+
 export function buildXpPreview(
   draft: ProgressionDraft,
   levels: number,
@@ -117,13 +129,13 @@ export function buildXpPreview(
   const exponent = Number(draft.growth_exponent);
   const interval = Number(draft.milestone_interval);
   const multiplier = Number(draft.milestone_multiplier);
-  const increase = Number(draft.growth_increase_per_milestone ?? 0.02);
+  const increase = Number(draft.growth_multiplier_per_milestone ?? 1);
   const rounding = draft.mode === "formula" ? 1 : Number(draft.rounding);
   if (
     draft.mode !== "formula" &&
     (![base, exponent, interval, multiplier, rounding, increase].every(Number.isFinite) ||
-      increase < 0 ||
-      increase > 16 ||
+      increase < 1 ||
+      increase > 1000 ||
       base <= 0 ||
       base > 1e12 ||
       exponent <= 0 ||
@@ -139,21 +151,26 @@ export function buildXpPreview(
   )
     throw new Error("Enter valid tuning values to preview the curve.");
   let previous = 0;
-  return Array.from({ length: levels }, (_, index) => {
-    const level = index + 1;
+  const points: XpPreviewPoint[] = [];
+  for (let level = 1; level <= levels; level += 1) {
     const raw =
       (draft.mode === "formula"
         ? previewEquation(draft.expression ?? "", { ...attributes, level, xp_growth_rate: growth })
         : base *
-          level ** (exponent + Math.floor(level / interval) * increase) *
+          level ** (exponent * increase ** Math.floor(level / interval)) *
           ((level + 1) % interval === 0 ? multiplier : 1)) * growth;
-    if (!Number.isFinite(raw) || raw <= 0 || raw > 1e15)
-      throw new Error(`The goal at level ${level} must be positive and at most 1e15 XP.`);
-    const rounded = Math.max(rounding, Math.floor(raw / rounding) * rounding);
+    if (!Number.isFinite(raw) || raw > 1e15) throw new XpPreviewLimitError(points, level);
+    if (raw <= 0) throw new Error(`The goal at level ${level} must be positive.`);
+    const rounded = Math.max(
+      rounding,
+      (draft.mode === "formula" ? Math.floor(raw / rounding) : Math.floor(raw / rounding + 0.5)) *
+        rounding
+    );
     const total = draft.mode === "formula" ? rounded : previous + rounded;
-    if (total > 1e15) throw new Error(`Lifetime XP at level ${level} exceeds 1e15.`);
+    if (total > 1e15) throw new XpPreviewLimitError(points, level);
     const needed = Math.max(0, total - previous);
     previous = total;
-    return { level, total, needed };
-  });
+    points.push({ level, total, needed });
+  }
+  return points;
 }

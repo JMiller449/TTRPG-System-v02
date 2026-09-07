@@ -59,7 +59,7 @@ class XpProgression:
     growth_exponent: float = 1.35
     milestone_interval: int = 25
     milestone_multiplier: float = 1.08
-    growth_increase_per_milestone: float = 0.02
+    growth_multiplier_per_milestone: float = 1
     rounding: int = 10
     expression: str = "100 * @level ** 2"
 
@@ -79,14 +79,14 @@ class XpProgression:
                 or not low < value <= high
             ):
                 raise ValueError(f"{name} must be finite, greater than {low}, and at most {high}.")
-        increase = self.growth_increase_per_milestone
+        increase = self.growth_multiplier_per_milestone
         if (
             isinstance(increase, bool)
             or not isinstance(increase, (int, float))
             or not isfinite(increase)
-            or not 0 <= increase <= 16
+            or not 1 <= increase <= 1000
         ):
-            raise ValueError("Growth increase per milestone must be finite and from 0 to 16.")
+            raise ValueError("Growth multiplier per milestone must be finite and from 1 to 1000.")
         if self.milestone_multiplier < 1:
             raise ValueError("Milestone multiplier must be at least 1.")
         for name in ("milestone_interval", "rounding"):

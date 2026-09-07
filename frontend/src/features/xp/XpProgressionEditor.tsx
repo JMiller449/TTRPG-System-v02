@@ -7,6 +7,14 @@ import { buildSetXpProgressionRequest } from "@/infrastructure/ws/requestBuilder
 import { Field } from "@/shared/ui/Field";
 
 type Progression = NonNullable<XpTrackerView["progression"]>;
+function withDefaults(progression: XpTrackerView["progression"]): Progression | null {
+  return progression
+    ? {
+        ...progression,
+        growth_multiplier_per_milestone: progression.growth_multiplier_per_milestone ?? 1
+      }
+    : null;
+}
 const knobs = [
   ["base_xp", "Base XP", "Overall scale of every level cost.", "0.01", "0.01"],
   [
@@ -16,28 +24,22 @@ const knobs = [
     "0.01",
     "0.01"
   ],
-  [
-    "milestone_interval",
-    "Milestone Interval",
-    "25 means milestones at levels 25, 50, 75…",
-    "1",
-    "1"
-  ],
+  ["milestone_interval", "Milestone Interval", "Number of levels between milestones.", "1", "1"],
   [
     "milestone_multiplier",
-    "Milestone Multiplier",
-    "Extra cost only for the step into a milestone.",
+    "Milestone Entry Multiplier",
+    "Multiplies entry cost only. 1.00 = no change.",
     "1",
     "0.01"
   ],
   [
-    "growth_increase_per_milestone",
-    "Growth Increase / Milestone",
-    "Added to the exponent after each milestone reached.",
-    "0",
+    "growth_multiplier_per_milestone",
+    "Growth Multiplier / Milestone",
+    "Multiplies the exponent after each milestone. 1.00 = no change.",
+    "1",
     "0.01"
   ],
-  ["rounding", "Rounding Increment", "Round down to clean multiples.", "1", "1"]
+  ["rounding", "Rounding Increment", "Nearest multiple; halfway rounds up.", "1", "1"]
 ] as const;
 
 export function XpProgressionEditor({
@@ -47,12 +49,12 @@ export function XpProgressionEditor({
   client: GameClient;
   progression: XpTrackerView["progression"];
 }): JSX.Element {
-  const [draft, setDraft] = useState<Progression | null>(progression ?? null);
+  const [draft, setDraft] = useState<Progression | null>(() => withDefaults(progression));
   const [error, setError] = useState("");
   const { state } = useAppStore();
   const serialized = JSON.stringify(progression);
   useEffect(() => {
-    setDraft(serialized ? (JSON.parse(serialized) as Progression) : null);
+    setDraft(withDefaults(serialized ? (JSON.parse(serialized) as Progression) : null));
     setError("");
   }, [serialized]);
   const attributes = Object.values(state.serverState.attributes).filter(
@@ -78,13 +80,13 @@ export function XpProgressionEditor({
               knobs.some(
                 ([key]) =>
                   !Number.isFinite(Number(candidate[key])) ||
-                  (key === "growth_increase_per_milestone"
-                    ? Number(candidate[key]) < 0
+                  (key === "growth_multiplier_per_milestone"
+                    ? Number(candidate[key]) < 1
                     : Number(candidate[key]) <= 0)
               ) ||
               !candidate.expression?.trim()
             ) {
-              setError("Enter valid tuning values; growth increase may be zero.");
+              setError("Enter valid tuning values; milestone multipliers must be at least 1.");
               return;
             }
             setError("");
@@ -163,15 +165,36 @@ export function XpProgressionEditor({
                 ))}
               </div>
             )}
+            {draft.mode === "tuning" ? (
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    base_xp: 100,
+                    growth_exponent: 1.35,
+                    milestone_interval: 25,
+                    milestone_multiplier: 1.08,
+                    growth_multiplier_per_milestone: 1.02,
+                    rounding: 10
+                  })
+                }
+              >
+                Use recommended settings
+              </button>
+            ) : null}
             <details className="xp-progression__help">
               <summary>How scaling works</summary>
               <p>
-                Each level costs Base XP × current Level ^ effective exponent. The exponent
-                increases after each milestone reached. The milestone multiplier applies only when
+                Each level costs Base XP × current Level ^ effective exponent. The exponent is
+                multiplied after each milestone reached. The milestone multiplier applies only when
                 entering a milestone (24 → 25, for example), then XP Growth Rate is applied and the
-                cost is rounded down. Lifetime targets sum these individual costs.
+                cost is rounded to the nearest increment. Lifetime targets sum these individual
+                costs.
               </p>
-              <p>Recommended: 100 / 1.35 / 25 / 1.08 / 0.02 / 10.</p>
+              <p>Both multipliers use 1.00 for no change and 1.08 for an 8% increase.</p>
+              <p>Recommended: 100 / 1.35 / 25 / 1.08 / 1.02 / 10.</p>
               <p>
                 Edit XP Growth Rate on a template or character: 1 is normal, 0.8 is 20% easier, and
                 1.2 is 20% harder. Templates seed new characters.

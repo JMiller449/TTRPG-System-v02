@@ -32,7 +32,7 @@ const defaults = {
   growth_exponent: 1.35,
   milestone_interval: 25,
   milestone_multiplier: 1.08,
-  growth_increase_per_milestone: 0.02,
+  growth_multiplier_per_milestone: 1.02,
   rounding: 10,
   expression: "100 * @level ** 2"
 };
@@ -98,6 +98,47 @@ describe("Derived XP goals", () => {
     expect(container.querySelector('input[aria-label="Inspect level"]')).not.toBeNull();
     expect(container.querySelector("form svg")).toBeNull();
     expect(sendProtocolRequest).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+  });
+
+  it("retains the curve when later levels exceed the XP limit", async () => {
+    const { container, root, client } = await mount();
+    await act(async () =>
+      root.render(
+        <XpProgressionEditor client={client} progression={{ ...defaults, growth_exponent: 16 }} />
+      )
+    );
+    expect(container.querySelector("polyline")).not.toBeNull();
+    expect(container.textContent).toContain("exceeds the supported XP range");
+    const slider = container.querySelector('input[aria-label="Inspect level"]') as HTMLInputElement;
+    expect(Number(slider.max)).toBeLessThan(50);
+    expect(Number(slider.max)).toBeGreaterThan(0);
+    await act(async () => root.unmount());
+  });
+
+  it("fills a missing growth multiplier with 1 and submits the displayed value", async () => {
+    const { container, root, client, sendProtocolRequest } = await mount();
+    await act(async () =>
+      root.render(
+        <XpProgressionEditor
+          client={client}
+          progression={{ ...defaults, growth_multiplier_per_milestone: undefined }}
+        />
+      )
+    );
+    expect((container.querySelectorAll("form input")[4] as HTMLInputElement).value).toBe("1");
+    await act(async () =>
+      container
+        .querySelector("form")!
+        .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
+    );
+    expect(sendProtocolRequest).toHaveBeenCalledWith(
+      {
+        type: "set_xp_progression",
+        progression: { ...defaults, growth_multiplier_per_milestone: 1 }
+      },
+      "Save XP progression"
+    );
     await act(async () => root.unmount());
   });
 

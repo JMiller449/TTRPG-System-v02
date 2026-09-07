@@ -61,12 +61,14 @@ lifetime target is evaluated from current instance Attributes by
 XP and readiness are backend projections; reaching the target never changes Level.
 
 `set_xp_progression` replaces `set_sheet_xp_required`. The DM configures one campaign
-curve using tuning controls (100 / 1.35 / 25 / 1.08 / 0.02 / 10 by default) or a deterministic
+curve using tuning controls (100 / 1.35 / 25 / 1.08 / 1.02 / 10 by default) or a deterministic
 Attribute equation. The required `xp_growth_rate` bridge multiplies either result;
 1 is normal, below 1 easier, above 1 harder. Each spawned instance owns its copy.
-Tuning computes and rounds each level cost, then sums the costs to a lifetime target.
-For current level L, the exponent is `growth_exponent + floor(L/interval) ×
-growth_increase_per_milestone`. The multiplier applies only when `L+1` is a
+Tuning rounds each level cost to the nearest increment (halfway up), then sums
+the costs to a lifetime target. Recommended settings give costs 7880 for 24→25,
+8410 for 25→26, and 8880 for 26→27.
+For current level L, the exponent is `growth_exponent ×
+growth_multiplier_per_milestone^floor(L/interval)`. The multiplier applies only when `L+1` is a
 milestone, so 24→25 receives the bump and 25→26 uses the increased exponent.
 Tuning calculations support current levels up to 100000 and total goals up to 1e15.
 Equation mode defines the
@@ -146,3 +148,14 @@ outside the save form so incomplete samples cannot prevent saving campaign setti
 Schema v50 adds `growth_increase_per_milestone` (default 0.02), upgrades exact old
 default configurations to the corrected defaults, and preserves customized knobs.
 Tuning now represents individual costs; formula mode keeps its lifetime-target semantics.
+
+Schema v51 replaces additive growth increase with a growth multiplier. Both
+milestone controls use 1 as neutral and percentages above 1 as increases. Migration
+converts legacy growth increase d to 1+d; saved curves therefore use the new
+compounding semantics without changing earned XP or manually assigned Level.
+The graph retains valid points when a later level exceeds the numeric limit and
+restricts its axis and inspection slider to those points, with an explanatory message.
+
+The Growth Multiplier / Milestone defaults to 1 (neutral) for new settings or
+missing editor/preview values. The explicit recommended preset uses 1.02; existing
+authored multipliers remain intact.

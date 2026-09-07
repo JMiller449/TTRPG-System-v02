@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 50. Future-version checkpoints are rejected rather than guessed at.
+version 51. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -172,3 +172,8 @@ Existing Levels, kill records, XP adjustments, and authored growth values surviv
 Schema version 50 adds XP growth increase per milestone (0.02) and upgrades exact
 old tuning defaults to 100 / 1.35 / 25 / 1.08 / 0.02 / 10. Customized settings and
 XP history are preserved; tuning targets use the corrected sum of individual costs.
+
+Schema version 51 replaces `growth_increase_per_milestone` with
+`growth_multiplier_per_milestone`, converting legacy d to 1+d (0 becomes 1;
+0.02 becomes 1.02). Existing values explicitly using the new field are preserved.
+The curve adopts multiplicative exponent growth; awards and Level are untouched.

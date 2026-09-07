@@ -729,3 +729,19 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
   protocol generation, schema v50 migration, and milestone boundary regression tests.
   Formula-mode semantics and manual Level changes are preserved.
   Verified: 610 backend tests, 502 frontend tests, frontend lint, and production build pass.
+
+- [x] Spreadsheet XP alignment: confirmed additive exponent growth (recommended
+  +0.02 per milestone), updated tuning to nearest-increment rounding with halfway
+  values rounded up, and kept formula-mode round-down semantics. Backend and local
+  preview now match the supplied spreadsheet through the first milestone and beyond.
+  Added a local “Use recommended settings” action without overwriting saved choices.
+
+- [x] Consistent XP milestone controls: both are multipliers with 1.00 neutral.
+  Entry multiplier affects milestone-entry cost, and Growth Multiplier / Milestone
+  compounds the exponent after each milestone (recommended 1.02). Schema v51 maps
+  legacy additive d to 1+d. Updated backend, preview, help, and regression coverage.
+  Graphs preserve valid points and bound inspection when later levels exceed the
+  supported XP range instead of disappearing.
+
+- [x] Default missing Growth Multiplier / Milestone to 1 in backend settings, the
+  editor, and local previews. Preserve authored values and the optional recommended preset.

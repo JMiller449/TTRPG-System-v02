@@ -67,7 +67,7 @@ def _proficiency_payload(proficiency_id: str = "magic_prof") -> dict:
     }
 
 
-def _action_attribute_bridges(proficiency_id: str = "magic_prof") -> dict:
+def _action_attribute_bridges() -> dict:
     values = {
         "action_rank": {"type": "enum", "value": "A"},
         "action_range": {"type": "number", "value": 30},
@@ -75,7 +75,6 @@ def _action_attribute_bridges(proficiency_id: str = "magic_prof") -> dict:
         "action_area": {"type": "text", "value": "single target"},
         "action_mana_cost": {"type": "number", "value": 100},
         "action_base_spell_damage": {"type": "number", "value": 10},
-        "action_proficiency": {"type": "reference", "value": proficiency_id},
     }
     return {
         attribute_id: {
@@ -229,7 +228,7 @@ def test_dm_can_create_action_with_canonical_attribute_configuration(monkeypatch
             action = state.actions["fire_bolt"]
             assert action.attributes["action_rank"].evaluated_value == "A"
             assert action.attributes["action_mana_cost"].evaluated_value == 100
-            assert action.attributes["action_proficiency"].evaluated_value == "magic_prof"
+            assert "action_proficiency" not in action.attributes
             assert state.attributes["action_rank"].backend_owned is True
             assert state.attributes["action_rank"].required is False
 
@@ -251,7 +250,7 @@ def test_dm_can_create_action_with_canonical_attribute_configuration(monkeypatch
     asyncio.run(scenario())
 
 
-def test_action_attribute_configuration_rejects_missing_proficiency(monkeypatch) -> None:
+def test_action_proficiency_binding_rejects_missing_proficiency(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -267,13 +266,18 @@ def test_action_attribute_configuration_rejects_missing_proficiency(monkeypatch)
                     "type": "create_action",
                     "action": {
                         **_action_payload("fire_bolt", "Fire Bolt"),
-                        "attributes": _action_attribute_bridges("missing"),
+                        "attributes": _action_attribute_bridges(),
+                        "proficiencies": [
+                            {"proficiency_id": "missing", "gain_on_use": True}
+                        ],
                     },
                 },
             )
 
             assert "fire_bolt" not in StateSingleton.getState().actions
-            assert "missing proficiency 'missing'" in websocket.sent_messages[-1]["reason"]
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Proficiency 'missing' does not exist."
+            )
         finally:
             StateSingleton._state = original_state
 
@@ -461,7 +465,7 @@ def test_dm_can_create_action_with_gain_proficiency_step(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_dm_can_author_each_explicit_proficiency_training_reference_mode(monkeypatch) -> None:
+def test_dm_can_bind_multiple_proficiencies_with_independent_growth(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
@@ -471,44 +475,87 @@ def test_dm_can_author_each_explicit_proficiency_training_reference_mode(monkeyp
             state.proficiencies["magic_prof"] = Proficiency.from_dict(
                 _proficiency_payload()
             )
+            state.proficiencies["throwing"] = Proficiency.from_dict(
+                _proficiency_payload("throwing")
+            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
 
-            cases = [
-                ("explicit_training", "explicit", "magic_prof", {}),
-                (
-                    "weapon_training",
-                    "source_item_weapon",
-                    "__dynamic_proficiency__",
-                    {},
-                ),
+            action = _action_payload("knife_throw", "Knife Throw")
+            action["proficiencies"] = [
+                {"proficiency_id": "magic_prof", "gain_on_use": False},
+                {"proficiency_id": "throwing", "gain_on_use": True},
             ]
-            for action_id, reference, proficiency_id, attributes in cases:
-                action = _action_payload(action_id, action_id.replace("_", " ").title())
-                action["attributes"] = attributes
-                action["steps"] = [
-                    {
-                        "step_id": "training",
-                        "type": "gain_proficiency_use",
-                        "target": "caster",
-                        "proficiency_id": proficiency_id,
-                        "proficiency_reference": reference,
-                        "amount": _formula_payload("1"),
-                    }
-                ]
-                await handle_client_payload(
-                    websocket,
-                    {"type": "create_action", "action": action},
-                )
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
 
-            assert {
-                action_id: state.actions[action_id].steps[0].proficiency_reference
-                for action_id, *_ in cases
-            } == {
-                "explicit_training": "explicit",
-                "weapon_training": "source_item_weapon",
-            }
+            assert [
+                (binding.proficiency_id, binding.gain_on_use)
+                for binding in state.actions["knife_throw"].proficiencies
+            ] == [("magic_prof", False), ("throwing", True)]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_action_formula_may_use_each_bound_proficiency_modifier(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            for proficiency_id in ("daggers", "throwing", "acrobatics"):
+                state.proficiencies[proficiency_id] = Proficiency.from_dict(
+                    _proficiency_payload(proficiency_id)
+                )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            action = _action_payload("knife_throw", "Knife Throw")
+            action["proficiencies"] = [
+                {"proficiency_id": "daggers", "gain_on_use": True},
+                {"proficiency_id": "throwing", "gain_on_use": True},
+                {"proficiency_id": "acrobatics", "gain_on_use": False},
+            ]
+            action["steps"][0]["message"] = _formula_payload(
+                "@daggers + @throwing + @acrobatics",
+                [
+                    {
+                        "name": proficiency_id,
+                        "path": [
+                            "action",
+                            "resolved",
+                            "proficiencies",
+                            proficiency_id,
+                            "modifier",
+                        ],
+                    }
+                    for proficiency_id in ("daggers", "throwing", "acrobatics")
+                ],
+            )
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": action},
+            )
+            assert websocket.sent_messages[-1]["type"] == "state_patch"
+
+            unbound = deepcopy(action)
+            unbound["id"] = "invalid_throw"
+            unbound["proficiencies"] = unbound["proficiencies"][:2]
+            await handle_client_payload(
+                websocket,
+                {"type": "create_action", "action": unbound},
+            )
+            assert websocket.sent_messages[-1]["reason"] == (
+                "Formula alias 'acrobatics' requires proficiency 'acrobatics' "
+                "to be attached to this action."
+            )
         finally:
             StateSingleton._state = original_state
 

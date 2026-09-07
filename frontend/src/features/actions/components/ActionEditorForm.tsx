@@ -13,7 +13,9 @@ import {
 import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
   calculatedValuesBeforeStep,
+  customizeActionStepFormula,
   duplicateActionStep,
+  ensureActionProficienciesForFormula,
   isCalculatedValueReference,
   isFormulaReference,
   isInlineFormula,
@@ -29,7 +31,6 @@ import {
   updateSendMessageActionStepText,
   updateSendMessageActionStepFormula,
   type ActionEditorValues,
-  type ProficiencyTrainingReference,
   type ResolveDamageEditorStep
 } from "@/features/actions/actionEditorValues";
 import {
@@ -43,12 +44,12 @@ import {
 import { ActionBoundedMutationStepEditor } from "@/features/actions/components/ActionBoundedMutationStepEditor";
 import { ActionRecordStepEditor } from "@/features/actions/components/ActionRecordStepEditor";
 import { ActionSendRollStepEditor } from "@/features/actions/components/ActionSendRollStepEditor";
+import { ActionSharedFormulaSource } from "@/features/actions/components/ActionSharedFormulaSource";
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import {
   buildVariablePickerEntries,
   formulaVariableSearchOptions,
-  upsertFormulaAlias,
-  type FormulaVariableSearchContexts
+  upsertFormulaAlias
 } from "@/features/variables/variablePicker";
 import { makeId } from "@/shared/utils/id";
 import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
@@ -115,32 +116,14 @@ export function ActionEditorForm({
         (step.type === "send_roll" &&
           (!step.title.trim() || step.rolls.some((roll) => !roll.label.trim()))) ||
         (step.type === "gain_proficiency_use" &&
-          (step.proficiency_reference ?? "explicit") === "explicit" &&
           (!step.proficiency_id ||
             !proficiencies.some((proficiency) => proficiency.id === step.proficiency_id)))
     );
-  const actionProficiencyValue = values.attributes.action_proficiency?.value;
-  const actionProficiencyId =
-    actionProficiencyValue?.type === "reference" && typeof actionProficiencyValue.value === "string"
-      ? actionProficiencyValue.value
-      : "";
-  const actionProficiencyName = proficiencies.find(
-    (proficiency) => proficiency.id === actionProficiencyId
-  )?.name;
-  const formulaSearchContexts: FormulaVariableSearchContexts = actionProficiencyId
-    ? {
-        "action.resolved.proficiency_modifier": {
-          keywords: [actionProficiencyId, actionProficiencyName ?? ""],
-          label: `${actionProficiencyName ?? actionProficiencyId} Proficiency Modifier`,
-          detail: `Selected proficiency: ${actionProficiencyName ?? actionProficiencyId}`
-        }
-      }
-    : {};
-  const actionFormulaOptions = formulaVariableSearchOptions(
-    metadata,
-    undefined,
-    formulaSearchContexts
+  const attachedProficiencyIds = new Set(
+    values.proficiencies.map((binding) => binding.proficiency_id)
   );
+  const formulaSearchContexts = {};
+  const actionFormulaOptions = formulaVariableSearchOptions(metadata);
   const selectedStepIndex = values.steps.findIndex((step) => step.step_id === selectedStepId);
   const selectedStep = selectedStepIndex >= 0 ? values.steps[selectedStepIndex] : null;
   const focusStep = (stepId: string | null): void => {
@@ -188,14 +171,23 @@ export function ActionEditorForm({
     }))
   ];
 
-  const sharedFormulaHint = (formulaId: string): JSX.Element => {
+  const sharedFormulaEditor = (stepId: string, formulaId: string): JSX.Element => {
     const definition = formulas.find((formula) => formula.id === formulaId);
     return (
-      <p className="muted">
-        {definition
-          ? `Uses shared formula: ${definition.formula.text}`
-          : "Uses a shared formula that has since been deleted."}
-      </p>
+      <ActionSharedFormulaSource
+        formulaId={formulaId}
+        definition={definition ?? null}
+        onCustomize={() => {
+          if (definition) {
+            onChange(
+              ensureActionProficienciesForFormula(
+                customizeActionStepFormula(values, stepId, definition.formula),
+                definition.formula
+              )
+            );
+          }
+        }}
+      />
     );
   };
 
@@ -234,9 +226,7 @@ export function ActionEditorForm({
       case "resolve_damage":
         return `${step.damage_type} · ${formulaSummary(step.amount)}`;
       case "gain_proficiency_use":
-        return (step.proficiency_reference ?? "explicit") === "source_item_weapon"
-          ? `Source weapon · ${formulaSummary(step.amount)}`
-          : `${proficiencies.find((entry) => entry.id === step.proficiency_id)?.name ?? "Missing proficiency"} · ${formulaSummary(step.amount)}`;
+        return `${proficiencies.find((entry) => entry.id === step.proficiency_id)?.name ?? "Missing proficiency"} · ${formulaSummary(step.amount)}`;
       case "apply_augmentation":
         return `${step.operation === "remove" ? "Remove" : "Apply"} ${standaloneEffects.find((entry) => entry.id === step.augmentation_id)?.name ?? "missing effect"}`;
       case "apply_condition_preset":
@@ -266,7 +256,7 @@ export function ActionEditorForm({
         options={[
           {
             id: "inline",
-            label: "New catalog formula",
+            label: "Custom formula",
             keywords: ["local"],
             value: "inline"
           },
@@ -319,12 +309,13 @@ export function ActionEditorForm({
             );
             return;
           }
+          const formulaId = value.startsWith("global:") ? value.slice("global:".length) : null;
+          const nextValues = setActionStepFormulaReference(values, stepId, formulaId);
+          const definition = formulas.find((formula) => formula.id === formulaId);
           onChange(
-            setActionStepFormulaReference(
-              values,
-              stepId,
-              value.startsWith("global:") ? value.slice("global:".length) : null
-            )
+            definition
+              ? ensureActionProficienciesForFormula(nextValues, definition.formula)
+              : nextValues
           );
         }}
       />
@@ -396,6 +387,98 @@ export function ActionEditorForm({
             />
           </Field>
         </div>
+
+        {!selectedStep ? (
+          <section className="action-step-builder stack" aria-label="Action proficiencies">
+            <div className="action-step-builder__header">
+              <div className="action-proficiency-heading">
+                <h4>Proficiencies</h4>
+                <span className="muted">{values.proficiencies.length} attached</span>
+              </div>
+              <Field label="Add Proficiency">
+                <select
+                  value=""
+                  onChange={(event) => {
+                    const proficiencyId = event.target.value;
+                    if (!proficiencyId) {
+                      return;
+                    }
+                    onChange({
+                      ...values,
+                      proficiencies: [
+                        ...values.proficiencies,
+                        { proficiency_id: proficiencyId, gain_on_use: true }
+                      ]
+                    });
+                  }}
+                >
+                  <option value="">Choose proficiency</option>
+                  {proficiencies
+                    .filter((entry) => !attachedProficiencyIds.has(entry.id))
+                    .map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.name}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+            </div>
+            <p className="muted">
+              Add every proficiency this action may use. Attached proficiency modifiers become
+              available in formula variable pickers.
+            </p>
+            <div className="action-proficiency-list">
+              {values.proficiencies.map((binding) => {
+                const proficiency = proficiencies.find(
+                  (entry) => entry.id === binding.proficiency_id
+                );
+                return (
+                  <div className="action-proficiency-row" key={binding.proficiency_id}>
+                    <span className="action-proficiency-row__identity">
+                      <strong>{proficiency?.name ?? binding.proficiency_id}</strong>
+                      {proficiency && proficiency.name !== binding.proficiency_id ? (
+                        <small className="muted">{binding.proficiency_id}</small>
+                      ) : null}
+                    </span>
+                    <div className="action-proficiency-row__controls">
+                      <label className="action-proficiency-growth-toggle">
+                        <input
+                          type="checkbox"
+                          checked={binding.gain_on_use}
+                          onChange={(event) =>
+                            onChange({
+                              ...values,
+                              proficiencies: values.proficiencies.map((entry) =>
+                                entry.proficiency_id === binding.proficiency_id
+                                  ? { ...entry, gain_on_use: event.target.checked }
+                                  : entry
+                              )
+                            })
+                          }
+                        />
+                        <span>Automatically gain 1 use</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() =>
+                          onChange({
+                            ...values,
+                            proficiencies: values.proficiencies.filter(
+                              (entry) => entry.proficiency_id !== binding.proficiency_id
+                            )
+                          })
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="action-step-builder stack">
           <div className="action-step-builder__header">
@@ -542,13 +625,16 @@ export function ActionEditorForm({
                                   return;
                                 }
                                 onChange(
-                                  updateCalculateValueActionStep(values, step.step_id, {
-                                    formulaText,
-                                    aliases: upsertFormulaAlias(
-                                      step.value.aliases ?? null,
-                                      entry.alias
-                                    )
-                                  })
+                                  ensureActionProficienciesForFormula(
+                                    updateCalculateValueActionStep(values, step.step_id, {
+                                      formulaText,
+                                      aliases: upsertFormulaAlias(
+                                        step.value.aliases ?? null,
+                                        entry.alias
+                                      )
+                                    }),
+                                    { aliases: [entry.alias] }
+                                  )
                                 );
                               }}
                               placeholder="Type @ to insert a variable"
@@ -564,7 +650,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : (
-                          sharedFormulaHint(step.value.formula_id)
+                          sharedFormulaEditor(step.step_id, step.value.formula_id)
                         )}
                       </div>
                     ) : step.type === "send_roll" ? (
@@ -601,13 +687,16 @@ export function ActionEditorForm({
                                   return;
                                 }
                                 onChange(
-                                  updateSendMessageActionStepFormula(values, step.step_id, {
-                                    messageText,
-                                    aliases: upsertFormulaAlias(
-                                      step.message.aliases ?? null,
-                                      entry.alias
-                                    )
-                                  })
+                                  ensureActionProficienciesForFormula(
+                                    updateSendMessageActionStepFormula(values, step.step_id, {
+                                      messageText,
+                                      aliases: upsertFormulaAlias(
+                                        step.message.aliases ?? null,
+                                        entry.alias
+                                      )
+                                    }),
+                                    { aliases: [entry.alias] }
+                                  )
                                 );
                               }}
                               placeholder="Type @ to insert a variable"
@@ -623,7 +712,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : (
-                          sharedFormulaHint(step.message.formula_id)
+                          sharedFormulaEditor(step.step_id, step.message.formula_id)
                         )}
                       </div>
                     ) : step.type === "set_value" ||
@@ -685,13 +774,16 @@ export function ActionEditorForm({
                                   return;
                                 }
                                 onChange(
-                                  updateResolveDamageActionStepFormula(values, step.step_id, {
-                                    amountText,
-                                    aliases: upsertFormulaAlias(
-                                      step.amount.aliases ?? null,
-                                      entry.alias
-                                    )
-                                  })
+                                  ensureActionProficienciesForFormula(
+                                    updateResolveDamageActionStepFormula(values, step.step_id, {
+                                      amountText,
+                                      aliases: upsertFormulaAlias(
+                                        step.amount.aliases ?? null,
+                                        entry.alias
+                                      )
+                                    }),
+                                    { aliases: [entry.alias] }
+                                  )
                                 );
                               }}
                               placeholder="Type @ to insert a variable"
@@ -709,7 +801,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : isFormulaReference(step.amount) ? (
-                          sharedFormulaHint(step.amount.formula_id)
+                          sharedFormulaEditor(step.step_id, step.amount.formula_id)
                         ) : (
                           <p className="muted">
                             Reuses {step.amount.variable_id} directly without reevaluating its
@@ -720,83 +812,50 @@ export function ActionEditorForm({
                     ) : step.type === "gain_proficiency_use" ? (
                       <div className="list-item list-item--block" key={step.step_id}>
                         <div className="inline-group">
-                          <Field label="Training Target">
-                            <select
-                              value={step.proficiency_reference ?? "explicit"}
-                              onChange={(event) => {
-                                const proficiencyReference = event.target
-                                  .value as ProficiencyTrainingReference;
-                                const currentProficiencyIsAvailable = proficiencies.some(
+                          <CatalogEntityPicker
+                            catalog="proficiencies"
+                            label="Proficiency"
+                            required
+                            invalid={
+                              validationAttempted &&
+                              (!step.proficiency_id ||
+                                !proficiencies.some(
                                   (proficiency) => proficiency.id === step.proficiency_id
-                                );
-                                onChange(
-                                  updateGainProficiencyUseActionStep(values, step.step_id, {
-                                    proficiencyReference,
-                                    ...(proficiencyReference === "explicit"
-                                      ? {
-                                          proficiencyId: currentProficiencyIsAvailable
-                                            ? step.proficiency_id
-                                            : defaultProficiencyId
-                                        }
-                                      : {})
-                                  })
-                                );
-                              }}
-                            >
-                              <option value="explicit">Explicit proficiency</option>
-                              <option value="source_item_weapon">Source weapon proficiency</option>
-                            </select>
-                          </Field>
-                          {(step.proficiency_reference ?? "explicit") === "explicit" ? (
-                            <CatalogEntityPicker
-                              catalog="proficiencies"
-                              label="Proficiency"
-                              required
-                              invalid={
-                                validationAttempted &&
-                                (!step.proficiency_id ||
-                                  !proficiencies.some(
-                                    (proficiency) => proficiency.id === step.proficiency_id
-                                  ))
-                              }
-                              placeholder="Search proficiency catalog"
-                              selectedId={step.proficiency_id}
-                              options={[
-                                ...(!step.proficiency_id ||
-                                proficiencies.some(
-                                  (proficiency) => proficiency.id === step.proficiency_id
-                                )
-                                  ? []
-                                  : [
-                                      {
-                                        id: step.proficiency_id,
-                                        label: `Missing proficiency: ${step.proficiency_id}`,
-                                        disabledReason: "Missing definition",
-                                        value: step.proficiency_id
-                                      }
-                                    ]),
-                                ...proficiencies.map((proficiency) => ({
-                                  id: proficiency.id,
-                                  label: proficiency.name,
-                                  secondary: proficiency.description,
-                                  keywords: [proficiency.id],
-                                  value: proficiency.id
-                                }))
-                              ]}
-                              emptyMessage="No proficiencies available."
-                              onSelect={(proficiencyId) =>
-                                onChange(
-                                  updateGainProficiencyUseActionStep(values, step.step_id, {
-                                    proficiencyId
-                                  })
-                                )
-                              }
-                            />
-                          ) : (
-                            <p className="muted">
-                              Requires an eligible source weapon when the action executes.
-                            </p>
-                          )}
+                                ))
+                            }
+                            placeholder="Search proficiency catalog"
+                            selectedId={step.proficiency_id}
+                            options={[
+                              ...(!step.proficiency_id ||
+                              proficiencies.some(
+                                (proficiency) => proficiency.id === step.proficiency_id
+                              )
+                                ? []
+                                : [
+                                    {
+                                      id: step.proficiency_id,
+                                      label: `Missing proficiency: ${step.proficiency_id}`,
+                                      disabledReason: "Missing definition",
+                                      value: step.proficiency_id
+                                    }
+                                  ]),
+                              ...proficiencies.map((proficiency) => ({
+                                id: proficiency.id,
+                                label: proficiency.name,
+                                secondary: proficiency.description,
+                                keywords: [proficiency.id],
+                                value: proficiency.id
+                              }))
+                            ]}
+                            emptyMessage="No proficiencies available."
+                            onSelect={(proficiencyId) =>
+                              onChange(
+                                updateGainProficiencyUseActionStep(values, step.step_id, {
+                                  proficiencyId
+                                })
+                              )
+                            }
+                          />
                           {formulaSourcePicker(step.step_id, step.amount, {
                             allowCalculated: true,
                             label: "Amount Source"
@@ -822,13 +881,20 @@ export function ActionEditorForm({
                                   return;
                                 }
                                 onChange(
-                                  updateGainProficiencyUseActionStepFormula(values, step.step_id, {
-                                    amountText,
-                                    aliases: upsertFormulaAlias(
-                                      step.amount.aliases ?? null,
-                                      entry.alias
-                                    )
-                                  })
+                                  ensureActionProficienciesForFormula(
+                                    updateGainProficiencyUseActionStepFormula(
+                                      values,
+                                      step.step_id,
+                                      {
+                                        amountText,
+                                        aliases: upsertFormulaAlias(
+                                          step.amount.aliases ?? null,
+                                          entry.alias
+                                        )
+                                      }
+                                    ),
+                                    { aliases: [entry.alias] }
+                                  )
                                 );
                               }}
                               placeholder="Type @ to insert a variable"
@@ -846,7 +912,7 @@ export function ActionEditorForm({
                             />
                           </>
                         ) : isFormulaReference(step.amount) ? (
-                          sharedFormulaHint(step.amount.formula_id)
+                          sharedFormulaEditor(step.step_id, step.amount.formula_id)
                         ) : (
                           <p className="muted">
                             Reuses {step.amount.variable_id} directly without reevaluating its

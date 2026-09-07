@@ -221,7 +221,6 @@ export interface ResolveDamageActionStep {
 export interface GainProficiencyUseActionStep {
   step_id: string;
   proficiency_id: string;
-  proficiency_reference?: "explicit" | "source_item_weapon";
   amount: NumericValueSource;
   target?: "caster" | "target";
   type: "gain_proficiency_use";
@@ -265,6 +264,10 @@ export interface ActionDefinition {
   notes?: string;
   steps?: ActionStep[];
   attributes?: Record<string, AttributeBridge>;
+  proficiencies?: Array<{
+    proficiency_id: string;
+    gain_on_use?: boolean;
+  }>;
 }
 
 export type ActionRollModeKind = "none" | "check" | "damage";

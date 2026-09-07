@@ -47,6 +47,9 @@ Execution context may include the acting template/instance, a specific source
 item relationship, action-scoped calculated values, global formula references,
 and matching evaluation-time or roll-mode effects. Tags and selectors let an
 effect target eligible formula evaluations without rewriting stored values.
+Each proficiency definition also contributes an action-scoped authoring path,
+`action.resolved.proficiencies.<proficiency_id>.modifier`. An action must bind
+that proficiency before one of its formulas may reference the path.
 
 For action execution, the rooted `sheet` context means the acting sheet: it
 reads the spawned instance when a character instance is executing and falls
@@ -89,8 +92,14 @@ The Formula catalog owns expression and alias editing through the shared
 of variables allowed by backend metadata; selection replaces that mention and
 upserts its canonical alias. Attribute and Effect consumers use the shared
 formula catalog picker and save a stable reference. Action editors can select a
-catalog formula directly; legacy inline action drafts are promoted to a catalog
-definition when saved.
+catalog formula directly. A selected shared formula can be copied into the
+current action from any step formula editor, preserving its expression, aliases,
+and tags for immediate editing; that customized draft is promoted to a new
+catalog definition when saved. Legacy inline action drafts follow the same
+promotion path. Action formula variable search exposes every proficiency in the
+campaign. Selecting a proficiency modifier, or selecting a shared formula that
+uses one, attaches the missing proficiency to the action with growth enabled by
+default; the author can then disable growth from the action's proficiency list.
 
 Editors do not calculate final gameplay results locally. Autocomplete and
 catalog selection are authoring aids only, and backend formula validation and

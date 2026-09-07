@@ -213,15 +213,15 @@ describe("variablePicker", () => {
       variables: [
         ...metadata.variables,
         {
-          key: "action.resolved.proficiency_modifier",
-          label: "Action: Proficiency Modifier",
+          key: "action.resolved.proficiencies.mana_ball.modifier",
+          label: "Action Proficiency: Mana Ball",
           root: "action",
-          path: ["resolved", "proficiency_modifier"],
+          path: ["resolved", "proficiencies", "mana_ball", "modifier"],
           value_type: "number",
           editable_roles: [],
           formula_backed: true,
-          description: "Modifier selected by the Action Proficiency Attribute.",
-          shortcuts: ["action_proficiency", "spell_proficiency"],
+          description: "Current character modifier for Mana Ball.",
+          shortcuts: ["mana_ball_proficiency"],
           formula_reference_allowed: true,
           action_mutation_allowed: false
         }
@@ -229,22 +229,22 @@ describe("variablePicker", () => {
     };
 
     const option = formulaVariableSearchOptions(actionMetadata, undefined, {
-      "action.resolved.proficiency_modifier": {
+      "action.resolved.proficiencies.mana_ball.modifier": {
         keywords: ["mana_ball", "Mana Ball"],
         label: "Mana Ball Proficiency Modifier",
         detail: "Selected proficiency: Mana Ball"
       }
-    }).find((entry) => entry.id === "action.resolved.proficiency_modifier");
+    }).find((entry) => entry.id === "action.resolved.proficiencies.mana_ball.modifier");
 
     expect(option).toMatchObject({
       label: "Mana Ball Proficiency Modifier",
       secondary:
-        "@action_proficiency | action.resolved.proficiency_modifier | number | Selected proficiency: Mana Ball",
+        "@mana_ball_proficiency | action.resolved.proficiencies.mana_ball.modifier | number | Selected proficiency: Mana Ball",
       value: {
-        token: "@action_proficiency",
+        token: "@mana_ball_proficiency",
         alias: {
-          name: "action_proficiency",
-          path: ["action", "resolved", "proficiency_modifier"]
+          name: "mana_ball_proficiency",
+          path: ["action", "resolved", "proficiencies", "mana_ball", "modifier"]
         }
       }
     });
@@ -252,13 +252,13 @@ describe("variablePicker", () => {
     expect(
       filterSearchPopoverOptions(
         formulaVariableSearchOptions(actionMetadata, undefined, {
-          "action.resolved.proficiency_modifier": {
+          "action.resolved.proficiencies.mana_ball.modifier": {
             keywords: ["mana_ball", "Mana Ball"]
           }
         }),
         "mana_ball"
       ).map((entry) => entry.id)
-    ).toEqual(["action.resolved.proficiency_modifier"]);
+    ).toEqual(["action.resolved.proficiencies.mana_ball.modifier"]);
   });
 
   it("upserts formula aliases by alias name", () => {

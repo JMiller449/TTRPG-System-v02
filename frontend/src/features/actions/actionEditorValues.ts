@@ -2,6 +2,7 @@ import type {
   ActionDefinition,
   AttributeBridge,
   AttributeDefinition,
+  Formula,
   FormulaAlias,
   ProficiencyDefinition
 } from "@/domain/models";
@@ -35,18 +36,13 @@ export type GainProficiencyUseEditorStep = Extract<
   ActionEditorStep,
   { type: "gain_proficiency_use" }
 >;
-export type ProficiencyTrainingReference = NonNullable<
-  GainProficiencyUseEditorStep["proficiency_reference"]
->;
-
-const DYNAMIC_PROFICIENCY_ID = "__dynamic_proficiency__";
-
 export interface ActionEditorValues {
   name: string;
   rollModeKind: NonNullable<ActionDefinitionPayload["roll_mode_kind"]>;
   notes: string;
   steps: ActionEditorSteps;
   attributes: Record<string, AttributeBridge>;
+  proficiencies: Array<{ proficiency_id: string; gain_on_use: boolean }>;
 }
 
 export type ActionPresetTemplate =
@@ -58,7 +54,8 @@ export function createEmptyActionEditorValues(): ActionEditorValues {
     rollModeKind: "none",
     notes: "",
     steps: [],
-    attributes: {}
+    attributes: {},
+    proficiencies: []
   };
 }
 
@@ -82,6 +79,40 @@ export function isFormulaReference(
 
 export function isInlineFormula(value: EditorNumericValueSource): value is EditorFormulaValue {
   return !isCalculatedValueReference(value) && !isFormulaReference(value);
+}
+
+function proficiencyIdFromFormulaAlias(alias: FormulaAlias): string | null {
+  const [root, resolved, collection, proficiencyId, property, ...remainder] = alias.path;
+  if (
+    root !== "action" ||
+    resolved !== "resolved" ||
+    collection !== "proficiencies" ||
+    !proficiencyId ||
+    property !== "modifier" ||
+    remainder.length > 0
+  ) {
+    return null;
+  }
+  return proficiencyId;
+}
+
+export function ensureActionProficienciesForFormula(
+  values: ActionEditorValues,
+  formula: Pick<Formula, "aliases">
+): ActionEditorValues {
+  const attachedIds = new Set(values.proficiencies.map((binding) => binding.proficiency_id));
+  const proficiencies = [...values.proficiencies];
+  for (const alias of formula.aliases ?? []) {
+    const proficiencyId = proficiencyIdFromFormulaAlias(alias);
+    if (!proficiencyId || attachedIds.has(proficiencyId)) {
+      continue;
+    }
+    attachedIds.add(proficiencyId);
+    proficiencies.push({ proficiency_id: proficiencyId, gain_on_use: true });
+  }
+  return proficiencies.length === values.proficiencies.length
+    ? values
+    : { ...values, proficiencies };
 }
 
 function emptyFormulaValue(text = ""): EditorFormulaValue {
@@ -109,7 +140,8 @@ function cloneActionEditorValues(values: ActionEditorValues): ActionEditorValues
   return {
     ...values,
     steps: cloneActionSteps(values.steps),
-    attributes: structuredClone(values.attributes)
+    attributes: structuredClone(values.attributes),
+    proficiencies: structuredClone(values.proficiencies)
   };
 }
 
@@ -152,13 +184,21 @@ export function getActionEditorValidationError(
     if (step.type !== "gain_proficiency_use") {
       continue;
     }
-    const reference = step.proficiency_reference ?? "explicit";
     if (
-      reference === "explicit" &&
-      (!step.proficiency_id ||
-        (context.proficiencies !== undefined && !context.proficiencies[step.proficiency_id]))
+      !step.proficiency_id ||
+      (context.proficiencies !== undefined && !context.proficiencies[step.proficiency_id])
     ) {
       return `Proficiency training step '${step.step_id}' must reference an existing proficiency.`;
+    }
+  }
+  const proficiencyIds = new Set<string>();
+  for (const binding of values.proficiencies) {
+    if (proficiencyIds.has(binding.proficiency_id)) {
+      return "Action proficiencies must be unique.";
+    }
+    proficiencyIds.add(binding.proficiency_id);
+    if (!context.proficiencies?.[binding.proficiency_id]) {
+      return `Action proficiency '${binding.proficiency_id}' must reference an existing proficiency.`;
     }
   }
   for (const [attributeId, bridge] of Object.entries(values.attributes)) {
@@ -431,7 +471,6 @@ export function createGainProficiencyUseActionStep(
     type: "gain_proficiency_use",
     target: "caster",
     proficiency_id: proficiencyId,
-    proficiency_reference: "explicit",
     amount: {
       aliases: null,
       text: amountText
@@ -916,7 +955,6 @@ export function updateGainProficiencyUseActionStep(
   stepId: string,
   updates: {
     proficiencyId?: string;
-    proficiencyReference?: ProficiencyTrainingReference;
     amountText?: string;
   }
 ): ActionEditorValues {
@@ -927,19 +965,9 @@ export function updateGainProficiencyUseActionStep(
       if (step.step_id !== stepId || step.type !== "gain_proficiency_use") {
         return step;
       }
-      const currentReference = step.proficiency_reference ?? "explicit";
-      const proficiencyReference = updates.proficiencyReference ?? currentReference;
-      const proficiencyId =
-        updates.proficiencyId ??
-        (updates.proficiencyReference === undefined
-          ? step.proficiency_id
-          : proficiencyReference === "explicit"
-            ? ""
-            : DYNAMIC_PROFICIENCY_ID);
       return {
         ...step,
-        proficiency_id: proficiencyId,
-        proficiency_reference: proficiencyReference,
+        proficiency_id: updates.proficiencyId ?? step.proficiency_id,
         amount: isInlineFormula(step.amount)
           ? {
               ...step.amount,
@@ -1088,6 +1116,38 @@ export function setActionStepFormulaReference(
         return { ...step, value: source };
       }
       if (step.type === "set_value") {
+        return { ...step, value: source };
+      }
+      if (
+        step.type === "increment_value" ||
+        step.type === "decrement_value" ||
+        step.type === "resolve_damage" ||
+        step.type === "gain_proficiency_use"
+      ) {
+        return { ...step, amount: source };
+      }
+      return step;
+    })
+  };
+}
+
+export function customizeActionStepFormula(
+  values: ActionEditorValues,
+  stepId: string,
+  formula: Formula
+): ActionEditorValues {
+  const nextValues = cloneActionEditorValues(values);
+  const source: EditorFormulaValue = structuredClone(formula);
+  return {
+    ...nextValues,
+    steps: nextValues.steps.map((step) => {
+      if (step.step_id !== stepId) {
+        return step;
+      }
+      if (step.type === "send_message") {
+        return { ...step, message: source };
+      }
+      if (step.type === "calculate_value" || step.type === "set_value") {
         return { ...step, value: source };
       }
       if (
@@ -1261,7 +1321,11 @@ export function toActionEditorValues(action: ActionDefinition): ActionEditorValu
     rollModeKind: action.roll_mode_kind ?? "none",
     notes: action.notes ?? "",
     steps: cloneActionSteps(action.steps),
-    attributes: structuredClone(action.attributes ?? {})
+    attributes: structuredClone(action.attributes ?? {}),
+    proficiencies: (action.proficiencies ?? []).map((binding) => ({
+      proficiency_id: binding.proficiency_id,
+      gain_on_use: binding.gain_on_use ?? true
+    }))
   };
 }
 
@@ -1275,7 +1339,8 @@ export function toActionDefinitionPayload(
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps),
-    attributes: structuredClone(values.attributes)
+    attributes: structuredClone(values.attributes),
+    proficiencies: structuredClone(values.proficiencies)
   };
 }
 
@@ -1289,6 +1354,7 @@ export function toUpdatedActionDefinitionPayload(
     roll_mode_kind: values.rollModeKind,
     notes: values.notes.trim(),
     steps: cloneActionSteps(values.steps),
-    attributes: structuredClone(values.attributes)
+    attributes: structuredClone(values.attributes),
+    proficiencies: structuredClone(values.proficiencies)
   };
 }

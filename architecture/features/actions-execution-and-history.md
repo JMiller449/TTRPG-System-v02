@@ -8,7 +8,9 @@ proficiency growth. They replace hardcoded feature-specific roll buttons with a
 validated sequence of reusable steps.
 
 [`backend/state/models/action.py`](../../backend/state/models/action.py) defines
-an action's ID, name, roll-mode kind, notes, attributes, and ordered steps.
+an action's ID, name, roll-mode kind, notes, attributes, proficiency bindings,
+and ordered steps. Each binding names a definition and independently controls
+whether successful use grows it. Actions may bind any number of proficiencies.
 Supported steps include:
 
 - calculate a reusable execution-scoped value;
@@ -17,8 +19,7 @@ Supported steps include:
 - bounded set, increment, or decrement of an allowed numeric path;
 - consume or restore the acting instance's shared action/reaction points;
 - semantic typed damage;
-- proficiency-use gain, targeting either an explicit definition, the action's
-  Proficiency Attribute, or the selected weapon's Proficiency Attribute;
+- explicit proficiency-use gain for a named definition;
 - application/removal of an augmentation;
 - application/removal of a condition preset.
 
@@ -56,11 +57,11 @@ emotes, narrative output, and advanced Roll20 commands.
 
 The frontend authoring surface is
 [`frontend/src/features/actions/`](../../frontend/src/features/actions/). The
-proficiency-use step exposes its target as an explicit proficiency or the
-eligible source weapon's Proficiency Attribute. Explicit selections are
-validated against the current authoring state; weapon-derived selection is
-validated against the source item chosen at execution. An attached Action
-Proficiency advances automatically, independently of formula tags.
+Action overview owns its proficiency list. Each binding exposes that character
+proficiency's modifier to formulas and has a **Grow on successful use** toggle.
+Definitions and formula references are validated against the current authoring
+state. The explicit proficiency-use step remains available for authored gains
+that are separate from the action's automatic bindings.
 
 The character action surface resolves direct assignments and eligible item
 grants into the same `perform_action` intent. Its execution controls collect
@@ -129,13 +130,15 @@ resolves the acting sheet/instance, verifies player assignment or DM authority,
 resolves an unambiguous source item when required, validates action assignment,
 and evaluates steps in order against an isolated working state.
 
-Before formula evaluation, an action with a valid Action Proficiency Attribute
-lazily attaches that proficiency to the acting character when missing, using
-the definition's default growth rate. Spawned execution reads and mutates the
-instance rather than its parent template. Existing character bridges are never
-overwritten. The formula sees the pre-use modifier; after authored steps
-evaluate successfully, execution adds exactly one use to that action
-proficiency.
+Before formula evaluation, execution lazily attaches each missing growth-enabled
+proficiency bound to the action, using its definition's default growth rate.
+Growth-disabled bindings use an existing character proficiency when available
+and otherwise resolve to zero without creating a character record. Spawned
+execution reads and mutates the instance rather than its parent template.
+Existing character bridges are never overwritten. Formulas address each bound modifier through
+`action.resolved.proficiencies.<proficiency_id>.modifier` and see its pre-use
+value. After all authored steps evaluate successfully, execution adds one use
+to every binding whose growth toggle is enabled.
 
 Calculated values are scoped to one execution and evaluated once. Mutations are
 collected against the working state. Roll20 messages are sent to the acting
@@ -151,10 +154,10 @@ action and discards backend mutations. Roll20 cannot provide a deletion
 transaction: in a multi-message action, an early message may already be visible
 if a later message fails.
 
-Canonical weapon actions gain the selected weapon family's use count. Spell
-presets automatically gain the definition selected through the authored Action
-Proficiency Attribute. Both mutations occur in the same transaction as the
-action's output.
+Attachment and automatic growth occur in the same transaction as the action's
+output. Generic weapon and spell presets do not assume a proficiency; the DM
+binds the definitions appropriate to the concrete action and may combine
+several, such as Daggers and Throwing on one thrown-knife action.
 
 Players may execute only actions assigned to their claimed instance or granted
 by eligible owned items. DMs may administratively execute an unassigned action

@@ -50,7 +50,6 @@ ACTION_REACTION_POINT_FORMULA_TEXT = (
 WEAPON_BASE_DAMAGE_ATTRIBUTE_ID = "weapon_base_damage"
 WEAPON_GOVERNING_STAT_ATTRIBUTE_ID = "weapon_governing_stat"
 WEAPON_REACH_ATTRIBUTE_ID = "weapon_reach"
-WEAPON_PROFICIENCY_ATTRIBUTE_ID = "weapon_proficiency"
 LEVEL_ATTRIBUTE_ID = "level"
 XP_GROWTH_RATE_ATTRIBUTE_ID = "xp_growth_rate"
 MOVEMENT_ATTRIBUTE_ID = "movement"
@@ -64,7 +63,6 @@ WEAPON_ATTRIBUTE_IDS = (
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
 )
 ACTION_RANK_ATTRIBUTE_ID = "action_rank"
 ACTION_RANGE_ATTRIBUTE_ID = "action_range"
@@ -72,7 +70,6 @@ ACTION_TARGET_COUNT_ATTRIBUTE_ID = "action_target_count"
 ACTION_AREA_ATTRIBUTE_ID = "action_area"
 ACTION_MANA_COST_ATTRIBUTE_ID = "action_mana_cost"
 ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID = "action_base_spell_damage"
-ACTION_PROFICIENCY_ATTRIBUTE_ID = "action_proficiency"
 
 ACTION_ATTRIBUTE_IDS = (
     ACTION_RANK_ATTRIBUTE_ID,
@@ -81,7 +78,6 @@ ACTION_ATTRIBUTE_IDS = (
     ACTION_AREA_ATTRIBUTE_ID,
     ACTION_MANA_COST_ATTRIBUTE_ID,
     ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
-    ACTION_PROFICIENCY_ATTRIBUTE_ID,
 )
 
 SHEET_ATTRIBUTE_IDS = (
@@ -245,15 +241,6 @@ def weapon_attribute_definitions() -> dict[str, AttributeDefinition]:
             default_value=AttributeValue(type="number", value=0),
             **shared,
         ),
-        AttributeDefinition(
-            id=WEAPON_PROFICIENCY_ATTRIBUTE_ID,
-            name="Proficiency",
-            description="Proficiency definition used by eligible weapon actions.",
-            value_type="reference",
-            default_value=AttributeValue(type="reference", value=""),
-            reference_kind="proficiency",
-            **shared,
-        ),
     )
     return {definition.id: definition for definition in definitions}
 
@@ -394,15 +381,6 @@ def action_attribute_definitions() -> dict[str, AttributeDefinition]:
             value_type="number",
             default_value=AttributeValue(type="number", value=0),
             unit="damage",
-            **shared,
-        ),
-        AttributeDefinition(
-            id=ACTION_PROFICIENCY_ATTRIBUTE_ID,
-            name="Proficiency",
-            description="Proficiency definition used by eligible action formulas.",
-            value_type="reference",
-            default_value=AttributeValue(type="reference", value=""),
-            reference_kind="proficiency",
             **shared,
         ),
     )

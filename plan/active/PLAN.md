@@ -77,10 +77,10 @@ Backend:
 - Attributes are typed backend records for sheets, items, and actions. Required attributes are backend-owned, backfilled, redacted correctly, and evaluated authoritatively.
 - Items support `equippable`, `consumable`, and `inventory_only` interaction types; equipment lifecycle, wearer effects, granted actions, quantity consumption, source-item action context, player catalog visibility, and player-submission approval are backend-authoritative.
 - Items explicitly grant shared actions and attach only the source-item Attributes
-  those actions/effects consume. Equipping an item with a Proficiency Attribute
-  adds the matching sheet proficiency bridge when missing, using the definition's
-  default growth rate. Weapon family/type and damage classifications are managed
-  tags rather than item profiles.
+  those actions/effects consume. Proficiencies are bound to actions, with any
+  number of independently growth-enabled bindings per action; equipping an item
+  alone does not add proficiency state. Weapon family/type and damage
+  classifications are managed tags rather than item profiles.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake. Spawned instances cumulatively track authoritative post-resistance damage by type for GM display and per-type reset.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
@@ -323,7 +323,7 @@ No large architecture feature is currently missing for the stated character-shee
     action footer, keeping Save Action keyboard- and pointer-reachable at constrained heights.
   - Action Attributes use the same direct attach-and-edit draft workflow as Item Attributes;
     the redundant standalone Attribute preset control is no longer exposed.
-  - Item proficiency references are sourced only from the authoritative proficiency registry;
+  - Action proficiency bindings are sourced only from the authoritative proficiency registry;
     stale IDs are shown as invalid and rejected independently by backend validation.
   - Item create/edit authoring uses one local draft and one complete final item request, including
     attributes, action grants, effects, numeric weight, and storage configuration.
@@ -338,8 +338,9 @@ No large architecture feature is currently missing for the stated character-shee
 - [x] Resolve the 2026-07-12 interaction coverage and Roll20 accuracy findings:
   - Active rules authority is `reference-docs/Chip_TTRPG_System.md`, followed by
     `reference-docs/rule-decisions-needed-answered.md`; archived PDFs are historical references.
-  - Canonical weapon Parry and Contest rolls use the documented `1 + Proficiency` multiplier,
-    with a guarded migration that preserves customized campaign actions.
+  - Concrete weapon Parry and Contest actions can use the documented `1 + Proficiency`
+    multiplier through their action-owned bindings. Generic weapon presets provide the source
+    weapon/stat scaffold without assuming a campaign proficiency.
   - Player proficiency gains mutate the acting instance without changing its template or siblings.
   - Action mutations commit only after correlated Roll20 delivery acknowledgement; delivery
     failure, timeout, disconnect, or bridge replacement returns a request-scoped error and rolls
@@ -395,9 +396,8 @@ No large architecture feature is currently missing for the stated character-shee
 - [x] Replace separate formula variable insertion fields with inline `@` autocomplete:
   - Formula-bearing action, formula, attribute, sheet, item, condition, and effect editors search
     their backend-provided variable catalogs when an author types `@` in the formula itself.
-  - Action formulas index the currently attached Proficiency Attribute by its selected
-    proficiency ID and name, then insert the backend-supported `@action_proficiency`
-    numeric-modifier alias rather than treating the reference ID as a number.
+  - Action formulas index the action's current proficiency bindings by definition ID
+    and name, then insert the matching action-scoped numeric modifier alias.
   - Keyboard or pointer selection replaces the active mention at the cursor and upserts the
     correct canonical, sheet-relative, attribute-relative, or action-scoped alias.
   - Earlier calculated action values participate in the same search instead of requiring a second
@@ -597,28 +597,17 @@ No large architecture feature is currently missing for the stated character-shee
         player character views render Level beside XP; players receive a read-only display and
         GMs use the existing DM-only instance-Attribute mutation through an explicit editor.
         XP does not automatically change Level or distribute stats.
-  - [x] Proficiency training is now a first-class action-authoring choice. The
-        `gain_proficiency_use` editor selects an explicit proficiency or the eligible source
-        weapon's Proficiency Attribute and emits the backend reference contract for either mode.
-        Local and backend validation reject missing explicit definitions, while weapon-derived
-        targets remain authoritative to the source item selected at execution. Focused
-        authoring, payload, execution, and Roll20-delivery rollback tests cover both targets;
-        formula tags remain descriptive metadata.
-- [x] Proficiency growth follow-up (2026-07-19): canonical weapon actions now
-      advance the selected weapon proficiency and spell presets advance their
-      Action Proficiency Attribute target. Character sheets display the capped
-      player-facing proficiency percentage alongside uses and growth rate; existing
-      unmodified canonical weapon actions migrate safely (schema v33).
-- [x] Action proficiency lazy attachment follow-up (2026-07-20): proficiency
-      definitions own a `0.01` default growth rate, with editable authoring and a
-      schema-v37 backfill. On first execution, an action's valid Proficiency
-      Attribute transactionally adds a missing zero-use bridge to the acting
-      template or spawned instance before formulas resolve; existing bridges remain
-      unchanged. A successfully evaluated action automatically adds exactly one use
-      after formulas read the pre-use modifier, and failed action or Roll20 delivery
-      rolls back both attachment and growth. Schema v38 purges now-redundant
-      action-attribute `gain_proficiency_use` steps while preserving explicit and
-      source-weapon training.
+  - [x] Proficiency training is a first-class action-authoring choice. Actions own
+        any number of proficiency bindings; each exposes its character modifier to
+        formulas and independently enables growth on successful use. Missing
+        growth-enabled bridges attach transactionally before formula evaluation;
+        growth-disabled bindings resolve as zero without creating a character record.
+        Enabled bindings grow after successful evaluation, and failed execution or
+        Roll20 delivery rolls attachment and growth back.
+        Explicit `gain_proficiency_use` steps remain available for separate authored
+        gains. Schema v53 migrates action-only, item-only, combined, empty, and shared
+        legacy definitions, splitting shared item-granted actions when their former
+        item proficiency differs and removing the retired item/action Attributes.
 - [x] Action completion correlation follow-up (2026-07-20): every successful
       `perform_action` now ends with one correlated `action_executed` event after
       delivery, mutation commit, and history recording, even when state patches were

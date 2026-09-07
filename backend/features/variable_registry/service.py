@@ -31,11 +31,9 @@ from backend.state.default_actions import (
 from backend.state.models.attribute import (
     ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
     ACTION_MANA_COST_ATTRIBUTE_ID,
-    ACTION_PROFICIENCY_ATTRIBUTE_ID,
     ACTION_RANGE_ATTRIBUTE_ID,
     ACTION_TARGET_COUNT_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
     AttributeDefinition,
 )
 from backend.state.models.state import State
@@ -321,13 +319,12 @@ _ACTION_ATTRIBUTE_PRESETS: tuple[ActionAttributePreset, ...] = (
         id="spell_details",
         label="Spell Details",
         description=(
-            "Adds mana cost, base spell damage, and proficiency configuration. "
+            "Adds mana cost and base spell damage. "
             "These remain authored inputs until an action formula consumes them."
         ),
         attribute_values={
             "action_mana_cost": {"type": "number", "value": 0},
             "action_base_spell_damage": {"type": "number", "value": 0},
-            "action_proficiency": {"type": "reference", "value": ""},
         },
     ),
 )
@@ -587,23 +584,31 @@ def _attribute_authoring_variable(
     )
 
 
-def _resolved_authoring_variables() -> list[AuthoringVariablePathMetadata]:
+def _resolved_authoring_variables(state: State) -> list[AuthoringVariablePathMetadata]:
+    proficiency_variables = []
+    for proficiency_id, proficiency in sorted(state.proficiencies.items()):
+        shortcut = re.sub(r"[^A-Za-z0-9_]", "_", proficiency_id)
+        if not shortcut or shortcut[0].isdigit():
+            shortcut = f"proficiency_{shortcut}"
+        proficiency_variables.append(
+            AuthoringVariablePathMetadata(
+                key=f"action.resolved.proficiencies.{proficiency_id}.modifier",
+                label=f"Action Proficiency: {proficiency.name}",
+                root="action",
+                path=["resolved", "proficiencies", proficiency_id, "modifier"],
+                value_type="number",
+                editable_roles=[],
+                formula_backed=True,
+                description=(
+                    f"Current character modifier for {proficiency.name}. Attach it "
+                    "to the action before using this variable."
+                ),
+                shortcuts=[f"{shortcut}_proficiency"],
+                action_mutation_allowed=False,
+            )
+        )
     return [
-        AuthoringVariablePathMetadata(
-            key="action.resolved.proficiency_modifier",
-            label="Action: Proficiency Modifier",
-            root="action",
-            path=["resolved", "proficiency_modifier"],
-            value_type="number",
-            editable_roles=[],
-            formula_backed=True,
-            description=(
-                "Current sheet proficiency modifier selected by the Action "
-                "Proficiency Attribute."
-            ),
-            shortcuts=["action_proficiency", "spell_proficiency"],
-            action_mutation_allowed=False,
-        ),
+        *proficiency_variables,
         AuthoringVariablePathMetadata(
             key="source_item.resolved.governing_stat",
             label="Source Weapon: Governing Stat Value",
@@ -617,21 +622,6 @@ def _resolved_authoring_variables() -> list[AuthoringVariablePathMetadata]:
                 "Governing Stat Attribute."
             ),
             shortcuts=["weapon_stat"],
-            action_mutation_allowed=False,
-        ),
-        AuthoringVariablePathMetadata(
-            key="source_item.resolved.proficiency_modifier",
-            label="Source Weapon: Proficiency Modifier",
-            root="source_item",
-            path=["resolved", "proficiency_modifier"],
-            value_type="number",
-            editable_roles=[],
-            formula_backed=True,
-            description=(
-                "Current sheet proficiency modifier selected by the eligible "
-                "source weapon's Proficiency Attribute."
-            ),
-            shortcuts=["weapon_proficiency"],
             action_mutation_allowed=False,
         ),
     ]
@@ -804,8 +794,7 @@ def build_action_formula_authoring_metadata(
         and (include_gm_only or definition.visibility == "public")
         and "item" in definition.subject_types
     )
-    if ACTION_PROFICIENCY_ATTRIBUTE_ID in state.attributes:
-        variables.extend(_resolved_authoring_variables())
+    variables.extend(_resolved_authoring_variables(state))
     return ActionFormulaAuthoringMetadata(
         response_id=None,
         variables=variables,

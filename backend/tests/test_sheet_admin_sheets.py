@@ -2402,19 +2402,13 @@ def test_create_sheet_rejects_missing_embedded_action_reference(monkeypatch) -> 
     asyncio.run(scenario())
 
 
-def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
+def test_equipping_weapon_does_not_attach_item_level_proficiency(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())
         monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.proficiencies["axes"] = Proficiency(
-                id="axes",
-                name="Axes",
-                description="Axe proficiency.",
-                default_growth_rate=0.25,
-            )
             state.items["axe"] = Item.from_dict(
                 {
                     "id": "axe",
@@ -2431,14 +2425,7 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
                             "consume_quantity": 0,
                         }
                     ],
-                    "attributes": {
-                        "weapon_proficiency": {
-                            "relationship_id": "weapon-prof",
-                            "attribute_id": "weapon_proficiency",
-                            "value": {"type": "reference", "value": "axes"},
-                            "evaluated_value": "axes",
-                        },
-                    },
+                    "attributes": {},
                 }
             )
             await websocket_sessions.reset()
@@ -2467,15 +2454,9 @@ def test_equipping_weapon_adds_missing_sheet_proficiency(monkeypatch) -> None:
                 },
             )
 
-            bridge = state.sheets["mage_template"].proficiencies[
-                "weapon_proficiency_axes"
-            ]
-            assert bridge.prof_id == "axes"
-            assert bridge.use_count == 0
-            assert bridge.growth_rate == 0.25
+            assert state.sheets["mage_template"].proficiencies == {}
             assert {op["path"] for op in websocket.sent_messages[0]["ops"]} == {
                 "/sheets/mage_template/items/equipped-axe",
-                "/sheets/mage_template/proficiencies/weapon_proficiency_axes",
                 "/sheets/mage_template/current_carried_weight",
             }
         finally:

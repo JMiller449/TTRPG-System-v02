@@ -44,6 +44,7 @@ from backend.features.state_sync.service import state_sync_service
 from backend.features.variable_registry import service as variable_registry_service
 from backend.state.models.action import (
     Action,
+    ActionProficiencyBinding,
     ActionStep,
     AdjustActionPointsStep,
     ApplyAugmentationStep,
@@ -155,6 +156,7 @@ def _validate_action_scoped_aliases(
     *,
     state: State | None,
     attached_attribute_ids: set[str],
+    proficiency_ids: set[str],
 ) -> None:
     if value is None or isinstance(value, CalculatedValueReferencePayload):
         return
@@ -162,8 +164,17 @@ def _validate_action_scoped_aliases(
         required_attribute_id: str | None = None
         if len(path) == 3 and path[:2] == ["action", "attributes"]:
             required_attribute_id = path[2]
-        elif path == ["action", "resolved", "proficiency_modifier"]:
-            required_attribute_id = "action_proficiency"
+        elif (
+            len(path) == 5
+            and path[:3] == ["action", "resolved", "proficiencies"]
+            and path[4] == "modifier"
+        ):
+            proficiency_id = path[3]
+            if proficiency_id not in proficiency_ids:
+                raise ValueError(
+                    f"Formula alias '{alias_name}' requires proficiency "
+                    f"'{proficiency_id}' to be attached to this action."
+                )
         if required_attribute_id is not None and required_attribute_id not in attached_attribute_ids:
             raise ValueError(
                 f"Formula alias '{alias_name}' requires Action Attribute "
@@ -262,11 +273,7 @@ def _validate_action_step(
             available_variables=available_variables,
         )
     if isinstance(step, GainProficiencyUseActionStepPayload):
-        if (
-            step.proficiency_reference == "explicit"
-            and state is not None
-            and step.proficiency_id not in state.proficiencies
-        ):
+        if state is not None and step.proficiency_id not in state.proficiencies:
             raise ValueError(f"Proficiency '{step.proficiency_id}' does not exist.")
         _validate_numeric_value(
             step.amount,
@@ -297,6 +304,11 @@ def _validate_action_payload(
     state: State | None = None,
 ) -> None:
     attached_attribute_ids = set(payload.attributes)
+    proficiency_ids = {binding.proficiency_id for binding in payload.proficiencies}
+    if state is not None:
+        missing = sorted(proficiency_ids - set(state.proficiencies))
+        if missing:
+            raise ValueError(f"Proficiency '{missing[0]}' does not exist.")
     available_variables: set[str] = set()
     for step in payload.steps:
         for value in _action_step_formula_values(step):
@@ -304,6 +316,7 @@ def _validate_action_payload(
                 value,
                 state=state,
                 attached_attribute_ids=attached_attribute_ids,
+                proficiency_ids=proficiency_ids,
             )
         _validate_action_step(
             step,
@@ -482,7 +495,6 @@ def _build_step(
         step_id=step.step_id,
         target=step.target,
         proficiency_id=step.proficiency_id,
-        proficiency_reference=step.proficiency_reference,
         amount=_build_numeric_value(
             step.amount,
             available_variables=available_variables,
@@ -513,6 +525,13 @@ def _build_action(payload: ActionDefinitionPayload, state: State | None = None) 
             attribute_id: AttributeBridge.from_dict(bridge.model_dump(mode="json"))
             for attribute_id, bridge in payload.attributes.items()
         },
+        proficiencies=[
+            ActionProficiencyBinding(
+                proficiency_id=binding.proficiency_id,
+                gain_on_use=binding.gain_on_use,
+            )
+            for binding in payload.proficiencies
+        ],
     )
 
 

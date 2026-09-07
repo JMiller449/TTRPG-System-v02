@@ -5,7 +5,6 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  addGainProficiencyUseActionStep,
   addResolveDamageActionStep,
   addSendMessageActionStep,
   addSendRollActionStep,
@@ -163,15 +162,11 @@ describe("ActionEditorForm", () => {
     await act(async () => root.unmount());
   });
 
-  it("offers all three proficiency training targets and authors the selected mode", async () => {
+  it("adds action-owned proficiencies with growth enabled by default", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     const root = createRoot(container);
-    const values = addGainProficiencyUseActionStep(
-      { ...createEmptyActionEditorValues(), name: "Training Action" },
-      "training_1",
-      "longsword"
-    );
+    const values = { ...createEmptyActionEditorValues(), name: "Training Action" };
     let changedValues = values;
 
     await act(async () => {
@@ -198,38 +193,88 @@ describe("ActionEditorForm", () => {
       await Promise.resolve();
     });
 
-    const editButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Edit"
+    const proficiencyField = Array.from(container.querySelectorAll("label.field")).find((field) =>
+      field.textContent?.includes("Add Proficiency")
     );
-    await act(async () => {
-      editButton?.click();
-      await Promise.resolve();
-    });
-
-    const trainingField = Array.from(container.querySelectorAll("label.field")).find((field) =>
-      field.textContent?.includes("Training Target")
-    );
-    const trainingSelect = trainingField?.querySelector("select");
+    const proficiencySelect = proficiencyField?.querySelector("select");
     expect(
-      Array.from(trainingSelect?.options ?? []).map((option) => [option.value, option.textContent])
+      Array.from(proficiencySelect?.options ?? []).map((option) => [
+        option.value,
+        option.textContent
+      ])
     ).toEqual([
-      ["explicit", "Explicit proficiency"],
-      ["source_item_weapon", "Source weapon proficiency"]
+      ["", "Choose proficiency"],
+      ["longsword", "Longsword"]
     ]);
 
     await act(async () => {
-      if (!trainingSelect) {
-        throw new Error("Expected proficiency training target selector.");
+      if (!proficiencySelect) {
+        throw new Error("Expected action proficiency selector.");
       }
-      trainingSelect.value = "source_item_weapon";
-      trainingSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      proficiencySelect.value = "longsword";
+      proficiencySelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(changedValues.steps[0]).toMatchObject({
-      type: "gain_proficiency_use",
-      proficiency_id: "__dynamic_proficiency__",
-      proficiency_reference: "source_item_weapon"
+    expect(changedValues.proficiencies).toEqual([
+      { proficiency_id: "longsword", gain_on_use: true }
+    ]);
+
+    await act(async () => root.unmount());
+  });
+
+  it("preserves an unchecked action proficiency growth toggle in the draft", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let values = {
+      ...createEmptyActionEditorValues(),
+      name: "Careful Throw",
+      proficiencies: [{ proficiency_id: "throwing", gain_on_use: true }]
+    };
+    const render = (): void => {
+      root.render(
+        <ActionEditorForm
+          editingActionId="careful_throw"
+          values={values}
+          onChange={(nextValues) => {
+            values = nextValues;
+            render();
+          }}
+          onSubmit={() => undefined}
+          onCancel={() => undefined}
+          metadata={null}
+          proficiencies={[
+            { id: "throwing", name: "Throwing", description: "", default_growth_rate: 0.01 }
+          ]}
+          formulas={[]}
+          standaloneEffects={[]}
+          conditions={[]}
+          attributesEditor={null}
+          validationError={null}
+        />
+      );
+    };
+
+    await act(async () => {
+      render();
+      await Promise.resolve();
     });
+    const toggle = container.querySelector<HTMLInputElement>(
+      '.action-proficiency-growth-toggle input[type="checkbox"]'
+    );
+    expect(toggle?.checked).toBe(true);
+
+    await act(async () => {
+      toggle?.click();
+      await Promise.resolve();
+    });
+
+    expect(values.proficiencies).toEqual([{ proficiency_id: "throwing", gain_on_use: false }]);
+    expect(
+      container.querySelector<HTMLInputElement>(
+        '.action-proficiency-growth-toggle input[type="checkbox"]'
+      )?.checked
+    ).toBe(false);
 
     await act(async () => root.unmount());
   });
@@ -376,6 +421,107 @@ describe("ActionEditorForm", () => {
 
     expect(container.textContent).toContain("Secondary Result Label");
     expect(values.steps[0]).toMatchObject({ type: "send_roll", rolls: [{}, {}] });
+
+    await act(async () => root.unmount());
+  });
+
+  it("copies a shared styled-roll formula into the action for in-place editing", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let values = addSendRollActionStep(createEmptyActionEditorValues(), "roll_1");
+    const rollStep = values.steps[0];
+    if (!rollStep || rollStep.type !== "send_roll") {
+      throw new Error("Expected a send-roll step.");
+    }
+    rollStep.rolls[0].value = {
+      type: "formula_reference",
+      formula_id: "weapon_attack"
+    };
+    const formulas = [
+      {
+        id: "weapon_attack",
+        formula: {
+          text: "floor((1 + @dagger) * (1d100 / 100) * @weapon_stat)",
+          aliases: [
+            {
+              name: "dagger",
+              path: ["action", "resolved", "proficiencies", "dagger", "modifier"]
+            }
+          ],
+          tags: ["attack"]
+        }
+      }
+    ];
+
+    const render = (): void => {
+      root.render(
+        <ActionEditorForm
+          editingActionId="weapon_attack"
+          values={values}
+          onChange={(nextValues) => {
+            values = nextValues;
+            render();
+          }}
+          onSubmit={() => undefined}
+          onCancel={() => undefined}
+          metadata={null}
+          proficiencies={[]}
+          formulas={formulas}
+          standaloneEffects={[]}
+          conditions={[]}
+          attributesEditor={null}
+          validationError={null}
+        />
+      );
+    };
+
+    await act(async () => {
+      render();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Edit")
+        ?.click();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(".action-roll-result-card button")?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Shared formula");
+    expect(container.textContent).toContain("weapon_attack");
+    expect(container.textContent).toContain("Customize for this action");
+    expect(container.textContent).not.toContain("Formula Tags");
+
+    await act(async () => {
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Customize for this action")
+        ?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Formula Tags");
+    expect(values.steps[0]).toMatchObject({
+      type: "send_roll",
+      rolls: [
+        {
+          value: {
+            text: "floor((1 + @dagger) * (1d100 / 100) * @weapon_stat)",
+            aliases: [
+              {
+                name: "dagger",
+                path: ["action", "resolved", "proficiencies", "dagger", "modifier"]
+              }
+            ],
+            tags: ["attack"]
+          }
+        }
+      ]
+    });
+    expect(values.proficiencies).toEqual([{ proficiency_id: "dagger", gain_on_use: true }]);
 
     await act(async () => root.unmount());
   });

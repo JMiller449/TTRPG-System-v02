@@ -508,10 +508,7 @@ def test_v7_migration_finishes_without_legacy_item_profile_metadata() -> None:
     assert "attribute_profile" not in migrated.state["items"]["sword"]
     assert migrated.state["items"]["sword"]["tags"] == []
     assert migrated.state["items"]["sword"]["attributes"] == {}
-    definition = migrated.state["attributes"]["weapon_proficiency"]
-    assert definition["required"] is False
-    assert definition.get("required_profile") is None
-    assert definition["reference_kind"] == "proficiency"
+    assert "weapon_proficiency" not in migrated.state["attributes"]
 
 
 def test_v8_migration_adds_backend_owned_action_attribute_definitions() -> None:
@@ -1225,7 +1222,7 @@ def test_v37_migration_purges_redundant_action_attribute_training_steps() -> Non
 
     assert [
         step["step_id"] for step in result.state["actions"]["spell"]["steps"]
-    ] == ["roll", "explicit-training", "weapon-training"]
+    ] == ["roll", "explicit-training"]
 
 
 def test_v16_migration_moves_template_inventory_to_instances_and_rebases_effects() -> None:
@@ -1550,7 +1547,13 @@ def test_v26_migration_updates_only_exact_legacy_weapon_roll_defaults() -> None:
         }
     )
 
-    assert result.state["actions"]["weapon_parry"] == actions["weapon_parry"]
+    assert result.state["actions"]["weapon_parry"]["id"] == "weapon_parry"
+    assert "source_item_weapon" not in json.dumps(
+        result.state["actions"]["weapon_parry"]
+    )
+    assert "proficiency_modifier" not in json.dumps(
+        result.state["actions"]["weapon_parry"]
+    )
     migrated_customized_contest = deepcopy(customized_contest)
     migrated_customized_contest["steps"][0].pop("visibility")
     custom_formula = migrated_customized_contest["steps"][0]["message"]
@@ -1994,3 +1997,226 @@ def test_export_and_replace_state_preserve_private_data(isolate_state: Path) -> 
     assert persisted["schema_version"] == CURRENT_STATE_SCHEMA_VERSION
     assert persisted["state"]["sheet_access_codes"] == {}
     assert not store_module._temporary_path(state_path).exists()
+
+
+def test_v52_migration_ports_diverse_legacy_proficiency_shapes() -> None:
+    def reference_bridge(attribute_id: str, proficiency_id: str) -> dict:
+        return {
+            "relationship_id": f"legacy-{attribute_id}",
+            "attribute_id": attribute_id,
+            "value": {"type": "reference", "value": proficiency_id},
+            "evaluated_value": proficiency_id,
+        }
+
+    result = migrate_persisted_state(
+        {
+            "schema_version": 52,
+            "state": {
+                "attributes": {
+                    "weapon_proficiency": {"id": "weapon_proficiency"},
+                    "action_proficiency": {"id": "action_proficiency"},
+                },
+                "items": {
+                    "combined_item": {
+                        "id": "combined_item",
+                        "attributes": {
+                            "weapon_proficiency": reference_bridge(
+                                "weapon_proficiency", "throwing"
+                            )
+                        },
+                        "action_grants": [{"action_id": "combined_action"}],
+                    },
+                    "item_only": {
+                        "id": "item_only",
+                        "attributes": {
+                            "weapon_proficiency": reference_bridge(
+                                "weapon_proficiency", "axes"
+                            )
+                        },
+                        "action_grants": [],
+                    },
+                    "plain_item": {
+                        "id": "plain_item",
+                        "attributes": {},
+                        "action_grants": [],
+                    },
+                    "grant_only_item": {
+                        "id": "grant_only_item",
+                        "attributes": {
+                            "weapon_proficiency": reference_bridge(
+                                "weapon_proficiency", "spears"
+                            )
+                        },
+                        "action_grants": [{"action_id": "grant_only_action"}],
+                    },
+                },
+                "actions": {
+                    "combined_action": {
+                        "id": "combined_action",
+                        "attributes": {
+                            "action_proficiency": reference_bridge(
+                                "action_proficiency", "daggers"
+                            )
+                        },
+                        "steps": [
+                            {
+                                "step_id": "roll",
+                                "type": "send_message",
+                                "message": {
+                                    "text": "@stab + @throw",
+                                    "aliases": [
+                                        {
+                                            "name": "stab",
+                                            "path": [
+                                                "action",
+                                                "resolved",
+                                                "proficiency_modifier",
+                                            ],
+                                        },
+                                        {
+                                            "name": "throw",
+                                            "path": [
+                                                "source_item",
+                                                "resolved",
+                                                "proficiency_modifier",
+                                            ],
+                                        },
+                                    ],
+                                },
+                            },
+                            {
+                                "step_id": "legacy-training",
+                                "type": "gain_proficiency_use",
+                                "proficiency_id": "__dynamic_proficiency__",
+                                "proficiency_reference": "source_item_weapon",
+                            },
+                        ],
+                    },
+                    "action_only": {
+                        "id": "action_only",
+                        "attributes": {
+                            "action_proficiency": reference_bridge(
+                                "action_proficiency", "arcane"
+                            )
+                        },
+                        "steps": [],
+                    },
+                    "plain_action": {
+                        "id": "plain_action",
+                        "attributes": {},
+                        "steps": [],
+                    },
+                    "grant_only_action": {
+                        "id": "grant_only_action",
+                        "attributes": {},
+                        "steps": [],
+                    },
+                },
+            },
+        }
+    )
+
+    state = result.state
+    combined = state["actions"]["combined_action"]
+    assert combined["proficiencies"] == [
+        {"proficiency_id": "daggers", "gain_on_use": True},
+        {"proficiency_id": "throwing", "gain_on_use": True},
+    ]
+    assert len(combined["steps"]) == 1
+    assert [alias["path"] for alias in combined["steps"][0]["message"]["aliases"]] == [
+        ["action", "resolved", "proficiencies", "daggers", "modifier"],
+        ["action", "resolved", "proficiencies", "throwing", "modifier"],
+    ]
+    assert state["actions"]["action_only"]["proficiencies"] == [
+        {"proficiency_id": "arcane", "gain_on_use": True}
+    ]
+    assert state["actions"]["plain_action"]["proficiencies"] == []
+    assert state["actions"]["grant_only_action"]["proficiencies"] == [
+        {"proficiency_id": "spears", "gain_on_use": False}
+    ]
+    assert state["items"]["combined_item"]["attributes"] == {}
+    assert state["items"]["item_only"]["attributes"] == {}
+    assert state["items"]["plain_item"]["attributes"] == {}
+    assert "weapon_proficiency" not in state["attributes"]
+    assert "action_proficiency" not in state["attributes"]
+
+
+def test_v52_migration_splits_shared_item_action_by_legacy_proficiency() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 52,
+            "state": {
+                "formulas": {
+                    "shared_attack_formula": {
+                        "id": "shared_attack_formula",
+                        "formula": {
+                            "text": "@weapon_skill",
+                            "aliases": [
+                                {
+                                    "name": "weapon_skill",
+                                    "path": [
+                                        "source_item",
+                                        "resolved",
+                                        "proficiency_modifier",
+                                    ],
+                                }
+                            ],
+                        },
+                    }
+                },
+                "items": {
+                    proficiency_id: {
+                        "id": proficiency_id,
+                        "attributes": {
+                            "weapon_proficiency": {
+                                "value": {
+                                    "type": "reference",
+                                    "value": proficiency_id,
+                                }
+                            }
+                        },
+                        "action_grants": [{"action_id": "shared_attack"}],
+                    }
+                    for proficiency_id in ("axes", "daggers")
+                },
+                "actions": {
+                    "shared_attack": {
+                        "id": "shared_attack",
+                        "steps": [
+                            {
+                                "step_id": "roll",
+                                "type": "send_message",
+                                "message": {
+                                    "type": "formula_reference",
+                                    "formula_id": "shared_attack_formula",
+                                },
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+    )
+
+    state = result.state
+    migrated_grants = {
+        item_id: item["action_grants"][0]["action_id"]
+        for item_id, item in state["items"].items()
+    }
+    assert migrated_grants["axes"] != migrated_grants["daggers"]
+    assert set(migrated_grants.values()).issubset(state["actions"])
+    for proficiency_id, action_id in migrated_grants.items():
+        action = state["actions"][action_id]
+        assert action["proficiencies"] == [
+            {"proficiency_id": proficiency_id, "gain_on_use": False}
+        ]
+        formula = state["formulas"][
+            action["steps"][0]["message"]["formula_id"]
+        ]["formula"]
+        assert formula["aliases"][0]["path"] == [
+            "action",
+            "resolved",
+            "proficiencies",
+            proficiency_id,
+            "modifier",
+        ]

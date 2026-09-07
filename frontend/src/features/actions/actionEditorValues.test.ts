@@ -26,6 +26,7 @@ import {
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
   duplicateActionStep,
+  ensureActionProficienciesForFormula,
   getActionEditorValidationError,
   isFormulaReference,
   isInlineFormula,
@@ -163,7 +164,8 @@ describe("actionEditorValues", () => {
       rollModeKind: "none",
       notes: "",
       steps: [],
-      attributes: {}
+      attributes: {},
+      proficiencies: []
     });
   });
 
@@ -173,7 +175,8 @@ describe("actionEditorValues", () => {
       rollModeKind: "check",
       notes: "Roll20 output and mana spend.",
       steps: testAction().steps,
-      attributes: {}
+      attributes: {},
+      proficiencies: []
     });
   });
 
@@ -188,7 +191,8 @@ describe("actionEditorValues", () => {
       roll_mode_kind: "none",
       notes: "Roll20 output only.",
       steps: [],
-      attributes: {}
+      attributes: {},
+      proficiencies: []
     });
   });
 
@@ -204,7 +208,8 @@ describe("actionEditorValues", () => {
       roll_mode_kind: "check",
       notes: "Updated notes.",
       steps: action.steps,
-      attributes: {}
+      attributes: {},
+      proficiencies: []
     });
   });
 
@@ -231,6 +236,7 @@ describe("actionEditorValues", () => {
       rollModeKind: "none",
       notes: "",
       attributes: {},
+      proficiencies: [],
       steps: [
         {
           step_id: "step_created",
@@ -252,6 +258,7 @@ describe("actionEditorValues", () => {
       rollModeKind: "none",
       notes: "",
       attributes: {},
+      proficiencies: [],
       steps: [
         {
           step_id: "damage_created",
@@ -311,13 +318,13 @@ describe("actionEditorValues", () => {
       rollModeKind: "none",
       notes: "",
       attributes: {},
+      proficiencies: [],
       steps: [
         {
           step_id: "prof_created",
           type: "gain_proficiency_use",
           target: "caster",
           proficiency_id: "longsword",
-          proficiency_reference: "explicit",
           amount: {
             aliases: null,
             text: "1"
@@ -331,7 +338,6 @@ describe("actionEditorValues", () => {
       type: "gain_proficiency_use",
       target: "caster",
       proficiency_id: "magic",
-      proficiency_reference: "explicit",
       amount: {
         aliases: null,
         text: "2"
@@ -439,6 +445,32 @@ describe("actionEditorValues", () => {
     expect(inlineDamage?.type === "resolve_damage" && isInlineFormula(inlineDamage.amount)).toBe(
       true
     );
+  });
+
+  it("attaches every proficiency referenced by a formula once", () => {
+    const values = {
+      ...createEmptyActionEditorValues(),
+      proficiencies: [{ proficiency_id: "dagger", gain_on_use: false }]
+    };
+
+    const result = ensureActionProficienciesForFormula(values, {
+      aliases: [
+        {
+          name: "dagger_proficiency",
+          path: ["action", "resolved", "proficiencies", "dagger", "modifier"]
+        },
+        {
+          name: "throwing_proficiency",
+          path: ["action", "resolved", "proficiencies", "throwing", "modifier"]
+        },
+        { name: "dexterity", path: ["sheet", "stats", "dexterity"] }
+      ]
+    });
+
+    expect(result.proficiencies).toEqual([
+      { proficiency_id: "dagger", gain_on_use: false },
+      { proficiency_id: "throwing", gain_on_use: true }
+    ]);
   });
 
   it("updates only send message step text and preserves aliases", () => {
@@ -615,7 +647,6 @@ describe("actionEditorValues", () => {
       type: "gain_proficiency_use",
       target: "caster",
       proficiency_id: "greatsword",
-      proficiency_reference: "explicit",
       amount: {
         aliases: [
           {
@@ -628,31 +659,21 @@ describe("actionEditorValues", () => {
     });
   });
 
-  it("authors each explicit proficiency training reference mode in the action payload", () => {
+  it("authors explicit proficiency training in the action payload", () => {
     const explicit = addGainProficiencyUseActionStep(
       { ...createEmptyActionEditorValues(), name: "Training" },
       "training",
       "longsword"
     );
-    const sourceWeapon = updateGainProficiencyUseActionStep(explicit, "training", {
-      proficiencyReference: "source_item_weapon"
-    });
-    const explicitAgain = updateGainProficiencyUseActionStep(sourceWeapon, "training", {
-      proficiencyReference: "explicit",
+    const updated = updateGainProficiencyUseActionStep(explicit, "training", {
       proficiencyId: "greatsword"
     });
 
     expect(toActionDefinitionPayload(explicit, "explicit_training").steps?.[0]).toMatchObject({
-      proficiency_id: "longsword",
-      proficiency_reference: "explicit"
+      proficiency_id: "longsword"
     });
-    expect(toActionDefinitionPayload(sourceWeapon, "weapon_training").steps?.[0]).toMatchObject({
-      proficiency_id: "__dynamic_proficiency__",
-      proficiency_reference: "source_item_weapon"
-    });
-    expect(toActionDefinitionPayload(explicitAgain, "explicit_again").steps?.[0]).toMatchObject({
-      proficiency_id: "greatsword",
-      proficiency_reference: "explicit"
+    expect(toActionDefinitionPayload(updated, "updated_training").steps?.[0]).toMatchObject({
+      proficiency_id: "greatsword"
     });
   });
 
@@ -1010,12 +1031,10 @@ describe("actionEditorValues", () => {
       "existing proficiency"
     );
 
-    const sourceWeapon = updateGainProficiencyUseActionStep(explicit, "training", {
-      proficiencyReference: "source_item_weapon"
+    const updated = updateGainProficiencyUseActionStep(explicit, "training", {
+      proficiencyId: "magic"
     });
-    expect(
-      getActionEditorValidationError(sourceWeapon, { definitions, proficiencies: {} })
-    ).toBeNull();
+    expect(getActionEditorValidationError(updated, { definitions, proficiencies })).toBeNull();
   });
 
   it("creates an editable spell draft from backend Action preset metadata", () => {

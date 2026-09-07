@@ -498,14 +498,7 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
                     "price": "",
                     "weight": 0,
                     "attribute_profile": "weapon",
-                    "attributes": {
-                        "weapon_proficiency": {
-                            "relationship_id": "weapon-prof",
-                            "attribute_id": "weapon_proficiency",
-                            "value": {"type": "reference", "value": "axes"},
-                            "evaluated_value": "axes",
-                        },
-                    },
+                    "attributes": {},
                 }
             )
             state.proficiencies["axes"] = Proficiency(
@@ -534,26 +527,9 @@ def test_player_can_equip_only_their_assigned_instance_item(monkeypatch) -> None
             assert websocket.sent_messages[0]["ops"][0]["path"] == (
                 "/instanced_sheets/mage_instance/items/sword/equipped"
             )
-            proficiency = state.instanced_sheets["mage_instance"].proficiencies[
-                "weapon_proficiency_axes"
-            ]
-            assert proficiency.prof_id == "axes"
-            assert proficiency.use_count == 0
-            assert proficiency.growth_rate == 0.25
-            assert any(
-                op["path"]
-                == (
-                    "/instanced_sheets/mage_instance/"
-                    "proficiencies/weapon_proficiency_axes"
-                )
-                for op in websocket.sent_messages[0]["ops"]
-            )
-            assert "weapon_proficiency_axes" not in (
-                state.instanced_sheets["other_instance"].proficiencies
-            )
-            assert "weapon_proficiency_axes" not in (
-                state.sheets["mage_template"].proficiencies
-            )
+            assert state.instanced_sheets["mage_instance"].proficiencies == {}
+            assert state.instanced_sheets["other_instance"].proficiencies == {}
+            assert state.sheets["mage_template"].proficiencies == {}
 
             state.instanced_sheets["mage_instance"].items["sword"].equipped = False
             state.instanced_sheets["mage_instance"].items[
@@ -1639,14 +1615,9 @@ def test_roll20_delivery_failure_rolls_back_action_mutations(monkeypatch) -> Non
                 {
                     "id": "costly_cast",
                     "name": "Costly Cast",
-                    "attributes": {
-                        "action_proficiency": {
-                            "relationship_id": "spell-proficiency",
-                            "attribute_id": "action_proficiency",
-                            "value": {"type": "reference", "value": "magic_prof"},
-                            "evaluated_value": "magic_prof",
-                        }
-                    },
+                    "proficiencies": [
+                        {"proficiency_id": "magic_prof", "gain_on_use": True}
+                    ],
                     "steps": [
                         {
                             "step_id": "cost",
@@ -3407,6 +3378,9 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                 {
                     "id": "weapon_test",
                     "name": "Weapon Test",
+                    "proficiencies": [
+                        {"proficiency_id": "swords", "gain_on_use": True}
+                    ],
                     "steps": [
                         {
                             "step_id": "resolve",
@@ -3434,9 +3408,11 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                                     {
                                         "name": "weapon_proficiency",
                                         "path": [
-                                            "source_item",
+                                            "action",
                                             "resolved",
-                                            "proficiency_modifier",
+                                            "proficiencies",
+                                            "swords",
+                                            "modifier",
                                         ],
                                     },
                                 ],
@@ -3450,14 +3426,6 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                                 "type": "calculated_value",
                                 "variable_id": "weapon_total",
                             },
-                        },
-                        {
-                            "step_id": "gain_weapon_proficiency",
-                            "type": "gain_proficiency_use",
-                            "target": "caster",
-                            "proficiency_id": "__dynamic_proficiency__",
-                            "proficiency_reference": "source_item_weapon",
-                            "amount": _formula_payload("1"),
                         },
                     ],
                 }
@@ -3489,12 +3457,6 @@ def test_weapon_formula_requires_explicit_source_and_resolves_weapon_values(
                             "attribute_id": "weapon_governing_stat",
                             "value": {"type": "enum", "value": "strength"},
                             "evaluated_value": "strength",
-                        },
-                        "weapon_proficiency": {
-                            "relationship_id": "weapon-prof",
-                            "attribute_id": "weapon_proficiency",
-                            "value": {"type": "reference", "value": "swords"},
-                            "evaluated_value": "swords",
                         },
                     },
                 }
@@ -3901,7 +3863,7 @@ def test_perform_action_gains_explicit_proficiency_use_once(monkeypatch) -> None
     asyncio.run(scenario())
 
 
-def test_action_first_use_attaches_default_proficiency_to_acting_instance(
+def test_action_first_use_attaches_only_growth_enabled_proficiencies(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -3925,31 +3887,45 @@ def test_action_first_use_attaches_default_proficiency_to_acting_instance(
                 description="Mana Ball spell proficiency.",
                 default_growth_rate=0.01,
             )
+            state.proficiencies["throwing"] = Proficiency(
+                id="throwing",
+                name="Throwing",
+                description="Thrown spell proficiency.",
+                default_growth_rate=0.02,
+            )
             state.actions["mana_ball"] = Action.from_dict(
                 {
                     "id": "mana_ball",
                     "name": "Mana Ball",
-                    "attributes": {
-                        "action_proficiency": {
-                            "relationship_id": "mana-ball-proficiency",
-                            "attribute_id": "action_proficiency",
-                            "value": {"type": "reference", "value": "mana_ball"},
-                            "evaluated_value": "mana_ball",
-                        }
-                    },
+                    "proficiencies": [
+                        {"proficiency_id": "mana_ball", "gain_on_use": True},
+                        {"proficiency_id": "throwing", "gain_on_use": False},
+                    ],
                     "steps": [
                         {
                             "step_id": "roll",
                             "type": "send_message",
                             "message": _formula_payload(
-                                "Proficiency: @action_proficiency",
+                                "Proficiencies: @mana_ball + @throwing",
                                 [
                                     {
-                                        "name": "action_proficiency",
+                                        "name": "mana_ball",
                                         "path": [
                                             "action",
                                             "resolved",
-                                            "proficiency_modifier",
+                                            "proficiencies",
+                                            "mana_ball",
+                                            "modifier",
+                                        ],
+                                    },
+                                    {
+                                        "name": "throwing",
+                                        "path": [
+                                            "action",
+                                            "resolved",
+                                            "proficiencies",
+                                            "throwing",
+                                            "modifier",
                                         ],
                                     }
                                 ],
@@ -3961,8 +3937,29 @@ def test_action_first_use_attaches_default_proficiency_to_acting_instance(
             await websocket_sessions.reset()
             await chat_service.roll20_chat_bridge.reset()
             player = FakeWebSocket()
-            bridge = FakeWebSocket()
             await _connect_assigned_player(player)
+
+            await handle_client_payload(
+                player,
+                {
+                    "type": "perform_action",
+                    "sheet_id": "mage_instance",
+                    "action_id": "mana_ball",
+                    "request_id": "req-disconnected-cast",
+                },
+            )
+
+            assert state.instanced_sheets["mage_instance"].proficiencies == {}
+            assert _request_messages(player, "req-disconnected-cast") == [
+                {
+                    "response_id": None,
+                    "reason": "Roll20 chat bridge is not connected for this user.",
+                    "type": "error",
+                    "request_id": "req-disconnected-cast",
+                }
+            ]
+
+            bridge = FakeWebSocket()
             await chat_service.roll20_chat_bridge.connect(
                 bridge,
                 binding_key="instance:mage_instance",
@@ -3987,7 +3984,7 @@ def test_action_first_use_attaches_default_proficiency_to_acting_instance(
             assert added.growth_rate == 0.01
             assert added.use_count == 1
             assert state.sheets["mage_template"].proficiencies == {}
-            assert bridge.sent_messages[0]["message"] == "Proficiency: (0.0)"
+            assert bridge.sent_messages[0]["message"] == "Proficiencies: (0.0) + (0.0)"
 
             await handle_client_payload(
                 player,
@@ -4001,7 +3998,7 @@ def test_action_first_use_attaches_default_proficiency_to_acting_instance(
 
             assert set(instance_proficiencies) == {"action_proficiency_mana_ball"}
             assert added.use_count == 2
-            assert bridge.sent_messages[1]["message"] == "Proficiency: (0.01)"
+            assert bridge.sent_messages[1]["message"] == "Proficiencies: (0.01) + (0.0)"
         finally:
             StateSingleton._state = original_state
 
@@ -4049,14 +4046,9 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                 {
                     "id": "focused_cast",
                     "name": "Focused Cast",
-                    "attributes": {
-                        "action_proficiency": {
-                            "relationship_id": "spell-proficiency",
-                            "attribute_id": "action_proficiency",
-                            "value": {"type": "reference", "value": "magic_prof"},
-                            "evaluated_value": "magic_prof",
-                        }
-                    },
+                    "proficiencies": [
+                        {"proficiency_id": "magic_prof", "gain_on_use": True}
+                    ],
                     "steps": [
                         {
                             "step_id": "step-1",

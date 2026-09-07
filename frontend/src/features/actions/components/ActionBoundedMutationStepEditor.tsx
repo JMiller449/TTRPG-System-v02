@@ -3,6 +3,7 @@ import type { ActionFormulaAuthoringMetadata } from "@/domain/ipc";
 import {
   boundedMutationPrimarySource,
   calculatedValuesBeforeStep,
+  ensureActionProficienciesForFormula,
   isCalculatedValueReference,
   isFormulaReference,
   isInlineFormula,
@@ -24,6 +25,7 @@ import {
 } from "@/features/variables/variablePicker";
 import { Field } from "@/shared/ui/Field";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { ActionSharedFormulaSource } from "@/features/actions/components/ActionSharedFormulaSource";
 
 function operationLabel(step: BoundedMutationEditorStep): string {
   if (step.type === "set_value") {
@@ -55,18 +57,26 @@ export function ActionBoundedMutationStepEditor({
 
   const setSourceFromSelection = (slot: BoundedMutationSourceSlot, selection: string): void => {
     let source: EditorNumericValueSource = { aliases: null, text: "" };
+    let selectedFormula: FormulaDefinition["formula"] | null = null;
     if (selection.startsWith("global:")) {
+      const formulaId = selection.slice("global:".length);
       source = {
         type: "formula_reference",
-        formula_id: selection.slice("global:".length)
+        formula_id: formulaId
       };
+      selectedFormula = formulas.find((formula) => formula.id === formulaId)?.formula ?? null;
     } else if (selection.startsWith("calculated:")) {
       source = {
         type: "calculated_value",
         variable_id: selection.slice("calculated:".length)
       };
     }
-    onChange(setBoundedMutationSource(values, step.step_id, slot, source));
+    const nextValues = setBoundedMutationSource(values, step.step_id, slot, source);
+    onChange(
+      selectedFormula
+        ? ensureActionProficienciesForFormula(nextValues, selectedFormula)
+        : nextValues
+    );
   };
 
   const sourceEditor = (
@@ -99,7 +109,7 @@ export function ActionBoundedMutationStepEditor({
             formulaId ? `global:${formulaId}` : variableId ? `calculated:${variableId}` : "inline"
           }
           options={[
-            { id: "inline", label: "New catalog formula", value: "inline" },
+            { id: "inline", label: "Custom formula", value: "inline" },
             ...(formulaId && !formulas.some((formula) => formula.id === formulaId)
               ? [
                   {
@@ -154,10 +164,13 @@ export function ActionBoundedMutationStepEditor({
                   return;
                 }
                 onChange(
-                  updateBoundedMutationFormula(values, step.step_id, slot, {
-                    text,
-                    aliases: upsertFormulaAlias(source.aliases ?? null, entry.alias)
-                  })
+                  ensureActionProficienciesForFormula(
+                    updateBoundedMutationFormula(values, step.step_id, slot, {
+                      text,
+                      aliases: upsertFormulaAlias(source.aliases ?? null, entry.alias)
+                    }),
+                    { aliases: [entry.alias] }
+                  )
                 );
               }}
               placeholder="Type @ to insert a variable"
@@ -171,14 +184,22 @@ export function ActionBoundedMutationStepEditor({
             />
           </>
         ) : isFormulaReference(source) ? (
-          <p className="muted">
-            {(() => {
+          <ActionSharedFormulaSource
+            formulaId={source.formula_id}
+            definition={formulas.find((formula) => formula.id === source.formula_id) ?? null}
+            onCustomize={() => {
               const definition = formulas.find((formula) => formula.id === source.formula_id);
-              return definition
-                ? `Uses shared formula: ${definition.formula.text}`
-                : "Uses a shared formula that has since been deleted.";
-            })()}
-          </p>
+              if (definition) {
+                const nextValues = setBoundedMutationSource(
+                  values,
+                  step.step_id,
+                  slot,
+                  structuredClone(definition.formula)
+                );
+                onChange(ensureActionProficienciesForFormula(nextValues, definition.formula));
+              }
+            }}
+          />
         ) : (
           <p className="muted">
             Reuses {source.variable_id} directly without reevaluating its formula.

@@ -102,6 +102,13 @@ was the action's own Proficiency Attribute. Action Proficiency inclusion now
 grants that use automatically after successful execution; explicit and source
 weapon proficiency-gain steps are preserved.
 
+Schema version 53 retires item and action Proficiency Attributes and moves
+their definitions into action-owned proficiency bindings. It rewrites legacy
+formula aliases, removes source-weapon gain steps now represented by binding
+growth, and splits a shared item-granted action when different source items
+previously supplied different proficiencies. Item-only and empty records lose
+only the retired Attribute data; explicit named gain steps remain.
+
 Schema version 39 updates only unchanged canonical Amount of Reactions
 definitions and bridges to the shared Action / Reaction Point terminology and
 Reaction Time threshold formula. Customized formulas and existing current

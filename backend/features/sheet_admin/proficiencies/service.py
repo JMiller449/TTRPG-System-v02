@@ -79,6 +79,21 @@ async def delete_proficiency(request: DeleteProficiency) -> None:
                 + "."
             )
 
+        action_references = sorted(
+            action.id
+            for action in state.actions.values()
+            if any(
+                binding.proficiency_id == request.proficiency_id
+                for binding in action.proficiencies
+            )
+        )
+        if action_references:
+            raise ValueError(
+                f"Proficiency '{request.proficiency_id}' is bound to Actions: "
+                + ", ".join(action_references)
+                + "."
+            )
+
         path = state_sync_service.join_path("proficiencies", request.proficiency_id)
         _, op = state_sync_service.remove_mutation(state, path)
         return None, [op]

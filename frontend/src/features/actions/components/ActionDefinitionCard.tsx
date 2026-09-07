@@ -20,11 +20,7 @@ function stepSummary(step: ActionStep): string {
     case "resolve_damage":
       return `${step.step_id}: resolve ${step.damage_type} damage`;
     case "gain_proficiency_use":
-      return `${step.step_id}: train ${
-        (step.proficiency_reference ?? "explicit") === "source_item_weapon"
-          ? "source weapon proficiency"
-          : step.proficiency_id
-      }`;
+      return `${step.step_id}: train ${step.proficiency_id}`;
     case "apply_augmentation":
       return `${step.step_id}: ${step.operation ?? "apply"} augmentation`;
     case "apply_condition_preset":
@@ -54,6 +50,7 @@ export function ActionDefinitionCard({
       {action.notes ? <div className="muted">Notes: {action.notes}</div> : null}
       <div className="muted">Roll mode: {action.roll_mode_kind ?? "none"}</div>
       <div className="muted">Steps: {steps.length}</div>
+      <div className="muted">Proficiencies: {(action.proficiencies ?? []).length}</div>
       {steps.length > 0 ? (
         <div className="list">
           {steps.map((step) => (

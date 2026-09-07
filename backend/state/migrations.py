@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 52
+CURRENT_STATE_SCHEMA_VERSION = 53
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2716,6 +2716,237 @@ def _migrate_v51_to_v52(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 52, "state": state}
 
 
+def _migrate_v52_to_v53(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    """Move proficiency ownership from item/action Attributes onto actions."""
+
+    state = deepcopy(envelope["state"])
+    actions = state.get("actions", {})
+    formulas = state.setdefault("formulas", {})
+
+    def reference_value(subject: dict[str, Any], attribute_id: str) -> str | None:
+        attributes = subject.get("attributes", {})
+        bridge = attributes.get(attribute_id) if isinstance(attributes, dict) else None
+        if not isinstance(bridge, dict):
+            return None
+        value = bridge.get("value")
+        candidate = value.get("value") if isinstance(value, dict) else None
+        if not isinstance(candidate, str) or not candidate:
+            candidate = bridge.get("evaluated_value")
+        return candidate if isinstance(candidate, str) and candidate else None
+
+    item_grants: dict[str, list[tuple[dict[str, Any], dict[str, Any], str]]] = {}
+    for registry_name in ("items", "item_templates"):
+        registry = state.get(registry_name, {})
+        if not isinstance(registry, dict):
+            continue
+        for item in registry.values():
+            if not isinstance(item, dict):
+                continue
+            proficiency_id = reference_value(item, "weapon_proficiency")
+            grants = item.get("action_grants", [])
+            if proficiency_id and isinstance(grants, list):
+                for grant in grants:
+                    action_id = grant.get("action_id") if isinstance(grant, dict) else None
+                    if isinstance(action_id, str):
+                        item_grants.setdefault(action_id, []).append(
+                            (item, grant, proficiency_id)
+                        )
+            attributes = item.get("attributes")
+            if isinstance(attributes, dict):
+                attributes.pop("weapon_proficiency", None)
+
+    def rewrite_action(
+        action: dict[str, Any],
+        *,
+        action_id: str,
+        source_proficiency_id: str | None,
+        source_gain_on_use: bool,
+    ) -> None:
+        action_proficiency_id = reference_value(action, "action_proficiency")
+        attributes = action.get("attributes")
+        if isinstance(attributes, dict):
+            attributes.pop("action_proficiency", None)
+
+        existing_bindings = action.get("proficiencies", [])
+        bindings: list[dict[str, Any]] = []
+        if isinstance(existing_bindings, list):
+            bindings = [
+                deepcopy(binding)
+                for binding in existing_bindings
+                if isinstance(binding, dict)
+                and isinstance(binding.get("proficiency_id"), str)
+                and binding["proficiency_id"]
+            ]
+        for proficiency_id, gain_on_use in (
+            (action_proficiency_id, True),
+            (source_proficiency_id, source_gain_on_use),
+        ):
+            if not proficiency_id:
+                continue
+            existing = next(
+                (
+                    binding
+                    for binding in bindings
+                    if binding["proficiency_id"] == proficiency_id
+                ),
+                None,
+            )
+            if existing is None:
+                bindings.append(
+                    {"proficiency_id": proficiency_id, "gain_on_use": gain_on_use}
+                )
+            elif gain_on_use:
+                existing["gain_on_use"] = True
+        action["proficiencies"] = bindings
+
+        steps = action.get("steps", [])
+        if isinstance(steps, list):
+            migrated_steps = []
+            for step in steps:
+                if not isinstance(step, dict):
+                    migrated_steps.append(step)
+                    continue
+                if (
+                    step.get("type") == "gain_proficiency_use"
+                    and step.get("proficiency_reference") == "source_item_weapon"
+                ):
+                    continue
+                step.pop("proficiency_reference", None)
+                migrated_steps.append(step)
+            action["steps"] = migrated_steps
+
+        replacements = {
+            ("action", "resolved", "proficiency_modifier"): action_proficiency_id,
+            ("source_item", "resolved", "proficiency_modifier"): source_proficiency_id,
+        }
+        formula_cache: dict[str, str] = {}
+
+        def rewrite_formula(formula: dict[str, Any]) -> None:
+            aliases = formula.get("aliases")
+            if not isinstance(aliases, list):
+                return
+            retained = []
+            text = formula.get("text", "")
+            for alias in aliases:
+                path = tuple(alias.get("path", [])) if isinstance(alias, dict) else ()
+                if path not in replacements:
+                    retained.append(alias)
+                    continue
+                proficiency_id = replacements[path]
+                if proficiency_id:
+                    alias["path"] = [
+                        "action",
+                        "resolved",
+                        "proficiencies",
+                        proficiency_id,
+                        "modifier",
+                    ]
+                    retained.append(alias)
+                elif isinstance(text, str):
+                    text = re.sub(
+                        rf"@{re.escape(str(alias.get('name', '')))}\b", "0", text
+                    )
+            formula["aliases"] = retained
+            formula["text"] = text
+
+        def walk(value: Any) -> None:
+            if isinstance(value, list):
+                for entry in value:
+                    walk(entry)
+                return
+            if not isinstance(value, dict):
+                return
+            if value.get("type") == "formula_reference":
+                original_id = value.get("formula_id")
+                definition = formulas.get(original_id)
+                if not isinstance(original_id, str) or not isinstance(definition, dict):
+                    return
+                original_formula = definition.get("formula")
+                original_aliases = (
+                    original_formula.get("aliases")
+                    if isinstance(original_formula, dict)
+                    else None
+                )
+                if not isinstance(original_aliases, list) or not any(
+                    isinstance(alias, dict)
+                    and tuple(alias.get("path", [])) in replacements
+                    for alias in original_aliases
+                ):
+                    return
+                if original_id not in formula_cache:
+                    digest = hashlib.sha1(
+                        f"{action_id}\0{original_id}".encode("utf-8")
+                    ).hexdigest()[:16]
+                    migrated_id = f"formula_action_proficiencies_{digest}"
+                    migrated = deepcopy(definition)
+                    migrated["id"] = migrated_id
+                    formula = migrated.get("formula")
+                    if isinstance(formula, dict):
+                        rewrite_formula(formula)
+                    formulas[migrated_id] = migrated
+                    formula_cache[original_id] = migrated_id
+                value["formula_id"] = formula_cache[original_id]
+                return
+            if "text" in value and "aliases" in value:
+                rewrite_formula(value)
+                return
+            for entry in value.values():
+                walk(entry)
+
+        walk(action.get("steps", []))
+
+    if isinstance(actions, dict):
+        for original_action_id, original_action in list(actions.items()):
+            if not isinstance(original_action, dict):
+                continue
+            grants = item_grants.get(original_action_id, [])
+            grows_source = any(
+                isinstance(step, dict)
+                and step.get("type") == "gain_proficiency_use"
+                and step.get("proficiency_reference") == "source_item_weapon"
+                for step in original_action.get("steps", [])
+            )
+            source_ids = sorted({entry[2] for entry in grants})
+            if len(source_ids) <= 1:
+                rewrite_action(
+                    original_action,
+                    action_id=original_action_id,
+                    source_proficiency_id=source_ids[0] if source_ids else None,
+                    source_gain_on_use=grows_source,
+                )
+                continue
+
+            for source_id in source_ids:
+                digest = hashlib.sha1(
+                    f"{original_action_id}\0{source_id}".encode("utf-8")
+                ).hexdigest()[:10]
+                migrated_action_id = f"{original_action_id}_proficiency_{digest}"
+                migrated_action = deepcopy(original_action)
+                migrated_action["id"] = migrated_action_id
+                rewrite_action(
+                    migrated_action,
+                    action_id=migrated_action_id,
+                    source_proficiency_id=source_id,
+                    source_gain_on_use=grows_source,
+                )
+                actions[migrated_action_id] = migrated_action
+                for _item, grant, proficiency_id in grants:
+                    if proficiency_id == source_id:
+                        grant["action_id"] = migrated_action_id
+            rewrite_action(
+                original_action,
+                action_id=original_action_id,
+                source_proficiency_id=None,
+                source_gain_on_use=False,
+            )
+
+    attributes = state.get("attributes")
+    if isinstance(attributes, dict):
+        attributes.pop("weapon_proficiency", None)
+        attributes.pop("action_proficiency", None)
+    return {"schema_version": 53, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -2769,6 +3000,7 @@ MIGRATIONS: dict[int, Migration] = {
     49: _migrate_v49_to_v50,
     50: _migrate_v50_to_v51,
     51: _migrate_v51_to_v52,
+    52: _migrate_v52_to_v53,
 }
 
 

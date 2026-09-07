@@ -9,7 +9,6 @@ from typing import Any
 from backend.state.models.attribute import (
     ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
     ACTION_MANA_COST_ATTRIBUTE_ID,
-    ACTION_PROFICIENCY_ATTRIBUTE_ID,
     ACTION_RANK_ATTRIBUTE_ID,
     ITEM_ATTRIBUTE_ATTRIBUTE_ID,
     ITEM_FLAT_EFFECT_BONUS_ATTRIBUTE_ID,
@@ -17,7 +16,6 @@ from backend.state.models.attribute import (
     ITEM_MANA_REGENERATION_MODIFIER_ATTRIBUTE_ID,
     WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
     WEAPON_REACH_ATTRIBUTE_ID,
 )
 from backend.state.models.stat import (
@@ -145,7 +143,9 @@ def formula_payloads() -> list[dict[str, Any]]:
                         "path": [
                             "action",
                             "resolved",
-                            "proficiency_modifier",
+                            "proficiencies",
+                            "pyromancy",
+                            "modifier",
                         ],
                     },
                     {"name": "arcane", "path": ["stats", "arcane"]},
@@ -166,7 +166,9 @@ def formula_payloads() -> list[dict[str, Any]]:
                         "path": [
                             "action",
                             "resolved",
-                            "proficiency_modifier",
+                            "proficiencies",
+                            "pyromancy",
+                            "modifier",
                         ],
                     },
                     {"name": "arcane", "path": ["stats", "arcane"]},
@@ -195,7 +197,9 @@ def formula_payloads() -> list[dict[str, Any]]:
                         "path": [
                             "action",
                             "resolved",
-                            "proficiency_modifier",
+                            "proficiencies",
+                            "gate_lore",
+                            "modifier",
                         ],
                     },
                     {"name": "perception", "path": ["stats", "perception"]},
@@ -326,13 +330,11 @@ def weapon_attributes(
     weapon_type: str = "Sword",
     governing_stat: str = "strength",
     damage_types: list[str] | None = None,
-    proficiency: str = "long_swords",
 ) -> dict[str, dict[str, Any]]:
     values = {
         WEAPON_BASE_DAMAGE_ATTRIBUTE_ID: ("number", base_damage),
         WEAPON_GOVERNING_STAT_ATTRIBUTE_ID: ("enum", governing_stat),
         WEAPON_REACH_ATTRIBUTE_ID: ("number", 5),
-        WEAPON_PROFICIENCY_ATTRIBUTE_ID: ("reference", proficiency),
     }
     return {
         attribute_id: {
@@ -409,7 +411,6 @@ def spell_action_attributes(
     rank: str,
     mana_cost: int,
     base_damage: int,
-    proficiency: str,
 ) -> dict[str, dict[str, Any]]:
     return {
         ACTION_RANK_ATTRIBUTE_ID: action_attribute_bridge(
@@ -426,11 +427,6 @@ def spell_action_attributes(
             ACTION_BASE_SPELL_DAMAGE_ATTRIBUTE_ID,
             "number",
             base_damage,
-        ),
-        ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
-            ACTION_PROFICIENCY_ATTRIBUTE_ID,
-            "reference",
-            proficiency,
         ),
     }
 
@@ -744,7 +740,6 @@ def item_payloads() -> list[dict[str, Any]]:
                 weapon_type="Dagger",
                 governing_stat="dexterity",
                 damage_types=["Piercing"],
-                proficiency="knives",
             ),
             "tags": ["weapon", "dagger", "piercing"],
             "augmentation_templates": [],
@@ -1040,8 +1035,10 @@ def action_payloads() -> list[dict[str, Any]]:
                 rank="D",
                 mana_cost=12,
                 base_damage=18,
-                proficiency="pyromancy",
             ),
+            "proficiencies": [
+                {"proficiency_id": "pyromancy", "gain_on_use": True}
+            ],
             "steps": [
                 {
                     "step_id": "roll_spell_attack",
@@ -1059,8 +1056,10 @@ def action_payloads() -> list[dict[str, Any]]:
                 rank="D",
                 mana_cost=12,
                 base_damage=18,
-                proficiency="pyromancy",
             ),
+            "proficiencies": [
+                {"proficiency_id": "pyromancy", "gain_on_use": True}
+            ],
             "steps": [
                 {
                     "step_id": "spend_mana",
@@ -1097,14 +1096,10 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Shadow Step",
             "roll_mode_kind": "check",
             "notes": "Short evasive movement check for shadow-affinity hunters.",
-            "attributes": {
-                **rank_attribute("C"),
-                ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
-                    ACTION_PROFICIENCY_ATTRIBUTE_ID,
-                    "reference",
-                    "shadow_steps",
-                ),
-            },
+            "attributes": rank_attribute("C"),
+            "proficiencies": [
+                {"proficiency_id": "shadow_steps", "gain_on_use": True}
+            ],
             "steps": [
                 {
                     "step_id": "roll_shadow_step",
@@ -1120,7 +1115,9 @@ def action_payloads() -> list[dict[str, Any]]:
                                 "path": [
                                     "action",
                                     "resolved",
-                                    "proficiency_modifier",
+                                    "proficiencies",
+                                    "shadow_steps",
+                                    "modifier",
                                 ],
                             },
                             {"name": "dexterity", "path": ["stats", "dexterity"]},
@@ -1231,14 +1228,10 @@ def action_payloads() -> list[dict[str, Any]]:
             "name": "Gate Lore Check",
             "roll_mode_kind": "check",
             "notes": "Campaign knowledge check for gate behavior and dungeon cores.",
-            "attributes": {
-                **rank_attribute("D"),
-                ACTION_PROFICIENCY_ATTRIBUTE_ID: action_attribute_bridge(
-                    ACTION_PROFICIENCY_ATTRIBUTE_ID,
-                    "reference",
-                    "gate_lore",
-                ),
-            },
+            "attributes": rank_attribute("D"),
+            "proficiencies": [
+                {"proficiency_id": "gate_lore", "gain_on_use": True}
+            ],
             "steps": [
                 {
                     "step_id": "roll_gate_lore",

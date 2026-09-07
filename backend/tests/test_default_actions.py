@@ -32,9 +32,8 @@ def test_canonical_action_seeding_attaches_only_defense_defaults() -> None:
         "strength",
     ]
     for action_id in ("weapon_attack", "weapon_damage", "weapon_parry", "weapon_contest"):
-        gain_step = actions[action_id].steps[1]
-        assert gain_step.type == "gain_proficiency_use"
-        assert gain_step.proficiency_reference == "source_item_weapon"
+        assert len(actions[action_id].steps) == 1
+        assert actions[action_id].proficiencies == []
 
     presets = {preset.id: preset for preset in CANONICAL_ACTION_PRESETS}
     for action_id in ("spell_to_hit", "spell_damage"):
@@ -53,41 +52,23 @@ def test_canonical_spreadsheet_formulas_expand_to_roll20_expressions() -> None:
         ),
         source_item={
             "attributes": {"weapon_base_damage": 15},
-            "resolved": {
-                "governing_stat": 25,
-                "proficiency_modifier": 0.8,
-            },
+            "resolved": {"governing_stat": 25},
         },
         action={
             "attributes": {"action_base_spell_damage": 10},
-            "resolved": {"proficiency_modifier": 0.5},
+            "resolved": {"proficiencies": {}},
         },
     )
     presets = {preset.id: preset for preset in CANONICAL_ACTION_PRESETS}
     expected = {
         "dodge": "floor((26) * (1d100 / 100))",
         "block": "floor((25) * (1d100 / 100))",
-        "weapon_attack": (
-            "floor((1 + (0.8)) * "
-            "(1d100 / 100) * (25))"
-        ),
-        "weapon_damage": (
-            "floor((15) + (1 + (0.8)) * "
-            "(1d100 / 100) * (25))"
-        ),
-        "weapon_parry": (
-            "floor((1 + (0.8)) * (1d100 / 100) * (26))"
-        ),
-        "weapon_contest": (
-            "floor((1 + (0.8)) * (1d100 / 100) * (25))"
-        ),
-        "spell_to_hit": (
-            "floor((1 + (0.5)) * (1d100 / 100) * (28))"
-        ),
-        "spell_damage": (
-            "floor((1 + (0.5)) * "
-            "(1d100 / 100) * (28) + (10))"
-        ),
+        "weapon_attack": "floor((1d100 / 100) * (25))",
+        "weapon_damage": "floor((15) + (1d100 / 100) * (25))",
+        "weapon_parry": "floor((1d100 / 100) * (26))",
+        "weapon_contest": "floor((1d100 / 100) * (25))",
+        "spell_to_hit": "floor((1d100 / 100) * (28))",
+        "spell_damage": "floor((1d100 / 100) * (28) + (10))",
     }
 
     for preset_id, expected_message in expected.items():

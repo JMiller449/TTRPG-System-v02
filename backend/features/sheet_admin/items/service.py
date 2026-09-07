@@ -45,7 +45,6 @@ from backend.state.models.augmentation import (
 )
 from backend.state.models.attribute import (
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
-    WEAPON_PROFICIENCY_ATTRIBUTE_ID,
     AttributeBridge,
     synchronize_required_item_attributes,
 )
@@ -136,8 +135,6 @@ def _validate_item_resolved_alias(
 ) -> None:
     if path == ["source_item", "resolved", "governing_stat"]:
         required_attribute_id = WEAPON_GOVERNING_STAT_ATTRIBUTE_ID
-    elif path == ["source_item", "resolved", "proficiency_modifier"]:
-        required_attribute_id = WEAPON_PROFICIENCY_ATTRIBUTE_ID
     else:
         raise ValueError(f"Source-item alias '{alias_name}' is not supported.")
 

@@ -3,6 +3,7 @@ import type { FormulaAlias, FormulaDefinition } from "@/domain/models";
 import {
   isFormulaReference,
   isInlineFormula,
+  ensureActionProficienciesForFormula,
   updateSendRollActionStep,
   type ActionEditorValues,
   type SendRollEditorStep
@@ -11,6 +12,7 @@ import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEdito
 import { FormulaVariableInput } from "@/features/variables/components/FormulaVariableInput";
 import { upsertFormulaAlias } from "@/features/variables/variablePicker";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { ActionSharedFormulaSource } from "@/features/actions/components/ActionSharedFormulaSource";
 import { Field } from "@/shared/ui/Field";
 import type { SearchPopoverOption } from "@/shared/ui/searchPopover";
 
@@ -48,8 +50,12 @@ export function ActionSendRollStepEditor({
     setSelectedResultIndex(null);
   }, [selectedResultIndex, step.rolls]);
 
-  const updateRolls = (rolls: SendRollEditorStep["rolls"]): void => {
-    onChange(updateSendRollActionStep(values, step.step_id, { rolls }));
+  const updateRolls = (
+    rolls: SendRollEditorStep["rolls"],
+    formula?: Pick<FormulaDefinition["formula"], "aliases">
+  ): void => {
+    const nextValues = updateSendRollActionStep(values, step.step_id, { rolls });
+    onChange(formula ? ensureActionProficienciesForFormula(nextValues, formula) : nextValues);
   };
 
   const formulaSummary = (roll: SendRollEditorStep["rolls"][number]): string => {
@@ -109,7 +115,7 @@ export function ActionSendRollStepEditor({
             placeholder="Search formula catalog"
             selectedId={selectedFormulaId ? `global:${selectedFormulaId}` : "inline"}
             options={[
-              { id: "inline", label: "New catalog formula", value: "inline" },
+              { id: "inline", label: "Custom formula", value: "inline" },
               ...(selectedFormulaId && !selectedFormula
                 ? [
                     {
@@ -142,7 +148,12 @@ export function ActionSendRollStepEditor({
                   ? { type: "formula_reference", formula_id: formulaId }
                   : { aliases: null, text: "" }
               };
-              updateRolls(rolls);
+              updateRolls(
+                rolls,
+                formulaId
+                  ? formulas.find((formula) => formula.id === formulaId)?.formula
+                  : undefined
+              );
             }}
           />
         </div>
@@ -176,7 +187,7 @@ export function ActionSendRollStepEditor({
                     aliases: upsertFormulaAlias(selectedResult.value.aliases ?? null, entry.alias)
                   }
                 };
-                updateRolls(rolls);
+                updateRolls(rolls, { aliases: [entry.alias] });
               }}
               placeholder="Type @ to insert a variable"
             />
@@ -194,11 +205,21 @@ export function ActionSendRollStepEditor({
             />
           </>
         ) : (
-          <p className="muted">
-            {selectedFormula
-              ? `Uses shared formula: ${selectedFormula.formula.text}`
-              : "Uses a shared formula that has since been deleted."}
-          </p>
+          <ActionSharedFormulaSource
+            formulaId={selectedFormulaId ?? selectedResult.value.formula_id}
+            definition={selectedFormula ?? null}
+            onCustomize={() => {
+              if (!selectedFormula) {
+                return;
+              }
+              const rolls = structuredClone(step.rolls);
+              rolls[selectedResultIndex] = {
+                ...rolls[selectedResultIndex],
+                value: structuredClone(selectedFormula.formula)
+              };
+              updateRolls(rolls, selectedFormula.formula);
+            }}
+          />
         )}
 
         {selectedResultIndex > 0 ? (

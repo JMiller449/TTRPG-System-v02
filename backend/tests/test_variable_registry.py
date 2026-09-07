@@ -3,6 +3,7 @@ import asyncio
 from backend.features.variable_registry import service
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import AttributeDefinition, AttributeValue
+from backend.state.models.proficiency import Proficiency
 from backend.state.models.state import State
 
 
@@ -43,6 +44,31 @@ def test_variable_registry_exposes_canonical_paths_only() -> None:
     assert variables["instance.health"].editable_roles == ["player", "dm"]
     assert variables["instance.health"].shortcuts == ["hp", "health"]
     assert variables["instance.mana"].shortcuts == ["mana"]
+
+
+def test_action_authoring_exposes_one_formula_variable_per_proficiency() -> None:
+    state = State()
+    state.proficiencies = {
+        "daggers": Proficiency(id="daggers", name="Daggers", description=""),
+        "throwing": Proficiency(id="throwing", name="Throwing", description=""),
+    }
+
+    variables = {
+        variable.key: variable
+        for variable in service.build_action_formula_authoring_metadata(
+            state=state
+        ).variables
+    }
+
+    assert variables["action.resolved.proficiencies.daggers.modifier"].path == [
+        "resolved",
+        "proficiencies",
+        "daggers",
+        "modifier",
+    ]
+    assert variables[
+        "action.resolved.proficiencies.throwing.modifier"
+    ].shortcuts == ["throwing_proficiency"]
     assert variables["sheet.resistances.fire"].root == "sheet"
     assert variables["sheet.resistances.fire"].path == ["resistances", "fire"]
     assert variables["sheet.resistances.fire"].value_type == "percent"
@@ -149,9 +175,9 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "action_target_count",
         "action_area",
     }
-    assert attribute_presets["spell_details"].attribute_values["action_proficiency"] == {
-        "type": "reference",
-        "value": "",
+    assert set(attribute_presets["spell_details"].attribute_values) == {
+        "action_mana_cost",
+        "action_base_spell_damage",
     }
 
     action_damage = variables["action.attributes.action_base_spell_damage"]
@@ -175,13 +201,8 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
 
     weapon_stat = variables["source_item.resolved.governing_stat"]
     assert weapon_stat.shortcuts == ["weapon_stat"]
-    assert variables[
-        "source_item.resolved.proficiency_modifier"
-    ].shortcuts == ["weapon_proficiency"]
-    assert variables["action.resolved.proficiency_modifier"].shortcuts == [
-        "action_proficiency",
-        "spell_proficiency",
-    ]
+    assert "source_item.resolved.proficiency_modifier" not in variables
+    assert "action.resolved.proficiency_modifier" not in variables
 
     strength = variables["sheet.stats.strength"]
     assert strength.formula_reference_allowed is True
@@ -283,9 +304,7 @@ def test_action_formula_authoring_metadata_exposes_scoped_catalogs() -> None:
         "type": "formula_reference",
         "formula_id": "default_action_block_formula",
     }
-    assert action_presets["spell_to_hit"].attribute_values[
-        "action_proficiency"
-    ] == {"type": "reference", "value": ""}
+    assert "action_proficiency" not in action_presets["spell_to_hit"].attribute_values
     assert action_presets["spell_damage"].attribute_values[
         "action_base_spell_damage"
     ] == {"type": "number", "value": 0}

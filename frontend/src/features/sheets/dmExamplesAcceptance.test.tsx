@@ -47,7 +47,8 @@ describe("DM example acceptance fixtures", () => {
         roll_mode_kind: action.roll_mode_kind,
         notes: action.notes,
         steps: action.steps,
-        attributes: action.attributes
+        attributes: action.attributes,
+        proficiencies: action.proficiencies ?? []
       });
     }
   });

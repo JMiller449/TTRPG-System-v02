@@ -53,7 +53,6 @@ class CanonicalActionPreset:
     aliases: tuple[tuple[str, tuple[str, ...]], ...]
     tags: tuple[str, ...]
     attribute_values: tuple[tuple[str, dict], ...] = ()
-    proficiency_reference: Literal["source_item_weapon"] | None = None
     seed_global: bool = False
     attach_to_new_sheet: bool = False
 
@@ -81,20 +80,6 @@ class CanonicalActionPreset:
                 ],
             }
         ]
-        if self.proficiency_reference is not None:
-            steps.append(
-                {
-                    "step_id": "gain_proficiency_use",
-                    "type": "gain_proficiency_use",
-                    "target": "caster",
-                    "proficiency_id": "__dynamic_proficiency__",
-                    "proficiency_reference": self.proficiency_reference,
-                    "amount": {
-                        "type": "formula_reference",
-                        "formula_id": "default_action_gain_use_formula",
-                    },
-                }
-            )
         return steps
 
     def action_payload(self) -> dict:
@@ -105,6 +90,7 @@ class CanonicalActionPreset:
             "notes": self.description,
             "steps": self.steps(),
             "attributes": {},
+            "proficiencies": [],
         }
 
     def action(self) -> Action:
@@ -136,7 +122,6 @@ class CanonicalActionPreset:
 _SPELL_ATTRIBUTE_VALUES: tuple[tuple[str, dict], ...] = (
     ("action_mana_cost", {"type": "number", "value": 0}),
     ("action_base_spell_damage", {"type": "number", "value": 0}),
-    ("action_proficiency", {"type": "reference", "value": ""}),
 )
 
 
@@ -171,22 +156,16 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         category="weapon",
         description=(
             "Equipment-grantable weapon to-hit roll using the explicit source "
-            "weapon's proficiency and governing stat."
+            "weapon's governing stat. Add action-owned proficiencies as needed."
         ),
         roll_mode_kind="check",
         message_text=(
-            "Weapon Attack: /r floor((1 + @weapon_proficiency) * "
-            "(1d100 / 100) * @weapon_stat)"
+            "Weapon Attack: /r floor((1d100 / 100) * @weapon_stat)"
         ),
         aliases=(
-            (
-                "weapon_proficiency",
-                ("source_item", "resolved", "proficiency_modifier"),
-            ),
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("check", "attack", "weapon"),
-        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -200,21 +179,16 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         roll_mode_kind="damage",
         message_text=(
             "Weapon Damage: /r floor(@weapon_base_damage + "
-            "(1 + @weapon_proficiency) * (1d100 / 100) * @weapon_stat)"
+            "(1d100 / 100) * @weapon_stat)"
         ),
         aliases=(
             (
                 "weapon_base_damage",
                 ("source_item", "attributes", "weapon_base_damage"),
             ),
-            (
-                "weapon_proficiency",
-                ("source_item", "resolved", "proficiency_modifier"),
-            ),
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("damage", "weapon"),
-        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -227,18 +201,12 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         roll_mode_kind="check",
         message_text=(
-            "Weapon Parry: /r floor((1 + @weapon_proficiency) * "
-            "(1d100 / 100) * @dexterity)"
+            "Weapon Parry: /r floor((1d100 / 100) * @dexterity)"
         ),
         aliases=(
-            (
-                "weapon_proficiency",
-                ("source_item", "resolved", "proficiency_modifier"),
-            ),
             ("dexterity", ("sheet", "stats", "dexterity")),
         ),
         tags=("check", "parry", "weapon"),
-        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -250,18 +218,12 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         ),
         roll_mode_kind="check",
         message_text=(
-            "Weapon Contest: /r floor((1 + @weapon_proficiency) * "
-            "(1d100 / 100) * @weapon_stat)"
+            "Weapon Contest: /r floor((1d100 / 100) * @weapon_stat)"
         ),
         aliases=(
-            (
-                "weapon_proficiency",
-                ("source_item", "resolved", "proficiency_modifier"),
-            ),
             ("weapon_stat", ("source_item", "resolved", "governing_stat")),
         ),
         tags=("check", "contest", "weapon"),
-        proficiency_reference="source_item_weapon",
         seed_global=True,
     ),
     CanonicalActionPreset(
@@ -269,19 +231,14 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         label="Spell To-Hit",
         category="spell",
         description=(
-            "Editable spell to-hit preset. Select an Action Proficiency Attribute "
-            "before saving."
+            "Editable spell to-hit preset. Add any action-owned proficiencies "
+            "used by the spell formula before saving."
         ),
         roll_mode_kind="check",
         message_text=(
-            "Spell To-Hit: /r floor((1 + @spell_proficiency) * "
-            "(1d100 / 100) * @arcane)"
+            "Spell To-Hit: /r floor((1d100 / 100) * @arcane)"
         ),
         aliases=(
-            (
-                "spell_proficiency",
-                ("action", "resolved", "proficiency_modifier"),
-            ),
             ("arcane", ("sheet", "stats", "arcane")),
         ),
         tags=("check", "spell", "attack"),
@@ -292,19 +249,14 @@ CANONICAL_ACTION_PRESETS: tuple[CanonicalActionPreset, ...] = (
         label="Spell Damage",
         category="spell",
         description=(
-            "Editable spell damage preset. Configure Action Proficiency and Base "
-            "Spell Damage Attributes before saving."
+            "Editable spell damage preset. Configure action-owned proficiencies "
+            "and Base Spell Damage before saving."
         ),
         roll_mode_kind="damage",
         message_text=(
-            "Spell Damage: /r floor((1 + @spell_proficiency) * "
-            "(1d100 / 100) * @arcane + @base_spell_damage)"
+            "Spell Damage: /r floor((1d100 / 100) * @arcane + @base_spell_damage)"
         ),
         aliases=(
-            (
-                "spell_proficiency",
-                ("action", "resolved", "proficiency_modifier"),
-            ),
             ("arcane", ("sheet", "stats", "arcane")),
             (
                 "base_spell_damage",
@@ -326,17 +278,10 @@ def seeded_global_actions() -> dict[str, Action]:
 
 
 def canonical_action_formula_definitions() -> dict[str, FormulaDefinition]:
-    definitions = {
+    return {
         preset.formula_id: preset.formula_definition()
         for preset in CANONICAL_ACTION_PRESETS
     }
-    definitions["default_action_gain_use_formula"] = FormulaDefinition.from_dict(
-        {
-            "id": "default_action_gain_use_formula",
-            "formula": {"aliases": None, "text": "1", "tags": []},
-        }
-    )
-    return definitions
 
 
 def seeded_global_action_payloads() -> dict[str, dict]:

@@ -13,7 +13,6 @@ from backend.features.sheet_admin.items.schema import (
 from backend.state.models.action import Action
 from backend.state.models.augmentation import StandaloneEffectDefinition
 from backend.state.models.item import Item, ItemBridge
-from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -127,12 +126,11 @@ def _add_player_instance(instance_id: str, sheet_id: str, name: str) -> None:
     )
 
 
-def _weapon_attribute_bridges(proficiency_id: str = "long_swords") -> dict:
+def _weapon_attribute_bridges() -> dict:
     values = {
         "weapon_base_damage": {"type": "number", "value": 15},
         "weapon_governing_stat": {"type": "enum", "value": "strength"},
         "weapon_reach": {"type": "number", "value": 5},
-        "weapon_proficiency": {"type": "reference", "value": proficiency_id},
     }
     return {
         attribute_id: {
@@ -268,11 +266,6 @@ def test_item_augmentation_formula_can_reference_owning_item_attribute(monkeypat
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.proficiencies["long_swords"] = Proficiency(
-                id="long_swords",
-                name="Long Swords",
-                description="",
-            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -429,11 +422,6 @@ def test_dm_can_create_tagged_weapon_with_explicit_attributes_and_action_grants(
         try:
             _reset_state()
             state = StateSingleton.getState()
-            state.proficiencies["long_swords"] = Proficiency(
-                id="long_swords",
-                name="Long Swords",
-                description="",
-            )
             await websocket_sessions.reset()
             websocket = FakeWebSocket()
             await websocket_sessions.connect(websocket, role="dm")
@@ -469,7 +457,6 @@ def test_dm_can_create_tagged_weapon_with_explicit_attributes_and_action_grants(
             assert "weapon_damage" in state.actions
             assert set(weapon.attributes) == set(_weapon_attribute_bridges())
             assert weapon.attributes["weapon_base_damage"].evaluated_value == 15
-            assert weapon.attributes["weapon_proficiency"].evaluated_value == "long_swords"
             assert all(
                 bridge.relationship_id == f"client-{attribute_id}"
                 for attribute_id, bridge in weapon.attributes.items()
@@ -507,7 +494,7 @@ def test_dm_can_create_tagged_weapon_with_explicit_attributes_and_action_grants(
     asyncio.run(scenario())
 
 
-def test_item_attributes_reject_missing_proficiency_and_can_be_cleared_explicitly(
+def test_item_weapon_attributes_can_be_cleared_explicitly(
     monkeypatch,
 ) -> None:
     async def scenario() -> None:
@@ -524,7 +511,7 @@ def test_item_attributes_reject_missing_proficiency_and_can_be_cleared_explicitl
                 {
                     "interaction_type": "equippable",
                     "tags": ["weapon"],
-                    "attributes": _weapon_attribute_bridges("missing"),
+                    "attributes": _weapon_attribute_bridges(),
                 }
             )
 
@@ -532,15 +519,6 @@ def test_item_attributes_reject_missing_proficiency_and_can_be_cleared_explicitl
                 websocket,
                 {"type": "create_item", "item": payload},
             )
-            assert "sword" not in state.items
-            assert "missing proficiency 'missing'" in websocket.sent_messages[-1]["reason"]
-
-            state.proficiencies["long_swords"] = Proficiency(
-                id="long_swords",
-                name="Long Swords",
-                description="",
-            )
-            payload["attributes"] = _weapon_attribute_bridges()
             await handle_client_payload(
                 websocket,
                 {"type": "create_item", "item": payload},

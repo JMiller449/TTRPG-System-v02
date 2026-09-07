@@ -318,7 +318,6 @@ class ResolveDamageStepPayload(ProtocolModel):
 class GainProficiencyUseStepPayload(ProtocolModel):
     step_id: str
     proficiency_id: str
-    proficiency_reference: Literal["explicit", "source_item_weapon"] = "explicit"
     amount: NumericValuePayload
     target: Literal["caster", "target"] = "caster"
     type: Literal["gain_proficiency_use"]
@@ -356,6 +355,11 @@ ActionStepPayload = Annotated[
 ]
 
 
+class ActionProficiencyBindingPayload(ProtocolModel):
+    proficiency_id: str
+    gain_on_use: bool = True
+
+
 class ActionPayload(ProtocolModel):
     id: str
     name: str
@@ -363,6 +367,7 @@ class ActionPayload(ProtocolModel):
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
+    proficiencies: list[ActionProficiencyBindingPayload] = Field(default_factory=list)
 
 
 class ProficiencyPayload(ProtocolModel):

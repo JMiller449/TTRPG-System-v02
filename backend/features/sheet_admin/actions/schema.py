@@ -108,7 +108,6 @@ class GainProficiencyUseActionStepPayload(BaseModel):
     type: Literal["gain_proficiency_use"]
     target: Literal["caster", "target"] = "caster"
     proficiency_id: str = Field(min_length=1)
-    proficiency_reference: Literal["explicit", "source_item_weapon"] = "explicit"
     amount: NumericValuePayload
 
 
@@ -144,6 +143,11 @@ ActionStepPayload = Annotated[
 ]
 
 
+class ActionProficiencyBindingPayload(BaseModel):
+    proficiency_id: str = Field(min_length=1)
+    gain_on_use: bool = True
+
+
 class ActionDefinitionPayload(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -151,12 +155,16 @@ class ActionDefinitionPayload(BaseModel):
     notes: str = ""
     steps: list[ActionStepPayload] = Field(default_factory=list)
     attributes: dict[str, AttributeBridgePayload] = Field(default_factory=dict)
+    proficiencies: list[ActionProficiencyBindingPayload] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_step_ids_and_calculated_value_references(
         self,
     ) -> "ActionDefinitionPayload":
         seen_step_ids: set[str] = set()
+        proficiency_ids = [binding.proficiency_id for binding in self.proficiencies]
+        if len(proficiency_ids) != len(set(proficiency_ids)):
+            raise ValueError("Action proficiency bindings must be unique.")
         duplicate_step_ids: list[str] = []
         available_variables: set[str] = set()
         for step in self.steps:

@@ -14,7 +14,6 @@ ActionStepTarget = Literal["caster", "target"]
 BoundsViolationMode = Literal["clamp", "reject"]
 ActionRollModeKind = Literal["none", "check", "damage"]
 Roll20RollPresentation = Literal["simple", "damage", "default"]
-ProficiencyReference = Literal["explicit", "source_item_weapon"]
 _VARIABLE_ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -265,7 +264,6 @@ class GainProficiencyUseStep:
     proficiency_id: str
     amount: NumericValueSource
     target: ActionStepTarget = "caster"
-    proficiency_reference: ProficiencyReference = "explicit"
     type: Literal["gain_proficiency_use"] = "gain_proficiency_use"
 
     @classmethod
@@ -275,7 +273,6 @@ class GainProficiencyUseStep:
             proficiency_id=raw["proficiency_id"],
             amount=_numeric_value_source(raw["amount"]),
             target=raw.get("target", "caster"),
-            proficiency_reference=raw.get("proficiency_reference", "explicit"),
         )
 
 
@@ -330,6 +327,25 @@ ActionStep = (
 )
 
 
+@dataclass(frozen=True)
+class ActionProficiencyBinding:
+    proficiency_id: str
+    gain_on_use: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.proficiency_id, str) or not self.proficiency_id:
+            raise ValueError("Action proficiency IDs must not be empty.")
+        if not isinstance(self.gain_on_use, bool):
+            raise ValueError("Action proficiency growth flags must be booleans.")
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ActionProficiencyBinding":
+        return cls(
+            proficiency_id=raw["proficiency_id"],
+            gain_on_use=raw.get("gain_on_use", True),
+        )
+
+
 @dataclass
 class Action:
     id: str
@@ -338,8 +354,12 @@ class Action:
     notes: str = ""
     steps: list[ActionStep] = field(default_factory=list)
     attributes: dict[str, AttributeBridge] = field(default_factory=dict)
+    proficiencies: list[ActionProficiencyBinding] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        proficiency_ids = [binding.proficiency_id for binding in self.proficiencies]
+        if len(proficiency_ids) != len(set(proficiency_ids)):
+            raise ValueError("Action proficiency bindings must be unique.")
         seen_step_ids: set[str] = set()
         available_variables: set[str] = set()
         for step in self.steps:
@@ -486,4 +506,8 @@ class Action:
                 key: AttributeBridge.from_dict(bridge)
                 for key, bridge in raw_attributes.items()
             },
+            proficiencies=[
+                ActionProficiencyBinding.from_dict(binding)
+                for binding in raw.get("proficiencies", [])
+            ],
         )

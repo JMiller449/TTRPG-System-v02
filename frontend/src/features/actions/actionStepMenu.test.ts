@@ -83,8 +83,7 @@ describe("actionStepMenu", () => {
       })?.steps[0]
     ).toMatchObject({
       type: "gain_proficiency_use",
-      proficiency_id: "",
-      proficiency_reference: "explicit"
+      proficiency_id: ""
     });
   });
 });

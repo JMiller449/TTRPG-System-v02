@@ -62,7 +62,8 @@ describe("actionAuthoringRequests", () => {
           roll_mode_kind: "none",
           notes: "Roll20 output only.",
           steps: [],
-          attributes: {}
+          attributes: {},
+          proficiencies: []
         }
       },
       label: "Create action: Mana Burst"
@@ -82,8 +83,20 @@ describe("actionAuthoringRequests", () => {
     const values = toActionEditorValues(action);
     values.name = " Edited Mana Burst ";
     values.notes = " Updated notes. ";
+    values.proficiencies = [{ proficiency_id: "magic", gain_on_use: false }];
 
-    expect(buildUpdateActionSubmission(action, values)).toEqual({
+    expect(
+      buildUpdateActionSubmission(action, values, {
+        proficiencies: {
+          magic: {
+            id: "magic",
+            name: "Magic",
+            description: "",
+            default_growth_rate: 0.01
+          }
+        }
+      })
+    ).toEqual({
       request: {
         type: "update_action",
         action_id: "action_1",
@@ -93,7 +106,8 @@ describe("actionAuthoringRequests", () => {
           roll_mode_kind: "check",
           notes: "Updated notes.",
           steps: action.steps,
-          attributes: {}
+          attributes: {},
+          proficiencies: [{ proficiency_id: "magic", gain_on_use: false }]
         }
       },
       label: "Update action: Edited Mana Burst"

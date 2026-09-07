@@ -75,15 +75,14 @@ succeeds.
 
 Items attach ordinary typed Attributes only when their granted actions or
 effects need those values. Standard source-item Attributes include base damage,
-governing stat, reach, and proficiency. Weapon family/type and damage-type
+governing stat, and reach. Weapon family/type and damage-type
 classification are managed tags instead of bespoke fields. Items never
 automatically receive action grants from a profile: the DM explicitly selects
 shared action definitions, and creation validates that every source-item alias
 used by a granted action refers to an Attribute attached to the item.
 
-Equipping an item with a valid Proficiency Attribute adds a missing matching
-instance proficiency bridge. Its growth rate comes from the proficiency
-definition, never from the item. Source-item formulas and `same_source_item`
+Proficiencies belong to granted actions rather than items. Equipping an item
+does not add a proficiency bridge. Source-item formulas and `same_source_item`
 effect selectors use the relationship ID to distinguish multiple copies of the
 same definition.
 

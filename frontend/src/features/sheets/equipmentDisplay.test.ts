@@ -167,6 +167,6 @@ describe("equipmentDisplay", () => {
           }
         }
       )
-    ).toEqual(["Proficiency: Longsword", "Reach: 5"]);
+    ).toEqual(["Reach: 5"]);
   });
 });

@@ -759,3 +759,8 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
   validates the resulting inventory, rejects other characters' relationship
   IDs, and treats zero as removal with nonempty-container protection. Player
   sheets now expose the same quantity stepper used by the GM.
+
+- [x] Stat growth health synchronization: stat-point allocation and direct GM
+  instance base-stat editing raise current HP by the same delta when maximum HP
+  increases, capped at the new maximum. Backend regression coverage includes
+  the damaged-character transitions from 8/10 to 9/11 and 9/12 to 10/13.

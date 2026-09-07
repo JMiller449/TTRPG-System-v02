@@ -20,7 +20,10 @@ the formula runtime described in
 `unassigned_stat_points` exists only on an instance. The DM grants the pool;
 the assigned player can stage and atomically allocate points across core stats
 or supported substats. The backend rejects overspending and persists only the
-validated final allocation.
+validated final allocation. When an allocation or direct instance base-stat
+edit raises maximum HP, the same increase is added to current HP and capped at
+the new maximum, preserving the character's prior missing-health amount. For
+example, 8/10 HP becomes 9/11.
 
 Snapshots and derived-state patches also project movement speed from evaluated
 Dexterity using the active rules' threshold table. The greatest threshold met

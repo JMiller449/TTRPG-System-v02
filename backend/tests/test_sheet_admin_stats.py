@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.attribute import synchronize_required_sheet_attributes
+from backend.state.models.formula import Formula, FormulaAliases
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -197,6 +198,70 @@ def test_dm_can_set_instanced_sheet_base_stat(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][1]["path"] == (
                 "/instanced_sheets/mage_instance/evaluated_stats"
             )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_dm_constitution_edit_increases_current_and_max_health(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            template.max_health = Formula(
+                text="@constitution",
+                aliases=[
+                    FormulaAliases(
+                        name="constitution",
+                        path=["stats", "constitution"],
+                    )
+                ],
+            )
+            state.sheets[template.id] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": template.id,
+                    "health": 9,
+                    "mana": 20,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_instanced_sheet_base_stat",
+                    "instance_id": "mage_instance",
+                    "stat_name": "constitution",
+                    "value": 13,
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.stats is not None
+            assert instance.stats.constitution == 13
+            assert instance.health == 10
+            health_ops = [
+                op
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"]
+                in {
+                    "/instanced_sheets/mage_instance/health",
+                    "/instanced_sheets/mage_instance/evaluated_max_health",
+                }
+            ]
+            assert {op["path"]: op["value"] for op in health_ops} == {
+                "/instanced_sheets/mage_instance/health": 10,
+                "/instanced_sheets/mage_instance/evaluated_max_health": 13,
+            }
         finally:
             StateSingleton._state = original_state
 

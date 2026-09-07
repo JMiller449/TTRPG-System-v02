@@ -4,6 +4,10 @@ from copy import deepcopy
 from typing import get_args
 
 from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
+from backend.features.formula_runtime.service import (
+    evaluate_resource_maximum,
+    normalize_numeric_result,
+)
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.stats.schema import (
     AllocateInstancedSheetStatPoints,
@@ -50,6 +54,8 @@ async def set_instanced_base_stat(request: SetInstancedSheetBaseStat) -> None:
             raise ValueError(f"Instance '{request.instance_id}' does not exist.")
         if instance.stats is None:
             raise ValueError(f"Instance '{request.instance_id}' has no runtime stats.")
+        previous_max_health = evaluate_resource_maximum(instance, "health")
+        previous_health = instance.health
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -57,7 +63,22 @@ async def set_instanced_base_stat(request: SetInstancedSheetBaseStat) -> None:
             request.stat_name,
         )
         op = state_sync_service.set_mutation(state, path, request.value)
-        return None, [op]
+        ops = [op]
+        next_max_health = evaluate_resource_maximum(instance, "health")
+        max_health_increase = max(0, next_max_health - previous_max_health)
+        if max_health_increase > 0:
+            health_path = state_sync_service.join_path(
+                "instanced_sheets",
+                request.instance_id,
+                "health",
+            )
+            next_health = normalize_numeric_result(
+                min(next_max_health, previous_health + max_health_increase)
+            )
+            ops.append(
+                state_sync_service.set_mutation(state, health_path, next_health)
+            )
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
@@ -102,6 +123,8 @@ async def allocate_instanced_stat_points(
                 f"{instance.unassigned_stat_points} unassigned stat point(s)."
             )
 
+        previous_max_health = evaluate_resource_maximum(instance, "health")
+        previous_health = instance.health
         ops = []
         for stat_name, value in sorted(allocations.items()):
             if stat_name in get_args(FormulaStatName):
@@ -123,6 +146,21 @@ async def allocate_instanced_stat_points(
                     stat_name,
                 )
                 ops.append(state_sync_service.increment_mutation(state, path, value))
+
+        next_max_health = evaluate_resource_maximum(instance, "health")
+        max_health_increase = max(0, next_max_health - previous_max_health)
+        if max_health_increase > 0:
+            health_path = state_sync_service.join_path(
+                "instanced_sheets",
+                request.instance_id,
+                "health",
+            )
+            next_health = normalize_numeric_result(
+                min(next_max_health, previous_health + max_health_increase)
+            )
+            ops.append(
+                state_sync_service.set_mutation(state, health_path, next_health)
+            )
 
         points_path = state_sync_service.join_path(
             "instanced_sheets",

@@ -18,10 +18,11 @@ the formula runtime described in
 
 `stat_bonuses` stores permanent bonuses applied directly to a derived substat.
 `unassigned_stat_points` exists only on an instance. The DM grants the pool;
-the assigned player can stage and atomically allocate points across core stats
-or supported substats. The backend rejects overspending and persists only the
-validated final allocation. When an allocation or direct instance base-stat
-edit raises maximum HP, the same increase is added to current HP and capped at
+the assigned player can stage and atomically allocate points across the six core
+stats. Substats are not allocation targets. The backend rejects unsupported
+targets and overspending, and persists only the validated final allocation.
+When an allocation or direct instance base-stat edit raises maximum HP, the
+same increase is added to current HP and capped at
 the new maximum, preserving the character's prior missing-health amount. For
 example, 8/10 HP becomes 9/11.
 

@@ -742,12 +742,8 @@ They may be granted for:
 - Training
 - Other GM-approved accomplishments
 
-An unassigned point may increase:
-
-- A core stat, or
-- A single substat directly
-
-A direct substat increase becomes a permanent direct bonus and contributes to downstream formulas.
+An unassigned point may increase one of the six core stats. Substats are not
+allocation options; they increase indirectly through their parent core stats.
 
 ---
 

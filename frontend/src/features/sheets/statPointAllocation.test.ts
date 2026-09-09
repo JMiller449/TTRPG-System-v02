@@ -10,6 +10,14 @@ import {
 describe("statPointAllocation", () => {
   it("tracks only points added in the current allocation", () => {
     const empty = createEmptyStatPointAllocation();
+    expect(Object.keys(empty)).toEqual([
+      "strength",
+      "dexterity",
+      "constitution",
+      "perception",
+      "arcane",
+      "will"
+    ]);
     const withStrength = incrementStatPointAllocation(empty, "strength", 2);
     const withArcane = incrementStatPointAllocation(withStrength, "arcane", 2);
     const overspent = incrementStatPointAllocation(withArcane, "will", 2);

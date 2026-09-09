@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import get_args
-
 from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
 from backend.features.formula_runtime.service import (
     evaluate_resource_maximum,
@@ -23,7 +21,6 @@ from backend.features.variable_registry import service as variable_registry_serv
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.resistance import Resistances
 from backend.state.models.state import State
-from backend.state.models.stat import FormulaStatName
 
 
 async def set_base_stat(request: SetSheetBaseStat) -> None:
@@ -127,25 +124,13 @@ async def allocate_instanced_stat_points(
         previous_health = instance.health
         ops = []
         for stat_name, value in sorted(allocations.items()):
-            if stat_name in get_args(FormulaStatName):
-                path = state_sync_service.join_path(
-                    "instanced_sheets",
-                    request.instance_id,
-                    "stat_bonuses",
-                    stat_name,
-                )
-                if stat_name in instance.stat_bonuses:
-                    ops.append(state_sync_service.increment_mutation(state, path, value))
-                else:
-                    ops.append(state_sync_service.add_mutation(state, path, value))
-            else:
-                path = state_sync_service.join_path(
-                    "instanced_sheets",
-                    request.instance_id,
-                    "stats",
-                    stat_name,
-                )
-                ops.append(state_sync_service.increment_mutation(state, path, value))
+            path = state_sync_service.join_path(
+                "instanced_sheets",
+                request.instance_id,
+                "stats",
+                stat_name,
+            )
+            ops.append(state_sync_service.increment_mutation(state, path, value))
 
         next_max_health = evaluate_resource_maximum(instance, "health")
         max_health_increase = max(0, next_max_health - previous_max_health)

@@ -96,7 +96,7 @@ Frontend:
 - Character kill history and XP progress are projections filtered from the authoritative registry for the selected spawned instance. Players may record a final blow only against a DM-exposed enemy name; the backend derives the submitting character, canonical XP, and current party participants. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party or visibility changes do not rewrite history.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
-- GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across core stats or individual substats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Direct substat allocations persist as permanent bonuses and feed downstream formulas.
+- GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across the six core stats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Substats are not allocation targets.
 - GM and assigned players can edit permitted current resources/notes; GM-only edits remain gated.
 - Health and Mana expose their entire summary cards as accessible editor triggers
   rather than limiting activation to the numeric values; their editors dismiss on
@@ -312,7 +312,7 @@ No large architecture feature is currently missing for the stated character-shee
     is clamped at both bounds before damage is floored.
   - Character codes authenticate and select their instance in one step; landing-page copy now
     explains character, shared-player, and GM codes.
-  - Player stat allocation supports permanent direct substat bonuses as well as core stats.
+  - Player stat allocation is restricted to the six core stats; substats are not allocation targets.
   - The Actions catalog uses a responsive vertical grid with conventional vertical scrolling,
     and request-scoped Roll20 failures no longer produce duplicate persistent error banners.
   - Protocol types, starter examples, focused regression tests, production build, and backend

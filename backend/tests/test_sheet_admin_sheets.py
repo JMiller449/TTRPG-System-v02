@@ -1114,7 +1114,7 @@ def test_player_can_allocate_unassigned_core_stat_points(monkeypatch) -> None:
                     "instance_id": "mage_instance",
                     "allocations": {
                         "strength": 2,
-                        "reaction_time": 1,
+                        "arcane": 1,
                         "will": 0,
                     },
                 },
@@ -1123,17 +1123,58 @@ def test_player_can_allocate_unassigned_core_stat_points(monkeypatch) -> None:
             instance = state.instanced_sheets["mage_instance"]
             assert instance.stats is not None
             assert instance.stats.strength == 12
-            assert instance.stats.arcane == 14
+            assert instance.stats.arcane == 15
             assert instance.stats.will == 15
-            assert instance.stat_bonuses["reaction_time"] == 1
             assert instance.unassigned_stat_points == 1
             paths = {op["path"] for op in websocket.sent_messages[0]["ops"]}
             assert {
                 "/instanced_sheets/mage_instance/stats/strength",
-                "/instanced_sheets/mage_instance/stat_bonuses/reaction_time",
+                "/instanced_sheets/mage_instance/stats/arcane",
                 "/instanced_sheets/mage_instance/unassigned_stat_points",
                 "/instanced_sheets/mage_instance/evaluated_stats",
             }.issubset(paths)
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_stat_point_allocation_rejects_substats(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "mage_template",
+                    "notes": "",
+                    "health": 100,
+                    "mana": 20,
+                    "augments": {},
+                    "unassigned_stat_points": 1,
+                },
+                template=state.sheets["mage_template"],
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await _connect_assigned_player(websocket)
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "allocate_instanced_sheet_stat_points",
+                    "instance_id": "mage_instance",
+                    "allocations": {"reaction_time": 1},
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.unassigned_stat_points == 1
+            assert "reaction_time" not in instance.stat_bonuses
+            assert websocket.sent_messages[0]["type"] == "error"
         finally:
             StateSingleton._state = original_state
 

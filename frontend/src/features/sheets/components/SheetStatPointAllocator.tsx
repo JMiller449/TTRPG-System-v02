@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SheetStatKey } from "@/features/sheets/sheetDisplay";
-import { ALL_STATS } from "@/domain/stats";
+import { CORE_STAT_KEYS } from "@/domain/stats";
 import { DISPLAY_NAMES } from "@/features/sheets/sheetDisplay";
 import {
   createEmptyStatPointAllocation,
@@ -43,7 +43,7 @@ export function SheetStatPointAllocator({
         <div>
           <h4>Unassigned Stat Points</h4>
           <p className="muted character-sheet__hint">
-            {remainingPoints} of {availablePoints} available · substat points are permanent bonuses
+            {remainingPoints} of {availablePoints} available · assign points to core stats
           </p>
         </div>
         <button
@@ -59,7 +59,7 @@ export function SheetStatPointAllocator({
         </button>
       </header>
       <div className="stat-point-allocator__grid">
-        {ALL_STATS.map((key) => {
+        {CORE_STAT_KEYS.map((key) => {
           const baseValue = stats[key] ?? 0;
           const addedValue = allocation[key];
           return (

@@ -125,6 +125,9 @@ second outer frame around the full-width XP workspace.
   checks, edits, despawn behavior, adjustments, and derived totals.
 - XP frontend components and request behavior are tested under
   [`frontend/src/features/xp/`](../../frontend/src/features/xp/).
+- `killFilters.test.ts` covers historical identities and inclusive local dates;
+  `KillHistoryFilters.test.tsx` covers combined filters, live projection updates,
+  character switching, and batch submission/error/edit flows in the existing views.
 - Seed acceptance tests verify representative in-progress and threshold-ready
   characters.
 
@@ -171,3 +174,21 @@ its award, while omitted quantity in legacy edit requests preserves the stored
 quantity. Player batches retain server-selected XP, character, and participants.
 Schema v52 backfills quantity 1 on historical records. Quantity is projected in
 both registry/history views; the row count remains the count of records.
+
+The registry and character history share `KillHistoryFilters` and `useKillFilters`.
+Text search matches historical enemy/participant names, notes, and recorder names.
+The expandable Filters controls combine participant identity, enemy template identity
+(or normalized custom enemy name), and inclusive local-calendar date bounds. Choices
+come from the complete supplied history, retaining despawned participants and custom
+enemies; filtering never requests additional records or alters XP totals. Counts refer
+to records, so a batch remains one card. Clear filters restores the supplied history.
+Invalid reversed dates show an explanation. Filters remain applied to pushed tracker
+updates and reset when switching the selected character.
+
+Recording buttons display the selected batch count. The DM registry form, like the
+character forms, guards duplicate pending submissions and retains quantity/notes after
+an error; its matching successful response clears those drafts. Gameplay calculations
+and quantity validation continue through the existing backend routes.
+
+The XP curve calculation helper is named `xpCurvePreviewMath.ts` to distinguish it
+from the `XpCurvePreview.tsx` component on case-insensitive filesystems.

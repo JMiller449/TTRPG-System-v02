@@ -13,6 +13,8 @@ export function KillQuantityField({
     <Field label="Quantity" required>
       <input
         type="number"
+        title="Number of enemies of this type defeated in this entry"
+        aria-description="Number of enemies of this type defeated in this entry"
         min="1"
         max="10000"
         step="1"

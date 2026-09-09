@@ -5,7 +5,7 @@ import {
   XpPreviewLimitError,
   previewAttributeIds,
   type ProgressionDraft
-} from "./xpCurvePreview";
+} from "./xpCurvePreviewMath";
 
 const shortNumber = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 export function XpCurvePreview({ draft }: { draft: ProgressionDraft }): JSX.Element {

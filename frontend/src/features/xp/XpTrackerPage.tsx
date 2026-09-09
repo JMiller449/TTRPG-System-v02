@@ -1,3 +1,5 @@
+import { KillHistoryFilters } from "@/features/xp/KillHistoryFilters";
+import { useKillFilters } from "@/features/xp/useKillFilters";
 import { KillQuantityField } from "@/features/xp/KillQuantityField";
 import { XpProgressionEditor } from "./XpProgressionEditor";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +38,8 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const { xpTracker } = state.uiState;
   const requestedTrackerRef = useRef(false);
+  const submittingKillRef = useRef<string | null>(null);
+  const [pendingKillRequestId, setPendingKillRequestId] = useState<string | null>(null);
   const [view, setView] = useState<XpView>("parties");
   const [newPartyName, setNewPartyName] = useState("");
   const [creditedInstanceId, setCreditedInstanceId] = useState("");
@@ -46,7 +50,6 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const validQuantity =
     Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [killNotes, setKillNotes] = useState("");
-  const [registryFilter, setRegistryFilter] = useState("");
   const [editingKillId, setEditingKillId] = useState<string | null>(null);
   const [adjustmentInstanceId, setAdjustmentInstanceId] = useState("");
   const [adjustmentAmount, setAdjustmentAmount] = useState("0");
@@ -58,6 +61,23 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
     client.sendProtocolRequest(buildGetXpTrackerRequest(), "Load XP tracker");
   }, [client]);
 
+  useEffect(
+    () =>
+      client.onEvent((event) => {
+        const requestId = submittingKillRef.current;
+        if (!requestId || !("requestId" in event) || event.requestId !== requestId) return;
+        if (event.type === "error" || event.type === "snapshot" || event.type === "xp_tracker") {
+          submittingKillRef.current = null;
+          setPendingKillRequestId(null);
+          if (event.type !== "error") {
+            setKillNotes("");
+            setQuantity("1");
+          }
+        }
+      }),
+    [client]
+  );
+
   const characters = xpTracker?.sheets ?? [];
   const selectedParty = xpTracker?.parties.find((party) =>
     party.members.some((member) => member.instance_id === creditedInstanceId)
@@ -65,14 +85,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
   const resolvedParticipants =
     selectedParty?.members ??
     characters.filter((character) => character.instance_id === creditedInstanceId);
-  const filteredKills = (xpTracker?.kills ?? []).filter((kill) => {
-    const query = registryFilter.trim().toLocaleLowerCase();
-    return (
-      !query ||
-      kill.monster_name.toLocaleLowerCase().includes(query) ||
-      kill.participants.some((participant) => participant.name.toLocaleLowerCase().includes(query))
-    );
-  });
+  const { filters, setFilters, filteredKills } = useKillFilters(xpTracker?.kills ?? [], "registry");
 
   return (
     <Panel
@@ -157,14 +170,19 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               const custom = monsterChoice === "custom";
               const xp = Number(customXp);
               if (
+                submittingKillRef.current ||
                 !validQuantity ||
                 !creditedInstanceId ||
                 (!monsterChoice && !custom) ||
                 (custom && (!customMonsterName.trim() || !Number.isFinite(xp)))
               )
                 return;
+              const requestId = newId("request");
+              submittingKillRef.current = requestId;
+              setPendingKillRequestId(requestId);
               client.sendProtocolRequest(
                 buildRecordKillRequest({
+                  requestId,
                   killId: newId("kill"),
                   creditedInstanceId,
                   monsterSheetId: custom ? null : monsterChoice,
@@ -175,8 +193,6 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                 }),
                 `Record kill: ${custom ? customMonsterName : "monster"}`
               );
-              setKillNotes("");
-              setQuantity("1");
             }}
           >
             <h3>Record Kill</h3>
@@ -185,6 +201,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               label="Credited character"
               placeholder="Search spawned sheets"
               selectedId={creditedInstanceId}
+              disabled={pendingKillRequestId !== null}
               options={characters.map((character) => ({
                 id: character.instance_id,
                 label: character.name,
@@ -198,6 +215,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
               label="Monster"
               placeholder="Search enemy templates"
               selectedId={monsterChoice}
+              disabled={pendingKillRequestId !== null}
               options={[
                 ...xpTracker.mobs.map((mob) => ({
                   id: mob.sheet_id,
@@ -220,6 +238,7 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                 <Field label="Monster name">
                   <input
                     value={customMonsterName}
+                    disabled={pendingKillRequestId !== null}
                     onChange={(event) => setCustomMonsterName(event.target.value)}
                   />
                 </Field>
@@ -229,14 +248,23 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                     min={0}
                     step={0.01}
                     value={customXp}
+                    disabled={pendingKillRequestId !== null}
                     onChange={(event) => setCustomXp(event.target.value)}
                   />
                 </Field>
               </div>
             ) : null}
-            <KillQuantityField value={quantity} onChange={setQuantity} />
+            <KillQuantityField
+              value={quantity}
+              onChange={setQuantity}
+              disabled={pendingKillRequestId !== null}
+            />
             <Field label="Notes">
-              <input value={killNotes} onChange={(event) => setKillNotes(event.target.value)} />
+              <input
+                value={killNotes}
+                disabled={pendingKillRequestId !== null}
+                onChange={(event) => setKillNotes(event.target.value)}
+              />
             </Field>
             <div className="xp-resolved-party">
               <span>Participants</span>
@@ -246,23 +274,38 @@ export function XpTrackerPage({ client }: { client: GameClient }): JSX.Element {
                   "Select a character"}
               </small>
             </div>
-            <button className="button button--primary" type="submit">
-              Record Kill
+            <button
+              className="button button--primary"
+              type="submit"
+              disabled={pendingKillRequestId !== null}
+            >
+              {pendingKillRequestId
+                ? "Recording…"
+                : validQuantity && Number(quantity) > 1
+                  ? `Record ${Number(quantity)} Kills`
+                  : "Record Kill"}
             </button>
           </form>
 
           <section className="xp-registry-list">
             <div className="xp-registry-list__header">
               <h3>Registry</h3>
-              <input
-                type="search"
-                aria-label="Filter kill registry"
-                placeholder="Filter monster or character"
-                value={registryFilter}
-                onChange={(event) => setRegistryFilter(event.target.value)}
-              />
             </div>
-            {filteredKills.length === 0 ? <EmptyState message="No matching kills." /> : null}
+            <KillHistoryFilters
+              kills={xpTracker.kills}
+              filters={filters}
+              onChange={setFilters}
+              matchingCount={filteredKills.length}
+            />
+            {filteredKills.length === 0 ? (
+              <EmptyState
+                message={
+                  xpTracker.kills.length === 0
+                    ? "No recorded kills."
+                    : "No matching kills. Try changing or clearing the filters."
+                }
+              />
+            ) : null}
             {filteredKills.map((kill) => (
               <article className="xp-registry-entry xp-workspace-card" key={kill.id}>
                 <div className="xp-registry-entry__summary">

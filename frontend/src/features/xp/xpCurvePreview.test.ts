@@ -4,7 +4,7 @@ import {
   XpPreviewLimitError,
   previewEquation,
   previewAttributeIds
-} from "./xpCurvePreview";
+} from "./xpCurvePreviewMath";
 
 const defaults = {
   mode: "tuning" as const,

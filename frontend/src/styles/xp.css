@@ -318,6 +318,61 @@
   gap: 0.15rem;
 }
 
+.xp-kill-filters {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.xp-kill-filters > input,
+.xp-kill-filters__fields input,
+.xp-kill-filters__fields select {
+  width: 100%;
+  min-width: 0;
+}
+
+.xp-kill-filters__details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0;
+}
+
+.xp-kill-filters__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.xp-kill-filters__fields .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.xp-kill-filters__fields small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.xp-kill-filters__status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.xp-kill-filters [role="alert"] {
+  margin: 0;
+  color: var(--danger, #ff8c8c);
+  font-size: 0.8rem;
+}
+
 .xp-registry-entry span,
 .xp-registry-entry p {
   color: var(--muted);

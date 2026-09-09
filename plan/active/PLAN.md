@@ -749,6 +749,18 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
   IDs, and treats zero as removal with nonempty-container protection. Player
   sheets now expose the same quantity stepper used by the GM.
 
+- [x] Kill screen QoL (2026-09-09): preserve registry/character-history layouts and
+  cards while adding shared text, participating-player, enemy-type, and inclusive
+  local-date filters, matching-record counts, clear/reset, and empty/invalid-date
+  feedback. Historical identities and custom enemies remain selectable; pushed
+  tracker changes retain filters, while switching characters resets them. Batch
+  buttons show the quantity, and DM registry submissions retain drafts on error
+  and prevent duplicate pending submissions. Refreshed generated protocol output.
+  Resolved the existing XP preview component/helper filename collision by renaming
+  the calculation helper to `xpCurvePreviewMath.ts` without changing its logic.
+  Verified focused frontend/backend tests, TypeScript/production build, changed-file
+  lint/format checks, and desktop/mobile browser checks with sample data.
+
 - [x] Stat growth health synchronization: stat-point allocation and direct GM
   instance base-stat editing raise current HP by the same delta when maximum HP
   increases, capped at the new maximum. Backend regression coverage includes

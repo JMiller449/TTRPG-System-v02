@@ -1,3 +1,5 @@
+import { KillHistoryFilters } from "@/features/xp/KillHistoryFilters";
+import { useKillFilters } from "@/features/xp/useKillFilters";
 import { KillQuantityField } from "@/features/xp/KillQuantityField";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
@@ -75,6 +77,10 @@ export function SheetKillsSection({
   );
 
   const trackerSheet = xpTracker?.sheets.find((entry) => entry.instance_id === instanceId);
+  const { filters, setFilters, filteredKills } = useKillFilters(
+    trackerSheet?.kills ?? [],
+    instanceId
+  );
   const selectedParty = xpTracker?.parties.find((party) =>
     party.members.some((member) => member.instance_id === instanceId)
   );
@@ -159,7 +165,11 @@ export function SheetKillsSection({
             type="submit"
             disabled={!validQuantity || !selectedMobId || pendingRequestId !== null}
           >
-            {pendingRequestId ? "Recording…" : "Record Kill"}
+            {pendingRequestId
+              ? "Recording…"
+              : validQuantity && Number(quantity) > 1
+                ? `Record ${Number(quantity)} Kills`
+                : "Record Kill"}
           </button>
           {xpTracker.recordable_mobs.length === 0 ? (
             <small>No enemies are currently available to record.</small>
@@ -172,12 +182,18 @@ export function SheetKillsSection({
         <section className="sheet-kill-history" aria-labelledby="sheet-kill-history-title">
           <div className="sheet-kill-history__header">
             <h4 id="sheet-kill-history-title">Kill history</h4>
-            <span>
-              {trackerSheet.kills.length} record{trackerSheet.kills.length === 1 ? "" : "s"}
-            </span>
           </div>
+          <KillHistoryFilters
+            kills={trackerSheet.kills}
+            filters={filters}
+            onChange={setFilters}
+            matchingCount={filteredKills.length}
+          />
+          {filteredKills.length === 0 ? (
+            <EmptyState message="No matching kills. Try changing or clearing the filters." />
+          ) : null}
           <div className="sheet-kill-grid">
-            {trackerSheet.kills.map((kill) => (
+            {filteredKills.map((kill) => (
               <article className="sheet-kill-card" key={kill.id}>
                 <div className="sheet-kill-card__header">
                   <strong>
@@ -220,7 +236,7 @@ export function SheetKillsSection({
       {xpTracker?.can_manage && gmKillDialogOpen ? (
         <ModalDialog
           title="Add Kill"
-          description={`Record a kill credited to “${trackerSheet?.name ?? "this character"}”. Current party membership determines the participants.`}
+          description={`Record one or more of the same enemy credited to “${trackerSheet?.name ?? "this character"}”. Current party membership determines the participants.`}
           pending={pendingRequestId !== null}
           onClose={closeGmKillDialog}
         >
@@ -322,7 +338,11 @@ export function SheetKillsSection({
                 type="submit"
                 disabled={!canSubmitGmKill || pendingRequestId !== null}
               >
-                {pendingRequestId ? "Recording…" : "Record Kill"}
+                {pendingRequestId
+                  ? "Recording…"
+                  : validQuantity && Number(quantity) > 1
+                    ? `Record ${Number(quantity)} Kills`
+                    : "Record Kill"}
               </button>
               <button
                 className="button button--secondary"

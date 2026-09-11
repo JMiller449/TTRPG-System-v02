@@ -1,4 +1,8 @@
-import type { AdjustActionPointsStepPayload } from "@/generated/backendProtocol";
+import type {
+  StatPointEntry,
+  StatPointSummary,
+  AdjustActionPointsStepPayload
+} from "@/generated/backendProtocol";
 
 export type Role = "player" | "gm";
 
@@ -587,6 +591,8 @@ export interface PersistentSheet {
   damage_taken_by_type?: Partial<Record<DamageType, number>> | null;
   pinned_action_ids?: string[];
   unassigned_stat_points?: number;
+  stat_point_summary?: StatPointSummary | null;
+  stat_point_audit?: StatPointEntry[] | null;
   stats?: Stats | null;
   evaluated_stats?: Partial<Record<StatKey, number>>;
   evaluated_movement_speed?: number | null;

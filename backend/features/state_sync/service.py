@@ -30,6 +30,7 @@ from backend.features.state_sync.schema import (
     StateSnapshot,
 )
 from backend.state.models.state import State
+from backend.state.models.stat_points import StatPointEntry
 from backend.state.models.action import ApplyAugmentationStep
 from backend.state.store import StateSingleton
 
@@ -42,8 +43,8 @@ PRIVATE_ITEM_FIELDS = {
 }
 PRIVATE_SHEET_FIELDS = {"notes"}
 PRIVATE_SHEET_XP_FIELDS = {"xp_given_when_slayed"}
-PRIVATE_INSTANCE_FIELDS = {"damage_taken_by_type"}
-PRIVATE_STATE_ROOTS = {"direct_effect_projections", "xp_progression"}
+PRIVATE_INSTANCE_FIELDS = {"damage_taken_by_type", "stat_point_audit"}
+PRIVATE_STATE_ROOTS = {"direct_effect_projections", "xp_progression", "stat_point_history"}
 DM_ONLY_STATE_ROOTS = {
     "parties",
     "kill_registry",
@@ -148,6 +149,7 @@ class StateSyncService:
             maxlen=mutation_audit_limit
         )
         self._undo_history: deque[list[PatchOp]] = deque(maxlen=undo_history_limit)
+        self._point_undo_entries: dict[int, list[StatPointEntry]] = {}
 
     @property
     def current_version(self) -> int:
@@ -1026,6 +1028,10 @@ class StateSyncService:
         for instance_id, instance in state_model.instanced_sheets.items():
             instance_payload = state_payload.get("instanced_sheets", {}).get(instance_id)
             if isinstance(instance_payload, dict):
+                from backend.features.stat_points.service import project
+                summary, history = project(state_model, instance_id)
+                instance_payload["stat_point_summary"] = asdict(summary)
+                instance_payload["stat_point_audit"] = [asdict(entry) for entry in history]
                 template = state_model.sheets.get(instance.parent_id)
                 runtime_stat_owner = instance if instance.stats is not None else template
                 if runtime_stat_owner is not None:
@@ -1101,6 +1107,7 @@ class StateSyncService:
             self._no_op_request_ids.clear()
             self._mutation_audit.clear()
             self._undo_history.clear()
+            self._point_undo_entries.clear()
 
     async def replace_state_and_broadcast_snapshots(
         self,
@@ -1118,6 +1125,7 @@ class StateSyncService:
             self._no_op_request_ids.clear()
             self._mutation_audit.clear()
             self._undo_history.clear()
+            self._point_undo_entries.clear()
             sessions = await websocket_sessions.authenticated_sessions()
             snapshots = tuple(
                 (
@@ -1786,10 +1794,13 @@ class StateSyncService:
                     await before_commit(result)
                 if ops:
                     inverse_ops = self._build_inverse_ops(previous_state, ops)
+                    from backend.features.stat_points.service import audit_mutation
+                    point_ops = audit_mutation(state, previous_state)
                     patch_ops = [
                         *ops,
                         *self._stat_projection_operations(state, ops),
                         *self._inventory_projection_operations(state, ops),
+                        *point_ops,
                     ]
                     # Persist before publishing a version or patch. If the write
                     # fails, the rollback below restores memory; committing first
@@ -1807,6 +1818,13 @@ class StateSyncService:
             if ops:
                 if inverse_ops:
                     self._undo_history.append(inverse_ops)
+                    self._point_undo_entries[id(inverse_ops)] = [
+                        state.stat_point_history[self._parse_path(op.path)[1]]
+                        for op in point_ops if op.path.startswith("/stat_point_history/")
+                        and state.stat_point_history[self._parse_path(op.path)[1]].kind != "baseline"
+                    ]
+                    retained = {id(entry) for entry in self._undo_history}
+                    self._point_undo_entries = {key: value for key, value in self._point_undo_entries.items() if key in retained}
                 patch = self._next_patch(patch_ops, request_id=request_id)
                 self._record_mutation(patch, source=current_request_source())
                 if request_id is not None:
@@ -1881,6 +1899,8 @@ class StateSyncService:
                 )
 
                 applied_ops.extend(synchronize_resource_bounds_mutation(state))
+                from backend.features.stat_points.service import audit_undo
+                applied_ops.extend(audit_undo(state, self._point_undo_entries.get(id(inverse_ops), [])))
                 patch_ops = [
                     *applied_ops,
                     *self._stat_projection_operations(state, applied_ops),
@@ -1898,6 +1918,7 @@ class StateSyncService:
                     )
                 self._undo_history.append(inverse_ops)
                 raise
+            self._point_undo_entries.pop(id(inverse_ops), None)
             patch = self._next_patch(patch_ops, request_id=request_id)
             self._record_mutation(patch, source=current_request_source())
             if request_id is not None:

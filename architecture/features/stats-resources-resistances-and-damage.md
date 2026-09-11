@@ -26,6 +26,10 @@ same increase is added to current HP and capped at
 the new maximum, preserving the character's prior missing-health amount. For
 example, 8/10 HP becomes 9/11.
 
+Source attribution, explicit level-up awards, and historical audit for these
+base stats and points are described in
+[Skill point provenance and audit history](stat-point-provenance.md).
+
 Snapshots and derived-state patches also project movement speed from evaluated
 Dexterity using the active rules' threshold table. The greatest threshold met
 determines the displayed feet of movement. Dexterity above 400 projects no

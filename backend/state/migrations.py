@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 53
+CURRENT_STATE_SCHEMA_VERSION = 54
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2947,6 +2947,13 @@ def _migrate_v52_to_v53(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 53, "state": state}
 
 
+def _migrate_v53_to_v54(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    # State construction observes existing values as unknown-source baselines.
+    state = deepcopy(envelope["state"])
+    state.setdefault("stat_point_history", {})
+    return {"schema_version": 54, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -3001,6 +3008,7 @@ MIGRATIONS: dict[int, Migration] = {
     50: _migrate_v50_to_v51,
     51: _migrate_v51_to_v52,
     52: _migrate_v52_to_v53,
+    53: _migrate_v53_to_v54,
 }
 
 

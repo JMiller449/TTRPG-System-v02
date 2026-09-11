@@ -36,6 +36,7 @@ from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.models.tag import TagDefinition, seeded_tag_definitions
+from backend.state.models.stat_points import StatPointEntry
 from backend.state.models.xp_progression import XpProgression
 from backend.state.models.xp import KillRecord, Party, XpAdjustment
 from backend.state.models.contribution_points import ContributionPointTransaction
@@ -43,6 +44,7 @@ from backend.state.models.contribution_points import ContributionPointTransactio
 
 @dataclass
 class State:
+    stat_point_history: dict[str, StatPointEntry] = field(default_factory=dict)
     xp_progression: XpProgression = field(default_factory=XpProgression)
     action_history: dict[str, ActionHistoryEntry] = field(default_factory=dict)
     parties: dict[str, Party] = field(default_factory=dict)
@@ -225,6 +227,10 @@ class State:
             },
         )
 
+        from backend.features.stat_points.service import initialize_legacy_baselines
+
+        initialize_legacy_baselines(self)
+
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "State":
         raw_attributes = raw.get("attributes", raw.get("facts", {}))
@@ -240,6 +246,10 @@ class State:
             for key, sheet in raw.get("instanced_sheets", {}).items()
         }
         return cls(
+            stat_point_history={
+                key: StatPointEntry.from_dict(entry)
+                for key, entry in raw.get("stat_point_history", {}).items()
+            },
             action_history=prune_action_history(
                 {
                     key: ActionHistoryEntry.from_dict(entry)
@@ -351,4 +361,5 @@ class State:
             state.pop("sheet_access_codes", None)
             state.pop("direct_effect_projections", None)
             state.pop("xp_progression", None)
+            state.pop("stat_point_history", None)
         return state

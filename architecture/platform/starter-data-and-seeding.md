@@ -65,3 +65,8 @@ new checkpoint on its next mutation or shutdown dump.
 When a required system definition or public authoring contract changes, update
 the seed payload and acceptance tests in the same change. Examples may
 demonstrate active rules, but they must not become a competing rules authority.
+
+The isolated seed includes starting stat-point provenance from its normal spawn
+requests. Before publishing the new fixture, its synthetic audit IDs and dates
+are made deterministic, matching the existing fixed-date XP examples. This
+fixture construction does not rewrite history in an installed campaign.

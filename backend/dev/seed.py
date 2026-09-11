@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -144,6 +145,16 @@ async def _build_seed_checkpoint(build_path: Path) -> State:
 
     def add_access_codes(state: State) -> None:
         _add_seed_access_codes(state)
+        # This isolated fixture has not been installed or exposed to users.
+        # Keep its synthetic history as reproducible as the authored XP records.
+        state.stat_point_history = {
+            f"seed-stat-points-{entry.sequence:04d}": replace(
+                entry, id=f"seed-stat-points-{entry.sequence:04d}",
+                occurred_at="2026-07-01T18:00:00+00:00",
+                reason="Development seed fixture",
+            )
+            for entry in state.stat_point_history.values()
+        }
 
     await state_sync_service.apply_private_mutation(add_access_codes)
     seeded_state = store_module._load_checkpoint(build_path)

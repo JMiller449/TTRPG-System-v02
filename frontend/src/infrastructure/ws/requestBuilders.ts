@@ -699,34 +699,46 @@ export function buildSetInstancedSheetBaseStatRequest({
   instanceId,
   statName,
   value,
+  pointSource,
+  reason,
   requestId
 }: {
   instanceId: string;
   statName: SheetCoreStatName;
   value: number;
+  pointSource?: ProtocolRequest<"set_instanced_sheet_base_stat">["point_source"];
+  reason?: string;
 } & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_base_stat"> {
   return {
     ...requestIdField(requestId),
     type: "set_instanced_sheet_base_stat",
     instance_id: instanceId,
     stat_name: statName,
-    value
+    value,
+    ...(pointSource === undefined ? {} : { point_source: pointSource }),
+    ...(reason === undefined ? {} : { reason })
   };
 }
 
 export function buildSetInstancedSheetUnassignedStatPointsRequest({
   instanceId,
   value,
+  pointSource,
+  reason,
   requestId
 }: {
   instanceId: string;
   value: number;
+  pointSource?: ProtocolRequest<"set_instanced_sheet_unassigned_stat_points">["point_source"];
+  reason?: string;
 } & OptionalRequestId): ProtocolRequest<"set_instanced_sheet_unassigned_stat_points"> {
   return {
     ...requestIdField(requestId),
     type: "set_instanced_sheet_unassigned_stat_points",
     instance_id: instanceId,
-    value
+    value,
+    ...(pointSource === undefined ? {} : { point_source: pointSource }),
+    ...(reason === undefined ? {} : { reason })
   };
 }
 

@@ -16,6 +16,9 @@ class RequestSource:
     request_type: str
     actor_role: SessionRole
     entity_ids: tuple[tuple[str, str], ...] = ()
+    actor_instance_id: str | None = None
+    point_source: str = "manual"
+    point_reason: str = ""
 
     def entity_id(self, name: str) -> str | None:
         return dict(self.entity_ids).get(name)
@@ -70,6 +73,7 @@ def build_request_source(
     request: BaseModel,
     *,
     actor_role: SessionRole,
+    actor_instance_id: str | None = None,
 ) -> RequestSource:
     request_type = getattr(request, "type", None)
     if not isinstance(request_type, str) or not request_type:
@@ -82,6 +86,9 @@ def build_request_source(
         request_type=request_type,
         actor_role=actor_role,
         entity_ids=_request_entity_ids(request),
+        actor_instance_id=actor_instance_id,
+        point_source=getattr(request, "point_source", "manual"),
+        point_reason=getattr(request, "reason", ""),
     )
 
 

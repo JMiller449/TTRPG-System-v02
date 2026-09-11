@@ -2892,3 +2892,64 @@ button.sheet-attribute-summary:focus-visible {
     grid-column: 1 / -1;
   }
 }
+
+.stat-point-history__table {
+  overflow-x: auto;
+}
+
+.stat-point-history table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block: 0.75rem;
+  text-align: left;
+}
+
+.stat-point-history caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.stat-point-history th,
+.stat-point-history td {
+  padding: 0.5rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-color, #48505d);
+}
+
+.stat-point-history__audit {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.stat-point-history__entry {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color, #48505d);
+}
+
+.stat-point-history__entry p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+.stat-point-history__adjustment {
+  margin-block: 1rem;
+}
+
+.stat-point-history__scroll-hint {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .stat-point-history__scroll-hint {
+    display: block;
+  }
+
+  .stat-point-history table {
+    min-width: 27rem;
+  }
+
+  .stat-point-history table:last-child {
+    min-width: 40rem;
+  }
+}

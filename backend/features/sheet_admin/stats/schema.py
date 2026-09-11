@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import isfinite
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from backend.core.transport import RequestModel
 from backend.features.sheet_admin.formulas.schema import FormulaPayload
@@ -50,16 +50,21 @@ class SetInstancedSheetBaseStat(RequestModel):
     instance_id: str = Field(min_length=1)
     stat_name: BaseStatName
     value: int
+    point_source: Literal["manual", "level_up"] = "manual"
+    reason: str = Field(default="", max_length=1000)
     type: Literal["set_instanced_sheet_base_stat"]
 
 
 class SetInstancedSheetUnassignedStatPoints(RequestModel):
     instance_id: str = Field(min_length=1)
     value: int = Field(ge=0)
+    point_source: Literal["manual", "level_up"] = "manual"
+    reason: str = Field(default="", max_length=1000)
     type: Literal["set_instanced_sheet_unassigned_stat_points"]
 
 
 class AllocateInstancedSheetStatPoints(RequestModel):
+    model_config = ConfigDict(extra="forbid")
     instance_id: str = Field(min_length=1)
     allocations: dict[BaseStatName, int]
     type: Literal["allocate_instanced_sheet_stat_points"]

@@ -13,6 +13,7 @@ from pydantic import (
 
 from backend.state.models.formula import normalize_formula_tags
 from backend.state.models.damage import DamageType
+from backend.state.models.stat_points import StatPointEntry, StatPointSummary
 from backend.features.attributes.value_schema import (
     AttributeBridgePayload,
     AttributeDefinitionPayload,
@@ -184,6 +185,8 @@ class InstancedSheetPayload(ProtocolModel):
     damage_taken_by_type: dict[DamageType, int] | None = None
     pinned_action_ids: list[str] = Field(default_factory=list)
     unassigned_stat_points: int = 0
+    stat_point_summary: StatPointSummary | None = None
+    stat_point_audit: list[StatPointEntry] | None = None
     stats: StatsPayload | None = None
     evaluated_stats: dict[str, float | int] = Field(default_factory=dict)
     evaluated_movement_speed: int | None = 10

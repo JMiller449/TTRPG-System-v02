@@ -51,6 +51,15 @@ The app is not a full VTT. Maps, token targeting, initiative, turn automation, c
 
 The core character-sheet and authored-action dice-roller MVP is implemented.
 
+- [x] Skill point provenance and append-only audit: spawned, level-up, manual,
+  and unknown legacy sources; player allocations and source reconciliation;
+  DM history with actors/timestamps/before-and-after values; exact compensating
+  undo; checkpoint v54 migration; shared character-sheet summary and DM controls.
+  See [architecture](../../architecture/features/stat-point-provenance.md).
+  Level-up awards remain explicit GM assignments under active rules §8.1.
+  Verified with 654 backend tests, 531 frontend tests, TypeScript checking,
+  production build, focused lint/format checks, and desktop/mobile UI previews.
+
 Backend:
 
 - FastAPI websocket app clients connect on `/ws`; the Roll20 bridge connects on `/ws/chat`.

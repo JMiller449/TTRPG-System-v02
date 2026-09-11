@@ -1026,6 +1026,7 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert {
         entry["entry_id"] for entry in formula_entries.values()
     } == set(formulas)
+    assert legacy.state.pop("stat_point_history") == {}
     legacy.state["catalog_entries"] = {}
     assert legacy.state == {
         "sheets": {},

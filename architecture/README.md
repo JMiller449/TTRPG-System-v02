@@ -52,6 +52,7 @@ defect. Do not change this documentation to make the conflict appear intended.
 | Typed properties | [Attributes and authoring metadata](features/attributes-and-authoring-metadata.md) | Definitions, values, attachment, visibility, and evaluation |
 | Calculation | [Formulas and variable registry](features/formulas-and-variable-registry.md) | Formula definitions, aliases, dice, variables, and authoring catalogs |
 | Commands | [Actions, execution, and history](features/actions-execution-and-history.md) | Authored pipelines, transactional execution, and audit history |
+| Point provenance | [Skill point provenance and audit history](features/stat-point-provenance.md) | Sources, allocations, reconciliation, and append-only history |
 | Growth | [Proficiencies](features/proficiencies.md) | Definitions, bridges, use growth, and weapon families |
 | Equipment | [Items, inventory, and equipment](features/items-inventory-and-equipment.md) | Catalog, containment, weight, grants, effects, and proposals |
 | Runtime modifiers | [Conditions, effects, and augmentations](features/conditions-effects-and-augmentations.md) | Definitions, applications, projections, lifecycle, and stacking |

@@ -172,7 +172,10 @@ class RequestRegistry:
 
     async def dispatch(self, session: WebSocketSession, payload: Any) -> BaseModel:
         match = self.resolve(payload)
-        source = build_request_source(match.request, actor_role=session.role)
+        source = build_request_source(
+            match.request, actor_role=session.role,
+            actor_instance_id=session.assigned_instance_id,
+        )
         with request_source_context(source):
             await match.route.run(session, match.request)
         return match.request

@@ -128,6 +128,12 @@ arbitrary imported document as an incremental patch sequence.
 
 ## Limitations
 
-Patch, undo, audit, and processed-request histories are bounded and in memory.
+Patch, undo, mutation-metadata audit, and processed-request histories are bounded and in memory.
 They reset on process restart and full state replacement. The JSON checkpoint,
 not those runtime histories, is the durability boundary.
+
+Skill point history is a separate durable, append-only ledger. Point changes and
+compensating undo records persist in the same checkpoint transaction; their
+original entries are never included in undo inverses. Players receive safe
+per-instance source summaries while detailed audit projections remain DM-only.
+See [Skill point provenance](../features/stat-point-provenance.md).

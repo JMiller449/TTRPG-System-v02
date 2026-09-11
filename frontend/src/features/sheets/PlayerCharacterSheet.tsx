@@ -1,3 +1,4 @@
+import { SheetStatPointHistory } from "@/features/sheets/components/SheetStatPointHistory";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
@@ -62,13 +63,11 @@ import {
   buildSetContributionPointsRequest,
   buildSetPinnedInstanceActionsRequest,
   buildResetInstancedSheetReactionsRequest,
-  buildSetInstancedSheetUnassignedStatPointsRequest,
   buildSubmitPlayerItemRequest,
   buildUnlinkInstancedSheetProficiencyRequest,
   buildUpdateLinkedInstancedSheetProficiencyRequest
 } from "@/infrastructure/ws/requestBuilders";
 import { EmptyState } from "@/shared/ui/EmptyState";
-import { Field } from "@/shared/ui/Field";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { Panel } from "@/shared/ui/Panel";
 import { makeId } from "@/shared/utils/id";
@@ -122,7 +121,6 @@ export function PlayerCharacterSheet({
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
-  const [unassignedStatPointsDraft, setUnassignedStatPointsDraft] = useState("0");
   const [attributeCreatorOpen, setAttributeCreatorOpen] = useState(false);
   const [proficiencyCreatorOpen, setProficiencyCreatorOpen] = useState(false);
   const [actionCreatorOpen, setActionCreatorOpen] = useState(false);
@@ -195,10 +193,6 @@ export function PlayerCharacterSheet({
       "Load sheet formula metadata"
     );
   }, [actionFormulaAuthoringMetadata, client, mode]);
-
-  useEffect(() => {
-    setUnassignedStatPointsDraft(String(detail?.persistentSheet.unassigned_stat_points ?? 0));
-  }, [detail?.instance.id, detail?.persistentSheet.unassigned_stat_points]);
 
   useEffect(() => {
     if (!pendingAttributeCreate || !detail) {
@@ -372,9 +366,6 @@ export function PlayerCharacterSheet({
         : null;
   const instanceFormulaStats = detail.persistentSheet.stats ?? detail.sheet?.stats ?? null;
   const unassignedStatPoints = detail.persistentSheet.unassigned_stat_points ?? 0;
-  const parsedUnassignedStatPointsDraft = Number(unassignedStatPointsDraft);
-  const canSaveUnassignedStatPoints =
-    Number.isInteger(parsedUnassignedStatPointsDraft) && parsedUnassignedStatPointsDraft >= 0;
   const inventoryCatalogOrder = itemOrder.filter((itemId) => {
     const item = items[itemId];
     return item?.approval_status !== "pending";
@@ -484,49 +475,13 @@ export function PlayerCharacterSheet({
           >
             <div className="character-sheet__overview-grid">
               <div className="character-sheet__overview-main">
-                {mode === "gm" ? (
-                  <details className="character-sheet__utility character-sheet__section--compact">
-                    <summary className="character-sheet__utility-summary">
-                      <span>Unassigned Stat Points</span>
-                      <span className="character-sheet__utility-value">
-                        Current pool: <strong>{unassignedStatPoints}</strong>
-                      </span>
-                    </summary>
-                    <div className="character-sheet__utility-body">
-                      <div className="inline-actions">
-                        <Field label="Current Pool">
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            inputMode="numeric"
-                            value={unassignedStatPointsDraft}
-                            onChange={(event) => setUnassignedStatPointsDraft(event.target.value)}
-                          />
-                        </Field>
-                        <button
-                          type="button"
-                          className="button"
-                          disabled={!canSaveUnassignedStatPoints}
-                          onClick={() => {
-                            if (!canSaveUnassignedStatPoints) {
-                              return;
-                            }
-                            client.sendProtocolRequest(
-                              buildSetInstancedSheetUnassignedStatPointsRequest({
-                                instanceId: detail.instance.id,
-                                value: parsedUnassignedStatPointsDraft
-                              }),
-                              "Set unassigned stat points"
-                            );
-                          }}
-                        >
-                          Set Points
-                        </button>
-                      </div>
-                    </div>
-                  </details>
-                ) : null}
+                <SheetStatPointHistory
+                  instanceId={detail.instance.id}
+                  summary={detail.persistentSheet.stat_point_summary}
+                  audit={detail.persistentSheet.stat_point_audit}
+                  canManage={mode === "gm"}
+                  client={client}
+                />
                 {mode === "player" ? (
                   <SheetStatPointAllocator
                     instanceId={detail.instance.id}

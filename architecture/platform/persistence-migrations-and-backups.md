@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 52. Future-version checkpoints are rejected rather than guessed at.
+version 54. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -188,3 +188,9 @@ The curve adopts multiplicative exponent growth; awards and Level are untouched.
 Schema version 52 adds quantity 1 to historical kill records. Batched records
 retain a per-enemy base XP value; reload reproduces the rounded single-kill
 participant share multiplied by quantity.
+
+Schema version 54 adds private `stat_point_history`. State reconstruction observes
+existing balances as Legacy / Unknown without inventing past sources or dates.
+The ledger survives normal mutations, despawn, undo, and checkpoint reload; full
+backup import restores the supplied ledger. See
+[Skill point provenance](../features/stat-point-provenance.md).

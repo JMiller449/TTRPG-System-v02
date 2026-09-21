@@ -194,3 +194,8 @@ existing balances as Legacy / Unknown without inventing past sources or dates.
 The ledger survives normal mutations, despawn, undo, and checkpoint reload; full
 backup import restores the supplied ledger. See
 [Skill point provenance](../features/stat-point-provenance.md).
+
+Schema version 55 reclassifies version-54 Legacy / Unknown baseline entries as
+Starter points. It still does not invent historical actors, dates, or level-up
+awards; it applies the campaign accounting convention that every pre-ledger core
+stat and unspent balance belongs to the character's starting allocation.

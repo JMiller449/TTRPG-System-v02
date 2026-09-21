@@ -25,6 +25,7 @@ from backend.features.sheet_admin.shared.schema import (
     UpdateEntity,
 )
 from backend.features.sheet_admin.sheets.schema import (
+    AddInstancedSheetProficiencyUses,
     ActionBridgePayload,
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
@@ -1601,6 +1602,37 @@ async def update_linked_instanced_sheet_proficiency(
             request.relationship_id,
         )
         op = state_sync_service.set_mutation(state, path, bridge)
+        return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def add_instanced_sheet_proficiency_uses(
+    request: AddInstancedSheetProficiencyUses,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        bridge = instance.proficiencies.get(request.relationship_id)
+        if bridge is None:
+            raise ValueError(
+                f"Instance proficiency bridge '{request.relationship_id}' does not exist."
+            )
+        _validate_proficiency_reference(bridge.prof_id, state)
+
+        path = state_sync_service.join_path(
+            "instanced_sheets",
+            request.instance_id,
+            "proficiencies",
+            request.relationship_id,
+            "use_count",
+        )
+        op = state_sync_service.set_mutation(
+            state,
+            path,
+            bridge.use_count + request.quantity,
+        )
         return None, [op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

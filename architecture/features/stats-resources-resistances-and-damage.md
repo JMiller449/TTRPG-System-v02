@@ -34,8 +34,8 @@ Snapshots and derived-state patches also project movement speed from evaluated
 Dexterity using the active rules' threshold table. The greatest threshold met
 determines the displayed feet of movement. Dexterity above 400 projects no
 numeric speed, and the UI displays `GM discretion` as required by the rules.
-Both GM and Player sheet overviews render this backend-owned value beside Dodge
-Chance.
+Both GM and Player sheet headers render this backend-owned value beside Dodge
+Chance, Level, and Contribution Points for quick reference.
 
 ## Health and mana
 
@@ -76,10 +76,12 @@ Only spawned actors have a point pool; template-only execution is rejected.
 See [Actions, execution, and history](actions-execution-and-history.md#action-point-steps).
 
 `contribution_points` is a separate nonnegative whole-number character
-balance, not an inventory item. DM-only set/add/subtract routes execute under
-the state mutation lock and append `contribution_point_transactions` audit
-records. Players see only their claimed character's balance; transaction
-records and other characters' new runtime balance fields are redacted.
+balance, not an inventory item. Set/add/subtract routes execute under the state
+mutation lock and append `contribution_point_transactions` audit records. A
+claimed player may manage only their assigned instance; the GM may manage any
+player-character instance. Players see only their claimed character's balance;
+transaction records and other characters' new runtime balance fields are
+redacted.
 
 ## Resistances and damage
 
@@ -122,15 +124,21 @@ Frontend stat, resource, resistance, and allocation sections live under
 evaluated substat: hover or keyboard focus exposes the stored expression and
 alias paths, while a GM click opens a modal editor for that substat alone.
 Players receive the same read-only explanation without formula-edit controls.
+Core-stat hover/focus explanations show the effective value, authoritative base,
+Starter/User/DM assignment pivot, and active direct augmentations. Core stats use
+a numeric base rather than an authored formula; derived-stat tooltips continue to
+show their authored formula and aliases. For a GM, clicking a core stat opens a
+focused additive point-award dialog; it never asks the client to set a resulting
+base total.
 In the GM instance-resistance view, each damage-type resistance control displays
 its cumulative damage counter and a per-type reset action.
 
 ## Permissions
 
-- DMs may edit template and instance stats/resistances and grant unassigned
-  points, and may inspect or reset instance damage trackers.
+- DMs may edit template and instance stats/resistances, contribution points,
+  and unassigned-point grants, and may inspect or reset instance damage trackers.
 - Assigned players may edit allowed current resources, allocate their granted
-  points, and apply typed damage to their own instance.
+  points, manage contribution points, and apply typed damage to their own instance.
 - Players receive read-only evaluated stats, maxima, carried weight, and
   resistances for their assigned character. Damage trackers remain GM-only.
 - Requests against another player's instance are rejected server-side.

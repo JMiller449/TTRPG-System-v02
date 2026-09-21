@@ -59,6 +59,8 @@ runs in two contexts:
 Violentmonkey private storage holds one active binding per browser profile.
 Synchronizing a new character, user, or environment replaces the prior local
 configuration. Every DM/player must install and sync their own browser profile.
+On first installation, an already-open Roll20 page must be refreshed because
+Violentmonkey does not inject a newly installed userscript into existing pages.
 
 The frontend workflow is
 [`frontend/src/features/extension/ExtensionPage.tsx`](../../frontend/src/features/extension/ExtensionPage.tsx)
@@ -110,5 +112,7 @@ expected metadata and hosted artifact.
 
 The backend cannot retract a Roll20 chat message, operate Roll20 without a
 participating user's browser, or guarantee delivery while that user's bound tab
-is disconnected. It intentionally does not keep a second authoritative roll
-log in the application.
+is disconnected. Browser extension installation also cannot activate the
+userscript inside a Roll20 page that was already open; that page requires one
+refresh. The application intentionally does not keep a second authoritative
+roll log.

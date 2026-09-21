@@ -38,6 +38,14 @@ conditions, standalone effects, authored checks and damage/resource actions,
 encounter presets, XP thresholds, kill records, and claimed-character examples.
 It intentionally provides examples of direct, evaluation-time, and roll-mode
 effects and both public and GM-only visibility.
+Example Player 1 equips Iron Gauntlets and Training Bracers for two stacked
+Strength effects, plus Weighted Greaves for a subtractive Dexterity effect. This
+fixture exercises the core-stat assignment/augmentation breakdown without
+turning equipment values into permanent stat-point assignments.
+Example Player 2 includes a larger kill-history fixture with repeated names and
+batched quantities for exercising the character Kills Summary/Feed switch. The
+fixture totals 144 defeated enemies across eight records while Example Player 1
+retains the in-progress XP case.
 
 The human-readable summary in
 [`plan/active/dm_examples.md`](../../plan/active/dm_examples.md) describes the

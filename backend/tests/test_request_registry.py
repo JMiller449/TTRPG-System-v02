@@ -351,6 +351,16 @@ def test_request_registry_exposes_route_contracts_with_client_generation_metadat
     )
     assert contracts["delete_proficiency"].minimum_role == "dm"
     assert contracts["delete_proficiency"].emitted_event_models == (StatePatchEvent,)
+    assert contracts["add_instanced_sheet_proficiency_uses"].client_generation == (
+        ClientGenerationMetadata(
+            namespace="sheetInstanceProficiencyBridges",
+            method_name="addUses",
+        )
+    )
+    assert contracts["add_instanced_sheet_proficiency_uses"].minimum_role == "player"
+    assert contracts["add_instanced_sheet_proficiency_uses"].emitted_event_models == (
+        StatePatchEvent,
+    )
     assert contracts["set_sheet_base_stat"].client_generation == (
         ClientGenerationMetadata(
             namespace="sheetAdminStats",

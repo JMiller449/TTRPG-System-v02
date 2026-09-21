@@ -94,14 +94,17 @@ describe("ExtensionPage", () => {
     expect(container.textContent).toContain("Install Violentmonkey");
     expect(container.textContent).toContain("Install Roll20 Bridge");
     expect(container.textContent).toContain("Install button on the left side");
-    expect(container.textContent).toContain("Reload this page");
+    expect(container.textContent).toContain("Refresh any Roll20 tab that was already open");
+    expect(container.textContent).toContain("cannot inject a newly installed userscript");
+    expect(container.textContent).toContain("Reload this app page");
     expect(container.textContent).toContain("Log in again");
     const steps = [...container.querySelectorAll("ol > li")].map((step) => step.textContent);
-    expect(steps).toHaveLength(4);
+    expect(steps).toHaveLength(5);
     expect(steps[0]).toContain("Install Violentmonkey");
     expect(steps[1]).toContain("Install the Roll20 bridge script");
-    expect(steps[2]).toContain("Reload this page");
-    expect(steps[3]).toContain("Log in again");
+    expect(steps[2]).toContain("Refresh any Roll20 tab");
+    expect(steps[3]).toContain("Reload this app page");
+    expect(steps[4]).toContain("Log in again");
     expect(container.querySelectorAll(".extension-install-step__action")).toHaveLength(3);
     expect(container.querySelector(".extension-stage__retry button")?.textContent).toBe(
       "Detect Again"

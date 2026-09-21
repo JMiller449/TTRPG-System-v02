@@ -94,40 +94,73 @@ describe("SheetKillsSection player recording", () => {
     ).toBe(false);
   });
 
-  it("renders kill history as compact cards", async () => {
-    const kill = {
+  it("defaults to a grouped summary and can switch to the chronological feed", async () => {
+    const zombieKill = {
       id: "kill_1",
-      monster_name: "Goblin",
-      quantity: 5,
+      monster_name: "Zombie",
+      quantity: 55,
       base_xp: 20,
       participants: [{ instance_id: "hero_1", name: "Hero" }],
       participant_count: 1,
       xp_percentage: 100,
-      xp_per_participant: 100,
+      xp_per_participant: 1100,
       occurred_at: "2026-07-14T18:00:00+00:00",
-      monster_sheet_id: "goblin",
+      monster_sheet_id: "zombie",
       notes: "",
       submitted_by_role: "player" as const,
       submitted_by_instance_id: "hero_1",
       submitted_by_name: "Hero"
     };
+    const zombiePatrol = {
+      ...zombieKill,
+      id: "kill_2",
+      monster_name: " zombie ",
+      quantity: 5,
+      xp_per_participant: 100,
+      occurred_at: "2026-07-13T18:00:00+00:00"
+    };
+    const goblinKill = {
+      ...zombieKill,
+      id: "kill_3",
+      monster_name: "Goblin",
+      quantity: 20,
+      xp_per_participant: 400,
+      monster_sheet_id: "goblin",
+      occurred_at: "2026-07-12T18:00:00+00:00"
+    };
+    const kills = [zombieKill, zombiePatrol, goblinKill];
     await renderSection({
       ...state,
       uiState: {
         ...state.uiState,
         xpTracker: {
           ...tracker,
-          kills: [kill],
-          sheets: [{ ...tracker.sheets[0], kills: [kill] }]
+          kills,
+          sheets: [{ ...tracker.sheets[0], kills }]
         }
       }
     });
 
-    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(1);
+    expect(container.querySelectorAll(".sheet-kill-summary-card")).toHaveLength(2);
+    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(0);
     expect(container.textContent).toContain("Kill history");
-    expect(container.textContent).toContain("1 record");
-    expect(container.textContent).toContain("5× Goblin");
-    expect(container.textContent).toContain("100 XP");
+    expect(container.textContent).toContain("80 defeated · 2 enemy types");
+    expect(container.textContent).toContain("60×");
+    expect(container.textContent).toContain("Zombie");
+    expect(container.textContent).toContain("20×");
+    expect(container.textContent).toContain("Goblin");
+
+    const feedButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Feed"
+    );
+    expect(feedButton?.getAttribute("aria-pressed")).toBe("false");
+    await act(async () => feedButton?.click());
+
+    expect(feedButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(3);
+    expect(container.textContent).toContain("3 records");
+    expect(container.textContent).toContain("55× Zombie");
+    expect(container.textContent).toContain("1100 XP");
     expect(container.textContent).toContain("100% credit");
   });
 

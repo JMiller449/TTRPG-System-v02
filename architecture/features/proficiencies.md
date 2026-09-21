@@ -79,7 +79,14 @@ editor and links the new definition only after its authoritative creation
 response succeeds. Definition and manual bridge management remains DM-owned;
 progression changes occur through action bindings or allowed backend action
 steps, while the first qualifying action use may create missing zero-use
-bridges automatically.
+bridges automatically. Assigned players may also submit
+`add_instanced_sheet_proficiency_uses` for an existing bridge on their own
+character. The request accepts a positive quantity, only increments `use_count`,
+and uses the normal authoritative patch, request-deduplication, and audit flow.
+Players cannot use it to set or reduce uses, change growth, manage assignments,
+or target another instance. Each player character card exposes this append-only
+operation through a compact integer field and Add Uses button; GM cards retain
+the full correction editor.
 
 ## Principal tests
 
@@ -91,6 +98,8 @@ bridges automatically.
   covers multi-binding resolution, lazy attachment, growth toggles, and rollback.
 - Frontend authoring and character proficiency tests live under the
   proficiency and sheet feature directories.
+- Player-entered use tests cover quantity validation, assigned-instance
+  authorization, generated contracts, request construction, and the quantity dialog.
 
 ## Limitations
 

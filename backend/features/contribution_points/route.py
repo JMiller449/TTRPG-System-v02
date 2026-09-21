@@ -5,6 +5,7 @@ from backend.features.contribution_points.schema import (
     SetContributionPoints,
 )
 from backend.features.session.models import WebSocketSession
+from backend.features.sheet_access import service as sheet_access_service
 from backend.protocol.socket import StatePatchEvent
 
 
@@ -12,12 +13,13 @@ class SetContributionPointsRoute(RequestRoute[SetContributionPoints]):
     type_name = "set_contribution_points"
     request_model = SetContributionPoints
     emitted_event_models = (StatePatchEvent,)
-    minimum_role = "dm"
+    minimum_role = "player"
     client_generation = ClientGenerationMetadata(
         namespace="contributionPoints", method_name="setBalance"
     )
 
     async def handle(self, session: WebSocketSession, request: SetContributionPoints) -> None:
+        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
         await service.set_contribution_points(request)
 
 
@@ -25,7 +27,7 @@ class AdjustContributionPointsRoute(RequestRoute[AdjustContributionPoints]):
     type_name = "adjust_contribution_points"
     request_model = AdjustContributionPoints
     emitted_event_models = (StatePatchEvent,)
-    minimum_role = "dm"
+    minimum_role = "player"
     client_generation = ClientGenerationMetadata(
         namespace="contributionPoints", method_name="adjustBalance"
     )
@@ -33,6 +35,7 @@ class AdjustContributionPointsRoute(RequestRoute[AdjustContributionPoints]):
     async def handle(
         self, session: WebSocketSession, request: AdjustContributionPoints
     ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(session, request.instance_id)
         await service.adjust_contribution_points(request)
 
 

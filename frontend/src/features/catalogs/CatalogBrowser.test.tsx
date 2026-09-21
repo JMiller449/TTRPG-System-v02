@@ -37,7 +37,7 @@ function catalogState(): AppState {
 }
 
 describe("CatalogBrowser", () => {
-  it("renders reusable nested folders, creation actions, and placed entries", () => {
+  it("renders reusable folders collapsed by default with root creation actions", () => {
     const state = catalogState();
     const client = {
       sendProtocolRequest: vi.fn()
@@ -60,14 +60,15 @@ describe("CatalogBrowser", () => {
 
     expect(markup).toContain("Catalog root");
     expect(markup).toContain("Weapons");
-    expect(markup).toContain("Swords");
-    expect(markup).toContain("Longsword");
+    expect(markup).not.toContain("Swords");
+    expect(markup).not.toContain("Longsword");
+    expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain("New item");
     expect(markup).toContain("New folder");
     expect(markup).toContain('draggable="true"');
   });
 
-  it("collapses folders, reveals search matches, creates folders, and moves entries", async () => {
+  it("expands folders, reveals search matches, creates folders, and moves entries", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const state = catalogState();
     const container = document.createElement("div");
@@ -96,6 +97,20 @@ describe("CatalogBrowser", () => {
     const weaponsToggle = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Weapons")
     );
+    expect(weaponsToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(container.textContent).not.toContain("Swords");
+    expect(container.textContent).not.toContain("Longsword");
+
+    await act(async () => weaponsToggle?.click());
+    expect(weaponsToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.textContent).toContain("Swords");
+    expect(container.textContent).not.toContain("Longsword");
+
+    const swordsToggle = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Swords")
+    );
+    await act(async () => swordsToggle?.click());
+    expect(container.textContent).toContain("Longsword");
     await act(async () => weaponsToggle?.click());
     expect(container.textContent).not.toContain("Longsword");
 

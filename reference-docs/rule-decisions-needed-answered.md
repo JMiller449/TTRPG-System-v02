@@ -295,7 +295,9 @@ Current understanding:
 - Range is 0 to 100 percent.
 - 100 percent is mastery.
 - Increments happen on approved use and are configurable per weapon/spell/skill.
-- Players cannot manually edit proficiency.
+- Players cannot directly set, reduce, reassign, or change the growth rate of proficiency.
+  An assigned player may record a positive quantity of qualifying uses on an existing
+  proficiency for their own character; the GM retains correction authority.
 - GM can manually correct/edit proficiency.
 - Actions can declare which proficiency or proficiencies they train.
 - Multiple actions can feed the same proficiency.
@@ -317,6 +319,12 @@ A: `growth_rate` represents the per-use increase stored by a reusable proficienc
 Q: Is every action use automatically approved for proficiency gain?
 PA: Approval rule: automatic, GM-approved, only on success, or action-specific.
 A: A qualifying meaningful use grants proficiency even if it fails. The GM determines what counts as meaningful use and may deny gains from repetitive, consequence-free actions performed only to farm proficiency. The app should grant growth automatically only when the authored action declares the proficiency it trains and the use is not marked ineligible by the GM.
+```
+
+```md
+Q: May a player manually record qualifying proficiency uses that occurred outside an authored action?
+PA: Player-entered use recording and authorization boundary.
+A: Yes. An assigned player may add one or more qualifying uses to an existing proficiency on their own character. This is append-only: players cannot set or reduce the total, change the growth rate, create or remove assignments, or affect another character. The GM may correct the resulting progression through the existing manual editor.
 ```
 
 ```md

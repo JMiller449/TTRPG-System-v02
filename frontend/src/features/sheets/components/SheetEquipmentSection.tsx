@@ -312,6 +312,7 @@ export function SheetEquipmentSection({
                 "list-item",
                 "list-item--block",
                 "equipment-card",
+                "equipment-card--owned",
                 entry.count <= 0 ? "equipment-card--depleted" : "",
                 draggedInventoryItemId === entry.relationship_id ? "equipment-card--dragging" : "",
                 activeDropTarget === entry.relationship_id ? "inventory-drop-target--active" : ""
@@ -361,17 +362,15 @@ export function SheetEquipmentSection({
               <div className="equipment-card__body">
                 <div className="equipment-card__heading">
                   <strong>{item.name}</strong>
-                  <div className="equipment-card__status">
-                    <span className="pill">{ITEM_INTERACTION_LABELS[item.interaction_type]}</span>
-                    <span className="pill">{itemCarryStatus(item, entry)}</span>
-                    <span className="pill">Quantity {entry.count}</span>
-                    {item.can_contain_items ? (
-                      <span className="pill">
-                        Storage · {formatWeight(storedWeight)} /{" "}
-                        {storageCapacity == null ? "unlimited" : formatWeight(storageCapacity)} lb
-                      </span>
-                    ) : null}
-                  </div>
+                  <span className="equipment-card__quantity" aria-label={`Quantity ${entry.count}`}>
+                    ×{entry.count}
+                  </span>
+                </div>
+                <div className="equipment-card__status">
+                  <span className="pill">{ITEM_INTERACTION_LABELS[item.interaction_type]}</span>
+                  <span className={`pill ${entry.equipped ? "pill--connected" : ""}`}>
+                    {itemCarryStatus(item, entry)}
+                  </span>
                 </div>
                 {parentItem ? (
                   <div className="equipment-card__containment">
@@ -410,14 +409,30 @@ export function SheetEquipmentSection({
                     ) : null}
                   </div>
                 ) : null}
-                <div className="muted">
-                  Weight {formatWeight(item.weight)} lb · Price {item.price}
+                <div className="equipment-card__meta muted">
+                  <span>{formatWeight(item.weight)} lb</span>
+                  <span>{item.price ? `${item.price}` : "Price unavailable"}</span>
                 </div>
-                <div className="equipment-card__compact-stats muted">
-                  <span>Actions {actionSummaries.length}</span>
-                  <span>Effects {totalEffectCount}</span>
-                  <span>Attributes {attributeCount}</span>
-                </div>
+                {actionSummaries.length || totalEffectCount || attributeCount ? (
+                  <div className="equipment-card__compact-stats muted">
+                    {actionSummaries.length ? (
+                      <span>
+                        {actionSummaries.length}{" "}
+                        {actionSummaries.length === 1 ? "action" : "actions"}
+                      </span>
+                    ) : null}
+                    {totalEffectCount ? (
+                      <span>
+                        {totalEffectCount} {totalEffectCount === 1 ? "effect" : "effects"}
+                      </span>
+                    ) : null}
+                    {attributeCount ? (
+                      <span>
+                        {attributeCount} {attributeCount === 1 ? "attribute" : "attributes"}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <ItemDetailHoverLabel
                   description={item.description}
                   attributeSummaries={attributeSummaries}
@@ -427,7 +442,7 @@ export function SheetEquipmentSection({
                 />
               </div>
               {canManageInventory || canEditInventory || canMoveInventory || canToggleEquipped ? (
-                <div className="inline-actions">
+                <div className="equipment-card__controls">
                   {canMoveInventory &&
                   (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
                     <Field label={`Storage location for ${item.name}`}>
@@ -458,67 +473,74 @@ export function SheetEquipmentSection({
                       ) : null}
                     </Field>
                   ) : null}
-                  {canEditInventory ? (
-                    <div
-                      className="equipment-quantity-stepper"
-                      role="group"
-                      aria-label={`${item.name} quantity`}
-                    >
-                      <button
-                        type="button"
-                        title={`Decrease ${item.name} quantity`}
-                        aria-label={`Decrease ${item.name} quantity`}
-                        disabled={entry.count === 0}
-                        onClick={() => onQuantityChange(entry.relationship_id, entry.count - 1)}
-                      >
-                        -
-                      </button>
-                      <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
-                      <button
-                        type="button"
-                        title={`Increase ${item.name} quantity`}
-                        aria-label={`Increase ${item.name} quantity`}
-                        disabled={entry.count >= Number.MAX_SAFE_INTEGER}
-                        onClick={() => onQuantityChange(entry.relationship_id, entry.count + 1)}
-                      >
-                        +
-                      </button>
+                  <div className="equipment-card__control-row">
+                    {canEditInventory ? (
+                      <div className="equipment-card__quantity-control">
+                        <span>Qty</span>
+                        <div
+                          className="equipment-quantity-stepper"
+                          role="group"
+                          aria-label={`${item.name} quantity`}
+                        >
+                          <button
+                            type="button"
+                            title={`Decrease ${item.name} quantity`}
+                            aria-label={`Decrease ${item.name} quantity`}
+                            disabled={entry.count === 0}
+                            onClick={() => onQuantityChange(entry.relationship_id, entry.count - 1)}
+                          >
+                            −
+                          </button>
+                          <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
+                          <button
+                            type="button"
+                            title={`Increase ${item.name} quantity`}
+                            aria-label={`Increase ${item.name} quantity`}
+                            disabled={entry.count >= Number.MAX_SAFE_INTEGER}
+                            onClick={() => onQuantityChange(entry.relationship_id, entry.count + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="equipment-card__actions">
+                      {canToggleEquipped && item.interaction_type === "equippable" ? (
+                        <button
+                          type="button"
+                          className={`button ${entry.equipped ? "" : "button--secondary"}`}
+                          onClick={() => onToggleEquipped(entry.relationship_id)}
+                          aria-pressed={entry.equipped}
+                          disabled={!entry.equipped && entry.count <= 0}
+                          aria-label={`${entry.equipped ? "Unequip" : "Equip"}: ${item.name}`}
+                        >
+                          {entry.equipped ? "Unequip" : "Equip"}
+                        </button>
+                      ) : null}
+                      {canManageInventory ? (
+                        <button
+                          type="button"
+                          className="button button--secondary equipment-card__remove"
+                          onClick={() => {
+                            if (
+                              !confirmDestructiveAction({
+                                action: "Remove",
+                                subject: item.name,
+                                consequence:
+                                  "This removes the inventory entry and its quantity from the selected character. Nonempty storage containers are still protected by backend validation."
+                              })
+                            ) {
+                              return;
+                            }
+                            onRemoveInventoryItem(entry.relationship_id);
+                          }}
+                          aria-label={`Remove ${item.name} from inventory`}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
                     </div>
-                  ) : null}
-                  {canToggleEquipped && item.interaction_type === "equippable" ? (
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      onClick={() => onToggleEquipped(entry.relationship_id)}
-                      aria-pressed={entry.equipped}
-                      disabled={!entry.equipped && entry.count <= 0}
-                      aria-label={`${entry.equipped ? "Unequip" : "Equip"}: ${item.name}`}
-                    >
-                      {entry.equipped ? "Unequip" : "Equip"}
-                    </button>
-                  ) : null}
-                  {canManageInventory ? (
-                    <button
-                      type="button"
-                      className="button button--secondary"
-                      onClick={() => {
-                        if (
-                          !confirmDestructiveAction({
-                            action: "Remove",
-                            subject: item.name,
-                            consequence:
-                              "This removes the inventory entry and its quantity from the selected character. Nonempty storage containers are still protected by backend validation."
-                          })
-                        ) {
-                          return;
-                        }
-                        onRemoveInventoryItem(entry.relationship_id);
-                      }}
-                      aria-label={`Remove ${item.name} from inventory`}
-                    >
-                      Remove
-                    </button>
-                  ) : null}
+                  </div>
                 </div>
               ) : null}
             </article>

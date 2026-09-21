@@ -1,23 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { StatPointEntry, StatPointSummary } from "@/generated/backendProtocol";
-import type { GameClient } from "@/hooks/useGameClient";
-import { useAppStore } from "@/app/state/useAppStore";
-import {
-  buildSetInstancedSheetBaseStatRequest,
-  buildSetInstancedSheetUnassignedStatPointsRequest
-} from "@/infrastructure/ws/requestBuilders";
-import { makeId } from "@/shared/utils/id";
 import { Field } from "@/shared/ui/Field";
 
 const sources = [
-  ["starting", "Starting / Spawned"],
+  ["starting", "Starter / Spawned"],
   ["level_up", "Level-Up"],
   ["manual", "Manually Granted"],
   ["legacy_unknown", "Legacy / Unknown"]
 ] as const;
 const skills = ["strength", "dexterity", "constitution", "perception", "arcane", "will"] as const;
-type Target = "unspent" | (typeof skills)[number];
 const title = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
+const kindLabel = (value: string): string =>
+  value === "unassigned_grant" ? "Gave unassigned points" : title(value);
 const signed = (value: number): string => `${value > 0 ? "+" : ""}${value}`;
 
 function sourceText(parts: Record<string, number> = {}): string {
@@ -51,25 +45,39 @@ export function StatPointAudit({ entries }: { entries: StatPointEntry[] }): JSX.
           .reverse()
           .map((entry) => (
             <article key={entry.id} className="stat-point-history__entry">
-              <strong>
-                {entry.skill ? title(entry.skill) : "Unspent points"}: {signed(entry.amount)}
-              </strong>
-              <p>
-                {entry.character_name} ({entry.instance_id}) · {title(entry.kind)}
+              <header>
+                <div>
+                  <strong>{entry.skill ? title(entry.skill) : "Unspent points"}</strong>
+                  <span>{kindLabel(entry.kind)}</span>
+                </div>
+                <b className={entry.amount < 0 ? "is-negative" : "is-positive"}>
+                  {signed(entry.amount)}
+                </b>
+              </header>
+              <p className="stat-point-history__entry-character">
+                {entry.character_name} <span>{entry.instance_id}</span>
               </p>
-              <p>
-                {entry.previous_value} → {entry.resulting_value} · Unspent: {entry.previous_unspent}{" "}
-                → {entry.resulting_unspent}
+              <div className="stat-point-history__entry-values">
+                <span>
+                  Value: {entry.previous_value} → {entry.resulting_value}
+                </span>
+                <span>
+                  Unspent: {entry.previous_unspent} → {entry.resulting_unspent}
+                </span>
+              </div>
+              <p className="stat-point-history__entry-sources">
+                {sourceText(entry.changes[entry.skill ?? "unspent"])}
               </p>
-              <p>{sourceText(entry.changes[entry.skill ?? "unspent"])}</p>
-              <p>
+              <footer>
                 <time dateTime={entry.occurred_at}>
                   {new Date(entry.occurred_at).toLocaleString()}
                 </time>{" "}
                 · {entry.actor_role}
                 {entry.actor_instance_id ? ` (${entry.actor_instance_id})` : ""}
-              </p>
-              {entry.reason ? <p>{entry.reason}</p> : null}
+              </footer>
+              {entry.reason ? (
+                <p className="stat-point-history__entry-reason">{entry.reason}</p>
+              ) : null}
             </article>
           ))}
         {!visible.length ? <p>No matching changes.</p> : null}
@@ -79,175 +87,96 @@ export function StatPointAudit({ entries }: { entries: StatPointEntry[] }): JSX.
 }
 
 export function StatPointSummaryView({ summary }: { summary: StatPointSummary }): JSX.Element {
+  const visibleSources = sources.filter(
+    ([key]) =>
+      key !== "legacy_unknown" ||
+      Boolean(summary.earned?.[key] || summary.removed?.[key] || summary.unspent_sources?.[key])
+  );
   return (
     <>
-      <p>
-        <strong>{summary.unspent ?? 0} unspent points</strong> ·{" "}
-        {summary.reconciles ? "Balances reconcile" : "Balances need DM review"}
-      </p>
+      <div className="stat-point-history__status">
+        <div className="stat-point-history__available">
+          <span>Available to assign</span>
+          <strong>{summary.unspent ?? 0} unspent points</strong>
+        </div>
+        <span
+          className={`stat-point-history__balance ${
+            summary.reconciles
+              ? "stat-point-history__balance--reconciled"
+              : "stat-point-history__balance--review"
+          }`}
+        >
+          {summary.reconciles ? "Balances reconcile" : "Balances need DM review"}
+        </span>
+      </div>
       {summary.has_legacy_baseline ? (
-        <p>
+        <p className="stat-point-history__warning">
           Legacy values have unknown origins. Their original grants and allocation dates cannot be
           reconstructed.
         </p>
       ) : null}
-      <p className="stat-point-history__scroll-hint">Scroll tables sideways to see all columns.</p>
-      <div
-        className="stat-point-history__table"
-        tabIndex={0}
-        aria-label="Point source and allocation tables"
-      >
-        <table>
-          <caption>Points by source</caption>
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Earned</th>
-              <th>Removed / reversed</th>
-              <th>Unspent</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sources.map(([key, label]) => (
-              <tr key={key}>
-                <th scope="row">{label}</th>
-                <td>{summary.earned?.[key] ?? 0}</td>
-                <td>{summary.removed?.[key] ?? 0}</td>
-                <td>{summary.unspent_sources?.[key] ?? 0}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <table>
-          <caption>Points in each core skill / stat</caption>
-          <thead>
-            <tr>
-              <th>Skill</th>
-              <th>Current base</th>
-              <th>Player assigned (net)</th>
-              <th>Sources</th>
-            </tr>
-          </thead>
-          <tbody>
-            {skills.map((skill) => (
-              <tr key={skill}>
-                <th scope="row">{title(skill)}</th>
-                <td>{summary.allocated?.[skill] ?? 0}</td>
-                <td>{summary.player_allocations?.[skill] ?? 0}</td>
-                <td>{sourceText(summary.allocation_sources?.[skill])}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p>
-        Allocation attribution uses starting points, then level-up, manual, and legacy points. Base
-        values include spawned stats and direct DM assignments; temporary modifiers are excluded.
-        Player assigned shows allocation history after refunds.
+      <section className="stat-point-history__section" aria-labelledby="point-source-heading">
+        <h4 id="point-source-heading">Point sources</h4>
+        <div className="stat-point-history__source-grid">
+          {visibleSources.map(([key, label]) => (
+            <article key={key} className="stat-point-history__source-card">
+              <strong>{label}</strong>
+              <dl>
+                <div>
+                  <dt>Earned</dt>
+                  <dd>{summary.earned?.[key] ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Reversed</dt>
+                  <dd>{summary.removed?.[key] ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Unspent</dt>
+                  <dd>{summary.unspent_sources?.[key] ?? 0}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="stat-point-history__section" aria-labelledby="stat-assignment-heading">
+        <h4 id="stat-assignment-heading">Core stat assignment</h4>
+        <div className="stat-point-history__stat-grid">
+          {skills.map((skill) => (
+            <article key={skill} className="stat-point-history__stat-card">
+              <header>
+                <strong>{title(skill)}</strong>
+                <span>
+                  Base <b>{summary.allocated?.[skill] ?? 0}</b>
+                </span>
+              </header>
+              <dl>
+                <div>
+                  <dt>Starter</dt>
+                  <dd>{summary.assignment_origins?.[skill]?.starter ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>User</dt>
+                  <dd>{summary.assignment_origins?.[skill]?.user ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>DM</dt>
+                  <dd>{summary.assignment_origins?.[skill]?.dm ?? 0}</dd>
+                </div>
+              </dl>
+              <p title={sourceText(summary.allocation_sources?.[skill])}>
+                {sourceText(summary.allocation_sources?.[skill])}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <p className="stat-point-history__note">
+        Imported pre-ledger values count as Starter points. User assigned is the player’s net
+        allocation from the unspent pool; DM assigned is the remaining direct adjustment. Temporary
+        augmentations are excluded from these base values.
       </p>
     </>
-  );
-}
-
-function StatPointAdjustment({
-  instanceId,
-  summary,
-  client
-}: {
-  instanceId: string;
-  summary: StatPointSummary;
-  client: GameClient;
-}): JSX.Element {
-  const {
-    state: {
-      uiState: { intentFeedback }
-    }
-  } = useAppStore();
-  const [target, setTarget] = useState<Target>("unspent");
-  const [source, setSource] = useState<"manual" | "level_up">("manual");
-  const current =
-    target === "unspent" ? (summary.unspent ?? 0) : (summary.allocated?.[target] ?? 0);
-  const [value, setValue] = useState(String(current));
-  const [reason, setReason] = useState("");
-  const [pendingId, setPendingId] = useState<string | null>(null);
-  const feedback = intentFeedback.find((entry) => entry.intentId === pendingId);
-  const pending = pendingId !== null && (!feedback || feedback.status === "pending");
-  useEffect(() => {
-    setValue(String(current));
-  }, [current, target]);
-  const parsed = Number(value);
-  const valid =
-    value.trim() !== "" &&
-    Number.isSafeInteger(parsed) &&
-    (target !== "unspent" || parsed >= 0) &&
-    parsed !== current;
-  return (
-    <form
-      className="stat-point-history__adjustment"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!valid || pending) return;
-        const requestId = makeId("stat-points");
-        const fields = { instanceId, value: parsed, pointSource: source, reason, requestId };
-        const request =
-          target === "unspent"
-            ? buildSetInstancedSheetUnassignedStatPointsRequest(fields)
-            : buildSetInstancedSheetBaseStatRequest({ ...fields, statName: target });
-        setPendingId(requestId);
-        client.sendProtocolRequest(request, "Update stat points");
-      }}
-    >
-      <h4>DM point adjustment</h4>
-      <p>
-        Set the resulting balance. Increases are recorded under the selected source; decreases
-        retain the removed points’ origins. Level-up awards are explicit and do not change Level.
-      </p>
-      <div className="inline-actions">
-        <Field label="Point destination">
-          <select
-            value={target}
-            disabled={pending}
-            onChange={(event) => setTarget(event.target.value as Target)}
-          >
-            <option value="unspent">Unspent pool</option>
-            {skills.map((skill) => (
-              <option key={skill} value={skill}>
-                {title(skill)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Award source">
-          <select
-            value={source}
-            onChange={(event) => setSource(event.target.value as "manual" | "level_up")}
-          >
-            <option value="manual">Manual grant / correction</option>
-            <option value="level_up">Level-up award</option>
-          </select>
-        </Field>
-        <Field label={`Resulting value (currently ${current})`}>
-          <input
-            type="number"
-            step="1"
-            min={target === "unspent" ? 0 : undefined}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-          />
-        </Field>
-        <Field label="Audit note">
-          <input
-            value={reason}
-            maxLength={1000}
-            onChange={(event) => setReason(event.target.value)}
-          />
-        </Field>
-        <button className="button" type="submit" disabled={!valid || pending}>
-          {pending ? "Saving…" : "Set points"}
-        </button>
-      </div>
-      {feedback?.status === "error" ? <p role="alert">{feedback.message}</p> : null}
-    </form>
   );
 }
 
@@ -256,19 +185,19 @@ export function SheetStatPointHistory({
   summary,
   audit,
   canManage,
-  client
+  onGrantUnspent
 }: {
   instanceId: string;
   summary?: StatPointSummary | null;
   audit?: StatPointEntry[] | null;
   canManage: boolean;
-  client: GameClient;
+  onGrantUnspent?: () => void;
 }): JSX.Element {
   return (
     <details className="character-sheet__utility stat-point-history">
       <summary className="character-sheet__utility-summary">
         <span>Skill Point Provenance</span>
-        <span>{summary?.unspent ?? 0} unspent</span>
+        <span className="character-sheet__utility-value">{summary?.unspent ?? 0} unspent</span>
       </summary>
       <div className="character-sheet__utility-body">
         {summary ? (
@@ -276,15 +205,16 @@ export function SheetStatPointHistory({
         ) : (
           <p>Point history is not available yet.</p>
         )}
-        {canManage && summary ? (
-          <StatPointAdjustment
-            key={`adjustment:${instanceId}`}
-            instanceId={instanceId}
-            summary={summary}
-            client={client}
-          />
+        {canManage ? (
+          <div className="stat-point-history__management">
+            {onGrantUnspent ? (
+              <button className="button button--secondary" type="button" onClick={onGrantUnspent}>
+                Grant Unspent Points
+              </button>
+            ) : null}
+            <StatPointAudit key={`audit:${instanceId}`} entries={audit ?? []} />
+          </div>
         ) : null}
-        {canManage ? <StatPointAudit key={`audit:${instanceId}`} entries={audit ?? []} /> : null}
       </div>
     </details>
   );

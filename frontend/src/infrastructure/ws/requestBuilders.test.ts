@@ -6,6 +6,7 @@ import {
 import {
   buildAuthenticateRequest,
   buildAddPlayerInventoryItemRequest,
+  buildAddInstancedSheetProficiencyUsesRequest,
   buildApplyInstancedSheetDamageRequest,
   buildAttachInstancedSheetAttributeRequest,
   buildAttachSheetAttributeRequest,
@@ -16,6 +17,8 @@ import {
   buildCreateFormulaRequest,
   buildCreateAttributeRequest,
   buildAdjustInstancedSheetResourceRequest,
+  buildAdjustInstancedSheetBaseStatRequest,
+  buildAdjustInstancedSheetUnassignedStatPointsRequest,
   buildAdjustInstancedSheetReactionsRequest,
   buildAdjustContributionPointsRequest,
   buildClaimSheetAccessCodeRequest,
@@ -292,8 +295,12 @@ const testSheet: SheetDefinitionPayload = {
 };
 
 const requestBuilderByType = {
+  add_instanced_sheet_proficiency_uses: buildAddInstancedSheetProficiencyUsesRequest,
   add_player_inventory_item: buildAddPlayerInventoryItemRequest,
   adjust_contribution_points: buildAdjustContributionPointsRequest,
+  adjust_instanced_sheet_base_stat: buildAdjustInstancedSheetBaseStatRequest,
+  adjust_instanced_sheet_unassigned_stat_points:
+    buildAdjustInstancedSheetUnassignedStatPointsRequest,
   adjust_instanced_sheet_reactions: buildAdjustInstancedSheetReactionsRequest,
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
   allocate_instanced_sheet_stat_points: buildAllocateInstancedSheetStatPointsRequest,
@@ -959,6 +966,20 @@ describe("requestBuilders", () => {
       type: "delete_sheet_proficiency_bridge",
       sheet_id: "sheet_1",
       relationship_id: "prof_sword"
+    });
+    expect(
+      buildAddInstancedSheetProficiencyUsesRequest({
+        requestId: "req-prof-uses",
+        instanceId: "instance_1",
+        relationshipId: "prof_sword",
+        quantity: 5
+      })
+    ).toEqual({
+      request_id: "req-prof-uses",
+      type: "add_instanced_sheet_proficiency_uses",
+      instance_id: "instance_1",
+      relationship_id: "prof_sword",
+      quantity: 5
     });
   });
 

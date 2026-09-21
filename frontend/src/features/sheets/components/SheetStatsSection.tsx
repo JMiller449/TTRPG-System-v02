@@ -1,10 +1,9 @@
-import type { KeyboardEvent } from "react";
-import type { Formula } from "@/domain/models";
-import { Field } from "@/shared/ui/Field";
+import type { StatPointSummary } from "@/generated/backendProtocol";
+import type { Augmentation, Formula } from "@/domain/models";
+import { formatAugmentationEffect } from "@/features/augmentations/augmentationEditorValues";
 import {
   CORE_SUBSTAT_GROUPS,
   DISPLAY_NAMES,
-  formatModifier,
   isResourceKey,
   type SheetStatKey
 } from "@/features/sheets/sheetDisplay";
@@ -15,34 +14,20 @@ export function SheetStatsSection({
   compact = false,
   stats,
   formulaStats,
-  editingKey,
-  draftModifier,
-  editorError,
-  getModifier,
-  getCurrentValue,
-  onBeginEditing,
-  onApplyModifier,
-  onResetModifier,
-  onDraftModifierChange,
-  onCancelEditing,
-  onEditorKeyDown,
+  statPointSummary,
+  augmentations = {},
+  instanceId,
+  onAddCoreStatPoints,
   onEditFormulaStat
 }: {
   canEditStats: boolean;
   compact?: boolean;
   stats: Partial<Record<SheetStatKey, number>>;
   formulaStats?: Partial<Record<SheetFormulaStatName, Formula>>;
-  editingKey: SheetStatKey | null;
-  draftModifier: string;
-  editorError: string | null;
-  getModifier: (key: SheetStatKey) => number;
-  getCurrentValue: (key: SheetStatKey, base: number) => number;
-  onBeginEditing: (key: SheetStatKey) => void;
-  onApplyModifier: (key: SheetStatKey) => void;
-  onResetModifier: (key: SheetStatKey) => void;
-  onDraftModifierChange: (value: string) => void;
-  onCancelEditing: () => void;
-  onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>, key: SheetStatKey) => void;
+  statPointSummary?: StatPointSummary | null;
+  augmentations?: Record<string, Augmentation>;
+  instanceId?: string;
+  onAddCoreStatPoints: (key: SheetStatKey) => void;
   onEditFormulaStat?: (statName: SheetFormulaStatName) => void;
 }): JSX.Element {
   return (
@@ -53,109 +38,80 @@ export function SheetStatsSection({
       {!compact ? (
         <p className="muted character-sheet__hint">
           {canEditStats
-            ? "Click a core stat to change its value. Hover over a derived stat to inspect its formula, or click it to edit."
-            : "These values come straight from the server and update live."}
+            ? "Hover over a core stat for its assignment and augmentation breakdown, or click it to change its value. Derived stats expose their formulas the same way."
+            : "Hover over or focus a core stat for its assignment and augmentation breakdown."}
         </p>
       ) : null}
       <div className="character-sheet__core-blocks">
         {CORE_SUBSTAT_GROUPS.map((group) => {
           const key = group.core;
           const baseValue = stats[key] ?? 0;
-          const modifier = getModifier(key);
-          const currentValue = getCurrentValue(key, baseValue);
-          const editorId = `stat-editor-${key}`;
-          const errorId = `${editorId}-error`;
-          const hintId = `${editorId}-hint`;
+          const currentValue = baseValue;
+          const assignedBase = statPointSummary?.allocated?.[key] ?? baseValue;
+          const assignment = statPointSummary?.assignment_origins?.[key];
+          const activeAugmentations = Object.values(augmentations).filter(
+            (augmentation) =>
+              augmentation.active !== false &&
+              augmentation.applied === true &&
+              augmentation.applied_target_id === instanceId &&
+              augmentation.effect.type === "formula_modifier" &&
+              augmentation.target.root === "instance" &&
+              augmentation.target.path.length === 2 &&
+              augmentation.target.path[0] === "stats" &&
+              augmentation.target.path[1] === key
+          );
+          const breakdownId = `core-stat-breakdown-${key}`;
           return (
             <section key={key} className="core-block">
               <header className="core-block__header">
-                <div>
-                  <span className="core-block__label">{DISPLAY_NAMES[key]}</span>
-                </div>
-                <div className="core-block__value-wrap">
-                  {canEditStats ? (
-                    <button
-                      type="button"
-                      className="core-block__value-button"
-                      onClick={() => onBeginEditing(key)}
-                      aria-label={`Edit ${DISPLAY_NAMES[key]}. Current value ${currentValue}.`}
-                      aria-expanded={editingKey === key}
-                      aria-controls={editorId}
-                    >
-                      <strong
-                        className={`core-block__value ${
-                          modifier > 0 ? "stat-value--up" : modifier < 0 ? "stat-value--down" : ""
-                        }`}
-                      >
-                        {currentValue}
-                      </strong>
-                    </button>
-                  ) : (
-                    <strong className="core-block__value">{baseValue}</strong>
-                  )}
-                  <div className="core-block__actions">
-                    {canEditStats && modifier !== 0 ? (
-                      <>
-                        <span
-                          className={`stat-modifier ${modifier > 0 ? "stat-modifier--up" : "stat-modifier--down"}`}
-                        >
-                          {formatModifier(modifier)}
-                        </span>
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() => onResetModifier(key)}
-                          aria-label={`Reset ${DISPLAY_NAMES[key]} modifier`}
-                        >
-                          Reset
-                        </button>
-                      </>
-                    ) : null}
+                <div
+                  className="core-block__summary"
+                  tabIndex={canEditStats ? undefined : 0}
+                  aria-describedby={canEditStats ? undefined : breakdownId}
+                >
+                  <div>
+                    <span className="core-block__label">{DISPLAY_NAMES[key]}</span>
                   </div>
+                  <div className="core-block__value-wrap">
+                    {canEditStats ? (
+                      <button
+                        type="button"
+                        className="core-block__value-button"
+                        onClick={() => onAddCoreStatPoints(key)}
+                        aria-label={`Add points to ${DISPLAY_NAMES[key]}. Current value ${currentValue}.`}
+                        aria-describedby={breakdownId}
+                      >
+                        <strong className="core-block__value">{currentValue}</strong>
+                      </button>
+                    ) : (
+                      <strong className="core-block__value">{currentValue}</strong>
+                    )}
+                  </div>
+                  <span
+                    className="formula-stat-tooltip core-stat-tooltip"
+                    id={breakdownId}
+                    role="tooltip"
+                  >
+                    <strong>Effective: {currentValue}</strong>
+                    <span>Base total: {assignedBase}</span>
+                    <span>Starter: {assignment?.starter ?? assignedBase}</span>
+                    <span>User assigned: {assignment?.user ?? 0}</span>
+                    <span>DM assigned: {assignment?.dm ?? 0}</span>
+                    {activeAugmentations.length > 0 ? (
+                      <span className="core-stat-tooltip__augmentations">
+                        <strong>Augmentations</strong>
+                        {activeAugmentations.map((augmentation) => (
+                          <span key={augmentation.id}>
+                            {augmentation.name}: {formatAugmentationEffect(augmentation)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span>No active augmentations</span>
+                    )}
+                  </span>
                 </div>
               </header>
-
-              {canEditStats && editingKey === key ? (
-                <div
-                  className="stat-editor"
-                  id={editorId}
-                  role="group"
-                  aria-label={`Edit ${DISPLAY_NAMES[key]}`}
-                >
-                  <Field label={`${DISPLAY_NAMES[key]} Modifier`}>
-                    <input
-                      value={draftModifier}
-                      onChange={(event) => onDraftModifierChange(event.target.value)}
-                      onKeyDown={(event) => onEditorKeyDown(event, key)}
-                      inputMode="numeric"
-                      placeholder="+10 or -10"
-                      aria-label={`${DISPLAY_NAMES[key]} modifier`}
-                      aria-describedby={editorError ? errorId : hintId}
-                      aria-invalid={Boolean(editorError)}
-                      autoFocus
-                    />
-                  </Field>
-                  <button type="button" className="button" onClick={() => onApplyModifier(key)}>
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    className="button button--secondary"
-                    onClick={onCancelEditing}
-                  >
-                    Cancel
-                  </button>
-                  {editorError ? (
-                    <p className="error-text stat-editor__error" id={errorId} role="alert">
-                      {editorError}
-                    </p>
-                  ) : (
-                    <p className="muted stat-editor__hint" id={hintId}>
-                      Updates template base stat.
-                    </p>
-                  )}
-                </div>
-              ) : null}
 
               <div className="core-block__subs">
                 {group.subs.map((subKey) => {

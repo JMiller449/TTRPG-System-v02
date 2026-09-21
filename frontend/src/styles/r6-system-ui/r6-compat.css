@@ -282,10 +282,6 @@
   box-shadow: inset 0 0 24px rgba(94, 238, 255, 0.12);
 }
 
-.r6-theme .character-sheet__header-main p {
-  color: var(--r6-text-muted);
-}
-
 .r6-theme .character-sheet__resources .resource-card,
 .r6-theme .character-sheet__header-resources .resource-card {
   border-color: color-mix(in srgb, var(--r6-line), transparent 28%);

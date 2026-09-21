@@ -4,6 +4,7 @@ from copy import deepcopy
 import pytest
 from pydantic import ValidationError
 
+from backend.core.request_registry import request_registry
 from backend.features.contribution_points.schema import (
     AdjustContributionPoints,
     SetContributionPoints,
@@ -279,6 +280,71 @@ def test_contribution_points_are_atomic_nonnegative_and_audited() -> None:
                 AdjustContributionPoints(type="adjust_contribution_points", instance_id="hero_1", delta=-4)
             )
         assert state.instanced_sheets["hero_1"].contribution_points == 3
+
+    asyncio.run(scenario())
+
+
+def test_contribution_point_routes_allow_gm_and_enforce_player_ownership() -> None:
+    async def scenario() -> None:
+        state = StateSingleton.getState()
+        state.instanced_sheets["hero_2"] = InstancedSheet.from_dict(
+            {"parent_id": "hero", "health": 1, "mana": 1, "augments": {}},
+            template=state.sheets["hero"],
+        )
+        player = WebSocketSession(
+            websocket=object(),
+            role="player",
+            assigned_sheet_id="hero",
+            assigned_instance_id="hero_1",
+        )
+        unclaimed_player = WebSocketSession(websocket=object(), role="player")
+        gm = WebSocketSession(websocket=object(), role="dm")
+        await request_registry.dispatch(
+            player,
+            {
+                "type": "set_contribution_points",
+                "instance_id": "hero_1",
+                "value": 5,
+            },
+        )
+        await request_registry.dispatch(
+            player,
+            {
+                "type": "adjust_contribution_points",
+                "instance_id": "hero_1",
+                "delta": -2,
+            },
+        )
+        assert state.instanced_sheets["hero_1"].contribution_points == 3
+
+        with pytest.raises(PermissionError, match="assigned sheet instance"):
+            await request_registry.dispatch(
+                player,
+                {
+                    "type": "adjust_contribution_points",
+                    "instance_id": "hero_2",
+                    "delta": 1,
+                },
+            )
+        with pytest.raises(PermissionError, match="Claim a sheet access code"):
+            await request_registry.dispatch(
+                unclaimed_player,
+                {
+                    "type": "set_contribution_points",
+                    "instance_id": "hero_1",
+                    "value": 8,
+                },
+            )
+
+        await request_registry.dispatch(
+            gm,
+            {
+                "type": "set_contribution_points",
+                "instance_id": "hero_2",
+                "value": 7,
+            },
+        )
+        assert state.instanced_sheets["hero_2"].contribution_points == 7
 
     asyncio.run(scenario())
 

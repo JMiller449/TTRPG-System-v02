@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.models.proficiency import Proficiency, ProficiencyBridge
-from backend.state.models.sheet import Sheet
+from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
 
@@ -95,6 +95,169 @@ def _add_proficiency_definition(state, proficiency_id: str = "magic_prof") -> No
             "description": "Test proficiency.",
         }
     )
+
+
+def _instance_with_proficiency(*, use_count: int = 0) -> InstancedSheet:
+    return InstancedSheet.from_dict(
+        {
+            "parent_id": "mage_template",
+            "health": 100,
+            "mana": 20,
+            "augments": {},
+            "proficiencies": {
+                "magic": _bridge_payload(use_count=use_count),
+            },
+        }
+    )
+
+
+def test_player_can_add_multiple_uses_to_an_assigned_proficiency(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            _add_proficiency_definition(state)
+            state.instanced_sheets["mage_instance"] = _instance_with_proficiency(
+                use_count=3
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.assign_player_sheet(
+                websocket,
+                sheet_id="mage_template",
+                instance_id="mage_instance",
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "add_instanced_sheet_proficiency_uses",
+                    "instance_id": "mage_instance",
+                    "relationship_id": "magic",
+                    "quantity": 4,
+                    "request_id": "add-uses-1",
+                },
+            )
+
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 7
+            )
+            assert websocket.sent_messages[-1]["request_id"] == "add-uses-1"
+            assert websocket.sent_messages[-1]["ops"] == [
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/proficiencies/magic/use_count",
+                    "value": 7,
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_player_cannot_add_uses_to_another_instance(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            _add_proficiency_definition(state)
+            state.instanced_sheets["mage_instance"] = _instance_with_proficiency(
+                use_count=3
+            )
+            state.instanced_sheets["other_instance"] = _instance_with_proficiency()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="player")
+            await websocket_sessions.assign_player_sheet(
+                websocket,
+                sheet_id="mage_template",
+                instance_id="other_instance",
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "add_instanced_sheet_proficiency_uses",
+                    "instance_id": "mage_instance",
+                    "relationship_id": "magic",
+                    "quantity": 2,
+                    "request_id": "add-uses-other",
+                },
+            )
+
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 3
+            )
+            assert websocket.sent_messages == [
+                {
+                    "response_id": None,
+                    "reason": "You can only edit your assigned sheet instance.",
+                    "type": "error",
+                    "request_id": "add-uses-other",
+                }
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_add_proficiency_uses_rejects_invalid_quantity(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.sheets["mage_template"] = Sheet.from_dict(_sheet_payload())
+            _add_proficiency_definition(state)
+            state.instanced_sheets["mage_instance"] = _instance_with_proficiency(
+                use_count=3
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "add_instanced_sheet_proficiency_uses",
+                    "instance_id": "mage_instance",
+                    "relationship_id": "magic",
+                    "quantity": 0,
+                    "request_id": "add-uses-invalid",
+                },
+            )
+
+            assert (
+                state.instanced_sheets["mage_instance"]
+                .proficiencies["magic"]
+                .use_count
+                == 3
+            )
+            assert websocket.sent_messages[0]["type"] == "error"
+            assert (
+                "quantity: Input should be greater than or equal to 1"
+                in websocket.sent_messages[0]["reason"]
+            )
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
 
 
 def test_dm_can_create_sheet_proficiency_bridge(monkeypatch) -> None:

@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 54
+CURRENT_STATE_SCHEMA_VERSION = 55
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2954,6 +2954,26 @@ def _migrate_v53_to_v54(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 54, "state": state}
 
 
+def _migrate_v54_to_v55(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    history = state.get("stat_point_history", {})
+    if isinstance(history, dict):
+        for entry in history.values():
+            if not isinstance(entry, dict) or entry.get("kind") != "baseline":
+                continue
+            changes = entry.get("changes", {})
+            if not isinstance(changes, dict):
+                continue
+            for parts in changes.values():
+                if not isinstance(parts, dict):
+                    continue
+                imported = parts.pop("legacy_unknown", 0)
+                if isinstance(imported, int) and not isinstance(imported, bool) and imported:
+                    parts["starting"] = parts.get("starting", 0) + imported
+            entry["reason"] = "Existing balance imported as starter points."
+    return {"schema_version": 55, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -3009,6 +3029,7 @@ MIGRATIONS: dict[int, Migration] = {
     51: _migrate_v51_to_v52,
     52: _migrate_v52_to_v53,
     53: _migrate_v53_to_v54,
+    54: _migrate_v54_to_v55,
 }
 
 

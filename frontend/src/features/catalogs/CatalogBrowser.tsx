@@ -72,7 +72,7 @@ export function CatalogBrowser({
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(() => new Set());
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set());
   const validation = useFormValidationAttempt();
   const closeFolderDialog = useCallback(() => {
     validation.reset();
@@ -296,7 +296,7 @@ export function CatalogBrowser({
       return null;
     }
     const entries = childEntries(folder.id);
-    const collapsed = collapsedFolderIds.has(folder.id) && !normalizedQuery;
+    const collapsed = !expandedFolderIds.has(folder.id) && !normalizedQuery;
     return (
       <li
         className="catalog-browser__folder"
@@ -335,7 +335,7 @@ export function CatalogBrowser({
               className="catalog-browser__folder-toggle"
               aria-expanded={!collapsed}
               onClick={() =>
-                setCollapsedFolderIds((current) => {
+                setExpandedFolderIds((current) => {
                   const next = new Set(current);
                   if (next.has(folder.id)) {
                     next.delete(folder.id);

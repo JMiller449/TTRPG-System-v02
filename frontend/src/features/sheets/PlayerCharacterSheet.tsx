@@ -16,11 +16,16 @@ import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceH
 import { SheetManagementSection } from "@/features/sheets/components/SheetManagementSection";
 import {
   SheetContributionPoints,
+  SheetMobilitySummary,
   SheetReactionResource
 } from "@/features/sheets/components/SheetRuntimeResources";
 import { SheetResistancesEditor } from "@/features/sheets/components/SheetResistancesEditor";
 import { SheetStatPointAllocator } from "@/features/sheets/components/SheetStatPointAllocator";
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
+import {
+  SheetCoreStatPointDialog,
+  SheetUnspentPointGrantDialog
+} from "@/features/sheets/components/SheetCoreStatPointDialog";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
 import { RollLog } from "@/features/rolls/RollLog";
 import { SheetKillsSection } from "@/features/xp/SheetKillsSection";
@@ -28,9 +33,9 @@ import { SheetXpProgressBar } from "@/features/xp/SheetXpProgressBar";
 import { PlayerItemProposalForm } from "@/features/items/PlayerItemProposalForm";
 import { useResourceEditor } from "@/features/sheets/hooks/useResourceEditor";
 import { useSheetDetailState } from "@/features/sheets/hooks/useSheetDetailState";
-import { useStatModifierEditor } from "@/features/sheets/hooks/useStatModifierEditor";
 import { buildEquipmentQuantitySubmission } from "@/features/sheets/equipmentQuantity";
 import type { SheetFormulaStatName } from "@/features/sheets/sheetDefinitionEditing";
+import type { CoreStatKey } from "@/domain/stats";
 import { canManageActionReactionPoints, type PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
 import {
@@ -38,6 +43,7 @@ import {
   buildAttachInstancedSheetAttributeRequest,
   buildAttachInstancedSheetItemRequest,
   buildAddPlayerInventoryItemRequest,
+  buildAddInstancedSheetProficiencyUsesRequest,
   buildDetachInstancedSheetActionRequest,
   buildDetachInstancedSheetAttributeRequest,
   buildDetachInstancedSheetItemRequest,
@@ -47,6 +53,8 @@ import {
   buildPerformActionRequest,
   buildAllocateInstancedSheetStatPointsRequest,
   buildAdjustContributionPointsRequest,
+  buildAdjustInstancedSheetBaseStatRequest,
+  buildAdjustInstancedSheetUnassignedStatPointsRequest,
   buildAdjustInstancedSheetReactionsRequest,
   buildResetInstancedSheetAttributeValueRequest,
   buildResetInstancedSheetDamageTrackerRequest,
@@ -121,6 +129,8 @@ export function PlayerCharacterSheet({
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
+  const [grantingCoreStat, setGrantingCoreStat] = useState<CoreStatKey | null>(null);
+  const [grantingUnspentPoints, setGrantingUnspentPoints] = useState(false);
   const [attributeCreatorOpen, setAttributeCreatorOpen] = useState(false);
   const [proficiencyCreatorOpen, setProficiencyCreatorOpen] = useState(false);
   const [actionCreatorOpen, setActionCreatorOpen] = useState(false);
@@ -149,13 +159,6 @@ export function PlayerCharacterSheet({
   const attachedCreatedItemRequestRef = useRef<string | null>(null);
   const closeFormulaStatEditor = useCallback(() => setEditingFormulaStatName(null), []);
 
-  const statEditor = useStatModifierEditor({
-    resetToken: detail?.instance.id,
-    instanceId: detail?.instance.id,
-    baseStats: detail?.stats ?? {},
-    client
-  });
-
   const resourceEditor = useResourceEditor({
     resetToken: detail?.instance.id,
     instanceId: detail?.instance.id,
@@ -168,6 +171,8 @@ export function PlayerCharacterSheet({
   useEffect(() => {
     setActiveTab("overview");
     setEditingFormulaStatName(null);
+    setGrantingCoreStat(null);
+    setGrantingUnspentPoints(false);
     setAttributeCreatorOpen(false);
     setProficiencyCreatorOpen(false);
     setActionCreatorOpen(false);
@@ -419,7 +424,6 @@ export function PlayerCharacterSheet({
             </div>
             <div className="character-sheet__header-main">
               <h3>{detail.instance.name}</h3>
-              <p>Character sheet</p>
             </div>
           </div>
           <div className="character-sheet__header-resources">
@@ -439,20 +443,54 @@ export function PlayerCharacterSheet({
             />
           </div>
           <div className="character-sheet__advancement">
-            <SheetLevelControl
-              level={level}
-              canEdit={mode === "gm"}
-              onSave={(nextLevel) => {
-                client.sendProtocolRequest(
-                  buildSetInstancedSheetAttributeValueRequest({
-                    instanceId: detail.instance.id,
-                    attributeId: "level",
-                    value: { type: "number", value: nextLevel }
-                  }),
-                  "Update character level"
-                );
-              }}
-            />
+            <div className="character-sheet__advancement-metrics">
+              <SheetLevelControl
+                level={level}
+                canEdit={mode === "gm"}
+                onSave={(nextLevel) => {
+                  client.sendProtocolRequest(
+                    buildSetInstancedSheetAttributeValueRequest({
+                      instanceId: detail.instance.id,
+                      attributeId: "level",
+                      value: { type: "number", value: nextLevel }
+                    }),
+                    "Update character level"
+                  );
+                }}
+              />
+              <SheetMobilitySummary
+                compact
+                dodgeChance={detail.stats.dexterity ?? 0}
+                movementSpeed={
+                  detail.persistentSheet.evaluated_movement_speed !== undefined
+                    ? detail.persistentSheet.evaluated_movement_speed
+                    : (detail.sheet?.evaluated_movement_speed ?? 10)
+                }
+              />
+              <SheetContributionPoints
+                compact
+                value={detail.contributionPoints}
+                canManage
+                onSet={(value) =>
+                  client.sendProtocolRequest(
+                    buildSetContributionPointsRequest({
+                      instanceId: detail.instance.id,
+                      value
+                    }),
+                    "Set contribution points"
+                  )
+                }
+                onAdjust={(delta) =>
+                  client.sendProtocolRequest(
+                    buildAdjustContributionPointsRequest({
+                      instanceId: detail.instance.id,
+                      delta
+                    }),
+                    delta < 0 ? "Subtract contribution points" : "Add contribution points"
+                  )
+                }
+              />
+            </div>
             {sheetId ? (
               <SheetXpProgressBar
                 client={client}
@@ -475,12 +513,18 @@ export function PlayerCharacterSheet({
           >
             <div className="character-sheet__overview-grid">
               <div className="character-sheet__overview-main">
-                <SheetStatPointHistory
+                <SheetStatsSection
+                  canEditStats={canEditStats}
+                  compact
+                  stats={detail.stats}
+                  formulaStats={instanceFormulaStats ?? undefined}
+                  statPointSummary={detail.persistentSheet.stat_point_summary}
+                  augmentations={augmentations}
                   instanceId={detail.instance.id}
-                  summary={detail.persistentSheet.stat_point_summary}
-                  audit={detail.persistentSheet.stat_point_audit}
-                  canManage={mode === "gm"}
-                  client={client}
+                  onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName as CoreStatKey)}
+                  onEditFormulaStat={
+                    mode === "gm" ? (statName) => setEditingFormulaStatName(statName) : undefined
+                  }
                 />
                 {mode === "player" ? (
                   <SheetStatPointAllocator
@@ -498,84 +542,12 @@ export function PlayerCharacterSheet({
                     }
                   />
                 ) : null}
-                <SheetReactionResource
-                  current={detail.reactions.current}
-                  maximum={detail.reactions.maximum}
-                  dodgeChance={detail.stats.dexterity ?? 0}
-                  movementSpeed={
-                    detail.persistentSheet.evaluated_movement_speed !== undefined
-                      ? detail.persistentSheet.evaluated_movement_speed
-                      : (detail.sheet?.evaluated_movement_speed ?? 10)
-                  }
-                  canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
-                  onSpend={() =>
-                    client.sendProtocolRequest(
-                      buildAdjustInstancedSheetReactionsRequest({
-                        instanceId: detail.instance.id,
-                        delta: -1
-                      }),
-                      "Spend action/reaction point"
-                    )
-                  }
-                  onRestore={() =>
-                    client.sendProtocolRequest(
-                      buildAdjustInstancedSheetReactionsRequest({
-                        instanceId: detail.instance.id,
-                        delta: 1
-                      }),
-                      "Restore action/reaction point"
-                    )
-                  }
-                  onReset={() =>
-                    client.sendProtocolRequest(
-                      buildResetInstancedSheetReactionsRequest({
-                        instanceId: detail.instance.id
-                      }),
-                      "Reset action/reaction points"
-                    )
-                  }
-                />
-                <SheetContributionPoints
-                  value={detail.contributionPoints}
+                <SheetStatPointHistory
+                  instanceId={detail.instance.id}
+                  summary={detail.persistentSheet.stat_point_summary}
+                  audit={detail.persistentSheet.stat_point_audit}
                   canManage={mode === "gm"}
-                  onSet={(value) =>
-                    client.sendProtocolRequest(
-                      buildSetContributionPointsRequest({
-                        instanceId: detail.instance.id,
-                        value
-                      }),
-                      "Set contribution points"
-                    )
-                  }
-                  onAdjust={(delta) =>
-                    client.sendProtocolRequest(
-                      buildAdjustContributionPointsRequest({
-                        instanceId: detail.instance.id,
-                        delta
-                      }),
-                      delta < 0 ? "Subtract contribution points" : "Add contribution points"
-                    )
-                  }
-                />
-                <SheetStatsSection
-                  canEditStats={canEditStats}
-                  compact
-                  stats={detail.stats}
-                  formulaStats={instanceFormulaStats ?? undefined}
-                  editingKey={statEditor.editingKey}
-                  draftModifier={statEditor.draftModifier}
-                  editorError={statEditor.editorError}
-                  getModifier={statEditor.getModifier}
-                  getCurrentValue={statEditor.getCurrentValue}
-                  onBeginEditing={statEditor.beginEditing}
-                  onApplyModifier={statEditor.applyModifier}
-                  onResetModifier={statEditor.resetModifier}
-                  onDraftModifierChange={statEditor.setDraftModifier}
-                  onCancelEditing={statEditor.cancelEditing}
-                  onEditorKeyDown={statEditor.onEditorKeyDown}
-                  onEditFormulaStat={
-                    mode === "gm" ? (statName) => setEditingFormulaStatName(statName) : undefined
-                  }
+                  onGrantUnspent={() => setGrantingUnspentPoints(true)}
                 />
               </div>
               <aside className="character-sheet__overview-side">
@@ -635,6 +607,37 @@ export function PlayerCharacterSheet({
             aria-labelledby="sheet-tab-actions"
             tabIndex={0}
           >
+            <SheetReactionResource
+              current={detail.reactions.current}
+              maximum={detail.reactions.maximum}
+              canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
+              onSpend={() =>
+                client.sendProtocolRequest(
+                  buildAdjustInstancedSheetReactionsRequest({
+                    instanceId: detail.instance.id,
+                    delta: -1
+                  }),
+                  "Spend action/reaction point"
+                )
+              }
+              onRestore={() =>
+                client.sendProtocolRequest(
+                  buildAdjustInstancedSheetReactionsRequest({
+                    instanceId: detail.instance.id,
+                    delta: 1
+                  }),
+                  "Restore action/reaction point"
+                )
+              }
+              onReset={() =>
+                client.sendProtocolRequest(
+                  buildResetInstancedSheetReactionsRequest({
+                    instanceId: detail.instance.id
+                  }),
+                  "Reset action/reaction points"
+                )
+              }
+            />
             <SheetActionsSection
               assignedActions={assignedActions}
               actionDefinitions={actionDefinitions}
@@ -788,7 +791,7 @@ export function PlayerCharacterSheet({
               <p className="muted">
                 {canEditProficiencies
                   ? "Review progression or click an assigned Proficiency to edit it."
-                  : "Review assigned Proficiencies, use counts, and growth rates."}
+                  : "Review assigned Proficiencies or record one or more qualifying uses."}
               </p>
             </header>
             <SheetProficienciesSection
@@ -796,6 +799,7 @@ export function PlayerCharacterSheet({
               proficiencyOrder={proficiencyOrder}
               sheetProficiencies={sheetProficiencies}
               canEdit={canEditProficiencies}
+              canAddUses={mode === "player"}
               onCreate={(bridge) => {
                 client.sendProtocolRequest(
                   buildLinkInstancedSheetProficiencyRequest({
@@ -826,6 +830,16 @@ export function PlayerCharacterSheet({
                     relationshipId
                   }),
                   "Remove proficiency"
+                );
+              }}
+              onAddUses={(relationshipId, quantity) => {
+                client.sendProtocolRequest(
+                  buildAddInstancedSheetProficiencyUsesRequest({
+                    instanceId: detail.instance.id,
+                    relationshipId,
+                    quantity
+                  }),
+                  `Add ${quantity} proficiency use${quantity === 1 ? "" : "s"}`
                 );
               }}
             />
@@ -1133,6 +1147,50 @@ export function PlayerCharacterSheet({
             )
           }
           onClose={closeFormulaStatEditor}
+        />
+      ) : null}
+      {grantingCoreStat ? (
+        <SheetCoreStatPointDialog
+          key={`${detail.instance.id}:${grantingCoreStat}`}
+          statName={grantingCoreStat}
+          currentBase={
+            detail.persistentSheet.stat_point_summary?.allocated?.[grantingCoreStat] ??
+            detail.stats[grantingCoreStat] ??
+            0
+          }
+          onSubmit={({ quantity, source, reason }) => {
+            client.sendProtocolRequest(
+              buildAdjustInstancedSheetBaseStatRequest({
+                instanceId: detail.instance.id,
+                statName: grantingCoreStat,
+                delta: quantity,
+                pointSource: source,
+                reason
+              }),
+              `Add points to ${grantingCoreStat}`
+            );
+            setGrantingCoreStat(null);
+          }}
+          onClose={() => setGrantingCoreStat(null)}
+        />
+      ) : null}
+      {grantingUnspentPoints ? (
+        <SheetUnspentPointGrantDialog
+          key={`unspent:${detail.instance.id}`}
+          currentUnspent={detail.persistentSheet.stat_point_summary?.unspent ?? 0}
+          onSubmit={({ quantity, source, reason }) => {
+            client.sendProtocolRequest(
+              buildAdjustInstancedSheetUnassignedStatPointsRequest({
+                instanceId: detail.instance.id,
+                delta: quantity,
+                pointSource: source,
+                reason
+              }),
+              "Grant unspent points"
+            );
+            setGrantingUnspentPoints(false);
+          }}
+          onClose={() => setGrantingUnspentPoints(false)}
         />
       ) : null}
       {mode === "gm" && attributeCreatorOpen ? (

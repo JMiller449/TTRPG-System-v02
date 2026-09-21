@@ -720,6 +720,31 @@ export function buildSetInstancedSheetBaseStatRequest({
   };
 }
 
+export function buildAdjustInstancedSheetBaseStatRequest({
+  instanceId,
+  statName,
+  delta,
+  pointSource,
+  reason,
+  requestId
+}: {
+  instanceId: string;
+  statName: SheetCoreStatName;
+  delta: number;
+  pointSource?: ProtocolRequest<"adjust_instanced_sheet_base_stat">["point_source"];
+  reason?: string;
+} & OptionalRequestId): ProtocolRequest<"adjust_instanced_sheet_base_stat"> {
+  return {
+    ...requestIdField(requestId),
+    type: "adjust_instanced_sheet_base_stat",
+    instance_id: instanceId,
+    stat_name: statName,
+    delta,
+    ...(pointSource === undefined ? {} : { point_source: pointSource }),
+    ...(reason === undefined ? {} : { reason })
+  };
+}
+
 export function buildSetInstancedSheetUnassignedStatPointsRequest({
   instanceId,
   value,
@@ -737,6 +762,28 @@ export function buildSetInstancedSheetUnassignedStatPointsRequest({
     type: "set_instanced_sheet_unassigned_stat_points",
     instance_id: instanceId,
     value,
+    ...(pointSource === undefined ? {} : { point_source: pointSource }),
+    ...(reason === undefined ? {} : { reason })
+  };
+}
+
+export function buildAdjustInstancedSheetUnassignedStatPointsRequest({
+  instanceId,
+  delta,
+  pointSource,
+  reason,
+  requestId
+}: {
+  instanceId: string;
+  delta: number;
+  pointSource?: ProtocolRequest<"adjust_instanced_sheet_unassigned_stat_points">["point_source"];
+  reason?: string;
+} & OptionalRequestId): ProtocolRequest<"adjust_instanced_sheet_unassigned_stat_points"> {
+  return {
+    ...requestIdField(requestId),
+    type: "adjust_instanced_sheet_unassigned_stat_points",
+    instance_id: instanceId,
+    delta,
     ...(pointSource === undefined ? {} : { point_source: pointSource }),
     ...(reason === undefined ? {} : { reason })
   };
@@ -1426,6 +1473,25 @@ export function buildUpdateLinkedInstancedSheetProficiencyRequest({
     instance_id: instanceId,
     relationship_id: relationshipId,
     bridge
+  };
+}
+
+export function buildAddInstancedSheetProficiencyUsesRequest({
+  instanceId,
+  relationshipId,
+  quantity,
+  requestId
+}: {
+  instanceId: string;
+  relationshipId: string;
+  quantity: number;
+} & OptionalRequestId): ProtocolRequest<"add_instanced_sheet_proficiency_uses"> {
+  return {
+    ...requestIdField(requestId),
+    type: "add_instanced_sheet_proficiency_uses",
+    instance_id: instanceId,
+    relationship_id: relationshipId,
+    quantity
   };
 }
 

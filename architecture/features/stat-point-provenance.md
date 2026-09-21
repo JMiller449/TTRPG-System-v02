@@ -14,12 +14,13 @@ There are no individual DM accounts in the existing shared-code authentication;
 DM actions are attributed to the DM role, and players to their claimed instance.
 
 The canonical `State.stat_point_history` registry is private and persisted without
-pruning. Spawned core values are Starting / Spawned points already assigned to
-stats. Explicit awards use Level-Up or Manual; existing balances loaded without
-history receive an observed Legacy / Unknown baseline. No past dates, allocation
-actors, starting balances, or level-up awards are inferred for legacy characters.
-Schema v54 adds the registry, and state reconstruction initializes missing legacy
-baselines once. Global sequences preserve audit order through sorted JSON exports.
+pruning. Spawned core values are Starter / Spawned points already assigned to
+stats. Explicit awards use Level-Up or Manual. Existing balances loaded without
+history are intentionally treated as imported Starter points; no past dates,
+allocation actors, or level-up awards are inferred. Schema v54 adds the registry,
+and schema v55 reclassifies its legacy unknown baselines as Starter points. State
+reconstruction initializes a missing baseline once. Global sequences preserve
+audit order through sorted JSON exports.
 
 [`stat_points/service.py`](../../backend/features/stat_points/service.py) compares
 base stats and the unspent pool inside each state-sync mutation. This covers
@@ -38,11 +39,16 @@ history as a whole, like the existing state-replacement contract.
 
 ## Sources and reconciliation
 
-DM `set_instanced_sheet_unassigned_stat_points` and
-`set_instanced_sheet_base_stat` requests accept optional `point_source` (`manual`
-or `level_up`, default `manual`) and a bounded `reason`. Their existing route
-permissions remain authoritative. The character panel lets DMs select the source,
-destination (unspent pool or core stat), resulting value, and private audit note.
+DM point requests accept optional `point_source` (`manual` or `level_up`, default
+`manual`) and a bounded `reason`. Their route permissions remain authoritative.
+Clicking a major stat opens an additive award dialog; its
+`adjust_instanced_sheet_base_stat` intent carries a positive quantity rather than
+a client-computed resulting total. The legacy absolute-set route remains a typed
+administrative compatibility operation but is not exposed by this character UI.
+The provenance panel's **Grant Unspent Points** action uses the parallel
+`adjust_instanced_sheet_unassigned_stat_points` positive-delta intent. Its audit
+entry has the explicit `unassigned_grant` kind, presented to the GM as “Gave
+unassigned points.”
 Core-stat level-up assignments preserve the existing health-max adjustment logic.
 XP readiness and Level edits do not automatically grant points; §8.1 specifies
 GM-assigned advancement and does not define a universal award amount.
@@ -56,11 +62,11 @@ not a new source-selection guess. Negative authored base-stat corrections remain
 visible as signed manual balances when necessary.
 
 The backend projects cumulative positive and negative source totals, current
-unspent/source balances, current base values and their sources, player allocation
-history net of refunds, and a reconciliation flag comparing each location's
-ledger balance with canonical state. Direct DM edits are awards or removals;
-they do not masquerade as player allocations. Legacy reconciliation confirms
-only the observed baseline plus subsequently recorded changes.
+unspent/source balances, and current base values. Each core stat also projects an
+assignment-origin pivot: Starter baseline, player allocation history net of
+refunds, and the remaining direct DM assignments. Direct DM edits therefore do
+not masquerade as player allocations. Base-stat reconciliation reads the private
+direct-effect projection so active augmentations never become permanent points.
 
 ## Protocol and frontend
 
@@ -71,11 +77,16 @@ player snapshots, patches, and replay. These projections are generated contracts
 not persisted alternate state. Full history lives only in the private registry.
 
 [`SheetStatPointHistory`](../../frontend/src/features/sheets/components/SheetStatPointHistory.tsx)
-shows the source table, per-stat attribution, reconciliation/legacy explanation,
-DM adjustment form, and filterable DM history in the character Overview. Existing
+shows the source table, per-stat attribution, reconciliation explanation, and
+filterable DM history in the character Overview. Existing
 player allocation controls submit the same atomic allocation intent. Pending
-adjustments retain drafts on error and reconcile to authoritative feedback and
-patches; the UI performs no source accounting or gameplay calculation.
+requests reconcile to authoritative feedback and patches; the UI performs no
+source accounting or gameplay calculation.
+
+Each major stat exposes the same Starter, User assigned, and DM assigned pivot on
+hover or keyboard focus, followed by the active direct augmentations targeting
+that stat. The displayed effective value and authoritative ledger base remain
+visibly distinct.
 
 ## Validation
 

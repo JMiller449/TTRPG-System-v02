@@ -157,7 +157,7 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
               <span className="extension-stage__eyebrow">Browser setup</span>
               <h3 id="userscript-stage-title">Install Roll20 Bridge</h3>
               <p className="muted">
-                No active bridge userscript responded. Complete these four steps to connect this
+                No active bridge userscript responded. Complete these five steps to connect this
                 browser to Roll20.
               </p>
             </header>
@@ -197,7 +197,17 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
               </li>
               <li>
                 <div className="extension-install-step__content">
-                  <strong>Reload this page after the script is installed.</strong>
+                  <strong>Refresh any Roll20 tab that was already open.</strong>
+                  <p className="muted extension-install-step__hint">
+                    Violentmonkey cannot inject a newly installed userscript into a page that was
+                    loaded before installation. Open Roll20 now, or refresh its editor tab.
+                  </p>
+                  <span className="extension-install-step__outcome">Roll20 bridge activated</span>
+                </div>
+              </li>
+              <li>
+                <div className="extension-install-step__content">
+                  <strong>Reload this app page after the script is installed.</strong>
                   <p className="muted extension-install-step__hint">
                     Return to this tab and reload it so the newly installed bridge can start.
                   </p>
@@ -325,8 +335,10 @@ export function ExtensionPage({ client }: { client: GameClient }): JSX.Element {
             <aside className="extension-sync__note">
               <strong>Per-browser setup</strong>
               <p className="muted">
-                Each player and the DM must install and sync their own userscript. Open or reload
-                this page and Roll20 after installing, updating, or switching characters.
+                Each player and the DM must install and sync their own userscript. After the first
+                installation, refresh any Roll20 tab that was already open; browser extensions
+                cannot inject newly installed userscripts into existing pages. Also reload this app
+                after installing, updating, or switching characters.
               </p>
             </aside>
           </section>

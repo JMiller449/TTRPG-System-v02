@@ -69,6 +69,12 @@ both the compatible roll mode and a `public` or `gm` Roll20 visibility choice.
 Public is the request default for older clients; choosing GM affects only that
 invocation and does not rewrite the action definition.
 
+The Actions tab places the authoritative Action / Reaction Point balance and
+manual Spend, Restore, and Reset controls above the command catalog. A compact
+read-only balance remains in the character header across tabs, while Dodge and
+Movement stay on Overview. This placement does not change the existing runtime
+routes, bounds, or role permissions.
+
 On the GM character surface, direct assignment controls live on the action cards
 instead of in a separate horizontally scrolling manager. Add Existing opens a
 filtered action-catalog dialog. Create Action reuses the contextual validated

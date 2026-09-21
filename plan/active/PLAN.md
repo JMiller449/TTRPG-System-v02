@@ -57,6 +57,12 @@ The core character-sheet and authored-action dice-roller MVP is implemented.
   undo; checkpoint v54 migration; shared character-sheet summary and DM controls.
   See [architecture](../../architecture/features/stat-point-provenance.md).
   Level-up awards remain explicit GM assignments under active rules §8.1.
+  Major-stat hover/focus now separates Starter, User assigned, DM assigned, and
+  active augmentations; schema v55 treats imported pre-ledger balances as Starter.
+  GM major-stat clicks use an additive point-award dialog and a positive-delta
+  backend intent instead of the former inline resulting-value editor.
+  GMs can grant additive unspent points from the provenance panel; the append-only
+  audit labels those transactions as “Gave unassigned points.”
   Verified with 654 backend tests, 531 frontend tests, TypeScript checking,
   production build, focused lint/format checks, and desktop/mobile UI previews.
 
@@ -90,6 +96,10 @@ Backend:
   number of independently growth-enabled bindings per action; equipping an item
   alone does not add proficiency state. Weapon family/type and damage
   classifications are managed tags rather than item profiles.
+- Assigned players can record a positive quantity of qualifying uses against an
+  existing Proficiency on their own character. This append-only backend intent
+  cannot set/reduce progression, change growth, manage assignments, or target
+  another instance; GMs retain the existing full correction editor.
 - Damage/resistance uses canonical damage types, fractional resistance values, cap/clamp rules, one final floor, semantic damage action steps, and manual amount/type damage intake. Spawned instances cumulatively track authoritative post-resistance damage by type for GM display and per-type reset.
 - Action history is persisted as a bounded audit/status stream with DM/player redaction.
 
@@ -103,6 +113,8 @@ Frontend:
 - A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - Character kill history and XP progress are projections filtered from the authoritative registry for the selected spawned instance. Players may record a final blow only against a DM-exposed enemy name; the backend derives the submitting character, canonical XP, and current party participants. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party or visibility changes do not rewrite history.
+- Character Kills defaults to a compact enemy summary that combines case/whitespace-equivalent names and batch quantities (for example, `60× Zombie`), with a Summary/Feed switch for the chronological record details.
+- The deterministic development seed gives Example Player 2 eight kill records totaling 144 enemies across repeated and single-batch groups for Summary/Feed testing, while Example Player 1 retains the in-progress XP fixture.
 - Player sheets show read-only current resistances and an XP progress bar for their assigned sheet. The GM spawned-sheet workspace is clearly separated from template authoring and includes a snapshot-as-template action.
 - GM Characters can despawn spawned sheet instances through a backend-authoritative delete-instance request that also clears runtime conditions/effects and player access codes tied to that instance.
 - GM Characters can grant arbitrary unassigned stat points to a spawned sheet instance; assigned players can stage them across the six core stats, undo only staged additions, and lock them in through a backend-authoritative allocation request. Substats are not allocation targets.
@@ -130,6 +142,8 @@ Frontend:
 - Character notes use a full-width responsive writing workspace with an explicit
   saved/pending state instead of inheriting the generic horizontal column layout.
 - The frontend visual system now follows the dense R6 console reference layout: an edge-to-edge status header, grouped GM rail, non-blocking toast feedback, compact authoritative character workspace, vertical template section rail, and reusable catalog/editor authoring pages. This was a presentation-only pivot and did not add or remove application capabilities.
+- Shared authoring catalogs initialize every folder collapsed. Search still reveals matching nested
+  paths temporarily, and manual expansion remains local presentation state.
 - Character Actions surfaces resolve backend-authoritative direct assignments and eligible
   item-granted actions, including their exact item source, roll mode, and invocation visibility.
 - Roll modes are action-specific: check actions support normal/advantage/disadvantage; damage actions support normal/critical.
@@ -216,7 +230,7 @@ Frontend:
   ownership and backend effect behavior are unchanged.
 - Frontend theme tokens now centralize the active dark console palette, and legacy white/light component surfaces in authoring, picker, roll, XP, item, template, and sheet CSS have been replaced with semantic theme variables.
 - Frontend readability/compactness pass (2026-07-04): raw IDs removed from all user-facing surfaces (access codes, sheet headers, proficiency/selector editors now use names with auto-derived IDs), builder pages gained plain-language subtitles and rewritten helper copy, radius tokens sharpened with nested boxed rows flattened to dividers, and overflowing panel content (authoring editors, catalog lists, non-overview sheet tabs) now flows into horizontal swipe columns instead of vertical scrolling. Presentation-only; no capability or protocol changes.
-- GM spawned-sheet management consolidation (2026-07-31): infrequent character administration lives in a dedicated GM-only Management tab. Player-code generation/rotation, template snapshots, and despawning operate on the selected instance. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; Action / Reaction Points remain immediately visible. The consolidation reuses existing backend contracts and does not change gameplay behavior.
+- GM spawned-sheet management consolidation (2026-07-31): infrequent character administration lives in a dedicated GM-only Management tab. Player-code generation/rotation, template snapshots, and despawning operate on the selected instance. GM Unassigned Stat Points and Contribution Points controls are collapsed by default with their current values retained in the summaries; the Action / Reaction balance remains visible in the character header while its controls live with the Actions catalog. The consolidation reuses existing backend contracts and does not change gameplay behavior.
 - Shared Player/GM sheet presentation (2026-08-29): both consoles now render the same full-width frameless character-sheet surface, internal tab navigation, compact Stats section, and desktop density. The shared identity header consolidates character identity, Health/Mana, Level, and Experience; GM Level editing opens only when its display is selected instead of occupying permanent header space. Player navigation switches only between the character sheet and extension setup; GM-only history, management, editing, and private projections remain capability-controlled inside the shared sheet. The prior GM-only width cap, density treatment, and taller-display Player divergence were removed so shared component and style cleanup applies to both roles directly. No backend authority, protocol, or gameplay behavior changed.
 - Character resource hierarchy (2026-08-29): Health and Mana values and meters now use an eased, text-softened interpolation from their distinct resource colors toward the danger color as the authoritative remaining percentage falls. Redundant current-minus-maximum badges were removed, and no arbitrary frontend warning threshold was introduced. The identity/resources, advancement, and tab regions now share one continuous header surface without full-width separator rules or contrasting bands. Presentation-only; resource mutation and clamping behavior are unchanged.
 - Full-width workspace surfaces (2026-08-29): shared workspace stacks no longer impose a blanket 1360px cap or automatic centering, and every authenticated destination Panel now opts into an explicit workspace variant without redundant strong outer framing. This includes stacked Backup & Undo panels and Extension in either role shell; Extension's synchronized state also fills the destination instead of nesting a centered, independently framed panel. Features own any intentionally narrower reading/form measure, while nested cards and dialogs retain their semantic boundaries. Non-interactive Action History records use the same softened outline treatment as character stat cards. Presentation-only; no protocol or behavior changed.
@@ -225,7 +239,7 @@ Frontend:
   Hover or keyboard focus explains the stored expression and aliases; a GM click opens a focused
   modal for that substat only. The duplicate Formula Stats tab and multi-stat editor list were
   removed, while players retain read-only formula explanations.
-- Spawned-sheet overviews show the handbook-defined Dexterity-based Dodge chance and movement speed inline with Action / Reaction Points in the shared GM and Player sheet viewer. Dodge comes from backend-evaluated sheet stats, while movement is a backend-projected value based on the greatest Dexterity threshold met; values beyond the documented table display `GM discretion`. Neither rule is recalculated by the frontend.
+- Spawned-sheet overviews show the handbook-defined Dexterity-based Dodge chance and movement speed in the shared GM and Player sheet viewer, while Action / Reaction controls live with the Actions catalog. Dodge comes from backend-evaluated sheet stats, while movement is a backend-projected value based on the greatest Dexterity threshold met; values beyond the documented table display `GM discretion`. Neither rule is recalculated by the frontend.
 - GM Action / Reaction Point parity (2026-08-09): the Characters workspace now exposes the existing Spend, Restore, and Reset controls for both player-character and monster instances. The same authoritative runtime routes enforce bounds; assigned players remain limited to their own player character.
 - GM Attributes layout cleanup (2026-07-31): optional-Attribute attachment now owns a compact full-width toolbar above the card collection instead of consuming the first grid cell, attached Attribute cards use the available width in a responsive grid, and value/formula actions use the shared control styling with aligned fields and buttons. Presentation-only; authoritative Attribute behavior is unchanged.
 - Formula-tag selector cleanup (2026-07-31): the shared managed-tag picker presents tags as compact wrapping toggle chips, with selected treatment, hidden checkbox chrome, hover/focus feedback, description tooltips, and a permanently visible scrollbar gutter for its bounded list. Its catalog remains visible and searchable inside narrow formula editors, while folder controls keep full-width hierarchy rows. Catalog organization and saved tag semantics are unchanged.
@@ -297,7 +311,8 @@ No large architecture feature is currently missing for the stated character-shee
   - Default instance Health, Mana, and resistances are initialized from the template by
     the backend when the DM does not explicitly override them.
   - The Extension workspace presents the Violentmonkey/userscript setup as an ordered
-    install, reload, and re-login sequence.
+    install, Roll20 refresh, app reload, and re-login sequence, explicitly noting that
+    first-time extension installation cannot inject into an already-open Roll20 page.
   - Successful authored actions populate the persisted, bounded action-history audit
     stream through non-undoable authoritative patches; live patches use the same
     role-filtered string payloads as snapshots for both DMs and assigned players. The
@@ -467,6 +482,8 @@ No large architecture feature is currently missing for the stated character-shee
       action/reaction-point balance,
       nonnegative contribution-point balances with audit records, and persistent
       per-instance action pins with stale-reference cleanup (schema v32).
+- [x] Allow claimed players to set and adjust contribution points on their own
+      instance while preserving GM access and rejecting cross-sheet mutations.
 - [x] Resolve the 2026-07-19 table-feedback usability and character-detail follow-up:
   - [x] Base-template and current-instance formula variables are unambiguous. During
         character action execution, ordinary rooted `sheet` aliases such as `@arc` resolve

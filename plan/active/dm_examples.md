@@ -17,6 +17,9 @@ Current starter records include:
 - Custom proficiencies: Pyromancy, Shadow Steps, Gate Lore, plus seeded weapon
   families such as Long Swords and Knives.
 - Items: equippable gear and weapons, consumables, and inventory-only records.
+  Example Player 1 also equips Iron Gauntlets (+3 Strength), Training Bracers
+  (+1 Strength), and Weighted Greaves (-2 Dexterity) to exercise stacked and
+  subtractive core-stat augmentation breakdowns.
 - Conditions/effects: Shadow Bound, Bleeding, Parry Advantage, Mana Manipulation
   bonuses.
 - Actions: checks, spell to-hit, spell damage, weapon actions, resource costs,
@@ -24,8 +27,9 @@ Current starter records include:
 - Encounter presets: Red Gate Scouts, Ash Wraith Threshold.
 - Global formulas used by Flames of Life, Ember Bolt, and Gate Lore actions.
 - Instanced players with deterministic development access codes.
-- XP thresholds showing both in-progress (75/100) and ready-to-level (60/60)
-  player states, backed by seeded enemy kill records and XP values.
+- XP thresholds showing both in-progress (75/100) and ready-to-level (1020/60)
+  player states. Example Player 2 has eight seeded records totaling 144 enemies,
+  including repeated Zombie and Skeleton batches for Summary/Feed testing.
 - A condition/effect matrix covering direct value changes, evaluation-time
   formula modifiers, roll-mode modifiers, lifecycle notes, public/GM-only
   visibility, and conditions with no automatic mechanical effect.

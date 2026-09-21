@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Field } from "@/shared/ui/Field";
 
 function formatFraction(value: number): string {
@@ -8,8 +8,6 @@ function formatFraction(value: number): string {
 export function SheetReactionResource({
   current,
   maximum,
-  dodgeChance,
-  movementSpeed,
   canManage,
   onSpend,
   onRestore,
@@ -17,8 +15,6 @@ export function SheetReactionResource({
 }: {
   current: number;
   maximum: number;
-  dodgeChance: number;
-  movementSpeed: number | null;
   canManage: boolean;
   onSpend: () => void;
   onRestore: () => void;
@@ -67,25 +63,44 @@ export function SheetReactionResource({
             </button>
           </div>
         ) : null}
-        <dl className="sheet-runtime-resource__readouts">
-          <div
-            className="sheet-runtime-resource__metric"
-            title="Dodge = FLOOR(Dexterity × (d100 / 100))"
-          >
-            <dt>Dodge</dt>
-            <dd>{formatFraction(dodgeChance)}</dd>
-          </div>
-          <div
-            className="sheet-runtime-resource__metric"
-            title="Movement uses the greatest Dexterity threshold met. Values above 400 are handled by GM discretion."
-          >
-            <dt>Movement</dt>
-            <dd>
-              {movementSpeed === null ? "GM discretion" : `${formatFraction(movementSpeed)} ft`}
-            </dd>
-          </div>
-        </dl>
       </div>
+    </section>
+  );
+}
+
+export function SheetMobilitySummary({
+  dodgeChance,
+  movementSpeed,
+  compact = false
+}: {
+  dodgeChance: number;
+  movementSpeed: number | null;
+  compact?: boolean;
+}): JSX.Element {
+  return (
+    <section
+      className={`character-sheet__section character-sheet__section--compact sheet-mobility-summary ${compact ? "sheet-mobility-summary--compact" : ""}`}
+      aria-label="Dodge and movement"
+    >
+      {!compact ? <h4>Defense &amp; Movement</h4> : null}
+      <dl className="sheet-runtime-resource__readouts">
+        <div
+          className="sheet-runtime-resource__metric"
+          title="Dodge = FLOOR(Dexterity × (d100 / 100))"
+        >
+          <dt>Dodge</dt>
+          <dd>{formatFraction(dodgeChance)}</dd>
+        </div>
+        <div
+          className="sheet-runtime-resource__metric"
+          title="Movement uses the greatest Dexterity threshold met. Values above 400 are handled by GM discretion."
+        >
+          <dt>Movement</dt>
+          <dd>
+            {movementSpeed === null ? "GM discretion" : `${formatFraction(movementSpeed)} ft`}
+          </dd>
+        </div>
+      </dl>
     </section>
   );
 }
@@ -94,34 +109,78 @@ export function SheetContributionPoints({
   value,
   canManage,
   onSet,
-  onAdjust
+  onAdjust,
+  compact = false
 }: {
   value: number;
   canManage: boolean;
   onSet: (value: number) => void;
   onAdjust: (delta: number) => void;
+  compact?: boolean;
 }): JSX.Element {
   const [amount, setAmount] = useState("0");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const parsedAmount = Number(amount);
   const validAmount = Number.isInteger(parsedAmount) && parsedAmount >= 0;
 
+  useEffect(() => {
+    if (!canManage) {
+      return;
+    }
+
+    const dismiss = (): void => {
+      if (detailsRef.current) {
+        detailsRef.current.open = false;
+      }
+    };
+    const handlePointerDown = (event: PointerEvent): void => {
+      if (
+        !detailsRef.current?.open ||
+        (event.target instanceof Node && detailsRef.current.contains(event.target))
+      ) {
+        return;
+      }
+      dismiss();
+    };
+    const handleKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === "Escape" && detailsRef.current?.open) {
+        dismiss();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canManage]);
+
   if (!canManage) {
     return (
-      <section className="character-sheet__section character-sheet__section--compact">
-        <h4>Contribution Points</h4>
+      <section
+        className={`character-sheet__section character-sheet__section--compact sheet-contribution-points sheet-contribution-points--read-only ${compact ? "sheet-contribution-points--compact" : ""}`}
+        aria-label={compact ? `Contribution points: ${value}` : undefined}
+      >
+        <h4>{compact ? "CP" : "Contribution Points"}</h4>
         <p className="muted">
-          Current balance: <strong>{value}</strong>
+          {compact ? null : "Current balance: "}
+          <strong>{value}</strong>
         </p>
       </section>
     );
   }
 
   return (
-    <details className="character-sheet__utility character-sheet__section--compact">
+    <details
+      ref={detailsRef}
+      className={`character-sheet__utility character-sheet__section--compact sheet-contribution-points ${compact ? "sheet-contribution-points--compact" : ""}`}
+    >
       <summary className="character-sheet__utility-summary">
-        <span>Contribution Points</span>
+        <span>{compact ? "CP" : "Contribution Points"}</span>
         <span className="character-sheet__utility-value">
-          Current balance: <strong>{value}</strong>
+          {compact ? null : "Current balance: "}
+          <strong>{value}</strong>
         </span>
       </summary>
       <div className="character-sheet__utility-body">

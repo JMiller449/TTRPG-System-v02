@@ -18,17 +18,7 @@ const baseProps = {
       tags: []
     }
   },
-  editingKey: null,
-  draftModifier: "",
-  editorError: null,
-  getModifier: () => 0,
-  getCurrentValue: (_key: string, value: number) => value,
-  onBeginEditing: () => undefined,
-  onApplyModifier: () => undefined,
-  onResetModifier: () => undefined,
-  onDraftModifierChange: () => undefined,
-  onCancelEditing: () => undefined,
-  onEditorKeyDown: () => undefined
+  onAddCoreStatPoints: () => undefined
 };
 
 beforeEach(() => {
@@ -44,6 +34,67 @@ afterEach(async () => {
 });
 
 describe("SheetStatsSection formula interaction", () => {
+  it("opens point granting from a GM major-stat click", async () => {
+    const onAddCoreStatPoints = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(SheetStatsSection, {
+          ...baseProps,
+          canEditStats: true,
+          onAddCoreStatPoints
+        })
+      );
+    });
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Add points to Strength. Current value 11."]'
+        )
+        ?.click()
+    );
+    expect(onAddCoreStatPoints).toHaveBeenCalledWith("strength");
+    expect(container.querySelector('[aria-label^="Edit Strength"]')).toBeNull();
+  });
+
+  it("explains major-stat assignment origins and active augmentations", async () => {
+    await act(async () => {
+      root.render(
+        createElement(SheetStatsSection, {
+          ...baseProps,
+          canEditStats: false,
+          instanceId: "hero",
+          statPointSummary: {
+            allocated: { strength: 10 },
+            assignment_origins: { strength: { starter: 8, user: 1, dm: 1 } }
+          },
+          augmentations: {
+            gauntlets: {
+              id: "gauntlets",
+              name: "Iron Gauntlets",
+              source: { type: "item", label: "Iron Gauntlets" },
+              scope: "instance",
+              target: { root: "instance", path: ["stats", "strength"] },
+              effect: {
+                type: "formula_modifier",
+                operation: "add",
+                value: { text: "1", aliases: null, tags: [] }
+              },
+              applied: true,
+              applied_target_id: "hero"
+            }
+          }
+        })
+      );
+    });
+
+    expect(container.textContent).toContain("Effective: 11");
+    expect(container.textContent).toContain("Base total: 10");
+    expect(container.textContent).toContain("Starter: 8");
+    expect(container.textContent).toContain("User assigned: 1");
+    expect(container.textContent).toContain("DM assigned: 1");
+    expect(container.textContent).toContain("Iron Gauntlets: Add 1 to the target value");
+  });
+
   it("explains a derived formula and lets a GM edit that exact substat", async () => {
     const onEditFormulaStat = vi.fn();
     await act(async () => {

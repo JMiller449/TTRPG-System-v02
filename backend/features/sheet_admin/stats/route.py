@@ -11,6 +11,8 @@ from backend.features.session.models import WebSocketSession
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_admin.stats import service
 from backend.features.sheet_admin.stats.schema import (
+    AdjustInstancedSheetBaseStat,
+    AdjustInstancedSheetUnassignedStatPoints,
     AllocateInstancedSheetStatPoints,
     SetInstancedSheetBaseStat,
     SetInstancedSheetFormulaStat,
@@ -61,6 +63,25 @@ class SetInstancedSheetBaseStatRoute(RequestRoute[SetInstancedSheetBaseStat]):
         await service.set_instanced_base_stat(request)
 
 
+class AdjustInstancedSheetBaseStatRoute(RequestRoute[AdjustInstancedSheetBaseStat]):
+    type_name = "adjust_instanced_sheet_base_stat"
+    request_model = AdjustInstancedSheetBaseStat
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("stat_edit")
+    permission_denied_reason = permission_denied_reason("stat_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceStats",
+        method_name="adjustBaseStat",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: AdjustInstancedSheetBaseStat,
+    ) -> None:
+        await service.adjust_instanced_base_stat(request)
+
+
 class SetInstancedSheetUnassignedStatPointsRoute(
     RequestRoute[SetInstancedSheetUnassignedStatPoints]
 ):
@@ -79,6 +100,26 @@ class SetInstancedSheetUnassignedStatPointsRoute(
         request: SetInstancedSheetUnassignedStatPoints,
     ) -> None:
         await service.set_instanced_unassigned_stat_points(request)
+
+
+class AdjustInstancedSheetUnassignedStatPointsRoute(
+    RequestRoute[AdjustInstancedSheetUnassignedStatPoints]
+):
+    type_name = "adjust_instanced_sheet_unassigned_stat_points"
+    request_model = AdjustInstancedSheetUnassignedStatPoints
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceStats",
+        method_name="adjustUnassignedStatPoints",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: AdjustInstancedSheetUnassignedStatPoints,
+    ) -> None:
+        await service.adjust_instanced_unassigned_stat_points(request)
 
 
 class AllocateInstancedSheetStatPointsRoute(
@@ -184,7 +225,9 @@ class SetInstancedSheetResistancesRoute(RequestRoute[SetInstancedSheetResistance
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(SetSheetBaseStatRoute())
     registry.register(SetInstancedSheetBaseStatRoute())
+    registry.register(AdjustInstancedSheetBaseStatRoute())
     registry.register(SetInstancedSheetUnassignedStatPointsRoute())
+    registry.register(AdjustInstancedSheetUnassignedStatPointsRoute())
     registry.register(AllocateInstancedSheetStatPointsRoute())
     registry.register(SetSheetFormulaStatRoute())
     registry.register(SetInstancedSheetFormulaStatRoute())

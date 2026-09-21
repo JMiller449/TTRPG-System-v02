@@ -49,6 +49,11 @@ export function parseSheetProficiencyUseCount(raw: string): number | null {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+export function parseSheetProficiencyUseQuantity(raw: string): number | null {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 10000 ? parsed : null;
+}
+
 export function parseSheetProficiencyGrowthRate(raw: string): number | null {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;

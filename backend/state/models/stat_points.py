@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 PointSource = Literal["starting", "level_up", "manual", "legacy_unknown"]
 POINT_SOURCES: tuple[PointSource, ...] = ("starting", "level_up", "manual", "legacy_unknown")
+AssignmentOrigin = Literal["starter", "user", "dm"]
 CORE_STATS = ("strength", "dexterity", "constitution", "perception", "arcane", "will")
 LOCATIONS = ("unspent", *CORE_STATS)
 
@@ -60,5 +61,6 @@ class StatPointSummary:
     allocation_sources: dict[str, dict[PointSource, int]] = field(default_factory=dict)
     unspent_sources: dict[PointSource, int] = field(default_factory=dict)
     player_allocations: dict[str, int] = field(default_factory=dict)
+    assignment_origins: dict[str, dict[AssignmentOrigin, int]] = field(default_factory=dict)
     reconciles: bool = False
     has_legacy_baseline: bool = False

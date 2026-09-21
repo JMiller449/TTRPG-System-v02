@@ -4,6 +4,7 @@ import {
   formatSheetProficiencyPercentage,
   parseSheetProficiencyGrowthRate,
   parseSheetProficiencyUseCount,
+  parseSheetProficiencyUseQuantity,
   selectAvailableSheetProficiencies,
   selectSheetProficiencyEntries,
   toSheetProficiencyBridgePayload
@@ -34,19 +35,23 @@ export function SheetProficienciesSection({
   proficiencyOrder,
   sheetProficiencies,
   canEdit,
+  canAddUses = false,
   onCreate,
   onOpenCreateProficiency,
   onUpdate,
-  onDelete
+  onDelete,
+  onAddUses
 }: {
   proficiencyDefinitions: Record<string, ProficiencyDefinition>;
   proficiencyOrder: string[];
   sheetProficiencies: ProficiencyBridge[];
   canEdit: boolean;
+  canAddUses?: boolean;
   onCreate: (bridge: SheetProficiencyBridgePayload) => void;
   onOpenCreateProficiency?: () => void;
   onUpdate: (relationshipId: string, bridge: SheetProficiencyBridgePayload) => void;
   onDelete: (relationshipId: string) => void;
+  onAddUses?: (relationshipId: string, quantity: number) => void;
 }): JSX.Element {
   const entries = useMemo(
     () => selectSheetProficiencyEntries(sheetProficiencies, proficiencyDefinitions),
@@ -67,6 +72,7 @@ export function SheetProficienciesSection({
   const [newUseCount, setNewUseCount] = useState("0");
   const [newGrowthRate, setNewGrowthRate] = useState("1");
   const [drafts, setDrafts] = useState<Record<string, ProficiencyBridgeDraft>>({});
+  const [useQuantities, setUseQuantities] = useState<Record<string, string>>({});
 
   const availableProficiencyIds = availableProficiencies
     .map((proficiency) => proficiency.id)
@@ -144,6 +150,8 @@ export function SheetProficienciesSection({
       <div className="sheet-proficiency-grid">
         {entries.length === 0 ? <EmptyState message="No proficiencies assigned yet." /> : null}
         {entries.map(({ bridge, proficiency, label }) => {
+          const useQuantity = useQuantities[bridge.relationship_id] ?? "1";
+          const parsedUseQuantity = parseSheetProficiencyUseQuantity(useQuantity);
           const content = (
             <>
               <span className="sheet-proficiency-summary__heading">
@@ -194,6 +202,42 @@ export function SheetProficienciesSection({
           ) : (
             <article key={bridge.relationship_id} className={className}>
               {content}
+              {canAddUses && onAddUses && proficiency ? (
+                <form
+                  className="sheet-proficiency-summary__actions"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (parsedUseQuantity === null) return;
+                    onAddUses(bridge.relationship_id, parsedUseQuantity);
+                    setUseQuantities((current) => ({
+                      ...current,
+                      [bridge.relationship_id]: "1"
+                    }));
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    step="1"
+                    aria-label={`Uses to add to ${label}`}
+                    value={useQuantity}
+                    onChange={(event) =>
+                      setUseQuantities((current) => ({
+                        ...current,
+                        [bridge.relationship_id]: event.target.value
+                      }))
+                    }
+                  />
+                  <button
+                    type="submit"
+                    className="button button--secondary"
+                    disabled={parsedUseQuantity === null}
+                  >
+                    Add Uses
+                  </button>
+                </form>
+              ) : null}
             </article>
           );
         })}

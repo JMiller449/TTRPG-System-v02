@@ -173,9 +173,12 @@ through app websocket requests and the `/ws/chat` bridge only.
    userscript.
 2. If the bridge is not detected, install Violentmonkey if needed, choose
    **Install or Update Roll20 Bridge**, and approve Violentmonkey's prompt.
-3. Return to the Extension tab and choose **Reload to Activate** once after a
+3. Refresh any Roll20 tab that was already open during the first installation.
+   Violentmonkey cannot inject a newly installed userscript into a page that was
+   loaded before installation.
+4. Return to the Extension tab and choose **Reload to Activate** once after a
    new installation, then choose **Sync Bridge**.
-4. Open or reload the Roll20 editor and use **Refresh Status** or **Send Test
+5. Open or reload the Roll20 editor and use **Refresh Status** or **Send Test
    Message** to verify delivery.
 
 Local development serves the install artifact at

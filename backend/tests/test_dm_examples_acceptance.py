@@ -114,6 +114,8 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
             assert authored.standalone_effect_applications == {}
             authored_instance = authored.instanced_sheets[INSTANCE_ID]
             assert authored_instance.stats is not None
+            assert authored_instance.stats.strength == 14
+            assert authored_instance.stats.dexterity == 8
             assert authored_instance.stats.perception == 12
             assert authored_instance.resistances.resistance == pytest.approx(0.10)
             assert authored_instance.resistances.fire == pytest.approx(0.25)
@@ -142,12 +144,14 @@ def test_dm_examples_author_persist_reload_equip_and_execute(
 
             persisted_projection_count = len(authored.direct_effect_projections)
             persisted_augmentation_ids = set(authored.augmentations)
-            assert persisted_projection_count == 4
+            assert persisted_projection_count == 6
 
             StateSingleton._state = None
             reloaded = StateSingleton.initializeState()
             reloaded_instance = reloaded.instanced_sheets[INSTANCE_ID]
             assert reloaded_instance.stats is not None
+            assert reloaded_instance.stats.strength == 14
+            assert reloaded_instance.stats.dexterity == 8
             assert reloaded_instance.stats.perception == 12
             assert reloaded_instance.resistances.resistance == pytest.approx(0.10)
             assert reloaded_instance.resistances.fire == pytest.approx(0.25)

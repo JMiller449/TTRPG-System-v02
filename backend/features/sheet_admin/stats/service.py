@@ -8,6 +8,8 @@ from backend.features.formula_runtime.service import (
 )
 from backend.features.sheet_admin.formulas.service import build_formula
 from backend.features.sheet_admin.stats.schema import (
+    AdjustInstancedSheetBaseStat,
+    AdjustInstancedSheetUnassignedStatPoints,
     AllocateInstancedSheetStatPoints,
     SetInstancedSheetBaseStat,
     SetInstancedSheetFormulaStat,
@@ -80,6 +82,39 @@ async def set_instanced_base_stat(request: SetInstancedSheetBaseStat) -> None:
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 
 
+async def adjust_instanced_base_stat(request: AdjustInstancedSheetBaseStat) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        if instance.stats is None:
+            raise ValueError(f"Instance '{request.instance_id}' has no runtime stats.")
+        previous_max_health = evaluate_resource_maximum(instance, "health")
+        previous_health = instance.health
+        path = state_sync_service.join_path(
+            "instanced_sheets", request.instance_id, "stats", request.stat_name
+        )
+        ops = [state_sync_service.increment_mutation(state, path, request.delta)]
+        next_max_health = evaluate_resource_maximum(instance, "health")
+        max_health_increase = max(0, next_max_health - previous_max_health)
+        if max_health_increase > 0:
+            health_path = state_sync_service.join_path(
+                "instanced_sheets", request.instance_id, "health"
+            )
+            ops.append(
+                state_sync_service.set_mutation(
+                    state,
+                    health_path,
+                    normalize_numeric_result(
+                        min(next_max_health, previous_health + max_health_increase)
+                    ),
+                )
+            )
+        return None, ops
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
 async def set_instanced_unassigned_stat_points(
     request: SetInstancedSheetUnassignedStatPoints,
 ) -> None:
@@ -94,6 +129,21 @@ async def set_instanced_unassigned_stat_points(
         )
         op = state_sync_service.set_mutation(state, path, request.value)
         return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def adjust_instanced_unassigned_stat_points(
+    request: AdjustInstancedSheetUnassignedStatPoints,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        instance = state.instanced_sheets.get(request.instance_id)
+        if instance is None:
+            raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        path = state_sync_service.join_path(
+            "instanced_sheets", request.instance_id, "unassigned_stat_points"
+        )
+        return None, [state_sync_service.increment_mutation(state, path, request.delta)]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 

@@ -63,9 +63,10 @@ lifting a child would create a duplicate sibling folder name.
 
 [`frontend/src/features/catalogs/CatalogBrowser.tsx`](../../frontend/src/features/catalogs/CatalogBrowser.tsx)
 is the shared nested browser. It supplies search, root/folder creation menus,
-collapsible folders, rename/delete controls, selection, and native drag-and-drop
-for folders and entries. Catalog pages provide entity labels, search text, selection
-behavior, creation callbacks, and optional entry rendering.
+folders collapsed by default with local expansion controls, rename/delete controls,
+selection, and native drag-and-drop for folders and entries. Search temporarily reveals
+matching nested paths without changing the user's expansion choices. Catalog pages provide
+entity labels, search text, selection behavior, creation callbacks, and optional entry rendering.
 
 [`frontend/src/features/catalogs/CatalogEntityPicker.tsx`](../../frontend/src/features/catalogs/CatalogEntityPicker.tsx)
 is the consumer-side picker. It projects the same hierarchy into a searchable

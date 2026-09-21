@@ -326,6 +326,13 @@ class UpdateInstancedSheetProficiencyBridge(RequestModel):
     type: Literal["update_instanced_sheet_proficiency_bridge"]
 
 
+class AddInstancedSheetProficiencyUses(RequestModel):
+    instance_id: str = Field(min_length=1)
+    relationship_id: str = Field(min_length=1)
+    quantity: int = Field(ge=1, le=10000)
+    type: Literal["add_instanced_sheet_proficiency_uses"]
+
+
 class DeleteInstancedSheetProficiencyBridge(RequestModel):
     instance_id: str = Field(min_length=1)
     relationship_id: str = Field(min_length=1)

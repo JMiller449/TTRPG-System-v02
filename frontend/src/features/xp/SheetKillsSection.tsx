@@ -14,6 +14,7 @@ import { Field } from "@/shared/ui/Field";
 import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { makeId } from "@/shared/utils/id";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { summarizeKills } from "@/features/xp/killSummary";
 
 function formatXp(value: number): string {
   return value.toFixed(2).replace(/\.00$/, "");
@@ -44,6 +45,7 @@ export function SheetKillsSection({
   const validQuantity =
     Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [gmKillNotes, setGmKillNotes] = useState("");
+  const [historyView, setHistoryView] = useState<"summary" | "feed">("summary");
 
   useEffect(() => {
     if (requestedInstanceRef.current === instanceId) return;
@@ -96,6 +98,7 @@ export function SheetKillsSection({
       (Boolean(gmCustomMonsterName.trim()) &&
         Number.isFinite(parsedCustomXp) &&
         parsedCustomXp >= 0));
+  const killSummary = trackerSheet ? summarizeKills(filteredKills) : null;
 
   const closeGmKillDialog = (): void => {
     if (pendingRequestId) return;
@@ -181,7 +184,36 @@ export function SheetKillsSection({
       {trackerSheet && trackerSheet.kills.length > 0 ? (
         <section className="sheet-kill-history" aria-labelledby="sheet-kill-history-title">
           <div className="sheet-kill-history__header">
-            <h4 id="sheet-kill-history-title">Kill history</h4>
+            <div>
+              <h4 id="sheet-kill-history-title">Kill history</h4>
+              <span>
+                {historyView === "summary" && killSummary
+                  ? `${killSummary.totalQuantity} defeated · ${killSummary.groups.length} enemy ${killSummary.groups.length === 1 ? "type" : "types"}`
+                  : `${filteredKills.length} record${filteredKills.length === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            <div
+              className="sheet-kill-history__view-toggle"
+              role="group"
+              aria-label="Kill history view"
+            >
+              <button
+                type="button"
+                className={historyView === "summary" ? "is-active" : ""}
+                aria-pressed={historyView === "summary"}
+                onClick={() => setHistoryView("summary")}
+              >
+                Summary
+              </button>
+              <button
+                type="button"
+                className={historyView === "feed" ? "is-active" : ""}
+                aria-pressed={historyView === "feed"}
+                onClick={() => setHistoryView("feed")}
+              >
+                Feed
+              </button>
+            </div>
           </div>
           <KillHistoryFilters
             kills={trackerSheet.kills}
@@ -191,35 +223,50 @@ export function SheetKillsSection({
           />
           {filteredKills.length === 0 ? (
             <EmptyState message="No matching kills. Try changing or clearing the filters." />
-          ) : null}
-          <div className="sheet-kill-grid">
-            {filteredKills.map((kill) => (
-              <article className="sheet-kill-card" key={kill.id}>
-                <div className="sheet-kill-card__header">
-                  <strong>
-                    {(kill.quantity ?? 1) > 1 ? `${kill.quantity}× ` : ""}
-                    {kill.monster_name}
-                  </strong>
-                  <strong>{formatXp(kill.xp_per_participant)} XP</strong>
-                </div>
-                <time dateTime={kill.occurred_at}>
-                  {new Date(kill.occurred_at).toLocaleString()}
-                </time>
-                {kill.submitted_by_name ? (
-                  <span className="sheet-kill-card__recorder">
-                    Recorded by {kill.submitted_by_name}
-                  </span>
-                ) : null}
-                <footer>
-                  <span>{formatXp(kill.xp_percentage)}% credit</span>
-                  <span>
-                    {kill.participant_count} participant
-                    {kill.participant_count === 1 ? "" : "s"}
-                  </span>
-                </footer>
-              </article>
-            ))}
-          </div>
+          ) : historyView === "summary" && killSummary ? (
+            <div className="sheet-kill-summary-grid">
+              {killSummary.groups.map((group) => (
+                <article className="sheet-kill-summary-card" key={group.key}>
+                  <strong>{group.quantity}×</strong>
+                  <div>
+                    <h5>{group.monsterName}</h5>
+                    <span>
+                      {group.recordCount} record{group.recordCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="sheet-kill-grid">
+              {filteredKills.map((kill) => (
+                <article className="sheet-kill-card" key={kill.id}>
+                  <div className="sheet-kill-card__header">
+                    <strong>
+                      {(kill.quantity ?? 1) > 1 ? `${kill.quantity}× ` : ""}
+                      {kill.monster_name}
+                    </strong>
+                    <strong>{formatXp(kill.xp_per_participant)} XP</strong>
+                  </div>
+                  <time dateTime={kill.occurred_at}>
+                    {new Date(kill.occurred_at).toLocaleString()}
+                  </time>
+                  {kill.submitted_by_name ? (
+                    <span className="sheet-kill-card__recorder">
+                      Recorded by {kill.submitted_by_name}
+                    </span>
+                  ) : null}
+                  <footer>
+                    <span>{formatXp(kill.xp_percentage)}% credit</span>
+                    <span>
+                      {kill.participant_count} participant
+                      {kill.participant_count === 1 ? "" : "s"}
+                    </span>
+                  </footer>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
       {trackerSheet && trackerSheet.adjustments.length > 0 ? (

@@ -12,6 +12,7 @@ PermissionKey = Literal[
     "equipment_edit",
     "equipment_use",
     "proficiency_edit",
+    "proficiency_use_add",
     "stat_edit",
     "resource_edit",
     "action_execute",
@@ -70,6 +71,12 @@ PERMISSION_RULES: dict[PermissionKey, PermissionRule] = {
         label="Proficiency edits",
         allowed_roles=("dm",),
         denied_reason="Only a DM can edit proficiencies.",
+    ),
+    "proficiency_use_add": PermissionRule(
+        key="proficiency_use_add",
+        label="Assigned proficiency use recording",
+        allowed_roles=("player", "dm"),
+        denied_reason="Authenticate first to record proficiency uses.",
     ),
     "stat_edit": PermissionRule(
         key="stat_edit",

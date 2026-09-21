@@ -60,6 +60,53 @@ describe("SheetProficienciesSection", () => {
     expect(markup).not.toContain("<h4");
   });
 
+  it("lets a player add a quantity of uses without exposing progression editing", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onAddUses = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SheetProficienciesSection
+          proficiencyDefinitions={{ longsword }}
+          proficiencyOrder={["longsword"]}
+          sheetProficiencies={[assignedLongsword]}
+          canEdit={false}
+          canAddUses
+          onCreate={() => undefined}
+          onUpdate={() => undefined}
+          onDelete={() => undefined}
+          onAddUses={onAddUses}
+        />
+      );
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    const quantity = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Uses to add to Longsword"]'
+    );
+    expect(quantity?.value).toBe("1");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+        quantity,
+        "5"
+      );
+      quantity?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const addUsesButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add Uses"
+    );
+    await act(async () => addUsesButton?.click());
+
+    expect(onAddUses).toHaveBeenCalledWith("longsword", 5);
+    expect(quantity?.value).toBe("1");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   it("moves assignment, creation, and progression editing into focused dialogs", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");

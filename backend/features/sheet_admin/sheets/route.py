@@ -11,6 +11,7 @@ from backend.features.session.models import WebSocketSession
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_admin.sheets import service
 from backend.features.sheet_admin.sheets.schema import (
+    AddInstancedSheetProficiencyUses,
     AdjustInstancedSheetResource,
     CreateInstancedSheet,
     CreateInstancedSheetActionBridge,
@@ -624,6 +625,31 @@ class UpdateInstancedSheetProficiencyBridgeRoute(
         await service.update_linked_instanced_sheet_proficiency(request)
 
 
+class AddInstancedSheetProficiencyUsesRoute(
+    RequestRoute[AddInstancedSheetProficiencyUses]
+):
+    type_name = "add_instanced_sheet_proficiency_uses"
+    request_model = AddInstancedSheetProficiencyUses
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("proficiency_use_add")
+    permission_denied_reason = permission_denied_reason("proficiency_use_add")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetInstanceProficiencyBridges",
+        method_name="addUses",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: AddInstancedSheetProficiencyUses,
+    ) -> None:
+        sheet_access_service.ensure_session_can_access_instance(
+            session,
+            request.instance_id,
+        )
+        await service.add_instanced_sheet_proficiency_uses(request)
+
+
 class DeleteInstancedSheetProficiencyBridgeRoute(
     RequestRoute[DeleteInstancedSheetProficiencyBridge]
 ):
@@ -675,4 +701,5 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(DeleteSheetProficiencyBridgeRoute())
     registry.register(CreateInstancedSheetProficiencyBridgeRoute())
     registry.register(UpdateInstancedSheetProficiencyBridgeRoute())
+    registry.register(AddInstancedSheetProficiencyUsesRoute())
     registry.register(DeleteInstancedSheetProficiencyBridgeRoute())

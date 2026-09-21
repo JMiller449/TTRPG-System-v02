@@ -37,6 +37,20 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
     example_2 = first_state.sheets["starter_shadowblade_template"]
     assert example_1.name == "Example Player 1"
     assert example_1.attributes["xp_growth_rate"].evaluated_value == 1
+    seeded_instance = first_state.instanced_sheets["dm_examples_instance"]
+    assert seeded_instance.stats.strength == 14
+    assert seeded_instance.stats.dexterity == 8
+    assert {
+        "iron_gauntlets",
+        "training_bracers",
+        "weighted_greaves",
+    }.issubset(
+        {
+            effect.source.id
+            for effect in first_state.augmentations.values()
+            if effect.applied_target_id == "dm_examples_instance"
+        }
+    )
     assert sum(
         record.xp_per_participant
         for record in first_state.kill_registry.values()
@@ -48,6 +62,21 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
         record.xp_per_participant
         for record in first_state.kill_registry.values()
         if any(participant.instance_id == "starter_shadowblade_instance" for participant in record.participants)
+    ) == 1020
+    example_2_kills = [
+        record
+        for record in first_state.kill_registry.values()
+        if any(
+            participant.instance_id == "starter_shadowblade_instance"
+            for participant in record.participants
+        )
+    ]
+    assert len(example_2_kills) == 8
+    assert sum(record.quantity for record in example_2_kills) == 144
+    assert sum(
+        record.quantity
+        for record in example_2_kills
+        if record.monster_name == "Zombie"
     ) == 60
     effect_types = {
         template.effect.type

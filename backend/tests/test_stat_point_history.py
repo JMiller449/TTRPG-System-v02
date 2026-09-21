@@ -14,6 +14,7 @@ from backend.features.state_sync.service import state_sync_service as sync
 from backend.routes.ws import handle_client_payload, websocket_sessions
 from backend.state.migrations import build_persisted_state, migrate_persisted_state
 from backend.state.models.sheet import InstancedSheet, Sheet
+from backend.state.models.augmentation import DirectEffectProjection
 from backend.state.models.state import State
 from backend.state.store import DEFAULT_STATE, StateSingleton
 from backend.tests.test_sheet_admin_sheets import FakeWebSocket, _sheet_payload
@@ -68,6 +69,9 @@ def test_spawn_grants_allocations_exact_undo_and_reload(campaign: State) -> None
         assert summary.allocation_sources["strength"]["manual"] == 2
         assert summary.allocation_sources["arcane"]["manual"] == 1
         assert summary.player_allocations["strength"] == 5
+        assert summary.assignment_origins["strength"] == {
+            "starter": 10, "user": 5, "dm": 0,
+        }
         assert summary.reconciles
         allocations = [e for e in entries if e.kind == "allocation"]
         assert all(e.actor_role == "player" and e.actor_instance_id == "hero" for e in allocations)
@@ -108,10 +112,13 @@ def test_direct_level_award_and_despawn_preserve_history(campaign: State) -> Non
         await websocket_sessions.reset()
         dm = await connect()
         await spawn(dm)
-        await send(dm, "set_instanced_sheet_base_stat", instance_id="hero", stat_name="strength",
-                   value=14, point_source="level_up", reason="Level 2: strength +4")
+        await send(dm, "adjust_instanced_sheet_base_stat", instance_id="hero", stat_name="strength",
+                   delta=4, point_source="level_up", reason="Level 2: strength +4")
         summary, entries = project(campaign, "hero")
         assert summary.earned["level_up"] == 4
+        assert summary.assignment_origins["strength"] == {
+            "starter": 10, "user": 0, "dm": 4,
+        }
         last = entries[-1]
         assert (last.previous_value, last.resulting_value, last.amount) == (10, 14, 4)
         assert last.skill == "strength" and last.reason == "Level 2: strength +4"
@@ -126,7 +133,31 @@ def test_direct_level_award_and_despawn_preserve_history(campaign: State) -> Non
     asyncio.run(scenario())
 
 
-def test_legacy_migration_marks_unknown_and_detects_untracked_edits(campaign: State) -> None:
+def test_additive_unassigned_grant_has_explicit_audit_kind(campaign: State) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        dm = await connect()
+        await spawn(dm)
+        await send(
+            dm,
+            "adjust_instanced_sheet_unassigned_stat_points",
+            instance_id="hero",
+            delta=3,
+            point_source="manual",
+            reason="Quest reward",
+        )
+        summary, entries = project(campaign, "hero")
+        assert summary.unspent == 3
+        grant = entries[-1]
+        assert grant.kind == "unassigned_grant"
+        assert grant.amount == 3
+        assert grant.reason == "Quest reward"
+        assert grant.changes == {"unspent": {"manual": 3}}
+
+    asyncio.run(scenario())
+
+
+def test_legacy_migration_treats_existing_values_as_starter_points(campaign: State) -> None:
     template = campaign.sheets["mage_template"]
     campaign.instanced_sheets["legacy"] = InstancedSheet.from_dict(
         {"parent_id": template.id, "health": 30, "mana": 20, "augments": {}, "unassigned_stat_points": 9}, template=template)
@@ -135,15 +166,71 @@ def test_legacy_migration_marks_unknown_and_detects_untracked_edits(campaign: St
     migrated = migrate_persisted_state({"schema_version": 53, "state": raw})
     restored = State.from_dict(migrated.state)
     summary, entries = project(restored, "legacy")
-    assert summary.has_legacy_baseline
-    assert summary.earned["starting"] == 0
-    assert summary.unspent_sources["legacy_unknown"] == 9
+    assert not summary.has_legacy_baseline
+    assert summary.earned["starting"] == sum(summary.allocated.values()) + 9
+    assert summary.unspent_sources["starting"] == 9
+    assert summary.assignment_origins["strength"] == {
+        "starter": 10, "user": 0, "dm": 0,
+    }
     assert all(e.request_type == "baseline" for e in entries)
     again = State.from_dict(restored.to_dict(include_private=True))
     assert again.stat_point_history == restored.stat_point_history
     assert summary.reconciles
     restored.instanced_sheets["legacy"].stats.strength += 1
     assert not project(restored, "legacy")[0].reconciles
+
+
+def test_v55_reclassifies_existing_unknown_baselines_as_starter_points(campaign: State) -> None:
+    campaign.instanced_sheets["legacy"] = InstancedSheet.from_dict(
+        {
+            "parent_id": "mage_template",
+            "health": 30,
+            "mana": 20,
+            "augments": {},
+            "unassigned_stat_points": 0,
+        },
+        template=campaign.sheets["mage_template"],
+    )
+    initialize = deepcopy(campaign)
+    from backend.features.stat_points.service import initialize_legacy_baselines
+
+    initialize_legacy_baselines(initialize)
+    raw = initialize.to_dict(include_private=True)
+    for entry in raw["stat_point_history"].values():
+        for parts in entry["changes"].values():
+            parts["legacy_unknown"] = parts.pop("starting")
+    migrated = migrate_persisted_state({"schema_version": 54, "state": raw})
+    restored = State.from_dict(migrated.state)
+    summary, entries = project(restored, "legacy")
+    assert summary.earned["legacy_unknown"] == 0
+    assert summary.earned["starting"] == sum(summary.allocated.values())
+    assert all("legacy_unknown" not in parts for entry in entries for parts in entry.changes.values())
+    assert all(entry.reason == "Existing balance imported as starter points." for entry in entries)
+
+
+def test_direct_augmentation_is_excluded_from_permanent_point_assignment(campaign: State) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        dm = await connect()
+        await spawn(dm)
+        previous = deepcopy(campaign)
+        path = sync.join_path("instanced_sheets", "hero", "stats", "strength")
+        campaign.instanced_sheets["hero"].stats.strength = 12
+        campaign.direct_effect_projections[path] = DirectEffectProjection(
+            target_path=path,
+            base_value=10,
+            effective_value=12,
+        )
+        from backend.features.stat_points.service import audit_mutation
+
+        assert audit_mutation(campaign, previous) == []
+        summary, _ = project(campaign, "hero")
+        assert summary.allocated["strength"] == 10
+        assert summary.assignment_origins["strength"] == {
+            "starter": 10, "user": 0, "dm": 0,
+        }
+
+    asyncio.run(scenario())
 
 
 def test_snapshot_patch_redaction_authorization_and_failed_requests(campaign: State) -> None:

@@ -15,14 +15,22 @@ if TYPE_CHECKING:
     from backend.state.models.state import State
 
 
-def values_for(instance: Any, template: Any = None) -> dict[str, int]:
+def values_for(state: State, instance_id: str, instance: Any, template: Any = None) -> dict[str, int]:
+    from backend.features.state_sync.service import state_sync_service as sync
+
     stats = instance.stats or (template.stats if template else None)
-    return {"unspent": instance.unassigned_stat_points,
-            **{key: getattr(stats, key, 0) for key in CORE_STATS}}
+    values = {"unspent": instance.unassigned_stat_points,
+              **{key: getattr(stats, key, 0) for key in CORE_STATS}}
+    for key in CORE_STATS:
+        target_path = sync.join_path("instanced_sheets", instance_id, "stats", key)
+        projection = state.direct_effect_projections.get(target_path)
+        if projection is not None:
+            values[key] = projection.base_value
+    return values
 
 
 def baseline_entries(instance_id: str, name: str, values: dict[str, int],
-                     source: PointSource = "legacy_unknown") -> list[StatPointEntry]:
+                     source: PointSource = "starting") -> list[StatPointEntry]:
     now = datetime.now(timezone.utc).isoformat()
     return [StatPointEntry(
         id=str(uuid4()), instance_id=instance_id, character_name=name,
@@ -42,7 +50,7 @@ def initialize_legacy_baselines(state: State) -> None:
             continue
         template = state.sheets.get(instance.parent_id)
         for entry in baseline_entries(instance_id, template.name if template else instance_id,
-                                      values_for(instance, template)):
+                                      values_for(state, instance_id, instance, template)):
             state.stat_point_history[entry.id] = replace(entry, sequence=_next_sequence(state))
 
 
@@ -67,7 +75,7 @@ def _balances(entries: list[StatPointEntry]) -> dict[str, dict[PointSource, int]
 def project(state: State, instance_id: str) -> tuple[StatPointSummary, list[StatPointEntry]]:
     instance = state.instanced_sheets[instance_id]
     template = state.sheets.get(instance.parent_id)
-    values = values_for(instance, template)
+    values = values_for(state, instance_id, instance, template)
     entries = _entries(state, instance_id)
     # Supports in-memory fixture/seed construction before its first mutation.
     if not entries:
@@ -87,11 +95,28 @@ def project(state: State, instance_id: str) -> tuple[StatPointSummary, list[Stat
                 removed[source] += max(0, -net)
         if entry.player_allocation and entry.kind in {"allocation", "refund"} and entry.skill:
             player_allocations[entry.skill] += entry.amount
+    starter_allocations = {
+        key: sum(
+            entry.amount
+            for entry in entries
+            if entry.skill == key and entry.kind in {"spawn", "baseline"}
+        )
+        for key in CORE_STATS
+    }
+    assignment_origins = {
+        key: {
+            "starter": starter_allocations[key],
+            "user": player_allocations[key],
+            "dm": values[key] - starter_allocations[key] - player_allocations[key],
+        }
+        for key in CORE_STATS
+    }
     return StatPointSummary(
         earned=earned, removed=removed, unspent=values["unspent"],
         allocated={key: values[key] for key in CORE_STATS},
         allocation_sources={key: balances[key] for key in CORE_STATS},
         unspent_sources=balances["unspent"], player_allocations=player_allocations,
+        assignment_origins=assignment_origins,
         reconciles=all(sum(balances[key].values()) == values[key] for key in LOCATIONS),
         has_legacy_baseline=any("legacy_unknown" in changes for e in entries for changes in e.changes.values()),
     ), entries
@@ -129,8 +154,8 @@ def audit_mutation(state: State, previous: State) -> list[PatchOp]:
         new = state.instanced_sheets.get(instance_id)
         instance = new or old
         template = state.sheets.get(instance.parent_id) or previous.sheets.get(instance.parent_id)
-        before = values_for(old, template) if old else dict.fromkeys(LOCATIONS, 0)
-        after = values_for(new, template) if new else dict.fromkeys(LOCATIONS, 0)
+        before = values_for(previous, instance_id, old, template) if old else dict.fromkeys(LOCATIONS, 0)
+        after = values_for(state, instance_id, new, template) if new else dict.fromkeys(LOCATIONS, 0)
         if old and new and before == after:
             continue
         entries = _entries(state, instance_id)
@@ -155,6 +180,12 @@ def audit_mutation(state: State, previous: State) -> list[PatchOp]:
                 continue
             entry_source: PointSource = "starting" if old is None else source
             kind = "spawn" if old is None else "removal" if new is None else "adjustment"
+            if (
+                request_type == "adjust_instanced_sheet_unassigned_stat_points"
+                and key == "unspent"
+                and delta > 0
+            ):
+                kind = "unassigned_grant"
             changes: dict[str, dict[PointSource, int]]
             previous_pool = pool
             if transfer:

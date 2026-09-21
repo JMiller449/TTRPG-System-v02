@@ -14,15 +14,18 @@ from backend.features.session.models import SessionRole, WebSocketSession
 
 EXPECTED_ROUTE_MINIMUM_ROLES = {
     "add_player_inventory_item": "player",
+    "add_instanced_sheet_proficiency_uses": "player",
     "allocate_instanced_sheet_stat_points": "player",
     "adjust_instanced_sheet_resource": "player",
     "adjust_instanced_sheet_reactions": "player",
     "reset_instanced_sheet_reactions": "player",
     "reset_instanced_sheet_damage_tracker": "dm",
     "set_pinned_instance_actions": "player",
-    "set_contribution_points": "dm",
-    "adjust_contribution_points": "dm",
+    "set_contribution_points": "player",
+    "adjust_contribution_points": "player",
     "apply_instanced_sheet_damage": "player",
+    "adjust_instanced_sheet_base_stat": "dm",
+    "adjust_instanced_sheet_unassigned_stat_points": "dm",
     "attach_instanced_sheet_attribute": "dm",
     "attach_sheet_attribute": "dm",
     "attach_subject_attribute": "dm",
@@ -144,6 +147,8 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
 
 EXPECTED_CUSTOM_DENIAL_REASONS = {
     "adjust_instanced_sheet_resource": "Authenticate first to edit current resources.",
+    "adjust_instanced_sheet_base_stat": "Only a DM can edit sheet stats.",
+    "add_instanced_sheet_proficiency_uses": "Authenticate first to record proficiency uses.",
     "adjust_instanced_sheet_reactions": "Authenticate first to edit current resources.",
     "reset_instanced_sheet_reactions": "Authenticate first to edit current resources.",
     "apply_instanced_sheet_damage": "Authenticate first to edit current resources.",
@@ -196,6 +201,7 @@ def test_permission_policy_defines_edit_and_execution_roles() -> None:
     assert permission_allowed_roles("instance_profile_edit") == ("player", "dm")
     assert permission_allowed_roles("equipment_edit") == ("dm",)
     assert permission_allowed_roles("proficiency_edit") == ("dm",)
+    assert permission_allowed_roles("proficiency_use_add") == ("player", "dm")
     assert permission_allowed_roles("stat_edit") == ("dm",)
     assert permission_allowed_roles("resource_edit") == ("player", "dm")
     assert permission_allowed_roles("action_execute") == ("player", "dm")
@@ -205,6 +211,7 @@ def test_permission_policy_defines_edit_and_execution_roles() -> None:
     assert permission_minimum_role("instance_profile_edit") == "player"
     assert permission_minimum_role("equipment_edit") == "dm"
     assert permission_minimum_role("proficiency_edit") == "dm"
+    assert permission_minimum_role("proficiency_use_add") == "player"
     assert permission_minimum_role("stat_edit") == "dm"
     assert permission_minimum_role("resource_edit") == "player"
     assert permission_minimum_role("action_execute") == "player"
@@ -220,6 +227,7 @@ def test_permission_policy_rejects_unauthenticated_and_disallowed_roles() -> Non
 
     assert can_role("player", "action_execute")
     assert can_role("player", "resource_edit")
+    assert can_role("player", "proficiency_use_add")
     assert can_role("player", "instance_notes_edit")
     assert can_role("player", "instance_profile_edit")
     assert can_role("dm", "notes_edit")
@@ -227,6 +235,7 @@ def test_permission_policy_rejects_unauthenticated_and_disallowed_roles() -> Non
     assert can_role("dm", "instance_profile_edit")
     assert can_role("dm", "equipment_edit")
     assert can_role("dm", "proficiency_edit")
+    assert can_role("dm", "proficiency_use_add")
     assert can_role("dm", "stat_edit")
     assert can_role("dm", "resource_edit")
     assert can_role("dm", "action_execute")
@@ -246,6 +255,10 @@ def test_permission_policy_exposes_specific_denial_reasons() -> None:
     assert (
         permission_denied_reason("proficiency_edit")
         == "Only a DM can edit proficiencies."
+    )
+    assert (
+        permission_denied_reason("proficiency_use_add")
+        == "Authenticate first to record proficiency uses."
     )
     assert permission_denied_reason("stat_edit") == "Only a DM can edit sheet stats."
     assert (

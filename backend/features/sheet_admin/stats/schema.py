@@ -55,12 +55,29 @@ class SetInstancedSheetBaseStat(RequestModel):
     type: Literal["set_instanced_sheet_base_stat"]
 
 
+class AdjustInstancedSheetBaseStat(RequestModel):
+    instance_id: str = Field(min_length=1)
+    stat_name: BaseStatName
+    delta: int = Field(gt=0)
+    point_source: Literal["manual", "level_up"] = "manual"
+    reason: str = Field(default="", max_length=1000)
+    type: Literal["adjust_instanced_sheet_base_stat"]
+
+
 class SetInstancedSheetUnassignedStatPoints(RequestModel):
     instance_id: str = Field(min_length=1)
     value: int = Field(ge=0)
     point_source: Literal["manual", "level_up"] = "manual"
     reason: str = Field(default="", max_length=1000)
     type: Literal["set_instanced_sheet_unassigned_stat_points"]
+
+
+class AdjustInstancedSheetUnassignedStatPoints(RequestModel):
+    instance_id: str = Field(min_length=1)
+    delta: int = Field(gt=0)
+    point_source: Literal["manual", "level_up"] = "manual"
+    reason: str = Field(default="", max_length=1000)
+    type: Literal["adjust_instanced_sheet_unassigned_stat_points"]
 
 
 class AllocateInstancedSheetStatPoints(RequestModel):

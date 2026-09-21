@@ -43,6 +43,9 @@ describe("SheetLevelControl", () => {
     await act(async () => edit?.click());
 
     const input = container.querySelector<HTMLInputElement>("input");
+    expect(edit?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector(".sheet-level__editor")).not.toBeNull();
+    expect(container.textContent).toContain("Set character level");
     const save = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Save"
     );
@@ -65,7 +68,7 @@ describe("SheetLevelControl", () => {
     expect(container.querySelector("input")).toBeNull();
   });
 
-  it("cancels an open GM editor without saving", async () => {
+  it("dismisses an open GM editor on click-away without showing Cancel", async () => {
     const onSave = vi.fn();
     await act(async () => {
       root.render(<SheetLevelControl level={4} canEdit onSave={onSave} />);
@@ -79,14 +82,36 @@ describe("SheetLevelControl", () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "5");
       input?.dispatchEvent(new Event("input", { bubbles: true }));
     });
+
+    expect(container.textContent).not.toContain("Cancel");
     await act(async () =>
-      [...container.querySelectorAll("button")]
-        .find((button) => button.textContent === "Cancel")
-        ?.click()
+      container
+        .querySelector(".sheet-level__editor")
+        ?.dispatchEvent(new Event("pointerdown", { bubbles: true }))
     );
+    expect(container.querySelector("input")).not.toBeNull();
+
+    await act(async () => {
+      document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
 
     expect(onSave).not.toHaveBeenCalled();
     expect(container.querySelector("input")).toBeNull();
     expect(container.textContent).toContain("4");
+  });
+
+  it("toggles an open GM editor closed from the Level metric", async () => {
+    await act(async () => {
+      root.render(<SheetLevelControl level={4} canEdit onSave={() => undefined} />);
+    });
+
+    const edit = container.querySelector<HTMLButtonElement>('[aria-label^="Edit character level"]');
+    await act(async () => edit?.click());
+    expect(container.querySelector("input")).not.toBeNull();
+    expect(edit?.getAttribute("aria-expanded")).toBe("true");
+
+    await act(async () => edit?.click());
+    expect(container.querySelector("input")).toBeNull();
+    expect(edit?.getAttribute("aria-expanded")).toBe("false");
   });
 });

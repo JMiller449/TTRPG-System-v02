@@ -95,6 +95,13 @@ is the DM management workspace, including the two-mode `XpProgressionEditor`. GM
 use `SheetXpProgressBar` and `SheetKillsSection`. After its initial tracker
 request, the UI relies on pushed WebSocket updates instead of a manual refresh
 control.
+The character Kills view defaults to a compact summary that groups historical
+records by normalized enemy name and totals their batch quantities. A local
+Summary/Feed switch exposes the existing chronological record cards when dates,
+credit, participant counts, or submitter details are needed. This presentation
+uses the already role-filtered tracker projection, and the shared history filters
+apply to both views before grouping. It does not alter XP math or persist a second
+history representation.
 The GM character-history view exposes an Add Kill dialog scoped to the selected
 character. It reuses the standard kill-record request, resolves participants
 from current backend-owned party membership, and supports both registered enemy
@@ -180,8 +187,9 @@ Text search matches historical enemy/participant names, notes, and recorder name
 The expandable Filters controls combine participant identity, enemy template identity
 (or normalized custom enemy name), and inclusive local-calendar date bounds. Choices
 come from the complete supplied history, retaining despawned participants and custom
-enemies; filtering never requests additional records or alters XP totals. Counts refer
-to records, so a batch remains one card. Clear filters restores the supplied history.
+enemies; filtering never requests additional records or alters XP totals. Filter counts
+refer to records, so a batch remains one card in Feed while Summary groups the matching
+records by enemy name. Clear filters restores the supplied history.
 Invalid reversed dates show an explanation. Filters remain applied to pushed tracker
 updates and reset when switching the selected character.
 

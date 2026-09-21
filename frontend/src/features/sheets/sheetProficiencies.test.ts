@@ -5,6 +5,7 @@ import {
   getSheetProficiencyPercentage,
   parseSheetProficiencyGrowthRate,
   parseSheetProficiencyUseCount,
+  parseSheetProficiencyUseQuantity,
   selectAvailableSheetProficiencies,
   selectSheetProficiencyEntries,
   toSheetProficiencyBridgePayload
@@ -81,6 +82,12 @@ describe("sheetProficiencies", () => {
     expect(parseSheetProficiencyUseCount("12")).toBe(12);
     expect(parseSheetProficiencyUseCount("1.5")).toBeNull();
     expect(parseSheetProficiencyUseCount("-1")).toBeNull();
+
+    expect(parseSheetProficiencyUseQuantity("1")).toBe(1);
+    expect(parseSheetProficiencyUseQuantity("10000")).toBe(10000);
+    expect(parseSheetProficiencyUseQuantity("0")).toBeNull();
+    expect(parseSheetProficiencyUseQuantity("1.5")).toBeNull();
+    expect(parseSheetProficiencyUseQuantity("10001")).toBeNull();
 
     expect(parseSheetProficiencyGrowthRate("0")).toBe(0);
     expect(parseSheetProficiencyGrowthRate("0.75")).toBe(0.75);

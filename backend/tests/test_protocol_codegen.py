@@ -220,6 +220,8 @@ def test_typescript_codegen_exports_route_contract_manifest() -> None:
     assert "export type DeleteSheetItemBridge = {" in output
     assert '"type": "delete_sheet_item_bridge";' in output
     assert '"type": "create_sheet_proficiency_bridge"' in output
+    assert '"type": "add_instanced_sheet_proficiency_uses"' in output
+    assert '"quantity": number;' in output
     assert '"clientNamespace": "sheetProficiencyBridges"' in output
     assert '"clientMethodName": "unlinkProficiency"' in output
     assert "export type ProficiencyBridgePayload = {" in output

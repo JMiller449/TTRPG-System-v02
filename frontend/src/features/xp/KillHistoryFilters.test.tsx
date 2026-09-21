@@ -275,15 +275,15 @@ describe("kill filters in the existing views", () => {
   it("filters only the selected character's supplied history and resets when changing characters", async () => {
     const view = tracker();
     await render(view, "hero");
-    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(2);
+    expect(container.querySelectorAll(".sheet-kill-summary-card")).toHaveLength(2);
     expect(field("Enemy type").textContent).not.toContain("Orc");
     await change(field("Enemy type"), "custom:wraith");
-    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(1);
+    expect(container.querySelectorAll(".sheet-kill-summary-card")).toHaveLength(1);
     await render(view, "other");
     expect(field("Enemy type").value).toBe("");
-    expect(container.querySelector(".sheet-kill-card")?.textContent).toContain("Orc");
+    expect(container.querySelector(".sheet-kill-summary-card")?.textContent).toContain("Orc");
     await render(view, "hero");
-    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(2);
+    expect(container.querySelectorAll(".sheet-kill-summary-card")).toHaveLength(2);
   });
 
   it("gives players filters based solely on their supplied records", async () => {
@@ -294,7 +294,7 @@ describe("kill filters in the existing views", () => {
     expect(container.textContent).not.toContain("Other Hero");
     expect(field("Participating player").textContent).toContain("Retired Hero");
     await change(field("Enemy type"), "custom:wraith");
-    expect(container.querySelectorAll(".sheet-kill-card")).toHaveLength(1);
-    expect(container.querySelector(".sheet-kill-card")?.textContent).toContain("Wraith");
+    expect(container.querySelectorAll(".sheet-kill-summary-card")).toHaveLength(1);
+    expect(container.querySelector(".sheet-kill-summary-card")?.textContent).toContain("Wraith");
   });
 });

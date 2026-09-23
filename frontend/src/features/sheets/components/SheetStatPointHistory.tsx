@@ -27,8 +27,11 @@ export function StatPointAudit({ entries }: { entries: StatPointEntry[] }): JSX.
   const [filter, setFilter] = useState("");
   const visible = entries.filter((entry) => !filter || entry.skill === filter);
   return (
-    <details>
-      <summary>DM audit history ({entries.length})</summary>
+    <section className="stat-point-history__audit-section" aria-labelledby="dm-audit-heading">
+      <header>
+        <h5 id="dm-audit-heading">DM audit history</h5>
+        <span>{entries.length} records</span>
+      </header>
       <Field label="Filter history by skill">
         <select value={filter} onChange={(event) => setFilter(event.target.value)}>
           <option value="">All changes</option>
@@ -82,7 +85,7 @@ export function StatPointAudit({ entries }: { entries: StatPointEntry[] }): JSX.
           ))}
         {!visible.length ? <p>No matching changes.</p> : null}
       </div>
-    </details>
+    </section>
   );
 }
 
@@ -194,11 +197,14 @@ export function SheetStatPointHistory({
   onGrantUnspent?: () => void;
 }): JSX.Element {
   return (
-    <details className="character-sheet__utility stat-point-history">
-      <summary className="character-sheet__utility-summary">
-        <span>Skill Point Provenance</span>
+    <section
+      className="character-sheet__utility stat-point-history"
+      aria-labelledby="skill-point-provenance-heading"
+    >
+      <header className="stat-point-history__header">
+        <h4 id="skill-point-provenance-heading">Skill Point Provenance</h4>
         <span className="character-sheet__utility-value">{summary?.unspent ?? 0} unspent</span>
-      </summary>
+      </header>
       <div className="character-sheet__utility-body">
         {summary ? (
           <StatPointSummaryView summary={summary} />
@@ -216,6 +222,6 @@ export function SheetStatPointHistory({
           </div>
         ) : null}
       </div>
-    </details>
+    </section>
   );
 }

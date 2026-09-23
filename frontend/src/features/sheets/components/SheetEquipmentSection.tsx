@@ -99,6 +99,7 @@ export function SheetEquipmentSection({
   canEditInventory,
   canMoveInventory,
   canToggleEquipped,
+  dense = false,
   createItemLabel = "Create Item",
   onOpenCreateItem,
   onSelectedItemIdChange,
@@ -124,6 +125,7 @@ export function SheetEquipmentSection({
   canEditInventory: boolean;
   canMoveInventory: boolean;
   canToggleEquipped: boolean;
+  dense?: boolean;
   createItemLabel?: string;
   onOpenCreateItem?: () => void;
   onSelectedItemIdChange: (itemId: string) => void;
@@ -135,6 +137,7 @@ export function SheetEquipmentSection({
 }): JSX.Element {
   const overBy = Math.max(0, currentCarriedWeight - carryWeightLimit);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
   const eligibleDropTargetIds = useMemo(
@@ -156,6 +159,19 @@ export function SheetEquipmentSection({
       Boolean(entry.parent_container_id) ||
       (entry.count === 1 && Boolean(items[entry.item_id]?.can_contain_items))
   );
+  const inventoryTree = useMemo(() => buildInventoryTree(equipment), [equipment]);
+  const visibleInventory = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return inventoryTree;
+    }
+    return inventoryTree.filter(({ bridge }) => {
+      const item = items[bridge.item_id];
+      return [item?.name, item?.description, item?.interaction_type, item?.rank]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [inventoryTree, items, search]);
 
   const finishDrag = (): void => {
     setDraggedInventoryItemId(null);
@@ -187,14 +203,32 @@ export function SheetEquipmentSection({
   };
 
   return (
-    <section className="character-sheet__section sheet-equipment-section">
+    <section
+      className={`character-sheet__section sheet-equipment-section ${dense ? "sheet-equipment-section--dense" : ""}`}
+    >
       <div className="equipment-section__heading">
         <div className="equipment-section__heading-copy">
           <h4>Inventory &amp; Equipment</h4>
-          <span className="muted">
-            {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
-          </span>
+          {!dense ? (
+            <span className="muted">
+              {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
+            </span>
+          ) : null}
         </div>
+        {dense ? (
+          <div className="equipment-search">
+            <input
+              type="search"
+              value={search}
+              aria-label="Search inventory"
+              placeholder="Find equipment, consumables, or carried items"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <span className="muted">
+              {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
+            </span>
+          </div>
+        ) : null}
         <div className="equipment-section__heading-actions">
           <div
             className={`carried-weight-summary ${overBy > 0 ? "carried-weight-summary--over" : ""}`}
@@ -231,6 +265,18 @@ export function SheetEquipmentSection({
           ) : null}
         </div>
       </div>
+      {!dense ? (
+        <div className="equipment-search">
+          <Field label="Search inventory">
+            <input
+              type="search"
+              value={search}
+              placeholder="Find equipment, consumables, or carried items"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </Field>
+        </div>
+      ) : null}
       {canMoveInventory && hasStorageInteraction ? (
         <div
           className={`inventory-root-drop-zone ${
@@ -271,7 +317,10 @@ export function SheetEquipmentSection({
         tabIndex={0}
       >
         {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
-        {buildInventoryTree(equipment).map(({ bridge: entry }) => {
+        {equipment.length > 0 && visibleInventory.length === 0 ? (
+          <EmptyState message="No inventory items match the current search." />
+        ) : null}
+        {visibleInventory.map(({ bridge: entry }) => {
           const item = items[entry.item_id];
           if (!item) {
             return null;

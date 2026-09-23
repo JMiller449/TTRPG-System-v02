@@ -72,8 +72,14 @@ invocation and does not rewrite the action definition.
 The Actions tab places the authoritative Action / Reaction Point balance and
 manual Spend, Restore, and Reset controls above the command catalog. A compact
 read-only balance remains in the character header across tabs, while Dodge and
-Movement stay on Overview. This placement does not change the existing runtime
+Movement stay in the character header. This placement does not change the existing runtime
 routes, bounds, or role permissions.
+
+The Dense character destination reuses that balance and its management routes.
+Its compact Action list sorts instance-owned pins first and exposes compatible
+roll modes on each row; clicking a mode submits the same `perform_action` intent
+with the selected public or GM-only audience. Pinning submits the same ordered
+`pinned_action_ids` mutation as the full Actions destination.
 
 On the GM character surface, direct assignment controls live on the action cards
 instead of in a separate horizontally scrolling manager. Add Existing opens a

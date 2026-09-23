@@ -22,11 +22,13 @@ function formatXp(value: number): string {
 
 export function SheetKillsSection({
   client,
-  instanceId
+  instanceId,
+  dense = false
 }: {
   client: GameClient;
   instanceId: string;
   sheetId: string;
+  dense?: boolean;
 }): JSX.Element {
   const {
     state: {
@@ -36,6 +38,7 @@ export function SheetKillsSection({
   const requestedInstanceRef = useRef<string | null>(null);
   const submittingRequestRef = useRef<string | null>(null);
   const [selectedMobId, setSelectedMobId] = useState("");
+  const [densePlayerKillOpen, setDensePlayerKillOpen] = useState(false);
   const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
   const [gmKillDialogOpen, setGmKillDialogOpen] = useState(false);
   const [gmMonsterChoice, setGmMonsterChoice] = useState("");
@@ -45,7 +48,7 @@ export function SheetKillsSection({
   const validQuantity =
     Number.isInteger(Number(quantity)) && Number(quantity) >= 1 && Number(quantity) <= 10000;
   const [gmKillNotes, setGmKillNotes] = useState("");
-  const [historyView, setHistoryView] = useState<"summary" | "feed">("summary");
+  const [historyView, setHistoryView] = useState<"summary" | "feed">(dense ? "feed" : "summary");
 
   useEffect(() => {
     if (requestedInstanceRef.current === instanceId) return;
@@ -67,6 +70,7 @@ export function SheetKillsSection({
           submittingRequestRef.current = null;
           setPendingRequestId(null);
           setSelectedMobId("");
+          setDensePlayerKillOpen(false);
           setGmKillDialogOpen(false);
           setGmMonsterChoice("");
           setGmCustomMonsterName("");
@@ -111,7 +115,7 @@ export function SheetKillsSection({
   };
 
   return (
-    <section className="sheet-kills-section">
+    <section className={`sheet-kills-section ${dense ? "sheet-kills-section--dense" : ""}`}>
       {xpTracker?.can_manage ? (
         <div className="sheet-kills-section__toolbar">
           <button
@@ -124,7 +128,19 @@ export function SheetKillsSection({
           </button>
         </div>
       ) : null}
-      {xpTracker && !xpTracker.can_manage ? (
+      {xpTracker && !xpTracker.can_manage && dense ? (
+        <div className="sheet-kills-section__toolbar">
+          <button
+            className="button"
+            type="button"
+            aria-expanded={densePlayerKillOpen}
+            onClick={() => setDensePlayerKillOpen((current) => !current)}
+          >
+            {densePlayerKillOpen ? "Cancel" : "+ Add Kill"}
+          </button>
+        </div>
+      ) : null}
+      {xpTracker && !xpTracker.can_manage && (!dense || densePlayerKillOpen) ? (
         <form
           className="xp-player-kill-form"
           onSubmit={(event) => {
@@ -187,40 +203,46 @@ export function SheetKillsSection({
             <div>
               <h4 id="sheet-kill-history-title">Kill history</h4>
               <span>
-                {historyView === "summary" && killSummary
-                  ? `${killSummary.totalQuantity} defeated · ${killSummary.groups.length} enemy ${killSummary.groups.length === 1 ? "type" : "types"}`
-                  : `${filteredKills.length} record${filteredKills.length === 1 ? "" : "s"}`}
+                {dense
+                  ? `${trackerSheet.kills.length} recent record${trackerSheet.kills.length === 1 ? "" : "s"}`
+                  : historyView === "summary" && killSummary
+                    ? `${killSummary.totalQuantity} defeated · ${killSummary.groups.length} enemy ${killSummary.groups.length === 1 ? "type" : "types"}`
+                    : `${filteredKills.length} record${filteredKills.length === 1 ? "" : "s"}`}
               </span>
             </div>
-            <div
-              className="sheet-kill-history__view-toggle"
-              role="group"
-              aria-label="Kill history view"
-            >
-              <button
-                type="button"
-                className={historyView === "summary" ? "is-active" : ""}
-                aria-pressed={historyView === "summary"}
-                onClick={() => setHistoryView("summary")}
+            {!dense ? (
+              <div
+                className="sheet-kill-history__view-toggle"
+                role="group"
+                aria-label="Kill history view"
               >
-                Summary
-              </button>
-              <button
-                type="button"
-                className={historyView === "feed" ? "is-active" : ""}
-                aria-pressed={historyView === "feed"}
-                onClick={() => setHistoryView("feed")}
-              >
-                Feed
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className={historyView === "summary" ? "is-active" : ""}
+                  aria-pressed={historyView === "summary"}
+                  onClick={() => setHistoryView("summary")}
+                >
+                  Summary
+                </button>
+                <button
+                  type="button"
+                  className={historyView === "feed" ? "is-active" : ""}
+                  aria-pressed={historyView === "feed"}
+                  onClick={() => setHistoryView("feed")}
+                >
+                  Feed
+                </button>
+              </div>
+            ) : null}
           </div>
-          <KillHistoryFilters
-            kills={trackerSheet.kills}
-            filters={filters}
-            onChange={setFilters}
-            matchingCount={filteredKills.length}
-          />
+          {!dense ? (
+            <KillHistoryFilters
+              kills={trackerSheet.kills}
+              filters={filters}
+              onChange={setFilters}
+              matchingCount={filteredKills.length}
+            />
+          ) : null}
           {filteredKills.length === 0 ? (
             <EmptyState message="No matching kills. Try changing or clearing the filters." />
           ) : historyView === "summary" && killSummary ? (

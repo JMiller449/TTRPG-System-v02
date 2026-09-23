@@ -68,6 +68,8 @@ const render = async (
 describe("Skill point provenance", () => {
   it("shows players source totals and allocations without DM history", async () => {
     await render(false);
+    expect(container.querySelector(".stat-point-history")?.tagName).toBe("SECTION");
+    expect(container.querySelector(".stat-point-history > summary")).toBeNull();
     expect(container.textContent).toContain("Starter / Spawned");
     expect(container.textContent).toContain("3 unspent points");
     expect(container.textContent).toContain("Balances reconcile");
@@ -83,6 +85,8 @@ describe("Skill point provenance", () => {
   });
   it("shows historical values, actor and timestamp to the DM", async () => {
     await render();
+    expect(container.querySelector(".stat-point-history__audit-section")?.tagName).toBe("SECTION");
+    expect(container.querySelector(".stat-point-history__audit-section > summary")).toBeNull();
     expect(container.textContent).toContain("10 → 12");
     expect(container.textContent).toContain("Unspent: 5 → 3");
     expect(container.textContent).toContain("player (hero)");

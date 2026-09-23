@@ -35,6 +35,7 @@ export function SheetProficienciesSection({
   proficiencyOrder,
   sheetProficiencies,
   canEdit,
+  dense = false,
   canAddUses = false,
   onCreate,
   onOpenCreateProficiency,
@@ -46,6 +47,7 @@ export function SheetProficienciesSection({
   proficiencyOrder: string[];
   sheetProficiencies: ProficiencyBridge[];
   canEdit: boolean;
+  dense?: boolean;
   canAddUses?: boolean;
   onCreate: (bridge: SheetProficiencyBridgePayload) => void;
   onOpenCreateProficiency?: () => void;
@@ -152,6 +154,96 @@ export function SheetProficienciesSection({
         {entries.map(({ bridge, proficiency, label }) => {
           const useQuantity = useQuantities[bridge.relationship_id] ?? "1";
           const parsedUseQuantity = parseSheetProficiencyUseQuantity(useQuantity);
+          const summaryTooltip = `${label}: ${formatSheetProficiencyPercentage(bridge)}%. ${bridge.use_count} uses, growth ${bridge.growth_rate}.${proficiency?.description ? ` ${proficiency.description}` : ""}`;
+          const openEditor = (): void => {
+            setDrafts((current) => ({
+              ...current,
+              [bridge.relationship_id]: toDraft(bridge)
+            }));
+            setEditingRelationshipId(bridge.relationship_id);
+          };
+          const addUsesForm =
+            canAddUses && onAddUses && proficiency ? (
+              <form
+                className="dense-proficiency-row__actions"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (parsedUseQuantity === null) return;
+                  onAddUses(bridge.relationship_id, parsedUseQuantity);
+                  setUseQuantities((current) => ({
+                    ...current,
+                    [bridge.relationship_id]: "1"
+                  }));
+                }}
+              >
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="1"
+                  aria-label={`Uses to add to ${label}`}
+                  title="Uses to add"
+                  value={useQuantity}
+                  onChange={(event) =>
+                    setUseQuantities((current) => ({
+                      ...current,
+                      [bridge.relationship_id]: event.target.value
+                    }))
+                  }
+                />
+                <button
+                  type="submit"
+                  className="button button--secondary"
+                  disabled={parsedUseQuantity === null}
+                >
+                  + Uses
+                </button>
+              </form>
+            ) : null;
+
+          if (dense) {
+            const rowContent = (
+              <>
+                <span className="dense-proficiency-row__identity">
+                  <strong>{label}</strong>
+                  <span>
+                    {proficiency?.category === "weapon_family"
+                      ? "Weapon"
+                      : proficiency?.category === "custom"
+                        ? "Custom"
+                        : "Missing"}
+                  </span>
+                </span>
+                <span className="dense-proficiency-row__uses">{bridge.use_count} uses</span>
+                <strong className="dense-proficiency-row__percentage">
+                  {formatSheetProficiencyPercentage(bridge)}%
+                </strong>
+              </>
+            );
+
+            return canEdit ? (
+              <button
+                key={bridge.relationship_id}
+                type="button"
+                className="dense-proficiency-row"
+                title={summaryTooltip}
+                aria-label={`Edit ${label}. Proficiency ${formatSheetProficiencyPercentage(bridge)} percent, ${bridge.use_count} uses, growth ${bridge.growth_rate}.`}
+                onClick={openEditor}
+              >
+                {rowContent}
+              </button>
+            ) : (
+              <article
+                key={bridge.relationship_id}
+                className="dense-proficiency-row"
+                title={summaryTooltip}
+              >
+                {rowContent}
+                {addUsesForm}
+              </article>
+            );
+          }
+
           const content = (
             <>
               <span className="sheet-proficiency-summary__heading">
@@ -188,19 +280,14 @@ export function SheetProficienciesSection({
               key={bridge.relationship_id}
               type="button"
               className={className}
+              title={summaryTooltip}
               aria-label={`Edit ${label}. Proficiency ${formatSheetProficiencyPercentage(bridge)} percent, ${bridge.use_count} uses, growth ${bridge.growth_rate}.`}
-              onClick={() => {
-                setDrafts((current) => ({
-                  ...current,
-                  [bridge.relationship_id]: toDraft(bridge)
-                }));
-                setEditingRelationshipId(bridge.relationship_id);
-              }}
+              onClick={openEditor}
             >
               {content}
             </button>
           ) : (
-            <article key={bridge.relationship_id} className={className}>
+            <article key={bridge.relationship_id} className={className} title={summaryTooltip}>
               {content}
               {canAddUses && onAddUses && proficiency ? (
                 <form

@@ -116,7 +116,8 @@ the workspace and omits redundant outer frame chrome, including stacked Backup
 & Undo panels and the Extension destination. Nested cards, dialogs, and
 feature-owned form measures keep their semantic boundaries. Player and GM
 character views render the same full-width frameless sheet surface, in-sheet
-tab navigation, compact overview sections, and desktop density; role
+tab navigation, a default fixed Dense dashboard, dedicated expanded Stats and
+Statuses destinations, and desktop density; role
 differences inside that surface are limited to authorized controls, private
 projections, and GM-only destinations such as Action History and Management.
 Their outer workspaces remain role-specific: the GM owns spawned-sheet

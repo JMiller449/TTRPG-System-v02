@@ -12,7 +12,9 @@ import {
 import { DAMAGE_TYPES, type DamageType, type SheetKind } from "@/domain/models";
 
 export type PlayerSheetTab =
-  | "overview"
+  | "dense"
+  | "stats"
+  | "statuses"
   | "actions"
   | "inventory"
   | "attributes"

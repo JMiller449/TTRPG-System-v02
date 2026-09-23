@@ -62,6 +62,8 @@ describe("ConsolePage player navigation", () => {
     );
     expect(extensionButton).toBeDefined();
     expect(sheetButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).not.toContain("Active Character");
+    expect(container.textContent).not.toContain("Player character");
     expect(container.textContent).not.toContain("Sheet Sections");
     expect(container.querySelector('[data-testid="player-sheet"]')).not.toBeNull();
 

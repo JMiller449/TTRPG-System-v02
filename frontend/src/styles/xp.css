@@ -448,6 +448,69 @@
   align-content: start;
 }
 
+.sheet-kills-section--dense {
+  gap: 0.35rem;
+  padding: 0.35rem;
+}
+
+.sheet-kills-section--dense .sheet-kills-section__toolbar {
+  padding-bottom: 0.35rem;
+}
+
+.sheet-kills-section--dense .sheet-kills-section__toolbar .button,
+.sheet-kills-section--dense .xp-player-kill-form .button {
+  min-height: 25px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.65rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-history {
+  gap: 0.35rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-history__header {
+  padding-bottom: 0.3rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-history__header h4 {
+  display: none;
+}
+
+.sheet-kills-section--dense .sheet-kill-history__view-toggle button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.62rem;
+}
+
+.sheet-kills-section--dense .xp-kill-filters {
+  gap: 0.3rem;
+}
+
+.sheet-kills-section--dense .xp-kill-filters > input {
+  min-height: 26px;
+}
+
+.sheet-kills-section--dense .sheet-kill-summary-grid,
+.sheet-kills-section--dense .sheet-kill-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-summary-card,
+.sheet-kills-section--dense .sheet-kill-card {
+  min-height: 0;
+  padding: 0.45rem 0.55rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-card__header {
+  font-size: 0.78rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-card time,
+.sheet-kills-section--dense .sheet-kill-card__recorder,
+.sheet-kills-section--dense .sheet-kill-card footer {
+  font-size: 0.68rem;
+}
+
 .sheet-kills-section__toolbar {
   display: flex;
   justify-content: flex-end;

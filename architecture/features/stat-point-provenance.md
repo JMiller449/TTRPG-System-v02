@@ -78,10 +78,12 @@ not persisted alternate state. Full history lives only in the private registry.
 
 [`SheetStatPointHistory`](../../frontend/src/features/sheets/components/SheetStatPointHistory.tsx)
 shows the source table, per-stat attribution, reconciliation explanation, and
-filterable DM history in the character Overview. Existing
+filterable DM history in the character Stats destination. Existing
 player allocation controls submit the same atomic allocation intent. Pending
 requests reconcile to authoritative feedback and patches; the UI performs no
-source accounting or gameplay calculation.
+source accounting or gameplay calculation. The provenance summary and the
+GM-only audit are always expanded across the dedicated page; the audit keeps
+its own bounded scroll region for long histories.
 
 Each major stat exposes the same Starter, User assigned, and DM assigned pivot on
 hover or keyboard focus, followed by the active direct augmentations targeting

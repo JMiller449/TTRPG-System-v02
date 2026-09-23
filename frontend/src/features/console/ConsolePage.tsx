@@ -20,16 +20,6 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
         className="app-nav-panel player-nav-panel player-nav-panel--compact"
         aria-label="Player sheet navigation"
       >
-        <div className="nav-panel__section">
-          <p className="nav-panel__eyebrow">Active Character</p>
-          <strong className="nav-panel__title">
-            {activeDetail?.instance.name ?? "No sheet claimed"}
-          </strong>
-          <p className="nav-panel__meta">
-            {activeDetail ? "Player character" : "Claim a sheet to begin."}
-          </p>
-        </div>
-
         <div className="nav-panel__section nav-panel__section--tabs">
           <p className="nav-panel__eyebrow">Workspace</p>
           <button

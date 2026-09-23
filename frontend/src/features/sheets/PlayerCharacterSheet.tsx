@@ -4,6 +4,7 @@ import { useAppStore } from "@/app/state/useAppStore";
 import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
+import { SheetDenseOverview } from "@/features/sheets/components/SheetDenseOverview";
 import { SheetEquipmentSection } from "@/features/sheets/components/SheetEquipmentSection";
 import { SheetFormulaStatEditorDialog } from "@/features/sheets/components/SheetFormulaStatEditorDialog";
 import { TemplateContextualCreateDialog } from "@/features/sheets/components/TemplateContextualCreateDialog";
@@ -125,7 +126,7 @@ export function PlayerCharacterSheet({
     setSelectedItemId
   } = useSheetDetailState();
 
-  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("overview");
+  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("dense");
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
@@ -169,7 +170,7 @@ export function PlayerCharacterSheet({
   const visibleResistances = detail?.persistentSheet.resistances ?? detail?.sheet?.resistances;
 
   useEffect(() => {
-    setActiveTab("overview");
+    setActiveTab("dense");
     setEditingFormulaStatName(null);
     setGrantingCoreStat(null);
     setGrantingUnspentPoints(false);
@@ -340,7 +341,9 @@ export function PlayerCharacterSheet({
     );
   }
 
-  const showOverviewSection = activeTab === "overview";
+  const showDenseSection = activeTab === "dense";
+  const showStatsSection = activeTab === "stats";
+  const showStatusesSection = activeTab === "statuses";
   const showActionsSection = activeTab === "actions";
   const showInventorySection = activeTab === "inventory";
   const showAttributesSection = activeTab === "attributes";
@@ -385,9 +388,6 @@ export function PlayerCharacterSheet({
     (item) => item.approval_status === "pending"
   );
   const pinnedActionIds = detail.persistentSheet.pinned_action_ids ?? [];
-  const pinnedActions = assignedActions.filter((action) =>
-    pinnedActionIds.includes(action.relationshipId)
-  );
 
   const updatePinnedActions = (actionRelationshipIds: string[]): void => {
     client.sendProtocolRequest(
@@ -503,99 +503,434 @@ export function PlayerCharacterSheet({
 
         <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
 
-        {showOverviewSection ? (
+        {showDenseSection ? (
           <div
-            className="character-sheet__tab-panel"
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--dense"
             role="tabpanel"
-            id="sheet-panel-overview"
-            aria-labelledby="sheet-tab-overview"
+            id="sheet-panel-dense"
+            aria-labelledby="sheet-tab-dense"
             tabIndex={0}
           >
-            <div className="character-sheet__overview-grid">
-              <div className="character-sheet__overview-main">
-                <SheetStatsSection
-                  canEditStats={canEditStats}
-                  compact
-                  stats={detail.stats}
-                  formulaStats={instanceFormulaStats ?? undefined}
-                  statPointSummary={detail.persistentSheet.stat_point_summary}
-                  augmentations={augmentations}
-                  instanceId={detail.instance.id}
-                  onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName as CoreStatKey)}
-                  onEditFormulaStat={
-                    mode === "gm" ? (statName) => setEditingFormulaStatName(statName) : undefined
-                  }
-                />
-                {mode === "player" ? (
-                  <SheetStatPointAllocator
-                    instanceId={detail.instance.id}
-                    stats={detail.stats}
-                    unassignedPoints={unassignedStatPoints}
-                    onCommit={(allocations) =>
+            <SheetDenseOverview
+              mode={mode}
+              instanceId={detail.instance.id}
+              stats={detail.stats}
+              unassignedPoints={unassignedStatPoints}
+              resistances={visibleResistances}
+              onAllocateStatPoints={(allocations) =>
+                client.sendProtocolRequest(
+                  buildAllocateInstancedSheetStatPointsRequest({
+                    instanceId: detail.instance.id,
+                    allocations
+                  }),
+                  "Allocate stat points"
+                )
+              }
+              onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName)}
+              actions={
+                <>
+                  <SheetReactionResource
+                    current={detail.reactions.current}
+                    maximum={detail.reactions.maximum}
+                    canManage={canManageActionReactionPoints(mode, detail.instance.kind)}
+                    onSpend={() =>
                       client.sendProtocolRequest(
-                        buildAllocateInstancedSheetStatPointsRequest({
+                        buildAdjustInstancedSheetReactionsRequest({
                           instanceId: detail.instance.id,
-                          allocations
+                          delta: -1
                         }),
-                        "Allocate stat points"
+                        "Spend action/reaction point"
+                      )
+                    }
+                    onRestore={() =>
+                      client.sendProtocolRequest(
+                        buildAdjustInstancedSheetReactionsRequest({
+                          instanceId: detail.instance.id,
+                          delta: 1
+                        }),
+                        "Restore action/reaction point"
+                      )
+                    }
+                    onReset={() =>
+                      client.sendProtocolRequest(
+                        buildResetInstancedSheetReactionsRequest({
+                          instanceId: detail.instance.id
+                        }),
+                        "Reset action/reaction points"
                       )
                     }
                   />
-                ) : null}
-                <SheetStatPointHistory
-                  instanceId={detail.instance.id}
-                  summary={detail.persistentSheet.stat_point_summary}
-                  audit={detail.persistentSheet.stat_point_audit}
-                  canManage={mode === "gm"}
-                  onGrantUnspent={() => setGrantingUnspentPoints(true)}
-                />
-              </div>
-              <aside className="character-sheet__overview-side">
-                <SheetConditionsSection
-                  conditions={activeConditions}
-                  augmentations={augmentations}
-                  mode={mode}
-                  canRemove={mode === "gm"}
-                  onRemove={(applicationId) =>
+                  <SheetActionsSection
+                    dense
+                    assignedActions={assignedActions}
+                    actionDefinitions={actionDefinitions}
+                    attributeDefinitions={attributeDefinitions}
+                    actionOrder={actionOrder}
+                    canEdit={canEditActions}
+                    pinnedActionIds={pinnedActionIds}
+                    onPinnedActionIdsChange={updatePinnedActions}
+                    onCreate={() => undefined}
+                    onUpdate={() => undefined}
+                    onDelete={() => undefined}
+                    onPerformAction={(action, rollMode, visibility) => {
+                      client.sendProtocolRequest(
+                        buildPerformActionRequest({
+                          sheetId: detail.instance.id,
+                          actionId: action.actionId,
+                          sourceItemRelationshipId: action.sourceItemRelationshipId,
+                          rollMode,
+                          visibility
+                        }),
+                        `Perform action: ${action.action.name}`
+                      );
+                    }}
+                  />
+                </>
+              }
+              kills={
+                sheetId ? (
+                  <SheetKillsSection
+                    client={client}
+                    instanceId={detail.instance.id}
+                    sheetId={sheetId}
+                    dense
+                  />
+                ) : (
+                  <EmptyState message="No kill history is available for this character." />
+                )
+              }
+              statuses={
+                <>
+                  <SheetConditionsSection
+                    conditions={activeConditions}
+                    augmentations={augmentations}
+                    mode={mode}
+                    canRemove={mode === "gm"}
+                    onRemove={(applicationId) =>
+                      client.sendProtocolRequest(
+                        buildRemoveActiveConditionRequest({
+                          instanceId: detail.instance.id,
+                          applicationId
+                        }),
+                        "Remove active condition"
+                      )
+                    }
+                  />
+                  <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
+                </>
+              }
+              attributes={
+                <SheetAttributesSection
+                  definitions={attributeDefinitions}
+                  bridges={instanceAttributeBridges}
+                  canEdit={canEditStats}
+                  compactCards
+                  onSaveFormula={(attributeId, formula) => {
                     client.sendProtocolRequest(
-                      buildRemoveActiveConditionRequest({
+                      buildSetInstancedSheetAttributeValueRequest({
                         instanceId: detail.instance.id,
-                        applicationId
+                        attributeId,
+                        value: { type: "formula", formula }
                       }),
-                      "Remove active condition"
-                    )
-                  }
-                />
-                <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
-              </aside>
-            </div>
-            {pinnedActions.length > 0 ? (
-              <section className="character-sheet__section" aria-label="Pinned Actions">
-                <SheetActionsSection
-                  assignedActions={pinnedActions}
-                  actionDefinitions={actionDefinitions}
-                  attributeDefinitions={attributeDefinitions}
-                  actionOrder={actionOrder}
-                  canEdit={false}
-                  compact
-                  onCreate={() => undefined}
-                  onUpdate={() => undefined}
-                  onDelete={() => undefined}
-                  onPerformAction={(action, rollMode, visibility) => {
+                      `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                    );
+                  }}
+                  onSaveValue={(attributeId, value) => {
                     client.sendProtocolRequest(
-                      buildPerformActionRequest({
-                        sheetId: detail.instance.id,
-                        actionId: action.actionId,
-                        sourceItemRelationshipId: action.sourceItemRelationshipId,
-                        rollMode,
-                        visibility
+                      buildSetInstancedSheetAttributeValueRequest({
+                        instanceId: detail.instance.id,
+                        attributeId,
+                        value
                       }),
-                      `Perform action: ${action.action.name}`
+                      `Update Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                    );
+                  }}
+                  onReset={(attributeId) => {
+                    client.sendProtocolRequest(
+                      buildResetInstancedSheetAttributeValueRequest({
+                        instanceId: detail.instance.id,
+                        attributeId
+                      }),
+                      `Reset Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                    );
+                  }}
+                  onAttach={(attributeId) => {
+                    client.sendProtocolRequest(
+                      buildAttachInstancedSheetAttributeRequest({
+                        instanceId: detail.instance.id,
+                        attributeId,
+                        relationshipId: makeId("sheet_attribute")
+                      }),
+                      `Attach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
+                    );
+                  }}
+                  onCreateNew={() => {
+                    attachedCreatedAttributeRequestRef.current = null;
+                    setAttributeCreatorOpen(true);
+                  }}
+                  onDetach={(attributeId) => {
+                    client.sendProtocolRequest(
+                      buildDetachInstancedSheetAttributeRequest({
+                        instanceId: detail.instance.id,
+                        attributeId
+                      }),
+                      `Detach Attribute: ${attributeDefinitions[attributeId]?.name ?? attributeId}`
                     );
                   }}
                 />
-              </section>
-            ) : null}
+              }
+              proficiencies={
+                <SheetProficienciesSection
+                  dense
+                  proficiencyDefinitions={proficiencyDefinitions}
+                  proficiencyOrder={proficiencyOrder}
+                  sheetProficiencies={sheetProficiencies}
+                  canEdit={canEditProficiencies}
+                  canAddUses={mode === "player"}
+                  onCreate={(bridge) => {
+                    client.sendProtocolRequest(
+                      buildLinkInstancedSheetProficiencyRequest({
+                        instanceId: detail.instance.id,
+                        bridge
+                      }),
+                      `Assign proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                    );
+                  }}
+                  onOpenCreateProficiency={() => {
+                    attachedCreatedProficiencyRequestRef.current = null;
+                    setProficiencyCreatorOpen(true);
+                  }}
+                  onUpdate={(relationshipId, bridge) => {
+                    client.sendProtocolRequest(
+                      buildUpdateLinkedInstancedSheetProficiencyRequest({
+                        instanceId: detail.instance.id,
+                        relationshipId,
+                        bridge
+                      }),
+                      `Update proficiency: ${proficiencyDefinitions[bridge.prof_id]?.name ?? bridge.prof_id}`
+                    );
+                  }}
+                  onDelete={(relationshipId) => {
+                    client.sendProtocolRequest(
+                      buildUnlinkInstancedSheetProficiencyRequest({
+                        instanceId: detail.instance.id,
+                        relationshipId
+                      }),
+                      "Remove proficiency"
+                    );
+                  }}
+                  onAddUses={(relationshipId, quantity) => {
+                    client.sendProtocolRequest(
+                      buildAddInstancedSheetProficiencyUsesRequest({
+                        instanceId: detail.instance.id,
+                        relationshipId,
+                        quantity
+                      }),
+                      `Add ${quantity} proficiency use${quantity === 1 ? "" : "s"}`
+                    );
+                  }}
+                />
+              }
+              inventory={
+                <SheetEquipmentSection
+                  dense
+                  items={items}
+                  actionDefinitions={actionDefinitions}
+                  attributeDefinitions={attributeDefinitions}
+                  proficiencyDefinitions={proficiencyDefinitions}
+                  augmentations={augmentations}
+                  effectDefinitions={serverState.standaloneEffects}
+                  itemOrder={inventoryCatalogOrder}
+                  selectedItemId={inventorySelectedItemId}
+                  selectedItem={inventorySelectedItem}
+                  equipment={equipment}
+                  currentCarriedWeight={detail.persistentSheet.current_carried_weight ?? 0}
+                  carryWeightLimit={detail.stats.carry_weight ?? 0}
+                  canManageInventory={canManageEquipment}
+                  canEditInventory={canEditEquipment}
+                  canMoveInventory
+                  canToggleEquipped
+                  createItemLabel={mode === "gm" ? "Create Item" : "Propose Item"}
+                  onOpenCreateItem={() => {
+                    if (mode === "gm") {
+                      attachedCreatedItemRequestRef.current = null;
+                      setItemCreatorOpen(true);
+                      return;
+                    }
+                    setPlayerItemProposalOpen(true);
+                  }}
+                  onSelectedItemIdChange={setSelectedItemId}
+                  onAddSelectedItem={() => {
+                    if (!inventorySelectedItem) return;
+                    client.sendProtocolRequest(
+                      mode === "gm"
+                        ? buildAttachInstancedSheetItemRequest({
+                            instanceId: detail.instance.id,
+                            bridge: {
+                              relationship_id: makeId("item_bridge"),
+                              item_id: inventorySelectedItem.id,
+                              count: 1,
+                              equipped: false,
+                              parent_container_id: null
+                            }
+                          })
+                        : buildAddPlayerInventoryItemRequest({ itemId: inventorySelectedItem.id }),
+                      "Add equipment"
+                    );
+                  }}
+                  onQuantityChange={(relationshipId, count) => {
+                    const bridge = equipment.find(
+                      (entry) => entry.relationship_id === relationshipId
+                    );
+                    const item = bridge ? items[bridge.item_id] : undefined;
+                    if (!bridge || !item) return;
+                    if (mode === "player") {
+                      if (!Number.isSafeInteger(count) || count < 0) return;
+                      client.sendProtocolRequest(
+                        buildSetPlayerInventoryItemQuantityRequest({ relationshipId, count }),
+                        `Update quantity: ${item.name}`
+                      );
+                      return;
+                    }
+                    const submission = buildEquipmentQuantitySubmission({
+                      instanceId: detail.instance.id,
+                      bridge,
+                      count,
+                      itemName: item.name
+                    });
+                    if (submission) {
+                      client.sendProtocolRequest(submission.request, submission.label);
+                    }
+                  }}
+                  onToggleEquipped={(relationshipId) => {
+                    const bridge = equipment.find(
+                      (entry) => entry.relationship_id === relationshipId
+                    );
+                    if (bridge) updateEquipmentBridgeEquipped(relationshipId, !bridge.equipped);
+                  }}
+                  onMoveInventoryItem={(relationshipId, parentContainerId) => {
+                    client.sendProtocolRequest(
+                      buildMoveInstancedSheetItemRequest({
+                        instanceId: detail.instance.id,
+                        relationshipId,
+                        parentContainerId
+                      }),
+                      parentContainerId ? "Move item into storage" : "Move item to root inventory"
+                    );
+                  }}
+                  onRemoveInventoryItem={(relationshipId) => {
+                    client.sendProtocolRequest(
+                      mode === "gm"
+                        ? buildDetachInstancedSheetItemRequest({
+                            instanceId: detail.instance.id,
+                            relationshipId
+                          })
+                        : buildRemovePlayerInventoryItemRequest({ relationshipId }),
+                      "Remove equipment"
+                    );
+                  }}
+                />
+              }
+            />
+          </div>
+        ) : null}
+
+        {showStatsSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="tabpanel"
+            id="sheet-panel-stats"
+            aria-labelledby="sheet-tab-stats"
+            tabIndex={0}
+          >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Character mechanics</span>
+                <h3>Stats</h3>
+              </div>
+              <p>
+                {mode === "gm"
+                  ? "Review effective values and formulas, grant stat points, and inspect their provenance."
+                  : "Review effective values and formulas, allocate available points, and inspect their provenance."}
+              </p>
+            </header>
+            <div className="sheet-stats-page">
+              <SheetStatsSection
+                canEditStats={canEditStats}
+                stats={detail.stats}
+                formulaStats={instanceFormulaStats ?? undefined}
+                statPointSummary={detail.persistentSheet.stat_point_summary}
+                augmentations={augmentations}
+                instanceId={detail.instance.id}
+                onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName as CoreStatKey)}
+                onEditFormulaStat={
+                  mode === "gm" ? (statName) => setEditingFormulaStatName(statName) : undefined
+                }
+              />
+              {mode === "player" ? (
+                <SheetStatPointAllocator
+                  instanceId={detail.instance.id}
+                  stats={detail.stats}
+                  unassignedPoints={unassignedStatPoints}
+                  onCommit={(allocations) =>
+                    client.sendProtocolRequest(
+                      buildAllocateInstancedSheetStatPointsRequest({
+                        instanceId: detail.instance.id,
+                        allocations
+                      }),
+                      "Allocate stat points"
+                    )
+                  }
+                />
+              ) : null}
+              <SheetStatPointHistory
+                instanceId={detail.instance.id}
+                summary={detail.persistentSheet.stat_point_summary}
+                audit={detail.persistentSheet.stat_point_audit}
+                canManage={mode === "gm"}
+                onGrantUnspent={() => setGrantingUnspentPoints(true)}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {showStatusesSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="tabpanel"
+            id="sheet-panel-statuses"
+            aria-labelledby="sheet-tab-statuses"
+            tabIndex={0}
+          >
+            <header className="sheet-detail-page__header">
+              <div>
+                <span>Runtime state</span>
+                <h3>Statuses</h3>
+              </div>
+              <p>
+                {mode === "gm"
+                  ? "Review active conditions and standalone effects, including their sources and timing, or remove a condition."
+                  : "Review every active condition and standalone effect currently changing this character."}
+              </p>
+            </header>
+            <div className="sheet-statuses-page">
+              <SheetConditionsSection
+                conditions={activeConditions}
+                augmentations={augmentations}
+                mode={mode}
+                canRemove={mode === "gm"}
+                onRemove={(applicationId) =>
+                  client.sendProtocolRequest(
+                    buildRemoveActiveConditionRequest({
+                      instanceId: detail.instance.id,
+                      applicationId
+                    }),
+                    "Remove active condition"
+                  )
+                }
+              />
+              <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
+            </div>
           </div>
         ) : null}
 

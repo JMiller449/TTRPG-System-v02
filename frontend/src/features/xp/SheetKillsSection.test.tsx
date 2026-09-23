@@ -70,11 +70,11 @@ afterEach(async () => {
   container.remove();
 });
 
-async function renderSection(currentState: AppState = state): Promise<void> {
+async function renderSection(currentState: AppState = state, dense = false): Promise<void> {
   await act(async () => {
     root.render(
       <StoreContext.Provider value={{ state: currentState, dispatch: () => undefined }}>
-        <SheetKillsSection client={client} instanceId="hero_1" sheetId="hero" />
+        <SheetKillsSection client={client} instanceId="hero_1" sheetId="hero" dense={dense} />
       </StoreContext.Provider>
     );
     await Promise.resolve();
@@ -162,6 +162,46 @@ describe("SheetKillsSection player recording", () => {
     expect(container.textContent).toContain("55× Zombie");
     expect(container.textContent).toContain("1100 XP");
     expect(container.textContent).toContain("100% credit");
+  });
+
+  it("keeps Dense to the recent feed and Add Kill entry point", async () => {
+    const kill = {
+      id: "kill_dense",
+      monster_name: "Gate Hound",
+      quantity: 2,
+      base_xp: 90,
+      participants: [{ instance_id: "hero_1", name: "Hero" }],
+      participant_count: 1,
+      xp_percentage: 100,
+      xp_per_participant: 180,
+      occurred_at: "2026-09-20T18:00:00+00:00",
+      monster_sheet_id: "gate_hound",
+      notes: "",
+      submitted_by_role: "player" as const,
+      submitted_by_instance_id: "hero_1",
+      submitted_by_name: "Hero"
+    };
+    await renderSection(
+      {
+        ...state,
+        uiState: {
+          ...state.uiState,
+          xpTracker: {
+            ...tracker,
+            sheets: [{ ...tracker.sheets[0], kills: [kill] }],
+            kills: [kill]
+          }
+        }
+      },
+      true
+    );
+
+    expect(container.textContent).toContain("Gate Hound");
+    expect(container.textContent).toContain("2×");
+    expect(container.textContent).toContain("+ Add Kill");
+    expect(container.textContent).not.toContain("Summary");
+    expect(container.textContent).not.toContain("Filters");
+    expect(container.querySelector('[aria-label="Filter kill registry"]')).toBeNull();
   });
 
   it("submits the selected enemy and quantity without client-authored XP", async () => {

@@ -176,4 +176,63 @@ describe("SheetActionsSection", () => {
     await act(async () => root.unmount());
     confirm.mockRestore();
   });
+
+  it("puts real pins first and executes a dense action with its selected roll mode", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onPerformAction = vi.fn();
+    const onPinnedActionIdsChange = vi.fn();
+    const unpinned: AssignedSheetAction = {
+      relationshipId: "check_bridge",
+      actionId: "check",
+      action: { id: "check", name: "First Check", roll_mode_kind: "check", steps: [] }
+    };
+    const pinned: AssignedSheetAction = {
+      relationshipId: "damage_bridge",
+      actionId: "damage",
+      action: {
+        id: "damage",
+        name: "Pinned Damage",
+        notes: "A complete damage action explanation",
+        roll_mode_kind: "damage",
+        steps: []
+      }
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetActionsSection
+          dense
+          assignedActions={[unpinned, pinned]}
+          actionDefinitions={{ check: unpinned.action, damage: pinned.action }}
+          attributeDefinitions={{}}
+          actionOrder={["check", "damage"]}
+          canEdit={false}
+          pinnedActionIds={["damage_bridge"]}
+          onPinnedActionIdsChange={onPinnedActionIdsChange}
+          onCreate={() => undefined}
+          onUpdate={() => undefined}
+          onDelete={() => undefined}
+          onPerformAction={onPerformAction}
+        />
+      );
+    });
+
+    const rows = container.querySelectorAll(".dense-action-row");
+    expect(rows[0]?.textContent).toContain("Pinned Damage");
+    expect(rows[0]?.querySelector(".dense-action-row__copy span")?.getAttribute("title")).toBe(
+      "A complete damage action explanation"
+    );
+    await act(async () =>
+      rows[0]?.querySelector<HTMLButtonElement>('button[aria-label*="critical mode"]')?.click()
+    );
+    expect(onPerformAction).toHaveBeenCalledWith(pinned, "critical", "public");
+
+    await act(async () =>
+      rows[1]?.querySelector<HTMLButtonElement>('button[aria-label="Pin First Check"]')?.click()
+    );
+    expect(onPinnedActionIdsChange).toHaveBeenCalledWith(["damage_bridge", "check_bridge"]);
+    await act(async () => root.unmount());
+  });
 });

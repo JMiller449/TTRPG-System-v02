@@ -2,7 +2,9 @@ import type { KeyboardEvent } from "react";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
 const PLAYER_SHEET_TABS: ReadonlyArray<{ id: PlayerSheetTab; label: string }> = [
-  { id: "overview", label: "Overview" },
+  { id: "dense", label: "Dense" },
+  { id: "stats", label: "Stats" },
+  { id: "statuses", label: "Statuses" },
   { id: "actions", label: "Actions" },
   { id: "inventory", label: "Inventory" },
   { id: "resistances", label: "Resistances" },

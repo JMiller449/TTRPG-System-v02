@@ -31,6 +31,7 @@ export function SheetActionsSection({
   canEdit,
   compact = false,
   commandLayout = false,
+  dense = false,
   pinnedActionIds = [],
   onPinnedActionIdsChange,
   onCreate,
@@ -46,6 +47,7 @@ export function SheetActionsSection({
   canEdit: boolean;
   compact?: boolean;
   commandLayout?: boolean;
+  dense?: boolean;
   pinnedActionIds?: string[];
   onPinnedActionIdsChange?: (actionRelationshipIds: string[]) => void;
   onCreate: (bridge: SheetActionBridgePayload) => void;
@@ -97,7 +99,7 @@ export function SheetActionsSection({
     setAddDialogOpen(false);
   };
 
-  if (!canEdit || compact || commandLayout) {
+  if (!canEdit || compact || commandLayout || dense) {
     const query = search.trim().toLowerCase();
     const visibleActions = assignedActions.filter((entry) => {
       const categoryMatches =
@@ -120,6 +122,113 @@ export function SheetActionsSection({
       visibleActions.length === assignedActions.length
         ? `${visibleActions.length} ${visibleActions.length === 1 ? "action" : "actions"}`
         : `${visibleActions.length} of ${assignedActions.length} actions`;
+
+    if (dense) {
+      const denseActions = visibleActions
+        .map((entry, index) => ({ entry, index }))
+        .sort((left, right) => {
+          const leftPinned = pinnedActionIds.includes(left.entry.relationshipId) ? 0 : 1;
+          const rightPinned = pinnedActionIds.includes(right.entry.relationshipId) ? 0 : 1;
+          return leftPinned - rightPinned || left.index - right.index;
+        })
+        .map(({ entry }) => entry);
+
+      return (
+        <section className="sheet-actions-section sheet-actions-section--dense">
+          <div className="dense-action-toolbar">
+            <Field label="Search">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find action"
+                aria-label="Search assigned actions"
+              />
+            </Field>
+            <div className="dense-action-toolbar__control">
+              <span className="action-command-toolbar__label">Type</span>
+              <div className="segment-row action-command-categories" aria-label="Action categories">
+                {(["all", "check", "damage", "item"] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`segment ${category === value ? "segment--active" : ""}`}
+                    onClick={() => setCategory(value)}
+                  >
+                    {value === "all"
+                      ? "All"
+                      : value === "check"
+                        ? "Checks"
+                        : `${value[0].toUpperCase()}${value.slice(1)}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dense-action-toolbar__control dense-action-toolbar__audience">
+              <span className="action-command-toolbar__label">Audience</span>
+              <ActionVisibilityControl value={commandVisibility} onChange={setCommandVisibility} />
+            </div>
+          </div>
+          <div className="dense-action-list" role="list" aria-label={actionCountLabel}>
+            {denseActions.length === 0 ? (
+              <EmptyState
+                message={
+                  assignedActions.length === 0
+                    ? "No actions assigned to this sheet."
+                    : "No actions match the current filters."
+                }
+              />
+            ) : null}
+            {denseActions.map((entry) => {
+              const isPinned = pinnedActionIds.includes(entry.relationshipId);
+              const allowedModes = actionRollModes(entry.action.roll_mode_kind ?? "none");
+              const actionSummary =
+                entry.action.notes ||
+                (entry.sourceItemName
+                  ? `Granted by ${entry.sourceItemName}`
+                  : `${entry.action.steps?.length ?? 0} authored steps`);
+              return (
+                <article className="dense-action-row" key={entry.relationshipId} role="listitem">
+                  <button
+                    type="button"
+                    className={`dense-action-pin ${isPinned ? "dense-action-pin--active" : ""}`}
+                    aria-label={`${isPinned ? "Unpin" : "Pin"} ${entry.action.name}`}
+                    aria-pressed={isPinned}
+                    disabled={!onPinnedActionIdsChange}
+                    onClick={() =>
+                      onPinnedActionIdsChange?.(
+                        isPinned
+                          ? pinnedActionIds.filter((id) => id !== entry.relationshipId)
+                          : [...pinnedActionIds, entry.relationshipId]
+                      )
+                    }
+                  />
+                  <div className="dense-action-row__copy">
+                    <strong>{entry.action.name}</strong>
+                    <span title={actionSummary}>{actionSummary}</span>
+                  </div>
+                  <div className="dense-action-row__rolls">
+                    {allowedModes.map((rollMode) => (
+                      <button
+                        key={rollMode}
+                        type="button"
+                        onClick={() => onPerformAction(entry, rollMode, commandVisibility)}
+                        aria-label={`Perform ${entry.action.name} using ${rollMode} mode with ${
+                          commandVisibility === "gm" ? "GM-only" : "public"
+                        } Roll20 output`}
+                      >
+                        {allowedModes.length === 1
+                          ? "Use"
+                          : rollMode[0].toUpperCase() + rollMode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      );
+    }
 
     return (
       <section

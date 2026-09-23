@@ -60,6 +60,29 @@ describe("SheetProficienciesSection", () => {
     expect(markup).not.toContain("<h4");
   });
 
+  it("uses purpose-built single-line records in the dense dashboard", () => {
+    const markup = renderToStaticMarkup(
+      <SheetProficienciesSection
+        dense
+        proficiencyDefinitions={{ longsword }}
+        proficiencyOrder={["longsword"]}
+        sheetProficiencies={[assignedLongsword]}
+        canEdit={false}
+        canAddUses
+        onCreate={() => undefined}
+        onUpdate={() => undefined}
+        onDelete={() => undefined}
+        onAddUses={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("dense-proficiency-row");
+    expect(markup).toContain("37.50%");
+    expect(markup).toContain("3 uses");
+    expect(markup).toContain("+ Uses");
+    expect(markup).not.toContain("sheet-proficiency-summary");
+  });
+
   it("lets a player add a quantity of uses without exposing progression editing", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");

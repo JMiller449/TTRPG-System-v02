@@ -1,7 +1,6 @@
 import { SheetStatPointHistory } from "@/features/sheets/components/SheetStatPointHistory";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
-import { CharacterSheetTabs } from "@/features/sheets/components/CharacterSheetTabs";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetDenseOverview } from "@/features/sheets/components/SheetDenseOverview";
@@ -15,6 +14,10 @@ import { SheetProfileSection } from "@/features/sheets/components/SheetProfileSe
 import { SheetProficienciesSection } from "@/features/sheets/components/SheetProficienciesSection";
 import { SheetResourceHeader } from "@/features/sheets/components/SheetResourceHeader";
 import { SheetManagementSection } from "@/features/sheets/components/SheetManagementSection";
+import {
+  ActiveSheetNamePicker,
+  SpawnedSheetOrganizer
+} from "@/features/sheets/components/SpawnedSheetNavigation";
 import {
   SheetContributionPoints,
   SheetMobilitySummary,
@@ -94,10 +97,14 @@ function sheetInitials(name: string): string {
 
 export function PlayerCharacterSheet({
   mode = "player",
-  client
+  client,
+  activeSection,
+  onSectionChange
 }: {
   mode?: "player" | "gm";
   client: GameClient;
+  activeSection: PlayerSheetTab;
+  onSectionChange: (section: PlayerSheetTab) => void;
 }): JSX.Element {
   const {
     state: {
@@ -126,7 +133,6 @@ export function PlayerCharacterSheet({
     setSelectedItemId
   } = useSheetDetailState();
 
-  const [activeTab, setActiveTab] = useState<PlayerSheetTab>("dense");
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
@@ -170,7 +176,7 @@ export function PlayerCharacterSheet({
   const visibleResistances = detail?.persistentSheet.resistances ?? detail?.sheet?.resistances;
 
   useEffect(() => {
-    setActiveTab("dense");
+    onSectionChange("dense");
     setEditingFormulaStatName(null);
     setGrantingCoreStat(null);
     setGrantingUnspentPoints(false);
@@ -187,7 +193,7 @@ export function PlayerCharacterSheet({
     attachedCreatedProficiencyRequestRef.current = null;
     attachedCreatedActionRequestRef.current = null;
     attachedCreatedItemRequestRef.current = null;
-  }, [detail?.instance.id]);
+  }, [detail?.instance.id, onSectionChange]);
 
   useEffect(() => {
     if (mode !== "gm" || actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
@@ -334,6 +340,21 @@ export function PlayerCharacterSheet({
   }, [client, detail, intentFeedback, pendingItemCreate, serverState.items]);
 
   if (!detail) {
+    if (mode === "gm" && activeSection === "organize_sheets") {
+      return (
+        <Panel title="Organize Spawned Sheets" className="sheet-panel" variant="frameless">
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="region"
+            id="sheet-panel-organize_sheets"
+            aria-labelledby="sheet-tab-organize_sheets"
+            tabIndex={0}
+          >
+            <SpawnedSheetOrganizer client={client} />
+          </div>
+        </Panel>
+      );
+    }
     return (
       <Panel title="Character Sheet" className="sheet-panel" variant="frameless">
         <EmptyState message="No active sheet selected." />
@@ -341,19 +362,20 @@ export function PlayerCharacterSheet({
     );
   }
 
-  const showDenseSection = activeTab === "dense";
-  const showStatsSection = activeTab === "stats";
-  const showStatusesSection = activeTab === "statuses";
-  const showActionsSection = activeTab === "actions";
-  const showInventorySection = activeTab === "inventory";
-  const showAttributesSection = activeTab === "attributes";
-  const showProficienciesSection = activeTab === "proficiencies";
-  const showKillsSection = activeTab === "kills";
-  const showBackstorySection = activeTab === "backstory";
-  const showNotesSection = activeTab === "notes";
-  const showActionHistorySection = mode === "gm" && activeTab === "action_history";
-  const showManagementSection = mode === "gm" && activeTab === "management";
-  const showResistancesSection = activeTab === "resistances";
+  const showDenseSection = activeSection === "dense";
+  const showStatsSection = activeSection === "stats";
+  const showStatusesSection = activeSection === "statuses";
+  const showActionsSection = activeSection === "actions";
+  const showInventorySection = activeSection === "inventory";
+  const showAttributesSection = activeSection === "attributes";
+  const showProficienciesSection = activeSection === "proficiencies";
+  const showKillsSection = activeSection === "kills";
+  const showBackstorySection = activeSection === "backstory";
+  const showNotesSection = activeSection === "notes";
+  const showActionHistorySection = mode === "gm" && activeSection === "action_history";
+  const showManagementSection = mode === "gm" && activeSection === "management";
+  const showOrganizerSection = mode === "gm" && activeSection === "organize_sheets";
+  const showResistancesSection = activeSection === "resistances";
   const canEditStats = mode === "gm";
   const canEditActions = mode === "gm";
   const canManageEquipment = true;
@@ -423,7 +445,7 @@ export function PlayerCharacterSheet({
               {sheetInitials(detail.instance.name)}
             </div>
             <div className="character-sheet__header-main">
-              <h3>{detail.instance.name}</h3>
+              {mode === "gm" ? <ActiveSheetNamePicker /> : <h3>{detail.instance.name}</h3>}
             </div>
           </div>
           <div className="character-sheet__header-resources">
@@ -501,12 +523,10 @@ export function PlayerCharacterSheet({
           </div>
         </header>
 
-        <CharacterSheetTabs activeTab={activeTab} onChange={setActiveTab} mode={mode} />
-
         {showDenseSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--dense"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-dense"
             aria-labelledby="sheet-tab-dense"
             tabIndex={0}
@@ -838,7 +858,7 @@ export function PlayerCharacterSheet({
         {showStatsSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-stats"
             aria-labelledby="sheet-tab-stats"
             tabIndex={0}
@@ -897,7 +917,7 @@ export function PlayerCharacterSheet({
         {showStatusesSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-statuses"
             aria-labelledby="sheet-tab-statuses"
             tabIndex={0}
@@ -937,7 +957,7 @@ export function PlayerCharacterSheet({
         {showActionsSection ? (
           <div
             className="character-sheet__tab-panel"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-actions"
             aria-labelledby="sheet-tab-actions"
             tabIndex={0}
@@ -1033,7 +1053,7 @@ export function PlayerCharacterSheet({
         {showAttributesSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-attributes"
             aria-labelledby="sheet-tab-attributes"
             tabIndex={0}
@@ -1113,7 +1133,7 @@ export function PlayerCharacterSheet({
         {showProficienciesSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-proficiencies"
             aria-labelledby="sheet-tab-proficiencies"
             tabIndex={0}
@@ -1184,7 +1204,7 @@ export function PlayerCharacterSheet({
         {showKillsSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-kills"
             aria-labelledby="sheet-tab-kills"
             tabIndex={0}
@@ -1211,7 +1231,7 @@ export function PlayerCharacterSheet({
         {showNotesSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--notes"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-notes"
             aria-labelledby="sheet-tab-notes"
             tabIndex={0}
@@ -1244,7 +1264,7 @@ export function PlayerCharacterSheet({
         {showBackstorySection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail character-sheet__tab-panel--profile"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-backstory"
             aria-labelledby="sheet-tab-backstory"
             tabIndex={0}
@@ -1277,7 +1297,7 @@ export function PlayerCharacterSheet({
         {showInventorySection ? (
           <div
             className="character-sheet__tab-panel"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-inventory"
             aria-labelledby="sheet-tab-inventory"
             tabIndex={0}
@@ -1394,7 +1414,7 @@ export function PlayerCharacterSheet({
         {showActionHistorySection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--tool"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-action_history"
             aria-labelledby="sheet-tab-action_history"
             tabIndex={0}
@@ -1406,7 +1426,7 @@ export function PlayerCharacterSheet({
         {showManagementSection ? (
           <div
             className="character-sheet__tab-panel character-sheet__tab-panel--detail"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-management"
             aria-labelledby="sheet-tab-management"
             tabIndex={0}
@@ -1425,10 +1445,22 @@ export function PlayerCharacterSheet({
           </div>
         ) : null}
 
+        {showOrganizerSection ? (
+          <div
+            className="character-sheet__tab-panel character-sheet__tab-panel--detail"
+            role="region"
+            id="sheet-panel-organize_sheets"
+            aria-labelledby="sheet-tab-organize_sheets"
+            tabIndex={0}
+          >
+            <SpawnedSheetOrganizer client={client} />
+          </div>
+        ) : null}
+
         {showResistancesSection ? (
           <div
             className="character-sheet__tab-panel"
-            role="tabpanel"
+            role="region"
             id="sheet-panel-resistances"
             aria-labelledby="sheet-tab-resistances"
             tabIndex={0}

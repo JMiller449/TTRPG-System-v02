@@ -1,23 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppStore } from "@/app/state/useAppStore";
-
-interface HistoryPanelPosition {
-  left: number;
-  top: number;
-}
-
-function historyPanelPosition(trigger: DOMRect): HistoryPanelPosition {
-  const viewportMargin = 10;
-  const panelWidth = Math.min(440, window.innerWidth - viewportMargin * 2);
-  return {
-    left: Math.min(
-      Math.max(viewportMargin, trigger.right - panelWidth),
-      window.innerWidth - panelWidth - viewportMargin
-    ),
-    top: trigger.bottom + 9
-  };
-}
+import {
+  historyPanelPosition,
+  type HistoryPanelPosition
+} from "@/features/console/intentFeedbackHistoryPosition";
 
 function formatFeedbackTime(createdAt: string): string {
   const date = new Date(createdAt);

@@ -20,6 +20,15 @@ function formatXp(value: number): string {
   return value.toFixed(2).replace(/\.00$/, "");
 }
 
+function formatCompactTimestamp(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 export function SheetKillsSection({
   client,
   instanceId,
@@ -262,7 +271,10 @@ export function SheetKillsSection({
           ) : (
             <div className="sheet-kill-grid">
               {filteredKills.map((kill) => (
-                <article className="sheet-kill-card" key={kill.id}>
+                <article
+                  className={`sheet-kill-card ${dense ? "sheet-kill-card--compact" : ""}`}
+                  key={kill.id}
+                >
                   <div className="sheet-kill-card__header">
                     <strong>
                       {(kill.quantity ?? 1) > 1 ? `${kill.quantity}× ` : ""}
@@ -270,21 +282,47 @@ export function SheetKillsSection({
                     </strong>
                     <strong>{formatXp(kill.xp_per_participant)} XP</strong>
                   </div>
-                  <time dateTime={kill.occurred_at}>
-                    {new Date(kill.occurred_at).toLocaleString()}
-                  </time>
-                  {kill.submitted_by_name ? (
-                    <span className="sheet-kill-card__recorder">
-                      Recorded by {kill.submitted_by_name}
-                    </span>
-                  ) : null}
-                  <footer>
-                    <span>{formatXp(kill.xp_percentage)}% credit</span>
-                    <span>
-                      {kill.participant_count} participant
-                      {kill.participant_count === 1 ? "" : "s"}
-                    </span>
-                  </footer>
+                  {dense ? (
+                    <div className="sheet-kill-card__compact-meta">
+                      <time
+                        dateTime={kill.occurred_at}
+                        title={new Date(kill.occurred_at).toLocaleString()}
+                      >
+                        {formatCompactTimestamp(kill.occurred_at)}
+                      </time>
+                      <span aria-hidden="true">·</span>
+                      <span>{formatXp(kill.xp_percentage)}%</span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {kill.participant_count} participant
+                        {kill.participant_count === 1 ? "" : "s"}
+                      </span>
+                      {kill.submitted_by_name ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span>by {kill.submitted_by_name}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                      <time dateTime={kill.occurred_at}>
+                        {new Date(kill.occurred_at).toLocaleString()}
+                      </time>
+                      {kill.submitted_by_name ? (
+                        <span className="sheet-kill-card__recorder">
+                          Recorded by {kill.submitted_by_name}
+                        </span>
+                      ) : null}
+                      <footer>
+                        <span>{formatXp(kill.xp_percentage)}% credit</span>
+                        <span>
+                          {kill.participant_count} participant
+                          {kill.participant_count === 1 ? "" : "s"}
+                        </span>
+                      </footer>
+                    </>
+                  )}
                 </article>
               ))}
             </div>

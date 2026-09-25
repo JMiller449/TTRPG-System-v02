@@ -99,7 +99,7 @@ and focused sections under `components/`. GM and player views share
 authoritative rendering while controls differ by role.
 
 The shared display separates the former compact Overview into dedicated Stats
-and Statuses tabs. Stats uses the full stat
+and Statuses destinations. Stats uses the full stat
 presentation while retaining player point allocation and GM point grants,
 formula editing, and provenance controls. Statuses owns active conditions and
 standalone effects; players retain their public runtime projection while GMs
@@ -115,16 +115,19 @@ buttons open the existing additive grant dialog. Action rows sort real instance
 pins first, mutate the same `pinned_action_ids`, and execute each Action through
 its compatible per-row roll modes. Inventory search is presentation-local while
 quantity, equipment, storage, addition, proposal, and removal controls retain
-their existing role-aware requests. The expanded Stats, Statuses, and task tabs
-remain available for deeper work.
+their existing role-aware requests. The expanded Stats, Statuses, and task
+destinations remain available for deeper work through the Characters subtree in
+the shared console sidebar.
 
-Dense kill history intentionally keeps only the chronological recent-record
-feed and the role-appropriate Add Kill entry point. Summary grouping, search,
-date/participant filters, and the Summary/Feed switch remain in the full Kills
-destination.
+Dense kill history intentionally keeps only a compact chronological
+recent-record ledger and the role-appropriate Add Kill entry point. Each ledger
+row keeps the enemy and awarded XP prominent while placing its timestamp,
+credit, participant count, and optional recorder on one secondary line. Summary
+grouping, search, date/participant filters, and the Summary/Feed switch remain
+in the full Kills destination.
 
 The GM Characters workspace is the default post-authentication destination.
-Its selected-instance Management tab consolidates infrequent lifecycle
+Its selected-instance Management destination consolidates infrequent lifecycle
 operations: player access-code generation/rotation, snapshotting the evolved
 instance into a new template, and confirmed despawning. These controls reuse
 the existing feature-owned requests and do not place private access codes in
@@ -134,9 +137,12 @@ template registry. Enemy instances omit the player-access controls.
 
 Sheet templates and spawned instances each participate in an independent
 display-only [catalog organization](catalog-organization.md) scope. The template
-library uses the shared nested browser, while the active spawned-sheet selector
-opens its organizer in a centered modal. Folder placement does not change template
-inheritance, instance ownership, access codes, parties, or runtime behavior.
+library uses the shared nested browser. In the GM character workspace, the
+character name is the searchable active-sheet picker and Organize Sheets is a
+GM-only Characters subsection that renders the spawned-sheet catalog browser
+inline. This replaces the former full-width context strip and organizer modal.
+Folder placement does not change template inheritance, instance ownership,
+access codes, parties, or runtime behavior.
 
 On desktop, the template builder fills the remaining console workspace while
 its step rail and active section own independent vertical scrolling. The builder
@@ -150,7 +156,7 @@ opens the catalog picker, and selecting a card opens its focused draft editor.
 Required defaults and template-draft mutation semantics are unchanged.
 
 The shared character display exposes the profile through a dedicated
-Backstory tab. Both a DM and the assigned player submit the complete profile
+Backstory destination. Both a DM and the assigned player submit the complete profile
 through `set_instanced_sheet_profile`; backend instance-access validation is
 the authorization boundary. Template profiles are authored through the DM-only
 template builder. Snapshotting an evolved instance into a template copies its
@@ -162,6 +168,13 @@ read-only for Players; in the GM view its display opens a focused inline editor
 that submits through the DM-only instanced-sheet Attribute mutation. XP remains
 independently derived, and neither XP readiness nor a Level edit performs
 automatic advancement or stat distribution.
+
+Character section selection is owned by the surrounding console shell. Opening
+Characters selects Dense and expands its nested section navigation in the left
+sidebar. Shared destinations appear for both roles, while Action History and
+Management are GM-only. The selected sheet region renders directly below the
+identity header without a duplicate horizontal tab bar. Changing the selected
+character resets the section to Dense.
 
 Health and Mana values and meters interpolate from their distinct resource
 colors toward the danger color as the authoritative current-to-maximum ratio

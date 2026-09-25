@@ -36,7 +36,7 @@ not define parallel transport payload shapes.
 - `serverState`: normalized projections of sheets, instances, actions, items,
   item templates, tags, formulas, attributes, effects, conditions, encounters,
   catalog organization, and action history.
-- `uiState`: role-specific views, active instance selection, sheet tabs,
+- `uiState`: role-specific views, active instance selection, sheet sections,
   connection presentation, and other local navigation choices.
 - intent state: request-scoped pending, success, and failure lifecycles plus a
   bounded frontend-only session history. History is neither persisted nor sent
@@ -53,24 +53,29 @@ visible authoritative value reconciles to a later snapshot or patch.
 ## Application shell
 
 [`frontend/src/app/App.tsx`](../../frontend/src/app/App.tsx) gates unauthenticated,
-player-claim, player-console, and GM-console experiences. Characters is the
-default GM workspace, and GM navigation selects dedicated workspaces for templates, actions, items, formulas,
-attributes, proficiencies, conditions, effects, encounters, XP, action history,
-state safety, and the extension. Player navigation exposes only assigned-sheet
-capabilities and the extension workflow.
+player-claim, player-console, and GM-console experiences. Both authenticated
+roles use the shared grouped sidebar and navigation registry under
+[`frontend/src/features/console/`](../../frontend/src/features/console/), with
+each destination declaring which roles may see it. Characters is the default
+workspace for both roles. The GM additionally sees dedicated workspaces for
+templates, actions, items, formulas, attributes, proficiencies, conditions,
+effects, encounters, XP, action history, and state safety; the player sees only
+Characters and Extension. This visibility filtering is presentation behavior
+and does not replace backend authorization or redaction.
 
 The shared console and status components under
 [`frontend/src/features/console/`](../../frontend/src/features/console/) present
 session state and navigation. Request feedback appears in temporary overlay
 toasts that never reserve or shift workspace layout: pending toasts remain until
 resolution, while success and error toasts expire independently or may be
-dismissed. The status bar exposes an adjacent session-history panel containing
-the longer-lived request status, timestamp, message, and request ID where
-available. That panel is portaled to the document overlay layer and positioned
-from its status trigger so the shell's filtered stacking contexts cannot paint
-ordinary workspace content above it. Dismissing a toast does not remove its
-history record. Role checks in the UI improve usability but do not replace
-backend authorization or redaction.
+dismissed. A persistent footer in the shared sidebar contains backend,
+userscript, Roll20, pending-request, History, and Exit controls. The History
+control opens a session panel containing longer-lived request status,
+timestamps, messages, and request IDs where available. That panel is portaled
+to the document overlay layer, opens above a lower-viewport trigger, and cannot
+be covered by the shell's filtered stacking contexts. Dismissing a toast does
+not remove its history record. Role checks in the UI improve usability but do
+not replace backend authorization or redaction.
 
 ## Reconnection and reconciliation
 
@@ -115,17 +120,35 @@ Authenticated destination panels use an explicit workspace variant that fills
 the workspace and omits redundant outer frame chrome, including stacked Backup
 & Undo panels and the Extension destination. Nested cards, dialogs, and
 feature-owned form measures keep their semantic boundaries. Player and GM
-character views render the same full-width frameless sheet surface, in-sheet
-tab navigation, a default fixed Dense dashboard, dedicated expanded Stats and
-Statuses destinations, and desktop density; role
+character views render the same full-width frameless sheet surface, a default
+fixed Dense dashboard, dedicated expanded Stats and Statuses destinations, and
+desktop density. Character section navigation is nested beneath Characters in
+the shared sidebar instead of consuming a horizontal row inside the sheet; role
 differences inside that surface are limited to authorized controls, private
 projections, and GM-only destinations such as Action History and Management.
-Their outer workspaces remain role-specific: the GM owns spawned-sheet
-selection and organization, while the Player rail switches between the claimed
-character sheet and extension setup. The active tab panel owns sheet scrolling
-so fixed chrome does not introduce whole-page horizontal scrolling. Viewports
+Their outer content routing remains role-specific: the GM owns spawned-sheet
+selection and organization, while the shared role-filtered rail lets the player
+switch between the claimed character sheet and extension setup. The active
+sheet region owns scrolling so fixed chrome does not introduce whole-page
+horizontal scrolling. Viewports
 at or below 960 CSS pixels continue to use the document-flow mobile layout
 instead of the fixed desktop shell.
+
+The GM character header embeds the searchable active spawned-sheet picker in
+the character-name position. Spawned-sheet folder management is a GM-only
+Organize Sheets subsection beneath Characters. The former context strip and
+organizer modal are not part of the current shell, leaving more vertical space
+for the selected character section.
+
+Authenticated workspaces do not render a separate top status header. The
+active destination is already represented by sidebar selection, while the
+sidebar's independently scrolling navigation and fixed operational footer keep
+status and session controls available without consuming workspace height.
+The sidebar also keeps a navigation search field fixed above that scrolling
+region. Its role-filtered result set includes top-level destinations and
+Characters subsections, uses contextual breadcrumb labels, selects the first
+match by default, and supports wrapping Up/Down traversal plus Enter activation
+and Escape dismissal.
 
 ## Principal tests
 

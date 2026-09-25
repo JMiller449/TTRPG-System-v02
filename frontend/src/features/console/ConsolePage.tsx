@@ -4,46 +4,33 @@ import { selectActiveSheetDetail } from "@/app/state/selectors";
 import type { GameClient } from "@/hooks/useGameClient";
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
 import { ExtensionPage } from "@/features/extension/ExtensionPage";
+import { ConsoleSidebar } from "@/features/console/ConsoleSidebar";
+import type { ConsoleView } from "@/features/console/consoleSidebarData";
+import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
 export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
   const { state } = useAppStore();
   const activeDetail = selectActiveSheetDetail(state);
-  const [showExtension, setShowExtension] = useState(false);
+  const [activeView, setActiveView] = useState<ConsoleView>("sheet_viewer");
+  const [activeCharacterSection, setActiveCharacterSection] = useState<PlayerSheetTab>("dense");
 
   useEffect(() => {
-    setShowExtension(false);
+    setActiveView("sheet_viewer");
+    setActiveCharacterSection("dense");
   }, [activeDetail?.instance.id]);
+
+  const showExtension = activeView === "extension";
 
   return (
     <div className="app-layout app-layout--player">
-      <aside
-        className="app-nav-panel player-nav-panel player-nav-panel--compact"
-        aria-label="Player sheet navigation"
-      >
-        <div className="nav-panel__section nav-panel__section--tabs">
-          <p className="nav-panel__eyebrow">Workspace</p>
-          <button
-            type="button"
-            className={`player-nav-panel__destination ${
-              !showExtension ? "player-nav-panel__destination--active" : ""
-            }`}
-            aria-pressed={!showExtension}
-            onClick={() => setShowExtension(false)}
-          >
-            Character Sheet
-          </button>
-          <button
-            type="button"
-            className={`player-nav-panel__destination ${
-              showExtension ? "player-nav-panel__destination--active" : ""
-            }`}
-            aria-pressed={showExtension}
-            onClick={() => setShowExtension(true)}
-          >
-            Install / Sync Bridge
-          </button>
-        </div>
-      </aside>
+      <ConsoleSidebar
+        role="player"
+        client={client}
+        activeView={activeView}
+        activeCharacterSection={activeCharacterSection}
+        onNavigate={setActiveView}
+        onCharacterSectionChange={setActiveCharacterSection}
+      />
 
       <main className="app-main-panel app-main-panel--player">
         <div className="player-workspace player-workspace--single">
@@ -53,7 +40,12 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
             </section>
           ) : (
             <section className="player-workspace__sheet">
-              <PlayerCharacterSheet mode="player" client={client} />
+              <PlayerCharacterSheet
+                mode="player"
+                client={client}
+                activeSection={activeCharacterSection}
+                onSectionChange={setActiveCharacterSection}
+              />
             </section>
           )}
         </div>

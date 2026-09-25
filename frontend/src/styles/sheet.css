@@ -709,6 +709,59 @@ button.sheet-proficiency-summary:focus-visible {
   min-width: 0;
 }
 
+.active-sheet-name-picker {
+  position: relative;
+  width: clamp(220px, 28vw, 440px);
+  max-width: 100%;
+}
+
+.active-sheet-name-picker::after {
+  content: "▾";
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.active-sheet-name-picker .field {
+  margin: 0;
+}
+
+.active-sheet-name-picker .field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.active-sheet-name-picker input {
+  width: 100%;
+  min-height: 38px;
+  border-color: transparent;
+  padding: 0.2rem 1.65rem 0.2rem 0.25rem;
+  color: var(--text);
+  background: transparent;
+  font-size: clamp(1.25rem, 2.5vw, 1.55rem);
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
+.active-sheet-name-picker input:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: var(--r6-control-bg-soft, var(--card));
+}
+
+.active-sheet-name-picker input:focus-visible {
+  border-color: var(--accent);
+  background: var(--r6-control-bg, var(--card));
+}
+
 .character-sheet__header-right {
   display: flex;
   flex-direction: column;
@@ -1150,28 +1203,6 @@ button.sheet-proficiency-summary:focus-visible {
   padding: 0.25rem 0.15rem 0.6rem 1.15rem;
 }
 
-.character-sheet__tabs {
-  flex: 0 0 auto;
-  margin-top: 0.45rem;
-  display: flex;
-  gap: 0.2rem;
-  padding: 0 1rem 0.35rem;
-}
-
-.character-sheet__tab {
-  border: 1px solid var(--line);
-  border-radius: var(--r6-radius-sm, 2px);
-  background: var(--card);
-  padding: 0.33rem 0.7rem;
-  cursor: pointer;
-}
-
-.character-sheet__tab--active {
-  border-color: var(--accent);
-  background: var(--r6-control-bg-active, var(--card));
-}
-
-.character-sheet__tab[aria-selected="true"],
 .tab[aria-selected="true"] {
   border-color: var(--accent);
   background: var(--r6-control-bg-active, var(--card));
@@ -2908,11 +2939,6 @@ button.dense-proficiency-row:focus-visible {
     padding: 0.2rem 0.3rem;
   }
 
-  .sheet-panel .character-sheet__tabs {
-    margin-top: 0.1rem;
-    padding: 0 0.3rem 0.12rem;
-  }
-
   .sheet-panel #sheet-panel-dense.character-sheet__tab-panel {
     padding: 0.22rem 0.3rem 0.05rem;
   }
@@ -3117,6 +3143,35 @@ button.dense-proficiency-row:focus-visible {
   column-rule: 0;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.spawned-sheet-organizer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.spawned-sheet-organizer__browser {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.8rem;
+  background: color-mix(in srgb, var(--card), transparent 18%);
+}
+
+.spawned-sheet-organizer__browser .catalog-browser {
+  min-width: 0;
+}
+
+.spawned-sheet-organizer__browser .catalog-browser__tree {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .sheet-stats-page,
@@ -3938,16 +3993,6 @@ button.sheet-attribute-summary:focus-visible {
     margin-top: 0.25rem;
   }
 
-  .sheet-panel .character-sheet__tabs {
-    margin-top: 0.3rem;
-    padding-inline: 0.55rem;
-  }
-
-  .r6-theme .sheet-panel .character-sheet__tab {
-    min-height: 34px;
-    padding: 0.2rem 0.5rem;
-  }
-
   .sheet-panel .character-sheet__tab-panel {
     padding: 0.4rem 0.55rem 0.1rem;
   }
@@ -4128,19 +4173,6 @@ button.sheet-attribute-summary:focus-visible {
   .action-command-grid,
   .sheet-actions-section--compact .action-command-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .character-sheet__tabs {
-    flex-wrap: nowrap;
-    margin-inline: 0;
-    overflow-x: auto;
-    padding-inline: 0.6rem;
-    scrollbar-width: thin;
-  }
-
-  .character-sheet__tab {
-    flex: 0 0 auto;
-    min-height: 44px;
   }
 
   .core-block__header {

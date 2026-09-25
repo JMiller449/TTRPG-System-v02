@@ -15,12 +15,13 @@ vi.mock("@/features/extension/bridgeUserscriptChannel", () => ({
   discoverBridgeUserscript: channelMocks.discover
 }));
 
-import { AppStatusBar } from "@/features/console/AppStatusBar";
+import { ConsoleSidebarStatus } from "@/features/console/ConsoleSidebarStatus";
 
+const endSession = vi.fn();
 const client: GameClient = {
   connect: async () => undefined,
   disconnect: () => undefined,
-  endSession: () => undefined,
+  endSession,
   sendProtocolRequest: vi.fn(),
   authenticate: () => undefined,
   authenticateWithCode: () => undefined,
@@ -45,6 +46,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   channelMocks.discover.mockReset();
+  endSession.mockReset();
 });
 
 afterEach(async () => {
@@ -52,21 +54,21 @@ afterEach(async () => {
   container.remove();
 });
 
-async function renderStatusBar(): Promise<void> {
+async function renderStatus(): Promise<void> {
   await act(async () => {
     root.render(
       createElement(
         StoreContext.Provider,
         { value: { state: connectedState, dispatch: () => undefined } },
-        createElement(AppStatusBar, { role: "gm", client })
+        createElement(ConsoleSidebarStatus, { client })
       )
     );
     await Promise.resolve();
   });
 }
 
-describe("AppStatusBar", () => {
-  it("reports a responding userscript as an extension connection", async () => {
+describe("ConsoleSidebarStatus", () => {
+  it("renders operational status without duplicate workspace identity", async () => {
     channelMocks.discover.mockResolvedValue({
       nonce: "nonce-1",
       version: "1.1.0",
@@ -77,19 +79,28 @@ describe("AppStatusBar", () => {
       bindingLabel: "DM"
     });
 
-    await renderStatusBar();
+    await renderStatus();
 
-    expect(container.textContent).toContain("Extension Connected");
+    expect(container.querySelector("footer")?.getAttribute("aria-label")).toBe(
+      "Application status"
+    );
+    expect(container.textContent).toContain("Backend");
+    expect(container.textContent).toContain("Extension");
     expect(container.textContent).toContain("History 0");
-    expect(container.textContent).not.toContain("Synced");
+    expect(container.textContent).not.toContain("GM Workspace");
+    expect(container.textContent).not.toContain("Characters");
   });
 
-  it("reports a missing userscript without claiming an extension connection", async () => {
+  it("reports missing extension state and ends the session from the footer", async () => {
     channelMocks.discover.mockResolvedValue(null);
+    await renderStatus();
 
-    await renderStatusBar();
-
-    expect(container.textContent).toContain("Extension Not Detected");
-    expect(container.textContent).not.toContain("Extension Connected");
+    expect(container.querySelector('[aria-label="Extension Not Detected"]')).not.toBeNull();
+    await act(async () => {
+      [...container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Exit")
+        ?.click();
+    });
+    expect(endSession).toHaveBeenCalledOnce();
   });
 });

@@ -491,24 +491,53 @@
 
 .sheet-kills-section--dense .sheet-kill-summary-grid,
 .sheet-kills-section--dense .sheet-kill-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.3rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .sheet-kills-section--dense .sheet-kill-summary-card,
 .sheet-kills-section--dense .sheet-kill-card {
   min-height: 0;
-  padding: 0.45rem 0.55rem;
+  padding: 0.38rem 0.5rem;
+}
+
+.sheet-kills-section--dense .sheet-kill-card + .sheet-kill-card {
+  border-top: 0;
+}
+
+.sheet-kills-section--dense .sheet-kill-card--compact {
+  gap: 0.1rem;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--panel-strong, #071a2c), transparent 18%);
+}
+
+.sheet-kills-section--dense .sheet-kill-card--compact:first-child {
+  border-top-left-radius: var(--r6-radius-sm, 2px);
+  border-top-right-radius: var(--r6-radius-sm, 2px);
+}
+
+.sheet-kills-section--dense .sheet-kill-card--compact:last-child {
+  border-bottom-right-radius: var(--r6-radius-sm, 2px);
+  border-bottom-left-radius: var(--r6-radius-sm, 2px);
 }
 
 .sheet-kills-section--dense .sheet-kill-card__header {
   font-size: 0.78rem;
 }
 
-.sheet-kills-section--dense .sheet-kill-card time,
-.sheet-kills-section--dense .sheet-kill-card__recorder,
-.sheet-kills-section--dense .sheet-kill-card footer {
+.sheet-kills-section--dense .sheet-kill-card__compact-meta {
+  display: flex;
+  min-width: 0;
+  gap: 0.3rem;
+  overflow: hidden;
+  color: var(--muted);
   font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.sheet-kills-section--dense .sheet-kill-card__compact-meta span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sheet-kills-section__toolbar {

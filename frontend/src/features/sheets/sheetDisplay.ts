@@ -24,6 +24,7 @@ export type PlayerSheetTab =
   | "notes"
   | "action_history"
   | "management"
+  | "organize_sheets"
   | "resistances";
 
 export const PLAYER_HEALTH_DAMAGE_TYPES = DAMAGE_TYPES.map((damageType) => ({

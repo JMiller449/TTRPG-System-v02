@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialState } from "@/app/state/initialState";
 import { StoreContext } from "@/app/state/storeContext";
 import { IntentFeedbackHistory } from "@/features/console/IntentFeedbackHistory";
+import { historyPanelPosition } from "@/features/console/intentFeedbackHistoryPosition";
 
 describe("IntentFeedbackHistory", () => {
   let container: HTMLDivElement;
@@ -21,6 +22,26 @@ describe("IntentFeedbackHistory", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
+  });
+
+  it("positions the history panel above a sidebar-bottom trigger", () => {
+    vi.stubGlobal("innerHeight", 800);
+    vi.stubGlobal("innerWidth", 1200);
+
+    const position = historyPanelPosition({
+      top: 700,
+      bottom: 734,
+      left: 10,
+      right: 210,
+      width: 200,
+      height: 34,
+      x: 10,
+      y: 700,
+      toJSON: () => ({})
+    });
+
+    expect(position).toEqual({ left: 10, bottom: 109 });
   });
 
   it("opens beside the status control and exposes session details and clearing", async () => {

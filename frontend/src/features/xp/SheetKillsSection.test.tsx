@@ -202,6 +202,10 @@ describe("SheetKillsSection player recording", () => {
     expect(container.textContent).not.toContain("Summary");
     expect(container.textContent).not.toContain("Filters");
     expect(container.querySelector('[aria-label="Filter kill registry"]')).toBeNull();
+    expect(container.querySelector(".sheet-kill-card--compact")).not.toBeNull();
+    expect(container.querySelector(".sheet-kill-card__compact-meta")?.textContent).toContain(
+      "100%·1 participant·by Hero"
+    );
   });
 
   it("submits the selected enemy and quantity without client-authored XP", async () => {

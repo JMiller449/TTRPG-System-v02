@@ -1,12 +1,24 @@
 import { PlayerCharacterSheet } from "@/features/sheets/PlayerCharacterSheet";
-import { ActiveSheetSelector } from "@/features/sheets/components/ActiveSheetSelector";
 import type { GameClient } from "@/hooks/useGameClient";
+import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
-export function SheetViewerPage({ client }: { client: GameClient }): JSX.Element {
+export function SheetViewerPage({
+  client,
+  activeSection,
+  onSectionChange
+}: {
+  client: GameClient;
+  activeSection: PlayerSheetTab;
+  onSectionChange: (section: PlayerSheetTab) => void;
+}): JSX.Element {
   return (
     <div className="main-panel-stack main-panel-stack--sheet-viewer">
-      <ActiveSheetSelector client={client} />
-      <PlayerCharacterSheet mode="gm" client={client} />
+      <PlayerCharacterSheet
+        mode="gm"
+        client={client}
+        activeSection={activeSection}
+        onSectionChange={onSectionChange}
+      />
     </div>
   );
 }

@@ -128,15 +128,18 @@ Core-stat hover/focus explanations show the effective value, authoritative base,
 Starter/User/DM assignment pivot, and active direct augmentations. Core stats use
 a numeric base rather than an authored formula; derived-stat tooltips continue to
 show their authored formula and aliases. For a GM, clicking a core stat opens a
-focused additive point-award dialog; it never asks the client to set a resulting
-base total.
+focused signed adjustment dialog for adding or removing points; it never asks the
+client to calculate or set a resulting base total. The provenance panel provides
+the same explicit add/remove correction controls for the unassigned pool, whose
+backend-owned balance cannot fall below zero.
 In the GM instance-resistance view, each damage-type resistance control displays
 its cumulative damage counter and a per-type reset action.
 
 ## Permissions
 
 - DMs may edit template and instance stats/resistances, contribution points,
-  and unassigned-point grants, and may inspect or reset instance damage trackers.
+  and unassigned-point grants/removals, and may inspect or reset instance damage
+  trackers.
 - Assigned players may edit allowed current resources, allocate their granted
   points, manage contribution points, and apply typed damage to their own instance.
 - Players receive read-only evaluated stats, maxima, carried weight, and

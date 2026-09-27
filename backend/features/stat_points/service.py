@@ -183,9 +183,8 @@ def audit_mutation(state: State, previous: State) -> list[PatchOp]:
             if (
                 request_type == "adjust_instanced_sheet_unassigned_stat_points"
                 and key == "unspent"
-                and delta > 0
             ):
-                kind = "unassigned_grant"
+                kind = "unassigned_grant" if delta > 0 else "unassigned_removal"
             changes: dict[str, dict[PointSource, int]]
             previous_pool = pool
             if transfer:

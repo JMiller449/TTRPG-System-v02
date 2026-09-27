@@ -100,7 +100,7 @@ authoritative rendering while controls differ by role.
 
 The shared display separates the former compact Overview into dedicated Stats
 and Statuses destinations. Stats uses the full stat
-presentation while retaining player point allocation and GM point grants,
+presentation while retaining player point allocation and GM point adjustments,
 formula editing, and provenance controls. Statuses owns active conditions and
 standalone effects; players retain their public runtime projection while GMs
 retain source/timing details and condition removal. Assigned actions, including
@@ -111,7 +111,7 @@ same authoritative instance data into a fixed dashboard with internally
 scrolling action, kill, status, Attribute, Proficiency, and inventory regions.
 Player stat buttons stage only positive allocations from the current unspent
 balance and submit through the existing atomic allocation request; GM stat
-buttons open the existing additive grant dialog. Action rows sort real instance
+buttons open the existing signed adjustment dialog. Action rows sort real instance
 pins first, mutate the same `pinned_action_ids`, and execute each Action through
 its compatible per-row roll modes. Inventory search is presentation-local while
 quantity, equipment, storage, addition, proposal, and removal controls retain

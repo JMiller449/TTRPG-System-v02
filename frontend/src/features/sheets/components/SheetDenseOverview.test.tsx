@@ -32,7 +32,7 @@ function baseProps() {
     proficiencies: <span>Proficiencies</span>,
     inventory: <span>Inventory</span>,
     onAllocateStatPoints: vi.fn(),
-    onAddCoreStatPoints: vi.fn()
+    onAdjustCoreStatPoints: vi.fn()
   };
 }
 
@@ -110,15 +110,15 @@ describe("SheetDenseOverview", () => {
     ).toBe(true);
   });
 
-  it("routes GM stat additions to the existing grant dialog callback", async () => {
+  it("routes GM stat changes to the adjustment dialog callback", async () => {
     const props = { ...baseProps(), mode: "gm" as const };
     await act(async () => root.render(<SheetDenseOverview {...props} />));
 
     await act(async () =>
       container
-        .querySelector<HTMLButtonElement>('button[aria-label="Grant Strength points"]')
+        .querySelector<HTMLButtonElement>('button[aria-label="Adjust Strength points"]')
         ?.click()
     );
-    expect(props.onAddCoreStatPoints).toHaveBeenCalledWith("strength");
+    expect(props.onAdjustCoreStatPoints).toHaveBeenCalledWith("strength");
   });
 });

@@ -110,10 +110,34 @@ describe("Skill point provenance", () => {
           ]}
           canManage
           onGrantUnspent={() => undefined}
+          onRemoveUnspent={() => undefined}
         />
       )
     );
     expect(container.textContent).toContain("Gave unassigned points");
     expect(container.textContent).toContain("Grant Unspent Points");
+    expect(container.textContent).toContain("Remove Unspent Points");
+  });
+
+  it("labels unspent removals in the DM audit", async () => {
+    await act(async () =>
+      root.render(
+        <SheetStatPointHistory
+          instanceId="hero"
+          summary={summary}
+          audit={[
+            {
+              ...audit[0],
+              kind: "unassigned_removal",
+              skill: null,
+              amount: -1,
+              changes: { unspent: { manual: -1 } }
+            }
+          ]}
+          canManage
+        />
+      )
+    );
+    expect(container.textContent).toContain("Removed unassigned points");
   });
 });

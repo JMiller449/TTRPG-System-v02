@@ -28,7 +28,7 @@ import { SheetStatPointAllocator } from "@/features/sheets/components/SheetStatP
 import { SheetStatsSection } from "@/features/sheets/components/SheetStatsSection";
 import {
   SheetCoreStatPointDialog,
-  SheetUnspentPointGrantDialog
+  SheetUnspentPointAdjustmentDialog
 } from "@/features/sheets/components/SheetCoreStatPointDialog";
 import { SheetStandaloneEffectsSection } from "@/features/sheets/components/SheetStandaloneEffectsSection";
 import { RollLog } from "@/features/rolls/RollLog";
@@ -136,8 +136,10 @@ export function PlayerCharacterSheet({
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
   );
-  const [grantingCoreStat, setGrantingCoreStat] = useState<CoreStatKey | null>(null);
-  const [grantingUnspentPoints, setGrantingUnspentPoints] = useState(false);
+  const [adjustingCoreStat, setAdjustingCoreStat] = useState<CoreStatKey | null>(null);
+  const [adjustingUnspentPoints, setAdjustingUnspentPoints] = useState<"add" | "remove" | null>(
+    null
+  );
   const [attributeCreatorOpen, setAttributeCreatorOpen] = useState(false);
   const [proficiencyCreatorOpen, setProficiencyCreatorOpen] = useState(false);
   const [actionCreatorOpen, setActionCreatorOpen] = useState(false);
@@ -178,8 +180,8 @@ export function PlayerCharacterSheet({
   useEffect(() => {
     onSectionChange("dense");
     setEditingFormulaStatName(null);
-    setGrantingCoreStat(null);
-    setGrantingUnspentPoints(false);
+    setAdjustingCoreStat(null);
+    setAdjustingUnspentPoints(null);
     setAttributeCreatorOpen(false);
     setProficiencyCreatorOpen(false);
     setActionCreatorOpen(false);
@@ -546,7 +548,7 @@ export function PlayerCharacterSheet({
                   "Allocate stat points"
                 )
               }
-              onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName)}
+              onAdjustCoreStatPoints={(statName) => setAdjustingCoreStat(statName)}
               actions={
                 <>
                   <SheetReactionResource
@@ -870,7 +872,7 @@ export function PlayerCharacterSheet({
               </div>
               <p>
                 {mode === "gm"
-                  ? "Review effective values and formulas, grant stat points, and inspect their provenance."
+                  ? "Review effective values and formulas, adjust stat points, and inspect their provenance."
                   : "Review effective values and formulas, allocate available points, and inspect their provenance."}
               </p>
             </header>
@@ -882,7 +884,7 @@ export function PlayerCharacterSheet({
                 statPointSummary={detail.persistentSheet.stat_point_summary}
                 augmentations={augmentations}
                 instanceId={detail.instance.id}
-                onAddCoreStatPoints={(statName) => setGrantingCoreStat(statName as CoreStatKey)}
+                onAdjustCoreStatPoints={(statName) => setAdjustingCoreStat(statName as CoreStatKey)}
                 onEditFormulaStat={
                   mode === "gm" ? (statName) => setEditingFormulaStatName(statName) : undefined
                 }
@@ -908,7 +910,8 @@ export function PlayerCharacterSheet({
                 summary={detail.persistentSheet.stat_point_summary}
                 audit={detail.persistentSheet.stat_point_audit}
                 canManage={mode === "gm"}
-                onGrantUnspent={() => setGrantingUnspentPoints(true)}
+                onGrantUnspent={() => setAdjustingUnspentPoints("add")}
+                onRemoveUnspent={() => setAdjustingUnspentPoints("remove")}
               />
             </div>
           </div>
@@ -1516,48 +1519,52 @@ export function PlayerCharacterSheet({
           onClose={closeFormulaStatEditor}
         />
       ) : null}
-      {grantingCoreStat ? (
+      {adjustingCoreStat ? (
         <SheetCoreStatPointDialog
-          key={`${detail.instance.id}:${grantingCoreStat}`}
-          statName={grantingCoreStat}
+          key={`${detail.instance.id}:${adjustingCoreStat}`}
+          statName={adjustingCoreStat}
           currentBase={
-            detail.persistentSheet.stat_point_summary?.allocated?.[grantingCoreStat] ??
-            detail.stats[grantingCoreStat] ??
+            detail.persistentSheet.stat_point_summary?.allocated?.[adjustingCoreStat] ??
+            detail.stats[adjustingCoreStat] ??
             0
           }
-          onSubmit={({ quantity, source, reason }) => {
+          onSubmit={({ quantity, operation, source, reason }) => {
+            const delta = operation === "remove" ? -quantity : quantity;
             client.sendProtocolRequest(
               buildAdjustInstancedSheetBaseStatRequest({
                 instanceId: detail.instance.id,
-                statName: grantingCoreStat,
-                delta: quantity,
+                statName: adjustingCoreStat,
+                delta,
                 pointSource: source,
                 reason
               }),
-              `Add points to ${grantingCoreStat}`
+              `${operation === "remove" ? "Remove" : "Add"} points ${
+                operation === "remove" ? "from" : "to"
+              } ${adjustingCoreStat}`
             );
-            setGrantingCoreStat(null);
+            setAdjustingCoreStat(null);
           }}
-          onClose={() => setGrantingCoreStat(null)}
+          onClose={() => setAdjustingCoreStat(null)}
         />
       ) : null}
-      {grantingUnspentPoints ? (
-        <SheetUnspentPointGrantDialog
+      {adjustingUnspentPoints ? (
+        <SheetUnspentPointAdjustmentDialog
           key={`unspent:${detail.instance.id}`}
           currentUnspent={detail.persistentSheet.stat_point_summary?.unspent ?? 0}
-          onSubmit={({ quantity, source, reason }) => {
+          operation={adjustingUnspentPoints}
+          onSubmit={({ quantity, operation, source, reason }) => {
             client.sendProtocolRequest(
               buildAdjustInstancedSheetUnassignedStatPointsRequest({
                 instanceId: detail.instance.id,
-                delta: quantity,
+                delta: operation === "remove" ? -quantity : quantity,
                 pointSource: source,
                 reason
               }),
-              "Grant unspent points"
+              operation === "remove" ? "Remove unspent points" : "Grant unspent points"
             );
-            setGrantingUnspentPoints(false);
+            setAdjustingUnspentPoints(null);
           }}
-          onClose={() => setGrantingUnspentPoints(false)}
+          onClose={() => setAdjustingUnspentPoints(null)}
         />
       ) : null}
       {mode === "gm" && attributeCreatorOpen ? (

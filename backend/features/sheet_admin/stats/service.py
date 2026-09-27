@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+
+from backend.core.transport import PatchOp
 from backend.features.attributes.service import validate_and_evaluate_sheet_attributes
 from backend.features.formula_runtime.service import (
     evaluate_resource_maximum,
@@ -23,6 +25,36 @@ from backend.features.variable_registry import service as variable_registry_serv
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.resistance import Resistances
 from backend.state.models.state import State
+
+
+def _rebalance_resources_after_stat_change(
+    state: State,
+    instance_id: str,
+    *,
+    previous_health: float | int,
+    previous_mana: float | int,
+    previous_max_health: int,
+) -> list[PatchOp]:
+    instance = state.instanced_sheets[instance_id]
+    next_max_health = evaluate_resource_maximum(instance, "health")
+    next_max_mana = evaluate_resource_maximum(instance, "mana")
+    max_health_increase = max(0, next_max_health - previous_max_health)
+    next_health = normalize_numeric_result(
+        min(next_max_health, previous_health + max_health_increase)
+    )
+    next_mana = normalize_numeric_result(min(next_max_mana, previous_mana))
+    ops: list[PatchOp] = []
+    if next_health != previous_health:
+        health_path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "health"
+        )
+        ops.append(state_sync_service.set_mutation(state, health_path, next_health))
+    if next_mana != previous_mana:
+        mana_path = state_sync_service.join_path(
+            "instanced_sheets", instance_id, "mana"
+        )
+        ops.append(state_sync_service.set_mutation(state, mana_path, next_mana))
+    return ops
 
 
 async def set_base_stat(request: SetSheetBaseStat) -> None:
@@ -55,28 +87,23 @@ async def set_instanced_base_stat(request: SetInstancedSheetBaseStat) -> None:
             raise ValueError(f"Instance '{request.instance_id}' has no runtime stats.")
         previous_max_health = evaluate_resource_maximum(instance, "health")
         previous_health = instance.health
+        previous_mana = instance.mana
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
             "stats",
             request.stat_name,
         )
-        op = state_sync_service.set_mutation(state, path, request.value)
-        ops = [op]
-        next_max_health = evaluate_resource_maximum(instance, "health")
-        max_health_increase = max(0, next_max_health - previous_max_health)
-        if max_health_increase > 0:
-            health_path = state_sync_service.join_path(
-                "instanced_sheets",
+        ops = [state_sync_service.set_mutation(state, path, request.value)]
+        ops.extend(
+            _rebalance_resources_after_stat_change(
+                state,
                 request.instance_id,
-                "health",
+                previous_health=previous_health,
+                previous_mana=previous_mana,
+                previous_max_health=previous_max_health,
             )
-            next_health = normalize_numeric_result(
-                min(next_max_health, previous_health + max_health_increase)
-            )
-            ops.append(
-                state_sync_service.set_mutation(state, health_path, next_health)
-            )
+        )
         return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -91,25 +118,20 @@ async def adjust_instanced_base_stat(request: AdjustInstancedSheetBaseStat) -> N
             raise ValueError(f"Instance '{request.instance_id}' has no runtime stats.")
         previous_max_health = evaluate_resource_maximum(instance, "health")
         previous_health = instance.health
+        previous_mana = instance.mana
         path = state_sync_service.join_path(
             "instanced_sheets", request.instance_id, "stats", request.stat_name
         )
         ops = [state_sync_service.increment_mutation(state, path, request.delta)]
-        next_max_health = evaluate_resource_maximum(instance, "health")
-        max_health_increase = max(0, next_max_health - previous_max_health)
-        if max_health_increase > 0:
-            health_path = state_sync_service.join_path(
-                "instanced_sheets", request.instance_id, "health"
+        ops.extend(
+            _rebalance_resources_after_stat_change(
+                state,
+                request.instance_id,
+                previous_health=previous_health,
+                previous_mana=previous_mana,
+                previous_max_health=previous_max_health,
             )
-            ops.append(
-                state_sync_service.set_mutation(
-                    state,
-                    health_path,
-                    normalize_numeric_result(
-                        min(next_max_health, previous_health + max_health_increase)
-                    ),
-                )
-            )
+        )
         return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
@@ -140,6 +162,12 @@ async def adjust_instanced_unassigned_stat_points(
         instance = state.instanced_sheets.get(request.instance_id)
         if instance is None:
             raise ValueError(f"Instance '{request.instance_id}' does not exist.")
+        resulting_points = instance.unassigned_stat_points + request.delta
+        if resulting_points < 0:
+            raise ValueError(
+                f"Instance '{request.instance_id}' only has "
+                f"{instance.unassigned_stat_points} unassigned stat point(s)."
+            )
         path = state_sync_service.join_path(
             "instanced_sheets", request.instance_id, "unassigned_stat_points"
         )

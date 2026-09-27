@@ -157,6 +157,85 @@ def test_additive_unassigned_grant_has_explicit_audit_kind(campaign: State) -> N
     asyncio.run(scenario())
 
 
+def test_dm_can_remove_assigned_and_unassigned_points_with_audit(campaign: State) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        dm = await connect()
+        await spawn(dm)
+        await send(
+            dm,
+            "adjust_instanced_sheet_base_stat",
+            instance_id="hero",
+            stat_name="strength",
+            delta=3,
+        )
+        await send(
+            dm,
+            "adjust_instanced_sheet_unassigned_stat_points",
+            instance_id="hero",
+            delta=4,
+        )
+        await send(
+            dm,
+            "adjust_instanced_sheet_base_stat",
+            instance_id="hero",
+            stat_name="strength",
+            delta=-2,
+            reason="Corrected mistaken award",
+        )
+        await send(
+            dm,
+            "adjust_instanced_sheet_unassigned_stat_points",
+            instance_id="hero",
+            delta=-3,
+            reason="Corrected mistaken grant",
+        )
+
+        summary, entries = project(campaign, "hero")
+        assert summary.allocated["strength"] == 11
+        assert summary.unspent == 1
+        assert entries[-2].amount == -2
+        assert entries[-2].kind == "adjustment"
+        assert entries[-2].reason == "Corrected mistaken award"
+        assert entries[-1].amount == -3
+        assert entries[-1].kind == "unassigned_removal"
+        assert entries[-1].reason == "Corrected mistaken grant"
+        assert summary.reconciles
+
+    asyncio.run(scenario())
+
+
+def test_dm_cannot_remove_more_unassigned_points_than_available(campaign: State) -> None:
+    async def scenario() -> None:
+        await websocket_sessions.reset()
+        dm = await connect()
+        await spawn(dm)
+        await send(
+            dm,
+            "adjust_instanced_sheet_unassigned_stat_points",
+            instance_id="hero",
+            delta=2,
+        )
+        history_before = deepcopy(campaign.stat_point_history)
+        dm.sent_messages.clear()
+
+        await send(
+            dm,
+            "adjust_instanced_sheet_unassigned_stat_points",
+            instance_id="hero",
+            delta=-3,
+        )
+
+        assert campaign.instanced_sheets["hero"].unassigned_stat_points == 2
+        assert campaign.stat_point_history == history_before
+        assert dm.sent_messages[-1]["type"] == "error"
+        assert dm.sent_messages[-1]["reason"] == (
+            "Instance 'hero' only has 2 unassigned stat point(s)."
+        )
+
+    asyncio.run(scenario())
+
+
 def test_legacy_migration_treats_existing_values_as_starter_points(campaign: State) -> None:
     template = campaign.sheets["mage_template"]
     campaign.instanced_sheets["legacy"] = InstancedSheet.from_dict(

@@ -17,7 +17,7 @@ export function SheetStatsSection({
   statPointSummary,
   augmentations = {},
   instanceId,
-  onAddCoreStatPoints,
+  onAdjustCoreStatPoints,
   onEditFormulaStat
 }: {
   canEditStats: boolean;
@@ -27,7 +27,7 @@ export function SheetStatsSection({
   statPointSummary?: StatPointSummary | null;
   augmentations?: Record<string, Augmentation>;
   instanceId?: string;
-  onAddCoreStatPoints: (key: SheetStatKey) => void;
+  onAdjustCoreStatPoints: (key: SheetStatKey) => void;
   onEditFormulaStat?: (statName: SheetFormulaStatName) => void;
 }): JSX.Element {
   return (
@@ -77,8 +77,8 @@ export function SheetStatsSection({
                       <button
                         type="button"
                         className="core-block__value-button"
-                        onClick={() => onAddCoreStatPoints(key)}
-                        aria-label={`Add points to ${DISPLAY_NAMES[key]}. Current value ${currentValue}.`}
+                        onClick={() => onAdjustCoreStatPoints(key)}
+                        aria-label={`Adjust points for ${DISPLAY_NAMES[key]}. Current value ${currentValue}.`}
                         aria-describedby={breakdownId}
                       >
                         <strong className="core-block__value">{currentValue}</strong>

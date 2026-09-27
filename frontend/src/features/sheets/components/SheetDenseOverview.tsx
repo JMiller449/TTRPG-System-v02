@@ -51,7 +51,7 @@ export function SheetDenseOverview({
   proficiencies,
   inventory,
   onAllocateStatPoints,
-  onAddCoreStatPoints
+  onAdjustCoreStatPoints
 }: {
   mode: "player" | "gm";
   instanceId: string;
@@ -65,7 +65,7 @@ export function SheetDenseOverview({
   proficiencies: ReactNode;
   inventory: ReactNode;
   onAllocateStatPoints: (allocations: Record<string, number>) => void;
-  onAddCoreStatPoints: (stat: CoreStatKey) => void;
+  onAdjustCoreStatPoints: (stat: CoreStatKey) => void;
 }): JSX.Element {
   const availablePoints = Math.max(0, unassignedPoints);
   const [allocation, setAllocation] = useState<StatPointAllocation>(() =>
@@ -87,7 +87,7 @@ export function SheetDenseOverview({
             <span>
               {mode === "player"
                 ? `${remainingPoints} of ${availablePoints} unspent`
-                : "GM point grants"}
+                : "GM point adjustments"}
             </span>
             {mode === "player" ? (
               <button
@@ -130,11 +130,11 @@ export function SheetDenseOverview({
                       aria-label={
                         mode === "player"
                           ? `Add ${DISPLAY_NAMES[key]} point`
-                          : `Grant ${DISPLAY_NAMES[key]} points`
+                          : `Adjust ${DISPLAY_NAMES[key]} points`
                       }
                       onClick={() => {
                         if (mode === "gm") {
-                          onAddCoreStatPoints(key);
+                          onAdjustCoreStatPoints(key);
                           return;
                         }
                         setAllocation((current) =>
@@ -142,7 +142,7 @@ export function SheetDenseOverview({
                         );
                       }}
                     >
-                      +
+                      {mode === "gm" ? "±" : "+"}
                     </button>
                   </div>
                 </article>

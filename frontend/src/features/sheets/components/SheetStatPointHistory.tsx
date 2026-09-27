@@ -11,7 +11,11 @@ const sources = [
 const skills = ["strength", "dexterity", "constitution", "perception", "arcane", "will"] as const;
 const title = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
 const kindLabel = (value: string): string =>
-  value === "unassigned_grant" ? "Gave unassigned points" : title(value);
+  value === "unassigned_grant"
+    ? "Gave unassigned points"
+    : value === "unassigned_removal"
+      ? "Removed unassigned points"
+      : title(value);
 const signed = (value: number): string => `${value > 0 ? "+" : ""}${value}`;
 
 function sourceText(parts: Record<string, number> = {}): string {
@@ -188,13 +192,15 @@ export function SheetStatPointHistory({
   summary,
   audit,
   canManage,
-  onGrantUnspent
+  onGrantUnspent,
+  onRemoveUnspent
 }: {
   instanceId: string;
   summary?: StatPointSummary | null;
   audit?: StatPointEntry[] | null;
   canManage: boolean;
   onGrantUnspent?: () => void;
+  onRemoveUnspent?: () => void;
 }): JSX.Element {
   return (
     <section
@@ -216,6 +222,16 @@ export function SheetStatPointHistory({
             {onGrantUnspent ? (
               <button className="button button--secondary" type="button" onClick={onGrantUnspent}>
                 Grant Unspent Points
+              </button>
+            ) : null}
+            {onRemoveUnspent ? (
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={!summary?.unspent}
+                onClick={onRemoveUnspent}
+              >
+                Remove Unspent Points
               </button>
             ) : null}
             <StatPointAudit key={`audit:${instanceId}`} entries={audit ?? []} />

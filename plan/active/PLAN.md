@@ -59,12 +59,15 @@ The core character-sheet and authored-action dice-roller MVP is implemented.
   Level-up awards remain explicit GM assignments under active rules §8.1.
   Major-stat hover/focus now separates Starter, User assigned, DM assigned, and
   active augmentations; schema v55 treats imported pre-ledger balances as Starter.
-  GM major-stat clicks use an additive point-award dialog and a positive-delta
-  backend intent instead of the former inline resulting-value editor.
-  GMs can grant additive unspent points from the provenance panel; the append-only
-  audit labels those transactions as “Gave unassigned points.”
-  Verified with 654 backend tests, 531 frontend tests, TypeScript checking,
-  production build, focused lint/format checks, and desktop/mobile UI previews.
+  GM major-stat clicks use a signed point-adjustment dialog and a delta backend
+  intent instead of the former inline resulting-value editor, allowing manual
+  removal of points awarded by mistake. GMs can grant or remove unspent points
+  from the provenance panel; the backend prevents a negative pool and the
+  append-only audit labels those transactions as “Gave unassigned points” or
+  “Removed unassigned points.” Corrections that lower Health or Mana maxima
+  clamp the current resource in the same authoritative mutation.
+  Verified with 664 backend tests, 554 frontend tests, TypeScript checking,
+  production build, and focused lint/format checks.
 
 Backend:
 

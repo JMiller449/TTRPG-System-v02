@@ -268,6 +268,74 @@ def test_dm_constitution_edit_increases_current_and_max_health(monkeypatch) -> N
     asyncio.run(scenario())
 
 
+def test_dm_stat_point_removal_clamps_current_resources_to_new_maxima(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            template = _build_sheet_state()
+            aliases = [
+                FormulaAliases(
+                    name="constitution",
+                    path=["stats", "constitution"],
+                )
+            ]
+            template.max_health = Formula(text="@constitution", aliases=aliases)
+            template.max_mana = Formula(text="@constitution", aliases=aliases)
+            state.sheets[template.id] = template
+            state.instanced_sheets["mage_instance"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": template.id,
+                    "health": 12,
+                    "mana": 12,
+                    "augments": {},
+                },
+                template=template,
+            )
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "adjust_instanced_sheet_base_stat",
+                    "instance_id": "mage_instance",
+                    "stat_name": "constitution",
+                    "delta": -4,
+                },
+            )
+
+            instance = state.instanced_sheets["mage_instance"]
+            assert instance.stats is not None
+            assert instance.stats.constitution == 8
+            assert instance.health == 8
+            assert instance.mana == 8
+            ops = {
+                op["path"]: op["value"]
+                for op in websocket.sent_messages[0]["ops"]
+                if op["path"]
+                in {
+                    "/instanced_sheets/mage_instance/health",
+                    "/instanced_sheets/mage_instance/mana",
+                    "/instanced_sheets/mage_instance/evaluated_max_health",
+                    "/instanced_sheets/mage_instance/evaluated_max_mana",
+                }
+            }
+            assert ops == {
+                "/instanced_sheets/mage_instance/health": 8,
+                "/instanced_sheets/mage_instance/mana": 8,
+                "/instanced_sheets/mage_instance/evaluated_max_health": 8,
+                "/instanced_sheets/mage_instance/evaluated_max_mana": 8,
+            }
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_dm_can_set_sheet_formula_stat(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

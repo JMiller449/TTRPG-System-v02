@@ -18,7 +18,7 @@ const baseProps = {
       tags: []
     }
   },
-  onAddCoreStatPoints: () => undefined
+  onAdjustCoreStatPoints: () => undefined
 };
 
 beforeEach(() => {
@@ -34,25 +34,25 @@ afterEach(async () => {
 });
 
 describe("SheetStatsSection formula interaction", () => {
-  it("opens point granting from a GM major-stat click", async () => {
-    const onAddCoreStatPoints = vi.fn();
+  it("opens point adjustment from a GM major-stat click", async () => {
+    const onAdjustCoreStatPoints = vi.fn();
     await act(async () => {
       root.render(
         createElement(SheetStatsSection, {
           ...baseProps,
           canEditStats: true,
-          onAddCoreStatPoints
+          onAdjustCoreStatPoints
         })
       );
     });
     await act(async () =>
       container
         .querySelector<HTMLButtonElement>(
-          '[aria-label="Add points to Strength. Current value 11."]'
+          '[aria-label="Adjust points for Strength. Current value 11."]'
         )
         ?.click()
     );
-    expect(onAddCoreStatPoints).toHaveBeenCalledWith("strength");
+    expect(onAdjustCoreStatPoints).toHaveBeenCalledWith("strength");
     expect(container.querySelector('[aria-label^="Edit Strength"]')).toBeNull();
   });
 

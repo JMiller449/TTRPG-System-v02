@@ -41,15 +41,20 @@ history as a whole, like the existing state-replacement contract.
 
 DM point requests accept optional `point_source` (`manual` or `level_up`, default
 `manual`) and a bounded `reason`. Their route permissions remain authoritative.
-Clicking a major stat opens an additive award dialog; its
-`adjust_instanced_sheet_base_stat` intent carries a positive quantity rather than
-a client-computed resulting total. The legacy absolute-set route remains a typed
+Clicking a major stat opens an adjustment dialog; its
+`adjust_instanced_sheet_base_stat` intent carries a signed, nonzero delta rather
+than a client-computed resulting total. This lets the GM add points or manually
+remove points awarded by mistake. The legacy absolute-set route remains a typed
 administrative compatibility operation but is not exposed by this character UI.
-The provenance panel's **Grant Unspent Points** action uses the parallel
-`adjust_instanced_sheet_unassigned_stat_points` positive-delta intent. Its audit
-entry has the explicit `unassigned_grant` kind, presented to the GM as “Gave
-unassigned points.”
+The provenance panel's **Grant Unspent Points** and **Remove Unspent Points**
+actions use the parallel `adjust_instanced_sheet_unassigned_stat_points` signed
+delta intent. The backend rejects a removal larger than the available unspent
+balance. Their audit entries have the explicit `unassigned_grant` and
+`unassigned_removal` kinds, presented to the GM as “Gave unassigned points” and
+“Removed unassigned points.”
 Core-stat level-up assignments preserve the existing health-max adjustment logic.
+If a correction lowers an authoritative Health or Mana maximum, the backend
+clamps the current resource to that new maximum in the same mutation.
 XP readiness and Level edits do not automatically grant points; §8.1 specifies
 GM-assigned advancement and does not define a universal award amount.
 

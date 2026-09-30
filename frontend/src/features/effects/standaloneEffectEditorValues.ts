@@ -1,16 +1,13 @@
 import type { StandaloneEffectDefinition } from "@/domain/models";
 import {
   hasValidAugmentationEditorValues,
+  augmentationEditorTargetPath,
   toAugmentationEffectPayload,
   toAugmentationLifecyclePayload,
   toStackingConfigPayload,
   type AugmentationEditorValues
 } from "@/features/augmentations/augmentationEditorValues";
 import type { StandaloneEffectDefinitionPayload } from "@/infrastructure/ws/requestBuilders";
-
-function cleanPath(path: string[]): string[] {
-  return path.map((segment) => segment.trim()).filter(Boolean);
-}
 
 export function hasValidStandaloneEffectValues(values: AugmentationEditorValues): boolean {
   return values.targetRoot === "instance" && hasValidAugmentationEditorValues(values);
@@ -27,7 +24,7 @@ export function toStandaloneEffectDefinitionPayload(
     scope: "instance",
     target: {
       root: "instance",
-      path: cleanPath(values.targetPath)
+      path: augmentationEditorTargetPath(values)
     },
     effect: toAugmentationEffectPayload(values),
     active: values.active,

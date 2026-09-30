@@ -59,6 +59,7 @@ ACTION_IDS = (
     "parry_skill",
     "flames_of_life",
     "mana_manipulation",
+    "test_action_point_expenditure",
 )
 STARTER_ACTION_IDS = (
     *ACTION_IDS,
@@ -1059,6 +1060,25 @@ def action_payloads() -> list[dict[str, Any]]:
                     "augmentation_id": "mana_manipulation_overload_advantage",
                     "operation": "apply",
                 },
+            ],
+        },
+        {
+            "id": "test_action_point_expenditure",
+            "name": "Test Action Point Expenditure",
+            "roll_mode_kind": "none",
+            "notes": (
+                "Development action for testing action-point spending and the "
+                "empty-pool refill prompt."
+            ),
+            "attributes": {},
+            "steps": [
+                {
+                    "step_id": "spend_test_action_point",
+                    "type": "adjust_action_points",
+                    "target": "caster",
+                    "operation": "consume",
+                    "amount": 1,
+                }
             ],
         },
         {

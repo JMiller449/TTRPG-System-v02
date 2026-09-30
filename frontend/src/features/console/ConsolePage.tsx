@@ -28,8 +28,12 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
         client={client}
         activeView={activeView}
         activeCharacterSection={activeCharacterSection}
+        activeActionSection="catalog"
+        activeItemSection="catalog"
         onNavigate={setActiveView}
         onCharacterSectionChange={setActiveCharacterSection}
+        onActionSectionChange={() => undefined}
+        onItemSectionChange={() => undefined}
       />
 
       <main className="app-main-panel app-main-panel--player">

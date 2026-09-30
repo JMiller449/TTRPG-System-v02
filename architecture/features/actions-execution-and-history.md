@@ -75,6 +75,12 @@ read-only balance remains in the character header across tabs, while Dodge and
 Movement stay in the character header. This placement does not change the existing runtime
 routes, bounds, or role permissions.
 
+When the displayed balance is empty and a clicked action's ordered point steps
+would fail on consumption, the character surface prompts before submission. The
+user may cancel or reset the pool to its authoritative evaluated maximum and
+continue the selected action. The reset and action use the existing requests in
+socket order; actions that do not consume points are not interrupted.
+
 The Dense character destination reuses that balance and its management routes.
 Its compact Action list sorts instance-owned pins first and exposes compatible
 roll modes on each row; clicking a mode submits the same `perform_action` intent
@@ -89,14 +95,30 @@ the existing instance-action attachment request for the selected character.
 Item-granted actions remain managed through their source item rather than being
 detached from the action catalog.
 
-The standalone Action catalog keeps create and edit drafts beside the catalog,
-using the workspace's available width while the preset picker stays collapsed
-until requested. Its overview presents ordered step summaries with explicit
-Edit controls. Editing one step replaces the overview inside that same editor
-instead of increasing its height. The character-context editor uses the same
-focused view inside its existing modal and temporarily removes the preset
-sidebar, so it does not create a nested dialog. Returning to the overview
-retains the local draft.
+Standalone Action authoring is divided beneath the Actions sidebar destination
+into Catalog and Guided sections. Catalog keeps the nested browser beside the
+complete Action editor, so selecting, creating, or duplicating a definition
+does not leave the catalog or waste the editor workspace. Guided asks for a name
+and common behavior, then hands one ordinary Action draft to the Catalog editor.
+Duplication creates a new unsaved definition, assigns fresh Attribute
+relationship IDs, preserves referenced definitions, and selects the first free
+case-insensitive numeric name (`Name1`, `Name2`, and so on). The parent Actions
+destination defaults to Catalog, and navigation search can target either section.
+The component remains mounted while moving among these sections, so local draft
+handoffs are retained.
+
+The Raw Builder overview presents ordered step summaries with explicit Edit
+controls. Editing one step replaces the overview inside that same editor instead
+of increasing its height. The character-context editor uses the same focused
+view inside its existing modal and temporarily removes the preset sidebar, so
+it does not create a nested dialog. Returning to the overview retains the local
+draft.
+
+Guided Action creation never selects or mutates an Item and never batches
+multiple definitions. Coordinated weapon-and-Action creation belongs to Item
+authoring and is described in the item architecture. Generated or guided
+Actions remain ordinary definitions with no wizard-only runtime behavior and
+remain fully editable in Raw Builder.
 
 Within an Action draft, the optional Attributes disclosure uses compact value
 cards rather than permanent bridge editors. Add Existing opens a nested catalog

@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 55
+CURRENT_STATE_SCHEMA_VERSION = 57
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -2974,6 +2974,199 @@ def _migrate_v54_to_v55(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 55, "state": state}
 
 
+def _migrate_v55_to_v56(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = deepcopy(envelope["state"])
+    proficiencies = state.get("proficiencies", {})
+    if isinstance(proficiencies, dict):
+        for proficiency in proficiencies.values():
+            if isinstance(proficiency, dict):
+                default_tags: list[str] = []
+                if proficiency.get("category") == "weapon_family":
+                    default_tags.append("weapon")
+                    if proficiency.get("id") in {"long_swords", "short_swords"}:
+                        default_tags.append("sword")
+                    elif proficiency.get("id") == "knives":
+                        default_tags.append("dagger")
+                proficiency.setdefault("tags", default_tags)
+    for registry_name in ("sheets", "instanced_sheets"):
+        registry = state.get(registry_name, {})
+        if not isinstance(registry, dict):
+            continue
+        for owner in registry.values():
+            if not isinstance(owner, dict):
+                continue
+            bridges = owner.get("proficiencies", {})
+            if not isinstance(bridges, dict):
+                continue
+            for bridge in bridges.values():
+                if not isinstance(bridge, dict) or "growth_points" in bridge:
+                    continue
+                use_count = bridge.get("use_count", 0)
+                growth_rate = bridge.get("growth_rate", 0)
+                if (
+                    isinstance(use_count, int)
+                    and not isinstance(use_count, bool)
+                    and isinstance(growth_rate, int | float)
+                    and not isinstance(growth_rate, bool)
+                    and isfinite(growth_rate)
+                ):
+                    bridge["growth_points"] = min(
+                        1.0, max(0.0, use_count * float(growth_rate))
+                    )
+    return {"schema_version": 56, "state": state}
+
+
+def _migrate_v56_to_v57(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    """Promote item templates to independent, private item definitions."""
+    state = deepcopy(envelope["state"])
+    items = state.setdefault("items", {})
+    templates = state.setdefault("item_templates", {})
+    if not isinstance(items, dict) or not isinstance(templates, dict):
+        state["item_templates"] = {}
+        return {"schema_version": 57, "state": state}
+    if not templates:
+        folders = state.get("catalog_folders", {})
+        if isinstance(folders, dict):
+            for folder_id, folder in list(folders.items()):
+                if isinstance(folder, dict) and folder.get("catalog") == "item_templates":
+                    folders.pop(folder_id, None)
+        entries = state.get("catalog_entries", {})
+        if isinstance(entries, dict):
+            for placement_id, entry in list(entries.items()):
+                if isinstance(entry, dict) and entry.get("catalog") == "item_templates":
+                    entries.pop(placement_id, None)
+        state["item_templates"] = {}
+        return {"schema_version": 57, "state": state}
+
+    def available_id(preferred: str, occupied: set[str]) -> str:
+        if preferred not in occupied:
+            occupied.add(preferred)
+            return preferred
+        suffix = 1
+        while f"{preferred}{suffix}" in occupied:
+            suffix += 1
+        result = f"{preferred}{suffix}"
+        occupied.add(result)
+        return result
+
+    def available_name(preferred: str, occupied: set[str]) -> str:
+        if preferred.casefold() not in occupied:
+            occupied.add(preferred.casefold())
+            return preferred
+        match = re.fullmatch(r"(.*?)(\d+)", preferred)
+        base = match.group(1) if match and match.group(1) else preferred
+        suffix = int(match.group(2)) + 1 if match and match.group(1) else 1
+        while f"{base}{suffix}".casefold() in occupied:
+            suffix += 1
+        result = f"{base}{suffix}"
+        occupied.add(result.casefold())
+        return result
+
+    occupied_item_ids = set(items)
+    occupied_names = {
+        str(item.get("name", "")).strip().casefold()
+        for item in items.values()
+        if isinstance(item, dict)
+    }
+    migrated_ids: dict[str, str] = {}
+    for template_id, template in templates.items():
+        if not isinstance(template, dict):
+            continue
+        item_id = available_id(str(template_id), occupied_item_ids)
+        migrated_ids[str(template_id)] = item_id
+        item = deepcopy(template)
+        item["id"] = item_id
+        name = str(item.get("name", template_id)).strip() or str(template_id)
+        item["name"] = available_name(name, occupied_names)
+        item["player_catalog_access"] = {"mode": "none", "instance_ids": []}
+        item["approval_status"] = "approved"
+        item["submitted_by_instance_id"] = None
+        item["submitted_by_name"] = None
+        attributes = item.get("attributes", {})
+        if isinstance(attributes, dict):
+            for attribute_id, bridge in attributes.items():
+                if not isinstance(bridge, dict):
+                    continue
+                digest = hashlib.sha1(
+                    f"{item_id}\0{attribute_id}".encode("utf-8")
+                ).hexdigest()[:16]
+                bridge["relationship_id"] = f"migrated_item_attribute_{digest}"
+        items[item_id] = item
+
+    folders = state.setdefault("catalog_folders", {})
+    entries = state.setdefault("catalog_entries", {})
+    if isinstance(folders, dict) and isinstance(entries, dict) and migrated_ids:
+        occupied_folder_ids = set(folders)
+        item_root_names = {
+            str(folder.get("name", "")).casefold()
+            for folder in folders.values()
+            if isinstance(folder, dict)
+            and folder.get("catalog") == "items"
+            and folder.get("parent_id") is None
+        }
+        root_name = available_name("Former Templates", item_root_names)
+        root_id = available_id("items_former_templates", occupied_folder_ids)
+        root_positions = [
+            folder.get("position", 0)
+            for folder in folders.values()
+            if isinstance(folder, dict)
+            and folder.get("catalog") == "items"
+            and folder.get("parent_id") is None
+            and isinstance(folder.get("position", 0), int)
+        ]
+        folders[root_id] = {
+            "id": root_id,
+            "catalog": "items",
+            "name": root_name,
+            "parent_id": None,
+            "position": max(root_positions, default=-1) + 1,
+        }
+
+        template_folders = {
+            folder_id: folder
+            for folder_id, folder in list(folders.items())
+            if isinstance(folder, dict) and folder.get("catalog") == "item_templates"
+        }
+        folder_ids = {
+            folder_id: available_id(
+                f"items_from_templates_{folder_id}", occupied_folder_ids
+            )
+            for folder_id in template_folders
+        }
+        for old_id, folder in template_folders.items():
+            new_id = folder_ids[old_id]
+            old_parent = folder.get("parent_id")
+            folders[new_id] = {
+                **deepcopy(folder),
+                "id": new_id,
+                "catalog": "items",
+                "parent_id": folder_ids.get(old_parent, root_id),
+            }
+
+        template_placements = {
+            str(entry.get("entry_id")): entry
+            for entry in entries.values()
+            if isinstance(entry, dict) and entry.get("catalog") == "item_templates"
+        }
+        for old_id, new_id in migrated_ids.items():
+            placement = template_placements.get(old_id, {})
+            entries[f"items:{new_id}"] = {
+                "id": f"items:{new_id}",
+                "catalog": "items",
+                "entry_id": new_id,
+                "folder_id": folder_ids.get(placement.get("folder_id"), root_id),
+                "position": placement.get("position", 0),
+            }
+        for folder_id in template_folders:
+            folders.pop(folder_id, None)
+        for placement_id, entry in list(entries.items()):
+            if isinstance(entry, dict) and entry.get("catalog") == "item_templates":
+                entries.pop(placement_id, None)
+
+    state["item_templates"] = {}
+    return {"schema_version": 57, "state": state}
+
+
 MIGRATIONS: dict[int, Migration] = {
     0: _migrate_v0_to_v1,
     1: _migrate_v1_to_v2,
@@ -3030,6 +3223,8 @@ MIGRATIONS: dict[int, Migration] = {
     52: _migrate_v52_to_v53,
     53: _migrate_v53_to_v54,
     54: _migrate_v54_to_v55,
+    55: _migrate_v55_to_v56,
+    56: _migrate_v56_to_v57,
 }
 
 

@@ -3,6 +3,7 @@ import { shouldConnectApp } from "@/app/appConnection";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
 import { PlayerEntry } from "@/features/auth/PlayerEntry";
 import { SessionLanding } from "@/features/auth/SessionLanding";
 import { ConditionAuthoringPage } from "@/features/conditions/ConditionAuthoringPage";
@@ -14,7 +15,7 @@ import { FormulaAuthoringPage } from "@/features/formulas/FormulaAuthoringPage";
 import { ExtensionPage } from "@/features/extension/ExtensionPage";
 import { AttributeAuthoringPage } from "@/features/attributes/AttributeAuthoringPage";
 import { ItemMakerPage } from "@/features/items/ItemMakerPage";
-import { ItemTemplateBuilderPage } from "@/features/items/ItemTemplateBuilderPage";
+import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
 import { ProficiencyAuthoringPage } from "@/features/proficiencies/ProficiencyAuthoringPage";
 import { RollLog } from "@/features/rolls/RollLog";
 import { SheetViewerPage } from "@/features/sheets/SheetViewerPage";
@@ -32,6 +33,8 @@ export function App(): JSX.Element {
   const { state, dispatch } = useAppStore();
   const client = useGameClient();
   const [activeCharacterSection, setActiveCharacterSection] = useState<PlayerSheetTab>("dense");
+  const [activeActionSection, setActiveActionSection] = useState<ActionAuthoringSection>("catalog");
+  const [activeItemSection, setActiveItemSection] = useState<ItemAuthoringSection>("catalog");
   const { role } = state.serverState;
   const { connection, gmView, playerSheetSelectionComplete } = state.uiState;
   const activeDetail = selectActiveSheetDetail(state);
@@ -45,6 +48,8 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     setActiveCharacterSection("dense");
+    setActiveActionSection("catalog");
+    setActiveItemSection("catalog");
   }, [role]);
 
   if (!role) {
@@ -69,9 +74,11 @@ export function App(): JSX.Element {
     ) : gmView === "xp_tracker" ? (
       <XpTrackerPage client={client} />
     ) : gmView === "item_maker" ? (
-      <ItemMakerPage client={client} />
-    ) : gmView === "item_template_builder" ? (
-      <ItemTemplateBuilderPage client={client} />
+      <ItemMakerPage
+        client={client}
+        section={activeItemSection}
+        onSectionChange={setActiveItemSection}
+      />
     ) : gmView === "formula_authoring" ? (
       <FormulaAuthoringPage client={client} />
     ) : gmView === "attribute_authoring" ? (
@@ -85,7 +92,11 @@ export function App(): JSX.Element {
     ) : gmView === "effect_authoring" ? (
       <StandaloneEffectAuthoringPage client={client} />
     ) : gmView === "action_authoring" ? (
-      <ActionAuthoringPage client={client} />
+      <ActionAuthoringPage
+        client={client}
+        section={activeActionSection}
+        onSectionChange={setActiveActionSection}
+      />
     ) : gmView === "state_backup" ? (
       <div className="main-panel-stack">
         <StateSafetyPanel client={client} />
@@ -114,7 +125,11 @@ export function App(): JSX.Element {
             client={client}
             activeView={gmView}
             activeCharacterSection={activeCharacterSection}
+            activeActionSection={activeActionSection}
+            activeItemSection={activeItemSection}
             onCharacterSectionChange={setActiveCharacterSection}
+            onActionSectionChange={setActiveActionSection}
+            onItemSectionChange={setActiveItemSection}
             onNavigate={(view) => {
               if (view === "create_template") {
                 dispatch({ type: "set_template_builder_sheet", sheetId: null });

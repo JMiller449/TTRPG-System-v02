@@ -1,4 +1,6 @@
 import type { Role } from "@/domain/models";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
+import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
 import {
   getConsoleSidebarNavGroups,
   type ConsoleView
@@ -13,8 +15,12 @@ interface ConsoleSidebarProps {
   client: GameClient;
   activeView: ConsoleView;
   activeCharacterSection: PlayerSheetTab;
+  activeActionSection: ActionAuthoringSection;
+  activeItemSection: ItemAuthoringSection;
   onNavigate: (view: ConsoleView) => void;
   onCharacterSectionChange: (section: PlayerSheetTab) => void;
+  onActionSectionChange: (section: ActionAuthoringSection) => void;
+  onItemSectionChange: (section: ItemAuthoringSection) => void;
 }
 
 export function ConsoleSidebar({
@@ -22,8 +28,12 @@ export function ConsoleSidebar({
   client,
   activeView,
   activeCharacterSection,
+  activeActionSection,
+  activeItemSection,
   onNavigate,
-  onCharacterSectionChange
+  onCharacterSectionChange,
+  onActionSectionChange,
+  onItemSectionChange
 }: ConsoleSidebarProps): JSX.Element {
   const groups = getConsoleSidebarNavGroups(role);
 
@@ -36,6 +46,8 @@ export function ConsoleSidebar({
         role={role}
         onNavigate={onNavigate}
         onCharacterSectionChange={onCharacterSectionChange}
+        onActionSectionChange={onActionSectionChange}
+        onItemSectionChange={onItemSectionChange}
       />
       <div className="console-sidebar__controls">
         <nav className="console-sidebar__nav" aria-label="Console pages">
@@ -58,6 +70,10 @@ export function ConsoleSidebar({
                       onClick={() => {
                         if (item.view === "sheet_viewer") {
                           onCharacterSectionChange("dense");
+                        } else if (item.view === "action_authoring") {
+                          onActionSectionChange("catalog");
+                        } else if (item.view === "item_maker") {
+                          onItemSectionChange("catalog");
                         }
                         onNavigate(item.view);
                       }}
@@ -74,20 +90,37 @@ export function ConsoleSidebar({
                       <nav
                         className="console-sidebar__subnav"
                         id={`console-sidebar-${item.view}-sections`}
-                        aria-label="Character sections"
+                        aria-label={`${item.label} sections`}
                       >
                         {item.children?.map((child) => {
-                          const isChildActive = activeCharacterSection === child.section;
+                          const isChildActive =
+                            child.owner === "characters"
+                              ? activeCharacterSection === child.section
+                              : child.owner === "actions"
+                                ? activeActionSection === child.section
+                                : activeItemSection === child.section;
                           return (
                             <button
-                              key={child.section}
+                              key={`${child.owner}-${child.section}`}
                               type="button"
-                              id={`sheet-tab-${child.section}`}
+                              id={
+                                child.owner === "characters"
+                                  ? `sheet-tab-${child.section}`
+                                  : `${child.owner.slice(0, -1)}-section-${child.section}`
+                              }
                               className={`console-sidebar__subnav-button ${isChildActive ? "console-sidebar__subnav-button--active" : ""}`}
                               aria-current={isChildActive ? "page" : undefined}
                               onClick={() => {
-                                onCharacterSectionChange(child.section);
-                                onNavigate("sheet_viewer");
+                                if (child.owner === "characters") {
+                                  onCharacterSectionChange(child.section);
+                                  onNavigate("sheet_viewer");
+                                } else if (child.owner === "actions") {
+                                  onActionSectionChange(child.section);
+                                  onNavigate("action_authoring");
+                                } else {
+                                  onItemSectionChange(child.section);
+                                  onNavigate("item_maker");
+                                }
                               }}
                             >
                               <span className="console-sidebar__subnav-marker" aria-hidden="true" />

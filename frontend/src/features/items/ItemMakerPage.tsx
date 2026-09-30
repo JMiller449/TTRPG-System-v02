@@ -8,9 +8,8 @@ import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import {
   createEmptyItemValues,
-  createItemValuesFromTemplate,
+  duplicateItemEditorValues,
   getItemEditorValidationError,
-  toItemDefinitionPayload,
   toItemEditorValues,
   type ItemEditorValues
 } from "@/features/items/itemEditorValues";
@@ -21,52 +20,45 @@ import {
   selectOrderedItemDefinitions
 } from "@/features/items/itemMakerRequests";
 import { buildReviewPlayerItemRequest } from "@/infrastructure/ws/requestBuilders";
-import {
-  buildCreateItemTemplateRequest,
-  buildDeleteItemTemplateRequest,
-  buildUpdateItemTemplateRequest
-} from "@/infrastructure/ws/requestBuilders";
 import { Panel } from "@/shared/ui/Panel";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
-import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { nextDuplicateName } from "@/shared/utils/duplicateName";
 import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 import { EffectReferenceEditor } from "@/features/effects/components/EffectReferenceEditor";
-
-type ItemWorkspaceMode = "start" | "item" | "choose_template" | "template_idle" | "templates";
+import { WeaponBuilderWizard } from "@/features/actions/components/WeaponActionWizard";
+import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
 
 export function ItemMakerPage({
   client,
-  templateManagement = false
+  section = "catalog",
+  onSectionChange = () => undefined
 }: {
   client: GameClient;
-  templateManagement?: boolean;
+  section?: ItemAuthoringSection;
+  onSectionChange?: (section: ItemAuthoringSection) => void;
 }): JSX.Element {
   const {
     state: {
       serverState: {
         items: itemRecords,
         itemOrder,
-        itemTemplates: itemTemplateRecords,
-        itemTemplateOrder,
+        catalogEntries,
         actions: actionRecords,
         actionOrder,
         attributes: attributeDefinitions,
         proficiencies: proficiencyRecords,
+        proficiencyOrder,
         tags: tagDefinitions,
         standaloneEffects
       },
-      uiState: { actionFormulaAuthoringMetadata }
+      uiState: { actionFormulaAuthoringMetadata, intentFeedback }
     },
     dispatch
   } = useAppStore();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<ItemWorkspaceMode>(
-    templateManagement ? "template_idle" : "start"
-  );
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [catalogSelectedItemId, setCatalogSelectedItemId] = useState<string | null>(null);
   const [draftItemId, setDraftItemId] = useState(() => makeId("item"));
   const [submittedCreateId, setSubmittedCreateId] = useState<string | null>(null);
   const [values, setValues] = useState<ItemEditorValues>(createEmptyItemValues);
@@ -87,26 +79,19 @@ export function ItemMakerPage({
       ),
     [itemOrder, itemRecords]
   );
-  const itemTemplates = useMemo(
-    () => selectOrderedItemDefinitions(itemTemplateRecords, itemTemplateOrder),
-    [itemTemplateOrder, itemTemplateRecords]
-  );
   const actions = useMemo(
     () => actionOrder.map((id) => actionRecords[id]).filter(Boolean),
     [actionOrder, actionRecords]
+  );
+  const proficiencies = useMemo(
+    () => proficiencyOrder.map((id) => proficiencyRecords[id]).filter(Boolean),
+    [proficiencyOrder, proficiencyRecords]
   );
   const { beginCreation, queueCreatedEntry } = useCatalogCreationTarget({
     catalog: "items",
     client,
     entries: itemRecords
   });
-  const { beginCreation: beginTemplateCreation, queueCreatedEntry: queueCreatedTemplateEntry } =
-    useCatalogCreationTarget({
-      catalog: "item_templates",
-      client,
-      entries: itemTemplateRecords
-    });
-
   useEffect(() => {
     if (actionFormulaAuthoringMetadata || requestedFormulaMetadataRef.current) {
       return;
@@ -120,8 +105,6 @@ export function ItemMakerPage({
     validation.reset();
     beginCreation(folderId);
     setEditingItemId(null);
-    setEditingTemplateId(null);
-    setWorkspaceMode("item");
     setDraftItemId(makeId("item"));
     setSubmittedCreateId(null);
     setValues(createEmptyItemValues());
@@ -129,25 +112,11 @@ export function ItemMakerPage({
 
   const showStart = (): void => {
     validation.reset();
-    if (templateManagement) {
-      beginTemplateCreation(null);
-    } else {
-      beginCreation(null);
-    }
+    beginCreation(null);
     setEditingItemId(null);
-    setEditingTemplateId(null);
-    setWorkspaceMode(templateManagement ? "template_idle" : "start");
-    setSelectedTemplateId("");
-    setValues(createEmptyItemValues());
-  };
-
-  const startNewTemplate = (folderId: string | null = null): void => {
-    validation.reset();
-    beginTemplateCreation(folderId);
-    setEditingItemId(null);
-    setEditingTemplateId(null);
-    setWorkspaceMode("templates");
-    setDraftItemId(makeId("item_template"));
+    setCatalogSelectedItemId(null);
+    setDraftItemId(makeId("item"));
+    setSubmittedCreateId(null);
     setValues(createEmptyItemValues());
   };
 
@@ -156,7 +125,6 @@ export function ItemMakerPage({
       setEditingItemId(null);
       setDraftItemId(makeId("item"));
       setSubmittedCreateId(null);
-      setWorkspaceMode("start");
       setValues(createEmptyItemValues());
     }
   }, [itemRecords, submittedCreateId]);
@@ -167,27 +135,6 @@ export function ItemMakerPage({
       proficiencies: proficiencyRecords
     };
     if (!validation.validate(getItemEditorValidationError(values, validationContext) === null)) {
-      return;
-    }
-    if (workspaceMode === "templates") {
-      const templateId = editingTemplateId ?? draftItemId;
-      const template = {
-        ...toItemDefinitionPayload(values, templateId),
-        player_catalog_access: { mode: "none" as const, instance_ids: [] }
-      };
-      client.sendProtocolRequest(
-        editingTemplateId
-          ? buildUpdateItemTemplateRequest({
-              templateId: editingTemplateId,
-              template
-            })
-          : buildCreateItemTemplateRequest({ template }),
-        `${editingTemplateId ? "Update" : "Create"} item template: ${template.name}`
-      );
-      if (!editingTemplateId) {
-        queueCreatedTemplateEntry(templateId);
-      }
-      showStart();
       return;
     }
     const submission = editingItemId
@@ -202,25 +149,6 @@ export function ItemMakerPage({
       setSubmittedCreateId(draftItemId);
       queueCreatedEntry(draftItemId);
     }
-  };
-
-  const deleteTemplate = (templateId: string): void => {
-    const template = itemTemplateRecords[templateId];
-    if (
-      !confirmDestructiveAction({
-        action: "Delete",
-        subject: template?.name ?? templateId,
-        consequence:
-          "This deletes the reusable template. Items previously created from it remain unchanged."
-      })
-    ) {
-      return;
-    }
-    client.sendProtocolRequest(
-      buildDeleteItemTemplateRequest({ templateId }),
-      `Delete item template: ${template?.name ?? templateId}`
-    );
-    showStart();
   };
 
   const deleteItem = (itemId: string): void => {
@@ -240,46 +168,90 @@ export function ItemMakerPage({
     if (editingItemId === itemId) {
       showStart();
     }
+    if (catalogSelectedItemId === itemId) {
+      setCatalogSelectedItemId(null);
+    }
   };
+
+  const editCatalogItem = (itemId: string): void => {
+    const item = itemRecords[itemId];
+    if (!item) return;
+    setEditingItemId(item.id);
+    beginCreation(null);
+    setValues(toItemEditorValues(item));
+    validation.reset();
+    onSectionChange("catalog");
+  };
+
+  const duplicateCatalogItem = (itemId: string): void => {
+    const item = itemRecords[itemId];
+    if (!item) return;
+    beginCreation(catalogEntries[`items:${item.id}`]?.folder_id ?? null);
+    setEditingItemId(null);
+    setCatalogSelectedItemId(null);
+    setDraftItemId(makeId("item"));
+    setSubmittedCreateId(null);
+    setValues({
+      ...duplicateItemEditorValues(item),
+      name: nextDuplicateName(
+        item.name,
+        items.map((candidate) => candidate.name)
+      )
+    });
+    validation.reset();
+    onSectionChange("catalog");
+  };
+
+  if (section === "wizard") {
+    return (
+      <Panel
+        variant="workspace"
+        title="Wizard"
+        subtitle="Guided Item creation for coordinated records such as weapons and their Actions."
+      >
+        <WeaponBuilderWizard
+          client={client}
+          proficiencies={proficiencies}
+          intentFeedback={intentFeedback}
+        />
+      </Panel>
+    );
+  }
 
   return (
     <Panel
       variant="workspace"
-      title={templateManagement ? "Item Template Builder" : "Item / Equipment Maker"}
-      subtitle={
-        templateManagement
-          ? "Reusable starting points for item creation. Existing items remain independent."
-          : "Gear, consumables, and loot. Items can grant actions and passive effects to whoever carries or equips them."
-      }
+      title="Catalog"
+      subtitle="Browse saved Items and edit the selected definition in the full builder."
       actions={
-        (
-          templateManagement
-            ? workspaceMode === "templates"
-            : Boolean(editingItemId) || workspaceMode !== "start"
-        ) ? (
-          <div className="inline-actions">
-            <button className="button button--secondary" onClick={showStart}>
-              {templateManagement ? "Template Start" : "Item Start"}
-            </button>
-            {editingItemId ? (
+        <div className="inline-actions">
+          <button
+            className="button button--primary"
+            onClick={() => {
+              startNewItem();
+              setCatalogSelectedItemId(null);
+            }}
+          >
+            New Item
+          </button>
+          {editingItemId ? (
+            <>
+              <button
+                className="button button--secondary"
+                onClick={() => duplicateCatalogItem(editingItemId)}
+              >
+                Duplicate
+              </button>
               <button className="button button--danger" onClick={() => deleteItem(editingItemId)}>
                 Delete Item
               </button>
-            ) : null}
-            {editingTemplateId ? (
-              <button
-                className="button button--danger"
-                onClick={() => deleteTemplate(editingTemplateId)}
-              >
-                Delete Template
-              </button>
-            ) : null}
-          </div>
-        ) : null
+            </>
+          ) : null}
+        </div>
       }
     >
       <div className="stack">
-        {!templateManagement && pendingPlayerItems.length > 0 ? (
+        {pendingPlayerItems.length > 0 ? (
           <section className="stack" aria-labelledby="pending-player-items-title">
             <div>
               <h3 id="pending-player-items-title">Player Item Approvals</h3>
@@ -341,185 +313,67 @@ export function ItemMakerPage({
           </section>
         ) : null}
         <CatalogEditorLayout
-          catalogLabel={templateManagement ? "Item Templates" : "Item Catalog"}
+          catalogLabel="Catalog"
           editorClassName="authoring-workspace__editor--vertical"
           catalog={
-            templateManagement ? (
-              <CatalogBrowser
-                catalog="item_templates"
-                client={client}
-                items={itemTemplates.map((template) => ({
-                  id: template.id,
-                  name: template.name,
-                  searchText: [...(template.tags ?? []), template.rank ?? ""].join(" ")
-                }))}
-                selectedId={editingTemplateId}
-                entityLabel="item template"
-                emptyMessage="No item templates created yet."
-                searchPlaceholder="Name, ID, tag, rank, or folder"
-                onCreateEntry={startNewTemplate}
-                onSelect={(templateId) => {
-                  const template = itemTemplateRecords[templateId];
-                  if (!template) return;
-                  setEditingTemplateId(templateId);
-                  setEditingItemId(null);
-                  setWorkspaceMode("templates");
-                  beginTemplateCreation(null);
-                  setValues(toItemEditorValues(template));
-                  validation.reset();
-                }}
-              />
-            ) : (
-              <CatalogBrowser
-                catalog="items"
-                client={client}
-                items={items.map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  searchText: [...(item.tags ?? []), item.rank ?? ""].join(" ")
-                }))}
-                selectedId={editingItemId}
-                entityLabel="item"
-                emptyMessage="No items created yet."
-                searchPlaceholder="Name, ID, tag, rank, or folder"
-                onCreateEntry={startNewItem}
-                onSelect={(itemId) => {
-                  const item = itemRecords[itemId];
-                  if (!item) return;
-                  setEditingItemId(item.id);
-                  setEditingTemplateId(null);
-                  setWorkspaceMode("item");
-                  beginCreation(null);
-                  setValues(toItemEditorValues(item));
-                  validation.reset();
-                }}
-              />
-            )
+            <CatalogBrowser
+              catalog="items"
+              client={client}
+              items={items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                searchText: [...(item.tags ?? []), item.rank ?? ""].join(" ")
+              }))}
+              selectedId={catalogSelectedItemId}
+              entityLabel="item"
+              emptyMessage="No items created yet."
+              searchPlaceholder="Name, ID, tag, rank, or folder"
+              onCreateEntry={(folderId) => {
+                startNewItem(folderId);
+                setCatalogSelectedItemId(null);
+              }}
+              onSelect={(itemId) => {
+                setCatalogSelectedItemId(itemId);
+                editCatalogItem(itemId);
+              }}
+            />
           }
         >
-          {templateManagement && workspaceMode === "template_idle" ? (
-            <section className="stack item-creation-start" aria-label="Start template creation">
-              <div>
-                <h3>Build an item template</h3>
-                <p className="muted">
-                  Create reusable defaults here, or select an existing template from the catalog to
-                  edit it.
-                </p>
-              </div>
-              <div className="inline-actions">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={() => startNewTemplate()}
-                >
-                  New Item Template
-                </button>
-              </div>
-            </section>
-          ) : workspaceMode === "start" ? (
-            <section className="stack item-creation-start" aria-label="Start item creation">
-              <div>
-                <h3>Create an item</h3>
-                <p className="muted">
-                  Begin with an empty draft or copy reusable defaults from an item template.
-                </p>
-              </div>
-              <div className="inline-actions">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={() => startNewItem()}
-                >
-                  Start from Scratch
-                </button>
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setWorkspaceMode("choose_template")}
-                >
-                  Use a Template
-                </button>
-              </div>
-            </section>
-          ) : workspaceMode === "choose_template" ? (
-            <section className="stack" aria-label="Choose item template">
-              <h3>Choose an Item Template</h3>
-              <CatalogEntityPicker
-                catalog="item_templates"
-                label="Template"
-                placeholder="Search item templates"
-                selectedId={selectedTemplateId}
-                options={itemTemplates.map((template) => ({
-                  id: template.id,
-                  label: template.name,
-                  secondary: (template.tags ?? []).join(", "),
-                  value: template.id
-                }))}
-                emptyMessage="No item templates exist yet."
-                onSelect={setSelectedTemplateId}
+          <ItemEditorForm
+            editingItemId={editingItemId}
+            showPlayerAvailability
+            values={values}
+            validationAttempted={validation.attempted}
+            onChange={setValues}
+            actions={actions}
+            attributeDefinitions={attributeDefinitions}
+            proficiencies={proficiencyRecords}
+            tagDefinitions={tagDefinitions}
+            pending={Boolean(submittedCreateId)}
+            attributesEditor={
+              <ItemAttributesEditor
+                values={values}
+                definitions={attributeDefinitions}
+                proficiencies={proficiencyRecords}
+                metadata={actionFormulaAuthoringMetadata}
+                onChange={setValues}
               />
-              <div className="inline-actions">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  disabled={!selectedTemplateId}
-                  onClick={() => {
-                    const template = itemTemplateRecords[selectedTemplateId];
-                    if (!template) return;
-                    setValues(createItemValuesFromTemplate(template));
-                    setDraftItemId(makeId("item"));
-                    setWorkspaceMode("item");
-                    setEditingItemId(null);
-                    validation.reset();
-                  }}
-                >
-                  Use Template
-                </button>
-                <button className="button button--secondary" type="button" onClick={showStart}>
-                  Cancel
-                </button>
-              </div>
-            </section>
-          ) : (
-            <ItemEditorForm
-              editingItemId={templateManagement ? editingTemplateId : editingItemId}
-              editorKind={templateManagement ? "template" : "item"}
-              showPlayerAvailability={!templateManagement}
-              values={values}
-              validationAttempted={validation.attempted}
-              onChange={setValues}
-              actions={actions}
-              attributeDefinitions={attributeDefinitions}
-              proficiencies={proficiencyRecords}
-              tagDefinitions={tagDefinitions}
-              pending={
-                !templateManagement && workspaceMode === "item" && Boolean(submittedCreateId)
-              }
-              attributesEditor={
-                <ItemAttributesEditor
-                  values={values}
-                  definitions={attributeDefinitions}
-                  proficiencies={proficiencyRecords}
-                  metadata={actionFormulaAuthoringMetadata}
-                  onChange={setValues}
-                />
-              }
-              effectEditor={
-                <EffectReferenceEditor
-                  effects={standaloneEffects}
-                  selectedIds={values.effectIds}
-                  onChange={(effectIds) => setValues((current) => ({ ...current, effectIds }))}
-                  label="Equipment effects"
-                />
-              }
-              effectEditorFocused={false}
-              onSubmit={onSubmit}
-              onCancel={showStart}
-              onOpenActionAuthoring={() =>
-                dispatch({ type: "set_gm_view", view: "action_authoring" })
-              }
-            />
-          )}
+            }
+            effectEditor={
+              <EffectReferenceEditor
+                effects={standaloneEffects}
+                selectedIds={values.effectIds}
+                onChange={(effectIds) => setValues((current) => ({ ...current, effectIds }))}
+                label="Equipment effects"
+              />
+            }
+            effectEditorFocused={false}
+            onSubmit={onSubmit}
+            onCancel={showStart}
+            onOpenActionAuthoring={() =>
+              dispatch({ type: "set_gm_view", view: "action_authoring" })
+            }
+          />
         </CatalogEditorLayout>
       </div>
     </Panel>

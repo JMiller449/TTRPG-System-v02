@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import asdict
 
 from backend.features.augmentations import service as augmentation_service
 from backend.features.standalone_effects.schema import (
@@ -14,6 +15,7 @@ from backend.state.models.action import ApplyAugmentationStep
 from backend.state.models.augmentation import (
     EvaluationFormulaModifierEffect,
     FormulaModifierEffect,
+    ProficiencyGrowthModifierEffect,
     StandaloneEffectDefinition,
 )
 from backend.state.models.formula import (
@@ -23,7 +25,7 @@ from backend.state.models.formula import (
     resolve_formula_source,
 )
 from backend.state.models.state import State
-from backend.state.models.tag import validate_tag_ids
+from backend.state.models.tag import collect_tag_references, validate_tag_ids
 
 
 def _build_definition(
@@ -31,9 +33,16 @@ def _build_definition(
     state: State | None = None,
 ) -> StandaloneEffectDefinition:
     definition = StandaloneEffectDefinition.from_dict(payload.model_dump(mode="json"))
+    if state is not None:
+        validate_tag_ids(
+            sorted(collect_tag_references(asdict(definition))),
+            state.tags,
+        )
     if isinstance(
         definition.effect,
-        FormulaModifierEffect | EvaluationFormulaModifierEffect,
+        FormulaModifierEffect
+        | EvaluationFormulaModifierEffect
+        | ProficiencyGrowthModifierEffect,
     ) and isinstance(definition.effect.value, FormulaReference):
         if state is None:
             raise ValueError("Effect formula validation requires authoritative state.")
@@ -49,7 +58,9 @@ def _centralize_effect_formula(
     """Promote legacy inline modifier formulas into the shared registry."""
     if not isinstance(
         definition.effect,
-        FormulaModifierEffect | EvaluationFormulaModifierEffect,
+        FormulaModifierEffect
+        | EvaluationFormulaModifierEffect
+        | ProficiencyGrowthModifierEffect,
     ) or not isinstance(definition.effect.value, Formula):
         return definition, []
 

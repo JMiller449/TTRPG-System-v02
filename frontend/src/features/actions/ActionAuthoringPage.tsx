@@ -3,10 +3,11 @@ import { useAppStore } from "@/app/state/useAppStore";
 import type { GameClient } from "@/hooks/useGameClient";
 import { ActionEditorForm } from "@/features/actions/components/ActionEditorForm";
 import { ActionAttributesEditor } from "@/features/actions/components/ActionAttributesEditor";
-import { ActionPresetPicker } from "@/features/actions/components/ActionPresetPicker";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
 import {
   applyActionPresetTemplate,
   createEmptyActionEditorValues,
+  duplicateActionEditorValues,
   getActionEditorValidationError,
   toActionEditorValues,
   type ActionEditorValues
@@ -19,15 +20,25 @@ import {
   selectOrderedActionDefinitions
 } from "@/features/actions/actionAuthoringRequests";
 import { Panel } from "@/shared/ui/Panel";
+import { Field } from "@/shared/ui/Field";
 import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
 import { CatalogBrowser } from "@/features/catalogs/CatalogBrowser";
 import { useCatalogCreationTarget } from "@/features/catalogs/useCatalogCreationTarget";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
+import { nextDuplicateName } from "@/shared/utils/duplicateName";
 import type { ConditionPreset, StandaloneEffectDefinition } from "@/domain/models";
 import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 
-export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Element {
+export function ActionAuthoringPage({
+  client,
+  section,
+  onSectionChange
+}: {
+  client: GameClient;
+  section: ActionAuthoringSection;
+  onSectionChange: (section: ActionAuthoringSection) => void;
+}): JSX.Element {
   const {
     state: {
       serverState: {
@@ -39,6 +50,7 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
         standaloneEffectOrder,
         conditionPresets,
         conditionPresetOrder,
+        catalogEntries,
         proficiencies: proficiencyRecords,
         proficiencyOrder,
         attributes: attributeDefinitions
@@ -49,8 +61,10 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
   const requestedMetadataRef = useRef(false);
 
   const [editingActionId, setEditingActionId] = useState<string | null>(null);
+  const [catalogSelectedActionId, setCatalogSelectedActionId] = useState<string | null>(null);
+  const [guidedName, setGuidedName] = useState("");
+  const [guidedBehaviorId, setGuidedBehaviorId] = useState("");
   const [values, setValues] = useState<ActionEditorValues>(createEmptyActionEditorValues);
-  const [stepFocused, setStepFocused] = useState(false);
   const [pendingSave, setPendingSave] = useState<{
     requestId: string;
     actionId: string;
@@ -111,9 +125,13 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     beginCreation(folderId);
     setEditingActionId(null);
     setValues(createEmptyActionEditorValues());
-    setStepFocused(false);
     setSaveConfirmation(null);
     validation.reset();
+  };
+  const startRawAction = (folderId: string | null = null): void => {
+    startNewAction(folderId);
+    setCatalogSelectedActionId(null);
+    onSectionChange("catalog");
   };
   const openAction = (actionId: string): void => {
     if (pendingSave) {
@@ -126,9 +144,30 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     beginCreation(null);
     setEditingActionId(action.id);
     setValues(toActionEditorValues(action));
-    setStepFocused(false);
     setSaveConfirmation(null);
     validation.reset();
+  };
+  const duplicateAction = (actionId: string): void => {
+    if (pendingSave) {
+      return;
+    }
+    const action = actionRecords[actionId];
+    if (!action) {
+      return;
+    }
+    beginCreation(catalogEntries[`actions:${action.id}`]?.folder_id ?? null);
+    setEditingActionId(null);
+    setValues({
+      ...duplicateActionEditorValues(action, () => makeId("action_attribute")),
+      name: nextDuplicateName(
+        action.name,
+        actions.map((candidate) => candidate.name)
+      )
+    });
+    setSaveConfirmation(null);
+    validation.reset();
+    setCatalogSelectedActionId(null);
+    onSectionChange("catalog");
   };
 
   useEffect(() => {
@@ -214,124 +253,199 @@ export function ActionAuthoringPage({ client }: { client: GameClient }): JSX.Ele
     if (editingActionId === actionId) {
       startNewAction();
     }
+    if (catalogSelectedActionId === actionId) {
+      setCatalogSelectedActionId(null);
+    }
   };
 
-  return (
-    <Panel
-      variant="workspace"
-      className="action-authoring-panel"
-      title="Action Authoring"
-      subtitle="Build the rollable moves used at the table. An action is a list of steps that run in order when it is performed."
-      actions={
-        editingActionId ? (
-          <div className="inline-actions">
-            <button
-              className="button button--secondary"
-              onClick={() => startNewAction()}
-              disabled={Boolean(pendingSave)}
-            >
-              New Action
-            </button>
-            <button
-              className="button button--danger"
-              onClick={() => deleteAction(editingActionId)}
-              disabled={Boolean(pendingSave)}
-            >
-              Delete Action
-            </button>
-          </div>
-        ) : null
-      }
-    >
-      <CatalogEditorLayout
-        catalogLabel="Authored Actions"
-        editorClassName="authoring-workspace__editor--vertical"
-        catalog={
-          <CatalogBrowser
-            catalog="actions"
-            client={client}
-            items={actions.map((action) => ({ id: action.id, name: action.name }))}
-            selectedId={editingActionId}
-            entityLabel="action"
-            emptyMessage="No actions created yet."
-            onCreateEntry={startNewAction}
-            onSelect={openAction}
-          />
-        }
-      >
-        <div className="stack action-authoring-editor">
-          {!stepFocused ? (
-            <details className="authoring-disclosure action-authoring-preset-disclosure">
-              <summary>
-                <span>
-                  <strong>Start from a preset</strong>
-                  <small>Optional shortcuts for common Actions</small>
-                </span>
-              </summary>
-              <div className="authoring-disclosure__body">
-                <ActionPresetPicker
-                  presets={actionFormulaAuthoringMetadata?.action_preset_templates ?? []}
-                  disabled={Boolean(pendingSave)}
-                  showIntro={false}
-                  onApply={(preset) => {
-                    if (pendingSave) {
-                      return;
-                    }
-                    setEditingActionId(null);
-                    beginCreation(null);
-                    setValues(
-                      applyActionPresetTemplate(
-                        createEmptyActionEditorValues(),
-                        preset,
-                        attributeDefinitions,
-                        () => makeId("action_attribute")
-                      )
-                    );
-                    setSaveConfirmation(null);
-                    validation.reset();
-                  }}
-                />
-              </div>
-            </details>
-          ) : null}
-          {saveConfirmation ? (
-            <p className="action-authoring-feedback" role="status">
-              {saveConfirmation}
-            </p>
-          ) : null}
-          <ActionEditorForm
-            editingActionId={editingActionId}
+  const applyPreset = (
+    preset: Parameters<typeof applyActionPresetTemplate>[1],
+    name?: string
+  ): void => {
+    if (pendingSave) {
+      return;
+    }
+    setEditingActionId(null);
+    beginCreation(null);
+    const nextValues = applyActionPresetTemplate(
+      createEmptyActionEditorValues(),
+      preset,
+      attributeDefinitions,
+      () => makeId("action_attribute")
+    );
+    setValues({ ...nextValues, name: name?.trim() || nextValues.name });
+    setSaveConfirmation(null);
+    validation.reset();
+    setCatalogSelectedActionId(null);
+    onSectionChange("catalog");
+  };
+
+  const actionEditor = (
+    <div className="stack action-authoring-editor">
+      {saveConfirmation ? (
+        <p className="action-authoring-feedback" role="status">
+          {saveConfirmation}
+        </p>
+      ) : null}
+      <ActionEditorForm
+        editingActionId={editingActionId}
+        values={values}
+        onChange={(nextValues) => {
+          setValues(nextValues);
+          setSaveConfirmation(null);
+        }}
+        onSubmit={onSubmit}
+        onCancel={() => {
+          startNewAction();
+          setCatalogSelectedActionId(null);
+          onSectionChange("catalog");
+        }}
+        metadata={actionFormulaAuthoringMetadata}
+        proficiencies={proficiencies}
+        formulas={formulas}
+        standaloneEffects={standaloneEffects}
+        conditions={conditions}
+        validationError={validationError}
+        validationAttempted={validation.attempted}
+        pending={Boolean(pendingSave)}
+        onFocusedStepChange={() => undefined}
+        attributesEditor={
+          <ActionAttributesEditor
             values={values}
+            definitions={attributeDefinitions}
+            proficiencies={proficiencyRecords}
+            metadata={actionFormulaAuthoringMetadata}
             onChange={(nextValues) => {
               setValues(nextValues);
               setSaveConfirmation(null);
             }}
-            onSubmit={onSubmit}
-            onCancel={startNewAction}
-            metadata={actionFormulaAuthoringMetadata}
-            proficiencies={proficiencies}
-            formulas={formulas}
-            standaloneEffects={standaloneEffects}
-            conditions={conditions}
-            validationError={validationError}
-            validationAttempted={validation.attempted}
-            pending={Boolean(pendingSave)}
-            onFocusedStepChange={(stepId) => setStepFocused(Boolean(stepId))}
-            attributesEditor={
-              <ActionAttributesEditor
-                values={values}
-                definitions={attributeDefinitions}
-                proficiencies={proficiencyRecords}
-                metadata={actionFormulaAuthoringMetadata}
-                onChange={(nextValues) => {
-                  setValues(nextValues);
-                  setSaveConfirmation(null);
-                }}
-              />
-            }
           />
-        </div>
-      </CatalogEditorLayout>
-    </Panel>
+        }
+      />
+    </div>
   );
+
+  if (section === "catalog") {
+    return (
+      <Panel
+        variant="workspace"
+        className="action-authoring-panel"
+        title="Action Catalog"
+        subtitle="Browse authored Actions and edit the selected definition in the full builder."
+        actions={
+          <div className="inline-actions">
+            <button className="button button--primary" onClick={() => startRawAction()}>
+              New Action
+            </button>
+            {editingActionId ? (
+              <>
+                <button
+                  className="button button--secondary"
+                  onClick={() => duplicateAction(editingActionId)}
+                  disabled={Boolean(pendingSave)}
+                >
+                  Duplicate
+                </button>
+                <button
+                  className="button button--danger"
+                  onClick={() => deleteAction(editingActionId)}
+                  disabled={Boolean(pendingSave)}
+                >
+                  Delete Action
+                </button>
+              </>
+            ) : null}
+          </div>
+        }
+      >
+        <CatalogEditorLayout
+          catalogLabel="Authored Actions"
+          catalog={
+            <CatalogBrowser
+              catalog="actions"
+              client={client}
+              items={actions.map((action) => ({ id: action.id, name: action.name }))}
+              selectedId={catalogSelectedActionId}
+              entityLabel="action"
+              emptyMessage="No actions created yet."
+              onCreateEntry={startRawAction}
+              onSelect={(actionId) => {
+                setCatalogSelectedActionId(actionId);
+                openAction(actionId);
+              }}
+            />
+          }
+          editorClassName="authoring-workspace__editor--vertical"
+        >
+          {actionEditor}
+        </CatalogEditorLayout>
+      </Panel>
+    );
+  }
+
+  if (section === "guided") {
+    const behaviors = actionFormulaAuthoringMetadata?.action_preset_templates ?? [];
+    const selectedBehavior = behaviors.find((preset) => preset.id === guidedBehaviorId);
+    const categories = Array.from(new Set(behaviors.map((preset) => preset.category)));
+    return (
+      <Panel
+        variant="workspace"
+        className="action-authoring-panel"
+        title="Guided Action Creation"
+        subtitle="Answer two basic questions, then finish one ordinary Action in the Catalog editor."
+      >
+        <section className="stack action-guided-builder" aria-label="Guided Action builder">
+          <div>
+            <h3>What should this Action do?</h3>
+            <p className="muted">
+              This creates one editable Action draft. It does not create, select, or modify an Item.
+            </p>
+          </div>
+          <Field label="Action name" required>
+            <input
+              value={guidedName}
+              placeholder="e.g. Shield Bash"
+              onChange={(event) => setGuidedName(event.target.value)}
+            />
+          </Field>
+          <Field label="Common behavior" required>
+            <select
+              value={guidedBehaviorId}
+              onChange={(event) => setGuidedBehaviorId(event.target.value)}
+            >
+              <option value="">Choose what the Action does</option>
+              {categories.map((category) => (
+                <optgroup key={category} label={category.replace(/_/g, " ")}>
+                  {behaviors
+                    .filter((preset) => preset.category === category)
+                    .map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          </Field>
+          {selectedBehavior ? <p className="muted">{selectedBehavior.description}</p> : null}
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={!guidedName.trim() || !selectedBehavior}
+              onClick={() => {
+                if (selectedBehavior) {
+                  applyPreset(selectedBehavior, guidedName);
+                }
+              }}
+            >
+              Continue in Catalog
+            </button>
+          </div>
+        </section>
+      </Panel>
+    );
+  }
+
+  return actionEditor;
 }

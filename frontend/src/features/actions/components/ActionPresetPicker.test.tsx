@@ -32,11 +32,11 @@ describe("ActionPresetPicker", () => {
       />
     );
 
-    expect(markup).toContain("Start from an Action Preset");
+    expect(markup).toContain("Choose a Common Behavior");
     expect(markup).toContain('label="weapon"');
     expect(markup).toContain("Weapon Attack");
     expect(markup).toContain('label="spell"');
     expect(markup).toContain("Spell Damage");
-    expect(markup).toContain("Apply Action Preset");
+    expect(markup).toContain("Apply Behavior");
   });
 });

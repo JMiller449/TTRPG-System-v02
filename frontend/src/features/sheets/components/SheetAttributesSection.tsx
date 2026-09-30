@@ -399,7 +399,8 @@ function SheetAttributeCard({
   void formulaMetadata;
   void subjectType;
   const formulaSource = bridge.value.type === "formula" ? bridge.value.formula : null;
-  const formulaId = formulaSource && isFormulaReference(formulaSource) ? formulaSource.formula_id : null;
+  const formulaId =
+    formulaSource && isFormulaReference(formulaSource) ? formulaSource.formula_id : null;
   const [literalText, setLiteralText] = useState(
     bridge.value.type === "formula" ? "" : attributeValueText(bridge.value)
   );

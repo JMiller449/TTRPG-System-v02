@@ -65,6 +65,7 @@ import {
   buildGetSheetAccessCodesRequest,
   buildGetVariableRegistryRequest,
   buildGetXpTrackerRequest,
+  buildCreateWeaponWithActionsRequest,
   buildImportStateBackupRequest,
   buildMoveInstancedSheetItemRequest,
   buildMoveCatalogNodeRequest,
@@ -363,6 +364,7 @@ const requestBuilderByType = {
   get_sheet_access_codes: buildGetSheetAccessCodesRequest,
   get_variable_registry: buildGetVariableRegistryRequest,
   get_xp_tracker: buildGetXpTrackerRequest,
+  create_weapon_with_actions: buildCreateWeaponWithActionsRequest,
   import_state_backup: buildImportStateBackupRequest,
   move_instanced_sheet_item: buildMoveInstancedSheetItemRequest,
   move_catalog_node: buildMoveCatalogNodeRequest,
@@ -440,6 +442,79 @@ describe("requestBuilders", () => {
       request_id: "req-auth",
       type: "authenticate",
       token: "player-code"
+    });
+  });
+
+  it("builds an atomic weapon action wizard request", () => {
+    expect(
+      buildCreateWeaponWithActionsRequest({
+        item: {
+          id: "longsword",
+          name: "Longsword",
+          interaction_type: "equippable",
+          rank: "C",
+          description: "",
+          world_anvil_url: "",
+          gm_notes: "",
+          gm_special_properties: "",
+          price: "",
+          weight: 3,
+          player_catalog_access: { mode: "none", instance_ids: [] },
+          can_contain_items: false,
+          storage_capacity_weight: null,
+          contents_weight_behavior: "normal",
+          tags: [],
+          attributes: {},
+          effect_ids: [],
+          action_grants: []
+        },
+        governingStat: "strength",
+        baseDamage: 12,
+        requestId: "req-weapon",
+        entries: [
+          {
+            action_id: "longsword_attack",
+            name: "Longsword — Attack",
+            recipe: "attack",
+            proficiency_id: "long_swords",
+            action_point_cost: 1
+          }
+        ]
+      })
+    ).toEqual({
+      type: "create_weapon_with_actions",
+      request_id: "req-weapon",
+      item: {
+        id: "longsword",
+        name: "Longsword",
+        interaction_type: "equippable",
+        rank: "C",
+        description: "",
+        world_anvil_url: "",
+        gm_notes: "",
+        gm_special_properties: "",
+        price: "",
+        weight: 3,
+        player_catalog_access: { mode: "none", instance_ids: [] },
+        can_contain_items: false,
+        storage_capacity_weight: null,
+        contents_weight_behavior: "normal",
+        tags: [],
+        attributes: {},
+        effect_ids: [],
+        action_grants: []
+      },
+      governing_stat: "strength",
+      base_damage: 12,
+      entries: [
+        {
+          action_id: "longsword_attack",
+          name: "Longsword — Attack",
+          recipe: "attack",
+          proficiency_id: "long_swords",
+          action_point_cost: 1
+        }
+      ]
     });
   });
 

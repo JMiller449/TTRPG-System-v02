@@ -656,7 +656,8 @@ def test_v15_migration_normalizes_weapon_actions_and_equipped_proficiencies() ->
         "relationship_id": "weapon_proficiency_axes",
         "prof_id": "axes",
         "use_count": 0,
-        "growth_rate": 0.2,
+            "growth_rate": 0.2,
+            "growth_points": 0.0,
     }
 
 
@@ -765,7 +766,8 @@ def test_v12_migration_adds_proficiency_categories_and_weapon_families() -> None
         "name": "Renamed Long Blades",
         "description": "GM edit preserved.",
         "category": "weapon_family",
-        "default_growth_rate": 0.01,
+            "default_growth_rate": 0.01,
+            "tags": ["weapon", "sword"],
     }
     assert proficiencies["axes"]["name"] == "Axes"
     assert proficiencies["axes"]["category"] == "weapon_family"
@@ -971,10 +973,8 @@ def test_v45_migration_adds_unlimited_storage_capacity_defaults() -> None:
     )
 
     assert migrated.state["items"]["bag"]["storage_capacity_weight"] is None
-    assert (
-        migrated.state["item_templates"]["pouch"]["storage_capacity_weight"]
-        == 12
-    )
+    assert migrated.state["item_templates"] == {}
+    assert migrated.state["items"]["pouch"]["storage_capacity_weight"] == 12
 
 
 def test_v46_migration_adds_zeroed_damage_trackers_to_instances() -> None:
@@ -1046,6 +1046,89 @@ def test_backup_migration_accepts_legacy_and_current_envelopes() -> None:
     assert current.source_version == CURRENT_STATE_SCHEMA_VERSION
     assert current.migrated is False
     assert current.state == {"actions": {}}
+
+
+def test_v57_migration_promotes_item_templates_to_private_independent_items() -> None:
+    migrated = migrate_persisted_state(
+        {
+            "schema_version": 56,
+            "state": {
+                "items": {
+                    "sword": {
+                        "id": "sword",
+                        "name": "Sword",
+                    }
+                },
+                "item_templates": {
+                    "sword": {
+                        "id": "sword",
+                        "name": "Sword",
+                        "player_catalog_access": {
+                            "mode": "all",
+                            "instance_ids": [],
+                        },
+                        "attributes": {
+                            "weapon_base_damage": {
+                                "relationship_id": "shared_relationship",
+                                "attribute_id": "weapon_base_damage",
+                                "value": {"type": "number", "value": 3},
+                            }
+                        },
+                        "action_grants": [
+                            {
+                                "action_id": "weapon_attack",
+                                "availability": "equipped",
+                            }
+                        ],
+                    }
+                },
+                "catalog_folders": {
+                    "old_weapons": {
+                        "id": "old_weapons",
+                        "catalog": "item_templates",
+                        "name": "Weapons",
+                        "parent_id": None,
+                        "position": 0,
+                    }
+                },
+                "catalog_entries": {
+                    "item_templates:sword": {
+                        "id": "item_templates:sword",
+                        "catalog": "item_templates",
+                        "entry_id": "sword",
+                        "folder_id": "old_weapons",
+                        "position": 2,
+                    }
+                },
+            },
+        }
+    )
+
+    assert migrated.state["item_templates"] == {}
+    promoted = migrated.state["items"]["sword1"]
+    assert promoted["name"] == "Sword1"
+    assert promoted["player_catalog_access"] == {
+        "mode": "none",
+        "instance_ids": [],
+    }
+    assert promoted["action_grants"][0]["action_id"] == "weapon_attack"
+    assert (
+        promoted["attributes"]["weapon_base_damage"]["relationship_id"]
+        != "shared_relationship"
+    )
+    placement = migrated.state["catalog_entries"]["items:sword1"]
+    promoted_folder = migrated.state["catalog_folders"][placement["folder_id"]]
+    assert promoted_folder["name"] == "Weapons"
+    parent = migrated.state["catalog_folders"][promoted_folder["parent_id"]]
+    assert parent["name"] == "Former Templates"
+    assert not any(
+        folder["catalog"] == "item_templates"
+        for folder in migrated.state["catalog_folders"].values()
+    )
+    assert not any(
+        entry["catalog"] == "item_templates"
+        for entry in migrated.state["catalog_entries"].values()
+    )
 
 
 def test_v32_migration_adds_growth_to_unmodified_canonical_weapon_actions() -> None:
@@ -1765,7 +1848,7 @@ def test_v47_migration_centralizes_item_template_and_condition_effects() -> None
     assert result.source_version == 46
     owners = [
         result.state["items"]["sword"],
-        result.state["item_templates"]["weapon"],
+        result.state["items"]["weapon"],
         result.state["condition_presets"]["poisoned"],
     ]
     migrated_ids = [owner["effect_ids"][0] for owner in owners]
@@ -2221,3 +2304,42 @@ def test_v52_migration_splits_shared_item_action_by_legacy_proficiency() -> None
             proficiency_id,
             "modifier",
         ]
+
+
+def test_v55_migration_preserves_proficiency_progress_and_adds_tags() -> None:
+    result = migrate_persisted_state(
+        {
+            "schema_version": 55,
+            "state": {
+                "proficiencies": {
+                    "long_swords": {
+                        "id": "long_swords",
+                        "name": "Long Swords",
+                        "description": "",
+                        "category": "weapon_family",
+                        "default_growth_rate": 0.01,
+                    }
+                },
+                "sheets": {
+                    "hero": {
+                        "proficiencies": {
+                            "sword": {
+                                "relationship_id": "sword",
+                                "prof_id": "long_swords",
+                                "use_count": 12,
+                                "growth_rate": 0.01,
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    )
+
+    assert result.state["proficiencies"]["long_swords"]["tags"] == [
+        "weapon",
+        "sword",
+    ]
+    assert result.state["sheets"]["hero"]["proficiencies"]["sword"][
+        "growth_points"
+    ] == 0.12

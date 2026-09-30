@@ -7,6 +7,7 @@ from uuid import uuid4
 from backend.features.sheet_admin.items.schema import (
     CreateItem,
     CreateItemTemplate,
+    CreateWeaponWithActions,
     DeleteItem,
     DeleteItemTemplate,
     AddPlayerInventoryItem,
@@ -19,7 +20,9 @@ from backend.features.sheet_admin.items.schema import (
     UpdateItem,
     UpdateItemTemplate,
     UpsertItemAugmentationTemplate,
+    WeaponActionWizardEntryPayload,
 )
+from backend.features.sheet_admin.actions.schema import ActionDefinitionPayload
 from backend.features.sheet_admin.shared.schema import (
     CreateEntity,
     DeleteEntity,
@@ -44,6 +47,7 @@ from backend.state.models.augmentation import (
     StandaloneEffectDefinition,
 )
 from backend.state.models.attribute import (
+    WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
     WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
     AttributeBridge,
     synchronize_required_item_attributes,
@@ -60,6 +64,122 @@ from backend.state.models.state import State
 from backend.state.models.tag import collect_tag_references, validate_tag_ids
 
 
+def _weapon_action_formula(
+    *,
+    recipe: str,
+    proficiency_id: str,
+    state: State,
+) -> dict:
+    aliases = [
+        {
+            "name": "weapon_proficiency",
+            "path": [
+                "action",
+                "resolved",
+                "proficiencies",
+                proficiency_id,
+                "modifier",
+            ],
+        },
+        {
+            "name": "weapon_stat",
+            "path": ["source_item", "resolved", "governing_stat"],
+        },
+    ]
+    if recipe == "damage":
+        aliases.insert(
+            0,
+            {
+                "name": "weapon_base_damage",
+                "path": [
+                    "source_item",
+                    "attributes",
+                    WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
+                ],
+            },
+        )
+        text = (
+            "floor(@weapon_base_damage + (1 + @weapon_proficiency) "
+            "* (1d100 / 100) * @weapon_stat)"
+        )
+        desired_tags = ("damage", "weapon")
+    else:
+        text = (
+            "floor((1 + @weapon_proficiency) * (1d100 / 100) "
+            "* @weapon_stat)"
+        )
+        desired_tags = (
+            ("check", "parry", "weapon")
+            if recipe == "parry"
+            else ("check", "attack", "weapon")
+        )
+    return {
+        "aliases": aliases,
+        "text": text,
+        "tags": [tag_id for tag_id in desired_tags if tag_id in state.tags],
+    }
+
+
+def _weapon_action_payload(
+    entry: WeaponActionWizardEntryPayload,
+    state: State,
+) -> ActionDefinitionPayload:
+    presentation = "damage" if entry.recipe == "damage" else "simple"
+    steps: list[dict] = []
+    if entry.action_point_cost:
+        steps.append(
+            {
+                "step_id": "spend-action-points",
+                "type": "adjust_action_points",
+                "target": "caster",
+                "operation": "consume",
+                "amount": entry.action_point_cost,
+            }
+        )
+    steps.append(
+        {
+            "step_id": "roll",
+            "type": "send_roll",
+            "title": entry.name.strip(),
+            "presentation": presentation,
+            "rolls": [
+                {
+                    "label": "Damage" if entry.recipe == "damage" else "Result",
+                    "value": _weapon_action_formula(
+                        recipe=entry.recipe,
+                        proficiency_id=entry.proficiency_id,
+                        state=state,
+                    ),
+                }
+            ],
+        }
+    )
+    recipe_label = entry.recipe.capitalize()
+    return ActionDefinitionPayload.model_validate(
+        {
+            "id": entry.action_id,
+            "name": entry.name.strip(),
+            "roll_mode_kind": "damage" if entry.recipe == "damage" else "check",
+            "notes": (
+                f"{recipe_label} action generated from the weapon action wizard. "
+                "It remains fully editable in Action Authoring."
+            ),
+            "steps": steps,
+            "attributes": {},
+            "proficiencies": [
+                {
+                    "proficiency_id": proficiency_id,
+                    "gain_on_use": entry.recipe != "damage",
+                }
+                for proficiency_id in [
+                    entry.proficiency_id,
+                    *entry.additional_proficiency_ids,
+                ]
+            ],
+        }
+    )
+
+
 def _target_label(augmentation: Augmentation) -> str:
     path = ".".join(augmentation.target.path)
     return f"{augmentation.target.root}.{path}" if path else augmentation.target.root
@@ -72,6 +192,19 @@ def _validate_item_augmentation_template(augmentation: Augmentation) -> None:
         raise ValueError(
             "Item augmentation template scope must match its relative target root."
         )
+
+    if (
+        (
+            augmentation.effect.type == "proficiency_growth_modifier"
+            and augmentation.target.path == ["proficiencies"]
+        )
+        or (
+            augmentation.effect.type
+            in {"evaluation_formula_modifier", "roll_mode_modifier"}
+            and augmentation.target.path == ["formula_evaluations"]
+        )
+    ):
+        return
 
     if not is_augmentation_target_allowed(
         root=augmentation.target.root,
@@ -550,6 +683,67 @@ async def _update_item(
         return None, [*action_ops, op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
+
+
+async def create_weapon_with_actions(request: CreateWeaponWithActions) -> None:
+    """Create one weapon and its wizard-built actions atomically."""
+
+    from backend.features.sheet_admin.actions import service as action_service
+
+    def mutation(state: State) -> tuple[None, list]:
+        if request.item.id in state.items:
+            raise ValueError(f"Item '{request.item.id}' already exists.")
+        item = _build_item(request.item)
+        generated_ids = {entry.action_id for entry in request.entries}
+        conflicts = sorted(set(state.actions) & generated_ids)
+        if conflicts:
+            raise ValueError(f"Action '{conflicts[0]}' already exists.")
+
+        item.attributes[WEAPON_GOVERNING_STAT_ATTRIBUTE_ID] = AttributeBridge.from_dict(
+            {
+                "relationship_id": f"weapon-wizard-{uuid4()}",
+                "attribute_id": WEAPON_GOVERNING_STAT_ATTRIBUTE_ID,
+                "value": {"type": "enum", "value": request.governing_stat},
+            }
+        )
+        item.attributes[WEAPON_BASE_DAMAGE_ATTRIBUTE_ID] = AttributeBridge.from_dict(
+            {
+                "relationship_id": f"weapon-wizard-{uuid4()}",
+                "attribute_id": WEAPON_BASE_DAMAGE_ATTRIBUTE_ID,
+                "value": {"type": "number", "value": request.base_damage},
+            }
+        )
+        _validate_item_attributes(item, state)
+        ops: list = []
+        for entry in request.entries:
+            payload = _weapon_action_payload(entry, state)
+            _, action_ops = action_service.build_action_creation_mutations(
+                payload,
+                state,
+            )
+            ops.extend(action_ops)
+            item.action_grants.append(
+                ItemActionGrant(
+                    action_id=entry.action_id,
+                    availability="equipped",
+                    consume_quantity=0,
+                )
+            )
+
+        _validate_item_attributes(item, state)
+        _validate_item_tags(item, state)
+        _validate_item_effects(item, state)
+        _validate_item_action_grants(item, state)
+        _validate_item_player_catalog_access(item, state)
+        _validate_existing_item_bridges(item, state)
+        item_path = state_sync_service.join_path("items", request.item.id)
+        ops.append(state_sync_service.add_mutation(state, item_path, item))
+        return None, ops
+
+    await state_sync_service.apply_mutation(
+        mutation,
+        request_id=request.request_id,
+    )
 
 
 async def _delete_item(

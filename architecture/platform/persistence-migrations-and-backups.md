@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 54. Future-version checkpoints are rejected rather than guessed at.
+version 57. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -199,3 +199,9 @@ Schema version 55 reclassifies version-54 Legacy / Unknown baseline entries as
 Starter points. It still does not invent historical actors, dates, or level-up
 awards; it applies the campaign accounting convention that every pre-ledger core
 stat and unspent balance belongs to the character's starting allocation.
+
+Schema version 57 retires item-template authoring. Existing item-template
+definitions become private ordinary Items with collision-safe IDs/names and
+fresh Attribute relationship IDs. Their folder hierarchy moves beneath a
+Former Templates folder in the Items catalog, and the legacy registry and
+placements are cleared.

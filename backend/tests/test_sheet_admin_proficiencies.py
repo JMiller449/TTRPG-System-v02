@@ -38,6 +38,7 @@ def _proficiency_payload(
         "description": "Tracks approved longsword use.",
         "category": category,
         "default_growth_rate": default_growth_rate,
+        "tags": [],
     }
 
 

@@ -112,19 +112,22 @@ describe("augmentationEditorValues", () => {
         augmentationId: "focused-strike",
         itemId: "item_1",
         itemName: "Focus"
-      }).effect
-    ).toEqual({
-      operation: "add",
-      value: { type: "formula_reference", formula_id: "formula_bonus" },
-      selector: {
-        required_tags: ["damage"],
-        excluded_tags: [],
-        action_id: null,
-        formula_id: null,
-        step_id: null,
-        same_source_item: false
-      },
-      type: "evaluation_formula_modifier"
+      })
+    ).toMatchObject({
+      target: { root: "instance", path: ["formula_evaluations"] },
+      effect: {
+        operation: "add",
+        value: { type: "formula_reference", formula_id: "formula_bonus" },
+        selector: {
+          required_tags: ["damage"],
+          excluded_tags: [],
+          action_id: null,
+          formula_id: null,
+          step_id: null,
+          same_source_item: false
+        },
+        type: "evaluation_formula_modifier"
+      }
     });
 
     values.effectType = "roll_mode_modifier";
@@ -150,6 +153,40 @@ describe("augmentationEditorValues", () => {
         same_source_item: false
       },
       type: "roll_mode_modifier"
+    });
+  });
+
+  it("builds tag-targeted proficiency growth effects without a numeric state target", () => {
+    const values = createEmptyAugmentationEditorValues();
+    values.name = "Accelerated weapon training";
+    values.effectType = "proficiency_growth_modifier";
+    values.operation = "multiply";
+    values.formulaId = "double_growth";
+    values.selectorRequiredTags = ["weapon"];
+    values.selectorExcludedTags = ["magical"];
+    values.selectorActionId = "ignored_for_growth";
+
+    expect(hasValidAugmentationEditorValues(values)).toBe(true);
+    const payload = toItemAugmentationTemplatePayload({
+      values,
+      augmentationId: "accelerated-training",
+      itemId: "training-manual",
+      itemName: "Training Manual"
+    });
+
+    expect(payload.target).toEqual({ root: "instance", path: ["proficiencies"] });
+    expect(payload.effect).toEqual({
+      operation: "multiply",
+      value: { type: "formula_reference", formula_id: "double_growth" },
+      selector: {
+        required_tags: ["weapon"],
+        excluded_tags: ["magical"],
+        action_id: null,
+        formula_id: null,
+        step_id: null,
+        same_source_item: false
+      },
+      type: "proficiency_growth_modifier"
     });
   });
 
@@ -283,6 +320,16 @@ describe("augmentationEditorValues", () => {
     values.selectorRequiredTags = ["damage"];
     values.selectorExcludedTags = ["DAMAGE"];
     expect(hasValidAugmentationEditorValues(values)).toBe(false);
+  });
+
+  it("accepts quick inline formulas for selector-only effects", () => {
+    const values = createEmptyAugmentationEditorValues();
+    values.name = "Battle focus";
+    values.effectType = "evaluation_formula_modifier";
+    values.formulaText = "2";
+    values.selectorRequiredTags = ["damage"];
+
+    expect(hasValidAugmentationEditorValues(values)).toBe(true);
   });
 
   it("maps metadata target selections into editor target values", () => {

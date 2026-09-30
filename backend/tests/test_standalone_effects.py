@@ -32,13 +32,14 @@ def _effect_payload(
     *,
     effect: dict | None = None,
     active: bool = True,
+    target: dict | None = None,
 ) -> dict:
     return {
         "id": effect_id,
         "name": "Blessing",
         "description": "Action-controlled health effect.",
         "scope": "instance",
-        "target": {"root": "instance", "path": ["health"]},
+        "target": target or {"root": "instance", "path": ["health"]},
         "effect": effect
         or {
             "type": "formula_modifier",
@@ -299,6 +300,7 @@ def test_evaluation_effect_uses_per_instance_application() -> None:
             "roll_mode": "advantage",
             "selector": {"required_tags": ["fire", "attack"]},
         },
+        target={"root": "instance", "path": ["formula_evaluations"]},
     )
     state.instanced_sheets["instance-1"] = _instance(10)
 

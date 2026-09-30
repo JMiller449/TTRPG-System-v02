@@ -67,6 +67,10 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
       }),
     [actionOrder, actions, formulaOrder, formulas]
   );
+  const orderedFormulas = useMemo(
+    () => formulaOrder.map((formulaId) => formulas[formulaId]).filter(Boolean),
+    [formulaOrder, formulas]
+  );
   const targetOptions = useMemo(
     () =>
       augmentationTargetMetadata?.context === "runtime"
@@ -220,6 +224,7 @@ export function StandaloneEffectAuthoringPage({ client }: { client: GameClient }
           validationAttempted={validation.attempted}
           targetOptions={targetOptions}
           selectorOptions={selectorOptions}
+          formulas={orderedFormulas}
           formulaMetadata={actionFormulaAuthoringMetadata}
           onChange={setValues}
           onSubmit={submitEffect}

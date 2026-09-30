@@ -375,6 +375,87 @@
   padding-top: 0.2rem;
 }
 
+.weapon-action-wizard__recipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(42rem, 100%), 1fr));
+  gap: 0.7rem;
+}
+
+.weapon-action-wizard__identity-fields {
+  display: grid;
+  grid-template-columns: minmax(14rem, 2fr) minmax(6rem, 0.5fr) minmax(7rem, 0.5fr) minmax(
+      8rem,
+      0.75fr
+    );
+  gap: 0.75rem;
+}
+
+.weapon-action-wizard__recipe {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  padding: 0.8rem;
+}
+
+.weapon-action-wizard__recipe--included {
+  border-color: var(--accent);
+}
+
+.weapon-action-wizard__include {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+}
+
+.weapon-action-wizard__include span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.weapon-action-wizard__include small {
+  color: var(--muted);
+}
+
+.weapon-action-wizard__recipe-fields {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.5fr) minmax(12rem, 1fr) minmax(8rem, 0.5fr);
+  align-items: start;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.weapon-action-wizard__recipe-fields > .catalog-multi-select {
+  grid-column: 1 / -1;
+}
+
+.weapon-action-wizard__recipe-fields > :last-child {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.weapon-action-wizard__recipe-fields .catalog-multi-select__tree {
+  max-height: 8rem;
+}
+
+.action-guided-builder {
+  max-width: 56rem;
+}
+
+.weapon-action-wizard__weapon-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.weapon-action-wizard__preview {
+  border-left: 2px solid var(--accent);
+  padding: 0.6rem 0.8rem;
+}
+
+.weapon-action-wizard__preview ul {
+  margin-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .action-editor__identity,
   .action-step-add,
@@ -424,5 +505,23 @@
   .action-shared-formula {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .weapon-action-wizard__recipe-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .weapon-action-wizard__identity-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .weapon-action-wizard__recipe-fields > .catalog-multi-select,
+  .weapon-action-wizard__recipe-fields > :last-child {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .weapon-action-wizard__weapon-fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

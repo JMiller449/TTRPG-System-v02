@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { Role } from "@/domain/models";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
+import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
 import {
   getConsoleSidebarNavGroups,
   type ConsoleView
@@ -14,6 +16,8 @@ import {
 interface SidebarSearchTarget {
   view: ConsoleView;
   characterSection?: PlayerSheetTab;
+  actionSection?: ActionAuthoringSection;
+  itemSection?: ItemAuthoringSection;
 }
 
 function navigationOptions(role: Role): SearchPopoverOption<SidebarSearchTarget>[] {
@@ -26,15 +30,22 @@ function navigationOptions(role: Role): SearchPopoverOption<SidebarSearchTarget>
         keywords: [item.glyph, item.view],
         value: {
           view: item.view,
-          characterSection: item.view === "sheet_viewer" ? "dense" : undefined
+          characterSection: item.view === "sheet_viewer" ? "dense" : undefined,
+          actionSection: item.view === "action_authoring" ? "catalog" : undefined,
+          itemSection: item.view === "item_maker" ? "catalog" : undefined
         }
       };
       const children = (item.children ?? []).map((child) => ({
-        id: `character:${child.section}`,
+        id: `${child.owner}:${child.section}`,
         label: child.label,
         secondary: item.label,
         keywords: [child.section, group.label],
-        value: { view: item.view, characterSection: child.section }
+        value: {
+          view: item.view,
+          characterSection: child.owner === "characters" ? child.section : undefined,
+          actionSection: child.owner === "actions" ? child.section : undefined,
+          itemSection: child.owner === "items" ? child.section : undefined
+        }
       }));
       return [parent, ...children];
     })
@@ -44,11 +55,15 @@ function navigationOptions(role: Role): SearchPopoverOption<SidebarSearchTarget>
 export function ConsoleSidebarSearch({
   role,
   onNavigate,
-  onCharacterSectionChange
+  onCharacterSectionChange,
+  onActionSectionChange,
+  onItemSectionChange
 }: {
   role: Role;
   onNavigate: (view: ConsoleView) => void;
   onCharacterSectionChange: (section: PlayerSheetTab) => void;
+  onActionSectionChange: (section: ActionAuthoringSection) => void;
+  onItemSectionChange: (section: ItemAuthoringSection) => void;
 }): JSX.Element {
   const listboxId = `console-nav-search-${useId().replace(/:/g, "")}`;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -75,6 +90,12 @@ export function ConsoleSidebarSearch({
     }
     if (option.value.characterSection) {
       onCharacterSectionChange(option.value.characterSection);
+    }
+    if (option.value.actionSection) {
+      onActionSectionChange(option.value.actionSection);
+    }
+    if (option.value.itemSection) {
+      onItemSectionChange(option.value.itemSection);
     }
     onNavigate(option.value.view);
     close(true);

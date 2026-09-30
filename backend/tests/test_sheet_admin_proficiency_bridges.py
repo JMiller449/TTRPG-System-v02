@@ -155,7 +155,12 @@ def test_player_can_add_multiple_uses_to_an_assigned_proficiency(monkeypatch) ->
                     "op": "set",
                     "path": "/instanced_sheets/mage_instance/proficiencies/magic/use_count",
                     "value": 7,
-                }
+                },
+                {
+                    "op": "set",
+                    "path": "/instanced_sheets/mage_instance/proficiencies/magic/growth_points",
+                    "value": 1.0,
+                },
             ]
         finally:
             StateSingleton._state = original_state
@@ -294,7 +299,8 @@ def test_dm_can_create_sheet_proficiency_bridge(monkeypatch) -> None:
                     "relationship_id": "magic",
                     "prof_id": "magic_prof",
                     "use_count": 0,
-                    "growth_rate": 1.0,
+                        "growth_rate": 1.0,
+                        "growth_points": 0.0,
                 },
             }
         finally:
@@ -345,7 +351,8 @@ def test_dm_can_update_sheet_proficiency_bridge(monkeypatch) -> None:
                     "relationship_id": "magic",
                     "prof_id": "arcane_prof",
                     "use_count": 3,
-                    "growth_rate": 1.5,
+                        "growth_rate": 1.5,
+                        "growth_points": 1.0,
                 },
             }
         finally:

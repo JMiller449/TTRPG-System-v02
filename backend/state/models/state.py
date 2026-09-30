@@ -14,6 +14,7 @@ from backend.state.models.augmentation import (
     DirectEffectProjection,
     EvaluationFormulaModifierEffect,
     FormulaModifierEffect,
+    ProficiencyGrowthModifierEffect,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
@@ -126,7 +127,9 @@ class State:
         for effect_id, definition in self.standalone_effects.items():
             if isinstance(
                 definition.effect,
-                FormulaModifierEffect | EvaluationFormulaModifierEffect,
+                FormulaModifierEffect
+                | EvaluationFormulaModifierEffect
+                | ProficiencyGrowthModifierEffect,
             ):
                 require_formula_reference(
                     definition.effect.value,

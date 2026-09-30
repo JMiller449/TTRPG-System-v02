@@ -294,6 +294,7 @@ export type AugmentationOperation = "add" | "subtract" | "multiply" | "divide" |
 export type AugmentationEffectType =
   | "formula_modifier"
   | "evaluation_formula_modifier"
+  | "proficiency_growth_modifier"
   | "roll_mode_modifier";
 
 export type RollModeModifier = "advantage" | "disadvantage";
@@ -334,6 +335,13 @@ export interface EvaluationFormulaModifierEffect {
   type: "evaluation_formula_modifier";
 }
 
+export interface ProficiencyGrowthModifierEffect {
+  operation: AugmentationOperation;
+  value: FormulaValueSource;
+  selector?: FormulaModifierSelector;
+  type: "proficiency_growth_modifier";
+}
+
 export interface RollModeModifierEffect {
   roll_mode: RollModeModifier;
   selector?: FormulaModifierSelector;
@@ -343,6 +351,7 @@ export interface RollModeModifierEffect {
 export type AugmentationEffect =
   | FormulaModifierEffect
   | EvaluationFormulaModifierEffect
+  | ProficiencyGrowthModifierEffect
   | RollModeModifierEffect;
 
 export type LifecycleMode =
@@ -498,6 +507,7 @@ export interface ProficiencyBridge {
   prof_id: string;
   use_count: number;
   growth_rate: number;
+  growth_points?: number | null;
 }
 
 export interface ProficiencyDefinition {
@@ -506,6 +516,7 @@ export interface ProficiencyDefinition {
   description: string;
   category?: "custom" | "weapon_family";
   default_growth_rate: number;
+  tags?: string[];
 }
 
 export interface Stats {

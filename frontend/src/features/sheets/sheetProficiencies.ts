@@ -8,7 +8,8 @@ export interface SheetProficiencyEntry {
 }
 
 export function getSheetProficiencyPercentage(bridge: ProficiencyBridge): number {
-  return Math.min(100, Math.max(0, bridge.growth_rate * bridge.use_count * 100));
+  const progress = bridge.growth_points ?? bridge.growth_rate * bridge.use_count;
+  return Math.min(100, Math.max(0, progress * 100));
 }
 
 export function formatSheetProficiencyPercentage(bridge: ProficiencyBridge): string {

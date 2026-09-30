@@ -29,7 +29,7 @@ describe("standaloneEffectEditorValues", () => {
       name: "Burning weapon",
       description: "Adds fire damage.",
       scope: "instance",
-      target: { root: "instance", path: ["resources", "health"] },
+      target: { root: "instance", path: ["formula_evaluations"] },
       effect: {
         operation: "add",
         value: {

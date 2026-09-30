@@ -38,7 +38,6 @@ export type GMView =
   | "create_template"
   | "encounter_presets"
   | "item_maker"
-  | "item_template_builder"
   | "formula_authoring"
   | "attribute_authoring"
   | "proficiency_authoring"

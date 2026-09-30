@@ -113,8 +113,8 @@ export function toItemEditorValues(item: ItemDefinition): ItemEditorValues {
   };
 }
 
-export function createItemValuesFromTemplate(template: ItemDefinition): ItemEditorValues {
-  const values = toItemEditorValues(template);
+export function duplicateItemEditorValues(item: ItemDefinition): ItemEditorValues {
+  const values = toItemEditorValues(item);
   return {
     ...values,
     playerCatalogAccess: { mode: "none", instanceIds: [] },

@@ -7,21 +7,42 @@ import { initialState } from "@/app/state/initialState";
 import { StoreContext } from "@/app/state/storeContext";
 import type { AppState } from "@/app/state/types";
 import { ActionAuthoringPage } from "@/features/actions/ActionAuthoringPage";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
 import type { GameClient } from "@/hooks/useGameClient";
 
 function renderPage(
   root: ReturnType<typeof createRoot>,
   state: AppState,
-  client: GameClient
+  client: GameClient,
+  section: ActionAuthoringSection = "catalog"
 ): void {
   root.render(
     <StoreContext.Provider value={{ state, dispatch: vi.fn() }}>
-      <ActionAuthoringPage client={client} />
+      <ActionAuthoringPage client={client} section={section} onSectionChange={vi.fn()} />
     </StoreContext.Provider>
   );
 }
 
 describe("ActionAuthoringPage", () => {
+  it("keeps Guided creation scoped to one Action", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const client = { sendProtocolRequest: vi.fn() } as unknown as GameClient;
+
+    await act(async () => {
+      renderPage(root, structuredClone(initialState), client, "guided");
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("What should this Action do?");
+    expect(container.textContent).toContain("It does not create, select, or modify an Item.");
+    expect(container.textContent).not.toContain("Parent weapon");
+    expect(container.textContent).not.toContain("Build a Weapon");
+
+    await act(async () => root.unmount());
+  });
+
   it("keeps dedicated Action editing inline and focuses steps without opening a dialog", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
@@ -42,9 +63,7 @@ describe("ActionAuthoringPage", () => {
     });
 
     expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(
-      container.querySelector('.authoring-workspace__editor input[placeholder="e.g. Mana burst"]')
-    ).not.toBeNull();
+    expect(container.querySelector('input[placeholder="e.g. Mana burst"]')).not.toBeNull();
 
     const addStepButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Add Step"

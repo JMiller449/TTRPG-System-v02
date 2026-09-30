@@ -166,6 +166,34 @@ class EvaluationFormulaModifierEffect:
 
 
 @dataclass
+class ProficiencyGrowthModifierEffect:
+    operation: AugmentationOperation
+    value: FormulaSource
+    selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
+    type: Literal["proficiency_growth_modifier"] = "proficiency_growth_modifier"
+
+    def __post_init__(self) -> None:
+        if (
+            self.selector.action_id is not None
+            or self.selector.formula_id is not None
+            or self.selector.step_id is not None
+            or self.selector.same_source_item
+        ):
+            raise ValueError(
+                "Proficiency growth modifier selectors support only required and "
+                "excluded proficiency tags."
+            )
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "ProficiencyGrowthModifierEffect":
+        return cls(
+            operation=raw["operation"],
+            value=formula_source_from_dict(raw["value"]),
+            selector=FormulaModifierSelector.from_dict(raw.get("selector")),
+        )
+
+
+@dataclass
 class RollModeModifierEffect:
     roll_mode: RollMode
     selector: FormulaModifierSelector = field(default_factory=FormulaModifierSelector)
@@ -180,7 +208,10 @@ class RollModeModifierEffect:
 
 
 AugmentationEffect = (
-    FormulaModifierEffect | EvaluationFormulaModifierEffect | RollModeModifierEffect
+    FormulaModifierEffect
+    | EvaluationFormulaModifierEffect
+    | ProficiencyGrowthModifierEffect
+    | RollModeModifierEffect
 )
 
 
@@ -188,6 +219,7 @@ def augmentation_effect_from_dict(raw: dict) -> AugmentationEffect:
     effect_types = {
         "formula_modifier": FormulaModifierEffect,
         "evaluation_formula_modifier": EvaluationFormulaModifierEffect,
+        "proficiency_growth_modifier": ProficiencyGrowthModifierEffect,
         "roll_mode_modifier": RollModeModifierEffect,
     }
     effect_type = raw.get("type")

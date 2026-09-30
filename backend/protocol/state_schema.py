@@ -66,6 +66,7 @@ class ProficiencyBridgePayload(ProtocolModel):
     prof_id: str
     use_count: int
     growth_rate: float
+    growth_points: float | None = None
 
 
 class InventoryItemBridgePayload(ProtocolModel):
@@ -379,6 +380,7 @@ class ProficiencyPayload(ProtocolModel):
     description: str
     category: Literal["custom", "weapon_family"] = "custom"
     default_growth_rate: float = 0.01
+    tags: list[str] = Field(default_factory=list)
 
 
 class AugmentationSourcePayload(ProtocolModel):
@@ -455,6 +457,15 @@ class EvaluationFormulaModifierEffectPayload(ProtocolModel):
     type: Literal["evaluation_formula_modifier"] = "evaluation_formula_modifier"
 
 
+class ProficiencyGrowthModifierEffectPayload(ProtocolModel):
+    operation: Literal["add", "subtract", "multiply", "divide", "set"]
+    value: FormulaValuePayload
+    selector: FormulaModifierSelectorPayload = Field(
+        default_factory=FormulaModifierSelectorPayload
+    )
+    type: Literal["proficiency_growth_modifier"] = "proficiency_growth_modifier"
+
+
 class RollModeModifierEffectPayload(ProtocolModel):
     roll_mode: Literal["advantage", "disadvantage"]
     selector: FormulaModifierSelectorPayload = Field(
@@ -466,6 +477,7 @@ class RollModeModifierEffectPayload(ProtocolModel):
 AugmentationEffectPayload = Annotated[
     FormulaModifierEffectPayload
     | EvaluationFormulaModifierEffectPayload
+    | ProficiencyGrowthModifierEffectPayload
     | RollModeModifierEffectPayload,
     Field(discriminator="type"),
 ]

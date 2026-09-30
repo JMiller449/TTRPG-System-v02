@@ -23,12 +23,16 @@ afterEach(async () => {
 async function renderSearch(role: "player" | "gm") {
   const onNavigate = vi.fn();
   const onCharacterSectionChange = vi.fn();
+  const onActionSectionChange = vi.fn();
+  const onItemSectionChange = vi.fn();
   await act(async () => {
     root.render(
       <ConsoleSidebarSearch
         role={role}
         onNavigate={onNavigate}
         onCharacterSectionChange={onCharacterSectionChange}
+        onActionSectionChange={onActionSectionChange}
+        onItemSectionChange={onItemSectionChange}
       />
     );
   });
@@ -36,7 +40,13 @@ async function renderSearch(role: "player" | "gm") {
   if (!input) {
     throw new Error("Navigation search input did not render");
   }
-  return { input, onNavigate, onCharacterSectionChange };
+  return {
+    input,
+    onNavigate,
+    onCharacterSectionChange,
+    onActionSectionChange,
+    onItemSectionChange
+  };
 }
 
 async function enterQuery(input: HTMLInputElement, query: string): Promise<void> {
@@ -106,5 +116,27 @@ describe("ConsoleSidebarSearch", () => {
     );
     expect(input.value).toBe("");
     expect(input.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("navigates directly to an Action authoring section", async () => {
+    const { input, onNavigate, onActionSectionChange } = await renderSearch("gm");
+    await enterQuery(input, "guided");
+    await act(async () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    );
+
+    expect(onActionSectionChange).toHaveBeenCalledWith("guided");
+    expect(onNavigate).toHaveBeenCalledWith("action_authoring");
+  });
+
+  it("navigates directly to an Item authoring section", async () => {
+    const { input, onNavigate, onItemSectionChange } = await renderSearch("gm");
+    await enterQuery(input, "wizard");
+    await act(async () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+    );
+
+    expect(onItemSectionChange).toHaveBeenCalledWith("wizard");
+    expect(onNavigate).toHaveBeenCalledWith("item_maker");
   });
 });

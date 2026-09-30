@@ -36,6 +36,14 @@ def test_seed_state_is_complete_reloadable_and_deterministic(tmp_path: Path) -> 
     example_1 = first_state.sheets["dm_examples_sheet"]
     example_2 = first_state.sheets["starter_shadowblade_template"]
     assert example_1.name == "Example Player 1"
+    assert any(
+        bridge.entry_id == "test_action_point_expenditure"
+        for bridge in example_1.actions.values()
+    )
+    point_test_action = first_state.actions["test_action_point_expenditure"]
+    assert point_test_action.steps[0].type == "adjust_action_points"
+    assert point_test_action.steps[0].operation == "consume"
+    assert point_test_action.steps[0].amount == 1
     assert example_1.attributes["xp_growth_rate"].evaluated_value == 1
     seeded_instance = first_state.instanced_sheets["dm_examples_instance"]
     assert seeded_instance.stats.strength == 14

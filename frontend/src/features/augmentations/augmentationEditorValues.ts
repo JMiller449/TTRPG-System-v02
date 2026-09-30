@@ -109,7 +109,20 @@ export function augmentationTargetOptionKey(target: AugmentationTargetOption): s
 }
 
 export function augmentationEditorTargetKey(values: AugmentationEditorValues): string {
-  return targetKey(values.targetRoot, cleanPath(values.targetPath));
+  return targetKey(values.targetRoot, augmentationEditorTargetPath(values));
+}
+
+export function augmentationEditorTargetPath(values: AugmentationEditorValues): string[] {
+  if (values.effectType === "proficiency_growth_modifier") {
+    return ["proficiencies"];
+  }
+  if (
+    values.effectType === "evaluation_formula_modifier" ||
+    values.effectType === "roll_mode_modifier"
+  ) {
+    return ["formula_evaluations"];
+  }
+  return cleanPath(values.targetPath);
 }
 
 export function formatAugmentationTargetOption(target: AugmentationTargetOption): string {
@@ -126,7 +139,9 @@ export function formatFormulaModifierSelector(
 ): string {
   const selector = augmentation.effect.selector;
   if (!selector) {
-    return "all formulas";
+    return augmentation.effect.type === "proficiency_growth_modifier"
+      ? "all proficiencies"
+      : "all formulas";
   }
   const constraints = [
     ...(selector.required_tags?.length ? [`tags ${selector.required_tags.join(" + ")}`] : []),
@@ -136,7 +151,11 @@ export function formatFormulaModifierSelector(
     ...(selector.step_id ? [`step: ${selector.step_id}`] : []),
     ...(selector.same_source_item ? ["same source item only"] : [])
   ];
-  return constraints.length > 0 ? constraints.join("; ") : "all matching formulas";
+  const fallback =
+    augmentation.effect.type === "proficiency_growth_modifier"
+      ? "all proficiencies"
+      : "all matching formulas";
+  return constraints.length > 0 ? constraints.join("; ") : fallback;
 }
 
 function operationLabel(operation: AugmentationOperation, value: string): string {
@@ -161,6 +180,8 @@ const EFFECT_TYPE_HINTS: Record<AugmentationEffectType, string> = {
     "Changes the target value itself (e.g. current health, max mana). Applies once and stays applied while active.",
   evaluation_formula_modifier:
     "Leaves the target value untouched and instead adjusts matching formula results at roll/evaluation time.",
+  proficiency_growth_modifier:
+    "Adjusts the growth points awarded when a proficiency with matching tags gains a qualifying use.",
   roll_mode_modifier:
     "Doesn't change any value — grants advantage or disadvantage on rolls matching the selector below."
 };
@@ -182,7 +203,9 @@ export function formatAugmentationEffect(
   const operation = operationLabel(augmentation.effect.operation, value);
   return augmentation.effect.type === "evaluation_formula_modifier"
     ? `${operation} to matching formula results`
-    : `${operation} to the target value`;
+    : augmentation.effect.type === "proficiency_growth_modifier"
+      ? `${operation} to matching proficiency growth rates`
+      : `${operation} to the target value`;
 }
 
 export function formatAugmentationLifecycle(lifecycle: AugmentationLifecycle | undefined): string {
@@ -218,6 +241,9 @@ export function isKnownAugmentationEditorTarget(
   values: AugmentationEditorValues,
   targets: AugmentationTargetOption[]
 ): boolean {
+  if (values.effectType !== "formula_modifier") {
+    return true;
+  }
   const path = cleanPath(values.targetPath);
   return targets.some(
     (target) => target.root === values.targetRoot && pathsEqual(target.path, path)
@@ -307,9 +333,7 @@ export function toAugmentationEditorValues(
         ? numericEffect.value.formula_id
         : "",
     formulaText:
-      numericEffect && !isFormulaReference(numericEffect.value)
-        ? numericEffect.value.text
-        : "",
+      numericEffect && !isFormulaReference(numericEffect.value) ? numericEffect.value.text : "",
     formulaAliases:
       numericEffect && !isFormulaReference(numericEffect.value)
         ? cloneAliases(numericEffect.value.aliases)
@@ -339,8 +363,10 @@ export function hasValidAugmentationEditorValues(values: AugmentationEditorValue
   );
   return (
     values.name.trim().length > 0 &&
-    (values.effectType === "roll_mode_modifier" || values.formulaId.trim().length > 0) &&
-    cleanPath(values.targetPath).length > 0 &&
+    (values.effectType === "roll_mode_modifier" ||
+      values.formulaId.trim().length > 0 ||
+      values.formulaText.trim().length > 0) &&
+    (values.effectType !== "formula_modifier" || cleanPath(values.targetPath).length > 0) &&
     !hasSelectorConflict
   );
 }
@@ -351,10 +377,20 @@ export function toAugmentationEffectPayload(
   const selector = {
     required_tags: normalizeFormulaTags(values.selectorRequiredTags),
     excluded_tags: normalizeFormulaTags(values.selectorExcludedTags),
-    action_id: optionalText(values.selectorActionId),
-    formula_id: optionalText(values.selectorFormulaId),
-    step_id: optionalText(values.selectorStepId),
-    same_source_item: values.selectorSameSourceItem
+    action_id:
+      values.effectType === "proficiency_growth_modifier"
+        ? null
+        : optionalText(values.selectorActionId),
+    formula_id:
+      values.effectType === "proficiency_growth_modifier"
+        ? null
+        : optionalText(values.selectorFormulaId),
+    step_id:
+      values.effectType === "proficiency_growth_modifier"
+        ? null
+        : optionalText(values.selectorStepId),
+    same_source_item:
+      values.effectType === "proficiency_growth_modifier" ? false : values.selectorSameSourceItem
   };
 
   if (values.effectType === "roll_mode_modifier") {
@@ -404,7 +440,7 @@ export function toItemAugmentationTemplatePayload({
     scope: values.targetRoot,
     target: {
       root: values.targetRoot,
-      path: cleanPath(values.targetPath)
+      path: augmentationEditorTargetPath(values)
     },
     effect: toAugmentationEffectPayload(values),
     active: values.active,

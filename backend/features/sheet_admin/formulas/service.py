@@ -22,6 +22,7 @@ from backend.state.models.formula import FormulaReference
 from backend.state.models.augmentation import (
     EvaluationFormulaModifierEffect,
     FormulaModifierEffect,
+    ProficiencyGrowthModifierEffect,
 )
 from backend.state.models.state import State
 from backend.state.models.tag import validate_tag_ids
@@ -152,7 +153,9 @@ def _effect_formula_references(state: State, formula_id: str) -> list[str]:
         for effect_id, definition in state.standalone_effects.items()
         if isinstance(
             definition.effect,
-            FormulaModifierEffect | EvaluationFormulaModifierEffect,
+            FormulaModifierEffect
+            | EvaluationFormulaModifierEffect
+            | ProficiencyGrowthModifierEffect,
         )
         and isinstance(definition.effect.value, FormulaReference)
         and definition.effect.value.formula_id == formula_id

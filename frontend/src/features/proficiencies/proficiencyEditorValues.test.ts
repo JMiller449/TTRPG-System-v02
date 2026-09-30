@@ -27,7 +27,8 @@ describe("proficiencyEditorValues", () => {
       name: "",
       description: "",
       category: "custom",
-      defaultGrowthRate: "0.01"
+      defaultGrowthRate: "0.01",
+      tags: []
     });
   });
 
@@ -37,7 +38,8 @@ describe("proficiencyEditorValues", () => {
       name: "Longsword",
       description: "Tracks approved longsword use.",
       category: "custom",
-      defaultGrowthRate: "0.01"
+      defaultGrowthRate: "0.01",
+      tags: []
     });
   });
 
@@ -102,7 +104,8 @@ describe("proficiencyEditorValues", () => {
       name: "Longsword",
       description: "Tracks approved longsword use.",
       category: "weapon_family",
-      default_growth_rate: 0.025
+      default_growth_rate: 0.025,
+      tags: []
     });
   });
 
@@ -120,7 +123,8 @@ describe("proficiencyEditorValues", () => {
       name: "Longsword Mastery",
       description: "Updated.",
       category: "weapon_family",
-      default_growth_rate: 0.005
+      default_growth_rate: 0.005,
+      tags: []
     });
     expect(
       toUpdatedProficiencyDefinitionPayload(undefined, {

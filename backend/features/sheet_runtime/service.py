@@ -25,6 +25,7 @@ from backend.features.formula_runtime.service import (
     normalize_numeric_result,
     resolve_roll_mode,
 )
+from backend.features.proficiency_growth.service import growth_points_after_uses
 from backend.features.session.models import SessionRole
 from backend.features.sheet_runtime.schema import (
     ActionExecuted,
@@ -384,7 +385,7 @@ def _sheet_proficiency_modifier(
             or bridge.prof_id == proficiency_id
             or bridge.relationship_id == proficiency_id
         ):
-            return min(bridge.growth_rate * bridge.use_count, 1)
+            return bridge.progress
     return None
 
 
@@ -1036,6 +1037,7 @@ def _add_missing_action_proficiency_mutations(
             prof_id=proficiency_id,
             use_count=0,
             growth_rate=float(growth_rate),
+            growth_points=0.0,
         )
         path = state_sync_service.join_path(
             actor.mutation_root,
@@ -1051,13 +1053,21 @@ def _gain_action_proficiency_use_mutations(
     state: State,
     actor: RuntimeActor,
     action: Action,
-) -> list[tuple[PatchOp, str]]:
-    mutations: list[tuple[PatchOp, str]] = []
+) -> list[tuple[list[PatchOp], str, float]]:
+    mutations: list[tuple[list[PatchOp], str, float]] = []
     for binding in action.proficiencies:
         if not binding.gain_on_use:
             continue
         bridge_key = _proficiency_bridge_key(actor, binding.proficiency_id)
-        path = state_sync_service.join_path(
+        bridge = actor.active_sheet.proficiencies[bridge_key]
+        growth_points = growth_points_after_uses(
+            state,
+            sheet_id=actor.sheet_id,
+            instance_id=actor.actor_id if actor.instance is not None else None,
+            bridge=bridge,
+            quantity=1,
+        )
+        use_count_path = state_sync_service.join_path(
             actor.mutation_root,
             actor.actor_id,
             "proficiencies",
@@ -1065,7 +1075,24 @@ def _gain_action_proficiency_use_mutations(
             "use_count",
         )
         mutations.append(
-            (state_sync_service.increment_mutation(state, path, 1), bridge_key)
+            (
+                [
+                    state_sync_service.increment_mutation(state, use_count_path, 1),
+                    state_sync_service.set_mutation(
+                        state,
+                        state_sync_service.join_path(
+                            actor.mutation_root,
+                            actor.actor_id,
+                            "proficiencies",
+                            bridge_key,
+                            "growth_points",
+                        ),
+                        growth_points,
+                    ),
+                ],
+                bridge_key,
+                growth_points,
+            )
         )
     return mutations
 
@@ -1864,17 +1891,46 @@ async def perform_action(
                     current_actor,
                     step.proficiency_id,
                 )
-                path = state_sync_service.join_path(
+                bridge = current_actor.active_sheet.proficiencies[bridge_key]
+                growth_points = growth_points_after_uses(
+                    state,
+                    sheet_id=current_actor.sheet_id,
+                    instance_id=(
+                        current_actor.actor_id
+                        if current_actor.instance is not None
+                        else None
+                    ),
+                    bridge=bridge,
+                    quantity=amount,
+                )
+                use_count_path = state_sync_service.join_path(
                     current_actor.mutation_root,
                     current_actor.actor_id,
                     "proficiencies",
                     bridge_key,
                     "use_count",
                 )
-                op = state_sync_service.increment_mutation(state, path, amount)
-                ops.append(op)
+                ops.append(
+                    state_sync_service.increment_mutation(
+                        state, use_count_path, amount
+                    )
+                )
+                ops.append(
+                    state_sync_service.set_mutation(
+                        state,
+                        state_sync_service.join_path(
+                            current_actor.mutation_root,
+                            current_actor.actor_id,
+                            "proficiencies",
+                            bridge_key,
+                            "growth_points",
+                        ),
+                        growth_points,
+                    )
+                )
                 applied_mutations.append(
-                    f"proficiencies.{bridge_key}.use_count+={amount}"
+                    f"proficiencies.{bridge_key}.use_count+={amount};"
+                    f"growth_points={growth_points}"
                 )
                 continue
 
@@ -1978,14 +2034,15 @@ async def perform_action(
                 "Roll20 check expression."
             )
 
-        for action_proficiency_op, action_proficiency_bridge_key in (
+        for action_proficiency_ops, action_proficiency_bridge_key, growth_points in (
             _gain_action_proficiency_use_mutations(
                 state, current_actor, current_action
             )
         ):
-            ops.append(action_proficiency_op)
+            ops.extend(action_proficiency_ops)
             applied_mutations.append(
-                f"proficiencies.{action_proficiency_bridge_key}.use_count+=1"
+                f"proficiencies.{action_proficiency_bridge_key}.use_count+=1;"
+                f"growth_points={growth_points}"
             )
 
         if (

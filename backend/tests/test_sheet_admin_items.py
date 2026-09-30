@@ -13,6 +13,8 @@ from backend.features.sheet_admin.items.schema import (
 from backend.state.models.action import Action
 from backend.state.models.augmentation import StandaloneEffectDefinition
 from backend.state.models.item import Item, ItemBridge
+from backend.state.models.formula import FormulaReference
+from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
 from backend.state.store import DEFAULT_STATE, StateSingleton
 
@@ -220,6 +222,154 @@ def test_dm_can_create_item(monkeypatch) -> None:
             assert websocket.sent_messages[0]["ops"][0]["value"][
                 "gm_special_properties"
             ] == "Cursed under moonlight."
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_weapon_action_wizard_atomically_creates_rule_actions_and_grants(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            state = StateSingleton.getState()
+            state.proficiencies["long_swords"] = Proficiency(
+                id="long_swords",
+                name="Long Swords",
+                description="Test weapon proficiency.",
+            )
+            state.proficiencies["throwing"] = Proficiency(
+                id="throwing",
+                name="Throwing",
+                description="Test secondary proficiency.",
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_weapon_with_actions",
+                    "item": {
+                        **_item_payload(),
+                        "interaction_type": "equippable",
+                        "attributes": {},
+                        "action_grants": [],
+                    },
+                    "governing_stat": "dexterity",
+                    "base_damage": 99,
+                    "entries": [
+                        {
+                            "action_id": "sword_attack",
+                            "name": "Sword — Attack",
+                            "recipe": "attack",
+                            "proficiency_id": "long_swords",
+                            "additional_proficiency_ids": ["throwing"],
+                            "action_point_cost": 1,
+                        },
+                        {
+                            "action_id": "sword_damage",
+                            "name": "Sword — Damage",
+                            "recipe": "damage",
+                            "proficiency_id": "long_swords",
+                            "action_point_cost": 0,
+                        },
+                    ],
+                },
+            )
+
+            state = StateSingleton.getState()
+            assert state.items["sword"].attributes[
+                "weapon_governing_stat"
+            ].value.value == "dexterity"
+            assert state.items["sword"].attributes[
+                "weapon_base_damage"
+            ].value.value == 99
+            assert [grant.action_id for grant in state.items["sword"].action_grants] == [
+                "sword_attack",
+                "sword_damage",
+            ]
+            attack = state.actions["sword_attack"]
+            damage = state.actions["sword_damage"]
+            assert attack.name == "Sword — Attack"
+            assert attack.proficiencies[0].gain_on_use is True
+            assert [binding.proficiency_id for binding in attack.proficiencies] == [
+                "long_swords",
+                "throwing",
+            ]
+            assert all(binding.gain_on_use for binding in attack.proficiencies)
+            assert damage.proficiencies[0].gain_on_use is False
+            assert attack.steps[0].type == "adjust_action_points"
+            assert attack.steps[0].amount == 1
+            attack_formula_reference = attack.steps[-1].rolls[0].value
+            damage_formula_reference = damage.steps[-1].rolls[0].value
+            assert isinstance(attack_formula_reference, FormulaReference)
+            assert isinstance(damage_formula_reference, FormulaReference)
+            attack_formula = state.formulas[attack_formula_reference.formula_id].formula
+            damage_formula = state.formulas[damage_formula_reference.formula_id].formula
+            assert attack_formula.text == (
+                "floor((1 + @weapon_proficiency) * (1d100 / 100) * @weapon_stat)"
+            )
+            assert damage_formula.text == (
+                "floor(@weapon_base_damage + (1 + @weapon_proficiency) "
+                "* (1d100 / 100) * @weapon_stat)"
+            )
+            proficiency_alias = next(
+                alias for alias in attack_formula.aliases or []
+                if alias.name == "weapon_proficiency"
+            )
+            assert proficiency_alias.path == [
+                "action",
+                "resolved",
+                "proficiencies",
+                "long_swords",
+                "modifier",
+            ]
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_weapon_action_wizard_rolls_back_when_a_generated_action_is_invalid(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            await websocket_sessions.reset()
+            websocket = FakeWebSocket()
+            await websocket_sessions.connect(websocket, role="dm")
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "create_weapon_with_actions",
+                    "item": {
+                        **_item_payload(),
+                        "interaction_type": "equippable",
+                        "attributes": {},
+                        "action_grants": [],
+                    },
+                    "governing_stat": "strength",
+                    "base_damage": 15,
+                    "entries": [
+                        {
+                            "action_id": "invalid_damage",
+                            "name": "Sword — Damage",
+                            "recipe": "damage",
+                            "proficiency_id": "missing_proficiency",
+                            "action_point_cost": 0,
+                        }
+                    ],
+                },
+            )
+
+            assert "invalid_damage" not in StateSingleton.getState().actions
+            assert "sword" not in StateSingleton.getState().items
+            assert websocket.sent_messages[-1]["type"] == "error"
+            assert "does not exist" in websocket.sent_messages[-1]["reason"]
         finally:
             StateSingleton._state = original_state
 

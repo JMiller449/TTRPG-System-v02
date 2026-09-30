@@ -29,6 +29,7 @@ const AUGMENTATION_OPERATIONS = ["add", "subtract", "multiply", "divide", "set"]
 const AUGMENTATION_EFFECT_TYPES = [
   ["formula_modifier", "Direct wearer value"],
   ["evaluation_formula_modifier", "Matching formula value"],
+  ["proficiency_growth_modifier", "Matching proficiency growth"],
   ["roll_mode_modifier", "Matching roll mode"]
 ] as const;
 
@@ -188,43 +189,51 @@ export function ItemAugmentationTemplatePanel({
                   placeholder="e.g. Arcane guard"
                 />
               </Field>
-              <Field
-                label={values.effectType === "formula_modifier" ? "Wearer Value" : "Effect Scope"}
-                required
-                invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
-              >
-                <select
-                  value={targetIsKnown ? selectedTargetKey : ""}
-                  onChange={(event) => {
-                    const target = targetOptions.find(
-                      (option) => augmentationTargetOptionKey(option) === event.target.value
-                    );
-                    if (target) {
-                      onChange(applyAugmentationTargetOption(values, target));
-                    }
-                  }}
-                  disabled={targetOptions.length === 0}
+              {values.effectType === "proficiency_growth_modifier" ? (
+                <Field label="Effect Scope">
+                  <input value="Matching proficiencies" readOnly />
+                </Field>
+              ) : (
+                <Field
+                  label={values.effectType === "formula_modifier" ? "Wearer Value" : "Effect Scope"}
                   required
-                  aria-invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
+                  invalid={validation.attempted && !targetIsKnown && targetOptions.length > 0}
                 >
-                  <option value="">
-                    {targetOptions.length === 0 ? "Target metadata unavailable" : "Select target"}
-                  </option>
-                  {!targetIsKnown && hasCurrentTargetPath ? (
-                    <option value={selectedTargetKey} disabled>
-                      Unavailable target ({selectedTargetKey})
+                  <select
+                    value={targetIsKnown ? selectedTargetKey : ""}
+                    onChange={(event) => {
+                      const target = targetOptions.find(
+                        (option) => augmentationTargetOptionKey(option) === event.target.value
+                      );
+                      if (target) {
+                        onChange(applyAugmentationTargetOption(values, target));
+                      }
+                    }}
+                    disabled={targetOptions.length === 0}
+                    required
+                    aria-invalid={
+                      validation.attempted && !targetIsKnown && targetOptions.length > 0
+                    }
+                  >
+                    <option value="">
+                      {targetOptions.length === 0 ? "Target metadata unavailable" : "Select target"}
                     </option>
-                  ) : null}
-                  {targetOptions.map((target) => (
-                    <option
-                      key={augmentationTargetOptionKey(target)}
-                      value={augmentationTargetOptionKey(target)}
-                    >
-                      {formatAugmentationTargetOption(target)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                    {!targetIsKnown && hasCurrentTargetPath ? (
+                      <option value={selectedTargetKey} disabled>
+                        Unavailable target ({selectedTargetKey})
+                      </option>
+                    ) : null}
+                    {targetOptions.map((target) => (
+                      <option
+                        key={augmentationTargetOptionKey(target)}
+                        value={augmentationTargetOptionKey(target)}
+                      >
+                        {formatAugmentationTargetOption(target)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field label="Effect Type">
                 <select
                   value={values.effectType}
@@ -332,7 +341,9 @@ export function ItemAugmentationTemplatePanel({
               visible={validation.attempted && !canSubmit}
               message={
                 !values.name.trim() ||
-                (!targetIsKnown && targetOptions.length > 0) ||
+                (values.effectType !== "proficiency_growth_modifier" &&
+                  !targetIsKnown &&
+                  targetOptions.length > 0) ||
                 (values.effectType !== "roll_mode_modifier" && !values.formulaText.trim())
                   ? "Complete all required fields."
                   : "Review the indicated fields."
@@ -350,7 +361,9 @@ export function ItemAugmentationTemplatePanel({
                     validation.reset();
                   }
                 }}
-                disabled={targetOptions.length === 0}
+                disabled={
+                  values.effectType !== "proficiency_growth_modifier" && targetOptions.length === 0
+                }
               >
                 {editingAugmentationId ? "Update Effect" : "Add Effect"}
               </button>

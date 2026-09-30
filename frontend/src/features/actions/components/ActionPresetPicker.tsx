@@ -25,21 +25,21 @@ export function ActionPresetPicker({
     <section className="stack">
       {showIntro ? (
         <div>
-          <h3>Start from an Action Preset</h3>
+          <h3>Choose a Common Behavior</h3>
           <p className="muted">
-            Presets create an editable draft. Weapon presets require an explicit source item when
-            performed; spell presets require selecting a proficiency before saving.
+            This fills an editable draft. Weapon behaviors require an explicit source item when
+            performed; spell behaviors require selecting a proficiency before saving.
           </p>
         </div>
       ) : null}
       <div className="inline-actions">
-        <Field label="Action Preset">
+        <Field label="Common behavior">
           <select
             disabled={disabled}
             value={selectedPresetId}
             onChange={(event) => setSelectedPresetId(event.target.value)}
           >
-            <option value="">Select an Action preset</option>
+            <option value="">Select a common behavior</option>
             {categories.map((category) => (
               <optgroup key={category} label={category.replace(/_/g, " ")}>
                 {presets
@@ -65,7 +65,7 @@ export function ActionPresetPicker({
             setSelectedPresetId("");
           }}
         >
-          Apply Action Preset
+          Apply Behavior
         </button>
       </div>
       {selectedPreset ? <p className="muted">{selectedPreset.description}</p> : null}

@@ -14,6 +14,7 @@ class ProficiencyDefinitionPayload(BaseModel):
     description: str = ""
     category: ProficiencyCategory = "custom"
     default_growth_rate: float = Field(default=0.01, ge=0, allow_inf_nan=False)
+    tags: list[str] = Field(default_factory=list)
 
 
 class CreateProficiency(RequestModel):

@@ -90,13 +90,15 @@ Frontend authoring is under
 The Formula catalog owns expression and alias editing through the shared
 `FormulaVariableInput` control. Typing `@` at the cursor opens a filtered search
 of variables allowed by backend metadata; selection replaces that mention and
-upserts its canonical alias. Attribute and Effect consumers use the shared
-formula catalog picker and save a stable reference. Action editors can select a
-catalog formula directly. A selected shared formula can be copied into the
-current action from any step formula editor, preserving its expression, aliases,
-and tags for immediate editing; that customized draft is promoted to a new
-catalog definition when saved. Legacy inline action drafts follow the same
-promotion path. Action formula variable search exposes every proficiency in the
+upserts its canonical alias. Attribute consumers use the shared formula catalog
+picker and save a stable reference. Effect authoring offers either a shared
+formula or a quick inline number/expression with that same variable input; an
+inline draft is promoted to a canonical Formula definition when the Effect is
+saved. Action editors can select a catalog formula directly. A selected shared
+formula can be copied into the current action or Effect editor, preserving its
+expression and aliases for immediate editing; that customized draft is promoted
+to a new catalog definition when saved. Legacy inline action drafts follow the
+same promotion path. Action formula variable search exposes every proficiency in the
 campaign. Selecting a proficiency modifier, or selecting a shared formula that
 uses one, attaches the missing proficiency to the action with growth enabled by
 default; the author can then disable growth from the action's proficiency list.

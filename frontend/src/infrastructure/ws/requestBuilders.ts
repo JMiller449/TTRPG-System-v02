@@ -36,6 +36,8 @@ export type CharacterProfilePayload = ProtocolRequest<"set_instanced_sheet_profi
 export type InstancedSheetResistancesPayload =
   ProtocolRequest<"create_instanced_sheet">["resistances"];
 export type ItemDefinitionPayload = ProtocolRequest<"create_item">["item"];
+export type WeaponActionWizardEntryPayload =
+  ProtocolRequest<"create_weapon_with_actions">["entries"][number];
 export type PlayerItemSubmissionPayload = ProtocolRequest<"submit_player_item">["item"];
 export type AugmentationPayload =
   ProtocolRequest<"upsert_item_augmentation_template">["augmentation"];
@@ -1697,6 +1699,28 @@ export function buildDeleteItemRequest({
     ...requestIdField(requestId),
     type: "delete_item",
     item_id: itemId
+  };
+}
+
+export function buildCreateWeaponWithActionsRequest({
+  item,
+  governingStat,
+  baseDamage,
+  entries,
+  requestId
+}: {
+  item: ItemDefinitionPayload;
+  governingStat: ProtocolRequest<"create_weapon_with_actions">["governing_stat"];
+  baseDamage: number;
+  entries: WeaponActionWizardEntryPayload[];
+} & OptionalRequestId): ProtocolRequest<"create_weapon_with_actions"> {
+  return {
+    ...requestIdField(requestId),
+    type: "create_weapon_with_actions",
+    item,
+    governing_stat: governingStat,
+    base_damage: baseDamage,
+    entries
   };
 }
 

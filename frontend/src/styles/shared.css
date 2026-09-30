@@ -465,6 +465,10 @@ button.formula-tag-suggestion {
   align-items: stretch;
 }
 
+.authoring-workspace--editor-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .authoring-workspace__catalog,
 .authoring-workspace__editor {
   min-width: 0;

@@ -9,6 +9,7 @@ from backend.features.sheet_admin.proficiencies.schema import (
 from backend.features.state_sync.service import state_sync_service
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.state import State
+from backend.state.models.tag import normalize_tag_ids, validate_tag_ids
 
 
 def _build_proficiency(payload: ProficiencyDefinitionPayload) -> Proficiency:
@@ -18,6 +19,7 @@ def _build_proficiency(payload: ProficiencyDefinitionPayload) -> Proficiency:
         description=payload.description,
         category=payload.category,
         default_growth_rate=payload.default_growth_rate,
+        tags=normalize_tag_ids(payload.tags),
     )
 
 
@@ -25,6 +27,7 @@ async def create_proficiency(request: CreateProficiency) -> None:
     proficiency = _build_proficiency(request.proficiency)
 
     def mutation(state: State) -> tuple[None, list]:
+        validate_tag_ids(proficiency.tags, state.tags)
         if request.proficiency.id in state.proficiencies:
             raise ValueError(
                 f"Proficiency '{request.proficiency.id}' already exists."
@@ -44,6 +47,7 @@ async def update_proficiency(request: UpdateProficiency) -> None:
     proficiency = _build_proficiency(request.proficiency)
 
     def mutation(state: State) -> tuple[None, list]:
+        validate_tag_ids(proficiency.tags, state.tags)
         if request.proficiency_id not in state.proficiencies:
             raise ValueError(f"Proficiency '{request.proficiency_id}' does not exist.")
 

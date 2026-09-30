@@ -5,7 +5,8 @@
 XP is derived from a backend-owned registry of kills and explicit adjustments.
 Characters do not maintain an independently mutable XP total. Temporary parties
 control who participates in a new kill, while each historical kill snapshots
-the participant identities and award values that applied at record time.
+participant identities and its distribution inputs. Template-linked kills keep
+their award synchronized to the enemy template's canonical XP value.
 
 Models in [`backend/state/models/xp.py`](../../backend/state/models/xp.py)
 include:
@@ -31,10 +32,15 @@ percentage used.
 Later party edits, visibility changes, renames, or despawns do not rewrite
 historical kills. Despawning removes current party membership but retained kill
 participant snapshots continue contributing to the historical record.
+Changing an enemy template's XP does rewrite `base_xp` and the derived
+per-participant award on every historical kill linked by `monster_sheet_id`;
+character totals are projections of those updated records. Arbitrary custom
+kills without a template link retain their authored XP until directly edited.
 
 ## DM and player recording
 
-DMs can record arbitrary kills, correct or delete records, set enemy XP values,
+DMs can record arbitrary kills, correct or delete records, set enemy XP values
+(recalculating linked historical awards),
 control player-recordable enemy visibility, configure derived progression, and add
 or delete explicit XP adjustments.
 

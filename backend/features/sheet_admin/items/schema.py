@@ -15,6 +15,31 @@ class ItemActionGrantPayload(BaseModel):
     consume_quantity: int = Field(default=0, ge=0)
 
 
+class WeaponActionWizardEntryPayload(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    action_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    recipe: Literal["attack", "damage", "parry"]
+    proficiency_id: str = Field(min_length=1)
+    additional_proficiency_ids: list[str] = Field(default_factory=list, max_length=12)
+    action_point_cost: int = Field(default=0, ge=0, le=100, strict=True)
+
+    @model_validator(mode="after")
+    def validate_proficiencies(self) -> "WeaponActionWizardEntryPayload":
+        if any(not proficiency_id for proficiency_id in self.additional_proficiency_ids):
+            raise ValueError("Additional proficiency IDs cannot be blank.")
+        if len(self.additional_proficiency_ids) != len(
+            set(self.additional_proficiency_ids)
+        ):
+            raise ValueError("Additional proficiency IDs must be unique.")
+        if self.proficiency_id in self.additional_proficiency_ids:
+            raise ValueError(
+                "The roll proficiency cannot also be an additional proficiency."
+            )
+        return self
+
+
 class ItemPlayerCatalogAccessPayload(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 
@@ -96,6 +121,36 @@ class ItemDefinitionPayload(BaseModel):
                     "Consumable items require at least one carried action that consumes "
                     "a positive quantity."
                 )
+        return self
+
+
+class CreateWeaponWithActions(RequestModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    item: ItemDefinitionPayload
+    governing_stat: Literal[
+        "strength",
+        "dexterity",
+        "constitution",
+        "perception",
+        "arcane",
+        "will",
+    ]
+    base_damage: float = Field(ge=0, allow_inf_nan=False)
+    entries: list[WeaponActionWizardEntryPayload] = Field(min_length=1, max_length=12)
+    type: Literal["create_weapon_with_actions"]
+
+    @model_validator(mode="after")
+    def validate_weapon(self) -> "CreateWeaponWithActions":
+        if self.item.interaction_type != "equippable":
+            raise ValueError("A guided weapon must be equippable.")
+        if self.item.action_grants:
+            raise ValueError("Guided weapon action grants come from the selected recipes.")
+        action_ids = [entry.action_id for entry in self.entries]
+        if len(action_ids) != len(set(action_ids)):
+            raise ValueError("Generated weapon action IDs must be unique.")
+        if any(not entry.name.strip() for entry in self.entries):
+            raise ValueError("Generated weapon action names cannot be blank.")
         return self
 
 

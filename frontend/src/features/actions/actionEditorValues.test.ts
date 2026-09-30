@@ -25,6 +25,7 @@ import {
   createGainProficiencyUseActionStep,
   createResolveDamageActionStep,
   createEmptyActionEditorValues,
+  duplicateActionEditorValues,
   duplicateActionStep,
   ensureActionProficienciesForFormula,
   getActionEditorValidationError,
@@ -99,6 +100,26 @@ function testAction(overrides: Partial<ActionDefinition> = {}): ActionDefinition
     ...overrides
   };
 }
+
+it("duplicates action values with fresh Attribute relationships", () => {
+  const action = testAction({
+    attributes: {
+      action_range: {
+        relationship_id: "original_relationship",
+        attribute_id: "action_range",
+        value: { type: "number", value: 5 }
+      }
+    },
+    proficiencies: [{ proficiency_id: "long_swords", gain_on_use: true }]
+  });
+
+  const duplicate = duplicateActionEditorValues(action, () => "new_relationship");
+
+  expect(duplicate.attributes.action_range.relationship_id).toBe("new_relationship");
+  expect(duplicate.proficiencies).toEqual([{ proficiency_id: "long_swords", gain_on_use: true }]);
+  duplicate.attributes.action_range.value = { type: "number", value: 10 };
+  expect(action.attributes?.action_range.value).toEqual({ type: "number", value: 5 });
+});
 
 function testResolveDamageStep(
   stepId: string,

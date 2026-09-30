@@ -669,3 +669,8 @@ and snapshotted participants. The backend rounds the per-participant award for
 one kill to two decimals, then multiplies it by quantity, matching separate
 single-kill entries. Historical quantity may be corrected by the DM. Player
 entries still use only visible enemies and server-derived XP and party membership.
+Template-linked kill entries retain that enemy identity. Changing the template's
+XP value recalculates every linked historical entry and therefore each affected
+character's lifetime XP; participant snapshots, party share, quantity, and time
+remain unchanged. Custom kills without a template link keep their authored XP
+until the DM edits the kill itself.

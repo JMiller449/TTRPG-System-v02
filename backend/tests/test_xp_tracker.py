@@ -1,5 +1,6 @@
 import asyncio
 from copy import deepcopy
+from dataclasses import asdict
 
 from backend.features.state_sync.service import state_sync_service
 from backend.routes.ws import handle_client_payload, websocket_sessions
@@ -277,6 +278,100 @@ def test_dm_can_edit_delete_kills_and_manage_adjustments(monkeypatch) -> None:
             )
             assert state.kill_registry == {}
             assert state.xp_adjustments == {}
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
+def test_changing_monster_xp_rederives_linked_historical_kills_and_player_totals(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _setup_state()
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            websocket = await _dm()
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "save_party",
+                    "party_id": "party_1",
+                    "name": "Party",
+                    "member_instance_ids": ["hero_1", "hero_2"],
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "record_kill",
+                    "kill_id": "goblin_batch",
+                    "credited_instance_id": "hero_1",
+                    "monster_sheet_id": "goblin",
+                    "quantity": 2,
+                },
+            )
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "record_kill",
+                    "kill_id": "custom_goblin",
+                    "credited_instance_id": "hero_3",
+                    "monster_name": "Goblin",
+                    "base_xp": 40,
+                },
+            )
+
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "set_mob_xp_value",
+                    "mob_sheet_id": "goblin",
+                    "xp_value": 300,
+                },
+            )
+
+            state = StateSingleton.getState()
+            record = state.kill_registry["goblin_batch"]
+            assert state.sheets["goblin"].xp_given_when_slayed == 300
+            assert record.base_xp == 300
+            assert record.quantity == 2
+            assert record.xp_per_participant == 300
+            assert state.kill_registry["custom_goblin"].base_xp == 40
+            assert state.kill_registry["custom_goblin"].xp_per_participant == 40
+            tracker = websocket.sent_messages[-1]
+            sheet_totals = {
+                sheet["instance_id"]: sheet["current_xp"]
+                for sheet in tracker["sheets"]
+            }
+            assert sheet_totals["hero_1"] == 300
+            assert sheet_totals["hero_2"] == 300
+
+            await handle_client_payload(websocket, {"type": "get_xp_tracker"})
+            updated_goblin = asdict(state.sheets["goblin"])
+            updated_goblin["xp_given_when_slayed"] = 500
+            await handle_client_payload(
+                websocket,
+                {
+                    "type": "update_sheet",
+                    "sheet_id": "goblin",
+                    "sheet": updated_goblin,
+                },
+            )
+
+            assert state.kill_registry["goblin_batch"].base_xp == 500
+            assert state.kill_registry["goblin_batch"].xp_per_participant == 500
+            assert state.kill_registry["custom_goblin"].xp_per_participant == 40
+            assert websocket.sent_messages[-1]["type"] == "xp_tracker"
+            updated_totals = {
+                sheet["instance_id"]: sheet["current_xp"]
+                for sheet in websocket.sent_messages[-1]["sheets"]
+            }
+            assert updated_totals["hero_1"] == 500
+            assert updated_totals["hero_2"] == 500
         finally:
             StateSingleton._state = original_state
 

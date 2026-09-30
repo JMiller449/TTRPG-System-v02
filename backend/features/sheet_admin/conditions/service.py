@@ -34,6 +34,19 @@ def _validate_condition_augmentation_template(augmentation: Augmentation) -> Non
             "Condition preset augmentation templates must target the current instance."
         )
 
+    if (
+        (
+            augmentation.effect.type == "proficiency_growth_modifier"
+            and augmentation.target.path == ["proficiencies"]
+        )
+        or (
+            augmentation.effect.type
+            in {"evaluation_formula_modifier", "roll_mode_modifier"}
+            and augmentation.target.path == ["formula_evaluations"]
+        )
+    ):
+        return
+
     if not is_augmentation_target_allowed(
         root=augmentation.target.root,
         path=augmentation.target.path,

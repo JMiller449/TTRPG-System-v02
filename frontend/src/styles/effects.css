@@ -1,0 +1,120 @@
+.effect-editor {
+  min-width: 0;
+  max-width: 100%;
+  padding-bottom: 0.75rem;
+}
+
+.effect-editor__header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.effect-editor__header > span,
+.effect-editor__type-section > span,
+.effect-editor__section-heading {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.effect-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.effect-type-card {
+  display: grid;
+  min-width: 0;
+  min-height: 76px;
+  gap: 0.2rem;
+  align-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r6-radius-sm, 2px);
+  padding: 0.65rem 0.75rem;
+  color: var(--text);
+  background: var(--r6-control-bg-soft, var(--card));
+  text-align: left;
+  cursor: pointer;
+}
+
+.effect-type-card:hover,
+.effect-type-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+}
+
+.effect-type-card--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, var(--card));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.effect-type-card > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.effect-editor__configuration {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding-block: 0.8rem;
+}
+
+.effect-formula-editor {
+  min-width: 0;
+}
+
+.effect-formula-editor__hint {
+  margin: -0.2rem 0 0;
+  font-size: 0.82rem;
+}
+
+.effect-shared-formula {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.65rem;
+  background: var(--r6-control-bg-soft, var(--card));
+}
+
+.effect-shared-formula > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.effect-shared-formula code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula-selector-editor__advanced {
+  margin-top: 0.1rem;
+}
+
+.effect-editor__footer {
+  position: sticky;
+  z-index: 3;
+  bottom: -0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  margin-inline: -0.75rem;
+  border-top: 1px solid var(--line);
+  padding: 0.75rem;
+  background: var(--r6-bg-panel, var(--card));
+  box-shadow: 0 -10px 18px rgba(2, 6, 16, 0.72);
+}
+
+@media (max-width: 760px) {
+  .effect-type-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .effect-shared-formula {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

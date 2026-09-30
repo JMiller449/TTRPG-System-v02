@@ -3850,7 +3850,15 @@ def test_perform_action_gains_explicit_proficiency_use_once(monkeypatch) -> None
                                 "magic/use_count"
                             ),
                             "value": 2,
-                        }
+                        },
+                        {
+                            "op": "set",
+                            "path": (
+                                "/instanced_sheets/mage_instance/proficiencies/"
+                                "magic/growth_points"
+                            ),
+                            "value": 0.8,
+                        },
                     ],
                     "state_version": 1,
                     "type": "state_patch",
@@ -4102,6 +4110,11 @@ def test_perform_action_spends_instance_resource_and_gains_proficiency_use(
                             "op": "inc",
                             "path": "/instanced_sheets/mage_instance/proficiencies/magic/use_count",
                             "value": 1,
+                        },
+                        {
+                            "op": "set",
+                            "path": "/instanced_sheets/mage_instance/proficiencies/magic/growth_points",
+                            "value": 0.6,
                         },
                     ],
                     "state_version": 1,

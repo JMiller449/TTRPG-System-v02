@@ -35,7 +35,6 @@ describe("ConsoleSidebar", () => {
       "create_template",
       "action_authoring",
       "item_maker",
-      "item_template_builder",
       "attribute_authoring",
       "formula_authoring",
       "proficiency_authoring",
@@ -96,8 +95,12 @@ describe("ConsoleSidebar", () => {
       client,
       activeView: "sheet_viewer",
       activeCharacterSection: "dense",
+      activeActionSection: "catalog",
+      activeItemSection: "catalog",
       onNavigate: vi.fn(),
-      onCharacterSectionChange: vi.fn()
+      onCharacterSectionChange: vi.fn(),
+      onActionSectionChange: vi.fn(),
+      onItemSectionChange: vi.fn()
     });
     expect(markup).toContain("Characters");
     expect(markup).toContain("Dense");
@@ -114,8 +117,12 @@ describe("ConsoleSidebar", () => {
       client,
       activeView: "sheet_viewer",
       activeCharacterSection: "management",
+      activeActionSection: "catalog",
+      activeItemSection: "catalog",
       onNavigate: vi.fn(),
-      onCharacterSectionChange: vi.fn()
+      onCharacterSectionChange: vi.fn(),
+      onActionSectionChange: vi.fn(),
+      onItemSectionChange: vi.fn()
     });
 
     expect(markup).toContain("Action History");
@@ -135,11 +142,60 @@ describe("ConsoleSidebar", () => {
       client,
       activeView: "action_history",
       activeCharacterSection: "dense",
+      activeActionSection: "catalog",
+      activeItemSection: "catalog",
       onNavigate: vi.fn(),
-      onCharacterSectionChange: vi.fn()
+      onCharacterSectionChange: vi.fn(),
+      onActionSectionChange: vi.fn(),
+      onItemSectionChange: vi.fn()
     });
 
     expect(markup).not.toContain('aria-label="Character sections"');
     expect(markup).not.toContain('id="sheet-tab-dense"');
+  });
+
+  it("shows Actions as catalog and guided destinations", () => {
+    const markup = renderSidebar({
+      role: "gm",
+      client,
+      activeView: "action_authoring",
+      activeCharacterSection: "dense",
+      activeActionSection: "guided",
+      activeItemSection: "catalog",
+      onNavigate: vi.fn(),
+      onCharacterSectionChange: vi.fn(),
+      onActionSectionChange: vi.fn(),
+      onItemSectionChange: vi.fn()
+    });
+
+    expect(markup).toContain('aria-label="Actions sections"');
+    expect(markup).toContain('id="action-section-catalog"');
+    expect(markup).toContain('id="action-section-guided"');
+    expect(markup).not.toContain('id="action-section-templates"');
+    expect(markup).not.toContain('id="action-section-raw"');
+  });
+
+  it("shows Items as catalog and wizard destinations", () => {
+    const markup = renderSidebar({
+      role: "gm",
+      client,
+      activeView: "item_maker",
+      activeCharacterSection: "dense",
+      activeActionSection: "catalog",
+      activeItemSection: "wizard",
+      onNavigate: vi.fn(),
+      onCharacterSectionChange: vi.fn(),
+      onActionSectionChange: vi.fn(),
+      onItemSectionChange: vi.fn()
+    });
+
+    expect(markup).toContain('aria-label="Items sections"');
+    expect(markup).toContain('id="item-section-catalog"');
+    expect(markup).toContain('id="item-section-wizard"');
+    expect(markup).not.toContain('id="item-section-raw"');
+    expect(markup).not.toContain('id="item-section-template_catalog"');
+    expect(markup).not.toContain('id="item-section-template_builder"');
+    expect(markup).not.toContain("Template Catalog");
+    expect(markup).not.toContain("Template Builder");
   });
 });

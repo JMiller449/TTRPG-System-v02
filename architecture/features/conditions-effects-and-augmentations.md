@@ -65,6 +65,9 @@ The effect types are:
 - `evaluation_formula_modifier`: an evaluation-time numeric operation selected
   by tags, action/formula/step IDs, or same-source-item context, without
   changing stored state;
+- `proficiency_growth_modifier`: an evaluation-time numeric operation selected
+  by required and excluded proficiency-definition tags, applied to the points
+  awarded for a qualifying use without changing the stored base growth rate;
 - `roll_mode_modifier`: an advantage/disadvantage modifier applied only during
   matching check evaluation.
 
@@ -73,12 +76,17 @@ backend resolves that reference when it materializes an equipment-, condition-,
 or action-owned runtime augmentation; the concrete augmentation keeps a formula
 snapshot for its application lifecycle. Formula edits therefore revalidate all
 referencing Effect contexts, while deletion is blocked until those references
-are removed. Effect authoring selects formulas from the shared catalog, and
-legacy inline submissions are promoted on create/update.
+are removed. Effect authoring can select a shared formula or enter a quick
+number/expression inline; inline submissions are promoted to canonical Formula
+definitions on create/update.
 
 Targets are selected from backend-provided augmentation target metadata.
 Arbitrary state roots and paths are rejected; state-root targets are modeled
-but not currently supported by runtime application.
+but not currently supported by runtime application. Evaluation-time and
+roll-mode Effects use the typed virtual `instance.formula_evaluations` target,
+while proficiency growth Effects use `instance.proficiencies`; both describe a
+runtime selection context instead of pretending to mutate a concrete state
+path. Existing selector-only Effects with legacy concrete targets remain valid.
 
 ## Equipment flow
 
@@ -91,8 +99,8 @@ Direct equipment effects participate in the projection system. Projection
 recalculation starts from a stable base, combines every desired direct effect,
 and writes only changed effective values. Unequipping or depleting an item
 shrinks the desired set and restores the base value without double application.
-Evaluation-time and roll-mode effects remain stored modifiers selected during
-formula execution.
+Evaluation-time, proficiency-growth, and roll-mode effects remain stored
+modifiers selected during their respective runtime calculations.
 
 ## Condition flow
 
@@ -175,8 +183,12 @@ round trip a no-op instead of double-applying modifiers.
 - Active character inspectors: condition/effect sections under the sheet
   feature.
 
-Editors distinguish direct, evaluation-time, and roll-mode behavior and show
-lifecycle/stacking metadata without claiming automatic expiry.
+The standalone editor presents the four behaviors as plain-language choices
+and shows only fields relevant to the selected behavior. Numeric values support quick inline formula
+authoring with the same `@` variable picker as actions, or a shared Formula
+reference. Required/excluded tags stay visible; action/formula/step/source-item
+constraints, notes, lifecycle, and stacking use progressive disclosure. The UI
+does not claim that lifecycle metadata expires effects automatically.
 
 ## Principal tests
 

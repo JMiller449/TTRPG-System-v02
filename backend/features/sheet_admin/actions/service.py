@@ -618,6 +618,28 @@ def _actions_state(state: State) -> dict[str, dict]:
     return state.actions
 
 
+def build_action_creation_mutations(
+    payload: ActionDefinitionPayload,
+    state: State,
+) -> tuple[Action, list]:
+    """Validate and add one canonical Action inside a caller-owned transaction."""
+
+    actions = _actions_state(state)
+    if payload.id in actions:
+        raise ValueError(f"Action '{payload.id}' already exists.")
+    _validate_action_payload(payload, state)
+    centralized_payload, formula_ops = _centralize_action_formula_payloads(
+        payload,
+        state,
+    )
+    action = _build_action(centralized_payload, state)
+    _validate_action_attributes(action, state)
+    validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
+    path = state_sync_service.join_path("actions", payload.id)
+    op = state_sync_service.add_mutation(state, path, action)
+    return action, [*formula_ops, op]
+
+
 def _merge_entity(current: dict, partial: dict) -> dict:
     merged = deepcopy(current)
     for key, value in partial.items():
@@ -644,20 +666,8 @@ async def _create_action(
     request_id: str | None = None,
 ) -> None:
     def mutation(state: State) -> tuple[None, list]:
-        actions = _actions_state(state)
-        if payload.id in actions:
-            raise ValueError(f"Action '{payload.id}' already exists.")
-        _validate_action_payload(payload, state)
-        centralized_payload, formula_ops = _centralize_action_formula_payloads(
-            payload,
-            state,
-        )
-        action = _build_action(centralized_payload, state)
-        _validate_action_attributes(action, state)
-        validate_tag_ids(sorted(collect_tag_references(asdict(action))), state.tags)
-        path = state_sync_service.join_path("actions", payload.id)
-        op = state_sync_service.add_mutation(state, path, action)
-        return None, [*formula_ops, op]
+        _, ops = build_action_creation_mutations(payload, state)
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 

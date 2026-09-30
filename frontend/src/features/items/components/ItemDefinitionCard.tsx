@@ -18,12 +18,14 @@ export function ItemDefinitionCard({
   item,
   actions,
   attributeDefinitions,
+  onDuplicate,
   onEdit,
   onDelete
 }: {
   item: ItemDefinition;
   actions: Record<string, ActionDefinition>;
   attributeDefinitions: Record<string, AttributeDefinition>;
+  onDuplicate?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
@@ -83,6 +85,11 @@ export function ItemDefinitionCard({
         />
       ) : null}
       <div className="inline-actions">
+        {onDuplicate ? (
+          <button className="button button--secondary" type="button" onClick={onDuplicate}>
+            Duplicate
+          </button>
+        ) : null}
         <button className="button button--secondary" type="button" onClick={onEdit}>
           Edit
         </button>

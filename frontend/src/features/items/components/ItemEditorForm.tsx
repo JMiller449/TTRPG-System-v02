@@ -39,7 +39,6 @@ export function ItemEditorForm({
   effectEditorFocused = false,
   pending = false,
   validationAttempted = false,
-  editorKind = "item",
   showPlayerAvailability = true,
   onSubmit,
   onCancel,
@@ -57,7 +56,6 @@ export function ItemEditorForm({
   effectEditorFocused?: boolean;
   pending?: boolean;
   validationAttempted?: boolean;
-  editorKind?: "item" | "template";
   showPlayerAvailability?: boolean;
   onSubmit: () => void;
   onCancel: () => void;
@@ -97,15 +95,7 @@ export function ItemEditorForm({
       className={`item-editor stack${effectEditorFocused ? " item-editor--effect-focused" : ""}`}
     >
       <div className="item-editor__heading">
-        <h3>
-          {editingItemId
-            ? editorKind === "template"
-              ? "Edit Item Template"
-              : "Edit Item"
-            : editorKind === "template"
-              ? "Create Item Template"
-              : "Create Item"}
-        </h3>
+        <h3>{editingItemId ? "Edit Item" : "Create Item"}</h3>
         <div className="item-type-control" aria-label="Item interaction type">
           {ITEM_INTERACTION_TYPES.map((option) => (
             <button
@@ -371,15 +361,7 @@ export function ItemEditorForm({
       />
       <div className="template-editor__actions item-editor__actions">
         <button className="button" onClick={onSubmit} disabled={pending}>
-          {pending
-            ? "Creating…"
-            : editingItemId
-              ? editorKind === "template"
-                ? "Save Template"
-                : "Save Item"
-              : editorKind === "template"
-                ? "Create Template"
-                : "Create Item"}
+          {pending ? "Creating…" : editingItemId ? "Save Item" : "Create Item"}
         </button>
         <button className="button button--secondary" onClick={onCancel} disabled={pending}>
           {editingItemId ? "Cancel" : "Discard Draft"}

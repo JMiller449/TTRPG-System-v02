@@ -1,5 +1,7 @@
 import type { GMView } from "@/app/state/types";
 import type { Role } from "@/domain/models";
+import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
+import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
 import type { PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 
 export type ConsoleView = GMView;
@@ -9,14 +11,34 @@ export interface ConsoleSidebarNavItem {
   label: string;
   glyph: string;
   roles: readonly Role[];
-  children?: readonly ConsoleSidebarCharacterItem[];
+  children?: readonly ConsoleSidebarChildItem[];
 }
 
 export interface ConsoleSidebarCharacterItem {
+  owner: "characters";
   section: PlayerSheetTab;
   label: string;
   roles: readonly Role[];
 }
+
+export interface ConsoleSidebarActionItem {
+  owner: "actions";
+  section: ActionAuthoringSection;
+  label: string;
+  roles: readonly Role[];
+}
+
+export interface ConsoleSidebarItemItem {
+  owner: "items";
+  section: ItemAuthoringSection;
+  label: string;
+  roles: readonly Role[];
+}
+
+export type ConsoleSidebarChildItem =
+  | ConsoleSidebarCharacterItem
+  | ConsoleSidebarActionItem
+  | ConsoleSidebarItemItem;
 
 export interface ConsoleSidebarNavGroup {
   label: string;
@@ -27,20 +49,35 @@ const BOTH_ROLES = ["player", "gm"] as const satisfies readonly Role[];
 const GM_ONLY = ["gm"] as const satisfies readonly Role[];
 
 export const CHARACTER_SIDEBAR_ITEMS: readonly ConsoleSidebarCharacterItem[] = [
-  { section: "dense", label: "Dense", roles: BOTH_ROLES },
-  { section: "stats", label: "Stats", roles: BOTH_ROLES },
-  { section: "statuses", label: "Statuses", roles: BOTH_ROLES },
-  { section: "actions", label: "Actions", roles: BOTH_ROLES },
-  { section: "inventory", label: "Inventory", roles: BOTH_ROLES },
-  { section: "resistances", label: "Resistances", roles: BOTH_ROLES },
-  { section: "attributes", label: "Attributes", roles: BOTH_ROLES },
-  { section: "proficiencies", label: "Proficiencies", roles: BOTH_ROLES },
-  { section: "kills", label: "Kills", roles: BOTH_ROLES },
-  { section: "backstory", label: "Backstory", roles: BOTH_ROLES },
-  { section: "notes", label: "Notes", roles: BOTH_ROLES },
-  { section: "action_history", label: "Action History", roles: GM_ONLY },
-  { section: "management", label: "Management", roles: GM_ONLY },
-  { section: "organize_sheets", label: "Organize Sheets", roles: GM_ONLY }
+  { owner: "characters", section: "dense", label: "Dense", roles: BOTH_ROLES },
+  { owner: "characters", section: "stats", label: "Stats", roles: BOTH_ROLES },
+  { owner: "characters", section: "statuses", label: "Statuses", roles: BOTH_ROLES },
+  { owner: "characters", section: "actions", label: "Actions", roles: BOTH_ROLES },
+  { owner: "characters", section: "inventory", label: "Inventory", roles: BOTH_ROLES },
+  { owner: "characters", section: "resistances", label: "Resistances", roles: BOTH_ROLES },
+  { owner: "characters", section: "attributes", label: "Attributes", roles: BOTH_ROLES },
+  { owner: "characters", section: "proficiencies", label: "Proficiencies", roles: BOTH_ROLES },
+  { owner: "characters", section: "kills", label: "Kills", roles: BOTH_ROLES },
+  { owner: "characters", section: "backstory", label: "Backstory", roles: BOTH_ROLES },
+  { owner: "characters", section: "notes", label: "Notes", roles: BOTH_ROLES },
+  { owner: "characters", section: "action_history", label: "Action History", roles: GM_ONLY },
+  { owner: "characters", section: "management", label: "Management", roles: GM_ONLY },
+  {
+    owner: "characters",
+    section: "organize_sheets",
+    label: "Organize Sheets",
+    roles: GM_ONLY
+  }
+];
+
+export const ACTION_SIDEBAR_ITEMS: readonly ConsoleSidebarActionItem[] = [
+  { owner: "actions", section: "catalog", label: "Catalog", roles: GM_ONLY },
+  { owner: "actions", section: "guided", label: "Guided", roles: GM_ONLY }
+];
+
+export const ITEM_SIDEBAR_ITEMS: readonly ConsoleSidebarItemItem[] = [
+  { owner: "items", section: "catalog", label: "Catalog", roles: GM_ONLY },
+  { owner: "items", section: "wizard", label: "Wizard", roles: GM_ONLY }
 ];
 
 export const CONSOLE_SIDEBAR_NAV_GROUPS: readonly ConsoleSidebarNavGroup[] = [
@@ -67,9 +104,20 @@ export const CONSOLE_SIDEBAR_NAV_GROUPS: readonly ConsoleSidebarNavGroup[] = [
   {
     label: "Content",
     items: [
-      { view: "action_authoring", label: "Actions", glyph: "AC", roles: GM_ONLY },
-      { view: "item_maker", label: "Items", glyph: "IT", roles: GM_ONLY },
-      { view: "item_template_builder", label: "Item Templates", glyph: "TM", roles: GM_ONLY }
+      {
+        view: "action_authoring",
+        label: "Actions",
+        glyph: "AC",
+        roles: GM_ONLY,
+        children: ACTION_SIDEBAR_ITEMS
+      },
+      {
+        view: "item_maker",
+        label: "Items",
+        glyph: "IT",
+        roles: GM_ONLY,
+        children: ITEM_SIDEBAR_ITEMS
+      }
     ]
   },
   {

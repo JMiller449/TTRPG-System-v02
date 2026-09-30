@@ -1,6 +1,9 @@
 import { SheetStatPointHistory } from "@/features/sheets/components/SheetStatPointHistory";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
+import type { AssignedSheetAction } from "@/app/state/selectors";
+import { actionNeedsPointRefill } from "@/features/actions/actionPointRecovery";
+import { ActionPointRefillDialog } from "@/features/sheets/components/ActionPointRefillDialog";
 import { SheetActionsSection } from "@/features/sheets/components/SheetActionsSection";
 import { SheetConditionsSection } from "@/features/sheets/components/SheetConditionsSection";
 import { SheetDenseOverview } from "@/features/sheets/components/SheetDenseOverview";
@@ -42,6 +45,10 @@ import type { SheetFormulaStatName } from "@/features/sheets/sheetDefinitionEdit
 import type { CoreStatKey } from "@/domain/stats";
 import { canManageActionReactionPoints, type PlayerSheetTab } from "@/features/sheets/sheetDisplay";
 import type { GameClient } from "@/hooks/useGameClient";
+import type {
+  ActionExecutionVisibility,
+  ActionRollMode
+} from "@/infrastructure/ws/requestBuilders";
 import {
   buildAttachInstancedSheetActionRequest,
   buildAttachInstancedSheetAttributeRequest,
@@ -145,6 +152,11 @@ export function PlayerCharacterSheet({
   const [actionCreatorOpen, setActionCreatorOpen] = useState(false);
   const [itemCreatorOpen, setItemCreatorOpen] = useState(false);
   const [playerItemProposalOpen, setPlayerItemProposalOpen] = useState(false);
+  const [pendingActionPointRefill, setPendingActionPointRefill] = useState<{
+    action: AssignedSheetAction;
+    rollMode: ActionRollMode;
+    visibility: ActionExecutionVisibility;
+  } | null>(null);
   const [pendingAttributeCreate, setPendingAttributeCreate] = useState<{
     entityId: string;
     requestId: string;
@@ -187,6 +199,7 @@ export function PlayerCharacterSheet({
     setActionCreatorOpen(false);
     setItemCreatorOpen(false);
     setPlayerItemProposalOpen(false);
+    setPendingActionPointRefill(null);
     setPendingAttributeCreate(null);
     setPendingProficiencyCreate(null);
     setPendingActionCreate(null);
@@ -413,6 +426,39 @@ export function PlayerCharacterSheet({
   );
   const pinnedActionIds = detail.persistentSheet.pinned_action_ids ?? [];
 
+  const sendActionRequest = (
+    action: AssignedSheetAction,
+    rollMode: ActionRollMode,
+    visibility: ActionExecutionVisibility
+  ): void => {
+    client.sendProtocolRequest(
+      buildPerformActionRequest({
+        sheetId: detail.instance.id,
+        actionId: action.actionId,
+        sourceItemRelationshipId: action.sourceItemRelationshipId,
+        rollMode,
+        visibility
+      }),
+      `Perform action: ${action.action.name}`
+    );
+  };
+
+  const requestActionExecution = (
+    action: AssignedSheetAction,
+    rollMode: ActionRollMode,
+    visibility: ActionExecutionVisibility
+  ): void => {
+    if (
+      detail.reactions.current <= 0 &&
+      detail.reactions.maximum > 0 &&
+      actionNeedsPointRefill(action.action, detail.reactions.current, detail.reactions.maximum)
+    ) {
+      setPendingActionPointRefill({ action, rollMode, visibility });
+      return;
+    }
+    sendActionRequest(action, rollMode, visibility);
+  };
+
   const updatePinnedActions = (actionRelationshipIds: string[]): void => {
     client.sendProtocolRequest(
       buildSetPinnedInstanceActionsRequest({
@@ -594,18 +640,7 @@ export function PlayerCharacterSheet({
                     onCreate={() => undefined}
                     onUpdate={() => undefined}
                     onDelete={() => undefined}
-                    onPerformAction={(action, rollMode, visibility) => {
-                      client.sendProtocolRequest(
-                        buildPerformActionRequest({
-                          sheetId: detail.instance.id,
-                          actionId: action.actionId,
-                          sourceItemRelationshipId: action.sourceItemRelationshipId,
-                          rollMode,
-                          visibility
-                        }),
-                        `Perform action: ${action.action.name}`
-                      );
-                    }}
+                    onPerformAction={requestActionExecution}
                   />
                 </>
               }
@@ -1037,18 +1072,7 @@ export function PlayerCharacterSheet({
                   "Remove action assignment"
                 );
               }}
-              onPerformAction={(action, rollMode, visibility) => {
-                client.sendProtocolRequest(
-                  buildPerformActionRequest({
-                    sheetId: detail.instance.id,
-                    actionId: action.actionId,
-                    sourceItemRelationshipId: action.sourceItemRelationshipId,
-                    rollMode,
-                    visibility
-                  }),
-                  `Perform action: ${action.action.name}`
-                );
-              }}
+              onPerformAction={requestActionExecution}
             />
           </div>
         ) : null}
@@ -1665,6 +1689,25 @@ export function PlayerCharacterSheet({
             }}
           />
         </ModalDialog>
+      ) : null}
+      {pendingActionPointRefill ? (
+        <ActionPointRefillDialog
+          actionName={pendingActionPointRefill.action.action.name}
+          characterName={detail.instance.name}
+          maximumPoints={detail.reactions.maximum}
+          onConfirm={() => {
+            const pending = pendingActionPointRefill;
+            setPendingActionPointRefill(null);
+            client.sendProtocolRequest(
+              buildResetInstancedSheetReactionsRequest({
+                instanceId: detail.instance.id
+              }),
+              "Refill action/reaction points"
+            );
+            sendActionRequest(pending.action, pending.rollMode, pending.visibility);
+          }}
+          onClose={() => setPendingActionPointRefill(null)}
+        />
       ) : null}
     </Panel>
   );

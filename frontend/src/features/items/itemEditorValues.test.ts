@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AttributeDefinition, ItemDefinition } from "@/domain/models";
 import {
   createEmptyItemValues,
-  createItemValuesFromTemplate,
+  duplicateItemEditorValues,
   getItemEditorValidationError,
   toItemDefinitionPayload,
   toItemEditorValues,
@@ -140,8 +140,8 @@ describe("itemEditorValues", () => {
     });
   });
 
-  it("copies template defaults into an independent private item draft", () => {
-    const template = testItem({
+  it("duplicates an item into an independent private draft", () => {
+    const item = testItem({
       tags: ["weapon"],
       player_catalog_access: { mode: "all", instanceIds: [] },
       attributes: {
@@ -154,14 +154,14 @@ describe("itemEditorValues", () => {
       effect_ids: ["template_effect"]
     });
 
-    const draft = createItemValuesFromTemplate(template);
+    const draft = duplicateItemEditorValues(item);
 
     expect(draft.playerCatalogAccess).toEqual({ mode: "none", instanceIds: [] });
     expect(draft.tags).toEqual(["weapon"]);
     expect(draft.attributes.weapon_base_damage.relationship_id).not.toBe("template_damage");
     expect(draft.effectIds).toEqual(["template_effect"]);
     draft.attributes.weapon_base_damage.value = { type: "number", value: 20 };
-    expect(template.attributes?.weapon_base_damage.value).toEqual({
+    expect(item.attributes?.weapon_base_damage.value).toEqual({
       type: "number",
       value: 12
     });

@@ -281,6 +281,7 @@ export function TemplateContextualCreateDialog({
           pending={pending}
           validationError={proficiencyValidationError}
           validationAttempted={validation.attempted}
+          tagSuggestions={Object.keys(serverState.tags)}
           onChange={setProficiencyValues}
           onSubmit={submitProficiency}
           onCancel={onClose}

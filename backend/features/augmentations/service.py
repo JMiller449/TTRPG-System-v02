@@ -24,6 +24,7 @@ from backend.state.models.augmentation import (
     DirectEffectProjection,
     EvaluationFormulaModifierEffect,
     FormulaModifierEffect,
+    ProficiencyGrowthModifierEffect,
     StandaloneEffectApplication,
     StandaloneEffectDefinition,
 )
@@ -108,6 +109,7 @@ def _evaluate_formula(state: State, root: Any, augmentation: Augmentation) -> fl
 def _is_evaluation_time_effect(augmentation: Augmentation) -> bool:
     return augmentation.effect.type in {
         "evaluation_formula_modifier",
+        "proficiency_growth_modifier",
         "roll_mode_modifier",
     }
 
@@ -137,7 +139,12 @@ def effect_definition_as_augmentation(
 ) -> Augmentation:
     """Materialize a canonical effect definition for a source-specific lifecycle."""
     effect = deepcopy(definition.effect)
-    if isinstance(effect, FormulaModifierEffect | EvaluationFormulaModifierEffect):
+    if isinstance(
+        effect,
+        FormulaModifierEffect
+        | EvaluationFormulaModifierEffect
+        | ProficiencyGrowthModifierEffect,
+    ):
         effect.value = deepcopy(resolve_formula_source(effect.value, state.formulas)[0])
     return Augmentation(
         id=definition.id,
@@ -240,6 +247,91 @@ def matching_evaluation_effects(
             ):
                 effects.append(materialized_effect)
 
+    return tuple(effects)
+
+
+def matching_proficiency_growth_effects(
+    state: State,
+    *,
+    sheet_id: str,
+    instance_id: str | None,
+    tags: list[str],
+) -> tuple[ProficiencyGrowthModifierEffect, ...]:
+    effects: list[ProficiencyGrowthModifierEffect] = []
+
+    def append_if_matching(effect: object) -> None:
+        if (
+            isinstance(effect, ProficiencyGrowthModifierEffect)
+            and effect.selector.matches(tags=tags)
+        ):
+            effects.append(effect)
+
+    if instance_id is not None:
+        for application in state.standalone_effect_applications.values():
+            if not application.active or application.instance_id != instance_id:
+                continue
+            definition = state.standalone_effects.get(application.definition_id)
+            if (
+                definition is None
+                or not definition.active
+                or definition.effect.type != "proficiency_growth_modifier"
+            ):
+                continue
+            append_if_matching(
+                effect_definition_as_augmentation(
+                    definition,
+                    state=state,
+                    source=deepcopy(application.source),
+                    lifecycle_owner="action",
+                ).effect
+            )
+
+    for augmentation in state.augmentations.values():
+        if (
+            augmentation.lifecycle_owner != "condition"
+            or not augmentation.active
+            or not augmentation.applied
+            or augmentation.effect.type != "proficiency_growth_modifier"
+        ):
+            continue
+        expected_target_id = sheet_id if augmentation.scope == "sheet" else instance_id
+        if expected_target_id is not None and augmentation.applied_target_id == expected_target_id:
+            append_if_matching(augmentation.effect)
+
+    sheet = state.sheets.get(sheet_id)
+    if sheet is None:
+        return tuple(effects)
+    instance = state.instanced_sheets.get(instance_id) if instance_id is not None else None
+    inventory = instance.items if instance is not None else sheet.items
+    for bridge in inventory.values():
+        if not bridge.equipped or bridge.count <= 0:
+            continue
+        item = state.items.get(bridge.item_id)
+        if item is None or item.interaction_type != "equippable":
+            continue
+        for effect_id in item.effect_ids:
+            definition = state.standalone_effects.get(effect_id)
+            if (
+                definition is None
+                or not definition.active
+                or definition.effect.type != "proficiency_growth_modifier"
+            ):
+                continue
+            if definition.scope == "instance" and instance_id is None:
+                continue
+            append_if_matching(
+                effect_definition_as_augmentation(
+                    definition,
+                    state=state,
+                    source=AugmentationSource(
+                        type="item",
+                        id=item.id,
+                        label=item.name,
+                        relationship_id=bridge.relationship_id,
+                    ),
+                    lifecycle_owner="equipment",
+                ).effect
+            )
     return tuple(effects)
 
 
@@ -760,6 +852,7 @@ def remove_standalone_effect_mutation(
     ops.extend(synchronize_projected_direct_effects_mutation(state))
     if definition.effect.type in {
         "evaluation_formula_modifier",
+        "proficiency_growth_modifier",
         "roll_mode_modifier",
     }:
         return (
@@ -795,6 +888,33 @@ def _target_label(augmentation: Augmentation) -> str:
 
 
 def _validate_runtime_augmentation_target(augmentation: Augmentation) -> None:
+    if augmentation.effect.type in {
+        "evaluation_formula_modifier",
+        "roll_mode_modifier",
+    } and augmentation.target.path == ["formula_evaluations"]:
+        if augmentation.target.root not in {"sheet", "instance"}:
+            raise ValueError(
+                "Formula evaluation modifiers must target a sheet or instance."
+            )
+        if augmentation.scope != augmentation.target.root:
+            raise ValueError(
+                "Formula evaluation modifier scope must match its target root."
+            )
+        return
+    if augmentation.effect.type == "proficiency_growth_modifier":
+        if augmentation.target.path != ["proficiencies"]:
+            raise ValueError(
+                "Proficiency growth modifiers must target 'proficiencies'."
+            )
+        if augmentation.target.root not in {"sheet", "instance"}:
+            raise ValueError(
+                "Proficiency growth modifiers must target a sheet or instance."
+            )
+        if augmentation.scope != augmentation.target.root:
+            raise ValueError(
+                "Proficiency growth modifier scope must match its target root."
+            )
+        return
     if not augmentation.target.path:
         raise ValueError("Augmentation target path must not be empty.")
 
@@ -819,6 +939,48 @@ def _resolve_target(
     instance_id: str | None = None,
 ) -> _ResolvedTarget:
     _validate_runtime_augmentation_target(augmentation)
+
+    if (
+        augmentation.effect.type
+        in {"evaluation_formula_modifier", "roll_mode_modifier"}
+        and augmentation.target.path == ["formula_evaluations"]
+    ):
+        if augmentation.target.root == "sheet":
+            target_id = sheet_id
+            root = state.sheets.get(sheet_id) if sheet_id is not None else None
+            state_path = state_sync_service.join_path("sheets", sheet_id or "")
+        else:
+            target_id = instance_id
+            root = (
+                state.instanced_sheets.get(instance_id)
+                if instance_id is not None
+                else None
+            )
+            state_path = state_sync_service.join_path(
+                "instanced_sheets", instance_id or ""
+            )
+        if target_id is None or root is None:
+            raise ValueError("Formula evaluation modifier target does not exist.")
+        return _ResolvedTarget(state_path=state_path, root=root, target_id=target_id)
+
+    if augmentation.effect.type == "proficiency_growth_modifier":
+        if augmentation.target.root == "sheet":
+            target_id = sheet_id
+            root = state.sheets.get(sheet_id) if sheet_id is not None else None
+            state_path = state_sync_service.join_path("sheets", sheet_id or "")
+        else:
+            target_id = instance_id
+            root = (
+                state.instanced_sheets.get(instance_id)
+                if instance_id is not None
+                else None
+            )
+            state_path = state_sync_service.join_path(
+                "instanced_sheets", instance_id or ""
+            )
+        if target_id is None or root is None:
+            raise ValueError("Proficiency growth modifier target does not exist.")
+        return _ResolvedTarget(state_path=state_path, root=root, target_id=target_id)
 
     if augmentation.target.root == "sheet":
         if augmentation.scope != "sheet":

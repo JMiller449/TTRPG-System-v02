@@ -49,7 +49,8 @@ describe("proficiencyAuthoringRequests", () => {
           name: "Longsword",
           description: "Tracks approved longsword use.",
           category: "weapon_family",
-          default_growth_rate: 0.01
+          default_growth_rate: 0.01,
+          tags: []
         }
       },
       label: "Create proficiency: Longsword"
@@ -78,7 +79,8 @@ describe("proficiencyAuthoringRequests", () => {
           name: "Longsword Mastery",
           description: "Updated.",
           category: "custom",
-          default_growth_rate: 0.01
+          default_growth_rate: 0.01,
+          tags: []
         }
       },
       label: "Update proficiency: Longsword Mastery"

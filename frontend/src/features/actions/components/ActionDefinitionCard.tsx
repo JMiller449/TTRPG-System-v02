@@ -31,11 +31,13 @@ function stepSummary(step: ActionStep): string {
 export function ActionDefinitionCard({
   action,
   attributeDefinitions,
+  onDuplicate,
   onEdit,
   onDelete
 }: {
   action: ActionDefinition;
   attributeDefinitions: Record<string, AttributeDefinition>;
+  onDuplicate?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }): JSX.Element {
@@ -71,6 +73,11 @@ export function ActionDefinitionCard({
         />
       ) : null}
       <div className="inline-actions">
+        {onDuplicate ? (
+          <button className="button button--secondary" onClick={onDuplicate}>
+            Duplicate
+          </button>
+        ) : null}
         <button className="button button--secondary" onClick={onEdit}>
           Edit
         </button>

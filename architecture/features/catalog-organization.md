@@ -29,10 +29,12 @@ defines two top-level records:
 - `CatalogEntry` places an existing domain entity at a folder level and sibling
   position. Absence of a placement also means the catalog root.
 
-Current catalog scopes cover actions, attributes, conditions, effects,
-formulas, items, item templates, proficiencies, tags, sheet templates, and
-spawned sheet instances. Each scope has an independent tree. Folders and
-entries cannot cross scopes.
+Current authoring catalogs cover actions, attributes, conditions, effects,
+formulas, items, proficiencies, tags, sheet templates, and spawned sheet
+instances. The `item_templates` scope remains accepted for legacy checkpoint
+and protocol compatibility, but schema version 57 moves its entries beneath
+the Items catalog and current UI creates no new records there. Each active
+scope has an independent tree. Folders and entries cannot cross scopes.
 
 The canonical state roots are `catalog_folders` and `catalog_entries`.
 Definitions remain in their existing registries; the organization records only
@@ -93,7 +95,7 @@ folders and entry placements before removing those fields.
 
 Tags use the same organization records. A tag folder such as Damage Types or
 Sword Families is only a navigation aid; formulas, inline action-step formulas,
-effect selectors, items, and item templates persist selected tag IDs rather
+effect selectors and items persist selected tag IDs rather
 than folder IDs.
 
 ## Deliberately deferred

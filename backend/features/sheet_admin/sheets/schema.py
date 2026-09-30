@@ -35,6 +35,7 @@ class ProficiencyBridgePayload(BaseModel):
     prof_id: str = Field(min_length=1)
     use_count: int = Field(ge=0)
     growth_rate: float
+    growth_points: float | None = Field(default=None, ge=0, le=1)
 
 
 class StatsPayload(BaseModel):

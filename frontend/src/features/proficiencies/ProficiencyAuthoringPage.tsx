@@ -25,7 +25,7 @@ import { useFormValidationAttempt } from "@/shared/ui/useFormValidationAttempt";
 export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JSX.Element {
   const {
     state: {
-      serverState: { proficiencies: proficiencyRecords, proficiencyOrder }
+      serverState: { proficiencies: proficiencyRecords, proficiencyOrder, tags }
     }
   } = useAppStore();
 
@@ -142,6 +142,7 @@ export function ProficiencyAuthoringPage({ client }: { client: GameClient }): JS
           editingProficiencyId={editingProficiencyId}
           values={values}
           validationAttempted={validation.attempted}
+          tagSuggestions={Object.keys(tags)}
           onChange={setValues}
           onSubmit={onSubmit}
           onCancel={startNewProficiency}

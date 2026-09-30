@@ -15,6 +15,7 @@ from backend.features.sheet_admin.items.schema import (
     CreateItemTemplate,
     DeleteItem,
     DeleteItemTemplate,
+    CreateWeaponWithActions,
     RemovePlayerInventoryItem,
     SetPlayerInventoryItemQuantity,
     RemoveItemAugmentationTemplate,
@@ -70,6 +71,25 @@ class DeleteItemRoute(RequestRoute[DeleteItem]):
 
     async def handle(self, session: WebSocketSession, request: DeleteItem) -> None:
         await service.delete_typed_item(request)
+
+
+class CreateWeaponWithActionsRoute(RequestRoute[CreateWeaponWithActions]):
+    type_name = "create_weapon_with_actions"
+    request_model = CreateWeaponWithActions
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = permission_minimum_role("equipment_edit")
+    permission_denied_reason = permission_denied_reason("equipment_edit")
+    client_generation = ClientGenerationMetadata(
+        namespace="sheetAdminItems",
+        method_name="createWeaponWithActions",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: CreateWeaponWithActions,
+    ) -> None:
+        await service.create_weapon_with_actions(request)
 
 
 class CreateItemTemplateRoute(RequestRoute[CreateItemTemplate]):
@@ -256,6 +276,7 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateItemRoute())
     registry.register(UpdateItemRoute())
     registry.register(DeleteItemRoute())
+    registry.register(CreateWeaponWithActionsRoute())
     registry.register(CreateItemTemplateRoute())
     registry.register(UpdateItemTemplateRoute())
     registry.register(DeleteItemTemplateRoute())

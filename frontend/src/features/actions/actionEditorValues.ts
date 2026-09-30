@@ -1329,6 +1329,22 @@ export function toActionEditorValues(action: ActionDefinition): ActionEditorValu
   };
 }
 
+export function duplicateActionEditorValues(
+  action: ActionDefinition,
+  relationshipIdFactory: () => string
+): ActionEditorValues {
+  const values = toActionEditorValues(action);
+  return {
+    ...values,
+    attributes: Object.fromEntries(
+      Object.entries(values.attributes).map(([attributeId, bridge]) => [
+        attributeId,
+        { ...structuredClone(bridge), relationship_id: relationshipIdFactory() }
+      ])
+    )
+  };
+}
+
 export function toActionDefinitionPayload(
   values: ActionEditorValues,
   actionId: string

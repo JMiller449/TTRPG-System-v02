@@ -1,6 +1,7 @@
 import { Field } from "@/shared/ui/Field";
 import type { ProficiencyEditorValues } from "@/features/proficiencies/proficiencyEditorValues";
 import { FormValidationSummary } from "@/shared/ui/FormValidationSummary";
+import { FormulaTagEditor } from "@/features/formulas/components/FormulaTagEditor";
 
 export function ProficiencyEditorForm({
   editingProficiencyId,
@@ -8,6 +9,7 @@ export function ProficiencyEditorForm({
   pending = false,
   validationError,
   validationAttempted = false,
+  tagSuggestions = [],
   onChange,
   onSubmit,
   onCancel
@@ -17,6 +19,7 @@ export function ProficiencyEditorForm({
   pending?: boolean;
   validationError?: string | null;
   validationAttempted?: boolean;
+  tagSuggestions?: string[];
   onChange: (values: ProficiencyEditorValues) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -82,6 +85,13 @@ export function ProficiencyEditorForm({
           Used when an action first adds this proficiency to a character. Enter a fraction; 0.01
           means 1% per qualifying use.
         </p>
+
+        <FormulaTagEditor
+          label="Proficiency Tags"
+          tags={values.tags ?? []}
+          suggestions={tagSuggestions}
+          onChange={(tags) => onChange({ ...values, tags })}
+        />
 
         <Field label="Description">
           <textarea

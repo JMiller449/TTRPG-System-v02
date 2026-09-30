@@ -5,7 +5,7 @@
 The item system separates reusable catalog definitions from per-character
 inventory relationships. It supports equipment, consumables, ordinary carried
 objects, storage containment, item-authored effects, granted actions, managed
-tags, reusable item templates, player-visible catalogs, and player item
+tags, independent duplication, player-visible catalogs, and player item
 proposals.
 
 [`backend/state/models/item.py`](../../backend/state/models/item.py) defines:
@@ -81,12 +81,22 @@ automatically receive action grants from a profile: the DM explicitly selects
 shared action definitions, and creation validates that every source-item alias
 used by a granted action refers to an Attribute attached to the item.
 
+The Item Maker's guided weapon builder is the narrow exception to manual
+multi-screen setup. Its explicit `create_weapon_with_actions` request atomically
+creates one equippable Item with standard governing-stat/base-damage Attributes,
+creates the selected ordinary Attack, Damage, and Parry Actions, and adds their
+equipped grants. Each Action may choose its primary formula proficiency,
+additional growth proficiencies, AP cost, and name. The builder does not infer
+actions from tags or keep a live template relationship. Existing weapons use
+normal Item editing plus ordinary Action authoring; failure in any generated
+Action or Item validation rolls back the complete creation batch.
+
 Proficiencies belong to granted actions rather than items. Equipping an item
 does not add a proficiency bridge. Source-item formulas and `same_source_item`
 effect selectors use the relationship ID to distinguish multiple copies of the
 same definition.
 
-## Tags and item templates
+## Tags and independent duplication
 
 [`backend/state/models/tag.py`](../../backend/state/models/tag.py) defines the
 shared `TagDefinition` registry used by items, formulas embedded in action
@@ -94,14 +104,23 @@ steps, reusable formulas, and augmentation tag selectors. Item payloads store
 stable tag IDs. Tag folders remain presentation-only and carry no inherited
 mechanics.
 
-`item_templates` is a separate DM-only definition registry with its own
-Item Templates navigation tab and builder page. The Item Maker remains focused
-on creating items: its explicit start screen offers start from scratch or
-choose a template. Choosing a template deep-copies its descriptive fields,
-tags, Attributes, effect references, and action grants into an independent item
-draft with new Attribute relationship IDs and no player availability. Later
-item-template changes or deletion do not alter items already created from it;
-editing a referenced effect definition intentionally affects every consumer.
+Items is divided into Catalog and Wizard. Catalog keeps the nested browser
+beside the unrestricted Item editor, while Wizard owns coordinated guided
+creation such as weapons with Actions. New, edit, and duplicate operations
+remain in the Catalog workspace without an intermediate screen. Duplication
+copies descriptive fields, tags, Attributes,
+effect references, and action grants into a new unsaved Item definition. It
+assigns a new Item ID and Attribute/action-row relationship IDs, defaults player
+catalog availability to none, and chooses the first free case-insensitive
+numeric name (`Name1`, `Name2`, and so on). Referenced Actions, Effects,
+Proficiencies, Tags, and formulas remain shared intentionally.
+
+Persisted schema version 57 promotes every legacy item-template definition to
+an ordinary private Item, preserves its former template folder hierarchy under
+an Items/Former Templates root, resolves ID/name collisions with numeric
+suffixes, and clears the legacy registry. The old registry and request contract
+remain temporarily available as a backward-compatibility boundary; current
+authoring does not create template records.
 
 ## Catalog visibility and player proposals
 
@@ -123,9 +142,8 @@ directly affect access, redaction, inventory relationships, or mechanics.
 Inventory-add consumers open the shared catalog picker in a focused dialog.
 Players see folder placement only for item definitions already visible to them.
 
-Items and item templates have independent catalog trees. Creating either from
-a folder's `+` menu queues the normal entity creation followed by a separate
-placement request; no folder ID enters the item/template payload.
+Creating an Item from a folder's `+` menu queues normal entity creation followed
+by a separate placement request; no folder ID enters the Item payload.
 
 An assigned player may add one copy of an item allowed for their claimed
 instance, edit the quantity of an item already in their own inventory, or
@@ -177,8 +195,8 @@ their claimed player-sheet instance; DMs retain access to every instance.
 ## Principal tests
 
 - [`backend/tests/test_sheet_admin_items.py`](../../backend/tests/test_sheet_admin_items.py)
-  covers definition authoring, explicit Attributes/action grants, visibility,
-  and proposals.
+  covers definition authoring, explicit Attributes/action grants, atomic weapon
+  wizard generation and rollback, visibility, and proposals.
 - [`backend/tests/test_sheet_admin_tags_and_item_templates.py`](../../backend/tests/test_sheet_admin_tags_and_item_templates.py)
   covers managed-tag references and item-template CRUD.
 - [`backend/tests/test_sheet_admin_item_bridges.py`](../../backend/tests/test_sheet_admin_item_bridges.py)

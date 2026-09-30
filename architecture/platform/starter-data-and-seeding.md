@@ -42,6 +42,8 @@ Example Player 1 equips Iron Gauntlets and Training Bracers for two stacked
 Strength effects, plus Weighted Greaves for a subtractive Dexterity effect. This
 fixture exercises the core-stat assignment/augmentation breakdown without
 turning equipment values into permanent stat-point assignments.
+Example Player 1 also owns **Test Action Point Expenditure**, a one-point action
+with no Roll20 dependency for exercising point spending and empty-pool recovery.
 Example Player 2 includes a larger kill-history fixture with repeated names and
 batched quantities for exercising the character Kills Summary/Feed switch. The
 fixture totals 144 defeated enemies across eight records while Example Player 1

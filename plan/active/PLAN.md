@@ -82,7 +82,7 @@ Backend:
 - State sync sends full snapshots, ordered patches, version tracking, replay where possible, forced resync fallback, and role-based redaction.
 - State persists through `state_dumpy.json`, with schema migrations, backup fallback, JSON export/import, and DM-only undo.
 - Typed route families exist for auth, resync, sheets, sheet instances, notes, resources, stats, attributes, formulas, actions, proficiencies, items, item bridges, action bridges, proficiency bridges, conditions, standalone effects, encounters, XP tracking, Roll20 bridge status, manual damage intake, and action execution.
-- XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, control which enemy names players may select for final-blow submissions, and apply explicit XP adjustments; equal per-participant awards are snapshotted at kill time with two-decimal precision, while character totals are derived from the registry rather than stored independently.
+- XP tracking is instance-based and registry-backed. DMs manage temporary proximity parties, record or correct historical kills, control which enemy names players may select for final-blow submissions, and apply explicit XP adjustments; participant distributions use two-decimal precision, template-linked awards follow the enemy's current canonical XP, and character totals are derived from the registry rather than stored independently.
 - Sheet instances now own the spawned copy of template-built content, including stats, resistances, actions, attributes, proficiencies, and inventory. GM instance edits mutate the spawned sheet rather than the source template, and a DM can snapshot an evolved instance back into a new checkpoint template without copying runtime-only health, mana, augments, or active effects.
 - Player action execution authorizes explicit assignments against the acting instance's copied action bridges, so later instance assignment/removal is independent of the parent template in both the UI and backend runtime.
 - Encounter preset counts spawn independent copies through the same canonical instance builder as `create_instanced_sheet`, including actions, proficiencies, attributes, inventory, resistances, custom maximum-resource formulas, racial HP multiplier, stat bonuses, and authoritative starting-resource evaluation. Encounter spawning retains collision-safe IDs and does not generate player access codes.
@@ -120,7 +120,7 @@ Frontend:
   condition/effect controls, Attribute and Proficiency workflows, and searchable
   inventory mutation while retaining the expanded task destinations.
 - GM authoring exists for templates/sheets, attributes, formulas, actions, proficiencies, items, conditions, standalone effects, encounters, and XP tracking.
-- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and derived character XP goals. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, award, and submission attribution are retained.
+- The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and derived character XP goals. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, and submission attribution are retained, while template-linked awards rederive when canonical monster XP changes.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
@@ -202,11 +202,27 @@ Frontend:
 - Spawned-sheet Action creation uses character-specific copy and a wide, bounded dialog with a
   compact preset sidebar, scrollable editor workspace, and sticky save footer. Contextual dialogs
   now override the generic modal width correctly instead of compressing full editors to 620px.
-- Action Authoring keeps its catalog and editor together in the dedicated workspace, with presets
-  collapsed until requested. Steps render as compact summaries with explicit Edit controls; a
-  selected step temporarily replaces the overview instead of expanding the page vertically.
-  Character-context creation reuses that focused view inside its existing modal and hides the
-  preset sidebar while editing, so it never stacks a second dialog.
+- Action Authoring is split beneath the Actions sidebar destination into Catalog and Guided.
+  Catalog keeps the nested browser beside the complete editor; Guided turns a name and common
+  behavior into one Action draft and hands it back to that Catalog editor. Opening, creating, or
+  duplicating stays in Catalog. Duplicates are
+  independent drafts with fresh relationship IDs and collision-safe incrementing names.
+  Steps render as compact summaries with explicit Edit controls; a selected step temporarily
+  replaces the overview instead of expanding the page vertically. Character-context creation
+  reuses that focused view inside its existing modal, so it never stacks a second dialog.
+- [x] Add a guided weapon builder to Item Maker without expanding the raw Item or Action builders.
+  The builder creates the equippable weapon itself, prefixes generated Action names, independently
+  includes Attack, Damage, and Parry, supports additional modes, selects the formula proficiency,
+  optional additional growth proficiencies, and AP cost per Action, and previews the batch. One
+  authoritative `create_weapon_with_actions` request atomically creates the Item, standard weapon
+  Attributes, rule-correct ordinary Actions, and equipped grants; failures roll back the complete
+  batch. Generated Items and Actions remain independently editable through their normal builders.
+- Items are consolidated beneath one expandable sidebar destination with Catalog and Wizard.
+  Catalog keeps its nested browser beside the complete editor; Wizard owns coordinated guided
+  creation. Item Templates and their redundant catalog/builder screens are retired. Schema
+  version 57 promotes legacy templates to private ordinary Items under Former Templates. New
+  duplicates are independent drafts with fresh relationship IDs and collision-safe incrementing
+  names while referenced Actions, Effects, Proficiencies, Tags, and formulas remain shared.
 - Styled Roll steps separate card settings from result formulas: the step overview summarizes a
   required Primary Result and the optional Secondary Result supported by damage/default cards,
   while each result opens as a focused in-editor layer for its label, source, formula, and tags.
@@ -579,20 +595,20 @@ No large architecture feature is currently missing for the stated character-shee
         presentation metadata and never changes mechanics, visibility, permissions, or
         ownership. Schema 40 converts legacy item category/folder text into nested folders.
         Encounter-driven folder creation is deliberately deferred.
-  - [x] Added first-class managed tags and copy-based item templates. Tags have
+  - [x] Added first-class managed tags. Tags have
         stable backend definitions, their own nested display catalog, DM CRUD, and
-        reference-safe deletion. Items, item templates, reusable formulas, inline
+        reference-safe deletion. Items, reusable formulas, inline
         action-step formulas, and augmentation required/excluded selectors all use
         the same managed tag IDs; consumer selectors cannot create free-form tags.
-        Item creation now starts with Scratch or Template selection. Template
-        management has its own Content navigation tab, builder page, and independent
-        nested catalog. Template copies receive new
-        relationship/effect IDs and no player availability. Item attribute profiles
+        The former copy-based Item Template registry and its separate builder/catalog
+        were retired in schema 57; legacy entries migrate to private ordinary Items,
+        and Catalog duplication now creates independent drafts with fresh relationship
+        IDs and no player availability. Item attribute profiles
         and automatic weapon-action grants are removed: weapon/damage classifications
         are tags, action/effect inputs are optional attached Attributes, granted
         actions are selected explicitly and validated against those Attributes, and
         proficiency growth comes from the proficiency definition. Schemas 42–44
-        migrate tags, legacy weapon metadata, and the template registry.
+        migrate tags, legacy weapon metadata, and the historical template registry.
   - [x] Spawned characters and monsters have one backend-authoritative Action / Reaction
         Point pool with a Reaction Time threshold maximum and manual consume, restore, and
         reset controls. Action and reaction consumption share the same persisted balance.
@@ -651,11 +667,36 @@ No large architecture feature is currently missing for the stated character-shee
         gains. Schema v53 migrates action-only, item-only, combined, empty, and shared
         legacy definitions, splitting shared item-granted actions when their former
         item proficiency differs and removing the retired item/action Attributes.
+  - [x] Tag-targeted temporary proficiency growth effects (2026-09-28): proficiency
+        definitions now own managed tags, while schema v56 preserves existing
+        progression as accumulated growth points independent of the current base
+        rate. The new `proficiency_growth_modifier` Effect applies existing numeric
+        operations and required/excluded tag selectors to action-bound, explicit-step,
+        and player-recorded qualifying uses. Active condition, equipment, and
+        standalone stacks can therefore change points earned while active without
+        retroactively changing prior progress; removal restores the base rate for
+        future uses. Backend tests cover matching, exclusions, caps, migration, and
+        all gain paths; generated contracts and authoring UI expose the new fields.
+  - [x] Effect authoring usability pass (2026-09-28): the standalone Effect editor
+        now uses four plain-language behavior choices, hides meaningless state-target
+        fields for selector-only effects, provides inline number/formula authoring
+        with `@` variable search alongside shared formulas. Evaluation and roll effects use
+        a typed virtual formula-evaluation target; tag matching stays prominent while
+        specialized matching, notes, lifecycle, and stacking remain progressively
+        disclosed. Existing saved Effects and legacy concrete selector targets remain
+        compatible.
 - [x] Action completion correlation follow-up (2026-07-20): every successful
       `perform_action` now ends with one correlated `action_executed` event after
       delivery, mutation commit, and history recording, even when state patches were
       emitted. Frontend pending intents therefore resolve from a terminal lifecycle
       signal rather than inferring completion from state synchronization.
+- [x] Empty action-point recovery prompt (2026-09-28): clicking an action whose
+      ordered point steps would consume from an empty pool now offers to refill the
+      actor to the evaluated maximum and continue, or cancel without submitting the
+      action. Point-free actions remain immediately usable, and refill continues
+      through the existing backend-authoritative reset and action requests.
+      The deterministic Example Player 1 seed includes a one-point test action
+      with no Roll20 dependency for manual coverage of this flow.
 - [x] Template deletion cleanup follow-up (2026-09-06): deleting a character
       template now removes its entries from encounter presets and deletes presets
       left empty. Spawned instances still require explicit despawning because their
@@ -784,6 +825,11 @@ If a rule is unclear, do not invent behavior. Add a TODO here or in the relevant
   per-enemy XP and participant snapshots. Schema v52 backfills legacy records.
   Request/schema generation, history labels, edit/undo behavior, permission and
   validation tests, and frontend quantity submission are updated together.
+- [x] Canonical monster-XP propagation (2026-09-28): changing a monster template's
+  XP through either template authoring or the XP workspace rebuilds every linked
+  historical kill award and immediately rederives affected character totals.
+  Participant/name snapshots, party shares, quantities, occurrence data, and
+  custom unlinked kill XP remain unchanged.
 
 - [x] Player inventory quantity editing: assigned players can set quantities on
   entries in their claimed character inventory through a narrow authoritative

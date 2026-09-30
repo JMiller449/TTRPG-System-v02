@@ -13,6 +13,7 @@ from backend.features.formula_runtime.service import (
     evaluate_resource_maximum,
 )
 from backend.features.inventory.service import validate_inventory
+from backend.features.proficiency_growth.service import growth_points_after_uses
 from backend.features.sheet_access import service as sheet_access_service
 from backend.features.sheet_access.schema import SheetAccessCodes
 from backend.features.sheet_admin.formulas.service import (
@@ -65,6 +66,7 @@ from backend.features.sheet_admin.sheets.schema import (
     UpdateSheetProficiencyBridge,
 )
 from backend.features.state_sync.service import state_sync_service
+from backend.features.xp_tracker import service as xp_tracker_service
 from backend.state.default_actions import (
     BASELINE_SHEET_CHECKS,
     WEAPON_ACTION_IDS,
@@ -239,6 +241,11 @@ def _build_sheet(payload: SheetDefinitionPayload) -> Sheet:
                 prof_id=bridge.prof_id,
                 use_count=bridge.use_count,
                 growth_rate=bridge.growth_rate,
+                growth_points=(
+                    bridge.growth_points
+                    if bridge.growth_points is not None
+                    else min(1.0, bridge.growth_rate * bridge.use_count)
+                ),
             )
             for key, bridge in payload.proficiencies.items()
         },
@@ -614,6 +621,11 @@ def _build_sheet_proficiency_bridge(
         prof_id=payload.prof_id,
         use_count=payload.use_count,
         growth_rate=payload.growth_rate,
+        growth_points=(
+            payload.growth_points
+            if payload.growth_points is not None
+            else min(1.0, payload.growth_rate * payload.use_count)
+        ),
     )
 
 
@@ -688,7 +700,8 @@ async def _update_sheet(
 
     def mutation(state: State) -> tuple[None, list]:
         sheets = _sheets_state(state)
-        if sheet_id not in sheets:
+        current_sheet = sheets.get(sheet_id)
+        if current_sheet is None:
             raise ValueError(f"Sheet '{sheet_id}' does not exist.")
 
         _validate_sheet_references(
@@ -702,7 +715,16 @@ async def _update_sheet(
         default_action_ops = _add_missing_default_action_mutations(state)
         path = state_sync_service.join_path("sheets", sheet_id)
         op = state_sync_service.set_mutation(state, path, sheet)
-        return None, [*default_action_ops, op]
+        kill_ops = (
+            xp_tracker_service.rederive_monster_kill_awards_mutations(
+                state,
+                monster_sheet_id=sheet_id,
+                base_xp=sheet.xp_given_when_slayed,
+            )
+            if current_sheet.xp_given_when_slayed != sheet.xp_given_when_slayed
+            else []
+        )
+        return None, [*default_action_ops, op, *kill_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -1621,6 +1643,13 @@ async def add_instanced_sheet_proficiency_uses(
             )
         _validate_proficiency_reference(bridge.prof_id, state)
 
+        growth_points = growth_points_after_uses(
+            state,
+            sheet_id=instance.parent_id,
+            instance_id=request.instance_id,
+            bridge=bridge,
+            quantity=request.quantity,
+        )
         path = state_sync_service.join_path(
             "instanced_sheets",
             request.instance_id,
@@ -1633,7 +1662,18 @@ async def add_instanced_sheet_proficiency_uses(
             path,
             bridge.use_count + request.quantity,
         )
-        return None, [op]
+        growth_op = state_sync_service.set_mutation(
+            state,
+            state_sync_service.join_path(
+                "instanced_sheets",
+                request.instance_id,
+                "proficiencies",
+                request.relationship_id,
+                "growth_points",
+            ),
+            growth_points,
+        )
+        return None, [op, growth_op]
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
 

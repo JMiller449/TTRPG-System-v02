@@ -144,7 +144,7 @@ class Formula:
             return str(current_var)
         elif isinstance(current_var, ProficiencyBridge):
             # TODO: add this proficiency to the the list of proficiencies that need to be upped at the end of this transaction
-            prof_calc = current_var.growth_rate * current_var.use_count
+            prof_calc = current_var.progress
             prof = min(prof_calc, 1)
             return str(prof)
         else:

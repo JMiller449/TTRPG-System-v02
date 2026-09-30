@@ -20,7 +20,7 @@ function renderEditor(valid: boolean, validationAttempted = false): string {
     values.name = "Focused";
     values.targetPath = [...target.path];
     values.effectType = "evaluation_formula_modifier";
-    values.formulaId = "focused_formula";
+    values.formulaText = "2";
   }
   return renderToStaticMarkup(
     <StandaloneEffectEditorForm
@@ -28,6 +28,7 @@ function renderEditor(valid: boolean, validationAttempted = false): string {
       values={values}
       targetOptions={[target]}
       selectorOptions={selectorOptions}
+      formulas={[]}
       formulaMetadata={null}
       validationAttempted={validationAttempted}
       onChange={() => undefined}
@@ -38,29 +39,35 @@ function renderEditor(valid: boolean, validationAttempted = false): string {
 }
 
 describe("StandaloneEffectEditorForm", () => {
-  it("renders the complete action-controlled effect workflow", () => {
+  it("renders the adaptive effect workflow with readable progressive sections", () => {
     const markup = renderEditor(true);
-    expect(markup).toContain("Create Action-Controlled Effect");
-    expect(markup).toContain("Direct instance value");
-    expect(markup).toContain("Matching formula value");
-    expect(markup).toContain("Matching roll mode");
+    expect(markup).toContain("Create Effect");
+    expect(markup).toContain("Change a character value");
+    expect(markup).toContain("Modify rolls or calculations");
+    expect(markup).toContain("Modify proficiency growth");
+    expect(markup).toContain("Grant advantage or disadvantage");
+    expect(markup).not.toContain("Current effect");
+    expect(markup).not.toContain("Character value");
+    expect(markup).not.toContain("Context Value");
+    expect(markup).toContain("Value or formula");
+    expect(markup).toContain("insert an authoritative character value");
+    expect(markup).toContain("Advanced matching");
     expect(markup).toContain("Same source item only");
-    expect(markup).toContain("Select a formula");
-    expect(markup).not.toContain("Insert Formula Variable");
-    expect(markup).toContain("Lifecycle (GM-tracked)");
+    expect(markup).toContain("Notes and availability");
+    expect(markup).toContain("Lifecycle");
+    expect(markup).toContain("Stacking");
     expect(markup).toContain("Expiration note");
-    expect(markup).toContain("Remove when source inactive");
-    expect(markup).toContain("Available to actions");
-    expect(markup).not.toContain("Name is required.");
+    expect(markup).toContain("Remove when its source becomes inactive");
+    expect(markup).toContain("Effect enabled");
   });
 
   it("highlights required fields only after an incomplete submission attempt", () => {
     const pristineMarkup = renderEditor(false);
-    expect(pristineMarkup).not.toContain("Complete all required fields.");
+    expect(pristineMarkup).not.toContain("Complete the highlighted effect fields.");
     expect(pristineMarkup).toContain('aria-invalid="false"');
 
     const failedMarkup = renderEditor(false, true);
-    expect(failedMarkup).toContain("Complete all required fields.");
+    expect(failedMarkup).toContain("Complete the highlighted effect fields.");
     expect(failedMarkup).toContain('aria-invalid="true"');
     expect(failedMarkup).not.toContain("disabled");
   });

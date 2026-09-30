@@ -285,12 +285,17 @@ async def set_mob_xp_value(
         mob = state.sheets.get(mob_sheet_id)
         if mob is None or not mob.dm_only:
             raise ValueError("Monster XP can only be set on DM-only sheets.")
+        normalized_xp = normalize_xp(xp_value)
         path = state_sync_service.join_path(
             "sheets", mob_sheet_id, "xp_given_when_slayed"
         )
-        return None, [
-            state_sync_service.set_mutation(state, path, normalize_xp(xp_value))
-        ]
+        sheet_op = state_sync_service.set_mutation(state, path, normalized_xp)
+        kill_ops = rederive_monster_kill_awards_mutations(
+            state,
+            monster_sheet_id=mob_sheet_id,
+            base_xp=normalized_xp,
+        )
+        return None, [sheet_op, *kill_ops]
 
     await state_sync_service.apply_mutation(mutation, request_id=request_id)
 
@@ -433,6 +438,44 @@ def _build_kill(
         submitted_by_instance_id=submitted_by_instance_id,
         submitted_by_name=submitted_by_name,
     )
+
+
+def rederive_monster_kill_awards_mutations(
+    state: State,
+    *,
+    monster_sheet_id: str,
+    base_xp: float,
+) -> list:
+    normalized_base_xp = normalize_xp(base_xp)
+    ops = []
+    for record in sorted(state.kill_registry.values(), key=lambda entry: entry.id):
+        if record.monster_sheet_id != monster_sheet_id:
+            continue
+        updated = _build_kill(
+            state=state,
+            kill_id=record.id,
+            monster_name=record.monster_name,
+            base_xp=normalized_base_xp,
+            participant_instance_ids=[
+                participant.instance_id for participant in record.participants
+            ],
+            occurred_at=record.occurred_at,
+            monster_sheet_id=record.monster_sheet_id,
+            notes=record.notes,
+            submitted_by_role=record.submitted_by_role,
+            submitted_by_instance_id=record.submitted_by_instance_id,
+            submitted_by_name=record.submitted_by_name,
+            existing_participants=record.participants,
+            quantity=record.quantity,
+        )
+        ops.append(
+            state_sync_service.set_mutation(
+                state,
+                state_sync_service.join_path("kill_registry", record.id),
+                updated,
+            )
+        )
+    return ops
 
 
 def _record_kill_in_state(

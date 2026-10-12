@@ -19,7 +19,7 @@ from backend.state.default_actions import (
 )
 from backend.state.models.damage import DAMAGE_TYPES
 
-CURRENT_STATE_SCHEMA_VERSION = 57
+CURRENT_STATE_SCHEMA_VERSION = 59
 
 _LEGACY_ITEM_REVIEW_NOTE = (
     "Migration note: legacy item effect text remains in the public description. "
@@ -3016,6 +3016,19 @@ def _migrate_v55_to_v56(envelope: PersistedEnvelope) -> PersistedEnvelope:
     return {"schema_version": 56, "state": state}
 
 
+def _migrate_v58_to_v59(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = envelope["state"]
+    for instance in state.get("instanced_sheets", {}).values():
+        instance.setdefault("can_inscribe_sigils", False)
+    return {"schema_version": 59, "state": state}
+
+
+def _migrate_v57_to_v58(envelope: PersistedEnvelope) -> PersistedEnvelope:
+    state = envelope["state"]
+    state.setdefault("sigils", {})
+    return {"schema_version": 58, "state": state}
+
+
 def _migrate_v56_to_v57(envelope: PersistedEnvelope) -> PersistedEnvelope:
     """Promote item templates to independent, private item definitions."""
     state = deepcopy(envelope["state"])
@@ -3225,6 +3238,8 @@ MIGRATIONS: dict[int, Migration] = {
     54: _migrate_v54_to_v55,
     55: _migrate_v55_to_v56,
     56: _migrate_v56_to_v57,
+    57: _migrate_v57_to_v58,
+    58: _migrate_v58_to_v59,
 }
 
 

@@ -101,6 +101,7 @@ class Sheet:
 # (i.e. current health/mana)
 @dataclass
 class InstancedSheet:
+    can_inscribe_sigils: bool = field(default=False, kw_only=True)
     parent_id: str  # points to parent Sheet
     notes: str
     health: float
@@ -128,6 +129,8 @@ class InstancedSheet:
     pinned_action_ids: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if type(self.can_inscribe_sigils) is not bool:
+            raise ValueError("Sigil authoring access must be a boolean.")
         try:
             normalized_reactions = Decimal(str(self.reactions)).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -196,6 +199,7 @@ class InstancedSheet:
             }
         return cls(
             parent_id=raw["parent_id"],
+            can_inscribe_sigils=raw.get("can_inscribe_sigils", False),
             notes=raw.get("notes", ""),
             health=raw["health"],
             mana=raw["mana"],

@@ -61,6 +61,26 @@ export function parseProtocolServerEvent(payload: unknown): ProtocolServerEvent 
   }
 
   switch (payload.type) {
+    case "sigil_preview":
+      if (
+        typeof payload.sigil_id === "string" &&
+        typeof payload.node_id === "string" &&
+        typeof payload.mana_cost === "number" &&
+        Number.isFinite(payload.mana_cost) &&
+        typeof payload.multiplier === "number" &&
+        Number.isFinite(payload.multiplier) &&
+        isNullableString(payload.request_id)
+      ) {
+        return {
+          type: "sigil_preview",
+          sigil_id: payload.sigil_id,
+          node_id: payload.node_id,
+          mana_cost: payload.mana_cost,
+          multiplier: payload.multiplier,
+          request_id: payload.request_id as string | null | undefined
+        };
+      }
+      return null;
     case "authenticate_response":
       if (
         typeof payload.authenticated === "boolean" &&

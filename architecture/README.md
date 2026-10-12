@@ -55,6 +55,7 @@ defect. Do not change this documentation to make the conflict appear intended.
 | Point provenance | [Skill point provenance and audit history](features/stat-point-provenance.md) | Sources, allocations, reconciliation, and append-only history |
 | Growth | [Proficiencies](features/proficiencies.md) | Definitions, bridges, use growth, and weapon families |
 | Equipment | [Items, inventory, and equipment](features/items-inventory-and-equipment.md) | Catalog, containment, weight, grants, effects, and proposals |
+| Inscriptions | [Sigil inscriptions](features/sigil-inscriptions.md) | Persistent hierarchy, per-node charges, imbuement, and activation |
 | Runtime modifiers | [Conditions, effects, and augmentations](features/conditions-effects-and-augmentations.md) | Definitions, applications, projections, lifecycle, and stacking |
 | Encounter setup | [Encounters](features/encounters.md) | Presets and spawning enemy instances |
 | Advancement | [XP tracking](features/xp-tracking.md) | Parties, kills, adjustments, visibility, and derived XP |

@@ -47,6 +47,69 @@ The app is not a full VTT. Maps, token targeting, initiative, turn automation, c
   Violentmonkey userscript bridge. Roll20 never mutates backend state.
 - Roll20 chat is the table play log. The in-app action history is a bounded backend-owned audit/status stream, not a second authoritative roll log.
 
+## Selected-player sigil authoring (2026-10-11)
+
+- [x] GM **Players who can create sigils** selection on the Sigils page; persisted
+  per-instance `can_inscribe_sigils`, default off. Schema v59 migrates existing
+  characters without changing sigils or charge state; new characters default off.
+- [x] DM-only permission route and backend checks inside create/save/duplicate/
+  delete transactions. Selected players manage only their own sigils. Revocation
+  hides creation/editor controls and discards unsaved drafts; sidebar/navigation
+  search omit Sigils unless authoring is allowed or existing sigils are accessible.
+  Existing use, imbuement/recharge, and activation permissions remain separate.
+- [x] Regenerated contracts, centralized request builder, and architecture updates.
+  Tested unauthorized direct requests, grants/revocation, migration/round-trip,
+  retained activation access, UI visibility, and authoritative checkbox changes.
+  Verification: 702 backend tests and 583 frontend tests passed, TypeScript and
+  focused lint, production build, and diff whitespace checks passed.
+
+## Sigil inscription implementation (2026-10-11)
+
+- Goal and requirements: dedicated persistent nested inscriptions, per-node Action
+  bindings and prepaid mana charges, inventory-copy references, and activation by
+  an authorized character using the stored imbuer's variables. The user authorized
+  bypassing human gates while retaining all six AGENTS workflow steps.
+- Investigation: reviewed the root contract rules, four policy documents,
+  architecture for Actions, Items, formulas, characters, authentication, state
+  sync, durability and frontend transport; inspected linked models, execution,
+  projections, registry/codegen and existing runtime/contract tests.
+- Reviewed plan: add canonical sigils and schema-v58 migration; register typed
+  management/runtime/preview routes; reuse state-sync and Action/formula/delivery/
+  history execution; separate formula provider from activator; configure explicit
+  per-node cost/power step references; add redaction and revision guards;
+  regenerate contracts and integrate shared catalogue UI and snapshot/patch state.
+- Hardening: iterative hierarchy validation avoids recursion limits; duplicates
+  never copy charges; charged bindings/diameters cannot change; explicit casting
+  costs preserve unrelated mana effects; power scales consumers/outputs; revocation
+  replaces the player-visible registry; discharge shares execution rollback and
+  delivery acknowledgements. Action/Formula signatures reject changed definitions;
+  missing references never fall back to activator stats. Nonfinite scaling rejects.
+- [x] Implementation and verification complete: backend `features/sigils/`, `state/models/sigil.py`, existing
+  runtime/state-sync/protocol/migration integration; frontend `features/sigils/`,
+  centralized builders, navigation, event adapters and normalized server state.
+  See [Sigil inscriptions](../../architecture/features/sigil-inscriptions.md).
+- Compatibility: old checkpoints gain an empty registry. Inventory references
+  require count 1. Source-item formulas require the imbuer's referenced item.
+  Variables use the original imbuer's current stats; Action mutations and
+  successful-use growth belong to the activator. Missing references preserve
+  recoverable configuration; stale charges can be discarded without refund.
+- Validation: 27 dedicated backend tests cover hierarchy/deep serialization,
+  invalid IDs/cycles/references, floored mana costs, insufficient mana, independent
+  node charges, recharge, another activator, original Action preservation,
+  execution/delivery/checkpoint rollback, concurrent/replayed requests, deletion,
+  revision guards, redaction/revocation, inventory copies, save/load and backup
+  import/export. Frontend tests cover hierarchy operations, deep traversal,
+  charge/revocation synchronization, preview parsing and selected-character
+  activation. Final verification: 699 backend tests and 580 frontend tests passed;
+  TypeScript, focused frontend lint, production build, and diff whitespace checks
+  passed. Build retains the existing large-bundle warning.
+- Deferred rules: combined `P_total = sum(P_i) * A`, overlap and nested interactions
+  remain unautomated. The supplied request's section 5 specifies diameter power
+  and floored mana. Neither `reference-docs/Chip_TTRPG_System.md` nor
+  `reference-docs/rule-decisions-needed-answered.md` contains a sigil/inscription
+  section, so no exact active-rule section exists for combined area/interactions.
+  Preserve the hierarchy and require approved rules before implementing these.
+
 ## 3. Current Usable Baseline
 
 The core character-sheet and authored-action dice-roller MVP is implemented.

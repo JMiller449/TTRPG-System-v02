@@ -369,6 +369,12 @@ class StateSyncService:
         for root in PRIVATE_STATE_ROOTS | DM_ONLY_STATE_ROOTS:
             state.pop(root, None)
 
+        from backend.features.sigils.service import can_access
+        state["sigils"] = {
+            key: value for key, value in state.get("sigils", {}).items()
+            if can_access(StateSingleton.getState().sigils[key], assigned_instance_id)
+        }
+
         # Players receive only the character they claimed. Dropping every other
         # spawned instance outright, rather than subtracting known-private
         # fields from it, means a newly added field cannot leak by default.
@@ -568,6 +574,15 @@ class StateSyncService:
                         value=serialized_entry.model_dump(mode="json"),
                     )
                 )
+                continue
+            if segments and segments[0] == "sigils" and role != "dm":
+                # Whole-root projection also removes inscriptions after access revocation.
+                if not any(item.path == "/sigils" for item in redacted_ops):
+                    from backend.features.sigils.service import can_access
+                    redacted_ops.append(PatchOp(op="set", path="/sigils", value={
+                        key: asdict(value) for key, value in StateSingleton.getState().sigils.items()
+                        if can_access(value, assigned_instance_id)
+                    }))
                 continue
             if role == "dm":
                 redacted_ops.append(op)
@@ -1747,6 +1762,11 @@ class StateSyncService:
                     for relationship_id in sorted(contents_weights)
                 )
         return projected
+
+    async def read_state(self, query: Callable[[State], MutationResultT]) -> MutationResultT:
+        """Evaluate a read-only projection against a serialized, isolated state copy."""
+        async with self._lock:
+            return query(deepcopy(StateSingleton.getState()))
 
     async def apply_mutation(
         self,

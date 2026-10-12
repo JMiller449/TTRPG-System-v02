@@ -250,6 +250,7 @@ function projectSnapshot(state: ProtocolBackendState): AppSnapshot {
       id,
       value: projectPersistentSheet(value)
     })),
+    sigils: Object.values(state.sigils ?? {}),
     items: Object.values(state.items ?? {}).map(projectItem),
     itemTemplates: Object.values(state.item_templates ?? {}).map(projectItem),
     tags: Object.values(state.tags ?? {}).map((tag) => ({
@@ -333,6 +334,15 @@ export function adaptProtocolServerEvent(
         ]
       };
     }
+
+    case "sigil_preview":
+      return {
+        nextProtocolState: protocolState,
+        events: [
+          { type: "sigil_preview", preview: event, requestId: event.request_id ?? undefined },
+          ...(event.request_id ? [{ type: "ack" as const, requestId: event.request_id }] : [])
+        ]
+      };
 
     case "action_executed":
       return {

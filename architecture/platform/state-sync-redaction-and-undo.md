@@ -98,6 +98,15 @@ Filtering includes:
 Redaction is a server security boundary. Frontend hiding is presentation only
 and must not be relied on to protect data.
 
+## Sigil visibility
+
+Sigils have a separate owner/access projection. Players receive only inscriptions
+owned by or shared with their claimed instance. Sigil patches replace the visible
+registry, including on access revocation, preventing retained stale inscriptions.
+Imbuement and discharge use the same serialized mutation transaction; activation
+commits charge consumption with the existing acknowledged Action transaction.
+See [Sigil inscriptions](../features/sigil-inscriptions.md).
+
 ## State replacement
 
 Importing a campaign backup replaces the entire state, advances the version,

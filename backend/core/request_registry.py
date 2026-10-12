@@ -243,6 +243,8 @@ def _register_feature_routes(registry: RequestRegistry) -> None:
         register_routes as register_xp_tracker_routes,
     )
 
+    from backend.features.sigils.route import register_routes as register_sigil_routes
+    register_sigil_routes(registry)
     register_auth_routes(registry)
     register_catalog_organization_routes(registry)
     register_chat_routes(registry)

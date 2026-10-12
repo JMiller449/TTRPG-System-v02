@@ -74,6 +74,7 @@ export function syncReducer(state: AppState, action: AppAction): AppState | unde
       return normalizeUiSelections(
         updateServerState(state, (serverState) => ({
           ...serverState,
+          sigils: Object.fromEntries((action.snapshot.sigils ?? []).map((item) => [item.id, item])),
           catalogFolders,
           catalogFolderOrder: (action.snapshot.catalogFolders ?? []).map((item) => item.id),
           catalogEntries,

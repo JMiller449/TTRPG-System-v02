@@ -73,6 +73,14 @@ checks enforce entity ownership:
 - A player-provided sheet or instance ID is always validated against the
   session assignment; it is never treated as authorization by itself.
 
+Sigil use separately validates the claimed activator against the inscription
+owner/access list. Only DMs and owners explicitly selected for sigil authoring
+edit configuration. GM-controlled `can_inscribe_sigils` defaults to false;
+revoking it preserves existing sigil use/activation access. The stored imbuer
+provides formula variables without granting the activator access to that
+character's sheet or mutation authority over it. See
+[Sigil inscriptions](../features/sigil-inscriptions.md).
+
 Shared access helpers are in
 [`backend/features/sheet_access/service.py`](../../backend/features/sheet_access/service.py).
 Per-session snapshot and patch filtering is described in

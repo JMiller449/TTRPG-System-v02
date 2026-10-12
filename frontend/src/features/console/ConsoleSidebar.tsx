@@ -1,3 +1,5 @@
+import { useAppStore } from "@/app/state/useAppStore";
+import { canOpenSigils } from "@/features/sigils/sigilAccess";
 import type { Role } from "@/domain/models";
 import type { ActionAuthoringSection } from "@/features/actions/actionAuthoringSections";
 import type { ItemAuthoringSection } from "@/features/items/itemAuthoringSections";
@@ -35,7 +37,9 @@ export function ConsoleSidebar({
   onActionSectionChange,
   onItemSectionChange
 }: ConsoleSidebarProps): JSX.Element {
-  const groups = getConsoleSidebarNavGroups(role);
+  const { state } = useAppStore();
+  const showSigils = role === "gm" || canOpenSigils(state);
+  const groups = getConsoleSidebarNavGroups(role, showSigils);
 
   return (
     <aside
@@ -43,6 +47,7 @@ export function ConsoleSidebar({
       aria-label={`${role === "gm" ? "GM" : "Player"} pages`}
     >
       <ConsoleSidebarSearch
+        showSigils={showSigils}
         role={role}
         onNavigate={onNavigate}
         onCharacterSectionChange={onCharacterSectionChange}

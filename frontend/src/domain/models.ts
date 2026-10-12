@@ -591,6 +591,7 @@ export interface Sheet {
 }
 
 export interface PersistentSheet {
+  can_inscribe_sigils?: boolean;
   parent_id: string;
   notes?: string;
   profile?: CharacterProfile;

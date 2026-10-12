@@ -1,3 +1,4 @@
+import * as requestBuilders from "@/infrastructure/ws/requestBuilders";
 import { describe, expect, it } from "vitest";
 import {
   protocolRouteContracts,
@@ -427,7 +428,15 @@ const requestBuilderByType = {
   update_sheet_proficiency_bridge: buildUpdateSheetProficiencyBridgeRequest,
   update_standalone_effect: buildUpdateStandaloneEffectRequest,
   update_tag: buildUpdateTagRequest,
-  upsert_item_augmentation_template: buildUpsertItemAugmentationTemplateRequest
+  upsert_item_augmentation_template: buildUpsertItemAugmentationTemplateRequest,
+  set_sigil_authoring_access: requestBuilders.buildSetSigilAuthoringAccessRequest,
+  save_sigil: requestBuilders.buildSaveSigilRequest,
+  delete_sigil: requestBuilders.buildDeleteSigilRequest,
+  duplicate_sigil: requestBuilders.buildDuplicateSigilRequest,
+  imbue_sigil: requestBuilders.buildSigilNodeRequest,
+  activate_sigil: requestBuilders.buildSigilNodeRequest,
+  discharge_sigil: requestBuilders.buildSigilNodeRequest,
+  preview_sigil: requestBuilders.buildSigilNodeRequest
 } satisfies Record<ProtocolApplicationRequest["type"], unknown>;
 
 describe("requestBuilders", () => {

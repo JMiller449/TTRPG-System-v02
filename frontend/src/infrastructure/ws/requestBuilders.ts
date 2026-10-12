@@ -2210,3 +2210,51 @@ export function buildUndoLastStateChangeRequest({
     type: "undo_last_state_change"
   };
 }
+
+export type SaveSigilPayload = Omit<ProtocolRequest<"save_sigil">, "type" | "request_id">;
+export function buildSaveSigilRequest(
+  payload: SaveSigilPayload,
+  requestId: string
+): ProtocolRequest<"save_sigil"> {
+  return { ...payload, type: "save_sigil", request_id: requestId };
+}
+export function buildSigilNodeRequest<
+  T extends "imbue_sigil" | "activate_sigil" | "discharge_sigil" | "preview_sigil"
+>(
+  type: T,
+  payload: Omit<ProtocolRequest<T>, "type" | "request_id">,
+  requestId: string
+): ProtocolRequest<T> {
+  return { ...payload, type, request_id: requestId } as ProtocolRequest<T>;
+}
+export function buildDuplicateSigilRequest(
+  sigilId: string,
+  requestId: string
+): ProtocolRequest<"duplicate_sigil"> {
+  return { type: "duplicate_sigil", sigil_id: sigilId, request_id: requestId };
+}
+export function buildDeleteSigilRequest(
+  sigilId: string,
+  revision: number,
+  requestId: string
+): ProtocolRequest<"delete_sigil"> {
+  return {
+    type: "delete_sigil",
+    sigil_id: sigilId,
+    expected_revision: revision,
+    request_id: requestId
+  };
+}
+
+export function buildSetSigilAuthoringAccessRequest(
+  instanceId: string,
+  enabled: boolean,
+  requestId: string
+): ProtocolRequest<"set_sigil_authoring_access"> {
+  return {
+    type: "set_sigil_authoring_access",
+    instance_id: instanceId,
+    enabled,
+    request_id: requestId
+  };
+}

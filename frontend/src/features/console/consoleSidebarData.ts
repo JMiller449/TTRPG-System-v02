@@ -36,9 +36,7 @@ export interface ConsoleSidebarItemItem {
 }
 
 export type ConsoleSidebarChildItem =
-  | ConsoleSidebarCharacterItem
-  | ConsoleSidebarActionItem
-  | ConsoleSidebarItemItem;
+  ConsoleSidebarCharacterItem | ConsoleSidebarActionItem | ConsoleSidebarItemItem;
 
 export interface ConsoleSidebarNavGroup {
   label: string;
@@ -91,6 +89,7 @@ export const CONSOLE_SIDEBAR_NAV_GROUPS: readonly ConsoleSidebarNavGroup[] = [
         roles: BOTH_ROLES,
         children: CHARACTER_SIDEBAR_ITEMS
       },
+      { view: "sigils", label: "Sigils", glyph: "SG", roles: BOTH_ROLES },
       { view: "action_history", label: "Action History", glyph: "AH", roles: GM_ONLY }
     ]
   },
@@ -155,10 +154,16 @@ export const CONSOLE_SIDEBAR_NAV_GROUPS: readonly ConsoleSidebarNavGroup[] = [
 export const CONSOLE_SIDEBAR_NAV_ITEMS: ReadonlyArray<ConsoleSidebarNavItem> =
   CONSOLE_SIDEBAR_NAV_GROUPS.flatMap((group) => group.items);
 
-export function getConsoleSidebarNavGroups(role: Role): ConsoleSidebarNavGroup[] {
+export function getConsoleSidebarNavGroups(
+  role: Role,
+  showSigils = true
+): ConsoleSidebarNavGroup[] {
   return CONSOLE_SIDEBAR_NAV_GROUPS.flatMap((group) => {
     const items = group.items
-      .filter((item) => item.roles.includes(role))
+      .filter(
+        (item) =>
+          item.roles.includes(role) && (item.view !== "sigils" || role === "gm" || showSigils)
+      )
       .map((item) => ({
         ...item,
         children: item.children?.filter((child) => child.roles.includes(role))

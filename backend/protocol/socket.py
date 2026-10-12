@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from backend.features.sigils.schema import (ActivateSigil, DeleteSigil, DischargeSigil, DuplicateSigil, ImbueSigil, PreviewSigil, SaveSigil, SetSigilAuthoringAccess, SigilPreview)
 from backend.features.auth.schema import Authenticate, AuthRole
 from backend.features.chat.schema import (
     GetRoll20BridgeStatus,
@@ -608,7 +609,8 @@ ApplicationRequest = Annotated[
     | ResetInstancedSheetReactions
     | SetContributionPoints
     | AdjustContributionPoints
-    | SetPinnedInstanceActions,
+    | SetPinnedInstanceActions
+    | ActivateSigil | DeleteSigil | DischargeSigil | DuplicateSigil | ImbueSigil | PreviewSigil | SaveSigil | SetSigilAuthoringAccess,
     Field(discriminator="type"),
 ]
 
@@ -627,7 +629,7 @@ ServerEvent = Annotated[
     | SheetAccessCodesEvent
     | SheetAccessClaimedEvent
     | XpTrackerEvent
-    | StateBackupExportedEvent,
+    | StateBackupExportedEvent | SigilPreview,
     Field(discriminator="type"),
 ]
 

@@ -34,7 +34,7 @@ persist committed results.
 [`backend/state/migrations.py`](../../backend/state/migrations.py) owns a
 sequential migration registry. Legacy unversioned files are treated as schema
 version 0 and upgraded one version at a time to the current schema, presently
-version 57. Future-version checkpoints are rejected rather than guessed at.
+version 59. Future-version checkpoints are rejected rather than guessed at.
 
 Migrations transform persisted JSON envelopes before `State.from_dict`
 constructs current models. New state-shape changes must add a sequential
@@ -126,7 +126,19 @@ steps. Visibility is now invocation-local input on `perform_action`, so existing
 action definitions retain their mechanics while no longer carrying a competing
 authored destination.
 
+## Sigil authoring permission migration
+
+Schema version 59 adds `can_inscribe_sigils` to spawned instances, defaulting to
+false for existing characters. The GM explicitly selects authoring players;
+existing sigils and charge state are preserved. New instances default to false,
+and the permission is not copied into character templates.
+
 ## Export and import
+
+Schema version 58 adds the independent `sigils` registry. Existing checkpoints
+receive an empty registry; hierarchy, inventory-copy references, and per-node
+charge/imbuer records round-trip with private backups. See
+[Sigil inscriptions](../features/sigil-inscriptions.md).
 
 The DM-only state-backup routes in
 [`backend/features/state_backup/`](../../backend/features/state_backup/) export

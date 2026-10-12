@@ -1,6 +1,7 @@
 import type { AppState, ServerState, UIState } from "@/app/state/types";
 
 export const initialServerState: ServerState = {
+  sigils: {},
   role: null,
   gmAuthenticated: false,
   catalogFolders: {},

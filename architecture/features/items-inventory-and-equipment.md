@@ -215,3 +215,10 @@ Equipment slots, hands, storage volume/item slots, and encumbrance penalties
 are not implemented. Weight and storage capacity are authoritative data, but
 consequences beyond rejecting invalid containment and authored formulas/effects
 are not inferred.
+
+## Sigil inscriptions
+
+Independent sigils may reference a spawned inventory relationship containing one
+item copy without changing the shared Item. Missing or depleted references block
+runtime use while preserving recoverable configuration. See
+[Sigil inscriptions](sigil-inscriptions.md).

@@ -1,3 +1,4 @@
+import type { SigilPayload, SigilPreview } from "@/generated/backendProtocol";
 import type {
   ActionDefinition,
   ActionHistoryEntry,
@@ -49,6 +50,7 @@ export interface SheetAccessCode {
   active: boolean;
 }
 export interface AppSnapshot {
+  sigils?: SigilPayload[];
   catalogFolders?: CatalogFolder[];
   catalogEntries?: CatalogEntry[];
   sheets: Sheet[];
@@ -90,6 +92,7 @@ export type ServerEvent =
       metadata: AugmentationTargetMetadata;
       requestId?: string;
     }
+  | { type: "sigil_preview"; preview: SigilPreview; requestId?: string }
   | { type: "xp_tracker"; tracker: XpTrackerView; requestId?: string }
   | {
       type: "roll20_bridge_status";

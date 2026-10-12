@@ -175,6 +175,7 @@ class SheetPayload(ProtocolModel):
 
 
 class InstancedSheetPayload(ProtocolModel):
+    can_inscribe_sigils: bool = False
     parent_id: str
     notes: str = ""
     profile: CharacterProfilePayload = Field(default_factory=CharacterProfilePayload)
@@ -711,7 +712,36 @@ class CatalogEntryPayload(ProtocolModel):
     position: int = 0
 
 
+class SigilChargePayload(ProtocolModel):
+    action_id: str
+    imbuer_instance_id: str
+    action_signature: str
+    mana_paid: int
+
+
+class SigilNodePayload(ProtocolModel):
+    id: str
+    name: str
+    diameter: float
+    parent_id: str | None = None
+    action_id: str | None = None
+    mana_cost_step_ids: list[str] = Field(default_factory=list)
+    power_step_ids: list[str] = Field(default_factory=list)
+    charge: SigilChargePayload | None = None
+    last_imbuer_instance_id: str | None = None
+
+
+class SigilPayload(ProtocolModel):
+    id: str
+    owner_instance_id: str
+    nodes: list[SigilNodePayload]
+    access_instance_ids: list[str] = Field(default_factory=list)
+    item_relationship_id: str | None = None
+    revision: int = 0
+
+
 class BackendStateSnapshotPayload(ProtocolModel):
+    sigils: dict[str, SigilPayload] = Field(default_factory=dict)
     action_history: dict[str, ActionHistoryEntryPayload] = Field(default_factory=dict)
     parties: dict[str, PartyPayload] = Field(default_factory=dict)
     kill_registry: dict[str, KillRecordPayload] = Field(default_factory=dict)

@@ -34,7 +34,8 @@ const QUIET_REQUEST_TYPES = new Set<ProtocolApplicationRequest["type"]>([
   "get_roll20_bridge_sync_config",
   "get_sheet_access_codes",
   "get_variable_registry",
-  "get_xp_tracker"
+  "get_xp_tracker",
+  "preview_sigil"
 ]);
 
 export function requestUsesQuietFeedback(request: ProtocolApplicationRequest): boolean {
@@ -45,7 +46,11 @@ export function requestResolvesOnSnapshot(request: ProtocolApplicationRequest): 
   if (request.type === "get_roll20_bridge_sync_config") {
     return false;
   }
-  if (request.type === "perform_action") {
+  if (
+    request.type === "perform_action" ||
+    request.type === "activate_sigil" ||
+    request.type === "preview_sigil"
+  ) {
     return false;
   }
   if (request.type === "create_instanced_sheet" && request.generate_access_code) {
@@ -145,6 +150,7 @@ export function useGameClient(): GameClient {
     });
 
     const unsubscribeEvents = client.onEvent((event) => {
+      if (event.type === "sigil_preview") return;
       if (event.type === "authenticated") {
         if (!event.authenticated) {
           dispatch({ type: "reset_session_ui" });

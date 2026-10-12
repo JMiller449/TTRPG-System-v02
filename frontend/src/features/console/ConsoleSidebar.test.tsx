@@ -30,6 +30,7 @@ describe("ConsoleSidebar", () => {
     expect(new Set(views).size).toBe(views.length);
     expect(views).toEqual([
       "sheet_viewer",
+      "sigils",
       "action_history",
       "template_library",
       "create_template",
@@ -74,6 +75,7 @@ describe("ConsoleSidebar", () => {
     expect(playerGroups.map((group) => group.label)).toEqual(["Session", "Admin"]);
     expect(playerGroups.flatMap((group) => group.items.map((item) => item.view))).toEqual([
       "sheet_viewer",
+      "sigils",
       "extension"
     ]);
     expect(playerGroups[0]?.items[0]?.children?.map((item) => item.section)).toEqual([

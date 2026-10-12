@@ -20,8 +20,11 @@ interface SidebarSearchTarget {
   itemSection?: ItemAuthoringSection;
 }
 
-function navigationOptions(role: Role): SearchPopoverOption<SidebarSearchTarget>[] {
-  return getConsoleSidebarNavGroups(role).flatMap((group) =>
+function navigationOptions(
+  role: Role,
+  showSigils: boolean
+): SearchPopoverOption<SidebarSearchTarget>[] {
+  return getConsoleSidebarNavGroups(role, showSigils).flatMap((group) =>
     group.items.flatMap((item) => {
       const parent: SearchPopoverOption<SidebarSearchTarget> = {
         id: `view:${item.view}`,
@@ -54,12 +57,14 @@ function navigationOptions(role: Role): SearchPopoverOption<SidebarSearchTarget>
 
 export function ConsoleSidebarSearch({
   role,
+  showSigils = true,
   onNavigate,
   onCharacterSectionChange,
   onActionSectionChange,
   onItemSectionChange
 }: {
   role: Role;
+  showSigils?: boolean;
   onNavigate: (view: ConsoleView) => void;
   onCharacterSectionChange: (section: PlayerSheetTab) => void;
   onActionSectionChange: (section: ActionAuthoringSection) => void;
@@ -70,7 +75,7 @@ export function ConsoleSidebarSearch({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const options = useMemo(() => navigationOptions(role), [role]);
+  const options = useMemo(() => navigationOptions(role, showSigils), [role, showSigils]);
   const results = useMemo(() => filterSearchPopoverOptions(options, query), [options, query]);
 
   useEffect(() => {

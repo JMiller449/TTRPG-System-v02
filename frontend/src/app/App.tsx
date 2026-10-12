@@ -1,3 +1,4 @@
+import { SigilManagementPage } from "@/features/sigils/SigilManagementPage";
 import { useEffect, useState } from "react";
 import { shouldConnectApp } from "@/app/appConnection";
 import { useAppStore } from "@/app/state/useAppStore";
@@ -63,7 +64,9 @@ export function App(): JSX.Element {
   }
 
   const gmContent =
-    gmView === "action_history" ? (
+    gmView === "sigils" ? (
+      <SigilManagementPage client={client} />
+    ) : gmView === "action_history" ? (
       <RollLog />
     ) : gmView === "template_library" ? (
       <TemplateLibrary client={client} />

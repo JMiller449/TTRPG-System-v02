@@ -99,6 +99,7 @@ describe("SocketProtocolClient", () => {
       {
         type: "snapshot",
         snapshot: {
+          sigils: [],
           catalogFolders: [],
           catalogEntries: [],
           sheets: [],

@@ -1,0 +1,60 @@
+.sigil-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.sigil-list,
+.sigil-editor,
+.sigil-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.sigil-editor {
+  min-width: 0;
+}
+.sigil-tree {
+  max-height: 18rem;
+  overflow: auto;
+}
+.sigil-tree button {
+  text-align: left;
+  flex-shrink: 0;
+}
+.sigil-controls,
+.sigil-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.sigil-editor fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.sigil-editor label,
+.sigil-list label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sigil-step label {
+  flex-direction: row;
+}
+@media (max-width: 960px) {
+  .sigil-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sigil-player-access {
+  margin-bottom: 1.5rem;
+}
+.sigil-player-access label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: 0.5rem;
+}

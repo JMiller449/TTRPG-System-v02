@@ -27,6 +27,7 @@ from backend.features.formula_runtime.service import (
 )
 from backend.features.proficiency_growth.service import growth_points_after_uses
 from backend.features.session.models import SessionRole
+from backend.features.sigils.schema import ActivateSigil
 from backend.features.sheet_runtime.schema import (
     ActionExecuted,
     ApplyInstancedSheetDamage,
@@ -644,7 +645,7 @@ def _evaluate_action_formula(
         source_item_relationship_id=source_item_relationship_id,
         semantic_tags=semantic_tags,
     )
-    modifiers = _matching_formula_effects(state, actor, context)
+    modifiers = _matching_formula_effects(state, getattr(formula_root, "formula_actor", actor), context)
     _validate_matching_formula_effects(
         state=state,
         formula_root=formula_root,
@@ -658,6 +659,16 @@ def _evaluate_action_formula(
     )
 
 
+def _scale_sigil_value(formula_root: RuntimeFormulaContext, step_id: str, value: float | int) -> float | int:
+    multiplier = getattr(formula_root, "power_multipliers", {}).get(step_id)
+    if multiplier is None:
+        return value
+    result = value * multiplier
+    if not isfinite(result):
+        raise ValueError("Scaled sigil power must be finite.")
+    return normalize_numeric_result(result)
+
+
 def _resolve_action_numeric_value(
     *,
     state: State,
@@ -668,6 +679,7 @@ def _resolve_action_numeric_value(
     step_id: str,
     action_values: dict[str, float | int],
     semantic_tags: tuple[str, ...] = (),
+    scale_power: bool = True,
 ) -> float | int:
     if isinstance(value, CalculatedValueReference):
         if value.variable_id not in action_values:
@@ -675,8 +687,9 @@ def _resolve_action_numeric_value(
                 f"Calculated value '{value.variable_id}' is not available in step "
                 f"'{step_id}'."
             )
-        return action_values[value.variable_id]
-    return _evaluate_action_formula(
+        result = action_values[value.variable_id]
+        return _scale_sigil_value(formula_root, step_id, result) if scale_power else result
+    result = _evaluate_action_formula(
         state=state,
         actor=actor,
         formula_root=formula_root,
@@ -686,6 +699,7 @@ def _resolve_action_numeric_value(
         source_item_relationship_id=formula_root.source_item_relationship_id,
         semantic_tags=semantic_tags,
     )
+    return _scale_sigil_value(formula_root, step_id, result) if scale_power else result
 
 
 def resolve_runtime_actor(sheet_id: str, state: State | None = None) -> RuntimeActor:
@@ -1464,19 +1478,24 @@ async def perform_action(
     *,
     actor_role: SessionRole = "player",
     assigned_instance_id: str | None = None,
+    sigil_request: ActivateSigil | None = None,
 ) -> ActionExecuted:
     actor = _resolve_allowed_runtime_actor(
         request,
         actor_role=actor_role,
         assigned_instance_id=assigned_instance_id,
     )
-    resolution = _resolve_action(
-        actor.active_sheet,
-        request.action_id,
-        sheet_id=actor.actor_id,
-        actor_role=actor_role,
-        source_item_relationship_id=request.source_item_relationship_id,
-    )
+    if sigil_request is not None:
+        from backend.features.sigils.service import activation_binding
+        _, _, _, resolution = activation_binding(_state(), sigil_request, actor_role, assigned_instance_id)
+    else:
+        resolution = _resolve_action(
+            actor.active_sheet,
+            request.action_id,
+            sheet_id=actor.actor_id,
+            actor_role=actor_role,
+            source_item_relationship_id=request.source_item_relationship_id,
+        )
     action = resolution.action
     _validate_action_roll_mode(action, request.roll_mode)
     steps = action.steps
@@ -1501,14 +1520,21 @@ async def perform_action(
             state
         )
         current_actor = resolve_runtime_actor(request.sheet_id, state=state)
-        current_resolution = _resolve_action(
-            current_actor.active_sheet,
-            request.action_id,
-            sheet_id=current_actor.actor_id,
-            actor_role=actor_role,
-            source_item_relationship_id=request.source_item_relationship_id,
-            state=state,
-        )
+        sigil_node = None
+        formula_actor = current_actor
+        if sigil_request is not None:
+            from backend.features.sigils.service import activation_binding
+            current_sigil, sigil_node, formula_actor, current_resolution = activation_binding(
+                state, sigil_request, actor_role, assigned_instance_id)
+        else:
+            current_resolution = _resolve_action(
+                current_actor.active_sheet,
+                request.action_id,
+                sheet_id=current_actor.actor_id,
+                actor_role=actor_role,
+                source_item_relationship_id=request.source_item_relationship_id,
+                state=state,
+            )
         current_action = current_resolution.action
         _validate_action_roll_mode(current_action, request.roll_mode)
         current_steps = current_action.steps
@@ -1519,8 +1545,8 @@ async def perform_action(
         )
         action_values: dict[str, float | int] = {}
         formula_root = RuntimeFormulaContext(
-            current_actor.sheet,
-            current_actor.instance,
+            formula_actor.sheet,
+            formula_actor.instance,
             current_action,
             current_resolution.source_item,
             current_resolution.source_item_bridge_key,
@@ -1529,6 +1555,10 @@ async def perform_action(
             include_gm_only=actor_role == "dm",
         )
 
+        formula_root.formula_actor = formula_actor
+        formula_root.power_multipliers = (
+            {key: sigil_node.diameter for key in sigil_node.power_step_ids} if sigil_node else {}
+        )
         applied_mutations: list[str] = []
         emitted_messages: list[ActionHistoryText] = []
         roll_mode_requires_transform = False
@@ -1536,6 +1566,8 @@ async def perform_action(
         unresolved_roll_mode = request.roll_mode
 
         for step in current_steps:
+            if sigil_node is not None and step.step_id in sigil_node.mana_cost_step_ids:
+                continue
             if isinstance(step, AdjustActionPointsStep):
                 instance_id = _required_instance_id(current_actor, "Action point")
                 delta = -step.amount if step.operation == "consume" else step.amount
@@ -1555,7 +1587,7 @@ async def perform_action(
                         formula_id=formula_id,
                         source_item_relationship_id=current_resolution.source_item_bridge_key,
                     )
-                    modifiers = _matching_formula_effects(state, current_actor, execution_context)
+                    modifiers = _matching_formula_effects(state, formula_actor, execution_context)
                     formula_root.validate_formula(state, roll_formula)
                     _validate_matching_formula_effects(
                         state=state,
@@ -1590,6 +1622,8 @@ async def perform_action(
                             "critical": "Critical",
                         }.get(effective_roll_mode)
                     step_mode_applied = step_mode_applied or mode_applied
+                    if step.step_id in formula_root.power_multipliers:
+                        expression = f"({expression}) * {formula_root.power_multipliers[step.step_id]}"
                     expressions.append(expression)
                 message = _compose_roll20_template_roll(
                     step,
@@ -1628,7 +1662,7 @@ async def perform_action(
                 )
                 modifiers = _matching_formula_effects(
                     state,
-                    current_actor,
+                    formula_actor,
                     execution_context,
                 )
                 formula_root.validate_formula(state, message_formula)
@@ -1660,6 +1694,9 @@ async def perform_action(
                     effective_roll_mode,
                 )
                 message = _format_roll20_inline_roll_message(message)
+                if step.step_id in formula_root.power_multipliers:
+                    multiplier = formula_root.power_multipliers[step.step_id]
+                    message = re.sub(r"\[\[(.*?)\]\]", lambda match: f"[[({match.group(1)}) * {multiplier}]]", message)
                 message = _apply_roll20_message_visibility(
                     message,
                     request.visibility,
@@ -1719,6 +1756,7 @@ async def perform_action(
                         action_id=current_action.id,
                         step_id=step.step_id,
                         action_values=action_values,
+                        scale_power=False,
                     ),
                     on_min_violation=step.on_min_violation,
                     on_max_violation=step.on_max_violation,
@@ -1761,6 +1799,7 @@ async def perform_action(
                             action_id=current_action.id,
                             step_id=step.step_id,
                             action_values=action_values,
+                            scale_power=False,
                         ),
                         on_min_violation=step.on_min_violation,
                         on_max_violation=step.on_max_violation,
@@ -1808,6 +1847,7 @@ async def perform_action(
                             action_id=current_action.id,
                             step_id=step.step_id,
                             action_values=action_values,
+                            scale_power=False,
                         ),
                         on_min_violation=step.on_min_violation,
                         on_max_violation=step.on_max_violation,
@@ -2097,6 +2137,12 @@ async def perform_action(
                     f"items.{current_resolution.source_item_bridge_key}.equipped=false"
                 )
 
+        if sigil_node is not None:
+            from backend.features.sigils.service import sigil_op
+            sigil_node.charge = None
+            current_sigil.revision += 1
+            ops.append(sigil_op(state, current_sigil))
+            applied_mutations.append(f"sigils.{current_sigil.id}.{sigil_node.id}.discharged")
         return (applied_mutations, emitted_messages, bool(ops)), ops
 
     async def deliver_messages(

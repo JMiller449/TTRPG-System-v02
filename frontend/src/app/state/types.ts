@@ -1,3 +1,4 @@
+import type { SigilPayload } from "@/generated/backendProtocol";
 import type {
   ActionFormulaAuthoringMetadata,
   AppSnapshot,
@@ -32,6 +33,7 @@ export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 export type IntentFeedbackStatus = "pending" | "success" | "error";
 export type Roll20BridgeConnectionStatus = "unknown" | "connected" | "disconnected";
 export type GMView =
+  | "sigils"
   | "sheet_viewer"
   | "action_history"
   | "template_library"
@@ -58,6 +60,7 @@ export interface IntentFeedbackItem {
 }
 
 export interface ServerState {
+  sigils: Record<string, SigilPayload>;
   role: Role | null;
   gmAuthenticated: boolean;
   catalogFolders: Record<string, CatalogFolder>;

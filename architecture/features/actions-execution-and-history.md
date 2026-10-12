@@ -159,6 +159,13 @@ no migration; new point steps round-trip through checkpoints and state sync.
 
 ## Execution transaction
 
+Sigil activation reuses this transaction with separate activator and formula
+provider identities. The stored imbuer supplies spell variables; the authorized
+activator owns mutation targets, delivery, and history. Explicit casting-cost
+steps are prepaid and skipped, selected spell values receive the diameter
+multiplier, and charge consumption commits with the Action's mutations.
+See [Sigil inscriptions](sigil-inscriptions.md).
+
 [`backend/features/sheet_runtime/service.py`](../../backend/features/sheet_runtime/service.py)
 resolves the acting sheet/instance, verifies player assignment or DM authority,
 resolves an unambiguous source item when required, validates action assignment,

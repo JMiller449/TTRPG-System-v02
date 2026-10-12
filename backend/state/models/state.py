@@ -33,6 +33,7 @@ from backend.state.models.attribute import (
     synchronize_all_sheet_attributes,
     synchronize_required_item_attributes,
 )
+from backend.state.models.sigil import Sigil
 from backend.state.models.item import Item
 from backend.state.models.proficiency import Proficiency
 from backend.state.models.sheet import InstancedSheet, Sheet
@@ -45,6 +46,7 @@ from backend.state.models.contribution_points import ContributionPointTransactio
 
 @dataclass
 class State:
+    sigils: dict[str, Sigil] = field(default_factory=dict)
     stat_point_history: dict[str, StatPointEntry] = field(default_factory=dict)
     xp_progression: XpProgression = field(default_factory=XpProgression)
     action_history: dict[str, ActionHistoryEntry] = field(default_factory=dict)
@@ -82,6 +84,9 @@ class State:
     sheet_access_codes: dict[str, SheetAccessCode] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        for key, sigil in self.sigils.items():
+            if key != sigil.id:
+                raise ValueError("Sigil registry key does not match its ID.")
         self.attributes.update(backend_attribute_definitions())
         for formula_id, definition in self.formulas.items():
             if definition.id != formula_id:
@@ -249,6 +254,7 @@ class State:
             for key, sheet in raw.get("instanced_sheets", {}).items()
         }
         return cls(
+            sigils={key: Sigil.from_dict(value) for key, value in raw.get("sigils", {}).items()},
             stat_point_history={
                 key: StatPointEntry.from_dict(entry)
                 for key, entry in raw.get("stat_point_history", {}).items()

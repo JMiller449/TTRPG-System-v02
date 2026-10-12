@@ -35,7 +35,7 @@ not define parallel transport payload shapes.
 
 - `serverState`: normalized projections of sheets, instances, actions, items,
   item templates, tags, formulas, attributes, effects, conditions, encounters,
-  catalog organization, and action history.
+  catalog organization, sigils, and action history.
 - `uiState`: role-specific views, active instance selection, sheet sections,
   connection presentation, and other local navigation choices.
 - intent state: request-scoped pending, success, and failure lifecycles plus a
@@ -59,8 +59,8 @@ roles use the shared grouped sidebar and navigation registry under
 each destination declaring which roles may see it. Characters is the default
 workspace for both roles. The GM additionally sees dedicated workspaces for
 templates, actions, items, formulas, attributes, proficiencies, conditions,
-effects, encounters, XP, action history, and state safety; the player sees only
-Characters and Extension. This visibility filtering is presentation behavior
+effects, encounters, XP, action history, and state safety; the player sees Characters and Extension, plus Sigils when authoring is granted
+or an existing inscription is accessible. This visibility filtering is presentation behavior
 and does not replace backend authorization or redaction.
 
 The shared console and status components under

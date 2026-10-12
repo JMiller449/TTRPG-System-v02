@@ -1,3 +1,5 @@
+import { canOpenSigils } from "@/features/sigils/sigilAccess";
+import { SigilManagementPage } from "@/features/sigils/SigilManagementPage";
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
 import { selectActiveSheetDetail } from "@/app/state/selectors";
@@ -38,7 +40,9 @@ export function ConsolePage({ client }: { client: GameClient }): JSX.Element {
 
       <main className="app-main-panel app-main-panel--player">
         <div className="player-workspace player-workspace--single">
-          {showExtension ? (
+          {activeView === "sigils" && canOpenSigils(state) ? (
+            <SigilManagementPage client={client} />
+          ) : showExtension ? (
             <section className="player-workspace__sheet player-workspace__sheet--extension">
               <ExtensionPage client={client} />
             </section>

@@ -220,5 +220,10 @@ are not inferred.
 
 Independent sigils may reference a spawned inventory relationship containing one
 item copy without changing the shared Item. Missing or depleted references block
-runtime use while preserving recoverable configuration. See
+runtime use while preserving recoverable configuration. Bound sigil nodes show
+Action and charge state directly on the Inventory and Dense item cards, with
+activation and recharge controls. Charged nodes also appear in the character's
+Action list and emit sigil activation instead of ordinary casting; discharge
+removes their available Action while preserving the item status and configuration.
+The Item definition and its ordinary grants remain shared and unchanged. See
 [Sigil inscriptions](sigil-inscriptions.md).

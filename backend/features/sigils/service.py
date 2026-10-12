@@ -271,7 +271,7 @@ def activation_binding(state: State, request: ActivateSigil, role: SessionRole, 
 async def activate(request: ActivateSigil, role: SessionRole, assigned: str | None) -> ActionExecuted:
     _, node, _, _ = activation_binding(StateSingleton.getState(), request, role, assigned)
     intent = PerformAction(type="perform_action", sheet_id=request.instance_id,
-        action_id=node.action_id, visibility=request.visibility, request_id=request.request_id)
+        action_id=node.action_id, visibility=request.visibility, roll_mode=request.roll_mode, request_id=request.request_id)
     return await runtime.perform_action(intent, actor_role=role, assigned_instance_id=assigned,
         sigil_request=request)
 

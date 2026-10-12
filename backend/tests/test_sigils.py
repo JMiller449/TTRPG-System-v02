@@ -340,6 +340,11 @@ def test_item_copy_references_are_distinct_and_missing_items_reject_activation(s
         await service.save(save_request(sigil_id="second", item_relationship_id="copy2"), "dm", None)
         await service.imbue(node_request(ImbueSigil), "dm", None)
         assert state.sigils["second"].nodes[0].charge is None
+        await service.activate(node_request(ActivateSigil, "activator"), "dm", None)
+        assert state.sigils["sigil"].nodes[0].charge is None
+        assert state.sigils["second"].nodes[0].charge is None
+        assert state.sigils["sigil"].item_relationship_id == "copy1"
+        await service.imbue(node_request(ImbueSigil), "dm", None)
         del inventory["copy1"]
         with pytest.raises(ValueError, match="inventory item"):
             await service.activate(node_request(ActivateSigil, "activator"), "dm", None)
@@ -375,7 +380,8 @@ def test_imbuement_reuses_calculated_value_mana_dependencies(state):
     asyncio.run(scenario())
 
 
-def test_scaled_roll_output_uses_imbuer_values_and_activator_bridge(state, monkeypatch):
+@pytest.mark.parametrize("roll_mode", ["normal", "critical"])
+def test_scaled_roll_output_uses_imbuer_values_and_activator_bridge(state, monkeypatch, roll_mode):
     async def scenario():
         from backend.features.chat import service as chat
         sent = []
@@ -383,6 +389,7 @@ def test_scaled_roll_output_uses_imbuer_values_and_activator_bridge(state, monke
         async def deliver(message, **kwargs): sent.append((message.message, kwargs))
         monkeypatch.setattr(chat.roll20_chat_bridge, "is_connected", connected)
         monkeypatch.setattr(chat.roll20_chat_bridge, "send", deliver)
+        state.actions["spell"].roll_mode_kind = "damage"
         state.actions["spell"].steps.append(SendRollStep("roll", "Spell power", "default", [
             RollResult("Power", Formula([FormulaAliases("arcane", ["stats", "arcane"])], "@arcane"))]))
         request = save_request()
@@ -390,8 +397,10 @@ def test_scaled_roll_output_uses_imbuer_values_and_activator_bridge(state, monke
         await service.save(request, "dm", None)
         await service.imbue(node_request(ImbueSigil), "dm", None)
         assert sent == []
-        await service.activate(node_request(ActivateSigil, "activator"), "player", "activator")
+        await service.activate(node_request(ActivateSigil, "activator", roll_mode=roll_mode), "player", "activator")
         assert len(sent) == 1
+        if roll_mode == "critical":
+            assert "Critical" in sent[0][0]
         assert "14" in sent[0][0] and "* 1.5" in sent[0][0]
         assert sent[0][1]["await_delivery"] is True
         assert sent[0][1]["binding_key"] == chat.binding_for_actor(actor_role="player", assigned_instance_id="activator").key

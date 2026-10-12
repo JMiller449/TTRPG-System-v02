@@ -1,3 +1,4 @@
+import { buildAssignedActionInvocation } from "@/features/sigils/sigilItemActions";
 import { SheetStatPointHistory } from "@/features/sheets/components/SheetStatPointHistory";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/app/state/useAppStore";
@@ -61,7 +62,7 @@ import {
   buildGetActionFormulaAuthoringMetadataRequest,
   buildLinkInstancedSheetProficiencyRequest,
   buildMoveInstancedSheetItemRequest,
-  buildPerformActionRequest,
+  buildSigilNodeRequest,
   buildAllocateInstancedSheetStatPointsRequest,
   buildAdjustContributionPointsRequest,
   buildAdjustInstancedSheetBaseStatRequest,
@@ -116,7 +117,7 @@ export function PlayerCharacterSheet({
   const {
     state: {
       serverState,
-      uiState: { intentFeedback }
+      uiState: { intentFeedback, pendingIntentIds }
     }
   } = useAppStore();
   const {
@@ -432,13 +433,7 @@ export function PlayerCharacterSheet({
     visibility: ActionExecutionVisibility
   ): void => {
     client.sendProtocolRequest(
-      buildPerformActionRequest({
-        sheetId: detail.instance.id,
-        actionId: action.actionId,
-        sourceItemRelationshipId: action.sourceItemRelationshipId,
-        rollMode,
-        visibility
-      }),
+      buildAssignedActionInvocation(action, detail.instance.id, rollMode, visibility),
       `Perform action: ${action.action.name}`
     );
   };
@@ -790,6 +785,25 @@ export function PlayerCharacterSheet({
               }
               inventory={
                 <SheetEquipmentSection
+                  sigils={serverState.sigils}
+                  instanceId={detail.instance.id}
+                  sigilPending={pendingIntentIds.length > 0}
+                  onActivateSigil={(sigilId, nodeId) => {
+                    const action = assignedActions.find(
+                      (entry) => entry.sigilId === sigilId && entry.sigilNodeId === nodeId
+                    );
+                    if (action) requestActionExecution(action, "normal", "public");
+                  }}
+                  onRechargeSigil={(sigilId, nodeId) =>
+                    client.sendProtocolRequest(
+                      buildSigilNodeRequest(
+                        "imbue_sigil",
+                        { sigil_id: sigilId, node_id: nodeId, instance_id: detail.instance.id },
+                        makeId("request")
+                      ),
+                      "Recharge item sigil"
+                    )
+                  }
                   dense
                   items={items}
                   actionDefinitions={actionDefinitions}
@@ -1330,6 +1344,25 @@ export function PlayerCharacterSheet({
             tabIndex={0}
           >
             <SheetEquipmentSection
+              sigils={serverState.sigils}
+              instanceId={detail.instance.id}
+              sigilPending={pendingIntentIds.length > 0}
+              onActivateSigil={(sigilId, nodeId) => {
+                const action = assignedActions.find(
+                  (entry) => entry.sigilId === sigilId && entry.sigilNodeId === nodeId
+                );
+                if (action) requestActionExecution(action, "normal", "public");
+              }}
+              onRechargeSigil={(sigilId, nodeId) =>
+                client.sendProtocolRequest(
+                  buildSigilNodeRequest(
+                    "imbue_sigil",
+                    { sigil_id: sigilId, node_id: nodeId, instance_id: detail.instance.id },
+                    makeId("request")
+                  ),
+                  "Recharge item sigil"
+                )
+              }
               items={items}
               actionDefinitions={actionDefinitions}
               attributeDefinitions={attributeDefinitions}

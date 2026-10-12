@@ -18,6 +18,70 @@ const sword = {
 } as ItemDefinition;
 
 describe("SheetEquipmentSection", () => {
+  it("shows a charged sigil Action and status on only the bound weapon copy", () => {
+    const markup = renderToStaticMarkup(
+      <SheetEquipmentSection
+        items={{ sword }}
+        actionDefinitions={{
+          fire: { id: "fire", name: "Fire", notes: "", steps: [], attributes: {} }
+        }}
+        attributeDefinitions={{}}
+        proficiencyDefinitions={{}}
+        augmentations={{}}
+        itemOrder={["sword"]}
+        selectedItemId="sword"
+        selectedItem={sword}
+        equipment={[
+          { relationship_id: "first", item_id: "sword", count: 1, equipped: true },
+          { relationship_id: "second", item_id: "sword", count: 1, equipped: true }
+        ]}
+        currentCarriedWeight={0}
+        carryWeightLimit={10}
+        canManageInventory={false}
+        canEditInventory={false}
+        canMoveInventory={false}
+        canToggleEquipped={false}
+        instanceId="mage"
+        sigils={{
+          flame: {
+            id: "flame",
+            owner_instance_id: "mage",
+            item_relationship_id: "first",
+            nodes: [
+              {
+                id: "root",
+                name: "Flame",
+                diameter: 2,
+                action_id: "fire",
+                charge: {
+                  action_id: "fire",
+                  imbuer_instance_id: "mage",
+                  action_signature: "sig",
+                  mana_paid: 4
+                }
+              }
+            ]
+          }
+        }}
+        onActivateSigil={vi.fn()}
+        onRechargeSigil={vi.fn()}
+        onSelectedItemIdChange={vi.fn()}
+        onAddSelectedItem={vi.fn()}
+        onQuantityChange={vi.fn()}
+        onToggleEquipped={vi.fn()}
+        onMoveInventoryItem={vi.fn()}
+        onRemoveInventoryItem={vi.fn()}
+      />
+    );
+    const container = document.createElement("div");
+    container.innerHTML = markup;
+    const cards = container.querySelectorAll("article.equipment-card--owned");
+    expect(cards).toHaveLength(2);
+    expect(cards[0].textContent).toContain("Charged");
+    expect(cards[0].textContent).toContain("Activate Fire");
+    expect(cards[1].textContent).not.toContain("Flame");
+    expect(cards[1].textContent).not.toContain("Activate Fire");
+  });
   it("lets players add, remove, edit quantities, equip, and organize items", () => {
     const markup = renderToStaticMarkup(
       <SheetEquipmentSection

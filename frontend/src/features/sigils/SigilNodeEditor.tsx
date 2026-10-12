@@ -184,25 +184,6 @@ export function SigilNodeEditor({
           Remove branch
         </button>
       </div>
-      <label>
-        Individual inventory item
-        <select
-          disabled={draft.nodes.some((entry) => entry.charge)}
-          value={draft.item_relationship_id ?? ""}
-          onChange={(event) => {
-            onChangeDraft({ ...draft, item_relationship_id: event.target.value || null });
-          }}
-        >
-          <option value="">Standalone sigil</option>
-          {Object.entries(persistentSheets[draft.owner_instance_id]?.items ?? {}).map(
-            ([id, entry]) => (
-              <option key={id} value={id}>
-                {state.serverState.items[entry.item_id]?.name ?? entry.item_id} · {id}
-              </option>
-            )
-          )}
-        </select>
-      </label>
       {role === "gm" && (
         <label>
           Characters allowed to access

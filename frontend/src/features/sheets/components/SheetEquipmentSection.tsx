@@ -1,3 +1,6 @@
+import type { SigilPayload } from "@/generated/backendProtocol";
+import { itemSigilNodes } from "@/features/sigils/sigilItemActions";
+import { ItemSigilControls } from "@/features/sigils/ItemSigilControls";
 import { useMemo, useState, type DragEvent } from "react";
 import type {
   ActionDefinition,
@@ -83,6 +86,11 @@ function ItemDetailHoverLabel({
 }
 
 export function SheetEquipmentSection({
+  sigils = {},
+  instanceId,
+  sigilPending = false,
+  onActivateSigil,
+  onRechargeSigil,
   items,
   actionDefinitions,
   attributeDefinitions,
@@ -109,6 +117,11 @@ export function SheetEquipmentSection({
   onMoveInventoryItem,
   onRemoveInventoryItem
 }: {
+  sigils?: Record<string, SigilPayload>;
+  instanceId?: string;
+  sigilPending?: boolean;
+  onActivateSigil?: (sigilId: string, nodeId: string) => void;
+  onRechargeSigil?: (sigilId: string, nodeId: string) => void;
   items: Record<string, ItemDefinition>;
   actionDefinitions: Record<string, ActionDefinition>;
   attributeDefinitions: Record<string, AttributeDefinition>;
@@ -326,6 +339,16 @@ export function SheetEquipmentSection({
             return null;
           }
           const actionSummaries = summarizeItemActionGrants(item, entry, actionDefinitions);
+          const sigilEntries = instanceId
+            ? itemSigilNodes(sigils, instanceId, entry.relationship_id)
+            : [];
+          const actionCount =
+            actionSummaries.length +
+            (entry.count === 1
+              ? sigilEntries.filter(
+                  ({ node }) => node.charge && node.action_id && actionDefinitions[node.action_id]
+                ).length
+              : 0);
           const activeEffects = selectActiveEquipmentEffects(augmentations, entry.relationship_id);
           const effectCounts = countItemEffectTypes(item, effectDefinitions);
           const attributeSummaries = summarizeItemAttributeDetails(
@@ -462,12 +485,11 @@ export function SheetEquipmentSection({
                   <span>{formatWeight(item.weight)} lb</span>
                   <span>{item.price ? `${item.price}` : "Price unavailable"}</span>
                 </div>
-                {actionSummaries.length || totalEffectCount || attributeCount ? (
+                {actionCount || totalEffectCount || attributeCount ? (
                   <div className="equipment-card__compact-stats muted">
-                    {actionSummaries.length ? (
+                    {actionCount ? (
                       <span>
-                        {actionSummaries.length}{" "}
-                        {actionSummaries.length === 1 ? "action" : "actions"}
+                        {actionCount} {actionCount === 1 ? "action" : "actions"}
                       </span>
                     ) : null}
                     {totalEffectCount ? (
@@ -490,6 +512,16 @@ export function SheetEquipmentSection({
                   actionSummaries={actionSummaries}
                 />
               </div>
+              {instanceId && (
+                <ItemSigilControls
+                  entries={sigilEntries}
+                  actions={actionDefinitions}
+                  available={entry.count === 1}
+                  pending={sigilPending}
+                  onActivate={onActivateSigil}
+                  onRecharge={onRechargeSigil}
+                />
+              )}
               {canManageInventory || canEditInventory || canMoveInventory || canToggleEquipped ? (
                 <div className="equipment-card__controls">
                   {canMoveInventory &&

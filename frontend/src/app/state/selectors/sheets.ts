@@ -1,3 +1,4 @@
+import { selectChargedItemSigilActions } from "@/features/sigils/sigilItemActions";
 import type { AppState } from "@/app/state/types";
 import type {
   ActionDefinition,
@@ -30,6 +31,9 @@ export interface ActiveSheetDetail {
 }
 
 export interface AssignedSheetAction {
+  sigilId?: string;
+  sigilNodeId?: string;
+  sigilName?: string;
   relationshipId: string;
   actionId: string;
   action: ActionDefinition;
@@ -311,7 +315,11 @@ export function selectSheetAssignedActions(
     });
   });
 
-  return [...assignedActions, ...itemGrantedActions];
+  return [
+    ...assignedActions,
+    ...itemGrantedActions,
+    ...selectChargedItemSigilActions(state, sheetOrInstanceId)
+  ];
 }
 
 export function selectPlayerInstances(state: AppState): SheetInstanceView[] {

@@ -132,6 +132,7 @@ describe("Sigil Management", () => {
       expect(create).toBeDefined();
       await act(async () => create.click());
       expect(container.textContent).toContain("Save configuration");
+      expect(container.textContent).toContain("Attach to inventory item (optional)");
       state.serverState.persistentSheets.mage.can_inscribe_sigils = false;
       await render();
       expect(container.textContent).not.toContain("Create sigil");

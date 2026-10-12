@@ -164,6 +164,9 @@ provider identities. The stored imbuer supplies spell variables; the authorized
 activator owns mutation targets, delivery, and history. Explicit casting-cost
 steps are prepaid and skipped, selected spell values receive the diameter
 multiplier, and charge consumption commits with the Action's mutations.
+Item-bound charged nodes are projected alongside item-granted commands; their
+invocation emits `activate_sigil` with the selected roll mode and audience,
+including Action-point recovery. Discharge removes their projected availability.
 See [Sigil inscriptions](sigil-inscriptions.md).
 
 [`backend/features/sheet_runtime/service.py`](../../backend/features/sheet_runtime/service.py)

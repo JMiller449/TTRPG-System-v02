@@ -193,7 +193,7 @@ export function SheetActionsSection({
                     className={`dense-action-pin ${isPinned ? "dense-action-pin--active" : ""}`}
                     aria-label={`${isPinned ? "Unpin" : "Pin"} ${entry.action.name}`}
                     aria-pressed={isPinned}
-                    disabled={!onPinnedActionIdsChange}
+                    disabled={!onPinnedActionIdsChange || Boolean(entry.sigilId)}
                     onClick={() =>
                       onPinnedActionIdsChange?.(
                         isPinned
@@ -204,6 +204,9 @@ export function SheetActionsSection({
                   />
                   <div className="dense-action-row__copy">
                     <strong>{entry.action.name}</strong>
+                    {entry.sigilName && (
+                      <span className="muted">{entry.sigilName} · Charged sigil</span>
+                    )}
                     <span title={actionSummary}>{actionSummary}</span>
                   </div>
                   <div className="dense-action-row__rolls">
@@ -353,6 +356,9 @@ export function SheetActionsSection({
                     } Roll20 output`}
                   >
                     <strong>{entry.action.name}</strong>
+                    {entry.sigilName && (
+                      <span className="muted">{entry.sigilName} · Charged sigil</span>
+                    )}
                     <span>
                       {entry.action.notes ||
                         (entry.sourceItemName
@@ -522,6 +528,9 @@ export function SheetActionsSection({
             <article className="list-item list-item--block" key={entry.relationshipId}>
               <div className="list-item__top">
                 <strong>{entry.action.name}</strong>
+                {entry.sigilName && (
+                  <span className="muted">{entry.sigilName} · Charged sigil</span>
+                )}
               </div>
               {entry.action.notes ? <div className="muted">{entry.action.notes}</div> : null}
               {entry.sourceItemName ? (

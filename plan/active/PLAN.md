@@ -47,6 +47,26 @@ The app is not a full VTT. Maps, token targeting, initiative, turn automation, c
   Violentmonkey userscript bridge. Roll20 never mutates backend state.
 - Roll20 chat is the table play log. The in-app action history is a bounded backend-owned audit/status stream, not a second authoritative roll log.
 
+## Item-attached sigil Actions and weapon status (2026-10-11)
+
+- [x] Clear optional item attachment in the main sigil configuration, selecting an
+  exact inventory copy and disabling stacked/missing choices. Reuses the existing
+  persisted item relationship; charged bindings still require discharge to change.
+- [x] Inventory and Dense weapon/item cards show each bound node's Action and
+  charged/uncharged status, with activation and imbue/recharge controls. Charged
+  nodes appear in the character Action list and disappear from available commands
+  on discharge; status/configuration remain on the item. Separate copies stay
+  independent without modifying shared Item grants or Action definitions.
+- [x] Shared invocation helper sends `activate_sigil` instead of ordinary casting
+  for these entries, forwarding roll mode and audience. Inventory activation
+  retains Action-point recovery; activation remains backend-authoritative and
+  preserves acknowledgement/rollback guarantees. Optional activation roll mode
+  defaults to normal; regenerated contracts need no persisted migration.
+- [x] Verified with 703 backend tests, 588 frontend tests, TypeScript, focused lint,
+  exact-copy inventory rendering, charge-to-discharge UI, invocation routing,
+  recharge, stale/stacked item rejection, and critical Roll20 output. Production
+  build and diff whitespace checks passed. Architecture documents updated in this change.
+
 ## Selected-player sigil authoring (2026-10-11)
 
 - [x] GM **Players who can create sigils** selection on the Sigils page; persisted

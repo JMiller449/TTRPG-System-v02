@@ -64,6 +64,7 @@ class DischargeSigil(SigilNodeRequest):
 class ActivateSigil(SigilNodeRequest):
     type: Literal["activate_sigil"]
     visibility: Literal["public", "gm"] = "public"
+    roll_mode: Literal["normal", "advantage", "disadvantage", "critical"] = "normal"
 
 
 class SigilPreview(BaseModel):

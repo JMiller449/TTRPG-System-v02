@@ -1,3 +1,4 @@
+import { SigilItemBinding } from "./SigilItemBinding";
 import { canAuthorSigils, canOpenSigils } from "./sigilAccess";
 import { SigilPlayerAccess } from "./SigilPlayerAccess";
 import { useEffect, useState } from "react";
@@ -267,6 +268,17 @@ export function SigilManagementPage({ client }: { client: GameClient }): JSX.Ele
                   Delete sigil
                 </button>
               </div>
+            )}
+            {manage && (
+              <SigilItemBinding
+                sigil={draft}
+                disabled={pending}
+                onChange={(itemRelationshipId) => {
+                  setDraft({ ...draft, item_relationship_id: itemRelationshipId });
+                  setDirty(true);
+                  setPreview(null);
+                }}
+              />
             )}
             <div className="sigil-tree" aria-label="Sigil hierarchy">
               {orderedTree(draft.nodes).map(({ node: entry, depth }) => (

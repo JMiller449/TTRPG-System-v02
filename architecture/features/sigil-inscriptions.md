@@ -31,6 +31,34 @@ inscriptions; player patches replace the visible registry so access revocation
 removes previously visible inscriptions. The last imbuer uses its stable instance
 ID, even when that character is absent from the viewer's projection.
 
+## Item-attached inscriptions
+
+The main sigil configuration exposes **Attach to inventory item (optional)**.
+Selection references the owner's exact inventory relationship; shared Item and
+Action definitions are never changed. Only existing entries containing one copy
+can be selected, and charged attachments cannot be changed until discharged.
+Every Action-bound node in the hierarchy belongs to that attachment.
+
+The full Inventory and Dense inventory cards render per-node Action names,
+charged/uncharged status, and activation/imbue/recharge controls on the bound item.
+Charge state remains visible after discharge. Charged item nodes are also projected
+into the character Action list with stable sigil/node relationship identifiers;
+discharged, missing-item, and stacked-item entries do not grant an available Action.
+This is presentation of authoritative sigil records, not a second persistent
+ItemActionGrant or Action definition. Sigil entries do not use ordinary Action
+casting requests: the shared invocation helper emits `activate_sigil`, forwarding
+compatible roll mode and Roll20 visibility through the existing pipeline. Normal
+Action requests keep their original behavior. Inventory activation retains the
+shared Action-point recovery flow. Charged entries are not pinnable; their
+availability follows the stored charge.
+
+The existing activation request now accepts the same optional roll modes as
+`perform_action`, defaulting to normal for older clients. No persisted shape
+change or new migration is needed for this item projection. Snapshot/patch
+reconciliation immediately updates both surfaces after imbuement, successful
+activation, recharge, hierarchy edits, or item deletion. Existing rollback leaves
+weapon status and the charged Action intact after failure.
+
 ## Charging and activation
 
 `backend/features/sigils/` owns registry-backed typed requests and validation.

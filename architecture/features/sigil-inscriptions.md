@@ -115,7 +115,12 @@ and terminal `action_executed` event.
 listing, configuration drafts, hierarchy editing, branch duplication/removal/
 reparenting/reordering, shared Action catalogue selection, per-node charge state,
 last imbuer, authoritative cost preview, and imbue/recharge/activate/discard
-controls. Navigation and navigation search show Sigils to players only when
+controls. The creator uses the shared catalog/editor workspace and Field controls,
+with Item-style section dividers and disclosures for hierarchy, stored Action,
+character access, and charging. Creation is in the page toolbar; configuration
+actions stay at the bottom of the vertically scrolling editor. GM player-creation
+access lives in a separate disclosure above the workspace. Navigation and
+navigation search show Sigils to players only when
 their claimed character has authoring permission or has an accessible inscription;
 unselected players with accessible inscriptions get a read-only configuration
 and runtime controls. It introduces no Action editor or frontend calculations.

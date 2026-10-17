@@ -12,6 +12,8 @@ import {
   buildSaveSigilRequest,
   buildSigilNodeRequest
 } from "@/infrastructure/ws/requestBuilders";
+import { CatalogEditorLayout } from "@/shared/ui/CatalogEditorLayout";
+import { Field } from "@/shared/ui/Field";
 import { Panel } from "@/shared/ui/Panel";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 import { makeId } from "@/shared/utils/id";
@@ -150,152 +152,143 @@ export function SigilManagementPage({ client }: { client: GameClient }): JSX.Ele
     <Panel
       title="Sigil Management"
       variant="workspace"
-      subtitle="Persistent inscriptions powered by existing Actions."
+      subtitle="Browse saved sigils and configure inscriptions powered by existing Actions."
+      actions={
+        canCreate && (
+          <button
+            className="button button--primary"
+            disabled={!actorId || pending}
+            onClick={() => {
+              const root = newNode(null);
+              setDraft({
+                id: makeId("sigil"),
+                owner_instance_id: actorId,
+                nodes: [root],
+                access_instance_ids: [],
+                item_relationship_id: null,
+                revision: 0
+              });
+              setNodeId(root.id);
+              setDirty(true);
+              setError("");
+            }}
+          >
+            Create sigil
+          </button>
+        )
+      }
     >
-      {role === "gm" && <SigilPlayerAccess client={client} />}
-      <div className="sigil-layout">
-        <aside className="sigil-list">
-          {canCreate && (
-            <button
-              disabled={!actorId || pending}
-              onClick={() => {
-                const root = newNode(null);
-                setDraft({
-                  id: makeId("sigil"),
-                  owner_instance_id: actorId,
-                  nodes: [root],
-                  access_instance_ids: [],
-                  item_relationship_id: null,
-                  revision: 0
-                });
-                setNodeId(root.id);
-                setDirty(true);
-                setError("");
-              }}
-            >
-              Create sigil
-            </button>
-          )}
-          {Object.values(sigils).map((entry) => (
-            <button
-              key={entry.id}
-              aria-pressed={draft?.id === entry.id}
-              onClick={() => {
-                setDraft(structuredClone(entry));
-                setNodeId(entry.nodes.find((value) => !value.parent_id)?.id ?? null);
-                setDirty(false);
-                setPreview(null);
-                setError("");
-              }}
-            >
-              {entry.nodes.find((value) => !value.parent_id)?.name} ·{" "}
-              {entry.nodes.filter((value) => value.charge).length} charged
-            </button>
-          ))}
-          {!Object.keys(sigils).length && <p>No sigils yet.</p>}
-          <label>
-            Acting character
-            <select
-              value={actorId}
-              disabled={pending}
-              onChange={(event) => {
-                setActorId(event.target.value);
-                setPreview(null);
-              }}
-            >
-              <option value="">Select character</option>
-              {Object.keys(persistentSheets).map((id) => (
-                <option key={id} value={id}>
-                  {actorName(id)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </aside>
+      {role === "gm" && (
+        <details className="authoring-disclosure sigil-access-disclosure">
+          <summary>
+            <span>
+              <strong>Player creation access</strong>
+              <small>Choose who can create and edit sigils</small>
+            </span>
+          </summary>
+          <div className="authoring-disclosure__body">
+            <SigilPlayerAccess client={client} />
+          </div>
+        </details>
+      )}
+      <CatalogEditorLayout
+        catalogLabel="Sigils"
+        editorClassName="authoring-workspace__editor--vertical"
+        catalog={
+          <div className="sigil-list">
+            {Object.values(sigils).map((entry) => (
+              <button
+                className="button button--secondary"
+                key={entry.id}
+                aria-pressed={draft?.id === entry.id}
+                onClick={() => {
+                  setDraft(structuredClone(entry));
+                  setNodeId(entry.nodes.find((value) => !value.parent_id)?.id ?? null);
+                  setDirty(false);
+                  setPreview(null);
+                  setError("");
+                }}
+              >
+                {entry.nodes.find((value) => !value.parent_id)?.name} ·{" "}
+                {entry.nodes.filter((value) => value.charge).length} charged
+              </button>
+            ))}
+            {!Object.keys(sigils).length && <p>No sigils yet.</p>}
+            <Field label="Acting character">
+              <select
+                value={actorId}
+                disabled={pending}
+                onChange={(event) => {
+                  setActorId(event.target.value);
+                  setPreview(null);
+                }}
+              >
+                <option value="">Select character</option>
+                {Object.keys(persistentSheets).map((id) => (
+                  <option key={id} value={id}>
+                    {actorName(id)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        }
+      >
         {draft && node ? (
-          <div className="sigil-editor">
+          <div className="sigil-editor stack">
+            <div className="sigil-editor__heading">
+              <h3>{manage ? (saved ? "Edit Sigil" : "Create Sigil") : "View Sigil"}</h3>
+              <span className="muted">
+                {draft.nodes.length} nodes · {draft.nodes.filter((entry) => entry.charge).length}{" "}
+                charged
+              </span>
+            </div>
             {error && <p role="alert">{error}</p>}
             {pending && <p role="status">Waiting for the server…</p>}
             {saved && draft.revision !== saved.revision && dirty && (
               <p role="alert">This sigil changed on the server. Reload before saving.</p>
             )}
-            {manage && (
-              <div className="sigil-controls">
-                <button disabled={!manage || pending} onClick={save}>
-                  Save configuration
-                </button>
-                <button
-                  disabled={!saved || pending}
-                  onClick={() => {
-                    if (saved) {
-                      setDraft(structuredClone(saved));
-                      setDirty(false);
-                      setPreview(null);
-                    }
-                  }}
-                >
-                  Reload
-                </button>
-                <button
-                  disabled={!saved || !manage || pending}
-                  onClick={() =>
-                    submit(
-                      buildDuplicateSigilRequest(draft.id, makeId("request")),
-                      "Duplicate sigil"
-                    )
-                  }
-                >
-                  Duplicate sigil
-                </button>
-                <button
-                  disabled={!saved || !manage || pending}
-                  onClick={() => {
-                    if (
-                      saved &&
-                      confirmDestructiveAction({
-                        action: "Delete",
-                        subject: draft.nodes[0].name,
-                        consequence: "All nodes and stored charges will be removed."
-                      })
-                    ) {
-                      submit(
-                        buildDeleteSigilRequest(draft.id, draft.revision ?? 0, makeId("request")),
-                        "Delete sigil"
-                      );
-                    }
-                  }}
-                >
-                  Delete sigil
-                </button>
-              </div>
-            )}
-            {manage && (
-              <SigilItemBinding
-                sigil={draft}
-                disabled={pending}
-                onChange={(itemRelationshipId) => {
-                  setDraft({ ...draft, item_relationship_id: itemRelationshipId });
-                  setDirty(true);
-                  setPreview(null);
-                }}
-              />
-            )}
-            <div className="sigil-tree" aria-label="Sigil hierarchy">
-              {orderedTree(draft.nodes).map(({ node: entry, depth }) => (
-                <button
-                  key={entry.id}
-                  style={{ marginLeft: `${Math.min(depth, 12) * 1.25}rem` }}
-                  aria-pressed={entry.id === nodeId}
-                  onClick={() => {
-                    setNodeId(entry.id);
+            <section className="sigil-details-section stack">
+              <h3>Details</h3>
+              {manage && (
+                <SigilItemBinding
+                  sigil={draft}
+                  disabled={pending}
+                  onChange={(itemRelationshipId) => {
+                    setDraft({ ...draft, item_relationship_id: itemRelationshipId });
+                    setDirty(true);
                     setPreview(null);
                   }}
-                >
-                  {entry.name} · {entry.charge ? "Charged" : "Uncharged"}
-                  {depth > 12 ? ` · depth ${depth}` : ""}
-                </button>
-              ))}
-            </div>
+                />
+              )}
+            </section>
+            <details className="authoring-disclosure" open>
+              <summary>
+                <span>
+                  <strong>Sigil hierarchy</strong>
+                  <small>Select a node to configure its inscription</small>
+                </span>
+              </summary>
+              <div className="authoring-disclosure__body">
+                <div className="sigil-tree" aria-label="Sigil hierarchy">
+                  {orderedTree(draft.nodes).map(({ node: entry, depth }) => (
+                    <button
+                      className="button button--secondary"
+                      key={entry.id}
+                      style={{ marginLeft: `${Math.min(depth, 12) * 1.25}rem` }}
+                      aria-pressed={entry.id === nodeId}
+                      onClick={() => {
+                        setNodeId(entry.id);
+                        setPreview(null);
+                      }}
+                    >
+                      {entry.name} · {entry.charge ? "Charged" : "Uncharged"}
+                      {depth > 12 ? ` · depth ${depth}` : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
             {manage ? (
               <SigilNodeEditor
                 draft={draft}
@@ -317,57 +310,136 @@ export function SigilManagementPage({ client }: { client: GameClient }): JSX.Ele
                   : "None"}
               </p>
             )}
-            <p>
-              Status: {charged ? "Charged" : "Uncharged"} · Last imbuer:{" "}
-              {node.last_imbuer_instance_id ? actorName(node.last_imbuer_instance_id) : "None"}
-            </p>
-            <p>
-              {preview && preview.sigil_id === draft.id && preview.node_id === node.id
-                ? `Power multiplier: ${preview.multiplier} · Mana cost: ${preview.mana_cost}`
-                : "Request a server preview to see the multiplier and mana cost."}
-            </p>
-            <div className="sigil-controls">
-              <button disabled={!canRuntime} onClick={() => runtime("preview_sigil")}>
-                Preview cost
-              </button>
-              <button disabled={!canRuntime || charged} onClick={() => runtime("imbue_sigil")}>
-                {node.last_imbuer_instance_id ? "Recharge" : "Imbue"}
-              </button>
-              <label>
-                Roll20 audience
-                <select
-                  value={visibility}
-                  onChange={(event) => setVisibility(event.target.value as "public" | "gm")}
+            <details className="authoring-disclosure" open>
+              <summary>
+                <span>
+                  <strong>Charge and activation</strong>
+                  <small>Preview cost, imbue, and use the selected node</small>
+                </span>
+              </summary>
+              <div className="authoring-disclosure__body stack">
+                <p>
+                  Status: {charged ? "Charged" : "Uncharged"} · Last imbuer:{" "}
+                  {node.last_imbuer_instance_id ? actorName(node.last_imbuer_instance_id) : "None"}
+                </p>
+                <p>
+                  {preview && preview.sigil_id === draft.id && preview.node_id === node.id
+                    ? `Power multiplier: ${preview.multiplier} · Mana cost: ${preview.mana_cost}`
+                    : "Request a server preview to see the multiplier and mana cost."}
+                </p>
+                <div className="sigil-controls">
+                  <button
+                    className="button button--secondary"
+                    disabled={!canRuntime}
+                    onClick={() => runtime("preview_sigil")}
+                  >
+                    Preview cost
+                  </button>
+                  <button
+                    className="button button--secondary"
+                    disabled={!canRuntime || charged}
+                    onClick={() => runtime("imbue_sigil")}
+                  >
+                    {node.last_imbuer_instance_id ? "Recharge" : "Imbue"}
+                  </button>
+                  <label>
+                    Roll20 audience
+                    <select
+                      value={visibility}
+                      onChange={(event) => setVisibility(event.target.value as "public" | "gm")}
+                    >
+                      <option value="public">Public</option>
+                      <option value="gm">GM only</option>
+                    </select>
+                  </label>
+                  <button
+                    className="button button--secondary"
+                    disabled={!canRuntime || !charged}
+                    onClick={() => runtime("activate_sigil")}
+                  >
+                    Activate
+                  </button>
+                  <button
+                    className="button button--secondary"
+                    disabled={!canRuntime || !charged || !owns}
+                    onClick={() => {
+                      if (
+                        confirmDestructiveAction({
+                          action: "Remove",
+                          subject: `${node.name} charge`,
+                          consequence: "The stored charge will be discarded without a mana refund."
+                        })
+                      )
+                        runtime("discharge_sigil");
+                    }}
+                  >
+                    Discard charge
+                  </button>
+                </div>
+                {dirty && <p className="muted">Save configuration before imbuing or activating.</p>}
+              </div>
+            </details>
+            {manage && (
+              <div className="template-editor__actions sigil-editor__actions">
+                <button className="button" disabled={!manage || pending} onClick={save}>
+                  Save configuration
+                </button>
+                <button
+                  className="button button--secondary"
+                  disabled={!saved || pending}
+                  onClick={() => {
+                    if (saved) {
+                      setDraft(structuredClone(saved));
+                      setDirty(false);
+                      setPreview(null);
+                    }
+                  }}
                 >
-                  <option value="public">Public</option>
-                  <option value="gm">GM only</option>
-                </select>
-              </label>
-              <button disabled={!canRuntime || !charged} onClick={() => runtime("activate_sigil")}>
-                Activate
-              </button>
-              <button
-                disabled={!canRuntime || !charged || !owns}
-                onClick={() => {
-                  if (
-                    confirmDestructiveAction({
-                      action: "Remove",
-                      subject: `${node.name} charge`,
-                      consequence: "The stored charge will be discarded without a mana refund."
-                    })
-                  )
-                    runtime("discharge_sigil");
-                }}
-              >
-                Discard charge
-              </button>
-            </div>
-            {dirty && <p>Save configuration before imbuing or activating.</p>}
+                  Reload
+                </button>
+                <button
+                  className="button button--secondary"
+                  disabled={!saved || !manage || pending}
+                  onClick={() =>
+                    submit(
+                      buildDuplicateSigilRequest(draft.id, makeId("request")),
+                      "Duplicate sigil"
+                    )
+                  }
+                >
+                  Duplicate sigil
+                </button>
+                <button
+                  className="button button--danger"
+                  disabled={!saved || !manage || pending}
+                  onClick={() => {
+                    if (
+                      saved &&
+                      confirmDestructiveAction({
+                        action: "Delete",
+                        subject: draft.nodes[0].name,
+                        consequence: "All nodes and stored charges will be removed."
+                      })
+                    ) {
+                      submit(
+                        buildDeleteSigilRequest(draft.id, draft.revision ?? 0, makeId("request")),
+                        "Delete sigil"
+                      );
+                    }
+                  }}
+                >
+                  Delete sigil
+                </button>
+              </div>
+            )}
           </div>
         ) : (
-          <p>Select a sigil to view its charge and activation controls.</p>
+          <div className="sigil-empty-state">
+            <h3>Select a sigil</h3>
+            <p className="muted">Select a sigil to view its charge and activation controls.</p>
+          </div>
         )}
-      </div>
+      </CatalogEditorLayout>
     </Panel>
   );
 }

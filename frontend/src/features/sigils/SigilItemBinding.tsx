@@ -1,3 +1,4 @@
+import { Field } from "@/shared/ui/Field";
 import { useAppStore } from "@/app/state/useAppStore";
 import type { SigilPayload } from "@/generated/backendProtocol";
 
@@ -13,8 +14,7 @@ export function SigilItemBinding({
   const { state } = useAppStore();
   const inventory = state.serverState.persistentSheets[sigil.owner_instance_id]?.items ?? {};
   return (
-    <label>
-      Attach to inventory item (optional)
+    <Field label="Attach to inventory item (optional)">
       <select
         value={sigil.item_relationship_id ?? ""}
         disabled={disabled || sigil.nodes.some((node) => node.charge)}
@@ -41,6 +41,6 @@ export function SigilItemBinding({
         The charged Action and charge status appear on this item copy. Discharge before changing the
         attachment.
       </span>
-    </label>
+    </Field>
   );
 }

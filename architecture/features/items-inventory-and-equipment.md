@@ -194,10 +194,13 @@ Equipment effects are selected from the shared Effect catalog. Item and item
 template payloads store only stable `effect_ids`; effect payloads are authored
 once in Effect Authoring. The backend validates source-item aliases against each
 referring item and revalidates all consumers when a definition changes.
-DMs and players can edit owned quantities and drag an unequipped item onto a valid storage card or the
-root inventory drop zone. The location selector remains the keyboard and touch
-fallback. The shared move route is available to authenticated players only for
-their claimed player-sheet instance; DMs retain access to every instance.
+DMs and players can edit owned quantities and drag an unequipped item onto a valid
+storage card. Each movable item also exposes a focused Move dialog listing Root
+Inventory and every valid container; the current location is identified and
+disabled. This dialog is the keyboard and touch path for both putting items into
+storage and returning them to root. The shared move route is available to
+authenticated players only for their claimed player-sheet instance; DMs retain
+access to every instance.
 
 ## Principal tests
 

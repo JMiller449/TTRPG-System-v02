@@ -159,6 +159,7 @@ export function SheetEquipmentSection({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [containerPath, setContainerPath] = useState<string[]>([]);
+  const [moveDialogInventoryItemId, setMoveDialogInventoryItemId] = useState<string | null>(null);
   const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
   const eligibleDropTargetIds = useMemo(
@@ -172,13 +173,16 @@ export function SheetEquipmentSection({
       ),
     [draggedInventoryItemId, equipment, items]
   );
-  const draggedEntry = draggedInventoryItemId
-    ? equipment.find((entry) => entry.relationship_id === draggedInventoryItemId)
+  const moveDialogEntry = moveDialogInventoryItemId
+    ? equipment.find((entry) => entry.relationship_id === moveDialogInventoryItemId)
     : undefined;
-  const hasStorageInteraction = equipment.some(
-    (entry) =>
-      Boolean(entry.parent_container_id) ||
-      (entry.count === 1 && Boolean(items[entry.item_id]?.can_contain_items))
+  const moveDialogItem = moveDialogEntry ? items[moveDialogEntry.item_id] : undefined;
+  const moveDialogDestinations = useMemo(
+    () =>
+      moveDialogInventoryItemId
+        ? eligibleContainerDestinations(moveDialogInventoryItemId, equipment, items)
+        : [],
+    [equipment, items, moveDialogInventoryItemId]
   );
   const visibleInventory = useMemo(() => {
     if (inventoryRootId) {
@@ -218,6 +222,14 @@ export function SheetEquipmentSection({
     }
     onMoveInventoryItem(relationshipId, parentContainerId);
     finishDrag();
+  };
+
+  const moveInventoryItem = (parentContainerId: string | null): void => {
+    if (!moveDialogEntry || moveDialogEntry.parent_container_id === parentContainerId) {
+      return;
+    }
+    onMoveInventoryItem(moveDialogEntry.relationship_id, parentContainerId);
+    setMoveDialogInventoryItemId(null);
   };
 
   const addSelectedItem = (): void => {
@@ -303,40 +315,6 @@ export function SheetEquipmentSection({
               onChange={(event) => setSearch(event.target.value)}
             />
           </Field>
-        </div>
-      ) : null}
-      {canMoveInventory && hasStorageInteraction ? (
-        <div
-          className={`inventory-root-drop-zone ${
-            activeDropTarget === "root" ? "inventory-drop-target--active" : ""
-          }`}
-          onDragEnter={(event) => {
-            if (draggedEntry?.parent_container_id) {
-              event.preventDefault();
-              setActiveDropTarget("root");
-            }
-          }}
-          onDragOver={(event) => {
-            if (draggedEntry?.parent_container_id) {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-            }
-          }}
-          onDragLeave={() =>
-            setActiveDropTarget((current) => (current === "root" ? null : current))
-          }
-          onDrop={(event) => {
-            if (draggedEntry?.parent_container_id) {
-              moveDraggedItem(event, null);
-            }
-          }}
-        >
-          <strong>{embeddedContainer ? "Move to Root Inventory" : "Root inventory"}</strong>
-          <span>
-            {embeddedContainer
-              ? "Drop a contained item here to take it out of storage."
-              : "Drag an item here to remove it from storage. Drop items onto storage cards to put them inside."}
-          </span>
         </div>
       ) : null}
       <div
@@ -565,36 +543,6 @@ export function SheetEquipmentSection({
               canToggleEquipped ||
               (dense && item.can_contain_items) ? (
                 <div className="equipment-card__controls">
-                  {canMoveInventory &&
-                  (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
-                    <Field label={`Storage location for ${item.name}`}>
-                      <select
-                        value={entry.parent_container_id ?? ""}
-                        disabled={entry.equipped}
-                        aria-describedby={
-                          entry.equipped ? `${entry.relationship_id}-storage-hint` : undefined
-                        }
-                        onChange={(event) =>
-                          onMoveInventoryItem(entry.relationship_id, event.target.value || null)
-                        }
-                      >
-                        <option value="">Root inventory</option>
-                        {destinations.map((destination) => (
-                          <option
-                            key={destination.relationship_id}
-                            value={destination.relationship_id}
-                          >
-                            {items[destination.item_id]?.name ?? destination.item_id}
-                          </option>
-                        ))}
-                      </select>
-                      {entry.equipped ? (
-                        <span className="muted" id={`${entry.relationship_id}-storage-hint`}>
-                          Unequip before moving into storage.
-                        </span>
-                      ) : null}
-                    </Field>
-                  ) : null}
                   <div className="equipment-card__control-row">
                     {canEditInventory ? (
                       <div className="equipment-card__quantity-control">
@@ -627,17 +575,18 @@ export function SheetEquipmentSection({
                       </div>
                     ) : null}
                     <div className="equipment-card__actions">
-                      {inventoryRootId &&
-                      canMoveInventory &&
-                      entry.parent_container_id &&
-                      !entry.equipped ? (
+                      {canMoveInventory &&
+                      (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
                         <button
                           type="button"
-                          className="button button--secondary equipment-card__move-to-root"
-                          onClick={() => onMoveInventoryItem(entry.relationship_id, null)}
-                          aria-label={`Move ${item.name} to root inventory`}
+                          className="button button--secondary equipment-card__move"
+                          disabled={entry.equipped}
+                          title={entry.equipped ? "Unequip before moving this item" : undefined}
+                          aria-label={`Move ${item.name}`}
+                          aria-haspopup="dialog"
+                          onClick={() => setMoveDialogInventoryItemId(entry.relationship_id)}
                         >
-                          Move to Root
+                          Move
                         </button>
                       ) : null}
                       {dense && item.can_contain_items ? (
@@ -655,7 +604,7 @@ export function SheetEquipmentSection({
                       {canToggleEquipped && item.interaction_type === "equippable" ? (
                         <button
                           type="button"
-                          className={`button ${entry.equipped ? "" : "button--secondary"}`}
+                          className={`button equipment-card__toggle-equipped ${entry.equipped ? "" : "button--secondary"}`}
                           onClick={() => onToggleEquipped(entry.relationship_id)}
                           aria-pressed={entry.equipped}
                           disabled={!entry.equipped && entry.count <= 0}
@@ -749,6 +698,7 @@ export function SheetEquipmentSection({
             canEditInventory={canEditInventory}
             canMoveInventory={canMoveInventory}
             canToggleEquipped={canToggleEquipped}
+            dense={dense}
             inventoryRootId={activeContainerId}
             embeddedContainer
             onOpenContainerRequest={(containerRelationshipId) =>
@@ -761,6 +711,46 @@ export function SheetEquipmentSection({
             onMoveInventoryItem={onMoveInventoryItem}
             onRemoveInventoryItem={onRemoveInventoryItem}
           />
+        </ModalDialog>
+      ) : null}
+      {canMoveInventory && moveDialogEntry && moveDialogItem ? (
+        <ModalDialog
+          title={`Move ${moveDialogItem.name}`}
+          description="Choose where this item should be stored. Its current location is unavailable."
+          onClose={() => setMoveDialogInventoryItemId(null)}
+        >
+          <div className="inventory-move-dialog__destinations">
+            <button
+              type="button"
+              className="button button--secondary inventory-move-dialog__destination"
+              disabled={!moveDialogEntry.parent_container_id}
+              onClick={() => moveInventoryItem(null)}
+            >
+              <strong>Root Inventory</strong>
+              <span>
+                {moveDialogEntry.parent_container_id
+                  ? "Store outside of all containers"
+                  : "Current location"}
+              </span>
+            </button>
+            {moveDialogDestinations.map((destination) => {
+              const destinationItem = items[destination.item_id];
+              const isCurrentLocation =
+                moveDialogEntry.parent_container_id === destination.relationship_id;
+              return (
+                <button
+                  key={destination.relationship_id}
+                  type="button"
+                  className="button button--secondary inventory-move-dialog__destination"
+                  disabled={isCurrentLocation}
+                  onClick={() => moveInventoryItem(destination.relationship_id)}
+                >
+                  <strong>{destinationItem?.name ?? destination.item_id}</strong>
+                  <span>{isCurrentLocation ? "Current location" : "Move into this container"}</span>
+                </button>
+              );
+            })}
+          </div>
         </ModalDialog>
       ) : null}
       {canManageInventory && addDialogOpen ? (

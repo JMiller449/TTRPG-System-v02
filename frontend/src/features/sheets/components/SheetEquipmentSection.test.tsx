@@ -252,7 +252,7 @@ describe("SheetEquipmentSection", () => {
     expect(markup).not.toContain("Sword");
   });
 
-  it("opens direct contents and navigates nested containers in one dialog", async () => {
+  it("opens direct contents and navigates nested containers from Dense inventory", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     document.body.append(container);
@@ -279,6 +279,7 @@ describe("SheetEquipmentSection", () => {
     await act(async () => {
       root.render(
         <SheetEquipmentSection
+          dense
           items={{ sword, bag, pouch }}
           actionDefinitions={{}}
           attributeDefinitions={{}}
@@ -408,7 +409,7 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain("equipment-card__view-inside");
   });
 
-  it("moves a contained item to root from its container popup", async () => {
+  it("moves a contained item through the destination dialog", async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const container = document.createElement("div");
     document.body.append(container);
@@ -474,10 +475,24 @@ describe("SheetEquipmentSection", () => {
     );
     await act(async () => viewInside?.click());
 
-    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
-    expect(dialog?.textContent).toContain("Move to Root Inventory");
-    const moveToRoot = dialog?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Move Sword to root inventory"]'
+    const containerDialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    expect(containerDialog?.textContent).not.toContain("Move to Root Inventory");
+    const openMoveDialog = containerDialog?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move Sword"]'
+    );
+    await act(async () => openMoveDialog?.click());
+
+    const dialogs = container.querySelectorAll<HTMLElement>('[role="dialog"]');
+    const moveDialog = dialogs.item(dialogs.length - 1);
+    expect(moveDialog.textContent).toContain("Move Sword");
+    expect(moveDialog.textContent).toContain("Root Inventory");
+    expect(moveDialog.textContent).toContain("Magic Bag");
+    const currentContainer = [...moveDialog.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Magic Bag")
+    );
+    expect(currentContainer?.disabled).toBe(true);
+    const moveToRoot = [...moveDialog.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Root Inventory")
     );
     await act(async () => moveToRoot?.click());
 
@@ -604,6 +619,7 @@ describe("SheetEquipmentSection", () => {
     });
 
     const cards = [...container.querySelectorAll<HTMLElement>("article.equipment-card")];
+    expect(container.querySelector(".inventory-root-drop-zone")).toBeNull();
     const bagCard = cards.find((card) => card.textContent?.includes("Pack"));
     const swordCard = cards.find((card) => card.textContent?.includes("Sword"));
     const data = new Map<string, string>();

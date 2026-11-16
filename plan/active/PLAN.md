@@ -197,7 +197,9 @@ Frontend:
   Statuses destinations. Stats preserves player allocation and GM grant/edit
   controls; Statuses preserves role-specific condition/effect visibility and
   GM condition and standalone-effect application removal derived from current
-  authoritative inflictions rather than persisted temporary Actions.
+  authoritative inflictions rather than persisted temporary Actions. Both the
+  Dense and expanded condition sections let the GM directly apply an existing
+  condition definition without authoring an Action.
 - Character sheets default to a fixed Dense dashboard backed by authoritative
   runtime data. It supports staged player stat allocation and GM grants, real
   action pins and per-action rolls, action-point management, kill workflows,
@@ -650,9 +652,12 @@ No large architecture feature is currently missing for the stated character-shee
         support finite pound limits or unlimited capacity. Backend validation rejects
         over-capacity moves, quantity changes, and definition edits; snapshots expose current
         container loads. DMs and assigned players organize unequipped instance inventory
-        through the same nested drag-and-drop UI and accessible location selector, while
-        player requests remain restricted to the claimed sheet. Schema 45 preserves existing
-        containers as unlimited.
+        through the same nested drag-and-drop UI and accessible destination dialog, while
+        player requests remain restricted to the claimed sheet. Container contents open in a
+        dedicated nested-inventory dialog, while a compact per-item Move dialog offers root and
+        valid-container destinations without persistent location fields. Content-sized inventory
+        rows prevent tall container cards from overlapping at constrained display heights.
+        Schema 45 preserves existing containers as unlimited.
   - [x] A DM can remove an equipped item from a spawned character. Nonempty storage
         containers must still be emptied first, and equipment-owned effects reconcile through
         the authoritative state-sync hooks. Deleting the underlying item definition now

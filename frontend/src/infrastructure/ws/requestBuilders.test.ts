@@ -9,6 +9,7 @@ import {
   buildAddPlayerInventoryItemRequest,
   buildAddInstancedSheetProficiencyUsesRequest,
   buildApplyInstancedSheetDamageRequest,
+  buildApplyActiveConditionRequest,
   buildAttachInstancedSheetAttributeRequest,
   buildAttachSheetAttributeRequest,
   buildAttachSubjectAttributeRequest,
@@ -308,6 +309,7 @@ const requestBuilderByType = {
   adjust_instanced_sheet_resource: buildAdjustInstancedSheetResourceRequest,
   allocate_instanced_sheet_stat_points: buildAllocateInstancedSheetStatPointsRequest,
   apply_instanced_sheet_damage: buildApplyInstancedSheetDamageRequest,
+  apply_active_condition: buildApplyActiveConditionRequest,
   attach_instanced_sheet_attribute: buildAttachInstancedSheetAttributeRequest,
   attach_sheet_attribute: buildAttachSheetAttributeRequest,
   attach_subject_attribute: buildAttachSubjectAttributeRequest,
@@ -1339,6 +1341,21 @@ describe("requestBuilders", () => {
       instance_id: "instance_1",
       application_id: "condition:poisoned:instance_1",
       request_id: "req-remove-condition"
+    });
+  });
+
+  it("builds active-condition application requests", () => {
+    expect(
+      buildApplyActiveConditionRequest({
+        instanceId: "instance_1",
+        conditionId: "poisoned",
+        requestId: "req-apply-condition"
+      })
+    ).toEqual({
+      type: "apply_active_condition",
+      instance_id: "instance_1",
+      condition_id: "poisoned",
+      request_id: "req-apply-condition"
     });
   });
 

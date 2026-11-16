@@ -2137,6 +2137,22 @@ export function buildRemoveActiveConditionRequest({
   };
 }
 
+export function buildApplyActiveConditionRequest({
+  instanceId,
+  conditionId,
+  requestId
+}: {
+  instanceId: string;
+  conditionId: string;
+} & OptionalRequestId): ProtocolRequest<"apply_active_condition"> {
+  return {
+    ...requestIdField(requestId),
+    type: "apply_active_condition",
+    instance_id: instanceId,
+    condition_id: conditionId
+  };
+}
+
 export function buildRemoveActiveStandaloneEffectRequest({
   instanceId,
   applicationId,

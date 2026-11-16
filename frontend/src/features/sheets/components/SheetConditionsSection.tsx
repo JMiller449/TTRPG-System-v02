@@ -1,6 +1,14 @@
-import type { ActiveCondition, Augmentation, ConditionSource } from "@/domain/models";
+import { useState } from "react";
+import type {
+  ActiveCondition,
+  Augmentation,
+  ConditionPreset,
+  ConditionSource
+} from "@/domain/models";
+import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 import { formatAugmentationLifecycle } from "@/features/augmentations/augmentationEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { ModalDialog } from "@/shared/ui/ModalDialog";
 import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 function sourceLabel(source: ConditionSource | undefined): string {
@@ -47,17 +55,44 @@ export function SheetConditionsSection({
   augmentations,
   mode,
   canRemove,
-  onRemove
+  onRemove,
+  conditionPresets = [],
+  canAdd = false,
+  onAdd = () => undefined
 }: {
   conditions: ActiveCondition[];
   augmentations: Record<string, Augmentation>;
   mode: "player" | "gm";
   canRemove: boolean;
   onRemove: (applicationId: string) => void;
+  conditionPresets?: ConditionPreset[];
+  canAdd?: boolean;
+  onAdd?: (conditionId: string) => void;
 }): JSX.Element {
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [selectedConditionId, setSelectedConditionId] = useState("");
+  const activeConditionIds = new Set(conditions.map((condition) => condition.condition_id));
+  const closeAddDialog = (): void => {
+    setAddDialogOpen(false);
+    setSelectedConditionId("");
+  };
+
   return (
     <section className="character-sheet__section">
-      <h4>Active Conditions</h4>
+      <div className="condition-section__heading">
+        <h4>Active Conditions</h4>
+        {canAdd ? (
+          <button
+            className="button button--secondary"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={addDialogOpen}
+            onClick={() => setAddDialogOpen(true)}
+          >
+            Add Condition
+          </button>
+        ) : null}
+      </div>
       <div className="list">
         {conditions.length === 0 ? <EmptyState message="No active conditions." /> : null}
         {conditions.map((condition) => {
@@ -108,6 +143,50 @@ export function SheetConditionsSection({
           );
         })}
       </div>
+      {canAdd && addDialogOpen ? (
+        <ModalDialog
+          title="Add Condition"
+          description="Apply an existing condition directly to this character as the DM."
+          onClose={closeAddDialog}
+        >
+          <div className="stack">
+            <CatalogEntityPicker
+              catalog="conditions"
+              label="Condition"
+              placeholder="Search condition catalog"
+              selectedId={selectedConditionId}
+              options={conditionPresets.map((condition) => ({
+                id: condition.id,
+                label: condition.name,
+                secondary: condition.description,
+                keywords: [condition.id, condition.visibility].filter(
+                  (keyword): keyword is string => Boolean(keyword)
+                ),
+                value: condition.id,
+                disabledReason: activeConditionIds.has(condition.id) ? "Already active" : undefined
+              }))}
+              emptyMessage="No conditions are available."
+              onSelect={setSelectedConditionId}
+            />
+            <div className="inline-actions">
+              <button
+                className="button"
+                type="button"
+                disabled={!selectedConditionId || activeConditionIds.has(selectedConditionId)}
+                onClick={() => {
+                  onAdd(selectedConditionId);
+                  closeAddDialog();
+                }}
+              >
+                Apply Condition
+              </button>
+              <button className="button button--secondary" type="button" onClick={closeAddDialog}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </ModalDialog>
+      ) : null}
     </section>
   );
 }

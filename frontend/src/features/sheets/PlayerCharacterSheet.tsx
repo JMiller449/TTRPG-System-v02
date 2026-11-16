@@ -68,6 +68,7 @@ import {
   buildAdjustInstancedSheetBaseStatRequest,
   buildAdjustInstancedSheetUnassignedStatPointsRequest,
   buildAdjustInstancedSheetReactionsRequest,
+  buildApplyActiveConditionRequest,
   buildResetInstancedSheetAttributeValueRequest,
   buildResetInstancedSheetDamageTrackerRequest,
   buildRelinkInstancedSheetActionRequest,
@@ -141,6 +142,10 @@ export function PlayerCharacterSheet({
     selectedItemId,
     setSelectedItemId
   } = useSheetDetailState();
+  const conditionPresets = serverState.conditionPresetOrder.flatMap((conditionId) => {
+    const condition = serverState.conditionPresets[conditionId];
+    return condition ? [condition] : [];
+  });
 
   const [editingFormulaStatName, setEditingFormulaStatName] = useState<SheetFormulaStatName | null>(
     null
@@ -659,6 +664,17 @@ export function PlayerCharacterSheet({
                     augmentations={augmentations}
                     mode={mode}
                     canRemove={mode === "gm"}
+                    conditionPresets={conditionPresets}
+                    canAdd={mode === "gm"}
+                    onAdd={(conditionId) =>
+                      client.sendProtocolRequest(
+                        buildApplyActiveConditionRequest({
+                          instanceId: detail.instance.id,
+                          conditionId
+                        }),
+                        "Apply active condition"
+                      )
+                    }
                     onRemove={(applicationId) =>
                       client.sendProtocolRequest(
                         buildRemoveActiveConditionRequest({
@@ -1004,6 +1020,17 @@ export function PlayerCharacterSheet({
                 augmentations={augmentations}
                 mode={mode}
                 canRemove={mode === "gm"}
+                conditionPresets={conditionPresets}
+                canAdd={mode === "gm"}
+                onAdd={(conditionId) =>
+                  client.sendProtocolRequest(
+                    buildApplyActiveConditionRequest({
+                      instanceId: detail.instance.id,
+                      conditionId
+                    }),
+                    "Apply active condition"
+                  )
+                }
                 onRemove={(applicationId) =>
                   client.sendProtocolRequest(
                     buildRemoveActiveConditionRequest({

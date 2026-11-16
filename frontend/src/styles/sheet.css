@@ -55,6 +55,17 @@
   margin: 0.35rem 0;
 }
 
+.condition-section__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.condition-section__heading h4 {
+  margin: 0;
+}
+
 .equipment-card {
   display: grid;
   gap: 0.55rem;
@@ -72,6 +83,7 @@
 .equipment-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  grid-auto-rows: max-content;
   align-content: start;
   align-items: start;
   gap: 0.65rem;
@@ -97,20 +109,6 @@
 
 .equipment-card--dragging {
   opacity: 0.48;
-}
-
-.inventory-root-drop-zone {
-  display: grid;
-  gap: 0.15rem;
-  border: 1px dashed var(--line);
-  padding: 0.55rem 0.7rem;
-  background: var(--r6-control-bg-soft, var(--card));
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.inventory-root-drop-zone strong {
-  color: var(--text);
 }
 
 .inventory-drop-target--active {
@@ -207,6 +205,27 @@
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.inventory-move-dialog__destinations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.55rem;
+}
+
+.inventory-move-dialog__destination {
+  display: grid;
+  min-height: 4rem;
+  align-content: center;
+  justify-items: start;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.inventory-move-dialog__destination span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .sheet-equipment-section--embedded {
@@ -2956,12 +2975,16 @@ button.dense-proficiency-row:focus-visible {
 
 .sheet-equipment-section--dense
   .equipment-card__actions
-  .button:not(.equipment-card__remove)::before {
+  .button.equipment-card__toggle-equipped::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 3 4 6v5h4v10h8V11h4V6l-4-3c-.7 1.2-2 2-4 2S8.7 4.2 8 3Z' fill='black'/%3E%3C/svg%3E");
 }
 
 .sheet-equipment-section--dense .equipment-card__actions .equipment-card__view-inside::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h7l2 2h9v11H3V6Zm0 4h18' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.sheet-equipment-section--dense .equipment-card__actions .equipment-card__move::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h7l2 2h9v11H3V6Zm5 7h8m-3-3 3 3-3 3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 .sheet-equipment-section--dense .equipment-card__actions .equipment-card__remove::before {

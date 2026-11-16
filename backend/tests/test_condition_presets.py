@@ -635,6 +635,68 @@ def test_missing_condition_update_is_rejected(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+def test_active_condition_application_is_dm_only_and_records_manual_source(
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            _reset_state()
+            state = StateSingleton.getState()
+            state.condition_presets["poisoned"] = ConditionPreset.from_dict(
+                _condition_payload()
+            )
+            state.instanced_sheets["instance-1"] = InstancedSheet.from_dict(
+                {
+                    "parent_id": "sheet-1",
+                    "health": 10,
+                    "mana": 5,
+                    "augments": {},
+                }
+            )
+
+            await websocket_sessions.reset()
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await handle_client_payload(
+                player,
+                {
+                    "type": "apply_active_condition",
+                    "instance_id": "instance-1",
+                    "condition_id": "poisoned",
+                },
+            )
+            assert state.active_conditions == {}
+            assert player.sent_messages[-1]["reason"] == (
+                "This request requires an authenticated DM session."
+            )
+
+            dm = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "apply_active_condition",
+                    "instance_id": "instance-1",
+                    "condition_id": "poisoned",
+                    "request_id": "apply-condition-1",
+                },
+            )
+
+            application = state.active_conditions["condition:poisoned:instance-1"]
+            assert state.instanced_sheets["instance-1"].health == 8
+            assert application.source.type == "manual"
+            assert application.source.label == "GM (manual)"
+            assert application.applied_by_role == "dm"
+            assert isinstance(application.applied_at_state_version, int)
+            assert dm.sent_messages[-1]["request_id"] == "apply-condition-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_active_condition_removal_is_dm_only_and_preserves_preset(monkeypatch) -> None:
     async def scenario() -> None:
         original_state = deepcopy(StateSingleton.getState())

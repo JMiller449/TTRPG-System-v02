@@ -13,6 +13,7 @@ from backend.features.session.models import SessionRole, WebSocketSession
 
 
 EXPECTED_ROUTE_MINIMUM_ROLES = {
+    "apply_active_condition": "dm",
     "set_sigil_authoring_access": "dm",
     **{name: "player" for name in ("save_sigil", "delete_sigil", "duplicate_sigil", "imbue_sigil", "activate_sigil", "discharge_sigil", "preview_sigil")},
     "add_player_inventory_item": "player",

@@ -120,12 +120,14 @@ augmentation and retains the current value rather than failing, so an older
 condition can still be taken off a sheet. Evaluation-time and roll-mode effects
 are deactivated rather than inverted, so `set` remains valid for them.
 
-The production apply path is an action step and records the action source,
-actor role, timestamp, and state version. DMs also have a dedicated active
-condition removal route. Condition definitions themselves remain pure and do
-not own runtime augmentation IDs. Existing active conditions retain their
-materialized snapshot when a definition is edited; later applications use the
-updated definition.
+Action steps apply conditions with their action source, actor role, timestamp,
+and state version. The GM character inspector also provides a direct condition
+catalog picker backed by a DM-only application route; these applications record
+a manual GM source and do not create or assign an Action. DMs have a dedicated
+active-condition removal route. Condition definitions themselves remain pure
+and do not own runtime augmentation IDs. Existing active conditions retain
+their materialized snapshot when a definition is edited; later applications
+use the updated definition.
 
 ## Standalone effect flow and stacking
 

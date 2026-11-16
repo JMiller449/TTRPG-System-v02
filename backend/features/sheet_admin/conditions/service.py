@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 
 from backend.features.sheet_admin.conditions.schema import (
+    ApplyActiveCondition,
     ConditionPresetPayload,
     CreateConditionPreset,
     DeleteConditionPreset,
@@ -241,5 +242,19 @@ async def remove_active_condition(request: RemoveActiveCondition) -> None:
     await remove_condition_application(
         instance_id=request.instance_id,
         application_id=request.application_id,
+        request_id=request.request_id,
+    )
+
+
+async def apply_active_condition(request: ApplyActiveCondition) -> None:
+    from backend.features.augmentations.service import apply_condition_preset
+    from backend.state.models.condition import ConditionSource
+
+    await apply_condition_preset(
+        instance_id=request.instance_id,
+        condition_id=request.condition_id,
+        source=ConditionSource(type="manual", label="GM (manual)"),
+        applied_by_role="dm",
+        applied_at_state_version=state_sync_service.current_version + 1,
         request_id=request.request_id,
     )

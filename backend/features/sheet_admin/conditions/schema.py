@@ -29,6 +29,12 @@ class DeleteConditionPreset(RequestModel):
     type: Literal["delete_condition_preset"]
 
 
+class ApplyActiveCondition(RequestModel):
+    instance_id: str = Field(min_length=1)
+    condition_id: str = Field(min_length=1)
+    type: Literal["apply_active_condition"]
+
+
 class RemoveActiveCondition(RequestModel):
     instance_id: str = Field(min_length=1)
     application_id: str = Field(min_length=1)

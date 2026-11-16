@@ -6,6 +6,7 @@ from backend.core.request_registry import (
 from backend.features.session.models import WebSocketSession
 from backend.features.sheet_admin.conditions import service
 from backend.features.sheet_admin.conditions.schema import (
+    ApplyActiveCondition,
     CreateConditionPreset,
     DeleteConditionPreset,
     RemoveActiveCondition,
@@ -68,6 +69,24 @@ class DeleteConditionPresetRoute(RequestRoute[DeleteConditionPreset]):
         await service.delete_condition_preset(request)
 
 
+class ApplyActiveConditionRoute(RequestRoute[ApplyActiveCondition]):
+    type_name = "apply_active_condition"
+    request_model = ApplyActiveCondition
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="activeConditions",
+        method_name="applyActiveCondition",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: ApplyActiveCondition,
+    ) -> None:
+        await service.apply_active_condition(request)
+
+
 class RemoveActiveConditionRoute(RequestRoute[RemoveActiveCondition]):
     type_name = "remove_active_condition"
     request_model = RemoveActiveCondition
@@ -90,4 +109,5 @@ def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateConditionPresetRoute())
     registry.register(UpdateConditionPresetRoute())
     registry.register(DeleteConditionPresetRoute())
+    registry.register(ApplyActiveConditionRoute())
     registry.register(RemoveActiveConditionRoute())

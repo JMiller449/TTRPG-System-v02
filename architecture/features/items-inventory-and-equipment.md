@@ -177,6 +177,13 @@ item catalog in a focused dialog. A GM can open the shared validated Item editor
 from the same toolbar; after authoritative creation succeeds, the frontend sends
 the normal instance-item attachment request. A player instead opens the existing
 non-mechanical proposal form in a dialog, preserving the approval boundary.
+Only root inventory entries render in the main grid. Storage cards summarize
+their direct item count and expose **View Inside**, which opens one focused
+container dialog. That dialog renders only direct contents and uses an in-dialog
+path plus Back navigation for nested containers; it does not recursively expand
+cards into the root grid. Contained entries retain the normal quantity,
+equipment, movement, and removal controls. Inventory search surfaces the root
+container when a descendant matches so stored items remain discoverable.
 Large Item editors keep their heading and save controls reachable while the
 editor body scrolls within the viewport.
 Item draft Attributes render as compact summary cards inside the editor's

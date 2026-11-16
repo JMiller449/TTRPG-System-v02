@@ -53,6 +53,8 @@ STARTER_ITEM_IDS = (
     "emberleaf_poultice",
     "hunter_license",
     "black_gate_core",
+    "magic_bag",
+    "field_pouch",
 )
 
 ACTION_IDS = (
@@ -894,6 +896,40 @@ def item_payloads() -> list[dict[str, Any]]:
             "augmentation_templates": [],
             "action_grants": [],
         },
+        {
+            "id": "magic_bag",
+            "name": "Wayfarer's Magic Bag",
+            "interaction_type": "inventory_only",
+            "category": "Storage",
+            "rank": "C",
+            "description": "A weight-negating bag used to demonstrate nested storage.",
+            "price": "2,500 CP",
+            "weight": 1,
+            "can_contain_items": True,
+            "storage_capacity_weight": 25,
+            "contents_weight_behavior": "ignored",
+            "attributes": {},
+            "tags": [],
+            "augmentation_templates": [],
+            "action_grants": [],
+        },
+        {
+            "id": "field_pouch",
+            "name": "Field Pouch",
+            "interaction_type": "inventory_only",
+            "category": "Storage",
+            "rank": "E",
+            "description": "A small ordinary pouch stored inside the magic bag.",
+            "price": "25 CP",
+            "weight": 0.5,
+            "can_contain_items": True,
+            "storage_capacity_weight": 5,
+            "contents_weight_behavior": "normal",
+            "attributes": {},
+            "tags": [],
+            "augmentation_templates": [],
+            "action_grants": [],
+        },
     ]
     for item in items:
         item.update(
@@ -1456,13 +1492,17 @@ def item_bridge(
     *,
     count: int = 1,
     equipped: bool = False,
+    parent_container_id: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    bridge = {
         "relationship_id": f"inventory_{item_id}",
         "count": count,
         "equipped": equipped,
         "item_id": item_id,
     }
+    if parent_container_id is not None:
+        bridge["parent_container_id"] = parent_container_id
+    return bridge
 
 
 def action_bridge(action_id: str) -> dict[str, str]:
@@ -1560,12 +1600,21 @@ def shadowblade_sheet_payload() -> dict[str, Any]:
         },
         "items": {
             "inventory_night_fang": item_bridge("night_fang", equipped=True),
+            "inventory_magic_bag": item_bridge("magic_bag"),
+            "inventory_field_pouch": item_bridge(
+                "field_pouch",
+                parent_container_id="inventory_magic_bag",
+            ),
             "inventory_lesser_mana_vial": item_bridge(
                 "lesser_mana_vial",
                 count=2,
+                parent_container_id="inventory_magic_bag",
             ),
             "inventory_hunter_license": item_bridge("hunter_license"),
-            "inventory_black_gate_core": item_bridge("black_gate_core"),
+            "inventory_black_gate_core": item_bridge(
+                "black_gate_core",
+                parent_container_id="inventory_field_pouch",
+            ),
         },
         "stats": stats_payload(
             strength=8,

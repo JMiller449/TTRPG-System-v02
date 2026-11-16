@@ -3,6 +3,9 @@ import type { ItemBridge, ItemDefinition } from "@/domain/models";
 import {
   buildInventoryTree,
   eligibleContainerDestinations,
+  filterRootInventoryBySearch,
+  selectDirectContainerContents,
+  selectRootInventoryEntries,
   formatWeight
 } from "@/features/sheets/inventoryDisplay";
 
@@ -73,6 +76,25 @@ describe("inventoryDisplay", () => {
     expect(
       eligibleContainerDestinations("sword", entries, items).map((entry) => entry.relationship_id)
     ).toEqual(["bag", "pouch"]);
+  });
+
+  it("selects only root entries and direct container contents", () => {
+    expect(selectRootInventoryEntries(entries).map((entry) => entry.relationship_id)).toEqual([
+      "bag"
+    ]);
+    expect(
+      selectDirectContainerContents("bag", entries).map((entry) => entry.relationship_id)
+    ).toEqual(["pouch"]);
+    expect(
+      selectDirectContainerContents("pouch", entries).map((entry) => entry.relationship_id)
+    ).toEqual(["sword"]);
+  });
+
+  it("surfaces a root container when search matches a nested item", () => {
+    expect(
+      filterRootInventoryBySearch(entries, items, "sword").map((entry) => entry.relationship_id)
+    ).toEqual(["bag"]);
+    expect(filterRootInventoryBySearch(entries, items, "missing")).toEqual([]);
   });
 
   it("formats weights without floating point noise", () => {

@@ -125,6 +125,20 @@ def _validate_seed_state(state: State) -> None:
     if state.active_conditions:
         raise ValueError("Seed state should start without active conditions.")
 
+    nested_inventory = state.instanced_sheets[SHADOWBLADE_INSTANCE_ID].items
+    expected_parents = {
+        "inventory_field_pouch": "inventory_magic_bag",
+        "inventory_lesser_mana_vial": "inventory_magic_bag",
+        "inventory_black_gate_core": "inventory_field_pouch",
+    }
+    for relationship_id, parent_id in expected_parents.items():
+        bridge = nested_inventory.get(relationship_id)
+        if bridge is None or bridge.parent_container_id != parent_id:
+            raise ValueError(
+                f"Seed nested inventory entry '{relationship_id}' must be stored in "
+                f"'{parent_id}'."
+            )
+
 
 async def _build_seed_checkpoint(build_path: Path) -> State:
     store_module.STATE_PATH = build_path

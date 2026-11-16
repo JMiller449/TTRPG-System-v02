@@ -24,9 +24,10 @@ import {
   summarizeItemActionGrants
 } from "@/features/sheets/equipmentDisplay";
 import {
-  buildInventoryTree,
   eligibleContainerDestinations,
-  formatWeight
+  filterRootInventoryBySearch,
+  formatWeight,
+  selectDirectContainerContents
 } from "@/features/sheets/inventoryDisplay";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
 
@@ -108,6 +109,9 @@ export function SheetEquipmentSection({
   canMoveInventory,
   canToggleEquipped,
   dense = false,
+  inventoryRootId = null,
+  embeddedContainer = false,
+  onOpenContainerRequest,
   createItemLabel = "Create Item",
   onOpenCreateItem,
   onSelectedItemIdChange,
@@ -139,6 +143,9 @@ export function SheetEquipmentSection({
   canMoveInventory: boolean;
   canToggleEquipped: boolean;
   dense?: boolean;
+  inventoryRootId?: string | null;
+  embeddedContainer?: boolean;
+  onOpenContainerRequest?: (containerRelationshipId: string) => void;
   createItemLabel?: string;
   onOpenCreateItem?: () => void;
   onSelectedItemIdChange: (itemId: string) => void;
@@ -151,6 +158,7 @@ export function SheetEquipmentSection({
   const overBy = Math.max(0, currentCarriedWeight - carryWeightLimit);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [containerPath, setContainerPath] = useState<string[]>([]);
   const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
   const eligibleDropTargetIds = useMemo(
@@ -172,19 +180,24 @@ export function SheetEquipmentSection({
       Boolean(entry.parent_container_id) ||
       (entry.count === 1 && Boolean(items[entry.item_id]?.can_contain_items))
   );
-  const inventoryTree = useMemo(() => buildInventoryTree(equipment), [equipment]);
   const visibleInventory = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) {
-      return inventoryTree;
+    if (inventoryRootId) {
+      return selectDirectContainerContents(inventoryRootId, equipment);
     }
-    return inventoryTree.filter(({ bridge }) => {
-      const item = items[bridge.item_id];
-      return [item?.name, item?.description, item?.interaction_type, item?.rank]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(query));
-    });
-  }, [inventoryTree, items, search]);
+    return filterRootInventoryBySearch(equipment, items, search);
+  }, [equipment, inventoryRootId, items, search]);
+  const activeContainerId = containerPath.at(-1) ?? null;
+  const activeContainerEntry = activeContainerId
+    ? equipment.find((entry) => entry.relationship_id === activeContainerId)
+    : undefined;
+  const activeContainer = activeContainerEntry ? items[activeContainerEntry.item_id] : undefined;
+  const openContainer = (containerRelationshipId: string): void => {
+    if (onOpenContainerRequest) {
+      onOpenContainerRequest(containerRelationshipId);
+      return;
+    }
+    setContainerPath([containerRelationshipId]);
+  };
 
   const finishDrag = (): void => {
     setDraggedInventoryItemId(null);
@@ -217,68 +230,70 @@ export function SheetEquipmentSection({
 
   return (
     <section
-      className={`character-sheet__section sheet-equipment-section ${dense ? "sheet-equipment-section--dense" : ""}`}
+      className={`character-sheet__section sheet-equipment-section ${dense ? "sheet-equipment-section--dense" : ""} ${embeddedContainer ? "sheet-equipment-section--embedded" : ""}`}
     >
-      <div className="equipment-section__heading">
-        <div className="equipment-section__heading-copy">
-          <h4>Inventory &amp; Equipment</h4>
-          {!dense ? (
-            <span className="muted">
-              {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
-            </span>
-          ) : null}
-        </div>
-        {dense ? (
-          <div className="equipment-search">
-            <input
-              type="search"
-              value={search}
-              aria-label="Search inventory"
-              placeholder="Find equipment, consumables, or carried items"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <span className="muted">
-              {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
-            </span>
+      {!embeddedContainer ? (
+        <div className="equipment-section__heading">
+          <div className="equipment-section__heading-copy">
+            <h4>Inventory &amp; Equipment</h4>
+            {!dense ? (
+              <span className="muted">
+                {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
+              </span>
+            ) : null}
           </div>
-        ) : null}
-        <div className="equipment-section__heading-actions">
-          <div
-            className={`carried-weight-summary ${overBy > 0 ? "carried-weight-summary--over" : ""}`}
-            role="status"
-          >
-            <strong>
-              Carried Weight: {formatWeight(currentCarriedWeight)} /{" "}
-              {formatWeight(carryWeightLimit)} lb
-            </strong>
-            {overBy > 0 ? <span>{formatWeight(overBy)} lb over capacity</span> : null}
-          </div>
-          {canManageInventory ? (
-            <div className="inline-actions">
-              <button
-                type="button"
-                className="button button--secondary"
-                aria-haspopup="dialog"
-                aria-expanded={addDialogOpen}
-                onClick={() => setAddDialogOpen(true)}
-              >
-                Add Existing
-              </button>
-              {onOpenCreateItem ? (
-                <button
-                  type="button"
-                  className="button"
-                  aria-haspopup="dialog"
-                  onClick={onOpenCreateItem}
-                >
-                  {createItemLabel}
-                </button>
-              ) : null}
+          {dense ? (
+            <div className="equipment-search">
+              <input
+                type="search"
+                value={search}
+                aria-label="Search inventory"
+                placeholder="Find equipment, consumables, or carried items"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <span className="muted">
+                {equipment.length} {equipment.length === 1 ? "entry" : "entries"}
+              </span>
             </div>
           ) : null}
+          <div className="equipment-section__heading-actions">
+            <div
+              className={`carried-weight-summary ${overBy > 0 ? "carried-weight-summary--over" : ""}`}
+              role="status"
+            >
+              <strong>
+                Carried Weight: {formatWeight(currentCarriedWeight)} /{" "}
+                {formatWeight(carryWeightLimit)} lb
+              </strong>
+              {overBy > 0 ? <span>{formatWeight(overBy)} lb over capacity</span> : null}
+            </div>
+            {canManageInventory ? (
+              <div className="inline-actions">
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  aria-haspopup="dialog"
+                  aria-expanded={addDialogOpen}
+                  onClick={() => setAddDialogOpen(true)}
+                >
+                  Add Existing
+                </button>
+                {onOpenCreateItem ? (
+                  <button
+                    type="button"
+                    className="button"
+                    aria-haspopup="dialog"
+                    onClick={onOpenCreateItem}
+                  >
+                    {createItemLabel}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
-      {!dense ? (
+      ) : null}
+      {!dense && !embeddedContainer ? (
         <div className="equipment-search">
           <Field label="Search inventory">
             <input
@@ -316,10 +331,11 @@ export function SheetEquipmentSection({
             }
           }}
         >
-          <strong>Root inventory</strong>
+          <strong>{embeddedContainer ? "Move to Root Inventory" : "Root inventory"}</strong>
           <span>
-            Drag an item here to remove it from storage. Drop items onto storage cards to put them
-            inside.
+            {embeddedContainer
+              ? "Drop a contained item here to take it out of storage."
+              : "Drag an item here to remove it from storage. Drop items onto storage cards to put them inside."}
           </span>
         </div>
       ) : null}
@@ -329,11 +345,15 @@ export function SheetEquipmentSection({
         aria-label="Owned inventory items"
         tabIndex={0}
       >
-        {equipment.length === 0 ? <EmptyState message="No inventory items." /> : null}
-        {equipment.length > 0 && visibleInventory.length === 0 ? (
+        {visibleInventory.length === 0 && !search.trim() ? (
+          <EmptyState
+            message={inventoryRootId ? "This container is empty." : "No inventory items."}
+          />
+        ) : null}
+        {visibleInventory.length === 0 && search.trim() ? (
           <EmptyState message="No inventory items match the current search." />
         ) : null}
-        {visibleInventory.map(({ bridge: entry }) => {
+        {visibleInventory.map((entry) => {
           const item = items[entry.item_id];
           if (!item) {
             return null;
@@ -370,6 +390,10 @@ export function SheetEquipmentSection({
           );
           const storageCapacity = item.storage_capacity_weight;
           const storedWeight = entry.current_contents_weight ?? 0;
+          const directContentCount = selectDirectContainerContents(
+            entry.relationship_id,
+            equipment
+          ).length;
           const storageOverBy =
             storageCapacity == null ? 0 : Math.max(0, storedWeight - storageCapacity);
           const isEligibleDropTarget = eligibleDropTargetIds.has(entry.relationship_id);
@@ -479,6 +503,19 @@ export function SheetEquipmentSection({
                     {storageOverBy > 0 ? (
                       <span>{formatWeight(storageOverBy)} lb over capacity</span>
                     ) : null}
+                    <div className="equipment-storage-summary__actions">
+                      <span>
+                        {directContentCount} direct {directContentCount === 1 ? "item" : "items"}
+                      </span>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        aria-haspopup="dialog"
+                        onClick={() => openContainer(entry.relationship_id)}
+                      >
+                        View Inside
+                      </button>
+                    </div>
                   </div>
                 ) : null}
                 <div className="equipment-card__meta muted">
@@ -522,7 +559,11 @@ export function SheetEquipmentSection({
                   onRecharge={onRechargeSigil}
                 />
               )}
-              {canManageInventory || canEditInventory || canMoveInventory || canToggleEquipped ? (
+              {canManageInventory ||
+              canEditInventory ||
+              canMoveInventory ||
+              canToggleEquipped ||
+              (dense && item.can_contain_items) ? (
                 <div className="equipment-card__controls">
                   {canMoveInventory &&
                   (Boolean(entry.parent_container_id) || destinations.length > 0) ? (
@@ -586,6 +627,31 @@ export function SheetEquipmentSection({
                       </div>
                     ) : null}
                     <div className="equipment-card__actions">
+                      {inventoryRootId &&
+                      canMoveInventory &&
+                      entry.parent_container_id &&
+                      !entry.equipped ? (
+                        <button
+                          type="button"
+                          className="button button--secondary equipment-card__move-to-root"
+                          onClick={() => onMoveInventoryItem(entry.relationship_id, null)}
+                          aria-label={`Move ${item.name} to root inventory`}
+                        >
+                          Move to Root
+                        </button>
+                      ) : null}
+                      {dense && item.can_contain_items ? (
+                        <button
+                          type="button"
+                          className="button button--secondary equipment-card__view-inside"
+                          title={`View inside ${item.name}`}
+                          aria-label={`View inside ${item.name}`}
+                          aria-haspopup="dialog"
+                          onClick={() => openContainer(entry.relationship_id)}
+                        >
+                          View Inside
+                        </button>
+                      ) : null}
                       {canToggleEquipped && item.interaction_type === "equippable" ? (
                         <button
                           type="button"
@@ -628,6 +694,75 @@ export function SheetEquipmentSection({
           );
         })}
       </div>
+      {!embeddedContainer && activeContainerEntry && activeContainer ? (
+        <ModalDialog
+          title={`Inside ${activeContainer.name}`}
+          description={`Showing items stored directly inside ${activeContainer.name}. Nested containers open in this same view.`}
+          size="large"
+          dialogClassName="inventory-container-dialog"
+          onClose={() => setContainerPath([])}
+        >
+          <div className="inventory-container-dialog__navigation">
+            <div className="inventory-container-dialog__path" aria-label="Container path">
+              {containerPath.map((relationshipId, index) => {
+                const pathEntry = equipment.find(
+                  (entry) => entry.relationship_id === relationshipId
+                );
+                const pathItem = pathEntry ? items[pathEntry.item_id] : undefined;
+                return (
+                  <span key={relationshipId}>
+                    {index > 0 ? " / " : ""}
+                    {pathItem?.name ?? "Missing container"}
+                  </span>
+                );
+              })}
+            </div>
+            {containerPath.length > 1 ? (
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setContainerPath((current) => current.slice(0, -1))}
+              >
+                Back
+              </button>
+            ) : null}
+          </div>
+          <SheetEquipmentSection
+            sigils={sigils}
+            instanceId={instanceId}
+            sigilPending={sigilPending}
+            onActivateSigil={onActivateSigil}
+            onRechargeSigil={onRechargeSigil}
+            items={items}
+            actionDefinitions={actionDefinitions}
+            attributeDefinitions={attributeDefinitions}
+            proficiencyDefinitions={proficiencyDefinitions}
+            augmentations={augmentations}
+            effectDefinitions={effectDefinitions}
+            itemOrder={itemOrder}
+            selectedItemId={selectedItemId}
+            selectedItem={selectedItem}
+            equipment={equipment}
+            currentCarriedWeight={currentCarriedWeight}
+            carryWeightLimit={carryWeightLimit}
+            canManageInventory={canManageInventory}
+            canEditInventory={canEditInventory}
+            canMoveInventory={canMoveInventory}
+            canToggleEquipped={canToggleEquipped}
+            inventoryRootId={activeContainerId}
+            embeddedContainer
+            onOpenContainerRequest={(containerRelationshipId) =>
+              setContainerPath((current) => [...current, containerRelationshipId])
+            }
+            onSelectedItemIdChange={onSelectedItemIdChange}
+            onAddSelectedItem={onAddSelectedItem}
+            onQuantityChange={onQuantityChange}
+            onToggleEquipped={onToggleEquipped}
+            onMoveInventoryItem={onMoveInventoryItem}
+            onRemoveInventoryItem={onRemoveInventoryItem}
+          />
+        </ModalDialog>
+      ) : null}
       {canManageInventory && addDialogOpen ? (
         <ModalDialog
           title="Add existing Item"

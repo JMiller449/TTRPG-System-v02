@@ -189,7 +189,7 @@ describe("SheetEquipmentSection", () => {
     await act(async () => root.unmount());
   });
 
-  it("shows over-capacity weight and contained items in read-only view", () => {
+  it("shows container capacity without expanding contained items into the root grid", () => {
     const bag: ItemDefinition = {
       id: "bag",
       name: "Bag of Holding",
@@ -244,10 +244,247 @@ describe("SheetEquipmentSection", () => {
 
     expect(markup).toContain("Carried Weight: 12.5 / 10 lb");
     expect(markup).toContain("2.5 lb over capacity");
-    expect(markup).toContain("Stored in Bag of Holding");
-    expect(markup).toContain("Contents weight ignored");
     expect(markup).toContain("Stored weight: 3 / 20 lb");
     expect(markup).toContain("Stored contents do not add to carried weight.");
+    expect(markup).toContain("1 direct item");
+    expect(markup).toContain("View Inside");
+    expect(markup).not.toContain("Stored in Bag of Holding");
+    expect(markup).not.toContain("Sword");
+  });
+
+  it("opens direct contents and navigates nested containers in one dialog", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const bag: ItemDefinition = {
+      id: "bag",
+      name: "Magic Bag",
+      interaction_type: "inventory_only",
+      description: "",
+      price: "",
+      weight: 1,
+      can_contain_items: true,
+      storage_capacity_weight: 20,
+      contents_weight_behavior: "ignored"
+    };
+    const pouch: ItemDefinition = {
+      ...bag,
+      id: "pouch",
+      name: "Inner Pouch",
+      storage_capacity_weight: 5,
+      contents_weight_behavior: "normal"
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetEquipmentSection
+          items={{ sword, bag, pouch }}
+          actionDefinitions={{}}
+          attributeDefinitions={{}}
+          proficiencyDefinitions={{}}
+          augmentations={{}}
+          itemOrder={["bag", "pouch", "sword"]}
+          selectedItemId=""
+          selectedItem={null}
+          equipment={[
+            {
+              relationship_id: "bag-entry",
+              item_id: "bag",
+              count: 1,
+              equipped: false,
+              current_contents_weight: 4
+            },
+            {
+              relationship_id: "pouch-entry",
+              item_id: "pouch",
+              count: 1,
+              equipped: false,
+              parent_container_id: "bag-entry",
+              current_contents_weight: 3
+            },
+            {
+              relationship_id: "sword-entry",
+              item_id: "sword",
+              count: 1,
+              equipped: false,
+              parent_container_id: "pouch-entry"
+            }
+          ]}
+          currentCarriedWeight={2}
+          carryWeightLimit={10}
+          canManageInventory={false}
+          canEditInventory={false}
+          canMoveInventory={false}
+          canToggleEquipped={false}
+          onSelectedItemIdChange={vi.fn()}
+          onAddSelectedItem={vi.fn()}
+          onQuantityChange={vi.fn()}
+          onToggleEquipped={vi.fn()}
+          onMoveInventoryItem={vi.fn()}
+          onRemoveInventoryItem={vi.fn()}
+        />
+      );
+    });
+
+    expect(container.querySelectorAll("article.equipment-card--owned")).toHaveLength(1);
+    const rootViewInside = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "View Inside"
+    );
+    await act(async () => rootViewInside?.click());
+
+    let dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Inside Magic Bag");
+    expect(dialog?.textContent).toContain("Inner Pouch");
+    expect(dialog?.textContent).not.toContain("Sword");
+
+    const nestedViewInside = [...(dialog?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "View Inside"
+    );
+    await act(async () => nestedViewInside?.click());
+
+    dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Inside Inner Pouch");
+    expect(dialog?.textContent).toContain("Magic Bag / Inner Pouch");
+    expect(dialog?.textContent).toContain("Sword");
+    const backButton = [...(dialog?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "Back"
+    );
+    await act(async () => backButton?.click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Inside Magic Bag");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it("keeps View Inside available on dense container cards", () => {
+    const bag: ItemDefinition = {
+      id: "bag",
+      name: "Magic Bag",
+      interaction_type: "inventory_only",
+      description: "",
+      price: "",
+      weight: 1,
+      can_contain_items: true,
+      storage_capacity_weight: 20,
+      contents_weight_behavior: "ignored"
+    };
+    const markup = renderToStaticMarkup(
+      <SheetEquipmentSection
+        dense
+        items={{ bag }}
+        actionDefinitions={{}}
+        attributeDefinitions={{}}
+        proficiencyDefinitions={{}}
+        augmentations={{}}
+        itemOrder={["bag"]}
+        selectedItemId=""
+        selectedItem={null}
+        equipment={[
+          {
+            relationship_id: "bag-entry",
+            item_id: "bag",
+            count: 1,
+            equipped: false,
+            current_contents_weight: 0
+          }
+        ]}
+        currentCarriedWeight={1}
+        carryWeightLimit={10}
+        canManageInventory={false}
+        canEditInventory={false}
+        canMoveInventory={false}
+        canToggleEquipped={false}
+        onSelectedItemIdChange={vi.fn()}
+        onAddSelectedItem={vi.fn()}
+        onQuantityChange={vi.fn()}
+        onToggleEquipped={vi.fn()}
+        onMoveInventoryItem={vi.fn()}
+        onRemoveInventoryItem={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain('aria-label="View inside Magic Bag"');
+    expect(markup).toContain("equipment-card__view-inside");
+  });
+
+  it("moves a contained item to root from its container popup", async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onMoveInventoryItem = vi.fn();
+    const bag: ItemDefinition = {
+      id: "bag",
+      name: "Magic Bag",
+      interaction_type: "inventory_only",
+      description: "",
+      price: "",
+      weight: 1,
+      can_contain_items: true,
+      storage_capacity_weight: 20,
+      contents_weight_behavior: "ignored"
+    };
+
+    await act(async () => {
+      root.render(
+        <SheetEquipmentSection
+          items={{ bag, sword }}
+          actionDefinitions={{}}
+          attributeDefinitions={{}}
+          proficiencyDefinitions={{}}
+          augmentations={{}}
+          itemOrder={["bag", "sword"]}
+          selectedItemId=""
+          selectedItem={null}
+          equipment={[
+            {
+              relationship_id: "bag-entry",
+              item_id: "bag",
+              count: 1,
+              equipped: false,
+              current_contents_weight: 3
+            },
+            {
+              relationship_id: "sword-entry",
+              item_id: "sword",
+              count: 1,
+              equipped: false,
+              parent_container_id: "bag-entry"
+            }
+          ]}
+          currentCarriedWeight={1}
+          carryWeightLimit={10}
+          canManageInventory={false}
+          canEditInventory={false}
+          canMoveInventory
+          canToggleEquipped={false}
+          onSelectedItemIdChange={vi.fn()}
+          onAddSelectedItem={vi.fn()}
+          onQuantityChange={vi.fn()}
+          onToggleEquipped={vi.fn()}
+          onMoveInventoryItem={onMoveInventoryItem}
+          onRemoveInventoryItem={vi.fn()}
+        />
+      );
+    });
+
+    const viewInside = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "View Inside"
+    );
+    await act(async () => viewInside?.click());
+
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Move to Root Inventory");
+    const moveToRoot = dialog?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move Sword to root inventory"]'
+    );
+    await act(async () => moveToRoot?.click());
+
+    expect(onMoveInventoryItem).toHaveBeenCalledWith("sword-entry", null);
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   it("requires confirmation before removing an inventory entry", async () => {

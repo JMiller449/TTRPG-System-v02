@@ -40,6 +40,58 @@ export function buildInventoryTree(entries: ItemBridge[]): InventoryTreeEntry[] 
   return result;
 }
 
+export function selectRootInventoryEntries(entries: ItemBridge[]): ItemBridge[] {
+  const entryIds = new Set(entries.map((entry) => entry.relationship_id));
+  return entries.filter(
+    (entry) => !entry.parent_container_id || !entryIds.has(entry.parent_container_id)
+  );
+}
+
+export function selectDirectContainerContents(
+  containerRelationshipId: string,
+  entries: ItemBridge[]
+): ItemBridge[] {
+  return entries.filter((entry) => entry.parent_container_id === containerRelationshipId);
+}
+
+export function filterRootInventoryBySearch(
+  entries: ItemBridge[],
+  items: Record<string, ItemDefinition>,
+  query: string
+): ItemBridge[] {
+  const roots = selectRootInventoryEntries(entries);
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return roots;
+  }
+
+  const byId = new Map(entries.map((entry) => [entry.relationship_id, entry]));
+  const matchingRootIds = new Set<string>();
+  for (const entry of entries) {
+    const item = items[entry.item_id];
+    const matches = [item?.name, item?.description, item?.interaction_type, item?.rank]
+      .filter(Boolean)
+      .some((value) => value?.toLowerCase().includes(normalizedQuery));
+    if (!matches) {
+      continue;
+    }
+
+    let root = entry;
+    const visited = new Set<string>();
+    while (
+      root.parent_container_id &&
+      byId.has(root.parent_container_id) &&
+      !visited.has(root.parent_container_id)
+    ) {
+      visited.add(root.relationship_id);
+      root = byId.get(root.parent_container_id)!;
+    }
+    matchingRootIds.add(root.relationship_id);
+  }
+
+  return roots.filter((entry) => matchingRootIds.has(entry.relationship_id));
+}
+
 export function eligibleContainerDestinations(
   relationshipId: string,
   entries: ItemBridge[],

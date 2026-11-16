@@ -22,3 +22,9 @@ class UpdateStandaloneEffect(RequestModel):
 class DeleteStandaloneEffect(RequestModel):
     effect_id: str = Field(min_length=1)
     type: Literal["delete_standalone_effect"]
+
+
+class RemoveActiveStandaloneEffect(RequestModel):
+    instance_id: str = Field(min_length=1)
+    application_id: str = Field(min_length=1)
+    type: Literal["remove_active_standalone_effect"]

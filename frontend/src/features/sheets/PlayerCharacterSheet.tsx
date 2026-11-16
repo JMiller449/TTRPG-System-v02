@@ -72,6 +72,7 @@ import {
   buildResetInstancedSheetDamageTrackerRequest,
   buildRelinkInstancedSheetActionRequest,
   buildRemoveActiveConditionRequest,
+  buildRemoveActiveStandaloneEffectRequest,
   buildRemovePlayerInventoryItemRequest,
   buildSetPlayerInventoryItemQuantityRequest,
   buildSetInstancedSheetNotesRequest,
@@ -668,7 +669,19 @@ export function PlayerCharacterSheet({
                       )
                     }
                   />
-                  <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
+                  <SheetStandaloneEffectsSection
+                    effects={activeStandaloneEffects}
+                    canRemove={mode === "gm"}
+                    onRemove={(applicationId) =>
+                      client.sendProtocolRequest(
+                        buildRemoveActiveStandaloneEffectRequest({
+                          instanceId: detail.instance.id,
+                          applicationId
+                        }),
+                        "Remove active effect"
+                      )
+                    }
+                  />
                 </>
               }
               attributes={
@@ -1001,7 +1014,19 @@ export function PlayerCharacterSheet({
                   )
                 }
               />
-              <SheetStandaloneEffectsSection effects={activeStandaloneEffects} />
+              <SheetStandaloneEffectsSection
+                effects={activeStandaloneEffects}
+                canRemove={mode === "gm"}
+                onRemove={(applicationId) =>
+                  client.sendProtocolRequest(
+                    buildRemoveActiveStandaloneEffectRequest({
+                      instanceId: detail.instance.id,
+                      applicationId
+                    }),
+                    "Remove active effect"
+                  )
+                }
+              />
             </div>
           </div>
         ) : null}

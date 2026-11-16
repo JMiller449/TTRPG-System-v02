@@ -140,9 +140,14 @@ reapplication as a no-op. `stack` permits multiple applications up to
 falls out of normal projection/evaluation. Removal clears the complete stack
 for that definition and instance.
 
-There is no dedicated GM application inspector control for manually refreshing
-or decrementing standalone lifecycles. Application/removal is currently driven
-by authored action steps, while definition CRUD remains DM-owned.
+The GM character inspector derives a removal control from each active condition
+and standalone-effect application. These controls submit the concrete application
+ID, remove one application (and therefore one standalone-effect stack), and
+disappear with the authoritative state patch. They are not persisted Actions.
+Authored action steps continue to provide gameplay-driven application/removal;
+standalone-effect removal steps clear every stack for the selected definition.
+There is no inspector control for manually refreshing or decrementing lifecycle
+metadata.
 
 ## Lifecycle behavior
 

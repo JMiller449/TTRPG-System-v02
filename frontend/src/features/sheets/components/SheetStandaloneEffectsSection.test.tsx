@@ -49,7 +49,7 @@ const activeEffect: ActiveStandaloneEffect = {
 };
 
 describe("SheetStandaloneEffectsSection", () => {
-  it("shows active effect mechanics and its action-step source without removal controls", () => {
+  it("shows active effect mechanics and hides removal controls by default", () => {
     const markup = renderToStaticMarkup(<SheetStandaloneEffectsSection effects={[activeEffect]} />);
 
     expect(markup).toContain("Blessing");
@@ -57,6 +57,19 @@ describe("SheetStandaloneEffectsSection", () => {
     expect(markup).toContain("Protective Ward · Apply or remove effect (apply_blessing)");
     expect(markup).toContain("Duration: Manual (GM removes)");
     expect(markup).not.toContain("<button");
+  });
+
+  it("projects a removal control for each removable application", () => {
+    const markup = renderToStaticMarkup(
+      <SheetStandaloneEffectsSection
+        effects={[activeEffect]}
+        canRemove={true}
+        onRemove={() => undefined}
+      />
+    );
+
+    expect(markup).toContain("<button");
+    expect(markup).toContain("Remove");
   });
 
   it("shows lifecycle and stack position for a stacking effect", () => {

@@ -7,6 +7,7 @@ import {
   formatStackingSummary
 } from "@/features/augmentations/augmentationEditorValues";
 import { EmptyState } from "@/shared/ui/EmptyState";
+import { confirmDestructiveAction } from "@/shared/ui/confirmDestructiveAction";
 
 function sourceLabel(effect: ActiveStandaloneEffect): string {
   const { application, sourceAction, sourceStep } = effect;
@@ -24,9 +25,13 @@ function sourceLabel(effect: ActiveStandaloneEffect): string {
 }
 
 export function SheetStandaloneEffectsSection({
-  effects
+  effects,
+  canRemove = false,
+  onRemove = () => undefined
 }: {
   effects: ActiveStandaloneEffect[];
+  canRemove?: boolean;
+  onRemove?: (applicationId: string) => void;
 }): JSX.Element {
   return (
     <section className="character-sheet__section">
@@ -61,6 +66,29 @@ export function SheetStandaloneEffectsSection({
               </div>
               {stackingSummary ? <div className="muted">{stackingSummary}</div> : null}
               <div className="muted">Source: {sourceLabel(effect)}</div>
+              {canRemove ? (
+                <div className="inline-actions">
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={() => {
+                      if (
+                        !confirmDestructiveAction({
+                          action: "Remove",
+                          subject: definition.name,
+                          consequence:
+                            "This removes this active effect application from the selected character."
+                        })
+                      ) {
+                        return;
+                      }
+                      onRemove(application.application_id);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
             </article>
           );
         })}

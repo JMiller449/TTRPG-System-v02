@@ -8,6 +8,7 @@ from backend.features.standalone_effects import service
 from backend.features.standalone_effects.schema import (
     CreateStandaloneEffect,
     DeleteStandaloneEffect,
+    RemoveActiveStandaloneEffect,
     UpdateStandaloneEffect,
 )
 from backend.protocol.socket import StatePatchEvent
@@ -61,7 +62,28 @@ class DeleteStandaloneEffectRoute(RequestRoute[DeleteStandaloneEffect]):
         await service.delete_standalone_effect(request)
 
 
+class RemoveActiveStandaloneEffectRoute(
+    RequestRoute[RemoveActiveStandaloneEffect]
+):
+    type_name = "remove_active_standalone_effect"
+    request_model = RemoveActiveStandaloneEffect
+    emitted_event_models = (StatePatchEvent,)
+    minimum_role = "dm"
+    client_generation = ClientGenerationMetadata(
+        namespace="activeStandaloneEffects",
+        method_name="removeActiveStandaloneEffect",
+    )
+
+    async def handle(
+        self,
+        session: WebSocketSession,
+        request: RemoveActiveStandaloneEffect,
+    ) -> None:
+        await service.remove_active_standalone_effect(request)
+
+
 def register_routes(registry: RequestRegistry) -> None:
     registry.register(CreateStandaloneEffectRoute())
     registry.register(UpdateStandaloneEffectRoute())
     registry.register(DeleteStandaloneEffectRoute())
+    registry.register(RemoveActiveStandaloneEffectRoute())

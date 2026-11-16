@@ -196,7 +196,8 @@ Frontend:
 - Character sheets split the former compact Overview into expanded Stats and
   Statuses destinations. Stats preserves player allocation and GM grant/edit
   controls; Statuses preserves role-specific condition/effect visibility and
-  GM condition removal.
+  GM condition and standalone-effect application removal derived from current
+  authoritative inflictions rather than persisted temporary Actions.
 - Character sheets default to a fixed Dense dashboard backed by authoritative
   runtime data. It supports staged player stat allocation and GM grants, real
   action pins and per-action rolls, action-point management, kill workflows,

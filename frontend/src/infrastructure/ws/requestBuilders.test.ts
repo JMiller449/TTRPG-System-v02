@@ -56,6 +56,7 @@ import {
   buildDeleteProficiencyRequest,
   buildExportStateBackupRequest,
   buildRemoveActiveConditionRequest,
+  buildRemoveActiveStandaloneEffectRequest,
   buildRemoveItemAugmentationTemplateRequest,
   buildRemovePlayerInventoryItemRequest,
   buildSetPlayerInventoryItemQuantityRequest,
@@ -373,6 +374,7 @@ const requestBuilderByType = {
   record_kill: buildRecordKillRequest,
   record_player_kill: buildRecordPlayerKillRequest,
   remove_active_condition: buildRemoveActiveConditionRequest,
+  remove_active_standalone_effect: buildRemoveActiveStandaloneEffectRequest,
   remove_item_augmentation_template: buildRemoveItemAugmentationTemplateRequest,
   remove_player_inventory_item: buildRemovePlayerInventoryItemRequest,
   set_player_inventory_item_quantity: buildSetPlayerInventoryItemQuantityRequest,
@@ -1337,6 +1339,21 @@ describe("requestBuilders", () => {
       instance_id: "instance_1",
       application_id: "condition:poisoned:instance_1",
       request_id: "req-remove-condition"
+    });
+  });
+
+  it("builds active standalone-effect removal requests", () => {
+    expect(
+      buildRemoveActiveStandaloneEffectRequest({
+        instanceId: "instance_1",
+        applicationId: "standalone:instance_1:blessing:s2",
+        requestId: "req-remove-effect"
+      })
+    ).toEqual({
+      type: "remove_active_standalone_effect",
+      instance_id: "instance_1",
+      application_id: "standalone:instance_1:blessing:s2",
+      request_id: "req-remove-effect"
     });
   });
 

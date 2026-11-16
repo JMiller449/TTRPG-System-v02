@@ -94,6 +94,7 @@ EXPECTED_ROUTE_MINIMUM_ROLES = {
     "record_kill": "dm",
     "record_player_kill": "player",
     "remove_active_condition": "dm",
+    "remove_active_standalone_effect": "dm",
     "remove_item_augmentation_template": "dm",
     "remove_player_inventory_item": "player",
     "set_player_inventory_item_quantity": "player",

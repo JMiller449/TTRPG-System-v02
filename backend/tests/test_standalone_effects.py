@@ -240,6 +240,107 @@ def test_stack_mode_applies_cumulatively_and_respects_max_stacks() -> None:
     assert _surge_stacks(state) == []
 
 
+def test_exact_stack_removal_and_reapplication_reuse_available_slot() -> None:
+    state = deepcopy(DEFAULT_STATE)
+    state.standalone_effects["surge"] = StandaloneEffectDefinition.from_dict(
+        _stacking_effect_payload(max_stacks=3, value="5")
+    )
+    state.instanced_sheets["instance-1"] = _instance(10)
+
+    for _ in range(3):
+        augmentation_service.apply_standalone_effect_mutation(
+            state, "surge", instance_id="instance-1"
+        )
+
+    removed, _ = (
+        augmentation_service.remove_standalone_effect_application_mutation(
+            state,
+            instance_id="instance-1",
+            application_id="standalone:instance-1:surge:s2",
+        )
+    )
+
+    assert removed.operation == "removed"
+    assert state.instanced_sheets["instance-1"].health == 20
+    assert {app.stack_index for app in _surge_stacks(state)} == {1, 3}
+
+    reapplied, _ = augmentation_service.apply_standalone_effect_mutation(
+        state, "surge", instance_id="instance-1"
+    )
+
+    assert reapplied.operation == "applied"
+    assert state.instanced_sheets["instance-1"].health == 25
+    assert {app.stack_index for app in _surge_stacks(state)} == {1, 2, 3}
+
+
+def test_active_effect_removal_is_dm_only_and_instance_scoped(monkeypatch) -> None:
+    async def scenario() -> None:
+        original_state = deepcopy(StateSingleton.getState())
+        monkeypatch.setattr(StateSingleton, "dumpState", lambda: None)
+        try:
+            StateSingleton._state = deepcopy(DEFAULT_STATE)
+            state = StateSingleton.getState()
+            state.standalone_effects["blessing"] = _definition()
+            state.instanced_sheets["instance-1"] = _instance(10)
+            state.instanced_sheets["instance-2"] = _instance(20)
+            augmentation_service.apply_standalone_effect_mutation(
+                state, "blessing", instance_id="instance-1"
+            )
+            application_id = "standalone:instance-1:blessing"
+
+            await websocket_sessions.reset()
+            await state_sync_service.reset()
+            player = FakeWebSocket()
+            await websocket_sessions.connect(player, role="player")
+            await handle_client_payload(
+                player,
+                {
+                    "type": "remove_active_standalone_effect",
+                    "instance_id": "instance-1",
+                    "application_id": application_id,
+                },
+            )
+            assert application_id in state.standalone_effect_applications
+            assert player.sent_messages[-1]["reason"] == (
+                "This request requires an authenticated DM session."
+            )
+
+            dm = FakeWebSocket()
+            await websocket_sessions.connect(dm, role="dm")
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "remove_active_standalone_effect",
+                    "instance_id": "instance-2",
+                    "application_id": application_id,
+                    "request_id": "wrong-instance",
+                },
+            )
+            assert application_id in state.standalone_effect_applications
+            assert "is not applied to instance 'instance-2'" in (
+                dm.sent_messages[-1]["reason"]
+            )
+
+            await handle_client_payload(
+                dm,
+                {
+                    "type": "remove_active_standalone_effect",
+                    "instance_id": "instance-1",
+                    "application_id": application_id,
+                    "request_id": "remove-effect-1",
+                },
+            )
+
+            assert application_id not in state.standalone_effect_applications
+            assert "blessing" in state.standalone_effects
+            assert state.instanced_sheets["instance-1"].health == 10
+            assert dm.sent_messages[-1]["request_id"] == "remove-effect-1"
+        finally:
+            StateSingleton._state = original_state
+
+    asyncio.run(scenario())
+
+
 def test_set_effect_restores_projection_base_on_removal() -> None:
     state = deepcopy(DEFAULT_STATE)
     state.standalone_effects["set-health"] = _definition(

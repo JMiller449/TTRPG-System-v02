@@ -7,6 +7,7 @@ from backend.features.augmentations import service as augmentation_service
 from backend.features.standalone_effects.schema import (
     CreateStandaloneEffect,
     DeleteStandaloneEffect,
+    RemoveActiveStandaloneEffect,
     UpdateStandaloneEffect,
 )
 from backend.features.state_sync.service import state_sync_service
@@ -228,5 +229,19 @@ async def delete_standalone_effect(request: DeleteStandaloneEffect) -> None:
             ),
         )
         return None, [op]
+
+    await state_sync_service.apply_mutation(mutation, request_id=request.request_id)
+
+
+async def remove_active_standalone_effect(
+    request: RemoveActiveStandaloneEffect,
+) -> None:
+    def mutation(state: State) -> tuple[None, list]:
+        _, ops = augmentation_service.remove_standalone_effect_application_mutation(
+            state,
+            instance_id=request.instance_id,
+            application_id=request.application_id,
+        )
+        return None, ops
 
     await state_sync_service.apply_mutation(mutation, request_id=request.request_id)

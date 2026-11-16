@@ -748,7 +748,16 @@ def apply_standalone_effect_mutation(
                 ),
                 [],
             )
-        stack_index = len(existing_stacks) + 1
+        used_stack_indexes = {
+            application.stack_index for application in existing_stacks
+        }
+        stack_index = 1
+        while (
+            stack_index in used_stack_indexes
+            or f"{base_application_id}:s{stack_index}"
+            in state.standalone_effect_applications
+        ):
+            stack_index += 1
         application_id = f"{base_application_id}:s{stack_index}"
     else:  # unique
         if existing_stacks:
@@ -805,6 +814,70 @@ def apply_standalone_effect_mutation(
         AugmentationMutationResult(
             augmentation_id=definition_id,
             operation="applied",
+            target_path=target.state_path,
+            value=_current_numeric_value(state, target.state_path),
+        ),
+        ops,
+    )
+
+
+def remove_standalone_effect_application_mutation(
+    state: State,
+    *,
+    instance_id: str,
+    application_id: str,
+) -> tuple[AugmentationMutationResult, list[PatchOp]]:
+    if instance_id not in state.instanced_sheets:
+        raise ValueError(f"Instanced sheet '{instance_id}' does not exist.")
+
+    application = state.standalone_effect_applications.get(application_id)
+    if application is None:
+        raise ValueError(
+            f"Standalone effect application '{application_id}' does not exist."
+        )
+    if application.instance_id != instance_id:
+        raise ValueError(
+            f"Standalone effect application '{application_id}' is not applied to "
+            f"instance '{instance_id}'."
+        )
+
+    definition = state.standalone_effects.get(application.definition_id)
+    if definition is None:
+        raise ValueError(
+            f"Standalone effect '{application.definition_id}' does not exist."
+        )
+
+    _, remove_op = state_sync_service.remove_mutation(
+        state,
+        state_sync_service.join_path(
+            "standalone_effect_applications", application_id
+        ),
+    )
+    ops = [remove_op, *synchronize_projected_direct_effects_mutation(state)]
+    if definition.effect.type in {
+        "evaluation_formula_modifier",
+        "proficiency_growth_modifier",
+        "roll_mode_modifier",
+    }:
+        return (
+            AugmentationMutationResult(
+                augmentation_id=definition.id,
+                operation="removed",
+                reason="evaluation_time_effect_deactivated",
+            ),
+            ops,
+        )
+
+    augmentation = _standalone_application_augmentation(
+        state,
+        definition,
+        application,
+    )
+    target = _resolve_target(state, augmentation, instance_id=instance_id)
+    return (
+        AugmentationMutationResult(
+            augmentation_id=definition.id,
+            operation="removed",
             target_path=target.state_path,
             value=_current_numeric_value(state, target.state_path),
         ),

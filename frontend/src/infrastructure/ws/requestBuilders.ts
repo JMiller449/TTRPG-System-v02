@@ -2137,6 +2137,22 @@ export function buildRemoveActiveConditionRequest({
   };
 }
 
+export function buildRemoveActiveStandaloneEffectRequest({
+  instanceId,
+  applicationId,
+  requestId
+}: {
+  instanceId: string;
+  applicationId: string;
+} & OptionalRequestId): ProtocolRequest<"remove_active_standalone_effect"> {
+  return {
+    ...requestIdField(requestId),
+    type: "remove_active_standalone_effect",
+    instance_id: instanceId,
+    application_id: applicationId
+  };
+}
+
 export function buildGetActionFormulaAuthoringMetadataRequest({
   requestId
 }: OptionalRequestId = {}): ProtocolRequest<"get_action_formula_authoring_metadata"> {

@@ -100,6 +100,17 @@ Authentication truth and assigned state remain server-owned; the frontend only
 retains local connection/session presentation state and the selected active
 sheet ID.
 
+After server-confirmed authentication, the frontend stores the accepted code in
+versioned browser local storage. A shared-player-code session also stores a sheet
+access code only after the backend confirms that claim. On a later page load the
+transport authenticates with the stored application code, then replays the
+stored character claim when needed. Invalid authentication clears the complete
+stored session; a stale replayed character claim clears only that claim. The
+sidebar Exit action and the pre-claim Back action clear all stored credentials.
+Browser local storage is origin-scoped, so development and hosted deployments do
+not share credentials. These values are login conveniences, not authentication
+authority; every restored code is revalidated by the backend.
+
 ## Principal tests
 
 - [`backend/tests/test_auth_config.py`](../../backend/tests/test_auth_config.py)

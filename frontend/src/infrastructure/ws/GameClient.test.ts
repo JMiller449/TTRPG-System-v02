@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ServerEvent } from "@/domain/ipc";
+import {
+  AUTH_SESSION_STORAGE_KEY,
+  type AuthSessionStorage
+} from "@/infrastructure/auth/authSessionStorage";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { ManagedGameClient } from "@/infrastructure/ws/GameClient";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
@@ -50,6 +54,22 @@ class FakeTransport implements GameTransport {
 
   emit(event: ServerEvent): void {
     this.handler?.(event);
+  }
+}
+
+class MemoryAuthStorage implements AuthSessionStorage {
+  values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
   }
 }
 
@@ -406,5 +426,120 @@ describe("ManagedGameClient", () => {
       type: "authenticate",
       token: "good-token"
     });
+  });
+
+  it("restores a server-confirmed login from origin-scoped storage", async () => {
+    const storage = new MemoryAuthStorage();
+    const firstTransport = new FakeTransport();
+    const firstClient = new ManagedGameClient({
+      authStorage: storage,
+      transportFactory: () => firstTransport
+    });
+
+    await firstClient.connect();
+    firstClient.authenticateWithCode("dm-token");
+    firstTransport.emit({ type: "authenticated", authenticated: true, role: "gm" });
+
+    expect(JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) ?? "null")).toEqual({
+      authToken: "dm-token"
+    });
+
+    const restoredTransport = new FakeTransport();
+    const restoredClient = new ManagedGameClient({
+      authStorage: storage,
+      transportFactory: () => restoredTransport
+    });
+    await restoredClient.connect();
+
+    expect(restoredTransport.protocolRequests[0]).toMatchObject({
+      type: "authenticate",
+      token: "dm-token"
+    });
+  });
+
+  it("restores a confirmed sheet claim after shared player authentication", async () => {
+    const storage = new MemoryAuthStorage();
+    storage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({ authToken: "player-token", sheetAccessCode: "hero-code" })
+    );
+    const transport = new FakeTransport();
+    const client = new ManagedGameClient({
+      authStorage: storage,
+      transportFactory: () => transport
+    });
+
+    await client.connect();
+    expect(transport.protocolRequests[0]).toMatchObject({
+      type: "authenticate",
+      token: "player-token"
+    });
+
+    transport.emit({ type: "authenticated", authenticated: true, role: "player" });
+
+    expect(transport.protocolRequests[1]).toMatchObject({
+      type: "claim_sheet_access_code",
+      code: "hero-code"
+    });
+  });
+
+  it("persists manual sheet claims only after backend confirmation", async () => {
+    const storage = new MemoryAuthStorage();
+    const transport = new FakeTransport();
+    const client = new ManagedGameClient({
+      authStorage: storage,
+      transportFactory: () => transport
+    });
+
+    await client.connect();
+    client.authenticateWithCode("player-token");
+    transport.emit({ type: "authenticated", authenticated: true, role: "player" });
+    client.sendProtocolRequest({
+      type: "claim_sheet_access_code",
+      code: "hero-code",
+      request_id: "claim-1"
+    });
+
+    expect(JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) ?? "null")).toEqual({
+      authToken: "player-token"
+    });
+
+    transport.emit({
+      type: "sheet_access_claimed",
+      sheetId: "hero-template",
+      instanceId: "hero-instance",
+      requestId: "claim-1"
+    });
+
+    expect(JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) ?? "null")).toEqual({
+      authToken: "player-token",
+      sheetAccessCode: "hero-code"
+    });
+  });
+
+  it("clears persisted access on rejected authentication and explicit exit", async () => {
+    const storage = new MemoryAuthStorage();
+    const transport = new FakeTransport();
+    const client = new ManagedGameClient({
+      authStorage: storage,
+      transportFactory: () => transport
+    });
+
+    await client.connect();
+    client.authenticateWithCode("bad-token");
+    transport.emit({
+      type: "authenticated",
+      authenticated: false,
+      role: null,
+      reason: "Invalid player or DM code."
+    });
+    expect(storage.getItem(AUTH_SESSION_STORAGE_KEY)).toBeNull();
+
+    client.authenticateWithCode("good-token");
+    transport.emit({ type: "authenticated", authenticated: true, role: "gm" });
+    expect(storage.getItem(AUTH_SESSION_STORAGE_KEY)).not.toBeNull();
+
+    client.endSession();
+    expect(storage.getItem(AUTH_SESSION_STORAGE_KEY)).toBeNull();
   });
 });

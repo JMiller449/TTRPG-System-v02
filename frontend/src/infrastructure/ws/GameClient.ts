@@ -1,11 +1,19 @@
 import type { ServerEvent } from "@/domain/ipc";
 import type { Role } from "@/domain/models";
+import {
+  clearAuthSession,
+  loadAuthSession,
+  resolveBrowserAuthStorage,
+  saveAuthSession,
+  type AuthSessionStorage
+} from "@/infrastructure/auth/authSessionStorage";
 import { resolveDefaultAuthToken } from "@/infrastructure/config/authConfig";
 import { resolveApplicationWebSocketUrl } from "@/infrastructure/config/websocketConfig";
 import type { GameTransport, TransportUnsubscribe } from "@/infrastructure/transport/GameTransport";
 import { WebSocketGameTransport } from "@/infrastructure/transport/WebSocketGameTransport";
 import {
   buildAuthenticateRequest,
+  buildClaimSheetAccessCodeRequest,
   buildResyncStateRequest
 } from "@/infrastructure/ws/requestBuilders";
 import type { ProtocolApplicationRequest } from "@/infrastructure/ws/protocol";
@@ -24,6 +32,7 @@ export interface ManagedGameClientOptions {
   autoReconnect?: boolean;
   reconnectDelaysMs?: readonly number[];
   reconnectScheduler?: (callback: () => void, delayMs: number) => TransportUnsubscribe;
+  authStorage?: AuthSessionStorage | null;
 }
 
 type ConnectionListener = (state: ClientConnectionState) => void;
@@ -53,11 +62,15 @@ export class ManagedGameClient {
     callback: () => void,
     delayMs: number
   ) => TransportUnsubscribe;
+  private readonly authStorage: AuthSessionStorage | null;
 
   private transport: GameTransport | null = null;
   private transportUnsubscribe: TransportUnsubscribe | null = null;
   private cancelScheduledReconnect: TransportUnsubscribe | null = null;
   private authToken: string | null = null;
+  private sheetAccessCode: string | null = null;
+  private pendingSheetAccessCode: string | null = null;
+  private replayedClaimRequestId: string | null = null;
   private lastSeenStateVersion: number | null = null;
   private connectionState: ClientConnectionState;
   private desiredConnected = false;
@@ -72,6 +85,11 @@ export class ManagedGameClient {
       ? options.reconnectDelaysMs
       : DEFAULT_RECONNECT_DELAYS_MS;
     this.reconnectScheduler = options.reconnectScheduler ?? scheduleReconnect;
+    this.authStorage =
+      options.authStorage === undefined ? resolveBrowserAuthStorage() : options.authStorage;
+    const persistedSession = loadAuthSession(this.authStorage);
+    this.authToken = persistedSession?.authToken ?? null;
+    this.sheetAccessCode = persistedSession?.sheetAccessCode ?? null;
     this.connectionState = { status: "disconnected" };
   }
 
@@ -153,6 +171,8 @@ export class ManagedGameClient {
     this.clearTransport();
     transport?.disconnect();
     this.lastSeenStateVersion = null;
+    this.pendingSheetAccessCode = null;
+    this.replayedClaimRequestId = null;
     this.reconnectAttempt = 0;
     this.updateConnectionState({
       ...this.connectionState,
@@ -163,6 +183,10 @@ export class ManagedGameClient {
 
   endSession(): void {
     this.authToken = null;
+    this.sheetAccessCode = null;
+    this.pendingSheetAccessCode = null;
+    this.replayedClaimRequestId = null;
+    clearAuthSession(this.authStorage);
     this.disconnect();
     this.emit({
       type: "authenticated",
@@ -179,6 +203,9 @@ export class ManagedGameClient {
         message: "Cannot send request while disconnected"
       });
       return;
+    }
+    if (request.type === "claim_sheet_access_code") {
+      this.pendingSheetAccessCode = request.code.trim();
     }
     this.transport.sendProtocolRequest(request);
   }
@@ -258,6 +285,37 @@ export class ManagedGameClient {
 
       if (event.type === "authenticated" && !event.authenticated) {
         this.authToken = null;
+        this.sheetAccessCode = null;
+        this.pendingSheetAccessCode = null;
+        this.replayedClaimRequestId = null;
+        clearAuthSession(this.authStorage);
+      }
+
+      if (event.type === "authenticated" && event.authenticated && this.authToken) {
+        this.persistAuthSession();
+        if (event.role === "player" && this.sheetAccessCode) {
+          this.replaySheetAccessClaim();
+        }
+      }
+
+      if (event.type === "sheet_access_claimed") {
+        if (this.pendingSheetAccessCode) {
+          this.sheetAccessCode = this.pendingSheetAccessCode;
+          this.pendingSheetAccessCode = null;
+          this.persistAuthSession();
+        }
+        this.replayedClaimRequestId = null;
+      }
+
+      if (
+        event.type === "error" &&
+        event.requestId &&
+        event.requestId === this.replayedClaimRequestId
+      ) {
+        this.sheetAccessCode = null;
+        this.pendingSheetAccessCode = null;
+        this.replayedClaimRequestId = null;
+        this.persistAuthSession();
       }
 
       if (event.type === "snapshot" && typeof event.stateVersion === "number") {
@@ -291,6 +349,8 @@ export class ManagedGameClient {
 
   private handleConnectionLost(message: string): void {
     this.lastSeenStateVersion = null;
+    this.pendingSheetAccessCode = null;
+    this.replayedClaimRequestId = null;
     this.clearTransport();
 
     if (!this.shouldAutoReconnect()) {
@@ -345,6 +405,25 @@ export class ManagedGameClient {
         requestId: makeId("auth")
       })
     );
+  }
+
+  private replaySheetAccessClaim(): void {
+    if (!this.transport || !this.sheetAccessCode || this.replayedClaimRequestId) {
+      return;
+    }
+    const requestId = makeId("claim");
+    this.replayedClaimRequestId = requestId;
+    this.transport.sendProtocolRequest(
+      buildClaimSheetAccessCodeRequest({ code: this.sheetAccessCode, requestId })
+    );
+  }
+
+  private persistAuthSession(): void {
+    if (!this.authToken) return;
+    saveAuthSession(this.authStorage, {
+      authToken: this.authToken,
+      ...(this.sheetAccessCode ? { sheetAccessCode: this.sheetAccessCode } : {})
+    });
   }
 
   private resolveAuthToken(role: Role, providedToken?: string): string | null {

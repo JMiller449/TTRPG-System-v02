@@ -83,7 +83,11 @@ An unexpected disconnect schedules bounded reconnect attempts. After transport
 reconnection, the client re-authenticates with the prior token and reconciles
 from its last seen version. A full snapshot is used when replay is not safe or
 available. Ending a session explicitly clears the retained auth token and local
-connection state.
+connection state. Server-confirmed application credentials and any separately
+confirmed player-sheet claim are also retained in versioned, origin-scoped
+browser local storage so a page reload can rebuild the backend session. Exit,
+invalid authentication, and stale claim handling clear the applicable stored
+values before returning to manual entry.
 
 Claiming a character triggers a non-incremental resync so the server can
 recompute visibility for the new session assignment.

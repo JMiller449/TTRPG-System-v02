@@ -209,6 +209,10 @@ Frontend:
 - The GM XP workspace manages temporary parties of spawned player sheets, a filterable/editable kill registry, arbitrary kill entries, manual adjustments, monster XP defaults, player kill-option visibility, and derived character XP goals. Party identity is never persisted into historical kills; participant instance/name snapshots, party size, percentage, and submission attribution are retained, while template-linked awards rederive when canonical monster XP changes.
 - Template Builder is the primary complete sheet-authoring workflow, with contextual create dialogs for missing Attributes, Actions, Items, and Proficiencies.
 - A generated character code now authenticates a player and selects the backend-validated sheet instance in one step; shared player and GM session codes remain supported.
+- Server-confirmed login codes persist in origin-scoped browser storage and are
+  revalidated automatically after refresh. Confirmed character claims made after
+  shared-player login are replayed separately; Exit and rejected credentials
+  clear the applicable saved access so users can switch characters or roles.
 - Character sheets display stats, resources, attributes, actions, conditions, equipment, proficiencies, standalone effects, notes, and kill tracking where permitted.
 - Nested storage is presented from authoritative inventory relationships: the
   main inventory shows root entries, container cards open direct contents in a

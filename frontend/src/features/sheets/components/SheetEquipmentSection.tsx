@@ -30,6 +30,7 @@ import {
   selectDirectContainerContents
 } from "@/features/sheets/inventoryDisplay";
 import { CatalogEntityPicker } from "@/features/catalogs/CatalogEntityPicker";
+import { InventoryQuantityDialog } from "@/features/sheets/components/InventoryQuantityDialog";
 
 function ItemDetailHoverLabel({
   description,
@@ -160,6 +161,9 @@ export function SheetEquipmentSection({
   const [search, setSearch] = useState("");
   const [containerPath, setContainerPath] = useState<string[]>([]);
   const [moveDialogInventoryItemId, setMoveDialogInventoryItemId] = useState<string | null>(null);
+  const [quantityDialogInventoryItemId, setQuantityDialogInventoryItemId] = useState<string | null>(
+    null
+  );
   const [draggedInventoryItemId, setDraggedInventoryItemId] = useState<string | null>(null);
   const [activeDropTarget, setActiveDropTarget] = useState<string | null>(null);
   const eligibleDropTargetIds = useMemo(
@@ -177,6 +181,10 @@ export function SheetEquipmentSection({
     ? equipment.find((entry) => entry.relationship_id === moveDialogInventoryItemId)
     : undefined;
   const moveDialogItem = moveDialogEntry ? items[moveDialogEntry.item_id] : undefined;
+  const quantityDialogEntry = quantityDialogInventoryItemId
+    ? equipment.find((entry) => entry.relationship_id === quantityDialogInventoryItemId)
+    : undefined;
+  const quantityDialogItem = quantityDialogEntry ? items[quantityDialogEntry.item_id] : undefined;
   const moveDialogDestinations = useMemo(
     () =>
       moveDialogInventoryItemId
@@ -561,7 +569,16 @@ export function SheetEquipmentSection({
                           >
                             −
                           </button>
-                          <output aria-label={`${item.name} quantity value`}>{entry.count}</output>
+                          <button
+                            type="button"
+                            className="equipment-quantity-stepper__value"
+                            title={`Adjust ${item.name} quantity in bulk`}
+                            aria-label={`${item.name} quantity value: ${entry.count}. Adjust in bulk`}
+                            aria-haspopup="dialog"
+                            onClick={() => setQuantityDialogInventoryItemId(entry.relationship_id)}
+                          >
+                            {entry.count}
+                          </button>
                           <button
                             type="button"
                             title={`Increase ${item.name} quantity`}
@@ -712,6 +729,14 @@ export function SheetEquipmentSection({
             onRemoveInventoryItem={onRemoveInventoryItem}
           />
         </ModalDialog>
+      ) : null}
+      {quantityDialogEntry && quantityDialogItem ? (
+        <InventoryQuantityDialog
+          itemName={quantityDialogItem.name}
+          currentCount={quantityDialogEntry.count}
+          onChange={(count) => onQuantityChange(quantityDialogEntry.relationship_id, count)}
+          onClose={() => setQuantityDialogInventoryItemId(null)}
+        />
       ) : null}
       {canMoveInventory && moveDialogEntry && moveDialogItem ? (
         <ModalDialog

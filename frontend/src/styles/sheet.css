@@ -447,7 +447,7 @@
 }
 
 .equipment-quantity-stepper button,
-.equipment-quantity-stepper output {
+.equipment-quantity-stepper__value {
   display: grid;
   place-items: center;
   min-width: 0;
@@ -468,11 +468,26 @@
   color: var(--muted);
 }
 
-.equipment-quantity-stepper output {
+.equipment-quantity-stepper__value {
   padding: 0 0.35rem;
   border-right: 1px solid var(--line);
   border-left: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
+}
+
+.inventory-quantity-dialog__current {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--muted);
+}
+
+.inventory-quantity-dialog__current strong {
+  color: var(--text);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .sheet-proficiency-section {
@@ -2948,7 +2963,7 @@ button.dense-proficiency-row:focus-visible {
 }
 
 .sheet-equipment-section--dense .equipment-quantity-stepper button,
-.sheet-equipment-section--dense .equipment-quantity-stepper output {
+.sheet-equipment-section--dense .equipment-quantity-stepper__value {
   height: 26px;
   font-size: 0.72rem;
 }

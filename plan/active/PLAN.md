@@ -214,6 +214,9 @@ Frontend:
   main inventory shows root entries, container cards open direct contents in a
   focused dialog, and nested containers navigate within that dialog instead of
   expanding into the card grid.
+- Inventory quantity controls support focused positive whole-number bulk Add and
+  Subtract adjustments from both full and Dense layouts while preserving the
+  single-copy stepper and backend-authoritative validation.
 - Character kill history and XP progress are projections filtered from the authoritative registry for the selected spawned instance. Players may record a final blow only against a DM-exposed enemy name; the backend derives the submitting character, canonical XP, and current party participants. Ungrouped kills record one participant at 100 percent credit; grouped kills include every current party member, and later party or visibility changes do not rewrite history.
 - Character Kills defaults to a compact enemy summary that combines case/whitespace-equivalent names and batch quantities (for example, `60× Zombie`), with a Summary/Feed switch for the chronological record details.
 - Dense Recent Kill Records use a single-column compact ledger: enemy and awarded XP remain prominent while timestamp, credit, participant count, and optional recorder share one secondary line. The full Kills destination retains its detailed cards.

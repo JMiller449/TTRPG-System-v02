@@ -416,11 +416,11 @@
   border-color: var(--r6-line);
 }
 .r6-theme .equipment-quantity-stepper button,
-.r6-theme .equipment-quantity-stepper output {
+.r6-theme .equipment-quantity-stepper__value {
   color: var(--r6-text);
   background: rgba(2, 14, 27, 0.9);
 }
-.r6-theme .equipment-quantity-stepper output {
+.r6-theme .equipment-quantity-stepper__value {
   border-color: var(--r6-line);
 }
 

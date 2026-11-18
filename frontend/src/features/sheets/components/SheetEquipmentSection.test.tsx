@@ -124,7 +124,7 @@ describe("SheetEquipmentSection", () => {
     expect(markup).toContain('aria-label="Owned inventory items"');
     expect(markup).toContain('tabindex="0"');
     expect(markup).not.toContain("over capacity");
-    expect(markup).toContain('aria-label="Sword quantity value"');
+    expect(markup).toContain('aria-label="Sword quantity value: 1. Adjust in bulk"');
     expect(markup).toContain('aria-label="Decrease Sword quantity"');
     expect(markup).toContain('aria-label="Increase Sword quantity"');
     expect(markup).toContain('aria-label="Remove Sword from inventory"');

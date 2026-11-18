@@ -200,7 +200,11 @@ Inventory and every valid container; the current location is identified and
 disabled. This dialog is the keyboard and touch path for both putting items into
 storage and returning them to root. The shared move route is available to
 authenticated players only for their claimed player-sheet instance; DMs retain
-access to every instance.
+access to every instance. Quantity steppers retain single-copy controls in both
+the full and Dense inventory layouts. Activating the displayed quantity opens a
+focused bulk-adjustment dialog with positive whole-number Add and Subtract
+actions; subtraction stops at zero, and the resulting count still travels
+through the existing backend-authoritative quantity mutation and validation.
 
 ## Principal tests
 
